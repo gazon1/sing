@@ -19,11 +19,13 @@ opens the same preferences store contends for its lock, and one that changes the
 changes who the user is without their knowledge.
 
 #### Scenario: A profile id is given
+
 - The tool server is started with a profile id
 - It serves that profile's data
 - The application's stored active profile is unchanged when it exits
 
 #### Scenario: The stored profile state is never opened
+
 - The tool server is started with a profile id
 - The stored active-profile state is not opened
 - No contention with the running application occurs
@@ -39,6 +41,7 @@ An unknown or missing profile id **SHALL** cause a clear diagnostic and a non-ze
 The user never sees it, and neither does the process.
 
 #### Scenario: An unknown profile id is refused
+
 - The tool server is started with an id that does not exist
 - It stops with a diagnostic naming the id
 - It exits non-zero
@@ -57,11 +60,13 @@ means breaks every one of them, silently, at the point where an agent starts rea
 wrong profile.
 
 #### Scenario: The legacy label still works
+
 - The tool server is started with the legacy label
 - It behaves exactly as it did before this change
 - The deprecation is recorded in the log
 
 #### Scenario: The two selectors together are refused
+
 - The tool server is started with both a profile id and the legacy label
 - It stops with a diagnostic naming the ambiguity
 - It exits non-zero
@@ -80,11 +85,13 @@ error cannot report it, and a caller that receives internal paths learns things 
 meant to.
 
 #### Scenario: An error text with a quote is still a valid message
+
 - The tool server fails and the error text contains a quote
 - The response parses as a protocol message
 - The response contains no file path and no internal message
 
 #### Scenario: The detail goes to the log
+
 - The tool server fails
 - The caller receives a neutral message
 - The internal detail is recorded in the log instead

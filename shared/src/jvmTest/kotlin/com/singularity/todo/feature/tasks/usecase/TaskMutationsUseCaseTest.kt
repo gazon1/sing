@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.usecase
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
@@ -14,6 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Use cases")
 class TaskMutationsUseCaseTest {
     /**
      * The fake's default current user. Tasks must be seeded as belonging to it:

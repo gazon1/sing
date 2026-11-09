@@ -1,0 +1,20 @@
+# Opens Settings from the app menu and waits for the settings tab control.
+#
+# The sheet opens with Settings already on screen. Scrolling it with
+# `scrollUntilVisible` pushed the entry down into the system navigation bar,
+# where the tap lands on the system HOME button instead of the entry — so the
+# sheet is not scrolled here.
+appId: com.singularity.todo
+name: open-settings
+---
+- runFlow: open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_dropdown
+    timeout: 10000

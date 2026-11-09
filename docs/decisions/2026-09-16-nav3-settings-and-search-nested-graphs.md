@@ -18,6 +18,7 @@ Both screens needed a cleaner pattern: a nested graph that provides a type-safe 
 `Settings` is a single-entry nested graph. Tabs remain local `var selectedTab by remember` state in `SettingsContent` — no navigation needed for tab switching. The only cross-feature hop is Settings → ProfileSwitcher.
 
 New files in `feature/settings/presentation/nav/`:
+
 - `SettingsRoute.kt` — `data object Settings : NavKey`
 - `SettingsNavigator.kt` — `open fun openProfileSwitcher()`, `back()`
 - `LocalSettingsNavigator.kt` — `compositionLocalOf<SettingsNavigator>`
@@ -31,6 +32,7 @@ New files in `feature/settings/presentation/nav/`:
 `Search` is a single-entry nested graph. Cross-feature hops: task → `TasksGraph(Detail)`, note → `NotesGraph(Preview)`, project → `ProjectDetail`.
 
 New files in `feature/search/presentation/nav/`:
+
 - `SearchRoute.kt` — `data object Search : NavKey`
 - `SearchNavigator.kt` — `openTask(TaskId)`, `openNote(NoteId)`, `openProject(ProjectId)`, `back()`
 - `LocalSearchNavigator.kt` — `compositionLocalOf<SearchNavigator>`

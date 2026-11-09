@@ -8,7 +8,6 @@ import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
-import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSourceFactory

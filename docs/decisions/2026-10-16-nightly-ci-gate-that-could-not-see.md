@@ -44,7 +44,9 @@ input. So the fix has to reach the class, not the instance.
 ## Decision
 
 **Removal is completed, not reversed.** The owner closed `skill frontmatter` in
-#657; the surviving files are removed (`check_skill_frontmatter.py`, its `sgate`
+
+# 657; the surviving files are removed (`check_skill_frontmatter.py`, its `sgate`
+
 command module and its test). The `SCRIPT_GATES` entry and its `_drop_second_line`
 control go with them, and the Part H comment stops citing a deleted file as its
 hyphen-spelling example — it now cites `check-detekt-registrations.sh` and
@@ -150,7 +152,8 @@ control does work again; #669's own text allows for one being added back.
 Recorded here because it is the same failure class in a different place: a
 prescribed change whose justification was never verified.
 
-#629 asked for `scope.launch { repeatOnLifecycle(STARTED) { … } }` across 20+
+# 629 asked for `scope.launch { repeatOnLifecycle(STARTED) { … } }` across 20+
+
 ViewModels, on the grounds that coroutines keep running when the app goes to
 background. It does not hold:
 

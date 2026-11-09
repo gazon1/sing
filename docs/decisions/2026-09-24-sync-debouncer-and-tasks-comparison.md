@@ -83,6 +83,7 @@ The linked `org/tasks/sync` directory is **not** an Orgzly-style HLC/outbox arch
 - **Positive:** `FakeSyncRepository.syncOnce()` mirrors the same `isRunning()` guard — tests accurately reflect real behavior.
 
 ## Links
+
 Tasks KMP sync sources (all raw GitHub URLs):
 
 - [SyncSource.kt](https://raw.githubusercontent.com/tasks/tasks/main/kmp/src/commonMain/kotlin/org/tasks/sync/SyncSource.kt) — `enum SyncSource` with `upgrade()` priority merge

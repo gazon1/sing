@@ -12,6 +12,7 @@ Use it to **track the work you are doing on this codebase** — not as a passive
 note, but as a real plan that persists across turns.
 
 Concrete situations:
+
 - You started a multi-step refactor and need to remember the steps across turns.
 - You found a follow-up bug while editing a different area → create a follow-up task.
 - You are about to make a non-trivial design choice → commit an ADR.
@@ -24,6 +25,7 @@ known-mechanical migrations). Use `git commit` messages for that.
 ## Tool surface (the 30 tools, grouped)
 
 Task lifecycle:
+
 - `create_task(title, …)` — **proposes** a task; the user confirms it. Optional:
   `description, priority, projectId, parentTaskId, tagIds, dueDate, dueTime,
   someday`. The answer carries `proposalCreated` and `proposalId`, not a
@@ -42,6 +44,7 @@ Task lifecycle:
   user confirms it. It does not delete anything on its own.
 
 Projects + tags:
+
 - `create_project(name, color?, icon?, description?, colorHex?)` — **proposes** a
   project; the user confirms it. Pass `colorHex: "#RRGGBB"` (preferred) OR
   `color: 4283215696` (ARGB int).
@@ -50,6 +53,7 @@ Projects + tags:
 - `list_tasks({projectId: "..."})` ≡ `list_linked_tasks(projectId)` — same query.
 
 Decomposition:
+
 - `decompose_task(title, description?)` — **plan only**. Returns
   `{"subTasks": ["…"]}`. Does NOT write to DB. Use for read-only planning.
 - `decompose_and_create(title, description?, priority?, projectId?,
@@ -60,10 +64,12 @@ Decomposition:
   Pass `parentTaskId` so the proposed sub-tasks land under it.
 
 Notes:
+
 - `create_note(title?, bodyMarkdown?, isFolder?, parentNoteId?)` — **proposes** a
   note; the user confirms it. Optional everything; default `title = ""`.
 
 ADRs (decisions log):
+
 - `write_adr(slug, title, tags?, body)` — slug is the filename stem
   (e.g. `"2026-09-08-mcp-plan-tracking-via-mcp"`). `title` and `tags`
   go into YAML frontmatter. Body is markdown (`## Idea / ## Decision / ##
@@ -80,6 +86,7 @@ ADRs (decisions log):
   of `decisions`, `architecture`, `skills`, `specs`, `all`.
 
 Reading the project's knowledge (prefer the tools over a shell):
+
 - `search_decisions` / `search_docs` for "what did we decide about X?" and "where is the
   rule about X?" — both answer with a path and a snippet.
 - An empty result means *nothing matched*. Check the `available` field: `false` means
@@ -89,6 +96,7 @@ Reading the project's knowledge (prefer the tools over a shell):
   shape you are misreading.
 
 Describing the toolbox itself:
+
 - `describe_toolbox()` — which tools this server exposes, which are switched off by the
   remote configuration, which build and checkout it is, and whether the configuration was
   actually applied. Call it when a tool you expected is missing.
@@ -158,7 +166,7 @@ Describing the toolbox itself:
      tags=["<area>", "<tag>"],
      body="## Idea\n<...>\n\n## Decision\n<...>\n\n## Rationale\n<...>\n\n## Consequences\n<...>\n",
    )
-2. Then run scripts/refresh-decisions-digest.sh locally so
+2. Then run python3 scripts/refresh-decisions-digest.py locally so
    docs/decisions/DIGEST.md picks up the new ADR.
 ```
 
@@ -186,6 +194,7 @@ filters both old-style and new-style sub-tasks the same way.
 ## Colours (hex helper, C2 fix)
 
 `create_project` and `create_tag` both accept:
+
 - `colorHex: "#RRGGBB"` → 0xFFRRGGBB
 - `colorHex: "#AARRGGBB"` → 0xAARRGGBB
 - `colorHex: "RRGGBB"` (no `#`) → same as #RRGGBB
@@ -230,7 +239,7 @@ your own response from inputs already on the DB.
    `create_note` and `decompose_and_create` propose; the user confirms. Say
    "proposed", not "created" — and do not go looking for a task id the answer
    did not carry.
-6. **`get_task` uses `taskId` not `id`** — the decompiled signature says
+7. **`get_task` uses `taskId` not `id`** — the decompiled signature says
    `callTool(name="get_task", arguments={taskId: "..."})`. The earlier
    iteration of this skill used `id` and got `[InternalError] Field 'taskId'
    is required`. Always use `taskId`.

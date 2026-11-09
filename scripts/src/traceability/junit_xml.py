@@ -18,11 +18,10 @@ version of this docstring named ``scripts/tests/test_kiwi_sync.py`` as the safet
 net; that file was deleted with the Kiwi stand, so the docstring advertised
 coverage that no longer existed.
 
-Why this is still ``xml.etree`` and not ``junitparser``
--------------------------------------------------------
-``junitparser`` is already a dependency — ``scripts/junit-annotations.py`` uses it,
-and CI installs it explicitly. It was evaluated as the backend here and rejected on
-evidence, not on taste:
+Why this is ``xml.etree`` and not ``junitparser``
+-----------------------------------------------
+``junitparser`` was evaluated as the backend here and rejected on evidence, not
+on taste:
 
     >>> from junitparser import JUnitXml
     >>> case = next(iter(next(iter(JUnitXml.fromfile(p)))))
@@ -36,10 +35,16 @@ fatal here: ``file`` is the only stable identifier a Maestro flow's result has
 ``_FLOW_ROOTS`` match) and the provenance chain join on it. Adopting the library
 would have traded one silent failure for a louder one.
 
-So the two readers in this repository are deliberate, not drift: ``junitparser``
-for ``junit-annotations.py``, which needs no ``file``, and ``ElementTree`` here,
-which does. If a future ``junitparser`` preserves unknown attributes, this
-decision is worth revisiting — and this paragraph is where the evidence lives.
+For a long time this module was one of **two** readers: ``junitparser`` in
+``scripts/junit-annotations.py`` (which needed no ``file`` — it now passes the
+``file`` attribute to the GitHub annotation, so it does) and ``ElementTree``
+here. The second reader did not merely duplicate the first — it disagreed with
+it, and the disagreement was invisible in the place that mattered: a
+``<error>`` testcase was reported to CI as a clean pass, and a retried test's
+terminal failure was dropped. Both reporters now read this module, so there is
+one parse and two renderings. If a future ``junitparser`` preserves unknown
+attributes, this decision is worth revisiting — and this paragraph is where the
+evidence lives.
 """
 
 from __future__ import annotations
@@ -49,19 +54,27 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 
-__all__ = ["TestCaseResult", "parse_junit_file", "iter_result_files", "MESSAGE_LIMIT"]
+__all__ = [
+    "TestCaseResult",
+    "parse_junit_file",
+    "parse_junit_file_strict",
+    "parse_junit_text",
+    "iter_result_files",
+    "MESSAGE_LIMIT",
+]
 
-#: Failure messages are truncated before they reach Kiwi (a TEXT column, not a
-#: log sink). Kept identical to the legacy reader so behaviour does not shift.
+#: Failure messages are truncated before they reach a report. Kept as a bound
+#: on the *summary* line only — the stack trace is carried separately and in
+#: full, so the evidence a reader needs is never the thing that got cut.
 MESSAGE_LIMIT = 2000
 
 
 @dataclass(frozen=True, slots=True)
 class TestCaseResult:
-    """One ``<testcase>``, with the three attributes that carry meaning.
+    """One ``<testcase>``, with the attributes that carry meaning.
 
     ``status`` is the raw JUnit outcome: ``passed`` / ``failed`` / ``error`` /
-    ``skipped``. Mapping an outcome onto a Kiwi execution status is a *publish*
+    ``skipped``. Mapping an outcome onto a publish status is a *publish*
     concern and lives in exactly one table, so the ``skipped`` divergence
     between the official plugin (``WAIVED``) and this codebase (``IDLE``) is
     visible in one place instead of encoded twice.
@@ -76,11 +89,25 @@ class TestCaseResult:
     #: which is the only stable identifier a flow's result has — its
     #: ``classname`` is reporter-derived and is not a path we can join on.
     file: str = field(default="")
+    #: How many ``<flakyFailure>`` children the case carries — the failed
+    #: attempts a retry recovered from (Gradle's ``mergeReruns``). ``0`` means
+    #: the test passed on its first attempt.
+    flaky_attempts: int = field(default=0)
+    #: The failure/error element's text — the stack trace. Gradle puts only the
+    #: exception's ``toString()`` in the ``message`` attribute; the trace lives
+    #: in the element body, and a reporter that reads only the attribute
+    #: prints a summary where the evidence is.
+    stacktrace: str = field(default="")
 
     @property
     def failed_like(self) -> bool:
         """``error`` is a distinct status but a failing outcome."""
         return self.status in ("failed", "error")
+
+    @property
+    def retried(self) -> bool:
+        """The test failed an earlier attempt and was retried."""
+        return self.flaky_attempts > 0
 
 
 def iter_result_files(directory: Path) -> list[Path]:
@@ -104,6 +131,14 @@ def _classify(case: ET.Element) -> tuple[str, ET.Element | None]:
     arbitrary: a test that both logs a failure and is skipped is a failure, and
     an ``error`` is an infrastructure problem that must not be laundered into a
     pass.
+
+    ``<flakyFailure>`` is deliberately *not* part of the precedence: it records
+    an earlier failed attempt of a retried test, not the test's outcome. Gradle
+    writes one such child per failed attempt when ``mergeReruns`` is on, so a
+    case can carry both a ``<flakyFailure>`` and a terminal ``<failure>`` — and
+    in that case the terminal failure is the outcome. Reading ``flakyFailure``
+    as the outcome (and stopping there) is what used to make the CI reporter
+    drop a real failure.
     """
     node = case.find("failure")
     if node is not None:
@@ -117,29 +152,41 @@ def _classify(case: ET.Element) -> tuple[str, ET.Element | None]:
     return "passed", None
 
 
-def parse_junit_file(path: Path) -> list[TestCaseResult]:
-    """Parse one JUnit XML file into flat results.
+def parse_junit_text(text: str) -> list[TestCaseResult]:
+    """Parse one JUnit XML document held in memory.
 
-    Handles both root shapes: a bare ``<testsuite>`` (Gradle) and a
-    ``<testsuites>`` container (Maestro emits one suite per flow). ``testcase``
-    elements are read as direct children of a suite — not via a recursive walk
-    — so a nested ``<testcase>`` inside an unexpected wrapper is skipped rather
-    than silently double-counted somewhere deeper.
+    The text twin of :func:`parse_junit_file_strict`: a reporter that already
+    has the document parses it through the same code, so the repository keeps
+    one reader instead of one reader per entry point. Raises
+    ``ET.ParseError`` on a malformed document, like its file twin.
     """
-    try:
-        root = ET.parse(path).getroot()
-    except ET.ParseError as exc:
-        print(f"  ! нечитаемый {path.name}: {exc}", file=sys.stderr)
-        return []
+    return _results_from_root(ET.fromstring(text))
 
+
+def parse_junit_file_strict(path: Path) -> list[TestCaseResult]:
+    """Parse one JUnit XML file, raising ``ET.ParseError`` on malformed input.
+
+    The strict twin of :func:`parse_junit_file`. A reporter must be able to say
+    "this report is unreadable" out loud — a malformed report is incomplete
+    evidence, not an empty result — while a sync pipeline must be able to skip
+    one bad artefact without losing the rest. The tolerant wrapper is the
+    default; the strict one is what reporters use.
+    """
+    root = ET.parse(path).getroot()
+    return _results_from_root(root)
+
+
+def _results_from_root(root: ET.Element) -> list[TestCaseResult]:
     suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
     results: list[TestCaseResult] = []
     for suite in suites:
         for case in suite.findall("testcase"):
             status, node = _classify(case)
             message = ""
-            if node is not None and node.get("message"):
-                message = node.get("message", "")[:MESSAGE_LIMIT]
+            stacktrace = ""
+            if node is not None:
+                message = (node.get("message") or "")[:MESSAGE_LIMIT]
+                stacktrace = (node.text or "").strip()
             try:
                 elapsed = float(case.get("time") or 0.0)
             except ValueError:
@@ -152,9 +199,32 @@ def parse_junit_file(path: Path) -> list[TestCaseResult]:
                     time=elapsed,
                     message=message,
                     file=case.get("file") or "",
+                    flaky_attempts=len(case.findall("flakyFailure")),
+                    stacktrace=stacktrace,
                 )
             )
     return results
+
+
+def parse_junit_file(path: Path) -> list[TestCaseResult]:
+    """Parse one JUnit XML file into flat results.
+
+    Handles both root shapes: a bare ``<testsuite>`` (Gradle) and a
+    ``<testsuites>`` container (Maestro emits one suite per flow). ``testcase``
+    elements are read as direct children of a suite — not via a recursive walk
+    — so a nested ``<testcase>`` inside an unexpected wrapper is skipped rather
+    than silently double-counted somewhere deeper.
+
+    A malformed file is reported on stderr and skipped, never raised: one bad
+    artefact must not abort a whole sync. Reporters that need to *say* that the
+    evidence is incomplete use :func:`parse_junit_file_strict` instead.
+    """
+    try:
+        root = ET.parse(path).getroot()
+    except ET.ParseError as exc:
+        print(f"  ! нечитаемый {path.name}: {exc}", file=sys.stderr)
+        return []
+    return _results_from_root(root)
 
 
 def parse_junit(directories: list[Path]) -> list[TestCaseResult]:

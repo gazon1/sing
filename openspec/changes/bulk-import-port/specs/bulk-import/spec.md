@@ -17,6 +17,7 @@ active one. That exemption is only safe if the target is explicit and the active
 owner is genuinely irrelevant — including during the import.
 
 #### Scenario: Import for a non-active owner
+
 - An import is given owner B while owner A is active
 - Every written row belongs to owner B
 - Owner A remains active throughout, and owner A's data is untouched
@@ -34,6 +35,7 @@ half-restored install plus an intact backup is a worse outcome than no restore
 at all.
 
 #### Scenario: A failure leaves no partial state
+
 - An import fails partway through
 - The system contains none of the imported data
 - The pre-import state is intact
@@ -50,6 +52,7 @@ it fails an invariant leaves the user with neither the backup nor the data, and
 the invariant that rejected it is one the application itself may later relax.
 
 #### Scenario: Content that the application would not accept is still restored
+
 - A backup contains a row that does not satisfy a current domain rule
 - The import completes
 - The row is present as supplied, and the application reports it as invalid
@@ -70,6 +73,7 @@ detected is a new bulk path appearing without a decision. The registry fails whe
 the set of callers changes, not when a new cross-owner write appears.
 
 #### Scenario: A new bulk path is noticed
+
 - A new code path performs a bulk write outside the import boundary
 - The check fails and names the path
 - The path is either routed through the boundary or added to the registry with a
@@ -87,5 +91,6 @@ ordinary guard does not apply, so a reader can tell a deliberate exemption from 
 accumulated one.
 
 #### Scenario: Every registered bypass is justified in place
+
 - The registry is read
 - Each entry carries a statement of why the ordinary write guard does not apply

@@ -16,7 +16,8 @@ import java.io.FileInputStream
  *
  * The desktop Compose tests have had a failure bundle for a while
  * (`desktopApp/src/jvmTest/.../test/helpers/FailureBundle.kt`), and CI already
- * uploads it (the `desktop-diagnostics` artifact). The instrumented suite had
+ * uploads it — under the `ci-evidence-<run_id>` artifact, together with the
+ * shared module's diagnostics. The instrumented suite had
  * nothing: a red run produced a JUnit XML with a message and a stack trace, and
  * a logcat that is a wall of lines from every process on the device. The
  * question every failing instrumented test raises — *what was on screen, and how

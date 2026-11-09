@@ -38,6 +38,7 @@ Phase 12 (Supabase Storage integration) is not yet scheduled. The remote service
 ### How to fix
 
 When Phase 12 begins:
+
 1. Change `BackupRepository.export()` / `import()` to accept `userId: UserId` as parameter
 2. Inject `ProfileAwareCurrentUser` into `BackupRepositoryImpl`
 3. Use `currentUser.scopedUserId.value` instead of `UserId.anonymous`
@@ -64,6 +65,7 @@ private val signedInUser: Flow<Profile?> = settings.userId
 ```
 
 `settings.userId` is a **display label** — it persists the last signed-in email even after logout. This means:
+
 - After switching profiles, Settings screen still shows the old user's email
 - After logout, Settings screen shows the last user's email (wrong)
 
@@ -80,12 +82,14 @@ Fixing this requires clarifying the UX contract: should Settings show the last d
 ### How to fix (when decided)
 
 If the desired behavior is "show current profile":
+
 ```kotlin
 private val signedInUser: Flow<Profile?> = currentUser.scopedUserId
     .flatMapLatest { uid -> profileRepo.getById(uid) }
 ```
 
 If the desired behavior is "show last device login" (current):
+
 ```kotlin
 // Add KDoc explaining this is intentional
 private val signedInUser: Flow<Profile?> = settings.userId
@@ -122,12 +126,14 @@ No production consumer subscribes to `changes` in the current codebase. The flow
 
 Option A (producer-side filter — recommended):
 Change `TaskRepositoryImpl._changes` to only emit tasks for the current user:
+
 ```kotlin
 _changes.tryEmit(task)  // currently emits all; needs userId guard
 ```
 
 Option B (consumer-side filter — if producer filtering is too expensive):
 Document clearly that consumers must filter:
+
 ```kotlin
 taskRepo.changes
     .filter { it.userId == currentUser.scopedUserId.value }

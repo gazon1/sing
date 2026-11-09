@@ -19,6 +19,7 @@ Post-PR-3 audit found four HIGH-severity issues in the tasks feature:
 ### Fix 1: `koinInject` → `koinViewModel` + `viewModelOf`
 
 `TasksDiModule` changed from:
+
 ```kotlin
 viewModel {
     TasksViewModel(
@@ -28,16 +29,21 @@ viewModel {
     )
 }
 ```
+
 to:
+
 ```kotlin
 viewModelOf(::TasksViewModel)
 ```
 
 `TaskListScreen` changed from:
+
 ```kotlin
 val vm: TasksViewModel = koinInject()
 ```
+
 to:
+
 ```kotlin
 val vm: TasksViewModel = koinViewModel()
 ```
@@ -47,6 +53,7 @@ val vm: TasksViewModel = koinViewModel()
 ### Fix 2: Seed drafts with seed-if-empty
 
 In the `combine` block (after `_latestTask.value = task`):
+
 ```kotlin
 if (_draftTitle.value.isEmpty()) {
     _draftTitle.value = task.title
@@ -61,12 +68,14 @@ This uses `isEmpty()` as the sentinel — if the user has already started editin
 ### Fix 3: Expose `recentlyDeleted` + wire undo snackbar
 
 `TaskDetailViewModel` made `recentlyDeleted` public:
+
 ```kotlin
 private val _recentlyDeleted = MutableStateFlow<Task?>(null)
 val recentlyDeleted: StateFlow<Task?> = _recentlyDeleted.asStateFlow()
 ```
 
 `TaskDetailViewContent` added:
+
 ```kotlin
 val snackbarHostState = remember { SnackbarHostState() }
 

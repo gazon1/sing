@@ -3,6 +3,7 @@ title: Typed Task Dependency Links — verb column
 date: 2026-10-01
 status: accepted
 ---
+
 # Typed Task Dependency Links — verb column
 
 ## Context

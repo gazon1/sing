@@ -15,6 +15,7 @@ summary: Рефакторинг 7 пунктов: FakeRepositories seed/unificat
 pass-through use cases.
 
 ## Decision
+
 ### 1. FakeRepositories: seed() → ADD, add()/clear(), searchNotes fix
 
 **Problem:** `seed()` в `FakeTaskRepository` и `FakeChecklistRepository` заменял (_REPLACE_) всё состояние,
@@ -22,6 +23,7 @@ pass-through use cases.
 теряли t1.
 
 **Fix:**
+
 - `seed()` теперь использует `this.tasks.value + tasks.associate {...}` (ADD semantics)
 - Добавлены `add()` и `clear()` во все Fake-репозитории для управляемого fixture setup
 - Исправлен `searchNotes` в `FakeNotesRepository`: убран tautological предикат
@@ -52,6 +54,7 @@ pass-through use cases.
 Создавали шум в DI-графе без добавленной стоимости.
 
 **Fix:**
+
 - Создан `TaskMutationsUseCase` — единая точка инъекции для всех mutation-операций
 - `TasksViewModel` теперь инжектит один `mutations: TaskMutationsUseCase`
 - Из DI удалено 5 factory, добавлена 1
@@ -65,6 +68,7 @@ pass-through use cases.
 вместо того чтобы fail-fast.
 
 **Fix:**
+
 - В `TaskRepository` добавлен метод `suspend fun exists(id: TaskId): Boolean`
 - `bulkComplete` и `bulkDelete` в `TaskMutationsUseCase` теперь сначала проверяют
   `ids.forEach { if (!repo.exists(it)) throw IllegalArgumentException(...) }`
@@ -77,17 +81,21 @@ pass-through use cases.
 `toContentState()` с идентичной логикой (Loading/Empty/Error/Content). Копипаста.
 
 **Fix:**
+
 - Создан `ContentStateMapper` object с методами `notes(state: NotesUiState)` и `tags(state: TagsUiState)`
 - В каждом screen файле локальный extension стал однострочным:
+
   ```kotlin
   private fun NotesUiState.toContentState() = ContentStateMapper.notes(this)
   private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)
   ```
+
 - Обновлена документация в `StatefulContent.kt`
 
 ### 7. Тесты + check.sh
 
 **Changes:**
+
 - `TasksViewModelTest`: обновлён конструктор VM (вместо 5 UC → 1 `mutations`)
 - `TaskLifecycleIntegrationTest`: все use case-тесты переписаны на `TaskMutationsUseCase`
 - `check.sh`: все 4 этапа проходят (`jvmTest`, `androidHostTest`, `desktopApp:test`, `androidApp:assembleDebug`)
@@ -95,12 +103,14 @@ pass-through use cases.
 ## Consequences
 
 **Positive:**
+
 - Все fake-репозитории теперь имеют консистентное поведение seed()/add()/clear()
 - Все ViewModel'ы с `scopeOverride` — консистентны в тестах
 - DI-граф упрощён: 5 factory → 1
 - Bulk-операции fail-fast при отсутствующих ID
 
 **Neutral:**
+
 - `TaskMutationsUseCase` — новый класс, но он по сущиности — grouping, не новая логика
 - `ContentStateMapper` — добавлен object с двумя методами
 

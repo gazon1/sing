@@ -1,6 +1,6 @@
 """Tests for check-detekt-governance.py — the cluster wrapper around the detekt checks.
 
-Six checks read the detekt configuration and the rules it declares. They were six
+Seven checks read the detekt configuration and the rules it declares. They were six
 CI rows and six registry entries for one subject, and they are one gate now.
 The wrapper is worth nothing unless it does two things: it must fail when a
 member fails, and it must fail when a member *cannot* run — a member whose
@@ -9,11 +9,11 @@ green.
 
 So the properties asserted here are:
 
-* the cluster names the six checks it claims to run, and every script it names
+* the cluster names the seven checks it claims to run, and every script it names
   exists on disk;
 * `--only <name>` selects exactly one member, and an unknown name is refused
   rather than silently selecting everything (a `--only` that ran everything
-  would make one member's control drive all six);
+  would make one member's control drive all seven);
 * a failing member makes the wrapper exit non-zero and names the member;
 * a member that cannot be run is an IO error, not a pass.
 
@@ -67,7 +67,7 @@ class ClusterShapeTest(unittest.TestCase):
                     f"{member.name!r} names {rel}, which does not exist",
                 )
 
-    def test_the_six_documented_members_are_the_ones_that_run(self):
+    def test_the_seven_documented_members_are_the_ones_that_run(self):
         names = sorted(m.name for m in governance.MEMBERS)
         self.assertEqual(
             names,
@@ -78,6 +78,7 @@ class ClusterShapeTest(unittest.TestCase):
                 "detekt baseline ratchet",
                 "lint rules are declared decisions",
                 "file-level suppressions explain themselves",
+                "quality page states the enforced thresholds",
             ]),
             "the wrapper's membership changed — the cluster must stay the thing "
             "its docstring says it is",

@@ -601,6 +601,13 @@ private class FakeTaskDao(
                 .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
+    override fun watchNotDeferred(userId: String): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.archivedAt == null && !t.someday }
+                .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
     override fun watchById(id: String): Flow<TaskEntity?> = store.map { it[id] }
 
     override fun watchByIdForUser(
@@ -1741,8 +1748,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         store.value.values
             .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.claimToken == null }
-            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
-            .sortedBy { it.createdAt }
+            .filter {
+                val nextAttemptAt = it.nextAttemptAt
+                nextAttemptAt == null || nextAttemptAt <= now
+            }.sortedBy { it.createdAt }
 
     override suspend fun countPendingFor(ownerId: String): Int = store.value.values.count { it.ownerId == ownerId }
 

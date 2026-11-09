@@ -15,6 +15,7 @@ was correct, but no regression test existed to pin it. A developer could
 accidentally revert the fix and the test suite would still pass.
 
 Two gaps remain:
+
 1. No contract test proves `observeByFilter(All)` returns tasks with `dueDate = null`
    alongside dated ones.
 2. No VM-level test proves an undated task seeded before `AgendaViewModel` is
@@ -92,11 +93,11 @@ infinite `while(true)` loop that would cause the test scheduler to hang.
 ## Consequences
 
 - (a) The NoDate fix in `ProfileAwareCurrentUser._scopedUserId` (synchronous seed
-    from two `StateFlow.value` sources) is now pinned by two tests. A revert
-    would break at least one of them.
+  from two `StateFlow.value` sources) is now pinned by two tests. A revert
+  would break at least one of them.
 - (b) `TaskComputed.hasNoDate` deduplication strategy is **not** changed. A
-    follow-up refactor should clarify whether `hasNoDate` should deduplicate by
-    `(taskId, userId)` or by `taskId` alone — the current implementation may lose
-    tasks if a task is shared across users. This is tracked separately.
+  follow-up refactor should clarify whether `hasNoDate` should deduplicate by
+  `(taskId, userId)` or by `taskId` alone — the current implementation may lose
+  tasks if a task is shared across users. This is tracked separately.
 - (c) `deferred-backlog.md` entry `## nodate-steps-2-4` is removed (already
-    marked RESOLVED; the regression tests complete the pinning).
+  marked RESOLVED; the regression tests complete the pinning).

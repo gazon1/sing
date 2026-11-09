@@ -4,12 +4,20 @@ status: accepted
 tags: [python, testing, architecture, emulator]
 ---
 
+> **Superseded in part (2026-11-05):** `cleanup_run_fixtures` no longer takes a
+> `run_id`; the wipe knows every row of the active profile and the `off` scope
+> sends nothing, so the surviving scopes have none to name. The run id itself
+> still means something — `run_one_flow` mints it per attempt, declares it to
+> the flow and logs it.
+> See [2026-11-05-the-cleanup-takes-only-what-it-uses.md](2026-11-05-the-cleanup-takes-only-what-it-uses.md).
+> The rest of this decision still holds.
+
 # ADR: DeviceDeps — explicit parameter injection for device-layer primitives
 
 ## Context
 
 The `emulator/` Python package manages Android emulator lifecycle and Maestro flow
-execution.  Four internal modules each needed access to the same set of device
+execution. Four internal modules each needed access to the same set of device
 primitives:
 
 - `adb(...)`                     — run `adb <args>`; return stdout on success
@@ -25,7 +33,7 @@ primitives:
 The naive approach — importing these directly at module level — broke testing.
 A test that wanted to substitute a fake `adb` had to either (a) patch
 `sys.modules`, (b) rebind the name in the module's `__dict__`, or (c) use
-`unittest.mock.patch.object`.  All three approaches are fragile:
+`unittest.mock.patch.object`. All three approaches are fragile:
 
 ```python
 # Fragile: patching sys.modules or __dict__ before the import runs
@@ -33,7 +41,7 @@ with patch.dict(sys.modules, {"emulator._device": fake_device}):
     from emulator._device import adb   # may already be cached
 ```
 
-Python's module-level names are resolved once at import time.  A stale closure —
+Python's module-level names are resolved once at import time. A stale closure —
 where a function captured the original binding before a test could patch it —
 was the root cause of at least two silent test failures during the first batch
 of emulator refactoring.
@@ -41,10 +49,10 @@ of emulator refactoring.
 ## Decision
 
 Introduce a single frozen dataclass `DeviceDeps` that bundles all device-layer
-callables.  Every callable that touches the device, subprocess, or file system
+callables. Every callable that touches the device, subprocess, or file system
 in the hot path (`run_one_flow`, `main`) accepts `deps: DeviceDeps` as a
-parameter.  The real implementation is built lazily by `_default_device_deps()`
-to avoid circular-import problems.  Tests construct a `DeviceDeps` with all
+parameter. The real implementation is built lazily by `_default_device_deps()`
+to avoid circular-import problems. Tests construct a `DeviceDeps` with all
 fakes and pass it directly:
 
 ```python
@@ -61,8 +69,8 @@ ok, run_id = run_one_flow(..., deps=fake_deps)
 
 ### Field signatures
 
-`DeviceDeps` is defined in `emulator/maestro/_types.py`.  Each field is a
-`Callable`.  Field names match the conceptual operation, not the underlying
+`DeviceDeps` is defined in `emulator/maestro/_types.py`. Each field is a
+`Callable`. Field names match the conceptual operation, not the underlying
 implementation:
 
 | Field | Signature |
@@ -84,7 +92,7 @@ implementation:
 | `git_sha` | `Callable[[DeviceDeps], str]` |
 
 Functions that need to call other `DeviceDeps` fields receive `deps` as the
-last parameter so they can forward it.  This avoids a frozen-dataclass
+last parameter so they can forward it. This avoids a frozen-dataclass
 self-reference problem: `apk_sha_from_device(serial)` calls `deps.adb(...)`
 and `git_sha(deps)` calls `deps.try_run(...)`.
 
@@ -112,6 +120,7 @@ without rebinding the outer-scope variable before the object is constructed.
 ## Consequences
 
 **Positive:**
+
 - Tests are fully isolated; no `sys.modules` patching, no `__dict__` rebinding.
 - The set of device-layer operations is exhaustively documented in one place.
 - Adding a new device primitive is a one-line addition to `DeviceDeps` and a
@@ -120,28 +129,30 @@ without rebinding the outer-scope variable before the object is constructed.
   that exercises every field can be written as a simple matrix.
 
 **Negative:**
-- Call signatures grow by one parameter (`deps`).  Updating 14 call sites was a
+
+- Call signatures grow by one parameter (`deps`). Updating 14 call sites was a
   one-time migration cost (2026-10-13, PR #593).
 - Functions that need to delegate to other `DeviceDeps` fields require the
-  `make_deps()` / `nonlocal` pattern to avoid premature closure capture.  This is
+  `make_deps()` / `nonlocal` pattern to avoid premature closure capture. This is
   a known pattern, documented above.
 - `emulator._device` and `emulator._startup` (the cold path, outside of
-  `run_one_flow`) still use module-level imports.  These are intentionally
+  `run_one_flow`) still use module-level imports. These are intentionally
   exempt: the DI contract covers the hot path (`main` → `run_one_flow` → per-flow
-  logic).  Adding `DeviceDeps` to the cold path would require threading it
+  logic). Adding `DeviceDeps` to the cold path would require threading it
   through `acquire_device()` calls in startup, which is out of scope.
-- **This exemption caused a bug.**  Because nothing downstream demanded a
+- **This exemption caused a bug.** Because nothing downstream demanded a
   contract from `ensure_device`, it was free to be a readiness *re-check* while
   its name, its callers and the crash-recovery ADR all described acquisition —
-  so `run-maestro` with an unset `SERIAL` could never obtain a device.  The seam
+  so `run-maestro` with an unset `SERIAL` could never obtain a device. The seam
   also needed *verifying*, not just existing: permissive fakes
   (`adb=lambda *a: ""`) hid a missing `-s <serial>` that silently disabled every
-  failure artifact.  See ADR `2026-10-13-ensure-device-acquires` for the
+  failure artifact. See ADR `2026-10-13-ensure-device-acquires` for the
   `adb`/`adb_on` split and the contract tests added in response.
 
 ## Rationale for the frozen dataclass
 
 A frozen `dataclass` was chosen over a `Protocol` or `TypedDict` because:
+
 - It is hashable (useful if `DeviceDeps` ever needs to be a dict key or set member).
 - It is immutable at runtime, preventing accidental field mutation during a flow.
 - It is constructable with `DeviceDeps(field1=fn1, ...)` inline in tests.

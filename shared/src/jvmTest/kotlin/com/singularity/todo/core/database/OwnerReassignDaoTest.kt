@@ -2,12 +2,9 @@
 
 package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -32,20 +29,19 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:data")
 class OwnerReassignDaoTest {
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
     private val dao: OwnerReassignDao get() = db.ownerReassignDao()
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("singularity-reassign-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+        fixture = DatabaseTestFixture.inMemory()
+        db = fixture.database()
     }
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test

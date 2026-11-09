@@ -5,6 +5,7 @@ package com.singularity.todo.test.helpers
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
 import kotlin.test.fail
 
 /**
@@ -73,6 +74,13 @@ fun TestScope.awaitState(
         }
         iterations++
         advanceUntilIdle()
+        // advanceUntilIdle() stops at foreground work. A ViewModel built with
+        // VmScope.Background — the harness's choice for a collector that never ends —
+        // lives outside that marker, so without this line the loop spins at
+        // virtualTime = 0 and never sees the change the test just made. runCurrent()
+        // dispatches what is scheduled *now*, foreground or not; it does not advance
+        // the clock, so it cannot run an unbounded timer.
+        runCurrent()
     }
 }
 

@@ -10,6 +10,7 @@ status: accepted
 Tasks need to repeat: daily standups, weekly reviews, monthly retrospectives, yearly reviews. Users expect the same recurrence semantics they know from Orgzly/Tasks.org: `+1w` (weekly from due), `++1w` (weekly from completion), `!+1w` (catch-up), `every Mon/Wed/Fri`, `1st of month`.
 
 Three orthogonal dimensions:
+
 1. **Frequency**: daily, weekly (on weekdays), monthly (day-of-month), yearly (month + day)
 2. **Base (anchor)**: FROM_DUE, FROM_COMPLETION, CATCH_UP
 3. **Counting**: one-row rolling vs. N historical copies

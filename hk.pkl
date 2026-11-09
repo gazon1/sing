@@ -1,0 +1,259 @@
+amends "package://github.com/jdx/hk/releases/download/v1.23.0/hk@1.23.0#/Config.pkl"
+
+fail_fast = true
+
+hooks {
+  ["pre-commit"] {
+    fix = false
+    stash = "git"
+
+    steps {
+      ["ktlint"] {
+        glob = List("**/*.kt", "**/*.kts")
+        check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/ktlint-lint.py --require {{files}}; else python3 scripts/ktlint-lint.py --require {{files}}; fi"
+      }
+
+      ["rumdl (markdown, staged)"] {
+        // Check-only (advisory by policy): scoped to staged *.md via {{files}}.
+        // Does not auto-fix; skip when rumdl is not installed.
+        glob = List("**/*.md")
+        check = "if command -v rumdl >/dev/null 2>&1; then rumdl check {{files}}; else echo 'rumdl not installed — skipping markdown check (mise install)'; fi"
+      }
+
+      ["compile-changed"] {
+        depends = "ktlint"
+        check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/compile-changed.py; else python3 scripts/compile-changed.py; fi"
+      }
+    }
+  }
+
+  ["check"] {
+    // The local verification loop: `./check.sh` runs it, and CI can run the
+    // same declaration with `hk check --all`.
+    //
+    // Every step is `exclusive`: two Gradle invocations at once fight over the
+    // shared module cache and the daemon, so hk waits for each step instead of
+    // running them in parallel. The order below is the order of the costs —
+    // cheap checks first, so a broken tree is cheap to find.
+    //
+    // Profiles carry the lanes, and the wrapper always passes exactly one:
+    //   full     — the whole loop (./check.sh)
+    //   affected — the whole loop over the tests the change can break
+    //   fast     — the checks this change can break, and nothing else
+    // A step that needs a lane says so; a step with a positive profile runs
+    // only there, one with `!name` runs everywhere but that lane.
+
+    steps {
+      ["static gates"] {
+        exclusive = true
+        check = "bash scripts/ci/preflight-gate-tools.sh && ./sg run-all"
+      }
+
+      ["ktlint (formatting)"] {
+        exclusive = true
+        check = "python3 scripts/ktlint-lint.py --require"
+      }
+
+      ["androidApp:compileDebugKotlin"] {
+        exclusive = true
+        check = "./gw :androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin --quiet"
+      }
+
+      ["shared:verifyToolSurface"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:verifyToolSurface --quiet"
+      }
+
+      ["shared:verifySyncFieldAllowlist"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:verifySyncFieldAllowlist --quiet"
+      }
+
+      ["shared:jvmTest"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :shared:jvmTest --quiet -Pcoverage.enabled=false || { bash scripts/ci/print-test-failures.sh shared/build/test-results; exit 1; }"
+      }
+
+      ["core-domain:jvmTest"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :core-domain:jvmTest --quiet -Pcoverage.enabled=false"
+      }
+
+      ["affected tests"] {
+        exclusive = true
+        profiles = List("!full")
+        check = "python3 scripts/test-impact-map.py --run --population fast --gradle ./gw || { bash scripts/ci/print-test-failures.sh shared/build/test-results; exit 1; }"
+      }
+
+      ["shared:archTest"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:archTest --quiet -Pcoverage.enabled=false || { bash scripts/ci/print-test-failures.sh shared/build/test-results/archTest; exit 1; }"
+      }
+
+      ["shared:testAndroidHostTest"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:testAndroidHostTest --quiet -Pcoverage.enabled=false"
+      }
+
+      ["desktopApp:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :desktopApp:test --quiet -Pcoverage.enabled=false"
+      }
+
+      ["adr-cli:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :adr-cli:test :adr-core:jvmTest --quiet -Pcoverage.enabled=false"
+      }
+
+      ["androidApp:assembleDebug"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :androidApp:assembleDebug --quiet"
+      }
+
+      ["executed test counts"] {
+        exclusive = true
+        profiles = List("full")
+        check = "python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test --max-age 21600"
+      }
+
+      ["gate wiring"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "env GATE_WIRING_GRADLE=1 python3 scripts/check-gate-wiring.py"
+      }
+
+      ["gate script tests"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "python3 -m unittest discover -s scripts/tests"
+      }
+
+      ["gate liveness"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "python3 scripts/check-gate-liveness.py"
+      }
+
+      ["detekt-rules:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :detekt-rules:test --quiet"
+      }
+
+      ["tools:unwritten-properties:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :tools:unwritten-properties:test --quiet -Pcoverage.enabled=false"
+      }
+
+      ["detekt-rules:koverVerify"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw -q :detekt-rules:koverLog && ./gw :detekt-rules:koverVerify"
+      }
+
+      ["mcp-server:compileKotlin"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :mcp-server:compileKotlin --quiet"
+      }
+
+      ["detekt"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :shared:detekt :core-database:detekt :core-domain:detekt :core-base:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt :import-cli:detekt --quiet"
+      }
+
+      ["detekt (changed files only)"] {
+        exclusive = true
+        profiles = List("!full")
+        check = "python3 scripts/lint-changed.py"
+      }
+
+      ["mcp-server:detekt"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :mcp-server:detekt --quiet"
+      }
+
+      ["adr-cli:detekt"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :adr-cli:detekt --quiet"
+      }
+
+      ["adr-core+core-base:detekt"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :adr-core:detekt :core-base:detekt --quiet"
+      }
+    }
+  }
+
+  ["device"] {
+    // The steps that need hardware: the instrumented tier on a real device,
+    // the floor that tier has to meet, and the Maestro UI flows.
+    //
+    // They are a hook of their own, and not steps of the `check` hook, for
+    // the reason ADR 2026-11-06 gives: they need a device, they are opt-in,
+    // and their failure is not this loop's verdict. `hk check` runs the
+    // `check` hook only, so CI does not run them either. `hk run device` runs
+    // them.
+    //
+    // `exclusive` makes each step its own group, so they run one after
+    // another: the floor reads the report the instrumentation leaves, and the
+    // flows run on the device the instrumentation used.
+    fix = false
+    stash = "none"
+
+    steps {
+      ["android instrumentation"] {
+        exclusive = true
+        check = "python3 scripts/android-instrumentation.py :androidApp:connectedDebugAndroidTest"
+      }
+
+      ["instrumented floor"] {
+        exclusive = true
+        depends = "android instrumentation"
+        check = "if [ -d androidApp/build/outputs/androidTest-results/connected ]; then python3 scripts/check-instrumented-test-floor.py; else echo 'no instrumented report — the floor has nothing to check'; fi"
+      }
+
+      ["maestro flows"] {
+        exclusive = true
+        depends = "instrumented floor"
+        check = "python3 scripts/maestro-flows.py"
+      }
+    }
+  }
+
+  ["post-checkout"] {
+    fix = false
+    stash = "none"
+
+    steps {
+      ["post-checkout-tasks"] {
+        check = "bash scripts/hooks/post-checkout-tasks.sh"
+      }
+    }
+  }
+
+  ["post-merge"] {
+    fix = false
+    stash = "none"
+
+    steps {
+      ["post-merge-tasks"] {
+        check = "bash scripts/hooks/post-merge-tasks.sh"
+      }
+    }
+  }
+}

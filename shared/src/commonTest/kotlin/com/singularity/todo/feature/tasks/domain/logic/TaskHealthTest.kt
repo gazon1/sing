@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -28,6 +31,8 @@ import kotlin.time.Instant
  * the arithmetic.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskHealthTest {
     private val today: LocalDate = LocalDate(2026, 10, 7)
     private val now: Instant = Instant.parse("2026-10-07T12:00:00Z")

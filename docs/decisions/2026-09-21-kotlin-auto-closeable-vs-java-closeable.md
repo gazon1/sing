@@ -35,6 +35,7 @@ If a class implements `java.io.Closeable` (or `kotlin.io.Closeable`) and is pass
 causes a `ClassCastException` at runtime.
 
 Symptoms:
+
 - `ViewModel.addCloseable()` line says "type mismatch: X is not a subtype of AutoCloseable"
 - Or: runtime ClassCastException when the ViewModel is cleared
 - Or: compilation failure in commonMain on non-JVM targets ("Unresolved reference Closeable")
@@ -52,6 +53,7 @@ typealias Closeable = java.io.Closeable  // NOT kotlin.AutoCloseable!
 ```
 
 So you can have:
+
 - A class `implements java.io.Closeable` → **wrong** for `ViewModel.addCloseable()`
 - A class `implements kotlin.AutoCloseable` → **correct**
 

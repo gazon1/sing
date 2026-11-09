@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -149,6 +151,64 @@ class SearchContainsModeTest {
             val results = search("omega", SearchMode.Contains)
 
             assertTrue(results.isEmpty, "a query that matches nothing must produce an empty result set")
+        }
+
+    // ─── The range of the match ─────────────────────────────────────────────────
+    //
+    // The contains mode has no index to ask where the word is, so the position
+    // is measured in the text. It has to be the text the card draws — a range
+    // is a pair of character offsets, and offsets from one surface say nothing
+    // about another.
+
+    @Test
+    fun `a hit carries the range of the match in the surface the card draws`() =
+        runTest {
+            val results = search("port", SearchMode.Contains)
+
+            val inTitle = listOf(TextMatchRange(SearchColumn.TITLE, 3, 7))
+            val inName = listOf(TextMatchRange(SearchColumn.NAME, 3, 7))
+
+            assertEquals(
+                inTitle,
+                results.notes
+                    .single()
+                    .ranges
+                    .toList(),
+            )
+            assertEquals(
+                inName,
+                results.projects
+                    .single()
+                    .ranges
+                    .toList(),
+            )
+            assertEquals(
+                inName,
+                results.tags
+                    .single()
+                    .ranges
+                    .toList(),
+            )
+            assertEquals(
+                inTitle,
+                results.tasks
+                    .single { it.record.title == AIRPORT }
+                    .ranges
+                    .toList(),
+            )
+        }
+
+    @Test
+    fun `a task matched by its description carries no range in its title`() =
+        runTest {
+            val results = search("port", SearchMode.Contains)
+
+            val trip = results.tasks.single { it.record.title == TRIP }
+
+            assertTrue(
+                trip.ranges.isEmpty(),
+                "the card draws the title, and an offset into the description is not an offset into it",
+            )
         }
 
     // ─── The negated term, in both modes ────────────────────────────────────────

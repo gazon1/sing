@@ -11,6 +11,12 @@
 
 - **`./gw` вместо `./gradlew`** — приватный `GRADLE_USER_HOME` на worktree; общий
   `~/.gradle` — общий лок кэша и общий реестр демонов (5 минут против 40).
+- **Локальный цикл — точка входа, а не программа.** `./check.sh` (без флагов — полный
+  цикл, `--fast`, `--affected`) выбирает профиль и запускает `hk check --all`; шаги
+  объявлены в `hk.pkl`. Устройство — отдельный хук: `hk run device`
+  (`just tests::check-device`), он не входит ни в один профиль и не гоняется в CI.
+  Стоимость цикла — `just tests::cost` (`./sg gate-costs`): он читает запись hk
+  `build/diagnostics/cycle-steps.json`, которую `check.sh` и hk пишут сами.
 - **Хост бывает занят** — `./sg host-load` (порог 2.0/ядро, измерен): занят →
   целевой набор (`--tests`) или ждать; полный прогон — когда целевой зелёный.
 - **Устройство спрашивают, а не занимают.** `./sg device-holders` отвечает, кто
@@ -85,6 +91,15 @@
 - **Форматирование — отдельный инструмент.** ktlint CLI владеет раскладкой, detekt —
   семантикой. `just ktlint` — весь формат за секунды, `just ktlint-fix` — починить.
   Полный линт — `just lint` (ktlint + detekt).
+- **Markdown (rumdl, opt-in/advisory).** Конфиг — `.rumdl.toml` (respect-gitignore,
+  исключены генерируемые/архивные деревья; часть шумных правил отключена). Пин —
+  `rumdl` в `mise.toml` (и `config/toolchain-versions.env`, где применимо). Ежедневно:
+  по изменённым файлам — `just mdcheck-changed` / `just mdfmt-changed`; по всему дереву —
+  `just mdcheck` / `just mdfmt` (массивный автофикс — только отдельным format-only коммитом).
+  `just lint` md не включает (осознанно, по скорости/политике). Локально: hk pre-commit
+  проверяет staged `*.md` через `rumdl check {{files}}` (check-only, пропуск если rumdl
+  не установлен); pre-push — advisory на затронутых `*.md`. Блокирующий CI-гейт **не**
+  включён, пока база/политика не стабилизированы.
 - **Сломанный build-скрипт — `./gw help`, а не компиляция**: Gradle читает build-скрипт
   при конфигурации, и синтаксическая ошибка в нём видна за секунды. Рецепт конфликта
   в `build.gradle.kts` — `docs/architecture/build-scripts.md`.

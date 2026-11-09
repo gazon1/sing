@@ -197,12 +197,12 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's body | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | `StaticText` | `feature/notes/Ids.kt` | - | - |
 | `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | `StaticText` | `feature/projects/presentation/state/ProjectEditorUiState.kt` | - | - |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | `StaticText` | `feature/projects/presentation/state/ProjectsUiState.kt` | - | - |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | `StaticText` | `feature/projects/domain/state/ProjectEditorUiState.kt` | - | - |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | `StaticText` | `feature/projects/domain/state/ProjectsUiState.kt` | - | - |
 | `feature/search/SearchScreen.kt` | the search query | `StaticText` | `feature/search/SearchViewModel.kt` | - | - |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | `StaticText` | `feature/settings/SettingsUiState.kt` | - | - |
-| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (create) | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | `OwnedText` | `feature/tasks/domain/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (create) | `StaticText` | `feature/tasks/domain/state/TaskDraft.kt` | - | - |
 
 **The columns are checked, and the one that was prose is gone.** The **File** column is
 checked against the import list: a row that names a file that no longer owns a bridged

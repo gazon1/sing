@@ -15,8 +15,8 @@ is born with — is declared in `config/docs/adr-corpus.json` and read through
 `adr_corpus` (#518). This file does not restate it.
 
 Usage:
-  ./scripts/normalize-adr-frontmatter.sh          # report only, writes nothing
-  ./scripts/normalize-adr-frontmatter.sh --apply  # write the changes
+  python3 ./scripts/normalize-adr-frontmatter.py          # report only, writes nothing
+  python3 ./scripts/normalize-adr-frontmatter.py --apply  # write the changes
 
 Any other argument is a usage error (exit 2), not a silently ignored flag.
 """

@@ -11,8 +11,9 @@
 # is reached from the preview's Edit action. The body is therefore asserted in
 # the preview, where it is rendered read-only.
 #
-# The title carries ${RUN_ID} so the runner's per-attempt sweep can find
-# exactly this run's row and remove it.
+# The note is typed here rather than seeded, so its title carries ${RUN_ID}:
+# the run id names the attempt, and the runner resets the profile's content
+# before each flow, so the row does not reach the next one.
 appId: com.singularity.todo
 name: notes-edit-body
 tags:

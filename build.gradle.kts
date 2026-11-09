@@ -1,5 +1,6 @@
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.extensions.DetektExtension
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import java.io.File
 
 plugins {
@@ -68,14 +69,23 @@ allprojects {
 // does not know about populations: it reads a tag list, and this block is what
 // puts the list there.
 //
+// The mapping itself is read by `settings.gradle.kts` and handed over through
+// `gradle.extra` — the channel this repository already uses between a settings
+// script and a module's build script (see the detekt coverage floor in
+// `detekt-rules/build.gradle.kts`). Two readers of one file are two answers to
+// "which populations exist", and they were: the settings script read the file
+// with Java's Properties parser, which reads the `:` separator as well as the
+// `=`, so it saw each population's PROPERTIES as populations of their own.
+//
 // `-Ptest.tags` still works and still wins: it is the raw knob, for a local
 // run that wants a selection no population names. What does NOT work is
 // passing both — two spellings of one selection is how they drift apart.
 subprojects {
     val populations =
-        java.util.Properties().apply {
-            rootProject.file("config/test-populations.properties").inputStream().use { load(it) }
-        }
+        (gradle.extra["test.populations"] as? Map<*, *>)
+            ?.entries
+            ?.associate { (name, tags) -> name.toString() to tags.toString() }
+            ?: emptyMap()
     val population = providers.gradleProperty("test.population").orNull
     val explicitTags = providers.gradleProperty("test.tags").orNull
 
@@ -86,11 +96,11 @@ subprojects {
         )
     }
     if (population != null) {
-        val tags = populations.getProperty(population)
+        val tags = populations[population]
         if (tags == null) {
             throw GradleException(
                 "unknown test population '$population' — the known ones are: " +
-                    populations.stringPropertyNames().sorted().joinToString(", ") +
+                    populations.keys.sorted().joinToString(", ") +
                     " (config/test-populations.properties)",
             )
         }
@@ -335,6 +345,181 @@ allprojects {
     tasks.withType<Test>().configureEach {
         outputs.cacheIf { false }
     }
+}
+
+// ---------------------------------------------------------------------------
+// The report every test task writes
+// ---------------------------------------------------------------------------
+//
+// Four settings that decide what a failed test LOOKS like, and that every
+// module has to agree on — because the reporters read the reports, and a
+// report whose shape depends on which module produced it is a report that
+// has to be understood twice.
+//
+// 1. `mergeReruns` — a retried test is ONE testcase with a `<flakyFailure>`
+//    child, not two testcases. Without it the XML holds a failed testcase and
+//    a passed one under the same name, the count floor sees two tests where
+//    there is one, and the CI reporter cannot tell "passed on retry" from
+//    "failed and then somebody ran it again". The reader in
+//    `scripts/src/traceability/junit_xml.py` reads `<flakyFailure>` as retry
+//    HISTORY, so a module that does not merge its reruns reports a retried
+//    failure as a plain failure. Two modules set this by hand; it belongs to
+//    every test task.
+//
+// 2. `events("failed", "skipped")` — a failed testcase prints its identity and
+//    full trace; a skipped testcase prints as SKIPPED, never as a failure.
+//
+// 3. `exceptionFormat = FULL` — Gradle's default prints the exception's
+//    `toString()` and a truncated trace. The trace is the evidence: a
+//    developer who reads the CI log has to find the failing frame in it, and
+//    a summary where the evidence is is the defect this audit found.
+//
+// 4. There is no third knob: Gradle's `maxStackTraceLines` is gone from the
+//    `Test` task (it was a Gradle 2.x property, and `FULL` prints the whole
+//    trace without a cap). The audit that proposed it had remembered a
+//    property that no longer exists.
+//
+// The tag selection is NOT here, and cannot be: a module whose test classes
+// are untagged would discover nothing under an explicit tag list, and a
+// module whose only class is `@Tag("slow")` discovers nothing without one.
+// The selection stays where the module knows the shape of its own tests.
+allprojects {
+    tasks.withType<Test>().configureEach {
+        reports.junitXml.mergeReruns.set(true)
+        testLogging {
+            events("failed", "skipped")
+            exceptionFormat = TestExceptionFormat.FULL
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The Allure report
+// ---------------------------------------------------------------------------
+//
+// Three modules already collect Allure results — the `allure-junit5` agent sits
+// on the test classpath in :shared, :desktopApp and :mcp-server — and CI
+// already uploads the raw JSON. What nobody could do with it was READ it: a
+// pile of `*-result.json` files is not a report.
+//
+// The generator is a Maven artifact, not a binary on PATH. `allure-commandline`
+// publishes a POM whose jar carries `io.qameta.allure.CommandLine`, and the
+// report generation itself lives in the transitive `allure-generator`.
+// Resolving it through Gradle means no PATH assumption, no toolchain pin, and
+// the same classpath the build already resolves for everything else.
+//
+// The task deliberately does NOT depend on the test tasks. It aggregates the
+// results that are on disk. In CI the suite has already run; making the report
+// depend on the tests would re-run them whenever this invocation differs from
+// the one that produced them — a different `-Ptest.population` makes the test
+// task out of date, and the report would cost a second full suite.
+val allureCommandline by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+dependencies {
+    allureCommandline(libs.allure.commandline)
+}
+
+// The modules that carry the Allure agent. Named explicitly rather than
+// derived from "every subproject": a module that lost the agent would then
+// quietly contribute nothing, and the report would just be shorter.
+val allureResultModules = listOf("shared", "desktopApp", "mcp-server")
+
+val allureMergedResults = layout.buildDirectory.dir("allure-results-merged")
+val allureReportDirectory = layout.buildDirectory.dir("reports/allure")
+
+// The generator reads one directory and does NOT recurse into it — pointing it
+// at a tree of per-module directories produces an EMPTY report and exit code 0,
+// which is the quietest possible failure. So the results are merged into one
+// flat directory first.
+val allureMergeResults by tasks.registering(Sync::class) {
+    description = "Collects the Allure results of every module into one directory."
+    group = "reporting"
+    from(
+        allureResultModules.map { module ->
+            layout.projectDirectory.dir(module).dir("build/allure-results")
+        },
+    ) {
+        include("**/*-result.json")
+        include("**/*-attachment.*")
+        // Flatten. The generator reads ONE directory and does not recurse, so a
+        // file that stays one level down is a file the report never shows — and
+        // the symptom is an empty report with exit code 0. The names are UUIDs,
+        // so flattening cannot make two modules collide.
+        eachFile { path = name }
+    }
+    into(allureMergedResults)
+}
+
+// The empty report.
+//
+// The generator pointed at a directory with nothing in it writes a
+// complete-looking HTML page with zero tests and exits 0, and CI uploads it
+// as `allure-report-<run_id>`. A human opens it and reads "nothing ran" as
+// "nothing failed". So the build refuses to produce one.
+//
+// The check is a separate task, and it counts the SOURCE directories rather
+// than the merged one:
+//
+// - A `doLast` on the merge task would never run when there is no source at
+//   all — Gradle reports such a task as `NO-SOURCE` and skips its actions —
+//   which is exactly the case the check is for.
+// - A `Sync` with no source does not clean its destination either, so a
+//   previous run's results would still be there and the report would show
+//   them. Counting the sources catches that too: no module has results, the
+//   build stops, and the stale report is never rendered.
+//
+// `mcp-server` legitimately contributes nothing (its only test class is
+// `@Tag("slow")`), so the count is over all modules together.
+val allureRequireResults =
+    tasks.register("allureRequireResults") {
+        description = "Fails when the suite produced no Allure results to report."
+        group = "reporting"
+        dependsOn(allureMergeResults)
+        // Resolved to plain files here, at configuration time: a closure that
+        // reached for a script-level property would capture the Gradle script
+        // object, and the configuration cache refuses to serialize it.
+        val moduleResultDirs =
+            allureResultModules.map { module ->
+                layout.projectDirectory
+                    .dir(module)
+                    .dir("build/allure-results")
+                    .asFile
+            }
+        doLast {
+            val collected =
+                moduleResultDirs.sumOf { dir ->
+                    dir.listFiles { file -> file.name.endsWith("-result.json") }?.size ?: 0
+                }
+            if (collected == 0) {
+                throw GradleException(
+                    "No Allure results to report: none of " +
+                        "${moduleResultDirs.joinToString(", ")} holds a *-result.json. " +
+                        "The report would be an empty page that looks like a clean run. " +
+                        "Run the test tasks first, and check that every module's results " +
+                        "land in <module>/build/allure-results/.",
+                )
+            }
+        }
+    }
+
+tasks.register<JavaExec>("allureReport") {
+    description = "Generates the Allure HTML report from the collected results."
+    group = "reporting"
+    dependsOn(allureRequireResults)
+    classpath = files(allureCommandline)
+    mainClass.set("io.qameta.allure.CommandLine")
+    args(
+        "generate",
+        "--clean",
+        "-o",
+        allureReportDirectory.get().asFile.absolutePath,
+        allureMergedResults.get().asFile.absolutePath,
+    )
+    inputs.dir(allureMergedResults)
+    outputs.dir(allureReportDirectory)
 }
 
 // ---------------------------------------------------------------------------

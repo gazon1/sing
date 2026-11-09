@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.components
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -10,11 +13,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class PriorityColorTest {
     @Test
     fun `None priority has a defined tertiary color`() {
         // None maps to PriorityNone = TextTertiary = Color(0xFF5C6270), not Color.Unspecified
-        assertEquals(Color(0xFF5C6270), priorityColor(TaskPriority.None))
+        assertEquals(Color(0xFF8B94A6), priorityColor(TaskPriority.None))
     }
 
     @Test

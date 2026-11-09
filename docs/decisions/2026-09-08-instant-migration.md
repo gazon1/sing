@@ -10,10 +10,12 @@ deciders: Singularity Developer
 ## Context
 
 The codebase mixes two `Instant` types:
+
 - `kotlinx.datetime.Instant` — the project's datetime standard (used in Room entities, domain models, `kotlinx.datetime.Clock`)
 - `kotlin.time.Instant` — deprecated stdlib type (imported transitively via `kotlinx.datetime.Clock`'s typealiases, or used directly)
 
 This causes:
+
 1. Deprecation warnings in `StatisticsScreen.kt` (typealias `Clock = kotlin.time.Clock`)
 2. Deprecation warnings in `Clock.jvm.kt` (`typealias Instant = kotlin.time.Instant`)
 3. Potential confusion for developers reading the codebase
@@ -59,6 +61,7 @@ Files using `kotlin.time` namespace (direct or transitive):
 The correct approach:
 
 1. **Change `Clock.kt`** to return `kotlinx.datetime.Instant`:
+
    ```kotlin
    expect object Clock {
        fun now(): kotlinx.datetime.Instant

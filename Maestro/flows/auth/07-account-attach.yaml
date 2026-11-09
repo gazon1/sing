@@ -41,13 +41,7 @@ tags:
     id: nav_tab_inbox
 
 # Open the menu and navigate to Settings.
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
+- runFlow: ../../helpers/open-settings.yaml
 
 # Switch to the Account tab. The settings menu is a bottom sheet whose rows
 # are not composed until it opens; the helper opens it, scrolls the Account

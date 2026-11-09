@@ -38,6 +38,7 @@ except Exception:
 ```
 
 `SystemExit` is **re-raised**, not caught, because:
+
 - `gate_fail()` calls `sys.exit(1)` — a deliberate user-facing failure
 - `run_capture()` raises `SystemExit` on `FileNotFoundError` (KIWI_REQUIRED gates)
 - These are intentional control flow; catching them as infrastructure errors would conflate
@@ -68,6 +69,7 @@ raise SystemExit(KIWI_UNAVAILABLE)  # exits 4, NOT 127
 ```
 
 **Not** raising `FileNotFoundError` because:
+
 - `FileNotFoundError` is infrastructure, not a gate result — it says "the tool is missing",
   not "the gate failed"
 - Raising would make it impossible for callers to distinguish "kiwi absent" (expected skip)
@@ -84,6 +86,7 @@ shim (e.g., `sgate scenario_specs_valid`), ensuring the KIWI_UNAVAILABLE logic a
 of whether the gate is invoked directly or via `run-all`.
 
 This routes through the sgate shim rather than calling `traceability` directly, so:
+
 - If `traceability` is absent: sgate exits 4 (skip) instead of 127
 - If `traceability` runs and fails: the actual gate failure exits 1
 

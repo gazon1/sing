@@ -55,6 +55,7 @@ fun RemindersSection(
 ```
 
 **When to split a lambda out of an existing actions object:**
+
 - If a section is used in only ONE screen AND has ≤3 callbacks, raw lambdas are fine.
 - If a section is used in MULTIPLE screens AND has 4+ callbacks, use a `value class Actions`.
 
@@ -81,12 +82,14 @@ value class NotesActions(
 ```
 
 **Why `@JvmInline value class` and not a plain class:**
+
 - Zero runtime allocation overhead — the single-parameter constructor is a value class
 - Enables exhaustive `when` in the handler (smart cast on `Action` subtypes)
 - Type-safe: passing wrong action type is a compile error
 - Consumers get one parameter instead of 10–20 individual lambdas
 
 **Why NOT a plain `data class`:**
+
 ```kotlin
 // ❌ ANTI-PATTERN — data class of lambdas
 data class TaskDetailCallbacks(
@@ -102,6 +105,7 @@ data class TaskDetailCallbacks(
 ```
 
 **Why NOT a `ContentParams` data class with typed sub-objects:**
+
 ```kotlin
 // ❌ ANTI-PATTERN — nested data classes for grouping related callbacks
 data class ContentParams(
@@ -117,6 +121,7 @@ data class ContentParams(
 ```
 
 **Correct usage:**
+
 ```kotlin
 // Section composable receives ONE actions parameter
 @Composable

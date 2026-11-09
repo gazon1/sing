@@ -10,6 +10,7 @@ tags: [profile, architecture, multi-profile, core]
 The app supports multiple isolated data namespaces called **profiles** — e.g. "Personal" and "AI Agent". Each profile owns its own tasks, notes, projects, tags, and LLM usage records.
 
 The challenge is combining two concerns:
+
 1. **Auth session** (`Session.SignedIn.userId`) — identifies the Supabase auth user
 2. **Profile ID** (`ProfileId`) — isolates data within that auth user
 
@@ -57,6 +58,7 @@ class ProfileAwareCurrentUser(
 ```
 
 The `scopedUserId` is prepended with the profile ID when not the default profile:
+
 - Default profile: `userId` → `"user_1"`
 - Other profile "abc": `userId` → `"abc/user_1"`
 
@@ -65,12 +67,14 @@ This keeps existing data visible while allowing the MCP server to route requests
 ### ProfileBootstrapper
 
 On app startup, `ProfileBootstrapper` calls `profileRepository.ensureDefaults()` which:
+
 1. Creates "Personal" (🏠) if no profiles exist
 2. Creates "AI Agent" (🤖) on CLI/MCP hosts (for `--profile=ai-agent`)
 
 ### Data isolation
 
 All repository queries filter by `userId` (which is `scopedUserId` in presentation VMs):
+
 ```kotlin
 fun watchTasks(userId: UserId, filter: TaskFilter): Flow<List<Task>>
 // Called as: watchTasks(currentUser.scopedUserId.value, filter)

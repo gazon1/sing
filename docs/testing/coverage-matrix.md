@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**132 scenarios · 101/173 claimed cells automated · 72 holes**
+**134 scenarios · 104/175 claimed cells automated · 71 holes**
 
 ## feature.agenda
 
@@ -189,6 +189,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SEARCH-08` | A term matches the beginning of a word, and not its middle | ● | — | The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not… |
 | `SEARCH-09` | The result shows the word that was matched | — | ● | The result shows the word in the title as the match: the index says where the word is, and the search draws it there.… |
 | `SEARCH-10` | The contains mode finds the term in the middle of a word | ● | — | The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode… |
+| `SEARCH-11` | A pending search is not an empty answer | — | ● | While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does… |
 
 ## feature.settings
 
@@ -203,7 +204,7 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `SYNC-FAILED-01` | Deal with a change that could not be sent | ○ | ○ | There is a visible way to reach the screen. It lists the item, its kind, why it failed, when, and how many times it… |
-| `SYNC-INCOMING-01` | Receive a change on the field being typed into | ◇ | ◇ | Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field… |
+| `SYNC-INCOMING-01` | Receive a change on the field being typed into | ◇ | ● | Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field… |
 | `SYNC-LOCAL-01` | A task created with no connectivity is kept and appears once back online | ○ | — | The task is still there, so work done without a network was written to local storage rather than queued in memory and… |
 | `SYNC-OFFLINE-01` | Work with no network and watch the queue drain | ◇ | ◇ | The indicator shows how many changes are waiting, and the count survives a restart. Restoring the network drains it to… |
 | `SYNC-PROFILES-01` | Have a profile follow the account to another device | ◇ | ◇ | The profile arrives on B under the same name with no duplicate. Switching profiles during a sync does not let the… |
@@ -233,6 +234,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-15` | FAB from Inbox tab does NOT pre-fill a due date | ○ | — | The task is saved with no due date and appears in the No Date section. After saving, the user is returned to the Inbox… |
 | `TASK-16` | Creating from a tab returns to that tab after save | ○ | — | The save operation returns to the originating tab. The Today task is in the Today section and the Inbox task is in the… |
 | `TASK-17` | Start and stop a time-tracking session on a task | ○ | — | The chip swaps from Start to Stop in place while the timer is running, and returns to Start when stopped. No crash… |
+| `TASK-18` | FAB from Upcoming tab does NOT pre-fill a due date | ● | — | The task composer opens with no due date prefilled, so the saved task is undated: it appears in the Inbox tab's "No… |
 | `TASK-CHECK-01` | Add a checklist item to a task | ● | — | The item is listed on the task screen with a real checkbox, the tick is kept, and the list survives leaving the task… |
 | `TASK-ITEM-01` | Work through a task's subtasks and checklist items in place | — | ● | Both lists are on the task screen, every row carries a real checkbox, the checklist count reads one finished of two… |
 | `TASK-ITEM-02` | A checklist item and a subtask do not change each other | — | ● | Ticking the checklist item leaves the subtask unfinished and the task unfinished, and ticking the subtask leaves the… |
@@ -295,7 +297,6 @@ Claimed but not automated:
 - `SYNC-FAILED-01` / android
 - `SYNC-FAILED-01` / desktop
 - `SYNC-INCOMING-01` / android
-- `SYNC-INCOMING-01` / desktop
 - `SYNC-LOCAL-01` / android
 - `SYNC-OFFLINE-01` / android
 - `SYNC-OFFLINE-01` / desktop

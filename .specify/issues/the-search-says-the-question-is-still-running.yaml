@@ -1,0 +1,16 @@
+---
+version: '1.0'
+type: openspec-change
+slug: the-search-says-the-question-is-still-running
+date: '2026-11-01'
+title: The search says the question is still running
+status: accepted
+change_type: active
+adr_refs: []
+tags: []
+documents:
+  proposal: openspec/changes/the-search-says-the-question-is-still-running/proposal.md
+  tasks: openspec/changes/the-search-says-the-question-is-still-running/tasks.md
+specs_dir: openspec/changes/the-search-says-the-question-is-still-running/specs
+is_stub: false
+openspec_path: openspec/changes/the-search-says-the-question-is-still-running

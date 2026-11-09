@@ -14,6 +14,8 @@ import unittest
 import unittest.mock
 import os
 
+from loguru import logger as _loguru
+
 import emulator.maestro
 import emulator.maestro._artifacts as _artifacts
 import emulator.maestro._cli as _cli
@@ -208,11 +210,16 @@ def _make_deps(
     serial: str = "emulator-5554",
     maestro_result_sha: str = "abc123def456",
     device_alive: bool = True,
+    maestro_argv: list[list[str]] | None = None,
 ) -> DeviceDeps:
     """Build a test DeviceDeps bundle wrapping FakeMaestro.
 
     No module globals are modified — all fakes are enclosed in the returned
     struct and passed directly to ``run_one_flow(deps=...)``.
+
+    ``maestro_argv``, when given, collects the argv of every Maestro
+    invocation, so a test can assert what the flow was told — its run id, the
+    bridge URL — without reaching into ``FakeMaestro``.
     """
     alive = [device_alive]
     #: (serial, args) for every device-scoped adb call, in order.
@@ -220,6 +227,8 @@ def _make_deps(
 
     def fake_try_run(cmd, **kwargs):
         if cmd and cmd[0] == "maestro":
+            if maestro_argv is not None:
+                maestro_argv.append(list(cmd))
             return fake_maestro.test(pathlib.Path(cmd[2]))
         cp = unittest.mock.Mock()
         cp.returncode = 0
@@ -264,7 +273,7 @@ def _make_deps(
     def fake_wait_for_app_resumed(s, timeout=20):
         return True
 
-    def fake_cleanup_run_fixtures(serial, run_id, mode, deps):
+    def fake_cleanup_run_fixtures(serial, mode, deps):
         pass
 
     def fake_capture_artifacts(serial, flow_name, artifact_dir, deps):
@@ -508,7 +517,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -591,7 +600,7 @@ class AcquireDeviceRegressionTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -709,7 +718,7 @@ class UnreportedFlowTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -755,8 +764,6 @@ class FixtureCleanupTest(unittest.TestCase):
     tests assert what each surviving scope sends.
     """
 
-    RUN_ID = "r4797858390"
-
     def test_the_all_mode_sweeps_everything_instead(self):
         calls: list[str] = []
         deps = DeviceDeps(
@@ -771,12 +778,12 @@ class FixtureCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
         with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
-            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, "all", deps)
+            _fixtures.cleanup_run_fixtures("emulator-5554", "all", deps)
         self.assertIn("todo-debug://seed?reset=content", calls[0])
 
     def test_the_off_mode_sends_nothing(self):
@@ -793,13 +800,75 @@ class FixtureCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
         with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
-            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, "off", deps)
+            _fixtures.cleanup_run_fixtures("emulator-5554", "off", deps)
         self.assertEqual(calls, [])
+
+
+class RunIdTest(unittest.TestCase):
+    """The run id is a value, not a cleanup key.
+
+    The cleanup no longer takes one: the wipe knows every row of the active
+    profile, and the scope that sends nothing has no rows to name, so there is
+    nothing for an id to address. What the id still does is say which attempt
+    wrote the rows a flow is looking at — it is minted per attempt, declared
+    to the flow, and logged.
+    """
+
+    def test_each_attempt_declares_its_own_run_id_to_the_flow(self):
+        argv: list[list[str]] = []
+        # The first attempt fails with a device-level signature, so the runner
+        # retries — and a retry is a new attempt, which must not reuse the id
+        # of the one that failed.
+        fake = FakeMaestro([
+            FakeMaestroResult(1, stderr="devices connected"),
+            FakeMaestroResult(0, stdout="flow passed"),
+        ])
+        deps = _make_deps(fake, maestro_argv=argv)
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        records: list[str] = []
+        sink = _loguru.add(lambda message: records.append(str(message)), level="INFO")
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                ok, run_id, attempts = run_one_flow(
+                    flow, serial="emulator-5554",
+                    junit_dir=pathlib.Path(tmp),
+                    skip_install=False, allow_stale=False,
+                    max_retries=1, expected_sha="abc123def456",
+                    deps=deps,
+                )
+        finally:
+            _loguru.remove(sink)
+
+        self.assertTrue(ok)
+        self.assertEqual(2, attempts, "the device-level failure was not retried")
+
+        declared = [value for cmd in argv for value in cmd
+                    if value.startswith("RUN_ID=")]
+        self.assertEqual(
+            2, len(declared),
+            f"every attempt must hand the flow its own run id: {argv}",
+        )
+        self.assertNotEqual(
+            declared[0], declared[1],
+            "a retry reused the failed attempt's run id",
+        )
+        self.assertEqual(
+            f"RUN_ID={run_id}", declared[-1],
+            "the id the flow was handed is not the one the runner reports",
+        )
+
+        logged = [line for line in records if "run id:" in line]
+        self.assertEqual(
+            2, len(logged),
+            f"every attempt must log the run id it minted: {records}",
+        )
+        self.assertIn(run_id, logged[-1])
 
 
 class FailedFlowCleanupTest(unittest.TestCase):
@@ -855,7 +924,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: cleanup_calls.append(run_id),
+            cleanup_run_fixtures=lambda serial, mode, deps: cleanup_calls.append(mode),
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -942,7 +1011,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: modes.append(mode),
+            cleanup_run_fixtures=lambda serial, mode, deps: modes.append(mode),
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -1016,7 +1085,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=fake_adb_on,
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -1081,7 +1150,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -1104,13 +1173,123 @@ class SessionResetTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
         with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
             _fixtures.reset_session("emulator-5554", deps)
         self.assertEqual(calls, [])
+
+
+class SleepScreenTest(unittest.TestCase):
+    """The run leaves the phone dark, unless it is asked to leave it on."""
+
+    def test_a_live_device_is_put_to_sleep(self):
+        deps = unittest.mock.Mock()
+        deps.device_alive.return_value = True
+
+        _cli._sleep_screen("0O65321F32204DD5", deps)
+
+        deps.adb_on.assert_called_once_with(
+            "0O65321F32204DD5", "shell", "input", "keyevent", "KEYCODE_SLEEP"
+        )
+
+    def test_a_dead_device_is_not_asked(self):
+        deps = unittest.mock.Mock()
+        deps.device_alive.return_value = False
+
+        _cli._sleep_screen("0O65321F32204DD5", deps)
+
+        deps.adb_on.assert_not_called()
+
+    def _run_cli(self, *extra: str, serial: str = "emulator-5554") -> tuple[object, list[tuple[str, ...]]]:
+        fake_maestro = FakeMaestro([FakeMaestroResult(0)])
+        recorded: list[tuple[str, ...]] = []
+
+        def fake_try_run(cmd, **kw):
+            if cmd and cmd[0] == "maestro":
+                if "--output" in cmd:
+                    report = pathlib.Path(cmd[cmd.index("--output") + 1])
+                    report.parent.mkdir(parents=True, exist_ok=True)
+                    report.write_text(
+                        '<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<testsuite name="smoke" tests="1" failures="0"/>\n'
+                    )
+                return fake_maestro.test(pathlib.Path(cmd[2]))
+            return unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+        def fake_adb_on(serial, *args, **kw):
+            recorded.append(args)
+            return ""
+
+        noop_cp = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+        deps = DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: noop_cp,
+            acquire_device=lambda pin: Acquisition(serial, EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=fake_adb_on,
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+        from click.testing import CliRunner
+
+        old = _cli._default_device_deps
+        try:
+            _cli._default_device_deps = lambda: deps
+            result = CliRunner().invoke(
+                _cli.main,
+                [
+                    "--flow", str(ROOT / "Maestro/flows/smoke/01-launch-today.yaml"),
+                    "--serial", serial,
+                    "--skip-install",
+                    "--allow-stale-apk",
+                    *extra,
+                ],
+            )
+        finally:
+            _cli._default_device_deps = old
+        return result, recorded
+
+    def test_the_cli_turns_the_screen_off_when_the_run_ends(self):
+        result, recorded = self._run_cli()
+
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        self.assertIn(("shell", "input", "keyevent", "KEYCODE_WAKEUP"), recorded)
+        self.assertIn(("shell", "input", "keyevent", "KEYCODE_SLEEP"), recorded)
+        self.assertLess(
+            recorded.index(("shell", "input", "keyevent", "KEYCODE_WAKEUP")),
+            recorded.index(("shell", "input", "keyevent", "KEYCODE_SLEEP")),
+            "the wake must come before the sleep",
+        )
+
+    def test_keep_screen_on_leaves_the_screen_on(self):
+        result, recorded = self._run_cli("--keep-screen-on")
+
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        self.assertNotIn(("shell", "input", "keyevent", "KEYCODE_SLEEP"), recorded)
+
+    def test_a_refused_run_does_not_touch_the_screen(self):
+        serial = "emulator-refused"
+        lock = pathlib.Path(os.environ["MAESTRO_LOCK_DIR"]) / f"singularity-maestro-{serial}.lock"
+        lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
+        try:
+            result, recorded = self._run_cli(serial=serial)
+        finally:
+            lock.unlink(missing_ok=True)
+
+        self.assertEqual(result.exit_code, EXIT_FAIL)
+        self.assertNotIn(("shell", "input", "keyevent", "KEYCODE_WAKEUP"), recorded)
+        self.assertNotIn(("shell", "input", "keyevent", "KEYCODE_SLEEP"), recorded)
 
 
 if __name__ == "__main__":

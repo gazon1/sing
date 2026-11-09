@@ -19,6 +19,7 @@ model used, token counts, duration, and cost. The current `TextGenPort` interfac
 exposes only `generate(prompt): Result<String>` — it has no hooks for instrumentation.
 
 To record usage, the decorator needs one of:
+
 - Access to the underlying Koog `PromptExecutor` to intercept raw request/response metadata
 - A richer `TextGenPort` interface with instrumentation callbacks
 - A separate `AiUsagePort` that the `TextGenPort` implementation calls back into

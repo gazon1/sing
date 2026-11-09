@@ -58,11 +58,6 @@ an independent oracle on the Kotlin side.**
   file rather than throwing).
 - `shared/src/jvmTest/.../RunnableTestMember.kt` — the Kotlin side. It gained
   `codeLines()` and its own stripper with the same rules.
-- `config/test-fixtures/runnable-test-members.txt` — the contract. It is read
-  by `scripts/tests/test_runnable_test_members.py` and by
-  `RunnableTestFixtureTest.kt`. Four records were added for the cases that
-  broke the scanners: a brace inside a plain string, a brace inside a raw
-  string, a brace inside a KDoc block, and a nested block comment.
 - `ClassBodyScannerAgreementTest` — its oracle was rewritten as an independent
   state machine, and its KDoc was corrected: the previous claim that the defect
   had "zero measured influence" was false, and the measured influence was five

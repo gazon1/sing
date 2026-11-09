@@ -104,12 +104,14 @@
 ## MR-3 Summary
 
 **What was added:**
+
 - `AgendaEvaluatorMatrixTest.kt` — 39 cases covering F-01…F-15 selector matrix
 - `AgendaBadgePolicyTest.kt` — 16 cases for all badge types and priority ordering
 - `AgendaPresetsCatalogTest.kt` — 20 cases for preset structure, factory functions, round-trip
 - `SavedAgendaListViewModelTest.kt` — 5 cases for Loading→Loaded, Delete, CopyToProfile
 
 **What was discovered (documented in tests):**
+
 - Evaluator never filters archived tasks (DAO responsibility)
 - Regexp is unconditionally case-insensitive
 - Projects selector is flat, no hierarchy
@@ -117,5 +119,6 @@
 - `SelectorBadge.DefaultBadgeRules.blocked` uses `dependsOn.isNotEmpty()` (looser than `TaskComputed.isBlocked`)
 
 **What was NOT done (backlog):**
+
 - `AgendaBucketingTest`, `AgendaDslTest`, etc. — existing tests, not modified
 - `AgendaViewModelTest` expansion — current tests are sufficient

@@ -104,6 +104,7 @@ class CompleteRecurringTaskUseCaseTest {
 ### 1. Passing `Clock` into pure logic
 
 **❌ Wrong:**
+
 ```kotlin
 object RecurrenceCalculator(private val clock: Clock) {
     fun nextOccurrence(spec: RecurrenceSpec): LocalDate {
@@ -113,6 +114,7 @@ object RecurrenceCalculator(private val clock: Clock) {
 ```
 
 **✅ Correct:**
+
 ```kotlin
 object RecurrenceCalculator {
     fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate {
@@ -126,6 +128,7 @@ The `Clock` goes into the `UseCase` or `ViewModel`, which computes the current t
 ### 2. Mutable state in calculators
 
 **❌ Wrong:**
+
 ```kotlin
 object BadCalculator {
     private var cache = mutableMapOf<...>()  // not thread-safe, not deterministic
@@ -167,7 +170,6 @@ private fun parseEveryWeekday(tokens: List<Token>, pos: Int): Pair<RecurrenceSpe
 | Logic uses only `kotlinx.datetime` or pure Kotlin | `commonMain` — single source |
 | Logic needs platform APIs (file I/O, system clock) | `expect`/`actual` — separate per platform |
 | Logic is a thin wrapper over a platform API | Port interface in `commonMain`, impl in `androidMain`/`jvmMain` |
-
 
 ## Related Skills
 

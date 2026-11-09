@@ -204,6 +204,7 @@ These tests were audited during the 2026-09-26 production-readiness pass. They a
 ## When to Tag a Test @Tag("slow")
 
 Tag a test `@Tag("slow")` when it matches any of:
+
 - Uses `delay(N)` where N > 1 (even with virtual time, debounce tests are inherently slow)
 - Has heavy fixture setup (>1s of fake data seeding)
 - Integrates with multiple fakes simultaneously
@@ -211,6 +212,7 @@ Tag a test `@Tag("slow")` when it matches any of:
 - Robolectric/Android instrumented tests (inherently slow)
 
 **Do NOT tag as slow:**
+
 - Simple smoke tests (initial state checks)
 - Single-intent transition tests
 - Pure unit tests with no delays
@@ -235,6 +237,7 @@ class MyViewModelTest {
 `includeTags("fast")` **breaks** when no test has `@Tag("fast")` — JUnit Jupiter then discovers 0 tests and the build succeeds silently.
 
 `excludeTags("slow")` is safe by default:
+
 - Tests without tags always run
 - Only explicitly tagged `@Tag("slow")` tests are excluded
 - Adding `@Tag("slow")` to a new test is a deliberate, visible decision

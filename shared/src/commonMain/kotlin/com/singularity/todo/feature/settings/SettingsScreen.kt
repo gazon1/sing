@@ -21,12 +21,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
@@ -63,7 +63,6 @@ import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.AiStatusColors
 import com.singularity.todo.feature.backup.BackupIntent
@@ -89,6 +88,7 @@ import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
+import com.singularity.todo.preview.PreviewSamples
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import kotlinx.collections.immutable.ImmutableMap
@@ -288,7 +288,9 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onBack = onBack,
         onCreateBackup = {
             saveBackup.launch(
-                "singularity_backup_${System.currentTimeMillis()}.zip",
+                // FileKit appends the extension itself; a name ending in `.zip`
+                // here produced `singularity_backup_<ts>.zip.zip` on the device.
+                "singularity_backup_${System.currentTimeMillis()}",
                 "zip",
             )
         },
@@ -509,6 +511,13 @@ private fun SettingsNavRail(
  * The sheet reads [SETTINGS_GROUPS], the same list the wide nav rail reads, so
  * the two layouts cannot drift apart again: the phone is a narrower version of
  * the rail, not a different screen.
+ *
+ * The trigger carries no fill, and that is deliberate: as a full-width filled
+ * button this control was a dark band above every piece of content — louder
+ * than the "Theme", "Accent Color" and "Font Size" cards below it — for what
+ * is a navigation element, not the primary action. The wide layout renders
+ * [SettingsNavRail], which carries no fill to keep, so this is the only place
+ * the fill would have been.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -518,7 +527,7 @@ private fun SettingsTabSheet(
 ) {
     var showSheet by rememberSaveable { mutableStateOf(false) }
 
-    Button(
+    OutlinedButton(
         onClick = { showSheet = true },
         modifier =
             Modifier

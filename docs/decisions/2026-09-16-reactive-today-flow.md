@@ -3,6 +3,7 @@ title: ADR 2026-09-16 — Reactive `todayFlow` for AgendaEngine
 date: 2026-09-16
 status: accepted
 ---
+
 > **Superseded in part (2026-09-27):** the project-level `com.singularity.todo.core.platform.Clock` expect/actual object was removed. Use `kotlin.time.Clock.System.now()` (inject `Clock` for tests) and `core.platform.todayFlow()` / `todayInSystemZone()`. See [2026-09-27-remove-platform-clock-object.md](2026-09-27-remove-platform-clock-object.md).
 
 # ADR 2026-09-16 — Reactive `todayFlow` for AgendaEngine
@@ -23,6 +24,7 @@ class AgendaViewModel(deps: AgendaDeps, definition: AgendaDefinition, ...) : Vie
 ```
 
 This means:
+
 - A user who keeps the Agenda screen open past midnight still sees "yesterday's" buckets.
 - Calendar and Agenda can show inconsistent `today` values.
 - The `Today` bucket silently becomes "yesterday" without any event.
@@ -93,6 +95,7 @@ val state = combine(scopedUserId, clock.todayFlow()) { id, t -> id to t }
 ```
 
 Key properties:
+
 - `combine(userId, today)` — user switch or date change triggers re-evaluation.
 - `distinctUntilChanged()` — suppresses re-evaluation if only the instant (not the date) changed.
 - `flatMapLatest { (userId, currentToday) -> ... }` — user switch cancels in-flight evaluation.
@@ -141,18 +144,21 @@ the project's `Clock` for testability.
 ## Consequences
 
 ### Positive
+
 - Agenda always shows correct bucket labels across midnight.
 - User switch cancels in-flight evaluations cleanly.
 - `Clock` injectable for deterministic tests via `runTest { advanceTimeBy(...) }`.
 - Throttling prevents SQLite spam from polling.
 
 ### Negative
+
 - `flatMapLatest` re-evaluates all tasks on every date change (necessary trade-off;
   SQL pre-filtering via `ByDateBucket` mitigates this for calendar screen).
 - `delay(until-midnight)` means the flow never completes — collectors must be scoped
   appropriately.
 
 ### Neutral
+
 - `ByDateBucket` requires `today` in SQL query dispatch — the filter is not purely
   declarative; this is an acceptable coupling since the `today` value is captured at
   query construction time and remains consistent within that emission cycle.
@@ -162,13 +168,16 @@ the project's `Clock` for testability.
 ## Alternatives considered
 
 ### 60-second polling
+
 Rejected — ~1,440 emissions/day vs ~1. `delay(until-midnight)` is more efficient
 and always correctly timed.
 
 ### `Flow<Instant>` emitting at midnight
+
 More complex. The current approach is simpler and directly yields `LocalDate`.
 
 ### `Clock.todayFlow()` returning `StateFlow`
+
 `StateFlow` has a replay buffer that would replay the last date on collection, which
 is unnecessary for this use case. Plain `Flow` with `stateIn` at the ViewModel level
 is the correct composition.

@@ -110,7 +110,7 @@ fi
 echo "=== Check: DAO mutations include userId ==="
 # Find DAO @Query UPDATE/DELETE statements that lack 'user_id' guard
 # Skip known-safe tables (syncOutbox, settings, etc.) and the new *ForUser variants
-if grep -B1 "UPDATE.*SET\|DELETE FROM" shared/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt | grep "suspend fun" | grep -v "ForUser\|syncOutbox\|settings\|app_state\|preferences\|llm_usage" | grep -v "WHERE.*user_id"; then
+if grep -B1 "UPDATE.*SET\|DELETE FROM" core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt | grep "suspend fun" | grep -v "ForUser\|syncOutbox\|settings\|app_state\|preferences\|llm_usage" | grep -v "WHERE.*user_id"; then
     echo "❌ FAIL: DAO mutation without user_id WHERE clause — see singularity-todo-repository-architecture"
 else
     echo "✅ PASS"
@@ -122,6 +122,7 @@ fi
 After running automated checks, verify manually:
 
 ### Layer dependencies
+
 - [ ] `presentation/viewmodel/` imports only `domain/port/` interfaces (never `data/` implementations)
 - [ ] `presentation/screen/` imports only `domain/model/` types
 - [ ] `domain/port/` contains only interfaces (no implementations)
@@ -130,12 +131,14 @@ After running automated checks, verify manually:
 - [ ] Cross-feature imports go through `domain/port/` interfaces (not through feature impl)
 
 ### Naming
+
 - [ ] Files in `domain/model/` named by concept, not role (e.g. `Task.kt`, not `TaskModel.kt`)
 - [ ] Files in `presentation/viewmodel/` named by screen, not `*ViewModel` suffix
 - [ ] State-bearers in `domain/model/` have `*State` suffix
 - [ ] `usecase/` files named by action, not `*UseCase` suffix
 
 ### DI bindings (in `core/di/`)
+
 - [ ] `single<Repo>` uses interface from `domain/port/`, impl from `data/`
 - [ ] Use cases injected as constructor params into VMs (not registered as factory/viewModel)
 - [ ] `viewModelOf(::Vm)` for no-param VMs, `viewModel { (p) -> Vm(get(), p) }` for VMs with runtime parameters (NOT `factory {}` — memory leak)
@@ -145,6 +148,7 @@ After running automated checks, verify manually:
 - [ ] No feature imports `presentation/` from another feature
 
 ### Code quality
+
 - [ ] `collectAsStateWithLifecycle()` in all Screens
 - [ ] Canonical 4-arg ViewModel constructor: `(deps, state, scope, sharingStarted)`
 - [ ] `sealed UiState` with Loading/Content/Error in each ViewModel
@@ -153,6 +157,7 @@ After running automated checks, verify manually:
 - [ ] `just lint` reports 0 new violations (fix manually; auto-fix is broken — see ADR 2026-10-09)
 
 ### Repository auth-safety (Phase 12a — added 2026-09-24)
+
 - [ ] All new DAO mutations include `userId: String` in WHERE clause AND return `Int`
 - [ ] Repository impl propagates `currentUser.scopedUserId.value.value` into every DAO call
 - [ ] `require(rows > 0)` enforces ownership in every DAO mutation
@@ -164,6 +169,7 @@ See `singularity-todo-repository-architecture` for full invariants.
 ## How to fix common failures
 
 ### "presentation imports data"
+
 ```kotlin
 // ❌ Wrong — presentation imports TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.TaskRepositoryImpl
@@ -173,6 +179,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 ```
 
 ### "domain imports data"
+
 ```kotlin
 // ❌ Wrong — domain imports Room DAO
 import com.singularity.todo.core.database.TaskDao
@@ -182,6 +189,7 @@ import com.singularity.todo.core.database.TaskDao
 ```
 
 ### "uses collectAsState()"
+
 ```kotlin
 // ❌ Wrong
 val state by viewModel.state.collectAsState()

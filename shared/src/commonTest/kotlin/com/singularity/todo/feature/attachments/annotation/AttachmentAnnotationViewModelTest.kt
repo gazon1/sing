@@ -4,11 +4,20 @@ import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.annotation.AnchorResolution
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotation
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepository
 import com.singularity.todo.core.attachments.annotation.TextRange
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeAttachmentAnnotationRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.helpers.testVm
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -17,8 +26,33 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+
+/**
+ * An annotation repository whose observation fails.
+ *
+ * The failure is a throwable the test holds on to, because the report has to
+ * carry that exact instance: a report that only says "something failed" leaves
+ * the cause of the failure just as hidden as the message did.
+ *
+ * The failure crosses the same hop the real observation crosses — production
+ * watches the annotations through `observeForCurrentUser`, and the channel that
+ * hop opens carries a *copy* of the throwable, with the original as the copy's
+ * cause. A failure that skipped the hop would never exercise what the view
+ * model does with that copy.
+ */
+private class FailingAnnotationRepository(
+    private val delegate: AttachmentAnnotationRepository,
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    val failure: Throwable = IllegalStateException("the annotation repository is down"),
+) : AttachmentAnnotationRepository by delegate {
+    override fun watchForAttachment(attachmentId: AttachmentId): Flow<List<AttachmentAnnotation>> =
+        currentUser.observeForCurrentUser {
+            flow<List<AttachmentAnnotation>> { throw failure }
+        }
+}
 
 /**
  * The panel's state machine: loading the document, creating, editing, deleting, and — the
@@ -46,11 +80,13 @@ class AttachmentAnnotationViewModelTest {
      * `Loading`.
      */
     private fun newVm(
-        repo: FakeAttachmentAnnotationRepository,
+        repo: AttachmentAnnotationRepository,
         scope: AutoCloseableCoroutineScope,
+        crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     ) = AttachmentAnnotationViewModel(
         repository = repo,
         attachmentId = attachment,
+        crashReporter = crashReporter,
         scope = scope,
     )
 
@@ -343,5 +379,35 @@ class AttachmentAnnotationViewModelTest {
             advanceUntilIdle()
 
             assertEquals(1, ctx.assertIs<AttachmentAnnotationUiState.Content>().annotations.size)
+        }
+
+    /**
+     * A stopped observation must hand the *cause* to the reporter.
+     *
+     * The panel can only show a message; the message alone says nothing about
+     * why the notes stopped arriving, and the throwable that explains it is the
+     * thing the reporter exists for. So the report has to carry the original
+     * throwable — the very instance the repository threw, not a copy of it —
+     * under this screen's own key.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val reporter = RecordingCrashReportingPort()
+            val failing = FailingAnnotationRepository(FakeAttachmentAnnotationRepository())
+            val ctx =
+                testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+                    newVm(failing, scope, reporter)
+                }
+            advanceUntilIdle()
+
+            ctx.assertIs<AttachmentAnnotationUiState.Error>()
+
+            val reported = reporter.reports.single { it.second == "attachments.observe_failed" }
+            assertSame(
+                failing.failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
         }
 }

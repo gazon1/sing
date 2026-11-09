@@ -89,9 +89,12 @@ class TaskRecurrenceScenarioTest {
 
             awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-            // The attribute list scrolls, and the recurrence row sits below the fold
-            // of the 1024x768 test window: a node that is composed but out of view
-            // reads as "not displayed", which is a different failure from "not there".
+            // The attribute list scrolls, so a row that is off the screen is
+            // composed rather than displayed — "not displayed" is a different
+            // failure from "not there". The recurrence row is therefore scrolled
+            // into view before it is asserted or clicked, whatever the window
+            // height: the assertion is then a claim about the screen, not about
+            // the tree.
             scrollToTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
             // The label is the state the user reads, so asserting it is what makes

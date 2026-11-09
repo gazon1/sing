@@ -73,6 +73,14 @@ fun ChecklistEditorSheet(
                         // renders checklist items and subtasks with the same widget,
                         // and a second house style here is what made the two lists
                         // look different in the first place.
+                        //
+                        // No `onOpen` is passed, and here that is deliberate rather
+                        // than an oversight: a checklist item is not a task and has
+                        // no screen of its own, so the label is inert and the
+                        // checkbox is the only control. The label used to toggle the
+                        // item here, which is the same destructive tap on the same
+                        // text that the task screen had — a sheet is no place for a
+                        // "reading a line completes it" gesture either.
                         ChecklistItemRow(
                             text = item.title,
                             checked = item.isCompleted,

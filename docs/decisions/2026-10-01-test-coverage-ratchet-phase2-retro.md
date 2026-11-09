@@ -32,6 +32,7 @@ Coverage: **14/49 → 15/49** (gained 1 from `ProfileFlowTest.create_profile_fro
 did not include it.
 
 **Fix applied:**
+
 - Added `AppDestination.ProfileSwitcher` to `DestinationKind.menuEntries` in
   `AppDestination.kt`.
 - Added `"Profiles"` to `DesktopShell.MENU_ENTRIES` in `DesktopNavigation.kt`.
@@ -57,6 +58,7 @@ content heading, FAB area) due to the modal drawer rendering both layers
 simultaneously.
 
 **Fix applied to `ProfileSwitcherScreen.kt`:**
+
 ```kotlin
 // Name input
 OutlinedTextField(
@@ -71,6 +73,7 @@ TextButton(
 ```
 
 New constant added to `TestTags.kt`:
+
 ```kotlin
 const val PROFILE_CREATE_NAME_INPUT = "profile_create_name_input"
 ```
@@ -126,6 +129,7 @@ fully exercised; only the "assign focus task" path is unreachable on desktop.
 **To fix:** Override `PomodoroTaskListProvider` binding in the test harness to
 return a seeded task list, then the three unmirrorable flows become mirrorable.
 This requires either:
+
 - (a) A `FakePomodoroTaskListProvider` injectable via Koin test module, or
 - (b) Extracting the binding to an `expect/actual` that tests can replace.
 

@@ -19,6 +19,7 @@
 ${DAY_CELL} item
 ${PLANS_SECTION} item
 ${SETTINGS_TAB} tab
+${TASK_ID} item
 agenda_save_current_button button
 agenda_saved_views_button button
 agenda_section_blocked item
@@ -27,6 +28,7 @@ agenda_section_not_touched_in_a_while item
 agenda_section_overdue item
 agenda_section_today item
 agenda_section_tomorrow item
+android:id/button1 button
 attachments_add_file_row item
 attachments_url_input field
 auth_attach_account_button button
@@ -54,6 +56,7 @@ checklist_item_${RUN_ID}_milk item
 checklist_item_checkbox_${RUN_ID}_milk item
 checklist_item_milk item
 checklist_sheet dialog
+dialog_confirm button
 dialog_date_picker_ok dialog
 dialog_date_picker_sheet dialog
 dialog_title_delete_view dialog
@@ -203,3 +206,7 @@ tasks_fab button
 time_tracking_start button
 time_tracking_stop button
 top_bar_back_button button
+calendar_month_title text
+${ENTRY_ID} menu
+${DEST_ID} text
+task_item_${RUN_ID}_task_from_upcoming_tab item

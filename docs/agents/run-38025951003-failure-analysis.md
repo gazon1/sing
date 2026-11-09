@@ -51,6 +51,7 @@ import infra  # noqa: F401
 ```
 
 This `import infra` inside `exec_module()` is supposed to find `infra/__init__.py` already on `sys.path` (or via `ROOT`). However, the combination of:
+
 - `sys.path_importer_cache.clear()` (stale cache entries)
 - `importlib.util.spec_from_file_location()` loading from a path outside `sys.path`
 

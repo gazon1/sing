@@ -8,6 +8,7 @@ status: accepted
 ## Context
 
 Koin's factory DSL is synchronous. Several bindings needed suspend code:
+
 - `createKoogPromptExecutor(secureStorage, settings)` reads Flow-backed settings.
 - `AiApiKeyMigration.run(dataStore, secureStorage)` runs on first DataStore access.
 

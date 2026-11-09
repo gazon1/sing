@@ -40,8 +40,13 @@ tags:
       id: task_item_clearsearchtask2026
     timeout: 8000
 
-# Clear the query.
-- eraseText
+# Clear the query with the field's own button — the id is the one
+# `TestTags.SEARCH_CLEAR_BUTTON` applies, and it is listed in `Maestro/TAGS.md`.
+# The keyboard's own erase action worked, but it is not the affordance the
+# screen offers: a flow that drives the field's button is a flow that fails if
+# the button stops emptying the query.
+- tapOn:
+    id: search_clear_button
 
 # After clearing, the idle prompt returns.
 - extendedWaitUntil:

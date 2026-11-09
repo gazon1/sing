@@ -25,7 +25,7 @@ class SignOutExplanationTest {
     @Test
     fun `the signed-in explanation is not the anonymous one`() {
         val signedIn = signOutExplanation(SIGNED_IN)
-        val anonymous = signOutExplanation(Session.Anonymous)
+        val anonymous = signOutExplanation(Session.Anonymous(userId = UserId.anonymous))
 
         assertTrue(signedIn.isNotBlank(), "the signed-in card explains nothing")
         assertTrue(anonymous.isNotBlank(), "the anonymous card explains nothing")

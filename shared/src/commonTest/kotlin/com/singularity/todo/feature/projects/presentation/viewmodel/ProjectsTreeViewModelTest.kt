@@ -5,16 +5,20 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeProjectsTreeSettingsRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.time.Instant
 
 /**
@@ -127,6 +131,35 @@ class ProjectsTreeViewModelTest {
             h.close()
         }
 
+    /**
+     * The reporter receives the throwable the repository threw.
+     *
+     * The observation fails inside a channel hop, and a channel carries a *copy*
+     * of the throwable — the original is the copy's cause. Reporting the copy
+     * would file a throwable that never existed, so the identity is what this
+     * asserts: the reporter has to receive the very instance the repository
+     * threw, not a look-alike carrying the same message.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            val failure = IllegalStateException("the projects are unavailable")
+            repo.observeAllFailure = failure
+            val reporter = RecordingCrashReportingPort()
+
+            val h = newHarness(repo, reporter = reporter)
+            advanceUntilIdle()
+
+            val reported = reporter.reports.single { it.second == "menu.projects.load_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
+            h.close()
+        }
+
     private fun project(
         id: String,
         name: String,
@@ -150,10 +183,11 @@ class ProjectsTreeViewModelTest {
     private fun TestScope.newHarness(
         repo: FakeProjectsRepository,
         settings: FakeProjectsTreeSettingsRepository = FakeProjectsTreeSettingsRepository(),
+        reporter: CrashReportingPort = NoOpCrashReportingPort(),
     ): Harness {
         val scope = testScope(this)
         return Harness(
-            vm = ProjectsTreeViewModel(repo = repo, settings = settings, scope = scope),
+            vm = ProjectsTreeViewModel(repo = repo, settings = settings, crashReporter = reporter, scope = scope),
             scope = scope,
         )
     }

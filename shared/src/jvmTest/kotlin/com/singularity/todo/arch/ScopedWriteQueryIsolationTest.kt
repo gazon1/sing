@@ -1,7 +1,6 @@
 package com.singularity.todo.arch
 
 import org.junit.jupiter.api.Tag
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -92,16 +91,9 @@ class ScopedWriteQueryIsolationTest {
 
     @Test
     fun every_update_and_delete_query_scopes_itself_to_a_user() {
-        val root =
-            System.getProperty("commonMain.root")
-                ?: error(
-                    "commonMain.root system property is not set — " +
-                        "see the jvmTest task config in shared/build.gradle.kts",
-                )
         val offenders =
-            File(root)
-                .walkTopDown()
-                .filter { it.isFile && it.extension == "kt" }
+            SourceScan
+                .productionFiles()
                 .flatMap { file ->
                     queriesIn(file.readText()).mapNotNull { query ->
                         val sql = query.text
@@ -186,11 +178,9 @@ class ScopedWriteQueryIsolationTest {
     @Test
     fun every_allowlist_entry_is_still_present() {
         """A stale allowlist entry hides a query that has since been fixed."""
-        val root = System.getProperty("commonMain.root") ?: return
         val allSql =
-            File(root)
-                .walkTopDown()
-                .filter { it.isFile && it.extension == "kt" }
+            SourceScan
+                .productionFiles()
                 .flatMap { queriesIn(it.readText()).map { q -> normalise(q.text) } }
                 .toList()
         val stale = ALLOWED_UNSCOPED.keys.filterNot { it in allSql }

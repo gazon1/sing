@@ -1,0 +1,15 @@
+diff --git a/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt b/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
+index 6c4960b3d..6d6b7edc6 100644
+--- a/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
++++ b/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
+@@ -198,8 +198,9 @@ object TextMatch {
+         for (offset in termTokens.indices) {
+             val textToken = textTokens[start + offset]
+             val termToken = termTokens[offset]
++            val lastIndex = termTokens.lastIndex
+             val matches =
+-                if (offset == termTokens.lastIndex) {
++                if (offset == lastIndex) {
+                     textToken.startsWith(termToken)
+                 } else {
+                     textToken == termToken

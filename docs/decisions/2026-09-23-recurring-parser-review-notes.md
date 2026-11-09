@@ -37,10 +37,12 @@ while (true) {
 For `CATCH_UP` mode with `MAX_MISSED = 10`, this is bounded to 10 iterations — not a practical concern. If `MAX_MISSED` ever grows, or for `countIntervalMissed` with large day counts, this could become slow.
 
 **Potential improvement**: O(1) arithmetic for `Interval`:
+
 ```kotlin
 val diff = today.toEpochDays() - anchor.toEpochDays()
 count = diff / amount  // integer division truncates
 ```
+
 Weekly/monthly/yearly are harder but could use `LocalDate.until()` arithmetic.
 
 **Impact**: Low. MAX_MISSED=10 caps all loops. No action needed.
@@ -50,6 +52,7 @@ Weekly/monthly/yearly are harder but could use `LocalDate.until()` arithmetic.
 ### 3. Calculator — `lastDayOfMonth` works but is obscure
 
 `RecurrenceCalculator.lastDayOfMonth(2024, 12)` computes:
+
 ```kotlin
 val nextMonthOrdinal = if (month == 12) 0 else month  // 0
 val nextMonthYear = if (month == 12) year + 1 else year  // 2025
@@ -58,9 +61,11 @@ return firstOfNextMonth.minus(1, DAY).day  // Dec 31, 2024 ✓
 ```
 
 This works correctly but relies on wrapping January to the previous year. A cleaner version:
+
 ```kotlin
 LocalDate(year, month, 1).plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
 ```
+
 Or even cleaner using `month.minLength` or a lookup table.
 
 **Impact**: None. Results are correct. Refactor as a cleanup task if desired.

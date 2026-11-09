@@ -36,6 +36,7 @@ not be warned by `NoWildcardImports`. The rule needs a companion check targeting
 stdlib-extension wildcard imports, or a specific rule for `kotlin.io.path.*`.
 
 **Try next:**
+
 1. Add `kotlin.io.path.*` to a detekt exclude pattern if the rule's intent is
    "only block real wildcard imports" — but document why.
 2. Or add a comment to the `NoWildcardImports` rule's KDoc explaining it does
@@ -80,6 +81,7 @@ path resolution will give false confidence after source edits. The agent will se
 "all tests pass" but the code is stale.
 
 **Try next:**
+
 1. Avoid relying on `systemProperty` for path resolution in tests — prefer
    resolved file paths that Gradle tracks as inputs.
 2. If `systemProperty` is needed (e.g., for `commonMain.root` which must be
@@ -96,10 +98,12 @@ path resolution will give false confidence after source edits. The agent will se
 
 **Symptom:** `profileItem(name)` is used in 7 Maestro flows with ids like
 `profile_item_tasks`. The function body is:
+
 ```kotlin
 fun profileItem(name: String) = "${PROFILE_ITEM_PREFIX}${slug(name)}"
 // → "profile_item_${slug(name)}"
 ```
+
 This does NOT end with `${slug(` as a terminal interpolation — the slug is in
 the middle of a larger template literal. `DYNAMIC_FUN_REGEX` only matches
 functions where the **last** interpolation is `${slug(...)`, so `profileItem`
@@ -111,6 +115,7 @@ inside a larger expression will silently break the Maestro tag contract. The
 regex is a heuristic, not a semantic guarantee.
 
 **Try next:**
+
 1. Change `DYNAMIC_FUN_REGEX` to match any function body containing `${slug(`
    anywhere (remove the `$` anchor at end), and then filter by whether the
    function's return type is `String` — or better, check whether the slug
@@ -139,6 +144,7 @@ added a useful check (e.g., license header), it would be silently skipped.
 Agents cannot be expected to manually audit hook bypasses.
 
 **Try next:**
+
 1. ~~Make the pre-commit hook worktree-aware by checking whether it is running
    inside a worktree and skipping compile if so — or only running compile
    against the worktree's own sources.~~ **Done, in the opposite direction:**
@@ -177,11 +183,11 @@ takes `(condition, message: String)` — NOT a lambda. Use `assertTrue(condition
 ## Consequences
 
 - (a) `MaestroFlowTagsTest` will need updating if anyone adds a new dynamic
-    function to `TestTags.kt` — the agent must remember to either update
-    `DYNAMIC_FUN_REGEX` or add a companion exception.
+  function to `TestTags.kt` — the agent must remember to either update
+  `DYNAMIC_FUN_REGEX` or add a companion exception.
 - (b) `profileItem` and `calendarDay` are permanent companion exceptions in
-    `MaestroFlowTagsTest` until `DYNAMIC_FUN_REGEX` is hardened.
+  `MaestroFlowTagsTest` until `DYNAMIC_FUN_REGEX` is hardened.
 - (c) Worktree commits will continue to need `--no-verify` until the hook is
-    fixed or documented.
+  fixed or documented.
 - (d) No detekt rule currently catches `kotlin.io.path.*` — the gap is
-    invisible unless a developer reads the rule implementation.
+  invisible unless a developer reads the rule implementation.

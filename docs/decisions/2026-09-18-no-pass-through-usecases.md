@@ -52,6 +52,7 @@ Four options for prevention:
 **Remove `Clock` parameter** from `ChecklistUseCase` — no remaining method uses `clock.now()`.
 
 **Consumers updated:**
+
 - `ChecklistEditorViewModel` — now takes `ChecklistRepository` alongside `ChecklistUseCase`; calls `repository.watchByTask()` and `repository.delete()` directly; `addItem`/`toggleItem` stay on the use case.
 - `TaskDetailViewModel` (via `TaskDetailDeps`) — add `checklistRepository: ChecklistRepository` field; `watchByTask` and `delete` go to the repo; `addItem`/`toggleItem` go to the use case.
 - `TasksDiModule.kt` — `factory { ChecklistUseCase(get()) }` (Clock removed); `ChecklistEditorViewModel` receives two constructor args; `TaskDetailDeps` receives the new repo field.
@@ -64,6 +65,7 @@ Four options for prevention:
 **Heuristic** (PSI-only, no `BindingContext`):
 
 A method in a `*UseCase` class is flagged when ALL of:
+
 - Class name ends with `UseCase` (excluding abstract `LlmUseCase<I,O>`)
 - Function has an **expression body** (single-expression shortcut: `fun foo() = repo.bar()`)
 - The call receiver is a property on the class whose declared type name ends in `Repository`
@@ -71,6 +73,7 @@ A method in a `*UseCase` class is flagged when ALL of:
 - The call receiver is **not** `tool` (LLM use cases call Koog tools)
 
 **Safe by construction** (rule does not fire on):
+
 - `UpdateTagUseCase` — single `tag.copy(updatedAt = clock.now())`; body is `KtCallExpression` whose receiver `tag` is a `Tag`, not `*Repository`
 - `CreateTaskUseCase` — `TaskDomain.buildTask(...)` + `repo.create(...)` inside a `KtBlockExpression` (not expression body)
 - `SearchUseCase` — `combine(...)` call inside a `KtBlockExpression`

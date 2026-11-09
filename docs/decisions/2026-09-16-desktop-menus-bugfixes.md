@@ -40,9 +40,11 @@ Added `TaskPinClicked`, `TaskDeleteClicked`, `TaskExpandClicked` to `AgendaInten
 ### subMenu trailing lambda
 
 Added overload:
+
 ```kotlin
 fun subMenu(id: String, label: String, icon: ImageVector? = null, enabled: Boolean = true, block: MenuNodesBuilder.() -> Unit)
 ```
+
 The `children = buildMenuNodes { }` awkward form is now rarely needed.
 
 ## Rationale

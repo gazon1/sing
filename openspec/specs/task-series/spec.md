@@ -1,6 +1,7 @@
 # task-series Specification
 
 ## Purpose
+
 One piece of work scheduled on several dates: one task row per date, all
 sharing one series identity, with the shared fields edited for the whole
 series in one operation.
@@ -73,10 +74,12 @@ series that is broken.
 member, and that the members are written together.
 
 #### Scenario: Editing the title of one member
+
 - The user edits the title of one task of a series
 - Every task of the series carries the new title
 
 #### Scenario: A write that fails halfway
+
 - The write of the series fails
 - No member carries the new title
 
@@ -96,6 +99,7 @@ destroy work the user did not ask to destroy.
 others untouched.
 
 #### Scenario: Completing one occurrence
+
 - The user completes one task of a series
 - The other tasks of the series stay open
 
@@ -116,6 +120,7 @@ that creates the task.
 dates becomes a series, whatever screen wrote the draft.
 
 #### Scenario: Starting a series from the calendar
+
 - The user long-presses a day that holds tasks
 - The user taps three more days
 - The user taps "Создать задачу"
@@ -123,6 +128,7 @@ dates becomes a series, whatever screen wrote the draft.
 - Saving creates four tasks that share one series identity
 
 #### Scenario: Starting a series from the agenda
+
 - The user taps the "task on several days" action in the top bar
 - The user picks three days
 - The editor opens with the three dates
@@ -192,12 +198,14 @@ only visible to the code.
 for a task of a series and absent for a task that stands alone.
 
 #### Scenario: Opening a task of a series
+
 - The task belongs to a series of three
 - The detail screen shows the series card
 - The card names the three dates
 - Tapping a date opens that occurrence
 
 #### Scenario: A task that stands alone
+
 - The task belongs to no series
 - The detail screen shows no series card
 
@@ -252,6 +260,7 @@ writes the identity needs the server to accept it.
 and the allowlist gate fails if the client and the server seed disagree.
 
 #### Scenario: A backup and a restore
+
 - A task of a series is backed up
 - The backup is restored
 - The restored task still belongs to the series

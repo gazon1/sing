@@ -1,7 +1,7 @@
 # Plans: the chosen granularity is restored the next time Plans is opened.
 #
 # The round trip is the point: a setting that resets every time the user leaves
-# the tab is a setting the user has to set again every time, which is a
+# the screen is a setting the user has to set again every time, which is a
 # different feature from the one that was asked for.
 #
 # The week section is addressed by its own id, which carries the date of the
@@ -19,8 +19,11 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 - extendedWaitUntil:
     visible:
       id: plans_granularity_day
@@ -28,19 +31,27 @@ tags:
 # The user chooses the week.
 - tapOn:
     id: plans_granularity_week
+# The week section is the arrival signal for the seeded task: a section header
+# renders only when the section holds a task, so this wait is the task
+# arriving and not a proxy for it (the contract in helpers/seed.yaml).
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
-# Leaving the tab and coming back: the choice is still in effect.
+# Leaving Plans for Today and coming back through the menu: the choice is
+# still in effect.
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
+# The same section, still there: the week grouping survived the round trip.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

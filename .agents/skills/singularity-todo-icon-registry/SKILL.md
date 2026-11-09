@@ -8,6 +8,7 @@ description: KMP-native pattern for user-facing icon selection registries (proje
 ## The Problem
 
 When adding a project icon picker, tag emoji picker, or any user-facing icon selector, how do you:
+
 1. Define the available icons in a type-safe, KMP-compatible way?
 2. Store the selected icon in the database?
 3. Render the icon in a picker UI?

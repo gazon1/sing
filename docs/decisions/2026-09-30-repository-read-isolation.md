@@ -10,6 +10,7 @@ tags: [mr, architecture, repository]
 Repository read methods that return data for multiple entities must be scoped to the current user — either through a scoped DAO query (`user_id` in WHERE) or by combining with `currentUserFlow`. An unscoped read is a cross-profile data leak.
 
 Two read paths in `TaskRepositoryImpl` were identified as unscoped:
+
 - `observeDependencies()` called `TaskDao.getDependencyIdsForTask()` — no userId filter
 - `observeBlockingBy()` called `TaskDao.getBlockingTaskIdsForTask()` — no userId filter
 

@@ -1,12 +1,9 @@
 package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncStateEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -30,23 +27,21 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration35To36Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration35to36-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { applyExportedSchema(35, it) }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        fixture.connect().use { applyExportedSchema(35, it) }
+        return fixture.database()
     }
 
     @Test

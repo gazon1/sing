@@ -160,6 +160,13 @@ tasks.withType<Test>().configureEach {
             }
         }
     }
+    // No `failOnNoDiscoveredTests = true` here, unlike every other module.
+    // This module's only test class is `@Tag("slow")`, and the default filter
+    // above EXCLUDES slow — so the default run of this module discovers
+    // nothing by design, and the flag would turn a correct "this module has
+    // no fast tests" into a failed build. The floor in
+    // `config/docs/test-runs-baseline.txt` records `0 0` for the same reason.
+    // The fix is a second untagged fast test class, not a flag.
     // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
     // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
     // Kover agent attached), and 1536 MB carries the whole suite without one.
@@ -175,14 +182,18 @@ tasks.withType<Test>().configureEach {
         "-XX:HeapDumpPath=build/test-heap-dumps",
     )
     // Allure test reporting — results written to build/allure-results/
-    // See shared/build.gradle.kts for the full explanation of why workingDir is used
-    // instead of the allure.results.directory system property.
+    // The listener reads `allure.results.directory` from the system properties, so
+    // the results land flat in this directory instead of one level deeper
+    // (`build/allure-results/allure-results/`), which is what every upload glob
+    // and the report generator expect. See shared/build.gradle.kts for the full
+    // explanation — and for why `workingDir` stays anyway.
     val allureDir =
         layout.buildDirectory
             .dir("allure-results")
             .get()
             .asFile
-    workingDir = allureDir.also { it.mkdirs() }
+    systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
+    workingDir = allureDir
     // Absolute path to the fat JAR, needed by McpServerEndToEndTest because
     // workingDir above is build/allure-results/ and the test would otherwise look
     // for the JAR at build/allure-results/build/libs/mcp-server.jar.
@@ -192,11 +203,22 @@ tasks.withType<Test>().configureEach {
             .get()
             .asFile.absolutePath
     systemProperty("mcp-server.jar.path", jarPath)
+    // The fat JAR is an input of the end-to-end test, not a precondition the
+    // developer has to satisfy by hand. It used to be the latter: the test asked
+    // whether the JAR was there and skipped itself when it was not, and a skipped
+    // test is a silent green — the end-to-end coverage was gone and the run still
+    // reported success. Building it here makes the absence of the JAR a broken
+    // build, which is what it is.
+    dependsOn(tasks.named("jar"))
 }
 
 // Produce a fat JAR with all runtime deps merged
 tasks.named<Jar>("jar") {
     archiveFileName.set("mcp-server.jar")
+    // The merged runtime classpath (Compose, Koog, Room) is over the 65535-entry
+    // ZIP limit. Zip64 is the format's answer; the entry count is a property of the
+    // dependency set, not of this module's own sources.
+    isZip64 = true
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes["Main-Class"] = "com.singularity.todo.mcp.MainKt"

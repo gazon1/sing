@@ -5,7 +5,7 @@
 #
 # Backup/restore in this app is a local file round-trip; the test proves the task
 # survives a full data wipe and restore without corruption.
-# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
+# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: backup-round-trip
 tags:
@@ -27,20 +27,7 @@ tags:
     timeout: 8000
 
 # 2. Open Settings and navigate to Backup.
-- runFlow: ../../helpers/open-app-menu.yaml
-# The menu sheet opens with Settings already on screen. Scrolling it with
-# scrollUntilVisible pushed the entry down into the system navigation bar,
-# where the tap lands on the system HOME button instead of the entry.
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_dropdown
-    timeout: 10000
+- runFlow: ../../helpers/open-settings.yaml
 - runFlow:
     file: ../../helpers/settings-tab.yaml
     env:
@@ -60,48 +47,24 @@ tags:
 
 # 4. Remove the task (simulating a wipe). The backup now lives outside the app
 # (SAF), so clearState would no longer delete it; we still delete the task by
-# hand to keep the round trip focused on restore.
-- tapOn:
-    id: task_item_backuproundtriptask
-- extendedWaitUntil:
-    visible:
-      id: task_editor_title_input
-    timeout: 5000
-- tapOn:
-    id: task_editor_more_menu
-- extendedWaitUntil:
-    visible:
-      id: overflow_delete
-    timeout: 5000
-- tapOn:
-    id: overflow_delete
-- back
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_inbox
-    timeout: 10000
+# hand to keep the round trip focused on restore. The seed's cleanup link is the
+# sanctioned way to remove a fixture: the task detail's own overflow menu is a
+# no-op on Android, where the shell owns the only top bar.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "cleanup=BackupRoundTripTask"
 
 # 5. The task must be gone.
+- tapOn:
+    id: nav_tab_inbox
 - extendedWaitUntil:
     notVisible:
       id: task_item_backuproundtriptask
     timeout: 8000
 
 # 6. Restore from backup.
-- runFlow: ../../helpers/open-app-menu.yaml
-# The menu sheet opens with Settings already on screen. Scrolling it with
-# scrollUntilVisible pushed the entry down into the system navigation bar,
-# where the tap lands on the system HOME button instead of the entry.
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_dropdown
-    timeout: 10000
+- runFlow: ../../helpers/open-settings.yaml
 - runFlow:
     file: ../../helpers/settings-tab.yaml
     env:
@@ -114,13 +77,22 @@ tags:
     id: backup_restore_button
 # The restore now goes through the system file picker (SAF): the archive lives
 # where the user saved it, not in the app's hidden backupDir. Pick the backup
-# we just created by its file-name prefix, then wait for the snackbar.
+# we just created by its file-name prefix, then wait for the snackbar. The text
+# is a regex and matches the whole name, so it names the file row and not the
+# preview icon, whose description carries the same name inside a sentence.
 - extendedWaitUntil:
     visible:
-      text: "singularity_backup"
+      text: "singularity_backup_[0-9]+.*"
     timeout: 8000
 - tapOn:
-    text: "singularity_backup"
+    text: "singularity_backup_[0-9]+.*"
+# Restoring overwrites the profile's data, so the app asks first.
+- extendedWaitUntil:
+    visible:
+      id: dialog_confirm
+    timeout: 8000
+- tapOn:
+    id: dialog_confirm
 # The restore reports itself in a snackbar too. The text the flow used to wait
 # for ("Restore completed") is not the text the app emits ("Restore complete"),
 # and it is translated on this device besides — so the tag is what the flow

@@ -18,6 +18,7 @@ status: accepted
 ## Idea
 
 Варианты:
+
 1. **Оставить `factory {}` + `koinInject()`** — текущая схема работает, но создаёт новый VM при каждом навигационном переходе; VM не привязан к lifecycle
 2. **`viewModelOf(::VM)` + `koinViewModel()`** — современный Koin 4.x паттерн; VM scoped к `ViewModelStoreOwner`; constructor-reference убирает boilerplate
 3. **Koin Annotations `@Single class VM`** — compile-time verification, но KSP processor не настроен; миграция значительна
@@ -29,6 +30,7 @@ status: accepted
 **Исключение:** `TaskEditorViewModel` с runtime-параметром `initialDueDate` — оставить `viewModel { (p) -> VM(p, ...) }` + `koinViewModel { parametersOf(p) }`.
 
 **Snapshot:**
+
 - 14 VM → `viewModelOf(::VM)` (ChatViewModel, ArchiveViewModel, StatisticsViewModel, TagsViewModel, NotesViewModel, ProjectEditorViewModel, ProjectDetailViewModel, ChecklistEditorViewModel, SearchViewModel, SettingsViewModel, AttachmentsViewModel, AuthViewModel, BackupViewModel, TaskDetailViewModel)
 - 2 VM → `viewModel { Vm(get(), ...) }` с явными deps (TasksViewModel, ProjectsViewModel) — `viewModelOf` с nullable dep + `getOrNull()` не работает корректно на JVM
 - 1 VM → `viewModel { (initialDueDate) -> TaskEditorViewModel(...) }` (runtime-параметр)

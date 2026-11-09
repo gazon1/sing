@@ -82,7 +82,7 @@ Two examples worth reading before you write one:
 
 - A change that alters a contract, a layer boundary, or a non-obvious tradeoff
   gets an ADR in `docs/decisions/`, then
-  `./scripts/refresh-decisions-digest.sh`.
+  `python3 scripts/refresh-decisions-digest.py`.
 - The digest is generated. Do not hand-edit it.
 - `just docs-audit` checks freshness and normalisation.
 

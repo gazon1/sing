@@ -25,6 +25,7 @@ layer, use cases, ViewModels, and the Calendar mapper — without touching the C
 ### `TaskComputed.isActive`
 
 New derived predicate replacing the old hand-rolled checks:
+
 ```kotlin
 fun isActive(task: Task, today: LocalDate): Boolean {
     if (task.isCompleted || task.isTrashed) return false
@@ -35,6 +36,7 @@ fun isActive(task: Task, today: LocalDate): Boolean {
 ```
 
 A task is **active** on a given day when:
+
 - It is not completed and not trashed
 - `today >= startDate` (or `startDate` is null)
 - `today <= endDate` (or `endDate` is null)
@@ -51,6 +53,7 @@ remove the "requires migration" notes.
 ### `TaskDraft` + `TaskCreateIntent`
 
 `TaskDraft` (the serializable draft persisted via `DraftStore`) now carries:
+
 ```kotlin
 val startDate: DueDateOption = DueDateOption.None
 val startTime: LocalTime? = null
@@ -61,6 +64,7 @@ val emoji: String? = null
 ```
 
 New intents added to `TaskCreateIntent`:
+
 - `SetStartDate`, `SetStartTime`
 - `SetEndDate`, `SetEndTime`
 - `SetAccentColor`, `SetEmoji`

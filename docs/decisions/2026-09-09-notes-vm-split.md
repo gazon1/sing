@@ -16,6 +16,7 @@ status: accepted
 These scopes never overlap. A single note being edited has no effect on the list filter. The preview never touches editor state.
 
 Keeping them in one ViewModel meant:
+
 - Every state holder (`filter`, `selectedIds`, `editorState`, `previewNote`) was alive for the entire app lifetime
 - Testing required instantiating all five concerns even when testing only one
 - Confusing naming (`NotesViewModel.openEditor`, `NotesViewModel.navigateToNote`)
@@ -33,12 +34,15 @@ Split into three focused ViewModels, each with a single clear responsibility:
 **Key architectural decisions per VM:**
 
 ### NotesListViewModel
+
 Injects `NotesRepository`, `ProfileAwareCurrentUser`. Owns `StateFlow<NotesUiState>` with sealed `Empty / Loading / Loaded`.
 
 ### NoteEditor
+
 Injects `NotesRepository`, `ProfileAwareCurrentUser`, `IdGenerator`, `AutosaveScheduler`, optional `ImproveNoteUseCase`. Owns `StateFlow<EditorState>` (sealed: `Empty / Loading / Editing / Saving`). Extracts `persist(html, title, id, navigateBack)` private method to eliminate 6-line duplication between `saveNow` and `scheduleAutosave`.
 
 ### NotePreview
+
 Injects `NotesRepository`, `InternalLinkRepository`, `ProfileAwareCurrentUser`. Owns `StateFlow<NotePreviewState>` (sealed: `Loading / Loaded(note, backlinks)`). Observes single note via `repo.watchNote()`, fetches backlinks via `linkRepo.getBacklinkNotes()`.
 
 ## Rationale
@@ -52,12 +56,14 @@ Injects `NotesRepository`, `InternalLinkRepository`, `ProfileAwareCurrentUser`. 
 ## Consequences
 
 ### Positive
+
 - VMs are independently testable with focused test suites
 - Editor session state is released when user navigates away
 - Each VM is small enough to understand fully (~60-150 lines)
 - Previews for each screen can use `koinViewModel { parametersOf(...) }` without circular dependency
 
 ### Negative
+
 - Three Koin registrations instead of one
 - `NotesRoute` now injects `NotesListViewModel` via `koinViewModel()`, `NoteEditor` and `NotePreview` are injected via their respective screen composables
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state

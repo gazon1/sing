@@ -1,0 +1,32 @@
+name: easement
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # easement indexes Python through `scip-python`; without it the check exits 2
+      # before reading a single file, which is what made the job red on every PR.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the Python indexer easement delegates to
+        run: npm install -g @sourcegraph/scip-python
+      # The fork, not the upstream action: the fix for a duplicated declaration
+      # across components (mokevnin/easement#114) is not in an upstream release
+      # yet, and the fork's install.sh installs the fork's release.
+      #
+      # The version is pinned to the same release mise installs, so CI and a
+      # laptop judge the tree with one binary. Left at the default (`latest`),
+      # the gate would follow the fork's next release silently.
+      - uses: gazon1/easement@main
+        with:
+          version: 0.5.1
+          diff: origin/main

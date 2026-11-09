@@ -132,18 +132,22 @@ sourceSets {
             testImplementation(libs.koog.agents)
             // Allure test reporting — generates JSON results for CI integration
             implementation(libs.allure.kotlin.junit5)
+            // The database classes moved out of :shared into :core-database, which
+            // :shared declares as `implementation`; the tests name it directly.
+            implementation(project(":core-database"))
         }
     }
 }
 
 dependencies {
     implementation(project(":shared"))
-            implementation(project(":shared-ui"))
 
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.koin.core)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.rich.editor.compose)
     implementation(libs.compose.material)
     implementation(libs.coil.compose)
 
@@ -389,7 +393,8 @@ tasks.withType<Test>().configureEach {
     // mergeReruns=true: retry attempts are merged into one <testcase> element with a
     // <flakyFailure> child. This prevents check-test-runs.py from double-counting retries
     // and ensures the annotation script sees one entry per test method.
-    reports.junitXml.mergeReruns.set(true)
+    // The setting itself lives in the root `build.gradle.kts`, where every test task
+    // gets it; the reader in `scripts/src/traceability/junit_xml.py` depends on it.
 
     // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
     // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
