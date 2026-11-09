@@ -104,6 +104,19 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
     fun setDescription(description: String) {
         _state.value = _state.value.copy(description = _state.value.description.typed(description))
     }
+
+    /**
+     * Puts the title back on the value the repository last accepted.
+     *
+     * Used when an edit is refused — a blank title is not a name, so the write is
+     * dropped and the field has to show the truth rather than the rejected text.
+     * The revision moves, so the bridged field treats the stored title as a
+     * replacement and not as an echo of its own last push.
+     */
+    fun revertTitle() {
+        val current = _state.value
+        _state.value = current.copy(title = current.title.replacedBy(current.originalTitle))
+    }
 }
 
 /**
@@ -113,7 +126,11 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
  *   was replaced from outside.
  * @property description the description as the field shows it, and the count of the
  *   times it was replaced from outside.
- * @property originalTitle the title as the repository last accepted it.
+ * @property originalTitle the title as the repository last accepted it. It moves
+ *   on every accepted write, not only on the first seed: the saved task comes
+ *   back through [seed], which recognises the echo of our own write and moves the
+ *   baseline with it. That is what makes [revertTitle] put the field back on the
+ *   *latest* accepted title rather than the one the screen opened with.
  * @property originalDescription the description as the repository last accepted it.
  * @property initialized whether the draft has been seeded at all.
  */

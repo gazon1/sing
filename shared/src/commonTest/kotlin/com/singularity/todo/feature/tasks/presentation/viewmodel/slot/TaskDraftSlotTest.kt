@@ -241,6 +241,46 @@ class TaskDraftSlotTest {
             assertNotNull(saved)
             assertEquals("🎯", saved.emoji, "an unrelated field must survive a debounced title write")
         }
+
+    @Test
+    fun `a blank title is refused and the draft returns to the stored one`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1", title = "Original"))
+            val source = TaskSource(task("t1", title = "Original"))
+            val slot =
+                TaskDraftSlot(
+                    core = fakes.core(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            slot.seed("Original", "")
+            runCurrent()
+
+            // Whitespace-only, not the empty string: the rule the field and the write
+            // share says a title of spaces is a title with no name.
+            slot.onIntent(TaskDetailIntent.Domain.TitleChanged("   "))
+            advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+            runCurrent()
+
+            assertEquals(
+                "Original",
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.title,
+                "a blank title must not reach the store",
+            )
+            assertEquals(
+                "Original",
+                slot.state.value.title.value,
+                "the field settles back on the title the store holds",
+            )
+            assertEquals(
+                "Original",
+                slot.state.value.originalTitle,
+                "a refused edit leaves the draft clean",
+            )
+        }
 }
 
 @Test

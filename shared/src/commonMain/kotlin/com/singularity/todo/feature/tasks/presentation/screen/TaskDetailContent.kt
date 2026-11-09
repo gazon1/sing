@@ -76,6 +76,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
+import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
@@ -361,6 +362,14 @@ fun TaskDetailContent(
                                     attachments = remember(attachments) { attachments.toImmutableList() },
                                 ),
                             titleSource = ui.titleSource,
+                            // Nothing under the field until the title has been edited — a
+                            // task that arrived with a valid title is not an edit in progress,
+                            // and opening it must not paint a red message. A task that arrived
+                            // with a blank title keeps the message: the title is still invalid,
+                            // and hiding it would hide why the autosave refuses the write.
+                            titleError =
+                                TaskTitleValidation.error(ui.titleDraft.value)
+                                    .takeIf { ui.task.title.isBlank() || ui.titleDraft.value != ui.task.title },
                             descriptionSource = ui.descriptionSource,
                             savedVisible = savedPill.visible,
                             onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },

@@ -77,6 +77,10 @@ class TaskDraftSlot(
 
         scope.launch {
             titleEdits.debounce(debounceMs).collect { edit ->
+                if (edit.title.isBlank()) {
+                    draftState.revertTitle()
+                    return@collect
+                }
                 val task = taskFlow.value ?: return@collect
                 write(task, edit) { copy(title = edit.title) }
             }
@@ -137,7 +141,7 @@ class TaskDraftSlot(
     fun flush() {
         val task = taskFlow.value ?: return
         val draft = draftState.state.value
-        if (draft.title.value != task.title) {
+        if (draft.title.value.isNotBlank() && draft.title.value != task.title) {
             scope.launch {
                 write(task, TaskDetailIntent.Domain.TitleChanged(draft.title.value)) { copy(title = draft.title.value) }
             }
