@@ -416,7 +416,12 @@ jobs:
         with:
           name: gate-junit-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/diagnostics/gate-tests/*.xml
-          if-no-files-found: error
+          # `warn`, not `error`: this upload runs under `always()`, so a job
+          # cancelled before the gate tests wrote their report would fail here
+          # for the want of a file — and the cancellation would be reported as
+          # a failure of the upload instead of as the cancellation it was.
+          # The absence of the report is recorded in the evidence.
+          if-no-files-found: warn
           retention-days: 7
 
       # "Gates are alive" — the probe that runs every registered gate once and

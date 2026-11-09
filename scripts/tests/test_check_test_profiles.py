@@ -362,6 +362,41 @@ class EvidenceConditionTest(unittest.TestCase):
             f"a correct upload was called out: {violations}",
         )
 
+    def test_an_upload_that_fails_on_a_missing_report_is_a_finding(self) -> None:
+        # The upload runs under `always()`, so the report it looks for may
+        # never have been written — and a job cancelled before that would be
+        # reported as a failure of the upload instead of as the cancellation.
+        workflow = WORKFLOW + """\
+      - name: Upload JUnit results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-results-${{ github.run_id }}
+          path: shared/build/test-results/**/*.xml
+          if-no-files-found: error
+"""
+        violations = FakeRepo(workflow=workflow).violations()
+        self.assertTrue(
+            any("if-no-files-found" in v for v in violations),
+            f"the failing upload was not called out: {violations}",
+        )
+
+    def test_an_upload_that_warns_about_a_missing_report_is_not_a_finding(self) -> None:
+        workflow = WORKFLOW + """\
+      - name: Upload JUnit results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-results-${{ github.run_id }}
+          path: shared/build/test-results/**/*.xml
+          if-no-files-found: warn
+"""
+        violations = FakeRepo(workflow=workflow).violations()
+        self.assertFalse(
+            any("if-no-files-found" in v for v in violations),
+            f"a correct upload was called out: {violations}",
+        )
+
 
 class ScriptMentionTest(unittest.TestCase):
     """What counts as a script that runs a task."""

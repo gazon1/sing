@@ -513,6 +513,18 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
                 f"always() — the evidence of a run that failed, was skipped or was cancelled "
                 f"is exactly the evidence a reader needs"
             )
+        # The same step must not turn the absence of a report into a failure
+        # of the upload: it runs on `always()`, so the report it looks for may
+        # never have been written. The absence is what the evidence index is
+        # for; the upload is only a way to carry it.
+        with_block = step.get("with") if isinstance(step.get("with"), dict) else {}
+        if str(with_block.get("if-no-files-found") or "") == "error":
+            violations.append(
+                f"{location}: the upload of the evidence of the run fails when the report is "
+                f"absent (if-no-files-found: error) — a job cancelled before the report was "
+                f"written would be reported as a failure of the upload instead of as the "
+                f"cancellation it was"
+            )
 
     if verbose:
         for name in sorted(declared):
