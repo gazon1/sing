@@ -43,9 +43,14 @@ outputs:
 runs:
   using: composite
   steps:
+    # No `version:` here. mise-action interpolates the input into the release
+    # URL (`releases/download/v<version>/`), so the literal string "latest"
+    # became `vlatest` and 404'd. With the input omitted the action resolves
+    # the real latest release itself (https://mise.jdx.dev/VERSION) and the
+    # download URL is one that exists. The gate-tool pins live in mise.toml;
+    # mise itself is not pinned, same as the other mise-action call in ci.yml.
     - uses: jdx/mise-action@v2
       with:
-        version: latest
         install: true
         cache: true
 

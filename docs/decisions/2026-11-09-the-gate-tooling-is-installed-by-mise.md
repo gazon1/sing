@@ -110,6 +110,14 @@ pins test asserts that the answer is the pin.
 - A tool that mise pins as `latest` has no version to ask for. The resolver
   refuses it, and the pins test requires a fixed version for every tool the
   gate suite shells out to.
+- The mise-action call names no version of mise. The action interpolates its
+  `version` input into the release URL it downloads from, so the string
+  "latest" became `vlatest` and the download 404'd — a runner that never
+  downloaded mise because the action's cache was warm, until a changed
+  `mise.toml` invalidated that cache. With the input omitted the action
+  resolves the real latest release itself, from `https://mise.jdx.dev/VERSION`.
+  The pins test holds that: every mise-action call site asks for a version or
+  for nothing, never for a word.
 - `scripts/tests/test_setup_local_tools_sh.py` was rewritten: it described a
   shared store of PyPI wheels that main removed with the move to mise. What it
   covers now is what the script does — a missing tool is a loud failure, and

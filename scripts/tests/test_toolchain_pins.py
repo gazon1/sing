@@ -10,7 +10,8 @@ This test holds that arrangement in place:
 
 * every gate tool the suite shells out to has a fixed version in mise.toml;
 * neither install path repeats a version literal;
-* no version literal appears anywhere else in the repository.
+* no version literal appears anywhere else in the repository;
+* no mise-action call asks for a version that is not a version.
 
 The expected values are *derived from mise.toml*, not hard-coded here. A test
 that hard-codes the versions would have to be edited every time a pin moves,
@@ -30,6 +31,7 @@ Run with: python3 -m unittest discover -s scripts/tests
 """
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -259,6 +261,81 @@ class ConsumerTest(unittest.TestCase):
                         text,
                         f"{consumer.name} repeats the pin {literal} — "
                         "mise.toml is the only place it may appear",
+                    )
+
+
+class MiseActionVersionTest(unittest.TestCase):
+    """No mise-action call asks for a version that is not a version.
+
+    `jdx/mise-action` interpolates its `version` input into the release URL
+    it downloads from (`releases/download/v<version>/mise-v<version>-...`), so
+    the input has to be a version that exists. The string "latest" is not one:
+    it produced `vlatest`, and the download 404'd. The failure stayed hidden
+    for as long as the action's cache was warm — a cold cache (a changed
+    `mise.toml` invalidates it) is what exposed it.
+
+    With the input omitted the action resolves the real latest release itself,
+    from `https://mise.jdx.dev/VERSION`.
+    """
+
+    #: A version: digits and dots, with an optional leading "v".
+    VERSION = re.compile(r"^v?\d+(?:\.\d+)*$")
+
+    def mise_action_call_sites(self) -> list[pathlib.Path]:
+        """Every file under `.github/` that calls mise-action."""
+        return sorted(
+            path
+            for path in (ROOT / ".github").rglob("*")
+            if path.is_file() and path.suffix in {".yml", ".yaml"} and "jdx/mise-action" in path.read_text(encoding="utf-8")
+        )
+
+    def version_inputs(self, path: pathlib.Path) -> list[str]:
+        """The `version:` input of every mise-action step in `path`."""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        found: list[str] = []
+        for index, line in enumerate(lines):
+            if "jdx/mise-action" not in line:
+                continue
+            indent = len(line) - len(line.lstrip())
+            for follow in lines[index + 1 :]:
+                if follow.strip() and len(follow) - len(follow.lstrip()) <= indent:
+                    break  # the step ended
+                stripped = follow.strip()
+                if stripped.startswith("version:"):
+                    found.append(stripped.split(":", 1)[1].strip().strip("'\""))
+        return found
+
+    def test_the_scan_actually_finds_a_version_input(self):
+        # A scan that finds nothing proves nothing. This plants a mise-action
+        # step with a version and asserts the reader reports it.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "planted.yml"
+            path.write_text(
+                "jobs:\n"
+                "  build:\n"
+                "    steps:\n"
+                "      - uses: jdx/mise-action@v2\n"
+                "        with:\n"
+                "          version: latest\n"
+                "          install: true\n"
+                "      - name: next step\n",
+                encoding="utf-8",
+            )
+            found = self.version_inputs(path)
+        self.assertEqual(["latest"], found)
+
+    def test_no_mise_action_asks_for_a_version_that_is_not_a_version(self):
+        for path in self.mise_action_call_sites():
+            for value in self.version_inputs(path):
+                with self.subTest(path=path.name, version=value):
+                    self.assertRegex(
+                        value,
+                        self.VERSION,
+                        f"{path.name} asks mise-action for the version {value!r} — "
+                        "the action interpolates it into the release URL, so a "
+                        "non-version there is a download that cannot succeed. "
+                        "Omit the input and let the action resolve the latest "
+                        "release itself.",
                     )
 
 
