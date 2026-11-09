@@ -107,6 +107,11 @@ CLUSTERS: dict[str, tuple[str, ...]] = {
         "lint rules are declared decisions",
         "quality page states the enforced thresholds",
     ),
+    "the coverage contract holds": (
+        "coverage floor declaration",
+        "coverage task list",
+        "coverage timeout",
+    ),
 }
 
 
@@ -326,8 +331,8 @@ full one.""",
         command='sgate settings_read_by_a_feature',
     ),
     "coverage task list": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate coverage_task_list',
+        kind=PlacementKind.CLUSTER,
+        cluster="the coverage contract holds",
         note="""The coverage report measures every module that is in it.
 
 The list of test tasks that feed the aggregated report is written by hand,
@@ -338,8 +343,8 @@ like a coverage problem and is a measurement one.
 """,
     ),
     "coverage floor declaration": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate coverage_floor_declaration',
+        kind=PlacementKind.CLUSTER,
+        cluster="the coverage contract holds",
         note="""The coverage floor is declared where Kover reads it.
 
 The app coverage floors lived in the root build script for months, in a
@@ -350,8 +355,8 @@ stops it from moving back.
 """,
     ),
     "coverage timeout": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate coverage_timeout',
+        kind=PlacementKind.CLUSTER,
+        cluster="the coverage contract holds",
         note="""The timeout covers the run it was set for.
 
 The instrumented coverage run takes 37 minutes on the development host and
@@ -359,6 +364,18 @@ longer on a CI runner, and the job's timeout was a literal that nobody
 compared with that number. This gate reads the measured cost and the
 timeout and says so when the timeout cannot cover the measurement — before
 the job is killed at the moment it was about to report.
+""",
+    ),
+    "the coverage contract holds": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-coverage-contract.py',
+        note="""What the coverage job promises, in one row.
+
+Three checks read the coverage configuration: the report measures every module
+in it, the floor is declared where Kover reads it, and the timeout covers the
+measured run. They were three shell rows for one subject, and the wrapper runs
+all three and reports every failure rather than the first. The members keep
+their own scripts, tests and controls.
 """,
     ),
     "selectable text coverage": Placement(

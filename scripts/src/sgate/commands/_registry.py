@@ -601,6 +601,17 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="the coverage contract holds",
+        # One subject, three facts: the report measures every module in it, the
+        # floor is declared where Kover reads it, and the timeout covers the
+        # measured run. Each member keeps its own script, tests and control —
+        # the cluster changes the surface (one row instead of three), not the
+        # checks.
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-contract.py"),
+    ),
+    GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1563,6 +1574,28 @@ GATE_CONTROLS: dict[str, Control] = {
     # fails to restore.
     'ci-workflow-shape': Control(kind='sabotage', proves='scripts/check-ci-workflow-shape.py', argv=('{python}', 'scripts/check-ci-workflow-shape.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs\n            .dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over three red checks'),
     'detekt-governance': Control(kind='sabotage', proves='scripts/check-detekt-governance.py', argv=('{python}', 'scripts/check-detekt-governance.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over six red checks'),
+    # The coverage cluster: one subject, three checks. The probe is the
+    # timeout member's own sabotage — a job timeout shorter than the measured
+    # run — because removing a test task from the koverReport list can be a
+    # correct edit: a project the list stops naming is a project the coverage
+    # job no longer builds, so the check has nothing to complain about.
+    'coverage-contract': Control(
+        kind='sabotage',
+        proves='scripts/check-coverage-contract.py',
+        argv=('{python}', 'scripts/check-coverage-contract.py'),
+        path='.github/workflows/ci.yml',
+        edit=Edit(
+            kind='replace',
+            old='    timeout-minutes: 75',
+            new='    timeout-minutes: 30',
+            count=1,
+        ),
+        why=(
+            "the cluster reports every member that fails, so breaking one member "
+            "must make the cluster fail — a cluster that swallowed a member failure "
+            "would be one green row over three red checks"
+        ),
+    ),
     # doc-links: the lychee gate. The sabotage appends a *Markdown link* to a
     # file that does not exist — the shape this gate checks and the other one
     # does not. `check-doc-dead-refs.py` matches a path inside backticks, so the

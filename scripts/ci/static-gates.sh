@@ -377,33 +377,15 @@ gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_workt
 gate blocking "hook gates are declared once" sgate hook_gates_are_declared_once
 gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
-# The coverage report measures every module that is in it.
+# What the coverage job promises, in one row.
 #
-# The list of test tasks that feed the aggregated report is written by hand,
-# in the root build script. A module added to the build is not added to that
-# list, so its tests never run in the coverage job — and a module whose
-# classes ARE in the denominator is then scored as 0% covered, which reads
-# like a coverage problem and is a measurement one.
+# Three checks read the coverage configuration: the report measures every module
+# in it, the floor is declared where Kover reads it, and the timeout covers the
+# measured run. They were three shell rows for one subject, and the wrapper runs
+# all three and reports every failure rather than the first. The members keep
+# their own scripts, tests and controls.
 #
-gate blocking "coverage task list" sgate coverage_task_list
-# The coverage floor is declared where Kover reads it.
-#
-# The app coverage floors lived in the root build script for months, in a
-# `plugins.withId("…kover")` block that never executed — the root project has
-# no Kover extension to configure, so the floors were evaluated by no task.
-# The declaration now lives in settings.gradle.kts, and this gate is what
-# stops it from moving back.
-#
-gate blocking "coverage floor declaration" sgate coverage_floor_declaration
-# The timeout covers the run it was set for.
-#
-# The instrumented coverage run takes 37 minutes on the development host and
-# longer on a CI runner, and the job's timeout was a literal that nobody
-# compared with that number. This gate reads the measured cost and the
-# timeout and says so when the timeout cannot cover the measurement — before
-# the job is killed at the moment it was about to report.
-#
-gate blocking "coverage timeout" sgate coverage_timeout
+gate blocking "the coverage contract holds" python3 scripts/check-coverage-contract.py
 # The prose a person cannot copy.
 #
 # The inventory table in the selectable-text skill says which surfaces render

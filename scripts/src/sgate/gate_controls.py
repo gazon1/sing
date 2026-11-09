@@ -365,6 +365,17 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="coverage-contract",
+        cmd=[sys.executable, "scripts/check-coverage-contract.py"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "the cluster reports every member that fails, so breaking one member "
+            "must make the cluster fail — a cluster that swallowed a member failure "
+            "would be one green row over three red checks"
+        ),
+    ),
+    ScriptGate(
         name="recorded-ci-jobs",
         cmd=[sys.executable, "scripts/check-recorded-ci-jobs.py"],
         sabotage_path=".github/workflows/ci.yml",
