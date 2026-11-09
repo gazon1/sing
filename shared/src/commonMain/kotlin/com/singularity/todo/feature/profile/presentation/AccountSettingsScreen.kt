@@ -127,9 +127,14 @@ private fun AccountSettingsScreenDarkPreview() =
 /**
  * Stateless preview variant that takes an explicit callback instead of [LocalSettingsNavigator].
  * Mirrors the layout of [AccountSettingsScreen] without requiring the nav graph context.
+ *
+ * Public rather than internal because the desktop test module is a different
+ * compilation and cannot see an `internal` declaration of this one — and the
+ * screen it renders is the one that says who is signed in, so it is the one
+ * worth a test.
  */
 @Composable
-internal fun AccountSettingsScreenPreviewContent(
+fun AccountSettingsScreenPreviewContent(
     activeProfile: Profile?,
     onNavigateToProfileSwitcher: () -> Unit,
     onChangePassword: () -> Unit,
@@ -234,7 +239,7 @@ private fun ProfileAvatar(profile: Profile) {
 @Composable
 private fun AccountStatusSection(session: Session) {
     when (session) {
-        is Session.SignedIn ->
+        is Session.SignedIn -> {
             SettingsSection(title = "Signed in") {
                 Text(
                     text = "Signed in as",
@@ -247,13 +252,12 @@ private fun AccountStatusSection(session: Session) {
                     modifier = Modifier.testTag(TestTags.AUTH_ACCOUNT_EMAIL),
                 )
             }
+        }
 
-        is Session.Anonymous ->
+        is Session.Anonymous -> {
             SettingsSection(title = "Not signed in") {
-                Text(
-                    text = "Not signed in",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                // The title already says it; a second line saying it again
+                // said nothing and made the card read as a stutter.
                 SelectableText(
                     text =
                         "This device works on its own. Attach an account to keep your data " +
@@ -263,10 +267,13 @@ private fun AccountStatusSection(session: Session) {
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+        }
 
         // Nothing is known yet, and a signed-out session never reaches this
         // screen — the auth guard shows the sign-in screen instead.
-        Session.Loading, Session.SignedOut -> Unit
+        Session.Loading, Session.SignedOut -> {
+            Unit
+        }
     }
 }
 
@@ -374,11 +381,13 @@ private fun SignOutSection(
  */
 fun signOutExplanation(session: Session): String =
     when (session) {
-        is Session.SignedIn ->
+        is Session.SignedIn -> {
             "You will be signed out of this account on this device. " +
                 "Your tasks stay on this device."
+        }
 
-        else ->
+        else -> {
             "You are not signed in. Signing out returns you to the sign-in screen. " +
                 "Your tasks stay on this device."
+        }
     }

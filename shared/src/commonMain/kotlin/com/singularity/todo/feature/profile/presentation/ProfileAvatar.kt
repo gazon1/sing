@@ -51,7 +51,11 @@ fun ProfileAvatar(
         if (emoji.isBlank()) {
             Icon(
                 imageVector = Icons.Default.Person,
-                contentDescription = null,
+                // Named, because an unnamed icon says nothing to a screen
+                // reader — and because a test cannot tell "the fallback is
+                // drawn" from "the fallback is missing" when the two are the
+                // same invisible node.
+                contentDescription = "Profile avatar",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
