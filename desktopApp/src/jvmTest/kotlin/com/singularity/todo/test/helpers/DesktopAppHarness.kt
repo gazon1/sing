@@ -49,7 +49,7 @@ fun buildDesktopAppKoin(
                 domainModule() +
                 // Loaded after domainModule() on purpose: last-wins means coreModule()'s
                 // SupabaseAuthRepository would otherwise override the fake here.
-                listOf(testPlatformModule(), testKermitModule(), gateModule(RELEASES_URL)) +
+                testPlatformModule() + listOf(testKermitModule(), gateModule(RELEASES_URL)) +
                 fakeModelModule() +
                 listOfNotNull(clock?.let { fixed -> module { single<Clock> { fixed } } }) +
                 listOf(overrides),

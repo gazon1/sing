@@ -85,7 +85,7 @@ class DomainGraphResolutionTest {
                 modules(
                     listOf(coreLoggingModule()) +
                         domainModule() +
-                        listOf(testPlatformModule()),
+                        testPlatformModule(),
                 )
             }
         try {

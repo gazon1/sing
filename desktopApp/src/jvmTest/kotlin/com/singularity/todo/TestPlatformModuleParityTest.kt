@@ -32,7 +32,7 @@ class TestPlatformModuleParityTest {
         @TempDir tempRoot: Path,
     ) {
         val production = daoTypes(listOf(jvmPlatformModule(tempRoot.toFile())))
-        val test = daoTypes(listOf(testPlatformModule()))
+        val test = daoTypes(testPlatformModule())
         val missing = production - test
         assertTrue(
             missing.isEmpty(),
@@ -85,7 +85,7 @@ class TestPlatformModuleParityTest {
         @TempDir tempRoot: Path,
     ) {
         val production = portTypes(listOf(jvmPlatformModule(tempRoot.toFile())))
-        val test = portTypes(listOf(testPlatformModule()))
+        val test = portTypes(testPlatformModule())
         val missing = production - test
         assertTrue(
             missing.isEmpty(),
@@ -115,7 +115,7 @@ class TestPlatformModuleParityTest {
         @TempDir tempRoot: Path,
     ) {
         val production = directoryBindings(listOf(jvmPlatformModule(tempRoot.toFile())))
-        val test = directoryBindings(listOf(testPlatformModule()))
+        val test = directoryBindings(testPlatformModule())
         val missing = production - test
         assertTrue(
             missing.isEmpty(),

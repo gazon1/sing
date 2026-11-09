@@ -70,7 +70,7 @@ class TaskDetailCoordinatorGraphTest {
                     modules(
                         listOf(coreLoggingModule()) +
                             domainModule() +
-                            listOf(testPlatformModule()),
+                            testPlatformModule(),
                     )
                 }
             try {

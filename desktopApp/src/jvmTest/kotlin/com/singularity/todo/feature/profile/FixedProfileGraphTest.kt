@@ -62,7 +62,7 @@ class FixedProfileGraphTest {
                 @Suppress("KoinCompilationForInternal")
                 modules(
                     listOf(coreLoggingModule()) +
-                        listOf(testPlatformModule(), forbiddenStore) +
+                        testPlatformModule() + forbiddenStore +
                         domainModule(ProfileId.fromString("profile-1")),
                 )
             }
@@ -84,7 +84,7 @@ class FixedProfileGraphTest {
                 @Suppress("KoinCompilationForInternal")
                 modules(
                     listOf(coreLoggingModule()) +
-                        listOf(testPlatformModule(), forbiddenStore) +
+                        testPlatformModule() + forbiddenStore +
                         domainModule(),
                 )
             }

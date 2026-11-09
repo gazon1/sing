@@ -87,8 +87,22 @@ import java.util.concurrent.atomic.AtomicInteger
  * gets an inert implementation. `PreferenceDataStoreFactory` is the one thing that
  * genuinely needs a file, so each test gets a uniquely named one under a
  * single JVM-wide temp directory removed at exit, never mid-run.
+ *
+ * ## Why a list of modules
+ *
+ * The mirror is split in three — the data layer, the settings storage, and the
+ * OS-touching ports — because one module function carrying all of it sat exactly on
+ * detekt's `LongMethod` limit, so the next definition pushed it over. A list of
+ * modules at the root scope is also the shape the production graph uses
+ * (`domainModule()` returns a list, and `includes()` is avoided on purpose: it
+ * creates a child scope whose bindings siblings cannot see).
  */
-fun testPlatformModule(): Module =
+fun testPlatformModule(): List<Module> = listOf(testDataLayerModule(), testSettingsModule(), testOsPortModule())
+
+/**
+ * The in-memory data layer: the database, the unit of work and every DAO.
+ */
+private fun testDataLayerModule(): Module =
     module {
         // ─── Data layer ────────────────────────────────────────────────────────
         single<AppDatabase> { FakeAppDatabase() }
@@ -157,7 +171,14 @@ fun testPlatformModule(): Module =
         // frame: an endless redraw that reads as a hang rather than as a missing binding.
         // `FakeAppDatabase` already implements the DAO.
         single { get<AppDatabase>().annotationDao() }
+    }
 
+/**
+ * The settings storage — the DataStore files the settings repositories read — and
+ * the one-shot migration gate that production binds beside them.
+ */
+private fun testSettingsModule(): Module =
+    module {
         // ─── Settings storage ───────────────────────────────────────────────────
         // The three named bindings mirror platformModule(); domainModule()'s
         // appearance and settings repositories resolve the primary one.
@@ -188,6 +209,40 @@ fun testPlatformModule(): Module =
         // Without it, a graph that resolves the coordinator throws instead of skipping a pass.
         single(qualifier = named("calendar_sync")) { testDataStore("calendar_sync") }
 
+        // ─── Settings screen (SettingsViewModel) ────────────────────────────────
+        //
+        // Found 2026-10-07, and it is the reason no desktop flow test had ever opened
+        // Settings: `SettingsViewModel` takes `LogBundleExporter` and `FileSharePort`, and
+        // `platformModule()` — which binds both — is *replaced* by this module in the test
+        // harness, so the whole Settings screen died at construction with
+        //   InstanceCreationException: Could not create instance for '…SettingsViewModel'
+        // and the dialog's failure path swallowed it into a generic "Save failed"-style
+        // message. The screen rendered nothing and nothing said why.
+        //
+        // The cause is the harness's shape, not a missing production binding: replacing the
+        // platform module means every definition in it must be re-declared, and two were not.
+        // That is the cost of the substitution, and it is paid silently — which is why the
+        // gap went unnoticed until a test actually navigated there.
+        //
+        // `LogBundleExporter` gets the *real* implementation against the in-memory filesystem
+        // rather than `FakeLogBundleExporter`: its constructor only reads a directory path, and
+        // exercising the real ZIP writer here is what would catch a change to it. The fake
+        // remains available for tests that want an inert one.
+        single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
+
+        // Inert rather than `JvmFileSharePort`, for the same reason as `InertSharePort` above:
+        // the real one hands a file to the host desktop's file manager. The log-export row on
+        // Settings → Account is the only caller, and a test that presses it wants the failure
+        // mode, not a window opening on a CI box with no display.
+        single<FileSharePort> { InertFileSharePort() }
+    }
+
+/**
+ * Every port the production platform module binds that would touch the OS, the
+ * network, or a daemon — inert, real-but-harmless, or reused as production classes.
+ */
+private fun testOsPortModule(): Module =
+    module {
         // ─── Ports that would otherwise touch the OS ────────────────────────────
         // coreModule() binds the real SupabaseAuthRepository, whose session never
         // resolves without a network call, so ProfileAwareCurrentUser yields no
@@ -215,33 +270,6 @@ fun testPlatformModule(): Module =
         single<String>(BackupDirQualifier) { tempRoot().resolve("backups").absolutePath }
         single<String>(LogDirQualifier) { tempRoot().resolve("logs").absolutePath }
         single<String>(AttachmentDirQualifier) { tempRoot().resolve("attachments").absolutePath }
-
-        // ─── Settings screen (SettingsViewModel) ────────────────────────────────
-        //
-        // Found 2026-10-07, and it is the reason no desktop flow test had ever opened
-        // Settings: `SettingsViewModel` takes `LogBundleExporter` and `FileSharePort`, and
-        // `platformModule()` — which binds both — is *replaced* by this module in the test
-        // harness, so the whole Settings screen died at construction with
-        //   InstanceCreationException: Could not create instance for '…SettingsViewModel'
-        // and the dialog's failure path swallowed it into a generic "Save failed"-style
-        // message. The screen rendered nothing and nothing said why.
-        //
-        // The cause is the harness's shape, not a missing production binding: replacing the
-        // platform module means every definition in it must be re-declared, and two were not.
-        // That is the cost of the substitution, and it is paid silently — which is why the
-        // gap went unnoticed until a test actually navigated there.
-        //
-        // `LogBundleExporter` gets the *real* implementation against the in-memory filesystem
-        // rather than `FakeLogBundleExporter`: its constructor only reads a directory path, and
-        // exercising the real ZIP writer here is what would catch a change to it. The fake
-        // remains available for tests that want an inert one.
-        single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
-
-        // Inert rather than `JvmFileSharePort`, for the same reason as `InertSharePort` above:
-        // the real one hands a file to the host desktop's file manager. The log-export row on
-        // Settings → Account is the only caller, and a test that presses it wants the failure
-        // mode, not a window opening on a CI box with no display.
-        single<FileSharePort> { InertFileSharePort() }
 
         // ─── The Google sign-in ──────────────────────────────────────────────────────
         //
