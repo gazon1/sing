@@ -154,7 +154,11 @@ class BackupKeepExistingTest {
 
             assertEquals(
                 listOf("task-1", "task-2"),
-                db.taskDao().listAllForUser(owner.value).map { it.id }.sorted(),
+                db
+                    .taskDao()
+                    .listAllForUser(owner.value)
+                    .map { it.id }
+                    .sorted(),
                 "a restore that keeps the rows there removes nothing",
             )
             assertEquals(0, restored.entityCounts.tasks, "the archive carries no task row")
@@ -297,7 +301,6 @@ class BackupKeepExistingTest {
             BackupEntityKind.PROFILES to db.profileDao().listAll().size,
         )
 
-
     /**
      * A kept attachment row keeps the account's bytes: the archive's entry for the
      * same id is not written over the file the account already has.
@@ -327,32 +330,35 @@ class BackupKeepExistingTest {
             val archiveBytes = "archive-different-bytes".toByteArray()
             val archiveFile = File(tempDir, "att-archive.dat")
             archiveFile.writeBytes(archiveBytes)
-            val archivePayload = BackupPayload(
-                schemaVersion = BackupFormat.SCHEMA_VERSION,
-                tasks = removalTaskRows(now),
-                attachments = listOf(
-                    AttachmentDto(
-                        id = "attachment-1",
-                        taskId = "task-1",
-                        type = "file",
-                        title = "a.txt",
-                        fileSizeBytes = archiveBytes.size.toLong(),
-                        mimeType = "text/plain",
-                        checksum = BackupDomain.sha256Hex(archiveBytes),
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                ),
-            )
+            val archivePayload =
+                BackupPayload(
+                    schemaVersion = BackupFormat.SCHEMA_VERSION,
+                    tasks = removalTaskRows(now),
+                    attachments =
+                        listOf(
+                            AttachmentDto(
+                                id = "attachment-1",
+                                taskId = "task-1",
+                                type = "file",
+                                title = "a.txt",
+                                fileSizeBytes = archiveBytes.size.toLong(),
+                                mimeType = "text/plain",
+                                checksum = BackupDomain.sha256Hex(archiveBytes),
+                                createdAt = now,
+                                updatedAt = now,
+                            ),
+                        ),
+                )
 
-            val restored = restore(
-                writeArchive(
-                    archivePayload,
-                    "att.zip",
-                    attachments = listOf("attachment-1.dat" to archiveFile.absolutePath),
-                ),
-                keepExisting = true,
-            )
+            val restored =
+                restore(
+                    writeArchive(
+                        archivePayload,
+                        "att.zip",
+                        attachments = listOf("attachment-1.dat" to archiveFile.absolutePath),
+                    ),
+                    keepExisting = true,
+                )
 
             assertEquals(1, restored.keptEntityCounts.attachments, "the attachment row was already there")
             val row = db.attachmentDao().listAllForUser(owner.value).single { it.id == "attachment-1" }

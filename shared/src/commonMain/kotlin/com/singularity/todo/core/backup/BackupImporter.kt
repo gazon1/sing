@@ -146,9 +146,27 @@ class BackupImporter(
                     val existing =
                         if (options.keepExistingRows) existingRowKeys(options.targetUserId, ownerId) else null
                     val outcome =
-                        applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments, knownTaskIds, existing, kept)
+                        applyPayload(
+                            migrated,
+                            options.targetUserId,
+                            ownerId,
+                            now,
+                            read.attachments,
+                            knownTaskIds,
+                            existing,
+                            kept,
+                        )
                     for (changePayload in decodedChanges) {
-                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap(), knownTaskIds, existing, kept)
+                        applyPayload(
+                            changePayload,
+                            options.targetUserId,
+                            ownerId,
+                            now,
+                            emptyMap(),
+                            knownTaskIds,
+                            existing,
+                            kept,
+                        )
                         merged = merge(merged, changePayload)
                     }
                     outcome to merged
@@ -463,6 +481,8 @@ class BackupImporter(
                     .mapTo(mutableSetOf()) { it.id },
         )
 
+    // Keep in sync with BackupEntityKind.entries / existingRowKeys / KeptRows.counts.
+
     /**
      * [payload], less the rows the account already holds.
      *
@@ -471,7 +491,6 @@ class BackupImporter(
      * cannot take a row out, because the row it would take out is one of the
      * rows it was asked to leave alone.
      */
-    // Keep in sync with BackupEntityKind.entries / existingRowKeys / KeptRows.counts.
     private fun withoutExistingRows(
         payload: BackupPayload,
         existing: Map<BackupEntityKind, Set<String>>,
@@ -535,9 +554,13 @@ class BackupImporter(
                     kept.add(kind, rowKey)
                     true
                 }
+
                 // An earlier payload in this same restore wrote it (e.g. the base): do
                 // not re-insert — plain @Insert link rows would collide on their PK.
-                kept.wasWritten(kind, rowKey) -> true
+                kept.wasWritten(kind, rowKey) -> {
+                    true
+                }
+
                 else -> {
                     kept.markWritten(kind, rowKey)
                     false
@@ -560,25 +583,27 @@ class BackupImporter(
         // Compile canary: if a BackupEntityKind is added, update this exhaustive when,
         // existingRowKeys(), withoutExistingRows(), counts(), and the DAO/export reads.
         @Suppress("unused")
-        private fun allKindsHandled(kind: BackupEntityKind): Unit = when (kind) {
-            BackupEntityKind.TASK_TAGS,
-            BackupEntityKind.TASK_DEPENDENCIES,
-            BackupEntityKind.CHECKLIST_ITEMS,
-            BackupEntityKind.PROJECT_TAG_GROUPS,
-            BackupEntityKind.ATTACHMENT_ANNOTATIONS,
-            BackupEntityKind.ATTACHMENTS,
-            BackupEntityKind.AGENDA_VIEWS,
-            BackupEntityKind.SAVED_SEARCHES,
-            BackupEntityKind.TASK_REMINDERS,
-            BackupEntityKind.PROJECT_REMINDERS,
-            BackupEntityKind.TIME_ENTRIES,
-            BackupEntityKind.TAGS,
-            BackupEntityKind.TAG_GROUPS,
-            BackupEntityKind.TASKS,
-            BackupEntityKind.NOTES,
-            BackupEntityKind.PROJECTS,
-            BackupEntityKind.PROFILES -> Unit
-        }
+        private fun allKindsHandled(kind: BackupEntityKind): Unit =
+            when (kind) {
+                BackupEntityKind.TASK_TAGS,
+                BackupEntityKind.TASK_DEPENDENCIES,
+                BackupEntityKind.CHECKLIST_ITEMS,
+                BackupEntityKind.PROJECT_TAG_GROUPS,
+                BackupEntityKind.ATTACHMENT_ANNOTATIONS,
+                BackupEntityKind.ATTACHMENTS,
+                BackupEntityKind.AGENDA_VIEWS,
+                BackupEntityKind.SAVED_SEARCHES,
+                BackupEntityKind.TASK_REMINDERS,
+                BackupEntityKind.PROJECT_REMINDERS,
+                BackupEntityKind.TIME_ENTRIES,
+                BackupEntityKind.TAGS,
+                BackupEntityKind.TAG_GROUPS,
+                BackupEntityKind.TASKS,
+                BackupEntityKind.NOTES,
+                BackupEntityKind.PROJECTS,
+                BackupEntityKind.PROFILES,
+                -> Unit
+            }
 
         fun add(
             kind: BackupEntityKind,
@@ -587,12 +612,17 @@ class BackupImporter(
             keys.getOrPut(kind) { mutableSetOf() }.add(key)
         }
 
-        fun markWritten(kind: BackupEntityKind, key: String) {
+        fun markWritten(
+            kind: BackupEntityKind,
+            key: String,
+        ) {
             written.getOrPut(kind) { mutableSetOf() }.add(key)
         }
 
-        fun wasWritten(kind: BackupEntityKind, key: String): Boolean =
-            written[kind]?.contains(key) == true
+        fun wasWritten(
+            kind: BackupEntityKind,
+            key: String,
+        ): Boolean = written[kind]?.contains(key) == true
 
         fun counts(): EntityCounts {
             val c = BackupEntityKind.entries.associateWith { size(it) }
@@ -620,7 +650,11 @@ class BackupImporter(
         }
 
         private fun assertAllKindsCounted(c: Map<BackupEntityKind, Int>) {
-            for (kind in BackupEntityKind.entries) require(kind in c) { "BackupEntityKind.$kind missing from kept counts" }
+            for (kind in BackupEntityKind.entries) {
+                require(
+                    kind in c,
+                ) { "BackupEntityKind.$kind missing from kept counts" }
+            }
         }
 
         private fun Map<BackupEntityKind, Int>.value(kind: BackupEntityKind): Int = getValue(kind)
