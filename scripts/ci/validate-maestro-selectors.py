@@ -75,12 +75,29 @@ _STATIC_CONST_PATTERN = re.compile(
 )
 
 
+def _testtags_path() -> Path:
+    """Where the UI test-tag catalogue lives.
+
+    It moved from ``shared/`` to ``shared-ui/`` when the shared UI module was
+    split out; both locations are looked up so the catalogue is read whichever
+    tree it sits in.
+    """
+    root = Path(__file__).resolve().parents[2]
+    for relative in (
+        "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+        "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+    ):
+        candidate = root / relative
+        if candidate.exists():
+            return candidate
+    return root / (
+        "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
+    )
+
+
 def _parse_testtags_kt() -> Set[str]:
     """Extract all `const val NAME = "value"` strings from TestTags.kt."""
-    testtags = (
-        Path(__file__).resolve().parents[2]
-        / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
-    )
+    testtags = _testtags_path()
     if not testtags.exists():
         return set()
     ids: Set[str] = set()
@@ -99,10 +116,7 @@ _DYNAMIC_GENERATOR_PATTERN = re.compile(r'"([a-z_0-9]+)_\$\{')
 
 def _live_dynamic_prefixes() -> Set[str]:
     """Prefixes of every dynamic id generator currently declared in TestTags.kt."""
-    testtags = (
-        Path(__file__).resolve().parents[2]
-        / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
-    )
+    testtags = _testtags_path()
     if not testtags.exists():
         return set()
     return {
@@ -141,14 +155,14 @@ def _is_stale_entry(de_id: str, live_prefixes: Set[str]) -> bool:
 # Format per entry: (TestTags_function_name, input_display, id_prefix_for_check)
 # ---------------------------------------------------------------------------
 FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
-    # navTab — 7 bottom nav tabs (prefix: nav_tab_)
+    # navTab — the four bottom-bar tabs (prefix: nav_tab_)
     ("navTab", "Today", "nav_tab_"),
     ("navTab", "Inbox", "nav_tab_"),
     ("navTab", "Upcoming", "nav_tab_"),
-    ("navTab", "Plans", "nav_tab_"),
-    ("navTab", "Pomodoro", "nav_tab_"),
-    # The Calendar left the tab bar for the app menu — there is no
-    # `nav_tab_calendar` any more, and the menu entry is `menu_calendar`.
+    ("navTab", "Calendar", "nav_tab_"),
+    # Plans and Pomodoro are not tabs: they are entries of the app menu, and a
+    # flow addresses them by their MENU_* tags (`menu_plans`, `menu_pomodoro`).
+    # A `navTab(...)` output for either names a node the shell never draws.
     # themeModeButton — 3 ThemeMode values (prefix: settings_theme_mode_)
     ("themeModeButton", "System", "settings_theme_mode_"),
     ("themeModeButton", "Light", "settings_theme_mode_"),
@@ -176,16 +190,18 @@ FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
 # Dynamic ID expansions — known inputs for TestTags dynamic functions
 # ---------------------------------------------------------------------------
 DYNAMIC_EXPANSIONS: Set[str] = {
-    # navTab("Today") etc. — bottom nav tabs
+    # navTab("Today") etc. — the four bottom-bar tabs
     "nav_tab_today",
     "nav_tab_inbox",
     "nav_tab_upcoming",
+    "nav_tab_calendar",
+    # Not drawn, and kept for exactly one purpose: the composition flow asserts
+    # the *absence* of these two from the bar, and an id the validator has never
+    # heard of cannot be asserted to be missing. Nothing may tap them — a tap on
+    # an absent id is the false green this file exists to catch, and the standing
+    # guard against it is #2142.
     "nav_tab_plans",
     "nav_tab_pomodoro",
-    # The Calendar is not a tab any more. The id stays in the known set because
-    # the NAV-01 flow asserts its *absence* from the bottom bar, and an id the
-    # validator has never heard of cannot be asserted to be missing.
-    "nav_tab_calendar",
     # menuItem(...) — menu sheet items
     "menu_archive",
     "menu_profiles",

@@ -43,7 +43,7 @@ suspend fun setParent(id: String, parentId: String?, ts: Long)
 
 ```bash
 # Find DAO mutations without userId guard
-grep -n "suspend fun.*UPDATE\|suspend fun.*DELETE" shared/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt
+grep -n "suspend fun.*UPDATE\|suspend fun.*DELETE" core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt
 # Each line must end with `: Int` and have `userId: String` in its signature
 ```
 

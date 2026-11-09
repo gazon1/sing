@@ -83,14 +83,20 @@ jobs:
             android:
               - 'androidApp/**'
               - 'shared/src/android*/**'
+              - 'core-domain/**'
+              - 'core-database/**'
               - 'gradle.properties'
             shared:
               - 'shared/src/commonMain/**'
               - 'shared/src/androidMain/**'
               - 'shared/src/jvmMain/**'
+              - 'core-domain/**'
+              - 'core-database/**'
             desktop:
               - 'desktopApp/**'
               - 'shared/src/jvmMain/**'
+              - 'core-domain/**'
+              - 'core-database/**'
             adr:
               - 'docs/decisions/**'
               - 'openspec/changes/**'
@@ -222,18 +228,22 @@ jobs:
       # uv manages the Python toolchain and project dependencies from pyproject.toml.
       # python-version is still declared so setup-python pins the interpreter;
       # uv reads it from there rather than managing its own version pins.
-      # venv + sgate + junitparser + yamllint + actionlint + shellcheck, once.
+      # venv + sgate + yamllint + actionlint + shellcheck, once.
       # See .github/actions/setup-python-tools/action.yml for what each of the
       # four earlier attempts at installing these was missing.
       # ktlint comes with it: the preflight below checks for it, and a preflight
       # that asks for a tool this job never installs fails on every run.
+      - name: Set up mise toolchain
+        uses: jdx/mise-action@v2
+        with:
+          install: true
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
         with:
           with-kt-lint: 'true'
 
       # The gate-tooling preflight: every tool the gate suite shells out to
-      # (sgate, junitparser, lychee, yamllint, actionlint, shellcheck, ktlint)
+      # (sgate, lychee, yamllint, actionlint, shellcheck, ktlint)
       # must be present, and the preflight names the fix when one is not.
       #
       # It ran only in check.sh, so a CI job whose tool install silently
@@ -257,7 +267,8 @@ jobs:
       # run and `sgate run-all` (step 7) never ran — every static gate in
       # scripts/ci/static-gates.sh went unexecuted and a stale committed coverage
       # matrix merged unnoticed. A preflight that checks for tools before they
-      # are installed can only ever fail.
+      # are installed can only ever fail. (The junitparser check itself is gone
+      # now that the annotation step reads the repository's own JUnit reader.)
       - name: Preflight environment check
         uses: ./.github/actions/setup-repo-tools
 
@@ -535,6 +546,18 @@ jobs:
             -Pcoverage.enabled=false \
             2>&1 | tee build.log
 
+      # The Gradle log of the analysis run. `tee build.log` has been writing it
+      # and nothing uploaded it, so a detekt failure kept its evidence only in
+      # the run UI — truncated, unsearchable, and gone with the run.
+      - name: Upload build log
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-detekt-${{ github.run_id }}
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
+
   # ── The affected-test job ─────────────────────────────────────────────────
   #
   # The fast signal: the tests this change can break, and nothing else. It
@@ -566,6 +589,10 @@ jobs:
       - uses: ./.github/actions/setup-jvm-gradle
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The Android target compiles in this job (androidHostTest and the
+      # androidApp task), so the platform the build declares has to be present.
+      - uses: ./.github/actions/setup-android-sdk
 
       # Four outcomes, and the job says which one happened:
       #
@@ -664,9 +691,7 @@ jobs:
       )
     permissions:
       actions: read # flake analysis downloads the previous run's results
-      # No `contents: write` here any more: the permission existed for the
-      # detekt auto-correct branch, and that step now lives in the `detekt`
-      # job — the one job that needs it, and the one that judges detekt.
+      contents: write # publish Allure report to gh-pages
     env:
       # The population, decided ONCE by the `changes` job and read here. Every
       # Gradle invocation in this job that can run tests names the same one,
@@ -683,6 +708,10 @@ jobs:
       - uses: ./.github/actions/setup-jvm-gradle
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The suite compiles and runs the Android target (`:shared:testAndroidHostTest`,
+      # `:androidApp:test`), so the platform the build declares has to be present.
+      - uses: ./.github/actions/setup-android-sdk
 
       # Same action as the static job, one reason: this job runs
       # `python3 scripts/check-gate-wiring.py` ("Gates are wired and can fail"),
@@ -779,9 +808,9 @@ jobs:
       # list itself, and the coverage job keeps the aggregate.
       #
       # :mcp-server:jar is REQUIRED in this same invocation. McpServerEndToEndTest
-      # resolves build/libs/mcp-server.jar and skips itself when it is absent
-      # (McpServerEndToEndTest.kt:63) — a silent pass, not a failure, and the floor
-      # below is what catches it.
+      # resolves build/libs/mcp-server.jar, and the test task builds that JAR before
+      # the suite runs — but naming it here keeps the invocation self-contained and
+      # the artefact explicit.
       #
       # :pro:detekt is NOT here on purpose: :pro is only included under
       # -PwithPro=true (settings.gradle.kts:120-126), so it belongs to the matrix
@@ -887,6 +916,7 @@ jobs:
             :mcp-server:jar \
             :shared:verifyToolSurface \
             :shared:jvmTest \
+            :core-domain:jvmTest \
             :shared:archTest \
             :shared:testAndroidHostTest \
             :desktopApp:test \
@@ -902,14 +932,46 @@ jobs:
             ${{ github.event_name != 'pull_request' && '-Dretry.failOnPassedAfterRetry=true' || '' }} \
             2>&1 | tee build.log
 
-      # junitparser arrived with the tooling step above. It was installed here
-      # separately because that install kept failing for three different reasons
-      # in a row; one installer now serves both jobs.
+      # The Allure report.
+      #
+      # The suite has been collecting Allure results for a while — the
+      # `allure-junit5` agent is on the test classpath in :shared, :desktopApp
+      # and :mcp-server — and the raw JSON was uploaded as an artifact. But a
+      # pile of `*-result.json` files is not a report: nobody reads it, and the
+      # per-test history, the retry grouping and the attachment viewer only
+      # exist once the HTML is generated.
+      #
+      # Its own Gradle invocation, and it deliberately does NOT depend on the
+      # test tasks: this invocation carries no `-Ptest.population`, so the test
+      # tasks would be out of date and the report would cost a second full
+      # suite. The report aggregates the results the suite above already wrote.
+      - name: Allure report
+        if: ${{ !cancelled() }}
+        run: ./gradlew allureReport --console=plain
+
+      # The Gradle log of the suite run.
+      #
+      # `tee build.log` has been writing this file for a long time and nothing
+      # uploaded it: a failing run left its evidence only in the run UI, where
+      # it is truncated, unsearchable and gone after the retention window.
+      - name: Upload build log
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-${{ github.run_id }}
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
       # Reads EVERY module's JUnit XML (the glob is rooted at the repository, so
       # shared, mcp-server, desktopApp and any other module are all covered) and
       # emits ::error / ::notice commands carrying the failure MESSAGE.
+      #
+      # The parsing is the repository's own reader
+      # (scripts/src/traceability/junit_xml.py) — the same one the console
+      # reporter and the sync pipeline read — so the three of them cannot
+      # disagree about which tests failed.
       #
       # The path used to be the desktopApp directory alone, so a failure in
       # mcp-server or shared reached the log as "AssertionFailedError at
@@ -952,7 +1014,7 @@ jobs:
           jvm=0
           host=0
           mcp=0
-          python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
+          python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,core-domain:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
           python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log || host=$?
           # The mcp-server module keeps ONE test: the end-to-end one, which spawns the
           # jar. It is slow, so the fast population has nothing to run in that module —
@@ -1253,6 +1315,7 @@ jobs:
           name: junit-results
           path: |
             shared/build/test-results/jvmTest/**/*.xml
+            core-domain/build/test-results/jvmTest/**/*.xml
             shared/build/test-results/testAndroidHostTest/**/*.xml
             desktopApp/build/test-results/test/**/*.xml
             mcp-server/build/test-results/test/**/*.xml
@@ -1271,6 +1334,43 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # The rendered report — the part a human opens. The raw results above are
+      # the evidence; this is the reading of it.
+      - name: Upload Allure report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report-${{ github.run_id }}
+          path: build/reports/allure
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Publish a live Allure report to GitHub Pages (Allure 2 via simple-elf).
+      # Only on main: PR runs keep uploading the artifact above instead.
+      - name: Load Allure report history
+        if: github.ref == 'refs/heads/main' && !cancelled()
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Build Allure report for Pages
+        if: github.ref == 'refs/heads/main' && !cancelled()
+        uses: simple-elf/allure-report-action@master
+        with:
+          gh_pages: gh-pages
+          allure_history: allure-history
+          allure_results: build/allure-results-merged
+
+      - name: Publish Allure report to GitHub Pages
+        if: github.ref == 'refs/heads/main' && !cancelled()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+
       - name: Upload evidence (diagnostics, traceability, coverage)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -1279,7 +1379,6 @@ jobs:
           path: |
             desktopApp/build/diagnostics/**
             shared/build/diagnostics/**
-            mcp-server/build/diagnostics/**
             build/traceability/**
             build/reports/kover/report.xml
             build/reports/kover/**/*.html
@@ -1289,12 +1388,25 @@ jobs:
 
       # Upload HTML test reports as a separate artifact for direct link access
       # in the PR check summary (FR-002).
+      #
+      # Every module that ran a Gradle test task, not only desktopApp: the
+      # shared suite is the largest one, and its HTML report was the one nobody
+      # could open.
+      #
+      # The `css/` and `js/` directories travel with the pages: a Gradle HTML
+      # report is a small application, and an `index.html` opened without its
+      # stylesheet is a wall of unstyled text. The per-class pages are
+      # `index.html` too — `<report>/<fully.qualified.ClassName>/index.html` —
+      # so one glob covers the summary and the detail.
       - name: Upload HTML test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: html-reports-${{ github.run_id }}
-          path: desktopApp/build/reports/tests/test/**/*.html
+          path: |
+            **/build/reports/tests/**/index.html
+            **/build/reports/tests/**/css/**
+            **/build/reports/tests/**/js/**
           if-no-files-found: warn
           retention-days: 14
 
@@ -1364,6 +1476,10 @@ jobs:
       - uses: ./.github/actions/setup-jvm-gradle
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The Android variants compile in this job, so the platform the build
+      # declares has to be present before the first Gradle invocation.
+      - uses: ./.github/actions/setup-android-sdk
 
       # `-Pcoverage.enabled=false`: this job is on the pull-request path, and
       # the pull-request path carries no instrumented suite. The pro leg runs
@@ -1540,7 +1656,7 @@ jobs:
       - name: Refresh DIGEST if needed
         run: |
           if ! git diff --quiet docs/decisions/; then
-            ./scripts/refresh-decisions-digest.sh
+            python3 scripts/refresh-decisions-digest.py
             git add docs/decisions/DIGEST.md
           fi
 

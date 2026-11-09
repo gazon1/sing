@@ -5,6 +5,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.testTask
@@ -19,8 +20,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -44,6 +43,7 @@ import kotlin.test.assertTrue
  * | Non-object payload | data is not JsonObject | Skipped |
  * | applyRemote throws SerializationException | — | Skipped |
  * | applyRemote throws other exception | — | Failed |
+ * | corrupt document via writer.upsert leaves repo untouched | — | (regression test) |
  * | DELETED → deleteDocument() → success | — | Applied |
  * | DELETED → deleteDocument() → failure | — | Failed |
  */
@@ -237,14 +237,72 @@ class PullEventHandlerTest {
         }
 
     @Test
-    fun `CancellationException escapes`() =
+    fun `corrupt document from applyRemote leaves local repository untouched`() =
         runTest {
-            val h = handler()
-            assertThrows<kotlinx.coroutines.CancellationException> {
-                h.handleEvent(event(SyncEventType.CREATED)) {
-                    throw kotlinx.coroutines.CancellationException()
+            val tasks = FakeTaskRepository()
+            tasks.upsert(TaskDocument.of(testTask(id = TaskId("existing"), title = "keep me")))
+            val writer = fakeSyncDocumentWriter(tasks = tasks)
+            val h =
+                PullEventHandler(
+                    writer = writer,
+                    log = log,
+                    crashReporter = noOpCrashReporter,
+                    deleteDocument = { _, _ -> Result.success(Unit) },
+                )
+
+            val before = tasks.observeAll().first()
+            val ex = SerializationException("corrupt json")
+            val outcome =
+                h.handleEvent(event(SyncEventType.CREATED, data = payload("broken" to "data"))) {
+                    throw ex
                 }
+
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            val after = tasks.observeAll().first()
+            assertEquals(before, after, "local repository must remain untouched")
+        }
+
+    @Test
+    fun `corrupt document via SyncDocumentWriter upsert leaves local repository untouched`() =
+        runTest {
+            val tasks = FakeTaskRepository()
+            tasks.upsert(TaskDocument.of(testTask(id = TaskId("keep-me"), title = "original")))
+            val writer = fakeSyncDocumentWriter(tasks = tasks)
+
+            val before = tasks.observeAll().first()
+            val broken =
+                kotlinx.serialization.json.JsonObject(
+                    mapOf("oops" to kotlinx.serialization.json.JsonPrimitive("bad")),
+                )
+            try {
+                writer.upsert(DocType.Task, broken)
+            } catch (_: Throwable) {
             }
+
+            val after = tasks.observeAll().first()
+            assertEquals(before, after, "corrupt document must leave local repository untouched")
+        }
+
+    @Test
+    fun `corrupt document leaves local repository untouched`() =
+        runTest {
+            val tasks = FakeTaskRepository()
+            tasks.upsert(TaskDocument.of(testTask(id = TaskId("keep-me"), title = "original")))
+            val writer = fakeSyncDocumentWriter(tasks = tasks)
+
+            val before = tasks.observeAll().first()
+
+            val broken =
+                kotlinx.serialization.json.JsonObject(
+                    mapOf("oops" to kotlinx.serialization.json.JsonPrimitive("bad")),
+                )
+            try {
+                writer.upsert(DocType.Task, broken)
+            } catch (_: Throwable) {
+            }
+
+            val after = tasks.observeAll().first()
+            assertEquals(before, after, "corrupt document must leave local repository untouched")
         }
 
     // ─── DELETED branch ───────────────────────────────────────────────

@@ -8,6 +8,7 @@ tags: [serialization, architecture, core, kotlinx-serialization]
 ## Context
 
 Before this decision, identical `Json { ... }` configs were copied in:
+
 - `SyncEngine.kt`
 - `BackupImporter.kt`
 - `BackupExporter.kt`

@@ -28,6 +28,7 @@ Deferred to future epics with documented rationale.
 **What:** Replace ~13 hardcoded `Dispatchers.IO/Default` with injected `CoroutineDispatchers` interface.
 
 **Files affected:**
+
 - `commonMain`: `FileLogWriter.kt`
 - `androidMain`: `BackgroundScope.android.kt`, `AndroidSecureStorage.kt`, `AndroidCalendarAppQueries.kt`, `AndroidCalendarProvider.kt`, `AlarmReceiver.kt`
 - `jvmMain`: `BackgroundScope.jvm.kt`, `JvmSecureStorage.kt`, `JvmNotificationPort.kt`, `FileRevealer.jvm.kt`, `JvmSyncScheduler.kt`
@@ -41,6 +42,7 @@ Deferred to future epics with documented rationale.
 **What:** Extract common patterns from `NotesListViewModel` and `SavedAgendaListViewModel` into `ListViewModel<T, S>` base.
 
 **Why deferred:** The two VMs don't share enough structure to make a base class worthwhile:
+
 - `NotesListViewModel`: filter/sort/search with debounce, multi-select
 - `SavedAgendaListViewModel`: simple observeAll + delete
 

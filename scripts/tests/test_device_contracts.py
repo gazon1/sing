@@ -145,6 +145,8 @@ class _RecordingDeps:
         self.serial = serial
         self.scoped: list[tuple[str, tuple[str, ...]]] = []
         self.unscoped: list[tuple[str, ...]] = []
+        #: When true, `pull` answers None the way a failed adb pull does.
+        self.fail_pull = False
 
     def adb(self, *args, **kw):
         self.unscoped.append(args)
@@ -156,6 +158,15 @@ class _RecordingDeps:
             return "  versionName=1.0.0+gabc123def456"
         if args[:3] == ("shell", "logcat", "-d"):
             return "logcat output"
+        # A faithful adb: `screencap -p <file>` and `pull` print nothing to
+        # stdout, so success must not be judged by a truthy return.
+        if args[:2] == ("shell", "screencap"):
+            return ""
+        if args[0] == "pull":
+            if self.fail_pull:
+                return None
+            pathlib.Path(args[2]).write_bytes(b"\x89PNG")  # the host copy adb writes
+            return ""
         return "package:/system/x"
 
     def device_alive(self, serial):
@@ -190,9 +201,42 @@ class AdbArgvShapeTest(unittest.TestCase):
         self.assertIn(("shell", "screencap", "-p", "/sdcard/flow-a_screen.png"),
                       [args for _, args in deps.scoped])
 
+    def test_capture_artifacts_pulls_with_adb_not_shell(self):
+        """`pull` is an adb command; `adb shell pull` exits 127.
+
+        The screenshot was screencapped on the device and never copied off it,
+        so a failed Maestro flow left no image at all.
+        """
+        deps = _RecordingDeps()
+        with tempfile.TemporaryDirectory() as tmp:
+            _artifacts.capture_artifacts(
+                "emulator-5554", "flow-a", pathlib.Path(tmp), deps
+            )
+            pulls = [args for _, args in deps.scoped if args[:2] == ("pull", "/sdcard/flow-a_screen.png")]
+            self.assertEqual(len(pulls), 1, "the screenshot was not pulled with `adb pull`")
+            # The pulled file is kept, and the device copy is removed only once
+            # the host has it.
+            self.assertTrue(
+                (pathlib.Path(tmp) / "flow-a_screen.png").is_file(),
+                "the screenshot did not land on the host",
+            )
+            self.assertIn(("shell", "rm", "-f", "/sdcard/flow-a_screen.png"),
+                          [args for _, args in deps.scoped])
+
+    def test_capture_artifacts_keeps_the_device_copy_when_the_pull_fails(self):
+        """A pull that did not land must not delete the only copy."""
+        deps = _RecordingDeps()
+        deps.fail_pull = True
+        with tempfile.TemporaryDirectory() as tmp:
+            _artifacts.capture_artifacts(
+                "emulator-5554", "flow-a", pathlib.Path(tmp), deps
+            )
+        self.assertNotIn(("shell", "rm", "-f", "/sdcard/flow-a_screen.png"),
+                         [args for _, args in deps.scoped])
+
     def test_cleanup_run_fixtures_is_scoped(self):
         deps = _RecordingDeps()
-        _fixtures.cleanup_run_fixtures("emulator-5554", "r1", "all", deps)
+        _fixtures.cleanup_run_fixtures("emulator-5554", "all", deps)
         self._assert_scoped_only(deps)
         self.assertTrue(any("todo-debug://seed?reset=content" in args[-1]
                             for _, args in deps.scoped))

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
@@ -191,6 +192,12 @@ class Nav3State internal constructor(
         // shell. If every resolved stack is empty, reseed the start stack and
         // return its entries.
         return if (result.isEmpty()) {
+            // The one place that knows the tree is about to be empty. The report is built
+            // now — before the reseed below changes the answer — and recorded once the
+            // composition applies, so a discarded composition cannot log a state that is
+            // already gone.
+            val blankTree = blankTreeReport(this)
+            SideEffect { logBlankTree(blankTree) }
             val startStack = backStackFor(startRoute)
             if (startStack != null && startStack.isEmpty()) {
                 startStack.add(startRoute)
@@ -293,9 +300,17 @@ class Navigator(private val state: Nav3State) {
     }
 
     /** True when [goBack] would perform a navigation instead of signalling "at root". */
-    fun canGoBack(): Boolean =
-        state.requireBackStackFor(state.topLevelRoute).size > 1 ||
+    fun canGoBack(): Boolean {
+        val currentStack = state.requireBackStackFor(state.topLevelRoute)
+        // Mirror goBack(): an empty stack is reseeded (no navigation); a tab root
+        // navigates only with a distinct previous tab; any other top navigates.
+        val currentRoute = currentStack.lastOrNull() ?: return false
+        return if (currentRoute == state.topLevelRoute) {
             state.previousTopLevelRoute != state.topLevelRoute
+        } else {
+            true
+        }
+    }
 
     /**
      * Go back in the current stack.

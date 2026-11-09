@@ -184,7 +184,7 @@ def measure(report_dir: pathlib.Path) -> dict:
     for path in report_files(report_dir):
         try:
             tree = ET.parse(path)  # noqa: S314 — the report is written by AGP, not by a user
-        except ET.ParseError:
+        except (ET.ParseError, OSError):
             continue
         for case in tree.getroot().iter("testcase"):
             name = case.get("classname") or case.get("class") or "unknown"

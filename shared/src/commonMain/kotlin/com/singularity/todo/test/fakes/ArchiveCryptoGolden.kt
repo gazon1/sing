@@ -37,13 +37,18 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * Android is not the JDK's implementation of PBKDF2, and nothing but this test
  * says the two produce the same bytes.
  *
- * ## Where it lives, and why not in `commonTest`
+ * ## Where it lives, and why not in a single test source set
  *
- * `commonTest` is not visible to `androidHostTest` — the source set that runs
- * the Android implementation's own test — so a golden kept there would pin one
- * platform and leave the other unpinned, which is the half that matters. The
- * shared test fixtures live in `commonMain/test/fakes` for the same reason, and
- * this file is one of them.
+ * Two platform test source sets read these bytes: `jvmTest` through
+ * `ArchiveCryptoGoldenJvmTest`, and `androidHostTest` through
+ * `ArchiveCryptoGoldenAndroidTest`. A fixture under `commonMain/test/fakes` is
+ * the one place both compile against without a test-source-set edge between
+ * them, which is why the shared test fixtures of this module live there.
+ *
+ * The *questions* those two classes ask are shared as well, and they live in
+ * `ArchiveCryptoGoldenContract` in `commonTest`, which both source sets compile
+ * against: one rule, two platform bindings. This object holds only the bytes and
+ * the parts they are made of — the thing the platforms are compared on.
  */
 object ArchiveCryptoGolden {
     /** The password the golden archive was sealed under. */

@@ -5,7 +5,7 @@ status: accepted
 slug: google-sync-decides-and-the-applier-writes
 ---
 
-# Google sync decides; a separate applier writes. And it runs on desktop.
+# Google sync decides; a separate applier writes. And it runs on desktop
 
 ## Context
 

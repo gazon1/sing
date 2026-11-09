@@ -26,6 +26,13 @@ description: >
     speckit / specify — `sgate speckit_stale` runs scripts/check-openspec-stale.py
       in Python; no binary is involved. The separate "Speckit validate" step
       uses npx and does not need a global install.
+
+    junitparser — removed on 2026-11-06, when the CI annotation step moved onto
+      the repository's own JUnit reader (`scripts/src/traceability/junit_xml.py`).
+      The package was never declared in `scripts/src/pyproject.toml`; CI
+      installed it ad hoc, so the script was inert outside CI. Nothing imports
+      it any more, and a preflight that demands an undeclared package is a
+      preflight that fails for a reason nobody can fix.
 runs:
   using: "composite"
   steps:
@@ -53,41 +60,12 @@ runs:
         # and every gate below would fail with a confusing 127 instead.
         python3 -c "import sgate" || {
           echo "::error ::sgate is not importable — is scripts/src/ installed?"
-          echo "::error ::Run: python -m pip install -e scripts/src/ pyyaml junitparser"
+          echo "::error ::Run: python -m pip install -e scripts/src/"
           exit 1
         }
         python3 -c "import traceability" || {
           echo "::error ::traceability is not importable — is scripts/src/ installed?"
-          echo "::error ::Run: python -m pip install -e scripts/src/ pyyaml junitparser"
+          echo "::error ::Run: python -m pip install -e scripts/src/"
           exit 1
         }
         echo "sgate + traceability: importable"
-
-    - name: Check junitparser (required for CI annotation step)
-      shell: bash
-      run: |
-        set -e
-        # junitparser is a pip package, not a command-line tool, so we check via Python import.
-        # This prevents the CI annotation step from silently producing zero annotations.
-        #
-        # The version comes from importlib.metadata, not `junitparser.__version__`:
-        # current junitparser releases do not export `__version__`, so the
-        # attribute access raised AttributeError — which the ImportError-only
-        # handler did not catch. Being step 3, that killed the job before
-        # `sgate run-all`, leaving every static gate unexecuted.
-        python3 -c "
-        import sys
-        from importlib.metadata import version, PackageNotFoundError
-        try:
-            import junitparser
-        except ImportError:
-            print('::error ::Missing Python package: junitparser — not installed')
-            print('::error ::Install with: pip install junitparser')
-            print('::error ::Required by: scripts/junit-annotations.py (CI annotation step)')
-            sys.exit(1)
-        try:
-            v = version('junitparser')
-        except PackageNotFoundError:
-            v = 'unknown'
-        print(f'junitparser {v} — OK')
-        " || exit 1

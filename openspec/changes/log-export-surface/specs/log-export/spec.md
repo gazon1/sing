@@ -19,6 +19,7 @@ to serve whoever built the app.
 tests cover writing, not sharing).
 
 #### Scenario: User shares the log
+
 - The log file exists for the current session
 - The user activates the share action
 - The platform share sheet receives the log file
@@ -37,6 +38,7 @@ trigger that matters is the one that fires when the user is already frustrated.
 **Test coverage:** to be added with the implementation.
 
 #### Scenario: Offer is offered where the user already is
+
 - The user reaches the surface that presents a failure
 - A share action for the log is offered in place
 - The action may be declined without losing any other state
@@ -54,9 +56,11 @@ that only covers credentials leaves task titles, note bodies and search queries 
 a file a user attaches to a public bug report.
 
 **Test coverage:** redaction tests to be added alongside the inventory in
-#log-messages-user-content-sweep.
 
-#### Scenario: Shared log carries no user content
+# log-messages-user-content-sweep
+
+## Scenario: Shared log carries no user content
+
 - A task and a note with recognisable titles are created
 - The log is captured and prepared for sharing
 - No user-authored text is present in the shared form
@@ -75,6 +79,7 @@ file. Cancelling a share must not delete the evidence a developer needs.
 **Test coverage:** to be added with the implementation.
 
 #### Scenario: Cancelled share keeps the diagnostics
+
 - The user starts a share and cancels it
 - The log file still exists
 - A developer failure bundle can still be produced from the session

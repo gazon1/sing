@@ -1,0 +1,4 @@
+before loadavg=6.93 4.74 3.62 cpu_pressure=some avg10=2.24 avg60=0.79 avg300=0.31 total=1066774241;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=3 kotlin_daemons=0
+0
+after loadavg=5.76 4.63 3.61 cpu_pressure=some avg10=0.38 avg60=0.72 avg300=0.35 total=1066973202;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=3 kotlin_daemons=0
+0

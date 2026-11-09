@@ -8,6 +8,7 @@ status: accepted
 ## Context
 
 Приложение имеет 4 list-экрана с перекрывающейся фильтрацией:
+
 - `Inbox` (не завершённые, не someday)
 - `Today` (задачи на сегодня)
 - `Upcoming` (будущие задачи)
@@ -20,6 +21,7 @@ org-mode / org-super-agenda решают эту проблему одним дв
 ## Idea
 
 Варианты:
+
 1. **Оставить как есть** — 4 экрана, дублирование логики. Просто, но не масштабируется.
 2. **Один `TaskListScreen` с динамическим фильтром** — менять `TaskFilter` по тапу на tab. Меньше кода, но всё ещё не extensibility.
 3. **DSL-движок AgendaEngine** (этот ADR) — единый поток задач → `AgendaEvaluator` (pure function) → секции → рендеринг. Пресеты — это `AgendaDefinition` (data class), не код экрана.

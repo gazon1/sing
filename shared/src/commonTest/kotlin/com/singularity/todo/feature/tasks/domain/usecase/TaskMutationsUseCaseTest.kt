@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -18,6 +21,8 @@ import kotlin.time.Instant
  * nothing.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Use cases")
 class TaskMutationsUseCaseTest {
     private val now: Instant = Instant.parse("2026-01-15T12:00:00Z")
     private val userId = UserId("test-user")

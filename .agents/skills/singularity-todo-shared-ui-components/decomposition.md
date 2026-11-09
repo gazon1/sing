@@ -2,15 +2,17 @@
 
 Splitting a `Screen.kt` into smaller composables.
 
-### The thin-view rule
+## The thin-view rule
 
 **A Composable does ONE thing** — render a widget. It does not:
+
 - collect flows (the parent ViewModel already exposes `StateFlow`)
 - build `LaunchedEffect` blocks for one-shot events (use `CollectEvents`)
 - format domain results into user-facing strings (use a pure formatter)
 - own `remember { mutableStateOf<String?>(null) }` for AI-result dialogs (use `UiEvent.ShowDialog`)
 
 **Before:**
+
 ```kotlin
 @Composable
 fun TasksScreen(...) {
@@ -30,6 +32,7 @@ fun TasksScreen(...) {
 ```
 
 **After:**
+
 ```kotlin
 @Composable
 fun TasksScreen(...) {
@@ -105,6 +108,7 @@ value class TaskCardActions(val block: (Action) -> Unit) {
 ```
 
 Why:
+
 - Adding a new action (e.g. `Pin`) does not break any call site
 - The card has **one** parameter for "what can happen here" instead of N callbacks
 - Call sites that don't care about a button (e.g. `SearchScreen` showing a read-only preview) pass `TaskCardActions.Empty`
@@ -117,6 +121,7 @@ See `singularity-todo-task-callback-groups` for the full decision tree. TL;DR:
 - **Do NOT** use `data class` to group outgoing actions (those go to the VM) — use `@JvmInline value class` instead
 - **Only** use a data class when 4+ incoming data parameters form a natural domain unit (e.g., `DueDateModel(date, time, zone)`)
 - **Do NOT** introduce a new `Actions` class for 4 callbacks in a single-screen composable — raw lambdas are fine until usage spreads to 2+ screens
+
 ## Worked examples
 
 ### Worked example: `EditorToolbar` (combining decomposition + formatter extraction)
@@ -158,6 +163,7 @@ Now `RichTextState.apply` is exhaustive over `EditorAction`, the compiler checks
 ### Worked example: replacing inline loading/empty across 4 screens
 
 **Before** (Tasks, Projects, Notes, Tags each have):
+
 ```kotlin
 is TasksUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
 is TasksUiState.Empty   -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No tasks for …") }
@@ -165,6 +171,7 @@ is TasksUiState.Error   -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text(
 ```
 
 **After** (one line each):
+
 ```kotlin
 is TasksUiState.Loading -> LoadingIndicator()
 is TasksUiState.Empty   -> EmptyState(title = "No tasks for …")
@@ -178,6 +185,7 @@ Removed: ~24 lines of duplicated Box+Alignment ceremony across 4 screens.
 `TaskCreateScreen` and a second task-detail screen both rendered near-identical task editor forms. Three files were unified into one:
 
 **Before** (two separate composables + a duplicate top bar):
+
 ```
 TaskCreateContent.kt       — title row, description, priority/due chips, save bar
 TaskDetailViewContent.kt   — same structure + checklist/project/tags sections
@@ -208,6 +216,7 @@ fun TaskEditorContent(
 ```
 
 **Call site for create mode:**
+
 ```kotlin
 TaskEditorContent(
     titleDraft = state.draft.title,
@@ -224,6 +233,7 @@ TaskEditorContent(
 ```
 
 **Call site for view mode:**
+
 ```kotlin
 TaskEditorContent(
     titleDraft = ui.titleDraft,
@@ -250,11 +260,14 @@ TaskEditorContent(
 ```
 
 **Key design decisions:**
+
 - `extraSections: @Composable () -> Unit?` — single slot for all view-only sections; avoids 7 separate slot parameters
 - `attributes: List<TaskEditorAttribute>` — iteration over stable list; `key: Any` in data class handles recomposition stability for lambda callbacks
 - `menuItems: List<TaskEditorMenuItem>` — declarative list instead of lambda-in-lambda (`dropdownMenu: (closeMenu: () -> Unit) -> Unit`)
 - `bottomBar: @Composable () -> Unit?` — null for view mode (no save bar), set for create mode
+
 ## Test placement
+
 Components in `core/ui/components/` are presentation-only — do **not** add Robolectric / Compose-test tests for them. The widgets themselves are too thin to fail in interesting ways. What you test is the **pure helper next to them** (e.g. `priorityColorByIndex`, `toneColor`, `formatAiResult`). Tests for those go in `shared/src/commonTest/kotlin/…/` in the **same package** as the helper.
 
 ---

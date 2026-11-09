@@ -40,7 +40,9 @@ class NotesFlowTest {
             tapTab("Notes")
 
             assertTextDisplayed("No notes yet")
-            assertTextDisplayed("Create your first note")
+            // The button says what to press ("Create note"); the subtitle answers
+            // why. The old label was "Create your first note".
+            assertTextDisplayed("Create note")
         }
 
     @Test

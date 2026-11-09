@@ -136,19 +136,57 @@ val coverageEnabled = coverageProperty == "true"
 // A population that selects `slow` is the full one. An absent population means
 // the default run, which excludes `slow` and therefore measures the fast
 // population.
-val testPopulations =
-    java.util.Properties().apply {
-        rootDir.resolve("config/test-populations.properties").inputStream().use { load(it) }
-    }
+//
+// ── Reading the file ─────────────────────────────────────────────────────────
+//
+// The file carries TWO kinds of line, and the separators are the contract:
+//
+//     fast=fast             a POPULATION: the name, and the tags it selects
+//     fast.includes-slow: false   a PROPERTY of a population
+//
+// Java's Properties parser reads BOTH `=` and `:` as the key/value separator,
+// so a plain `load()` cannot tell the two apart: `stringPropertyNames()` would
+// answer with four names where the file declares two populations, and
+// `getProperty("fast.includes-slow")` would hand a build the string "false" as
+// if it were a tag list — a population that selects a tag named "false", and
+// therefore no tests at all.
+//
+// So the populations are read the way the Python reader reads them (see
+// `scripts/src/workflow_gradle.py`): a line is a population when it carries an
+// `=`, and the `:`-separated properties are not populations at all. The
+// properties are read by the shell and by the gate, never by the build.
+val testPopulations: Map<String, String> =
+    rootDir
+        .resolve("config/test-populations.properties")
+        .readLines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains('=') }
+        .associate { line ->
+            val name = line.substringBefore('=').trim()
+            val tags = line.substringAfter('=').trim()
+            require(name.isNotEmpty() && tags.isNotEmpty()) {
+                "config/test-populations.properties: a population without tags: $line"
+            }
+            name to tags
+        }
+require(testPopulations.isNotEmpty()) {
+    "config/test-populations.properties: no populations are declared"
+}
+// The root build script needs the same mapping, and it must not read the file
+// a second time: two readers of one file are two answers to "which
+// populations exist". The channel is the one this repository already uses
+// between a settings script and a module's build script (see the detekt
+// coverage floor below).
+gradle.extra["test.populations"] = testPopulations
 val testPopulation = providers.gradleProperty("test.population").getOrElse("")
 val testTags = providers.gradleProperty("test.tags").getOrElse("")
 val selectedTags =
     when {
         testPopulation.isNotEmpty() -> {
-            val declared = testPopulations.getProperty(testPopulation)
+            val declared = testPopulations[testPopulation]
             require(declared != null) {
                 "unknown test population '$testPopulation' — the known ones are: " +
-                    testPopulations.stringPropertyNames().sorted().joinToString(", ") +
+                    testPopulations.keys.sorted().joinToString(", ") +
                     " (config/test-populations.properties)"
             }
             declared
@@ -398,15 +436,17 @@ kover {
 include(":androidApp")
 include(":desktopApp")
 include(":shared")
-include(":shared-ui")
 // The ADR toolchain's dependency chain, innermost first. `:adr-cli` depends on
 // `:adr-core` and never on `:shared` — that edge is what made a markdown lister ship
 // Compose, Room, SQLite and Koog (#522 follow-up). See ADR
 // 2026-10-11-adr-storage-outlives-the-application.
 include(":core-base")
+include(":core-domain")
+include(":core-database")
 include(":adr-core")
 include(":mcp-server")
 include(":adr-cli")
+include(":import-cli")
 include(":detekt-rules")
 // A KSP processor, its own module: a detekt rule is handed one file at a
 // time and this question spans files. Not yet applied to :shared.

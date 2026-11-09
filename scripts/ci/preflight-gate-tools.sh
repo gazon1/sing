@@ -108,12 +108,6 @@ else
     report no sgate "resolves to another checkout ($sgate_root) — this checkout is $ROOT"
 fi
 
-if have_python_module junitparser; then
-    report ok junitparser "the per-test CI annotations"
-else
-    report no junitparser "the per-test CI annotations"
-fi
-
 if have_binary lychee; then
     report ok lychee "the 'documentation links resolve' gate"
 else
@@ -142,6 +136,12 @@ if have_binary ktlint; then
     report ok ktlint "the 'Kotlin is formatted' check"
 else
     report no ktlint "the 'Kotlin is formatted' check"
+fi
+
+if have_binary rumdl; then
+    report ok rumdl "Markdown formatting (rumdl check/fmt)"
+else
+    report no rumdl "Markdown formatting (rumdl check/fmt)"
 fi
 
 if [ "$missing" -gt 0 ]; then
@@ -178,6 +178,14 @@ was installed from:
 
 The sgate command "whereami" prints the checkout the running sgate belongs to.
 MSG
+    exit 1
+fi
+
+# hk version lockstep: mise.toml and hk.pkl must agree.
+hk_mise="$(grep -E '^\\s*hk\\s*=' mise.toml 2>/dev/null | sed -E 's/.*=\\s*"([^"]+)".*/\\1/')"
+hk_pkl="$(grep -E 'amends .*hk@' hk.pkl 2>/dev/null | sed -E 's/.*hk@([^#]+)#.*/\\1/')"
+if [ -n "$hk_mise" ] && [ -n "$hk_pkl" ] && [ "$hk_mise" != "$hk_pkl" ]; then
+    echo "  hk version mismatch: mise.toml=$hk_mise hk.pkl=$hk_pkl" >&2
     exit 1
 fi
 

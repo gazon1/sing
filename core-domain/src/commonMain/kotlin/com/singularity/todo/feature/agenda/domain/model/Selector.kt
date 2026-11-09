@@ -1,0 +1,225 @@
+package com.singularity.todo.feature.agenda.domain.model
+
+import com.singularity.todo.core.serialization.WireNamed
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+
+/**
+ * Relative date buckets for [DateBucket] selector.
+ *
+ * Used for preset sections like "Today", "This Week", "Overdue", etc.
+ * The actual date range for each bucket is computed by [RelativeBucket.toDateRange]
+ * using the provided `today`.
+ *
+ * The wire name is a contract, not the constant's name: a saved agenda view
+ * holds the bucket it was saved under, and renaming the constant must not
+ * change what that view says. See
+ * [com.singularity.todo.core.serialization.WireNamed].
+ */
+@Serializable
+enum class RelativeBucket(override val wireName: String) : WireNamed {
+    Today("today"),
+    Yesterday("yesterday"),
+    Tomorrow("tomorrow"),
+    ThisWeek("this_week"),
+    NextWeek("next_week"),
+    ThisMonth("this_month"),
+    NextMonth("next_month"),
+    Overdue("overdue"),
+    NoDate("no_date"),
+}
+
+/**
+ * A selector predicate that filters tasks for a section.
+ *
+ * All selectors are pure predicates — they carry no UI metadata (badges, colors, etc.).
+ * Metadata (e.g. "12 tasks overdue") is computed from the result by [AgendaEvaluator].
+ *
+ * @see AgendaEvaluator.matches
+ */
+@Serializable(with = SelectorSerializer::class)
+@SerialName("Selector")
+sealed interface Selector {
+    /**
+     * Tasks bucketed by a relative date period.
+     * - [RelativeBucket.Overdue] — past the due date and still open
+     *   ([com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isOverdue])
+     * - [RelativeBucket.NoDate] — dueDate is null
+     * All other buckets use the range computed by [RelativeBucket.toDateRange].
+     */
+    @Serializable
+    @SerialName("DateBucket")
+    data class DateBucket(val bucket: RelativeBucket) : Selector
+
+    /**
+     * Tasks with dueDate in the inclusive range [from]..[to].
+     * Used by the Calendar screen and custom date-range presets.
+     */
+    @Serializable
+    @SerialName("DateRange")
+    data class DateRange(val from: kotlinx.datetime.LocalDate, val to: kotlinx.datetime.LocalDate) : Selector
+
+    /** Tasks filtered by completion status. */
+    @Serializable
+    @SerialName("Statuses")
+    data class Statuses(val statuses: Set<TaskStatus>) : Selector
+
+    /**
+     * Tasks filtered by priority.
+     * @param atMost If true (default), matches tasks with priority IN [priorities].
+     *               If false, matches tasks with priority NOT in [priorities].
+     */
+    @Serializable
+    @SerialName("Priorities")
+    data class Priorities(val priorities: Set<TaskPriority>, val atMost: Boolean = true) : Selector
+
+    /**
+     * Tasks that are tagged with any of the given [TagId]s.
+     *
+     * @param ids The set of tag IDs to match against.
+     * @param matchAll When true (default false in DSL), a task must have all of the
+     *                 given tags. When false, a task matching any one tag is included.
+     */
+    @Serializable
+    @SerialName("Tags")
+    data class Tags(val ids: Set<TagId>, val matchAll: Boolean = false) : Selector
+
+    /** Tasks that belong to any of the given projects. */
+    @Serializable
+    @SerialName("Projects")
+    data class Projects(val ids: Set<ProjectId>) : Selector
+
+    /** Pinned (starred) tasks. */
+    @Serializable
+    @SerialName("Pinned")
+    data object Pinned : Selector
+
+    /** Completed tasks (completedAt != null). */
+    @Serializable
+    @SerialName("Completed")
+    data object Completed : Selector
+
+    /**
+     * Overdue tasks — past the due date and still open.
+     * The rule is [com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isOverdue],
+     * the same one the date bucket and the overdue marking use.
+     */
+    @Serializable
+    @SerialName("Overdue")
+    data object Overdue : Selector
+
+    /**
+     * Tasks blocked by an unfinished dependency.
+     *
+     * Requires [SelectorContext.blockedIds] — the set is computed once per agenda
+     * evaluation from the full task list, and passed through [Selector.matches].
+     */
+    @Serializable
+    @SerialName("Blocked")
+    data object Blocked : Selector
+
+    /**
+     * Tasks the user claimed a particular workflow state for.
+     *
+     * The state is independent of completion, but a *section* of the agenda is a
+     * list of work to do: a completed task that was in progress when it was
+     * finished keeps the state on the task, and is not listed here. That is the
+     * one place the two ideas meet, and they meet in the selector rather than in
+     * the stored value.
+     *
+     * Requires no [SelectorContext]: the state is on the task.
+     */
+    @Serializable
+    @SerialName("WorkflowState")
+    data class WorkflowState(val state: TaskWorkflowState) : Selector
+
+    /**
+     * Tasks that follow up on another task.
+     *
+     * A follow-up edge orders two pieces of work without making either wait for
+     * the other. The ids come from [SelectorContext.followUpIds] — the ordering
+     * projection of the cross-reference table, computed once per evaluation.
+     */
+    @Serializable
+    @SerialName("FollowUp")
+    data object FollowUp : Selector
+
+    /**
+     * Tasks with no due date that have been idle for at least [threshold].
+     *
+     * Matches undated, incomplete tasks where `now - updatedAt >= threshold`.
+     * Completed tasks never match this selector (they have `completedAt != null`).
+     *
+     * The threshold defaults to [DEFAULT_STAGNATION_THRESHOLD] (21 days), matching
+     * the default stagnation window in [com.singularity.todo.feature.tasks.domain.logic.TaskHealth].
+     */
+    @Serializable
+    @SerialName("Stagnant")
+    data class Stagnant(val threshold: Duration = DEFAULT_STAGNATION_THRESHOLD) : Selector {
+        companion object {
+            val DEFAULT_STAGNATION_THRESHOLD: Duration = 21.days
+        }
+    }
+
+    /** Tasks whose title matches the given regular expression (case-insensitive). */
+    @Serializable
+    @SerialName("Regexp")
+    data class Regexp(val query: String) : Selector {
+        /**
+         * [query] compiled once per selector instance, rather than once per task.
+         *
+         * Compiling inside `matches` cost up to ~19× the matching itself on a
+         * simple pattern (38ms → 2ms for 8000 tasks; 68ms → 15ms with
+         * alternation and groups). The evaluator asks the same selector about
+         * every task in the list, so the same pattern was rebuilt thousands of
+         * times for an identical result.
+         *
+         * A body property, not a constructor one, so it stays out of `equals`,
+         * `hashCode`, `copy` and the serialised form — two selectors with the same
+         * `query` are still equal, and a stored rule is unchanged. `Regex` is
+         * immutable and thread-safe, so sharing one across evaluations is safe.
+         */
+        val compiled: Regex by lazy { query.toRegex(RegexOption.IGNORE_CASE) }
+    }
+
+    /** All children must match. */
+    @Serializable
+    @SerialName("AllOf")
+    data class AllOf(val children: List<Selector>) : Selector
+
+    /** At least one child must match. */
+    @Serializable
+    @SerialName("AnyOf")
+    data class AnyOf(val children: List<Selector>) : Selector
+
+    /** The child must NOT match. */
+    @Serializable
+    @SerialName("Not")
+    data class Not(val child: Selector) : Selector
+
+    /** Matches every task (used as base filter). */
+    @Serializable
+    @SerialName("Anything")
+    data object Anything : Selector
+
+    /**
+     * Tasks whose [Task.dueTime] falls within the inclusive range [minStartMinutes]..[maxEndMinutes].
+     *
+     * Used by the work-day preset to split tasks into morning / lunch / afternoon work blocks.
+     * Minutes are measured from midnight (0 = 00:00, 540 = 09:00, 1020 = 17:00, etc.).
+     * A task with no `dueTime` does not match.
+     *
+     * @param minStartMinutes Lower bound of the time window (inclusive).
+     * @param maxEndMinutes Upper bound of the time window (inclusive).
+     */
+    @Serializable
+    @SerialName("TimeOfDay")
+    data class TimeOfDay(val minStartMinutes: Int, val maxEndMinutes: Int) : Selector
+}

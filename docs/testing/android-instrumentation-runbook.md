@@ -69,6 +69,39 @@ recreated label with a different colour looks like a different label in the
 pull request's sidebar, and a person deciding whether to add it will notice that
 before they notice that it is missing.
 
+## Running the tier locally
+
+The device tier is a hook of its own in `hk.pkl`, not a step of the local loop:
+
+```bash
+hk run device            # or: just tests::check-device
+```
+
+It runs three steps, one after another: `scripts/android-instrumentation.py`
+(the instrumented suite on the attached device), the floor check against the
+report that step leaves, and `scripts/maestro-flows.py` (the Maestro flows on
+the same device).
+
+The hook is not part of `hk check`, so no profile runs it and CI does not run
+it: the tier needs hardware, and its verdict is not the loop's verdict.
+
+The switches inside the steps are the caller's:
+
+- `SKIP_ADB=1` — the instrumentation step does not touch adb at all. This is
+  how the wiring is exercised on a machine with no device attached.
+- `RUN_MAESTRO=1` — the flows run. Without it the step says so and passes.
+- `MAESTRO_TAGS` (default `smoke`) and `SKIP_INSTALL=1` — which flows, and
+  whether the debug build is installed first.
+
+A run that does not happen leaves nothing behind. The instrumentation step
+clears the report and the recorded device *before* it starts, so the floor
+step after it has no report of an earlier run to price — the floor is a
+two-sided ratchet, and a stale report fails it for a coverage drop that never
+happened. The flows are pinned to the recorded device only while that device
+is attached; when it is gone, the Maestro runner picks one, as it did before
+the lane was split. `SERIAL` in the environment overrides both and is used as
+it is.
+
 ## Reading a failure
 
 A red device run leaves three artifacts, and they are uploaded unconditionally —
@@ -100,6 +133,55 @@ assertion: no test ran, nothing failed, and the report is a green line. The
 script `run-android-ui-tests.py` treats that as a failure and says so, and it is
 the reason the step refuses to call a run a pass on the strength of an exit code
 alone.
+
+### Verifying that a failure keeps its evidence
+
+The three artifacts above are only worth what a failed run can show. To prove the
+retention end to end, inject a failure — add a temporary test that records a step
+and then fails, run only that class, and check that every artifact landed:
+
+```bash
+cat > androidApp/src/androidTest/kotlin/com/singularity/todo/ui/FailureInjectionProbeTest.kt <<'EOF'
+package com.singularity.todo.ui
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.singularity.todo.testing.InstrumentedTestBase
+import org.junit.Assert.fail
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class FailureInjectionProbeTest : InstrumentedTestBase() {
+    @Test
+    fun a_deliberate_failure_leaves_its_evidence() {
+        step("first step — passes") { }
+        step("second step — raises the failure") {
+            fail("injected failure")
+        }
+    }
+}
+EOF
+
+SERIAL=<device-serial> \
+  GRADLE_ARGS="-Pandroid.testInstrumentationRunnerArguments.class=com.singularity.todo.ui.FailureInjectionProbeTest" \
+  python3 scripts/run-android-ui-tests.py
+rm androidApp/src/androidTest/kotlin/com/singularity/todo/ui/FailureInjectionProbeTest.kt
+```
+
+Measured on 2026-11-09 on the phone (`RMX3938`, API 35), all four held:
+
+- `androidApp/build/outputs/androidTest-results/connected/debug/*.xml` — the
+  testcase with `failures="1"` and its message, not an empty suite;
+- `build/android-ui-results/logcat.txt` — the device log from the failing run;
+- `androidApp/build/diagnostics/FailureInjectionProbeTest/attempt-1/` —
+  `screenshot.png` (a real 720×1600 PNG), `tree.txt`, `steps.txt` naming both
+  steps and the failed one, and `environment.txt` with the auth bypass, the
+  session, the device and the build's `versionName`;
+- `scripts/instrumented-run-summary.py` verdict `failed`, naming the test.
+
+The same run with a class name that does not exist reported `did not run`, and a
+report file that is not XML reported `could not read` — the two states a green
+line must not be mistaken for.
 
 ## Reproducing a run locally
 
@@ -178,6 +260,7 @@ build the persisted session is unnecessary and can mask the bypass, hence the se
 reset the runner does between flows.
 
 ## Links
+
 - `docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md` — why
   the tier is a separate workflow rather than a registry gate
 - `docs/decisions/2026-10-20-android-instrumented-smoke-on-every-pr.md` — why

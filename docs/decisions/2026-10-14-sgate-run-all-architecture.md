@@ -50,6 +50,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ```
 
 `${BASH_SOURCE[0]}` is used instead of `$0` because:
+
 - When **executed** (`bash static-gates.sh`): both work
 - When **sourced** (`source static-gates.sh`): `$0` is the shell (`bash`), not the script path
 

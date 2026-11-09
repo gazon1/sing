@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
@@ -33,6 +36,8 @@ import kotlin.test.assertTrue
  * there at all.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class UpdateTaskSeriesUseCaseTest {
     private val alice = UserId("alice")
     private val bob = UserId("bob")

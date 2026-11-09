@@ -14,7 +14,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Path
@@ -36,8 +35,8 @@ import kotlin.test.fail
 
 /**
  * End-to-end test: spawns the real mcp-server.jar as a subprocess and connects to it via
- * [StdioClientTransport]. Skipped when the fat JAR has not been built yet (e.g., clean
- * checkout without `./gradlew :mcp-server:jar` first).
+ * [StdioClientTransport]. The build produces the fat JAR before this suite runs, so the
+ * JAR is there; if it is not, the test fails loudly instead of skipping itself.
  *
  * Covers:
  *   1. The JVM process stays alive after `Server.createSession(transport)` (the historical
@@ -56,8 +55,25 @@ class McpServerEndToEndTest {
     private val jar =
         File(
             System.getProperty("mcp-server.jar.path")
-                ?: error("mcp-server.jar.path system property not set — run :mcp-server:jar first"),
+                ?: error("mcp-server.jar.path system property not set — the test task sets it"),
         )
+
+    /**
+     * The fat JAR this suite spawns has to be there.
+     *
+     * An assertion, not a skip. The build produces the JAR before this suite runs, so
+     * its absence is a broken build rather than a host that cannot run the test — and
+     * a skip would report the end-to-end coverage as covered when nothing had run.
+     * A skipped test is a silent green: JUnit counts it in `tests=` exactly like a
+     * passing one, and the count floor cannot see it.
+     */
+    private fun assertTheFatJarExists() {
+        assertTrue(
+            jar.isFile,
+            "the fat JAR is not at ${jar.absolutePath} — the test task builds it, so " +
+                "its absence is a broken build, not a host that cannot run this test",
+        )
+    }
 
     /**
      * Spawns the fat JAR against an ISOLATED `-Duser.home` temp directory.
@@ -94,10 +110,7 @@ class McpServerEndToEndTest {
 
     @Test
     fun server_handles_initialize_and_lists_tools() {
-        assumeTrue(
-            jar.exists(),
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
-        )
+        assertTheFatJarExists()
 
         val process = spawnServer()
 
@@ -165,10 +178,7 @@ class McpServerEndToEndTest {
 
     @Test
     fun server_blocks_until_stdin_closes() {
-        assumeTrue(
-            jar.exists(),
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
-        )
+        assertTheFatJarExists()
 
         val process = spawnServer()
 
@@ -200,10 +210,7 @@ class McpServerEndToEndTest {
      */
     @Test
     fun the_toolbox_describes_itself_then_records_the_call_it_made() {
-        assumeTrue(
-            jar.exists(),
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
-        )
+        assertTheFatJarExists()
 
         val (process, home) = spawnServerWithHome()
 
@@ -366,10 +373,7 @@ class McpServerEndToEndTest {
      */
     @Test
     fun create_task_proposes_the_task_and_the_task_waits_for_the_user() {
-        assumeTrue(
-            jar.exists(),
-            "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
-        )
+        assertTheFatJarExists()
 
         val (process, home) = spawnServerWithHome()
 

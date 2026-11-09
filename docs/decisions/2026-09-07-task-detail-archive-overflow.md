@@ -3,11 +3,13 @@ title: Archive in Overflow menu + Picker sheet chrome
 date: 2026-09-07
 status: accepted
 ---
+
 # Archive in Overflow menu + Picker sheet chrome
 
 ## Context
 
 После рефакторинга TaskDetailScreen (document-style) остались три недоделанные задачи:
+
 1. FAB исчез на desktop (PermanentShell не имел Scaffold)
 2. Archive action отсутствовал на TaskDetailScreen
 3. ProjectPickerSheet и TagPickerSheet имели raw ModalBottomSheet без chrome (drag-handle, × close, центрированный заголовок)
@@ -25,6 +27,7 @@ status: accepted
 `TaskRepository.softDelete(id)` уже использует `archived_at` column — то же что и ArchiveScreen. Single-task archive = reuse `softDelete()`.
 
 **Решение:**
+
 - `TaskDetailUiEvent.ConfirmArchive` → `ActiveSheet.ConfirmArchive`
 - `viewModel.confirmArchive()` + `viewModel.archiveTask(current)` (вызывает `taskRepo.softDelete()`)
 - Overflow menu (⋮) в TopAppBar → "Archive" item → `ConfirmArchiveDialog`

@@ -5,11 +5,7 @@
 appId: com.singularity.todo
 name: settings-account-tab
 ---
-- tapOn:
-    id: settings_tab_dropdown
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
+- runFlow:
+    file: settings-tab.yaml
+    env:
+      TAB_ID: settings_tab_account

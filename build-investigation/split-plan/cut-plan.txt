@@ -1,0 +1,96 @@
+# clusters=81 largest SCC=52
+# A lift is costed from both sides; a refactor takes the cheaper one. The exact minimum is a
+# max-flow, so min(top, bottom) is an upper bound on it, not the minimum.
+#   top    = cut every edge into the group from a cluster the group can reach
+#   bottom = cut every edge out of the group into a cluster that can reach the group
+#   imports = import statements on those edges — the unit of refactor work (edges are not)
+
+# cluster	clusters	cuts_top	imports_top	cuts_bottom	imports_bottom	min_cuts	min_imports
+core/ui	1	28	646	2	5	2	5
+core/backup	1	4	35	6	21	4	35
+feature/tasks	1	26	318	22	286	22	286
+test/fakes	1	0	0	0	0	0	0
+core/observability	1	0	0	0	0	0	0
+(root)	1	0	0	0	0	0	0
+every core/* cluster	44	217	1514	64	427	64	427
+
+# the cheaper cut, edge by edge (imports in brackets)
+core/ui: core/ui -> core/search (1), core/ui -> core/settings (4)
+core/backup: core/di -> core/backup (19), core/log -> core/backup (1), core/work -> core/backup (2), feature/backup -> core/backup (13)
+feature/tasks: feature/tasks -> core/attachments (8), feature/tasks -> core/draft (1), feature/tasks -> core/refresh (1), feature/tasks -> core/repository (3), feature/tasks -> core/search (7), feature/tasks -> core/sync (1), feature/tasks -> core/tasks (1), feature/tasks -> core/ui (114), feature/tasks -> feature/agenda (13), feature/tasks -> feature/ai (6), feature/tasks -> feature/attachments (5), feature/tasks -> feature/checklist (20), feature/tasks -> feature/nav (15), feature/tasks -> feature/notes (10), feature/tasks -> feature/profile (8), feature/tasks -> feature/projects (18), feature/tasks -> feature/proposals (8), feature/tasks -> feature/reminders (7), feature/tasks -> feature/search (1), feature/tasks -> feature/tags (25), feature/tasks -> feature/timetracking (9), feature/tasks -> preview (5)
+
+# checks on the single cut an earlier draft claimed was enough for core/ui
+core/ui still in a cycle after cutting core/search -> feature/notes: yes
+largest SCC after every edge into core/di is removed: 50
+largest SCC after both of the above: 52
+
+# greedy feedback arc set (Eades-Lin-Smyth, an upper bound): 69 edges
+core/attachments -> feature/tasks
+core/auth -> core/sync
+core/auth -> feature/auth
+core/llm -> core/security
+core/log -> core/backup
+core/notifications -> feature/agenda
+core/repository -> feature/profile
+core/search -> feature/notes
+core/search -> feature/projects
+core/search -> feature/tags
+core/search -> feature/tasks
+core/settings -> core/notifications
+core/settings -> core/schedule
+core/settings -> feature/agenda
+core/settings -> feature/plans
+core/sync -> core/work
+core/sync -> feature/notes
+core/sync -> feature/projects
+core/sync -> feature/tags
+core/sync -> feature/tasks
+core/tasks -> core/settings
+core/tree -> feature/projects
+core/work -> core/backup
+feature/ai -> core/di
+feature/alarms -> feature/pomodoro
+feature/alarms -> feature/reminders
+feature/attachments -> feature/tasks
+feature/auth -> feature/nav
+feature/checklist -> feature/tasks
+feature/nav -> feature/agenda
+feature/nav -> feature/ai
+feature/nav -> feature/archive
+feature/nav -> feature/calendar
+feature/nav -> feature/notes
+feature/nav -> feature/projects
+feature/nav -> feature/search
+feature/nav -> feature/settings
+feature/nav -> feature/statistics
+feature/notes -> feature/ai
+feature/notes -> feature/search
+feature/plans -> feature/nav
+feature/pomodoro -> feature/tasks
+feature/profile -> core/refresh
+feature/profile -> core/wipe
+feature/profile -> feature/auth
+feature/profile -> feature/nav
+feature/profile -> feature/settings
+feature/profile -> preview
+feature/projects -> feature/ai
+feature/proposals -> feature/notes
+feature/proposals -> feature/projects
+feature/reminders -> feature/agenda
+feature/reminders -> feature/projects
+feature/reminders -> feature/tasks
+feature/tags -> feature/projects
+feature/tags -> feature/tasks
+feature/tasks -> feature/agenda
+feature/tasks -> feature/ai
+feature/tasks -> feature/nav
+feature/tasks -> feature/notes
+feature/tasks -> feature/projects
+feature/tasks -> feature/proposals
+feature/tasks -> feature/search
+feature/timetracking -> feature/tasks
+preview -> feature/agenda
+preview -> feature/notes
+preview -> feature/projects
+preview -> feature/reminders
+preview -> feature/tasks

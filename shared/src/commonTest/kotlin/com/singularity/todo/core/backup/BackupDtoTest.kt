@@ -5,6 +5,7 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.serialization.builtins.ListSerializer
@@ -28,6 +29,7 @@ class BackupDtoTest {
                 priority = TaskPriority.High,
                 kind = TaskKind.Task,
                 projectId = "proj-1",
+                parentTaskId = "task-parent",
                 dueDate = "2025-01-15",
                 dueTime = "14:00",
                 startDate = null,
@@ -58,8 +60,10 @@ class BackupDtoTest {
         assertEquals("task-1", dto.id)
         assertEquals("Test Task", dto.title)
         assertEquals("Description", dto.description)
-        assertEquals("High", dto.priority)
-        assertEquals("Task", dto.kind)
+        // The payload speaks the format's own names, not the constants' names:
+        // a backup is read by a build whose constants may have been renamed.
+        assertEquals("high", dto.priority)
+        assertEquals("task", dto.kind)
 
         // Sync-only fields should be absent from DTO
         // The dto should have no serverVersion, syncStatus, hlc fields
@@ -74,11 +78,61 @@ class BackupDtoTest {
         assertNull(restored.sync.syncError)
 
         // Fields that used to be dropped by the backup round-trip
-        assertEquals(entity.parentTaskId, restored.parentTaskId)
+        assertEquals(
+            "task-parent",
+            restored.parentTaskId,
+            "a sub-task must come back under the same parent it was exported with",
+        )
         assertEquals(entity.estimateMinutes, restored.estimateMinutes)
         assertEquals(entity.recurrenceRule, restored.recurrenceRule)
         assertEquals(entity.outgoingLinks, restored.outgoingLinks)
         assertEquals(entity.aiSuppressedTagIds, restored.aiSuppressedTagIds)
+    }
+
+    @Test
+    fun aTaskDtoCarriesItsParentThroughThePayloadEncoding() {
+        val dto =
+            TaskDto(
+                id = "child",
+                title = "A sub-task",
+                parentTaskId = "parent",
+                createdAt = 1L,
+                updatedAt = 2L,
+            )
+
+        val decoded =
+            StableJson.decodeFromString(
+                TaskDto.serializer(),
+                StableJson.encodeToString(TaskDto.serializer(), dto),
+            )
+
+        assertEquals(
+            "parent",
+            decoded.parentTaskId,
+            "the parent link must be in the payload the archive writes, not only on the DTO",
+        )
+    }
+
+    @Test
+    fun aParentTheRestoreWillNotWriteIsCleared() {
+        val child =
+            TaskDto(
+                id = "child",
+                title = "A sub-task",
+                parentTaskId = "parent",
+                createdAt = 1L,
+                updatedAt = 2L,
+            )
+
+        assertEquals(
+            "parent",
+            child.withResolvedParent(setOf("parent", "child")).parentTaskId,
+            "a parent the restore writes keeps the link",
+        )
+        assertNull(
+            child.withResolvedParent(setOf("child")).parentTaskId,
+            "a parent outside the restore would leave the task as the child of a row nothing writes",
+        )
     }
 
     @Test

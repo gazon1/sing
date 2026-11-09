@@ -67,6 +67,10 @@ fun backupFailure(
             BackupFailure(CHAIN_TOO_LONG, "That archive carries more changes than this app reads")
         }
 
+        is ArchiveEnvelopeError.Unusable -> {
+            BackupFailure(UNUSABLE_ARCHIVE, "That archive could not be read or written")
+        }
+
         is BackupPayloadError.ChecksumMismatch -> {
             BackupFailure(CHECKSUM_MISMATCH, "That archive's contents do not match its manifest")
         }
@@ -87,6 +91,10 @@ fun backupFailure(
             BackupFailure(SCHEMA_TOO_OLD, "That archive is too old for this app to restore")
         }
 
+        is BackupPayloadError.ForeignArchive -> {
+            BackupFailure(FOREIGN_ARCHIVE, "That file is not a Singularity backup")
+        }
+
         is BackupStorageError.FileNotFound -> {
             BackupFailure(FILE_NOT_FOUND, "That backup is not on the device")
         }
@@ -95,12 +103,36 @@ fun backupFailure(
             BackupFailure(DEVICE_NOT_AUTHORIZED, "This device is not allowed to back up on its own")
         }
 
-        is AppError -> {
+        // A failure that is not one of the backup's own is still ours to phrase
+        // when it carries a database constraint: see [notOurFailure].
+        else -> {
+            notOurFailure(error, fallback)
+        }
+    }
+
+/**
+ * The failure for an error the backup layer did not name itself.
+ *
+ * An [AppError] keeps its own code and words. Everything else keeps the
+ * fallback code and its own words — except a foreign-key violation, which says
+ * what happened in a sentence a person can act on instead of the database's.
+ */
+private fun notOurFailure(
+    error: Throwable,
+    fallback: BackupFailure,
+): BackupFailure =
+    when {
+        error is AppError -> {
             BackupFailure(error.code, error.message ?: fallback.message)
         }
 
-        // A failure that is not the backup's own keeps its own words: the person
-        // is shown what went wrong, and the report is grouped by the fallback.
+        error.message?.contains("FOREIGN KEY constraint failed", ignoreCase = true) == true -> {
+            BackupFailure(
+                FOREIGN_KEY_CONSTRAINT,
+                "Some imported data refers to items that are missing, so the restore was cancelled",
+            )
+        }
+
         else -> {
             BackupFailure(fallback.code, error.message ?: fallback.message)
         }
@@ -124,6 +156,9 @@ const val BROKEN_CHAIN = "backup.broken_chain"
 /** The chain of changes is longer than this app reads. */
 const val CHAIN_TOO_LONG = "backup.chain_too_long"
 
+/** The archive's bytes could not be read from the source, or written to the sink. */
+const val UNUSABLE_ARCHIVE = "backup.unusable_archive"
+
 /** The contents do not match the manifest. */
 const val CHECKSUM_MISMATCH = "backup.checksum_mismatch"
 
@@ -139,8 +174,14 @@ const val UNSUPPORTED_SCHEMA_VERSION = "backup.unsupported_schema_version"
 /** The archive is too old for this app to restore. */
 const val SCHEMA_TOO_OLD = "backup.schema_too_old"
 
+/** The archive names another application. */
+const val FOREIGN_ARCHIVE = "backup.foreign_archive"
+
 /** The file is not on the device. */
 const val FILE_NOT_FOUND = "backup.file_not_found"
+
+/** An imported row references an item that is not in the archive. */
+const val FOREIGN_KEY_CONSTRAINT = "backup.foreign_key_constraint"
 
 /** The device is not allowed to push on its own. */
 const val DEVICE_NOT_AUTHORIZED = "backup.device_not_authorized"

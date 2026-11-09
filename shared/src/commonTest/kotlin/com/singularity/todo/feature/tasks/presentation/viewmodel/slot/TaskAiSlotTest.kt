@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +29,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction as AiAction
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskAiSlotTest {
     private fun slot(
         fakes: SlotFakes,

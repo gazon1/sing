@@ -1,0 +1,197 @@
+package com.singularity.todo.feature.tasks.presentation.components.detail
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.celebration.Celebration
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.mark_task_complete
+import singularity_todo.shared.generated.resources.task_completed
+import singularity_todo.shared.generated.resources.task_title_placeholder
+
+/**
+ * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
+ * Клик по чекбоксу — отдельный target от поля ввода (не пересекаются).
+ *
+ * [onCheckToggle] is nullable and `null` hides the checkbox entirely. Create mode
+ * passed `{}`, which rendered a completion checkbox — the screen's most prominent
+ * control — that did nothing when pressed. There is no task to complete before it
+ * exists, so the honest rendering is no checkbox, not a dead one.
+ *
+ * @param titleState the title's field state. The owner built the source and bridged it,
+ *   and the kind of that source — static or owned — is decided by the caller, at compile
+ *   time. This component shows the field and does not decide who may rewrite it.
+ */
+@Composable
+fun TaskTitleRow(
+    taskId: String,
+    titleState: TextFieldState,
+    isCompleted: Boolean,
+    onCheckToggle: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    titleError: String? = null,
+) {
+    // The caller's modifier is the whole block's: the message is part of the title,
+    // so the caller's padding or width has to cover the row and the line under it.
+    // No call site passes a modifier today (TaskEditorContent, and the previews below).
+    Column(modifier = modifier) {
+        TitleFieldRow(
+            taskId = taskId,
+            titleState = titleState,
+            isCompleted = isCompleted,
+            onCheckToggle = onCheckToggle,
+        )
+
+        // The message sits under the field, in the same place whatever the
+        // screen: the create editor and the detail editor hand the row the same
+        // string, so "the title is missing" reads the same in both. It is a
+        // separate node rather than a decoration of the field, because a second
+        // `testTag` on the field's modifier chain is dropped by the semantics
+        // merge — the tag would exist in `TestTags` and nowhere in the tree.
+        if (titleError != null) {
+            Text(
+                text = titleError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier =
+                    Modifier
+                        .padding(top = TaskSpacing.md)
+                        .testTag(TestTags.TASK_EDITOR_TITLE_ERROR),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TitleFieldRow(
+    taskId: String,
+    titleState: TextFieldState,
+    isCompleted: Boolean,
+    onCheckToggle: (() -> Unit)?,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onCheckToggle != null) {
+            Celebration(
+                triggerKey = if (isCompleted) taskId else "",
+            ) {
+                IconButton(onClick = onCheckToggle) {
+                    val doneTint =
+                        if (isCompleted) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    val glyph =
+                        if (isCompleted) {
+                            Icons.Filled.CheckCircle
+                        } else {
+                            Icons.Outlined.CheckBoxOutlineBlank
+                        }
+                    Icon(
+                        imageVector = glyph,
+                        contentDescription =
+                            if (isCompleted) {
+                                stringResource(Res.string.task_completed)
+                            } else {
+                                stringResource(Res.string.mark_task_complete)
+                            },
+                        tint = doneTint,
+                        modifier = Modifier.size(TaskSpacing.iconSizeLarge),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(TaskSpacing.md))
+        }
+        BasicTextField(
+            state = titleState,
+            textStyle =
+                LocalTextStyle.current.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            lineLimits = TextFieldLineLimits.SingleLine,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    // One tag per node. A second `testTag` on the same chain is
+                    // applied and then dropped by the semantics merge, so the flow
+                    // that asks for it can never pass — the tag looks right in
+                    // `TestTags.kt` and exists nowhere in the tree. The title's
+                    // *value* needs no second name: the field publishes it as the
+                    // node's text (measured on the device, 2026-10-28), so a flow
+                    // asserts it with `text:`.
+                    .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+                    .semantics { contentDescription = "Task title" },
+            decorator = { innerTextField ->
+                if (titleState.text.isEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.task_title_placeholder),
+                        color = placeholderTextColor(),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                innerTextField()
+            },
+        )
+    }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskTitleRowPreview() =
+    PreviewThemed(darkTheme = false) {
+        TaskTitleRow(
+            taskId = "t1",
+            titleState = TextFieldState("Buy groceries"),
+            isCompleted = false,
+            onCheckToggle = noopClick,
+        )
+    }
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskTitleRowCompletedPreview() =
+    PreviewThemed(darkTheme = false) {
+        TaskTitleRow(
+            taskId = "t1",
+            titleState = TextFieldState("Buy groceries"),
+            isCompleted = true,
+            onCheckToggle = noopClick,
+        )
+    }

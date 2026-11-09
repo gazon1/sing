@@ -14,6 +14,9 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import com.singularity.todo.core.ui.TestTags
 
 /**
@@ -201,4 +204,32 @@ fun DesktopComposeUiTest.scrollToTag(tag: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.clickContentDescriptionScrolled(desc: String) {
     awaitContentDescription(desc).performScrollTo().performClick()
+}
+
+/**
+ * Drags the AI chat's message list down, away from the newest message.
+ *
+ * The chat's follow-the-tail policy reads the reader's scroll from the list's own scroll state —
+ * a resting scroll that stopped anywhere but the end is the reader's, because every move the
+ * policy makes lands at the end. So a test about "a reader who scrolled up is left alone" has to
+ * drag the list, not assign a scroll offset.
+ *
+ * Downward is away from the end: the conversation grows at the bottom, so revealing an
+ * older message means moving the content down.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.dragChatMessagesDown() {
+    awaitTag(TestTags.CHAT_MESSAGES).performTouchInput { swipeDown() }
+}
+
+/**
+ * Drags the chat's message list up, back towards the newest message.
+ *
+ * The counterpart of [dragChatMessagesDown]. Ending the drag at the end of the list is
+ * what tells the policy the reader is following again, so this is how a test returns a
+ * reader to the tail.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.dragChatMessagesUp() {
+    awaitTag(TestTags.CHAT_MESSAGES).performTouchInput { swipeUp() }
 }

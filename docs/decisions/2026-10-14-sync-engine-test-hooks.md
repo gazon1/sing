@@ -64,6 +64,7 @@ class MidFlightScopeNullProvider(initialScope: SyncScope) : SyncScopeProvider {
 ```
 
 A test using this in G5 would:
+
 1. `syncOnce()` reads scope successfully → `active = scope`
 2. Scope provider switches to `null` after first emission
 3. Push phase uses the captured `active` scope

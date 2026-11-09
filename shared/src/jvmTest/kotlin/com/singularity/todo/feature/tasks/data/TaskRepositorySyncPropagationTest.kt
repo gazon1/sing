@@ -3,10 +3,12 @@
 
 package com.singularity.todo.feature.tasks.data
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
@@ -20,8 +22,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonArray
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -45,10 +45,12 @@ import kotlin.time.Clock
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Data")
 class TaskRepositorySyncPropagationTest {
     private val user = UserId("u1")
 
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
     private lateinit var sync: FakeSyncRepository
     private lateinit var repo: TaskRepositoryImpl
@@ -56,8 +58,8 @@ class TaskRepositorySyncPropagationTest {
     @BeforeTest
     fun setUp() =
         runTest {
-            tempDir = Files.createTempDirectory("singularity-sync-").toFile()
-            db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+            fixture = DatabaseTestFixture.inMemory()
+            db = fixture.database()
             sync = FakeSyncRepository(this)
             val currentUser =
                 FakeProfileAwareCurrentUser(
@@ -78,8 +80,7 @@ class TaskRepositorySyncPropagationTest {
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun task(

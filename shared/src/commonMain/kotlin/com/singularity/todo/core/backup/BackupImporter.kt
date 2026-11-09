@@ -26,7 +26,6 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
 
 /**
@@ -129,13 +128,45 @@ class BackupImporter(
             // The base goes in first and the changes go in after it, in order.
             // Both go in through the same path: a change carries whole rows, and
             // whole rows are what the base carries too.
+            // What the account already holds, when the caller asked for it to be
+            // kept. Read once, before anything is written: "already there" is the
+            // state the restore found, not the archive's own earlier entry — the
+            // base and the changes behind it stay one story, in their own order.
+            val kept = KeptRows()
             val (outcome, merged) =
                 runTransaction {
                     var merged = migrated
                     val ownerId = options.ownerId ?: options.ownerUserId
-                    val outcome = applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments)
+                    // Every task id this restore will write, base and changes
+                    // together: a parent link is resolved against all of them, so
+                    // a change may name a parent the base wrote.
+                    val knownTaskIds =
+                        (migrated.tasks + decodedChanges.flatMap { it.tasks })
+                            .mapTo(HashSet()) { it.id }
+                    val existing =
+                        if (options.keepExistingRows) existingRowKeys(options.targetUserId, ownerId) else null
+                    val outcome =
+                        applyPayload(
+                            migrated,
+                            options.targetUserId,
+                            ownerId,
+                            now,
+                            read.attachments,
+                            knownTaskIds,
+                            existing,
+                            kept,
+                        )
                     for (changePayload in decodedChanges) {
-                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap())
+                        applyPayload(
+                            changePayload,
+                            options.targetUserId,
+                            ownerId,
+                            now,
+                            emptyMap(),
+                            knownTaskIds,
+                            existing,
+                            kept,
+                        )
                         merged = merge(merged, changePayload)
                     }
                     outcome to merged
@@ -163,6 +194,7 @@ class BackupImporter(
                 entityCounts = BackupDomain.countsOf(merged),
                 restoredAttachmentCount = outcome.restored,
                 missingAttachmentIds = outcome.missing,
+                keptEntityCounts = kept.counts(),
             )
         }
 
@@ -184,10 +216,10 @@ class BackupImporter(
             // unreadable payload says so.
             throw BackupPayloadError.SchemaTooOld(payload.schemaVersion)
         } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
-            val jsonObj = json.parseToJsonElement(payloadBytes.decodeToString()).jsonObject
-            val migrated = BackupMigrations.migrate(jsonObj, payload.schemaVersion)
-            val migratedBytes = json.encodeToString(migrated).encodeToByteArray()
-            json.decodeFromString(BackupPayload.serializer(), migratedBytes.decodeToString())
+            // The same decode the test that joins the chain to the payload type
+            // uses — one home, so the reader the test asserts on cannot become a
+            // lenient stand-in for the one a restore uses.
+            decodeMigratedPayload(payloadBytes, payload.schemaVersion)
         } else {
             payload
         }
@@ -230,16 +262,24 @@ class BackupImporter(
         ownerId: UserId?,
         now: Long,
         attachmentBytes: Map<String, ByteArray>,
+        knownTaskIds: Set<String>,
+        existing: Map<BackupEntityKind, Set<String>>?,
+        kept: KeptRows,
     ): AttachmentOutcome {
-        applyRows(payload, targetUserId, now)
-        applyLinks(payload)
-        applyViews(payload, targetUserId, now)
-        applyGroups(payload, targetUserId, now)
-        applySavedSearches(payload.savedSearches, targetUserId, now)
-        applyReminders(payload, targetUserId, now)
-        applyChecklistItems(payload.checklistItems, now)
-        applyTimeEntries(payload.timeEntries, targetUserId, now)
-        val attachments = applyAttachments(payload.attachments, targetUserId, now, attachmentBytes)
+        // A restore that keeps existing rows narrows the payload before it is
+        // applied, rather than branching inside every writer: the one path stays
+        // one path, and what it writes is exactly what the account did not have.
+        val applied = if (existing == null) payload else withoutExistingRows(payload, existing, kept)
+
+        applyRows(applied, targetUserId, now, knownTaskIds)
+        applyLinks(applied)
+        applyViews(applied, targetUserId, now)
+        applyGroups(applied, targetUserId, now)
+        applySavedSearches(applied.savedSearches, targetUserId, now)
+        applyReminders(applied, targetUserId, now)
+        applyChecklistItems(applied.checklistItems, now)
+        applyTimeEntries(applied.timeEntries, targetUserId, now)
+        val attachments = applyAttachments(applied.attachments, targetUserId, now, attachmentBytes)
 
         // The removals go last, and they go last for the same reason the merge
         // puts them after the upserts: everything this payload carries is written
@@ -248,7 +288,11 @@ class BackupImporter(
         // it — and a parent this payload has just written is alive, while one this
         // payload is about to remove would take the statement's guard with it and
         // leave the link behind.
-        applyRemovals(payload.removals, targetUserId, ownerId)
+        //
+        // The removals come from `applied`, not from the payload as it arrived: a
+        // restore that keeps existing rows has already dropped them, and reading
+        // the original here would delete exactly the rows the person asked to keep.
+        applyRemovals(applied.removals, targetUserId, ownerId)
 
         return attachments
     }
@@ -386,25 +430,256 @@ class BackupImporter(
         }
     }
 
-    /** The rows that carry the account itself: tasks, notes, projects and tags. */
+    // Keep in sync with BackupEntityKind.entries / withoutExistingRows / KeptRows.counts / removeRow.
+    private suspend fun existingRowKeys(
+        userId: UserId,
+        ownerId: UserId?,
+    ): Map<BackupEntityKind, Set<String>> =
+        mapOf(
+            BackupEntityKind.TASKS to taskDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.NOTES to noteDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.PROJECTS to projectDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.TAGS to tagDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.TAG_GROUPS to tagGroupDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.PROJECT_TAG_GROUPS to
+                projectTagGroupDao
+                    .listAllForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.projectId.link(it.tagGroupId) },
+            BackupEntityKind.ATTACHMENTS to attachmentDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.ATTACHMENT_ANNOTATIONS to
+                annotationDao
+                    .listAllForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.TASK_TAGS to
+                taskDao
+                    .listAllTagsForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.taskId.link(it.tagId) },
+            BackupEntityKind.TASK_DEPENDENCIES to
+                taskDao
+                    .listAllDependenciesForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.taskId.link(it.dependsOnTaskId) },
+            BackupEntityKind.AGENDA_VIEWS to agendaViewDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.TASK_REMINDERS to
+                reminderDao
+                    .listAllForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.PROJECT_REMINDERS to
+                projectReminderDao
+                    .listAllForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.CHECKLIST_ITEMS to
+                checklistDao
+                    .listAllForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.SAVED_SEARCHES to
+                savedSearchDao
+                    .listAllForUser(userId.value)
+                    .mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.TIME_ENTRIES to timeEntryDao.listAllForUser(userId.value).mapTo(mutableSetOf()) { it.id },
+            BackupEntityKind.PROFILES to
+                (if (ownerId != null) profileDao.listOwnedBy(ownerId.value) else profileDao.listAll())
+                    .mapTo(mutableSetOf()) { it.id },
+        )
+
+    /**
+     * [payload], less the rows the account already holds.
+     *
+     * A row whose key is in [existing] is left out and counted as kept; the rest
+     * travel. The removals are dropped whole: a restore that keeps what is there
+     * cannot take a row out, because the row it would take out is one of the
+     * rows it was asked to leave alone.
+     *
+     * Keep in sync with BackupEntityKind.entries / existingRowKeys / KeptRows.counts.
+     */
+    private fun withoutExistingRows(
+        payload: BackupPayload,
+        existing: Map<BackupEntityKind, Set<String>>,
+        kept: KeptRows,
+    ): BackupPayload =
+        payload.copy(
+            tasks = keepNewRows(payload.tasks, BackupEntityKind.TASKS, existing, kept) { it.id },
+            notes = keepNewRows(payload.notes, BackupEntityKind.NOTES, existing, kept) { it.id },
+            projects = keepNewRows(payload.projects, BackupEntityKind.PROJECTS, existing, kept) { it.id },
+            tags = keepNewRows(payload.tags, BackupEntityKind.TAGS, existing, kept) { it.id },
+            attachments = keepNewRows(payload.attachments, BackupEntityKind.ATTACHMENTS, existing, kept) { it.id },
+            attachmentAnnotations =
+                keepNewRows(
+                    payload.attachmentAnnotations,
+                    BackupEntityKind.ATTACHMENT_ANNOTATIONS,
+                    existing,
+                    kept,
+                ) { it.id },
+            taskTags =
+                keepNewRows(payload.taskTags, BackupEntityKind.TASK_TAGS, existing, kept) {
+                    it.taskId.link(it.tagId)
+                },
+            taskDependencies =
+                keepNewRows(payload.taskDependencies, BackupEntityKind.TASK_DEPENDENCIES, existing, kept) {
+                    it.taskId.link(it.dependsOnTaskId)
+                },
+            agendaViews = keepNewRows(payload.agendaViews, BackupEntityKind.AGENDA_VIEWS, existing, kept) { it.id },
+            taskReminders =
+                keepNewRows(payload.taskReminders, BackupEntityKind.TASK_REMINDERS, existing, kept) { it.id },
+            projectReminders =
+                keepNewRows(payload.projectReminders, BackupEntityKind.PROJECT_REMINDERS, existing, kept) { it.id },
+            checklistItems =
+                keepNewRows(payload.checklistItems, BackupEntityKind.CHECKLIST_ITEMS, existing, kept) { it.id },
+            tagGroups = keepNewRows(payload.tagGroups, BackupEntityKind.TAG_GROUPS, existing, kept) { it.id },
+            projectTagGroups =
+                keepNewRows(payload.projectTagGroups, BackupEntityKind.PROJECT_TAG_GROUPS, existing, kept) {
+                    it.projectId.link(it.tagGroupId)
+                },
+            savedSearches =
+                keepNewRows(payload.savedSearches, BackupEntityKind.SAVED_SEARCHES, existing, kept) { it.id },
+            timeEntries = keepNewRows(payload.timeEntries, BackupEntityKind.TIME_ENTRIES, existing, kept) { it.id },
+            profiles = keepNewRows(payload.profiles, BackupEntityKind.PROFILES, existing, kept) { it.id },
+            removals = emptyMap(),
+        )
+
+    /** The rows of [rows] the account does not have, with each kept row recorded once. */
+    private fun <T> keepNewRows(
+        rows: List<T>,
+        kind: BackupEntityKind,
+        existing: Map<BackupEntityKind, Set<String>>,
+        kept: KeptRows,
+        key: (T) -> String,
+    ): List<T> {
+        if (rows.isEmpty()) return rows
+        val present = existing[kind].orEmpty()
+        return rows.filterNot { row ->
+            val rowKey = key(row)
+            when {
+                // The account held it at restore start: leave it alone and count it once.
+                rowKey in present -> {
+                    kept.add(kind, rowKey)
+                    true
+                }
+
+                // An earlier payload in this same restore wrote it (e.g. the base): do
+                // not re-insert — plain @Insert link rows would collide on their PK.
+                kept.wasWritten(kind, rowKey) -> {
+                    true
+                }
+
+                else -> {
+                    kept.markWritten(kind, rowKey)
+                    false
+                }
+            }
+        }
+    }
+
+    /**
+     * The rows a restore left alone, by kind.
+     *
+     * A set per kind, not a counter: a row that travels in the base and again in
+     * a change is matched twice and is still one kept row. The counts are the
+     * sizes of the sets.
+     */
+    private class KeptRows {
+        private val keys = mutableMapOf<BackupEntityKind, MutableSet<String>>()
+        private val written = mutableMapOf<BackupEntityKind, MutableSet<String>>()
+
+        // Compile canary: if a BackupEntityKind is added, update this exhaustive when,
+        // existingRowKeys(), withoutExistingRows(), counts(), and the DAO/export reads.
+        @Suppress("unused")
+        private fun allKindsHandled(kind: BackupEntityKind): Unit =
+            when (kind) {
+                BackupEntityKind.TASK_TAGS,
+                BackupEntityKind.TASK_DEPENDENCIES,
+                BackupEntityKind.CHECKLIST_ITEMS,
+                BackupEntityKind.PROJECT_TAG_GROUPS,
+                BackupEntityKind.ATTACHMENT_ANNOTATIONS,
+                BackupEntityKind.ATTACHMENTS,
+                BackupEntityKind.AGENDA_VIEWS,
+                BackupEntityKind.SAVED_SEARCHES,
+                BackupEntityKind.TASK_REMINDERS,
+                BackupEntityKind.PROJECT_REMINDERS,
+                BackupEntityKind.TIME_ENTRIES,
+                BackupEntityKind.TAGS,
+                BackupEntityKind.TAG_GROUPS,
+                BackupEntityKind.TASKS,
+                BackupEntityKind.NOTES,
+                BackupEntityKind.PROJECTS,
+                BackupEntityKind.PROFILES,
+                -> Unit
+            }
+
+        fun add(
+            kind: BackupEntityKind,
+            key: String,
+        ) {
+            keys.getOrPut(kind) { mutableSetOf() }.add(key)
+        }
+
+        fun markWritten(
+            kind: BackupEntityKind,
+            key: String,
+        ) {
+            written.getOrPut(kind) { mutableSetOf() }.add(key)
+        }
+
+        fun wasWritten(
+            kind: BackupEntityKind,
+            key: String,
+        ): Boolean = written[kind]?.contains(key) == true
+
+        fun counts(): EntityCounts {
+            val c = BackupEntityKind.entries.associateWith { size(it) }
+            // Exhaustive: a new BackupEntityKind must be mapped here or this won't compile-cleanly by intent?
+            // Build explicitly so every kind is named.
+            return EntityCounts(
+                tasks = c.value(BackupEntityKind.TASKS),
+                notes = c.value(BackupEntityKind.NOTES),
+                projects = c.value(BackupEntityKind.PROJECTS),
+                tags = c.value(BackupEntityKind.TAGS),
+                attachments = c.value(BackupEntityKind.ATTACHMENTS),
+                attachmentAnnotations = c.value(BackupEntityKind.ATTACHMENT_ANNOTATIONS),
+                taskTags = c.value(BackupEntityKind.TASK_TAGS),
+                taskDependencies = c.value(BackupEntityKind.TASK_DEPENDENCIES),
+                agendaViews = c.value(BackupEntityKind.AGENDA_VIEWS),
+                taskReminders = c.value(BackupEntityKind.TASK_REMINDERS),
+                projectReminders = c.value(BackupEntityKind.PROJECT_REMINDERS),
+                checklistItems = c.value(BackupEntityKind.CHECKLIST_ITEMS),
+                tagGroups = c.value(BackupEntityKind.TAG_GROUPS),
+                projectTagGroups = c.value(BackupEntityKind.PROJECT_TAG_GROUPS),
+                savedSearches = c.value(BackupEntityKind.SAVED_SEARCHES),
+                timeEntries = c.value(BackupEntityKind.TIME_ENTRIES),
+                profiles = c.value(BackupEntityKind.PROFILES),
+            ).also { assertAllKindsCounted(c) }
+        }
+
+        private fun assertAllKindsCounted(c: Map<BackupEntityKind, Int>) {
+            for (kind in BackupEntityKind.entries) {
+                require(
+                    kind in c,
+                ) { "BackupEntityKind.$kind missing from kept counts" }
+            }
+        }
+
+        private fun Map<BackupEntityKind, Int>.value(kind: BackupEntityKind): Int = getValue(kind)
+
+        private fun size(kind: BackupEntityKind): Int = keys[kind]?.size ?: 0
+    }
+
+    /**
+     * The rows that carry the account itself: tasks, projects, notes and tags.
+     *
+     * The projects land before the notes because `notes.project_id` is a foreign key:
+     * a note that belongs to a project the archive brings with it fails to insert
+     * otherwise ("FOREIGN KEY constraint failed"). Tasks go first for the same reason.
+     */
     private suspend fun applyRows(
         payload: BackupPayload,
         userId: UserId,
         now: Long,
+        knownTaskIds: Set<String>,
     ) {
         for (task in payload.tasks) {
             taskDao.upsert(
-                task.toEntity(userId.value).copy(
+                task.withResolvedParent(knownTaskIds).toEntity(userId.value).copy(
                     updatedAt = now,
                     createdAt = task.createdAt,
-                ),
-            )
-        }
-        for (note in payload.notes) {
-            noteDao.upsert(
-                note.toEntity(userId.value).copy(
-                    updatedAt = now,
-                    createdAt = note.createdAt,
                 ),
             )
         }
@@ -416,13 +691,42 @@ class BackupImporter(
                 ),
             )
         }
+        for (note in payload.notes) {
+            noteDao.upsert(
+                note.toEntity(userId.value).copy(
+                    updatedAt = now,
+                    createdAt = note.createdAt,
+                ),
+            )
+        }
+        // The tags, with names made unique the way the account's index demands.
+        // `tags` carries a unique `(user_id, name_normalized)`, and two tags of the
+        // same name are legitimate on the way in: a foreign backup can hold both,
+        // and one of them may already be in the account under another id. The
+        // second row keeps its id and its links and takes a numbered name;
+        // dropping it would take the tasks tagged with it along.
+        val owners =
+            tagDao
+                .listAllForUser(userId.value)
+                .associateTo(HashMap()) { it.nameNormalized to it.id }
         for (tag in payload.tags) {
-            tagDao.upsert(
+            var entity =
                 tag.toEntity(userId.value).copy(
                     updatedAt = now,
                     createdAt = tag.createdAt,
-                ),
-            )
+                )
+            val owner = owners[entity.nameNormalized]
+            if (owner != null && owner != entity.id) {
+                val base = entity.name.trim()
+                var n = 2
+                // A re-import is stable: the row may already own the numbered
+                // name an earlier restore gave it.
+                while (owners["$base ($n)".lowercase()]?.let { it != entity.id } == true) n++
+                val name = "$base ($n)"
+                entity = entity.copy(name = name, nameNormalized = name.lowercase())
+            }
+            owners[entity.nameNormalized] = entity.id
+            tagDao.upsert(entity)
         }
     }
 

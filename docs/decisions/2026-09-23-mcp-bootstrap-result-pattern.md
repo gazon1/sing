@@ -21,6 +21,7 @@ Between `bootstrapper.run()` returning and this `.first()` call, a concurrent co
 ## Idea
 
 Return an immutable `ProfileBootstrapResult` from `bootstrapper.run()` that contains:
+
 - `created: Set<String>` — names of profiles created during this bootstrap.
 - `activated: ProfileId?` — the id of the activated profile, if any.
 

@@ -12,6 +12,7 @@ status: accepted
 ## Idea
 
 Проверить:
+
 1. Нет raw `runBlocking` внутри `module {}` блоков
 2. Все suspend-вызовы обёрнуты в `koinBridge`
 3. Нет `GlobalScope.launch` внутри factories

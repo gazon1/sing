@@ -4,6 +4,11 @@
 должен помещаться в один проход, а правило тестов — это десятки строк, которые нужны
 тогда, когда пишешь тест или разбираешь падение.
 
+**Кто владеет сценарием.** Если сценарий проверяется в двух тирах, у него один владелец.
+Таблица в [test-tier-ownership.md](test-tier-ownership.md) называет владельца, говорит
+почему именно он, и что стало с копией в другом тире: удалена, оставлена осознанно (с
+причиной) или отложена до следующей работы.
+
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
@@ -56,6 +61,25 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
 не может быть тестовым).
 
+**Тестовая БД — один владелец.** Каждый JVM-тест, которому нужна настоящая база, берёт её
+из `DatabaseTestFixture` (`shared/src/jvmTest/.../core/database/DatabaseTestFixture.kt`):
+`onDisk()` — файл во временном каталоге, которым владеет фикстура; `inMemory()` — без
+файла. `database(name)` даёт вторую базу, `path(name)` — путь, `reopen(name)` — перезапуск
+поверх того же файла, `connect(name)` — сырое соединение до/после Room. `close()` закрывает
+всё, что открыла фикстура. Файл на диске выбирается только там, где файл и есть предмет
+теста (миграции, рестарт, WAL, «файл существует»); остальное — память. Правило
+механическое: `:shared:archTest` (`DatabaseTestFixtureHasOneOwnerTest`) валит сборку, если
+файл вне фикстуры открывает БД или заводит временный каталог под неё. В скан входят
+`jvmTest` и `commonTest`: последний исполняется внутри `:shared:jvmTest`, и копия там была
+бы той же второй жизнью БД.
+
+**`awaitState` будит background-scope.** Один `advanceUntilIdle()` доводит только
+*foreground*-работу, поэтому VM на `VmScope.Background` (долгоживущий коллектор) не увидит
+изменение, которое тест только что сделал. `awaitState` после `advanceUntilIdle()` делает
+`runCurrent()`: он диспатчит то, что стоит в очереди сейчас, и не двигает часы — то есть не
+запускает бесконечный таймер. Так три теста приветствия, висевшие по минуте, снова
+завершаются.
+
 **`@Tag("slow")` — тест, который локальный цикл не гоняет.** Дефолтный прогон
 исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
 лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.population=full`) обязан
@@ -63,7 +87,60 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
 `adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
 
-### Тесты гейт-сьюта
+## Диагностика падения
+
+Красный тест должен отвечать на вопрос «что было на экране и как далеко дошёл тест» без
+открытия артефактов. Ответ — **бандл**: набор файлов, который лежит рядом с отчётом и имя
+которого едет в само сообщение об ошибке.
+
+| Продюсер | Артефакты | Куда | Кто везёт в CI |
+|---|---|---|---|
+| `shared` — `FailureContextExtension` | `coroutines.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
+| `shared` — `TestFailureDetailsWriter` | `failure-details.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
+| `desktopApp` — `FailureBundle` | screenshot, screen tree, steps, nodes, db-state, kermit log, coroutines | `desktopApp/build/diagnostics/<TestClass>/attempt-N/` | `ci-evidence-<run_id>` |
+| `androidApp` (instrumented) — `FailureBundle` | screenshot, screen tree, steps, environment | `/data/local/tmp/singularity-diagnostics/<TestClass>/attempt-N/`, затем `androidApp/build/diagnostics/` | `android-failure-diagnostics-<run_id>` |
+
+Правила контракта:
+
+1. **Каждый артефакт снимается независимо.** Упавший скриншот не должен стоить шагов и
+   окружения: снимок экрана — единственное, чего нельзя восстановить позже, а шаги — то, что
+   отвечает на «как далеко дошёл тест».
+2. **Имена артефактов едут в сообщение об ошибке.** Бандл добавляет себя в исключение как
+   suppressed-exceptions, поэтому отчёт сам называет файлы, и до артефакта доходишь по отчёту.
+3. **Каждая попытка — свой каталог.** `attempt-N/` перезаписывается на старте попытки: два
+   ретрая не смешивают артефакты. На Android файлы лежат плоско (`<Class>-attempt-N-<name>`),
+   потому что umask приложения (0077) делает созданный им подкаталог недоступным оболочке.
+4. **Два `FailureBundle` — две реализации одного контракта.** Кодом они не делятся:
+   `desktopApp/jvmTest` и `androidApp/androidTest` — разные модули и разные source set'ы, и
+   общий код означал бы тестовую зависимость, которую тащит ещё и прод-сборка. Набор
+   артефактов, независимость захвата и правило про попытки — одни и те же.
+
+Диагностика падения — не только бандл: `scripts/src/traceability/junit_xml.py` читает JUnit
+отчёты, а `scripts/junit-annotations.py` и `scripts/ci/print-test-failures.sh` показывают
+одну и ту же сводку по ним. Формат отчёта задаёт `build.gradle.kts` (`mergeReruns`,
+`exceptionFormat = FULL`), поэтому читателю не нужно знать, какой модуль отчёт породил.
+
+### Артефакты прогона
+
+Что CI везёт с собой и что в каждом лежит:
+
+| Артефакт | Что внутри | Кто его читает |
+|---|---|---|
+| `junit-results` | JUnit XML всех модулей | `check-test-runs.py`, аннотации, трейсировка |
+| `allure-results` | сырые `*-result.json` и вложения | доказательство; читает отчёт |
+| `allure-report-<run_id>` | собранный HTML-отчёт | человек |
+| `ci-evidence-<run_id>` | бандлы диагностики, трейсировка, kover | человек, гейты |
+| `html-reports-<run_id>` | Gradle HTML-отчёты всех модулей | человек |
+| `build-log-<run_id>`, `build-log-detekt-<run_id>` | полный лог Gradle | человек |
+
+Отчёт Allure собирается задачей `allureReport` в корневом `build.gradle.kts`: результаты трёх
+модулей сливаются в один плоский каталог (`allureMergeResults`), потому что генератор читает
+ровно один каталог и не заходит в подкаталоги. Отчёт без результатов не собирается: задача
+`allureRequireResults` останавливает сборку, иначе CI загрузил бы пустую страницу, которая
+читается как «всё прошло». ADR —
+`docs/decisions/2026-11-06-the-allure-report-is-generated-in-the-build.md`.
+
+## Тесты гейт-сьюта
 
 Сьют гейтов живёт в `scripts/tests/`, и точка входа у него одна:
 `python3 scripts/run-gate-tests.py`. Раннер сам привязывает пакет `sgate` к
@@ -115,7 +192,7 @@ class MyViewModel(
 ### Testing notes
 
 **`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
-**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
+**`import kotlin.io.path.*` is caught by ktlint's `standard:no-wildcard-imports`** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
 **Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
 recompiles and re-executes; `--rerun-tasks` — только отладочная костыль. ADR `2026-10-04-configuration-cache-hardening` §A3.

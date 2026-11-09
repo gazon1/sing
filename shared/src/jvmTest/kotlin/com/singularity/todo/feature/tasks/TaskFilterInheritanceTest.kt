@@ -1,8 +1,11 @@
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import app.cash.turbine.test
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.SyncColumns
@@ -10,14 +13,11 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -38,9 +38,11 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskFilterInheritanceTest {
     private lateinit var db: AppDatabase
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
 
     // Non-archived tasks only
     private val t1 = task("t1", UID, projectId = "p1") // directly tagged tg1
@@ -82,13 +84,8 @@ class TaskFilterInheritanceTest {
         )
 
     private fun buildDb() {
-        tempDir = Files.createTempDirectory("singularity-filter-inheritance-").toFile()
-        val dbFile = File(tempDir, "test.db")
-        db =
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = dbFile.absolutePath,
-            )
+        fixture = DatabaseTestFixture.inMemory()
+        db = fixture.database()
     }
 
     private suspend fun seed() {
@@ -116,11 +113,8 @@ class TaskFilterInheritanceTest {
 
     @AfterTest
     fun tearDown() {
-        if (::db.isInitialized) {
-            db.close()
-        }
-        if (::tempDir.isInitialized) {
-            tempDir.deleteRecursively()
+        if (::fixture.isInitialized) {
+            fixture.close()
         }
     }
 

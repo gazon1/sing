@@ -127,7 +127,8 @@ sealed interface TasksStartRoute : NavKey {
 ```
 
 `TaskDetail` / `TaskDetailCreate` — удаляются (покрываются `TasksGraph(start=Create, initialDueDate=...)`
-+ `TasksByProject`). `TasksByProject` остаётся отдельным top-level,
+
+- `TasksByProject`). `TasksByProject` остаётся отдельным top-level,
 делегирующим в `TasksNavGraph(start = TasksRoute.ByProject(...))`.
 
 ### Routing vs domain в `TaskDetailIntent`
@@ -145,6 +146,7 @@ UndoDelete) — легитимные domain-события, не navigation-resu
 ### Back navigation
 
 `TasksNavigator.back()`:
+
 - `backStack.size > 1` → `backStack.removeLastOrNull()`.
 - `backStack.size <= 1` → `onExitGraph()` (закрытие nested graph).
 

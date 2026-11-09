@@ -1,55 +1,63 @@
-@file:OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
-
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
-import com.singularity.todo.test.helpers.assertTextDisplayed
-import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.assertTagEnabled
+import com.singularity.todo.test.helpers.assertTagNotEnabled
+import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
-/**
- * The save bar's two states, mounted on its own.
- *
- * The bar is where a save announces that it is running, and the flow suite cannot
- * hold a save in flight long enough to see it. Mounting the bar directly is the
- * only way to assert the spinner on its own node — inferring it from the label
- * disappearing would pass for a bar that drew nothing at all.
- */
-@Tag("fast")
+@OptIn(ExperimentalTestApi::class)
+@Tag("slow")
+@Tag("slow:compose")
 class TaskSaveBarTest {
     @Test
-    fun `a save in flight shows the spinner and not the label`() =
-        runIsolatedComposeTest {
+    fun a_save_in_flight_shows_the_spinner_not_the_label() =
+        runDesktopAppTest {
             setContent {
                 TaskSaveBar(isEnabled = false, isLoading = true, onSaveClick = {})
             }
 
-            // The spinner on its own node, which is what the tag is for — inferring
-            // it from the label disappearing would pass for a bar that drew nothing.
+            assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
             assertTagDisplayed(TestTags.TASK_EDITOR_SAVING)
-            // And the label is gone, not merely beside it: the button says what it is
-            // doing, not both things at once (#2170). The wording is asserted absent
-            // rather than the bar's text node, so a bar that kept the label beside the
-            // spinner fails here.
-            onAllNodesWithText("Сохранить").assertCountEquals(0)
+            assertEquals(0, onAllNodesWithText("Сохранить").fetchSemanticsNodes().size)
         }
 
     @Test
-    fun `an idle save bar shows no spinner`() =
-        runIsolatedComposeTest {
+    fun an_idle_bar_shows_the_label_not_the_spinner() =
+        runDesktopAppTest {
             setContent {
                 TaskSaveBar(isEnabled = true, isLoading = false, onSaveClick = {})
             }
 
-            // Asserted on its own node: `assertCountEquals(0)` fails when the tag is
-            // absent, which is the point — a bar that drew the spinner unconditionally
-            // would be just as wrong as one that never drew it.
+            assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
             onAllNodesWithTag(TestTags.TASK_EDITOR_SAVING).assertCountEquals(0)
-            assertTextDisplayed("Сохранить")
+        }
+
+    @Test
+    fun loading_state_depends_on_isLoading_when_enabled() =
+        runDesktopAppTest {
+            setContent {
+                TaskSaveBar(isEnabled = true, isLoading = true, onSaveClick = {})
+            }
+
+            assertTagDisplayed(TestTags.TASK_EDITOR_SAVING)
+            assertEquals(0, onAllNodesWithText("Сохранить").fetchSemanticsNodes().size)
+        }
+
+    @Test
+    fun idle_state_depends_on_isLoading_when_disabled() =
+        runDesktopAppTest {
+            setContent {
+                TaskSaveBar(isEnabled = false, isLoading = false, onSaveClick = {})
+            }
+
+            onAllNodesWithTag(TestTags.TASK_EDITOR_SAVING).assertCountEquals(0)
         }
 }

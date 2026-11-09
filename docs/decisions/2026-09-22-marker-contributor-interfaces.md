@@ -42,6 +42,7 @@ class AiSettingsContributor(private val store: AiSettingsStore) : AiContributor 
 ```
 
 In `SettingsViewModel`:
+
 ```kotlin
 class SettingsViewModel(
     // Direct typed parameter — no lookup, no suppression
@@ -51,6 +52,7 @@ class SettingsViewModel(
 ```
 
 In Koin DI (`CoreDiModule.kt`):
+
 ```kotlin
 viewModel {
     SettingsViewModel(

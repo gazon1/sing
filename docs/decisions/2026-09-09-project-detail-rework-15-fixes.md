@@ -10,6 +10,7 @@ status: accepted
 A comprehensive audit of `ProjectDetailScreen` and `ProjectDetailViewModel` revealed 15 distinct problems spanning: preview crashes, dead UI, missing reactivity, and wrong architecture patterns. This ADR documents all decisions made during the fix, which was split into 6 atomic commits.
 
 ## Decision
+
 ### 1. Preview crash — VM-as-parameter, not `PreviewKoin` helper
 
 `@Preview` crashed with `IllegalStateException: KoinApplication has not been started`. Attempted a `PreviewKoin` helper that started a minimal Koin application in preview context. The Koin DSL (`factoryFor`, `include`) had different availability in the `KoinAppDeclaration` lambda, making it unworkable.
@@ -27,6 +28,7 @@ A comprehensive audit of `ProjectDetailScreen` and `ProjectDetailViewModel` reve
 `ProjectDetailQuickAddInput` rendered an `OutlinedTextField` but had no `onSubmit` handler wired to anything.
 
 **Decision:**
+
 - Add `createTask(title: String)` to `ProjectDetailViewModel` — creates a `Task` via `taskRepo.create()`
 - `ProjectDetailQuickAddInput` signature changed from `(projectId, modifier)` to `(onSubmit: (String) -> Unit, modifier)`
 - Keyboard: `ImeAction.Done` + `KeyboardActions(onDone = { onSubmit(text); text = ""; focus.clearFocus() })`
@@ -42,6 +44,7 @@ A comprehensive audit of `ProjectDetailScreen` and `ProjectDetailViewModel` reve
 Both `IconButton` handlers were `/* TODO */`.
 
 **Decision:**
+
 - `Remind` → `sheetState = ActiveSheet.PickReminder` → renders `ReminderPicker` composable
 - `Attach` → `sheetState = ActiveSheet.AddAttachment` → placeholder sheet (project-level attachments are future enhancement; task-level via `TaskDetailScreen`)
 - `ActiveSheet` extended with `PickReminder`, `AddAttachment`, `PickDueDate`, `ShowChildren`
@@ -75,12 +78,14 @@ Both `IconButton` handlers were `/* TODO */`.
 `ProjectPickerSheet` used `LaunchedEffect { val userId = settingsRepo.userId.first(); projects = projectsRepo.watchProjects(userId).first() }` — reactive data was loaded once as a snapshot.
 
 **Decision:** Replaced with continuous collection:
+
 ```kotlin
 val userId by currentUser.scopedUserId.collectAsStateWithLifecycle()
 LaunchedEffect(userId) {
     projectsRepo.watchProjects(userId.value).collect { projects = it }
 }
 ```
+
 Also replaced inline create's `settingsRepo.userId.first()` with `currentUser.scopedUserId.value.value`.
 
 ### 11. `ProjectDetailScreen` — `onNavigateToTask` missing from public API

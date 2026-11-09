@@ -2,11 +2,18 @@
 id: 2026-10-18-greeting-init-no-runblocking
 title: Compute greeting in init without runBlocking
 description: How AgendaViewModel initializes the time-of-day greeting without using runBlocking or LaunchedEffect in tests
-status: accepted
+status: superseded
+superseded-by: 2026-11-05-the-greeting-follows-the-clock-and-the-settings
 deciders:
   - agent
 date: 2026-10-18
 ---
+
+> **Superseded (2026-11-05):** the greeting is no longer computed once in `init`.
+> It is derived from the observed greeting-hour settings and an hour flow over the
+> clock, so it follows both. The `runBlocking` prohibition this record rests on still
+> holds; only the one-shot placement is gone. See
+> `2026-11-05-the-greeting-follows-the-clock-and-the-settings.md`.
 
 ## Context
 

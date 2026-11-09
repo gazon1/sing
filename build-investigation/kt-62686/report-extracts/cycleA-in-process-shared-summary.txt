@@ -1,0 +1,72 @@
+=== head (task info, strategy, classpath changes) ===
+Task ':shared:compileKotlinJvm' finished in 62.028 s
+Task info:
+  Kotlin language version: 2.4
+Compilation log for task ':shared:compileKotlinJvm':
+  [KOTLIN] Kotlin compiler class: org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+  [KOTLIN] Kotlin compiler classpath: /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.4.10/a6a145a14d4fdec0cccc964e99d84f4c7cd13169/kotlin-build-tools-compat-2.4.10.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.ko
+  Compiling using the in-process strategy
+  Kotlin compiler args: -Xallow-no-source-files -classpath /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/adr-core/build/libs/adr-core-jvm.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/build/libs/core-database-jvm.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/libs/core-domain-jvm.jar:/home/max/orca/workspaces/si
+  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt, /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt], removed=[], forDependencies=false)
+  Classpath changes info passed from Gradle task: NoChanges
+  Process SignatureChanged(fqName = .kotlin_module)
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter.class to the stash as /tmp/kotlin-backups17270667514565635139/0.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$RedactedThrowable.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$RedactedThrowable.class to the stash as /tmp/kotlin-backups17270667514565635139/1.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$Companion.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$Companion.class to the stash as /tmp/kotlin-backups17270667514565635139/2.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/META-INF/singularity-todo_shared.kotlin_module on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/META-INF/singularity-todo_shared.kotlin_module to the stash as /tmp/kotlin-backups17270667514565635139/3.backup
+  Reverting changes
+  Cleaning up stash
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+  Cleaning 3 output directories
+  Compile iteration:
+    shared/src/jvmMain/kotlin/com/singularity/todo/core/auth/oauth/JvmOAuthBrowser.kt
+
+=== bailout path ===
+9:  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt, /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log
+11:  Process SignatureChanged(fqName = .kotlin_module)
+12:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/tod
+13:  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter.class to the stash as /tmp/kotlin-backups17270667514565635139/0.backup
+14:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$RedactedThrowable.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/c
+15:  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$RedactedThrowable.class to the stash as /tmp/kotlin-backups17270667514565635139/1.backup
+16:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$Companion.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singu
+17:  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$Companion.class to the stash as /tmp/kotlin-backups17270667514565635139/2.backup
+18:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/META-INF/singularity-todo_shared.kotlin_module on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/l
+19:  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/META-INF/singularity-todo_shared.kotlin_module to the stash as /tmp/kotlin-backups17270667514565635139/3.backup
+20:  Reverting changes
+21:  Cleaning up stash
+22:  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+23:  Cleaning 3 output directories
+
+=== source count ===
+kt files in compile iteration: 1237
+
+=== tail (metrics, rebuild reason) ===
+  Total size of the cache directory: 13.9 MB
+    Number of classpath entries: 230
+    Size of classpath snapshot: 15.3 MB
+    Code generation lines per second: 7003
+  Total compiler iteration: 1
+    Number of cache hits when loading classpath entry snapshots: 230
+  Number of times classpath snapshot is loaded: 1
+  Number of times classpath snapshot is shrunk and saved after compilation: 1
+    Size of shrunk classpath snapshot: 1.3 MB
+    ABI snapshot size: 18 B
+    Number of lines analyzed: 166177
+  Start time of task action: 2026-11-05T18:31:50
+Build attributes:
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+GC metrics:
+  G1 Young Generation:
+    GC count: 22
+    GC time: 1.058 s
+  G1 Old Generation:
+    GC count: 0
+    GC time: 0.000 s
+  G1 Concurrent GC:
+    GC count: 18
+    GC time: 0.226 s
+

@@ -52,6 +52,7 @@ them, but for now they call `ProfileAwareCurrentUser.current` once per execution
    - `ProfileAwareCurrentUser.setInstance(instance)` writes to it during DI boot
    - Companion getters `scopedUserId` / `current` throw a clear error if not set
 2. **Wiring** in `domainModule()` (`Modules.kt`):
+
    ```kotlin
    single {
        val instance = ProfileAwareCurrentUser(get(), get(), createBackgroundScope())
@@ -59,6 +60,7 @@ them, but for now they call `ProfileAwareCurrentUser.current` once per execution
        instance
    }
    ```
+
 3. **Tool signature change**: drop the `currentUser` parameter; read userId inside
    via `ProfileAwareCurrentUser.current`.
 4. **Test fixture**: tools tests must call `ProfileAwareCurrentUser.setInstance(fake)`

@@ -2,12 +2,9 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -35,18 +32,16 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration32To33Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration32to33-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun seed(connection: SQLiteConnection) {
@@ -122,13 +117,13 @@ class Migration32To33Test {
     @Test
     fun `v32 database upgrades to v33 with an outbox that can be pushed from`() =
         runTest {
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 applyExportedSchema(32, connection)
                 seed(connection)
             }
 
             // First DAO access runs the whole chain from the fixture version.
-            val db = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            val db = fixture.database()
             try {
                 seedAfterUpgrade(db, OWNER)
 
@@ -153,7 +148,7 @@ class Migration32To33Test {
             // attributed to one, because guessing would file one account's unsent work under
             // another. Asserted here so the loss is visible in the test that used to promise
             // the opposite, and so nobody "fixes" the migration by attributing them.
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 assertEquals(
                     emptyList(),
                     rawStrings(
@@ -164,7 +159,7 @@ class Migration32To33Test {
                 )
             }
 
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 val columns = rawStrings(connection, "PRAGMA table_info(sync_outbox)", column = 1)
                 assertTrue("next_attempt_at" in columns, "next_attempt_at must exist at v33, got $columns")
 
@@ -194,12 +189,12 @@ class Migration32To33Test {
     @Test
     fun `a backoff window set after the upgrade defers a patch`() =
         runTest {
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 applyExportedSchema(32, connection)
                 seed(connection)
             }
 
-            val db = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            val db = fixture.database()
             try {
                 seedAfterUpgrade(db, OWNER)
                 val future = System.currentTimeMillis() + 60_000

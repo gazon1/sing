@@ -24,12 +24,14 @@ single-module task produced 0 file changes, and the recipe was rewritten as a re
 ## Experiment (2026-10-09)
 
 **Single-module** (`:detekt-rules`):
+
 ```bash
 ./gradlew :detekt-rules:detekt --auto-correct && git diff --stat
 # Result: 0 changes
 ```
 
 **Multi-module** (`:shared` + `:desktopApp`, with `--rerun-tasks`):
+
 ```bash
 ./gradlew :shared:detekt :desktopApp:detekt --auto-correct --rerun-tasks && git diff --stat
 # Result: BUILD SUCCESSFUL (1m 34s, 5 tasks executed) but 0 changes

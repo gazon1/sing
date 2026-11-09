@@ -5,6 +5,12 @@ status: accepted
 tags: [maestro, e2e, testing, emulator]
 ---
 
+> **Superseded in part (2026-11-05):** §9's tab round-trip is gone — §17 removed the
+> taps as not load-bearing, and the helper now waits for the agenda shell only. The
+> helper's waiting contract is recorded in
+> [2026-11-05-the-seed-waits-for-the-shell-not-the-row.md](2026-11-05-the-seed-waits-for-the-shell-not-the-row.md).
+> The rest of this entry still holds.
+
 ## Context
 
 CI run 38223116125 produced 30 Maestro E2E failures across 4 shards. The failures

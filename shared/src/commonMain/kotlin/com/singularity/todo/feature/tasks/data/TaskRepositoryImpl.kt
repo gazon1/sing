@@ -68,7 +68,6 @@ class TaskRepositoryImpl(
             currentUser = currentUser,
             dependencyValidator = dependencyValidator,
             log = log,
-            clock = clock,
         )
 
     // ── Helpers ────────────────────────────────────────────────────────────────
@@ -152,8 +151,13 @@ class TaskRepositoryImpl(
                         taskDao.watchSomeday(uid.value)
                     }
 
-                    is TaskFilter.Inbox -> {
-                        taskDao.watchActive(uid.value)
+                    is TaskFilter.NotDeferred -> {
+                        // The name is the rule: not in the trash, not deferred. The
+                        // query says the same, so a reader does not have to be told
+                        // not to trust the name. `All` is the wider question and keeps
+                        // `watchActive`; if this read went back to `watchActive` the
+                        // two filters would answer one question under two names.
+                        taskDao.watchNotDeferred(uid.value)
                     }
 
                     is TaskFilter.Trash -> {
@@ -244,7 +248,7 @@ class TaskRepositoryImpl(
                 TaskSeriesShape.requireRuleLivesInSeries(item)
                 val toInsert = item.copy(userId = currentUid)
                 taskDao.upsert(toInsert.toEntity())
-                saveOutgoingLinks(toInsert.id, toInsert.description)
+                saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
                 toInsert.tags.forEach { tagId ->
                     taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                 }
@@ -272,7 +276,7 @@ class TaskRepositoryImpl(
                 // caller's anonymous id verbatim would orphan the row.
                 val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
                 taskDao.upsert(toUpdate.toEntity())
-                saveOutgoingLinks(toUpdate.id, toUpdate.description)
+                saveOutgoingLinks(toUpdate.id, toUpdate.description, toUpdate.updatedAt.toEpochMilliseconds())
                 // The tags are NOT written here, and that is a rule rather than an
                 // omission. The tags live in the cross-ref table, and the task this
                 // path is given was read through `get()` — which does not load them,
@@ -319,7 +323,7 @@ class TaskRepositoryImpl(
                     currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                     val toInsert = item.copy(userId = currentUid)
                     taskDao.upsert(toInsert.toEntity())
-                    saveOutgoingLinks(toInsert.id, toInsert.description)
+                    saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
                     toInsert.tags.forEach { tagId ->
                         taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                     }
@@ -355,7 +359,7 @@ class TaskRepositoryImpl(
                             ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
                         val toUpdate = item.copy(userId = currentUid)
                         taskDao.upsert(toUpdate.toEntity())
-                        saveOutgoingLinks(toUpdate.id, toUpdate.description)
+                        saveOutgoingLinks(toUpdate.id, toUpdate.description, toUpdate.updatedAt.toEpochMilliseconds())
                         // The tags are a shared field of a series, and they live in the
                         // cross-ref table rather than in the row. A batch write that carried
                         // the tags in the task but not in the database would leave the
@@ -546,7 +550,7 @@ class TaskRepositoryImpl(
     private suspend fun saveOutgoingLinks(
         id: TaskId,
         description: String?,
-        updatedAt: Long = clock.now().toEpochMilliseconds(),
+        updatedAt: Long,
     ) {
         val rows =
             taskDao.setOutgoingLinksForUser(

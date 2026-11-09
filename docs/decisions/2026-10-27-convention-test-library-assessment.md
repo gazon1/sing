@@ -48,11 +48,13 @@ introducing a library dependency for it does not.
 ## Consequences
 
 **Positive:**
+
 - No new inter-module dependency.
 - Each convention test remains self-contained and independently readable.
 - Exemptions stay close to the conventions that use them.
 
 **Negative:**
+
 - Regex patterns and stale-exemption scaffolding are duplicated across files.
   This is acceptable at a scale of two files; it would become a burden if a third
   or fourth convention test is added.
@@ -62,6 +64,7 @@ introducing a library dependency for it does not.
 ## Reassessment Trigger
 
 Revisit this decision when:
+
 - A third convention test file is added to a third module, OR
 - The duplicate regex patterns exceed ~100 lines of exact duplication, OR
 - A new exemption map type is added that has identical logic in two or more files.

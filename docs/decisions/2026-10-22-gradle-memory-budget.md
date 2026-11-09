@@ -68,16 +68,18 @@ Give a worktree a **budget** rather than a pile of defaults, and make the budget
 **D1. The Kotlin compilation runs in-process.**
 `kotlin.compiler.execution.strategy=in-process` in `gradle.properties`.
 
-Incremental compilation is **not** lost by this. The Kotlin plugin reads the
-incremental flag from the project properties regardless of the execution
-strategy; only the strategy switch differs (verified against the bytecode of
+Incremental compilation is **not** lost by this on a plain JVM module; on a KMP
+module it **is** — corrected 2026-11-05, see the amendment at the end. The
+Kotlin plugin reads the incremental flag from the project properties regardless
+of the execution strategy; only the strategy switch differs (verified against the bytecode of
 `kotlin-gradle-plugin-2.4.10-gradle.jar`: `BaseKotlinCompileConfig$1$1` calls
 `setIncremental(...)` from `PropertiesProvider.getIncrementalJvm()`, and the
 `IN_PROCESS` branch in `TasksUtilsKt` exists only to reword an error message).
 
-**D2. A slot pool of three builds.** `scripts/gradle-slot.sh` holds one of three
-machine-wide slots for the duration of a build; `./gw` runs every build through
-it.
+**D2. Machine-wide heavy limiting.** `./gw` routes builds through the `heavy`
+semaphore (installed via `mise`) when present and not already wrapped/in CI;
+this limits concurrent heavy work across worktrees. (Earlier implementation:
+`scripts/gradle-slot.sh`, replaced by `heavy`.)
 
 **D3. Two sets of coverage floors, one per population.** Fast-only on a pull
 request, the full set on the schedule. See
@@ -316,7 +318,7 @@ reads its own budget" is a checked statement and not a search for a string.
 
 ## The slot pool
 
-`scripts/gradle-slot.sh` takes one of three machine-wide slots, held on file
+`./gw` acquires a machine-wide `heavy` slot (earlier: `scripts/gradle-slot.sh`)
 descriptor 9 with `flock(2)`.
 
 Three things about it are load-bearing and were each got wrong at least once
@@ -334,7 +336,7 @@ during the design:
   first check true, and the pool would never take a slot at all.
 
 The pool is off in CI (`GITHUB_ACTIONS=true` — one checkout per runner, and the
-jobs on it run in parallel), and off with `SINGULARITY_GRADLE_SLOTS_DIR=0`.
+jobs on it run in parallel).
 
 **What the pool does not do:** it does not limit memory. The slot is released
 when the build's client exits; the daemon it started lives on for the idle
@@ -352,7 +354,7 @@ implied by "the hook is different".
 
 ## Stopping the daemons
 
-`scripts/gradle-stop-all.sh` stops the daemons of every worktree, and
+`scripts/gradle-stop-all.sh` (if present) stops daemons of every worktree, and
 `just gradle::stop-all` is its recipe.
 
 It uses the Gradle binary **already downloaded** in the worktree's wrapper
@@ -408,7 +410,7 @@ full run produced — unreachable by construction.
 - **The slot pool serialises work across worktrees.** Three builds at a time on
   this machine; a fourth waits up to 30 minutes and then fails with exit code
   97, which is deliberately distinct from Gradle's 0 and 1 and from the 75 that
-  used to mean "busy". `SINGULARITY_GRADLE_SLOTS_DIR=0` opts out.
+  used to mean "busy". (Earlier `gradle-slot.sh` opt-out: `SINGULARITY_GRADLE_SLOTS_DIR=0`.)
 - **The rollout is ordered, and the order is part of the decision.** Changing
   `org.gradle.jvmargs` makes every live daemon incompatible: Gradle starts new
   ones and the old ones stay alive until their own idle timeout expires. So
@@ -477,24 +479,33 @@ The arithmetic that fixes the ceiling is the one the record carries: `./gw`
 holds one of three machine-wide build slots and each slot has its own daemon,
 so three builds at once reserve
 
-    3 × (6144 MB daemon + forks × 1536 MB)
+```
+3 × (6144 MB daemon + forks × 1536 MB)
+```
 
 which is 36 GB at four forks and 54 GB at eight. The second is 87% of the
 machine's RAM with the IDE, the OS and the other worktrees still to come — so
 eight forks was never affordable, whatever the core count said.
 
-**D1's claim about incremental compilation is still correct** — the in-process
-strategy does not cost it — but it is not the reason the build recompiles.
-The Compose compiler plugin marks the compile task non-incremental, and every
-module that carries the plugin recompiles from scratch on every build. See
-`2026-10-29-the-compose-plugin-breaks-incremental-compilation.md`.
+**Amended 2026-11-05 — D1's claim about incremental compilation is corrected.**
+It was checked against the `setIncremental` flag, not against the compiler's
+`KT-62686` bailout. On a KMP module, an edit compiles non-incrementally — and the
+strategy is not the lever: `:shared` under `daemon` prints the same `KT-62686` and
+recompiles the same 1,237 sources, a one-file KMP probe with no plugin does too, and
+the same file compiled by `kotlin("jvm")` is incremental under both strategies. See
+`2026-11-05-kt-62686-is-kmp-jvm-compilation`; the earlier version of this amendment
+credited `daemon` with removing the fallback, which did not reproduce. The task-state
+cause is separate — the Koin compiler plugin — not the Compose plugin. D1's memory
+trade (a Kotlin daemon JVM beside the 6 GB Gradle daemon) is therefore not a decision
+this fallback forces: switching would buy a faster non-incremental compile, nothing
+more, and it remains open.
 
 # Links
 
 - `docs/decisions/2026-10-04-gradle-daemon-isolation.md` — the isolation this
   decision does not reopen
 - `docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md` — the CI half
-- `scripts/gradle-slot.sh`, `scripts/gradle-stop-all.sh` — the instruments
+- `gw`/`heavy` (replaced `scripts/gradle-slot.sh`), `scripts/gradle-stop-all.sh` — the instruments
 - `config/docs/gradle-memory-budget.properties` — the record, read by the build
 - `scripts/check-memory-budget.py` — the gate that checks the tree against it
 - `gradle.properties` — the budget itself

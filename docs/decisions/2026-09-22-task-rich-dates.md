@@ -39,6 +39,7 @@ read back with null for all six. This is safe for auto-migration.
 ### Domain model changes
 
 `Task` data class receives the same six nullable fields:
+
 ```kotlin
 val startDate: kotlinx.datetime.LocalDate? = null
 val startTime: kotlinx.datetime.LocalTime? = null
@@ -66,6 +67,7 @@ This ensures backup/restore roundtrip preserves the new fields.
 `Migration15To16 : AutoMigrationSpec` — empty class, no `migrate()` override.
 Room KSP auto-infers the schema diff (15.json → 16.json) from the entity changes.
 AutoMigration registered in `AppDatabase`:
+
 ```kotlin
 AutoMigration(from = 15, to = 16, spec = Migration15To16::class)
 ```

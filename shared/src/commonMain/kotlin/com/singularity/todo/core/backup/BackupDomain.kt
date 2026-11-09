@@ -68,6 +68,11 @@ object BackupDomain {
             if (manifest.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
                 throw BackupPayloadError.SchemaTooOld(manifest.schemaVersion)
             }
+            // The versions above only mean something for our own rows: an archive
+            // written by another app can carry a plausible-looking schemaVersion.
+            if (manifest.appName != BackupFormat.APP_NAME) {
+                throw BackupPayloadError.ForeignArchive(manifest.appName)
+            }
             val actualChecksum = sha256Hex(payloadBytes)
             if (manifest.payloadChecksum != actualChecksum) {
                 throw BackupPayloadError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)

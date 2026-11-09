@@ -135,4 +135,4 @@ Two more things followed from the same review, and both are the same rule
 - `scripts/check-git-environment.py` — the mechanical rule
 - `scripts/check-agents-size.py` — the cheat sheet's size
 - [2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md](2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md) — the cause
-- [2026-10-23-a-push-keeps-its-exit-code-and-its-connection.md](2026-10-23-a-push-keeps-its-exit-code-and-its-connection.md) — the keepalive, measured
+- the SSH keepalive rule in `AGENTS.md` ("Пушить по SSH без keepalive…") — the keepalive, measured

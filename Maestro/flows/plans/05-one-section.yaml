@@ -18,8 +18,11 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Only%20once&due=today"
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 # The day section holds it.
 - runFlow:
     file: ../../helpers/plans-section.yaml

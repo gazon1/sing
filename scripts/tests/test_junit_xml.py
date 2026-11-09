@@ -26,6 +26,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 
@@ -35,6 +36,7 @@ from traceability.junit_xml import (  # noqa: E402
     iter_result_files,
     parse_junit,
     parse_junit_file,
+    parse_junit_file_strict,
 )
 
 
@@ -140,11 +142,21 @@ class MessageAndTimeTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_message_is_truncated_to_the_limit(self):
-        """Kiwi's column is a TEXT field, not a log sink."""
+        """The summary line is bounded; the trace beside it is not."""
         long = "E" * (MESSAGE_LIMIT + 500)
         path = _write(self.dir, f'<testsuite><testcase classname="C" name="a()">'
                                 f'<failure message="{long}"/></testcase></testsuite>')
         self.assertEqual(len(parse_junit_file(path)[0].message), MESSAGE_LIMIT)
+
+    def test_truncation_does_not_touch_the_stacktrace(self):
+        """A long message may be cut; the trace is the evidence and stays whole."""
+        long = "E" * (MESSAGE_LIMIT + 500)
+        trace = "T" * (MESSAGE_LIMIT * 2)
+        path = _write(self.dir, f'<testsuite><testcase classname="C" name="a()">'
+                                f'<failure message="{long}">{trace}</failure></testcase></testsuite>')
+        result = parse_junit_file(path)[0]
+        self.assertEqual(len(result.message), MESSAGE_LIMIT)
+        self.assertEqual(result.stacktrace, trace)
 
     def test_elapsed_time_is_parsed(self):
         path = _write(self.dir,
@@ -184,6 +196,27 @@ class MalformedInputTest(unittest.TestCase):
         _write(self.dir, '<testsuite><testcase classname="C" name="good()"/></testsuite>',
                name="TEST-good.xml")
         self.assertEqual([r.name for r in parse_junit([self.dir])], ["good()"])
+
+    def test_missing_file_is_skipped_not_raised_by_tolerant_reader(self):
+        """A missing report is reported on stderr, not an empty-but-silent pass."""
+        path = self.dir / "TEST-missing.xml"
+        self.assertEqual(parse_junit_file(path), [])
+
+    def test_missing_file_raises_from_strict_reader(self):
+        """Strict readers must surface a missing report as a source error."""
+        path = self.dir / "TEST-missing.xml"
+        with self.assertRaises(FileNotFoundError):
+            parse_junit_file_strict(path)
+
+    def test_malformed_file_raises_from_strict_reader(self):
+        path = _write(self.dir, "<testsuite><testcase></testsuite>")
+        with self.assertRaises(ET.ParseError):
+            parse_junit_file_strict(path)
+
+    def test_empty_suite_parses_to_empty_list(self):
+        path = _write(self.dir, "<testsuite/>")
+        self.assertEqual(parse_junit_file(path), [])
+        self.assertEqual(parse_junit_file_strict(path), [])
 
 
 class ResultFileSelectionTest(unittest.TestCase):

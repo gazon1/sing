@@ -99,13 +99,18 @@ import argparse
 import json
 import pathlib
 import sys
+import xml.etree.ElementTree as ET
 
 # Reuse the one ElementTree JUnit reader so a flaky `<flakyFailure>`-shaped
 # `<testcase>` is classified from the same code path every other pipeline uses.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "src"))
 import importlib.util  # noqa: E402
 
-from traceability.junit_xml import TestCaseResult, parse_junit  # noqa: E402
+from traceability.junit_xml import (  # noqa: E402
+    TestCaseResult,
+    parse_junit,
+    parse_junit_file_strict,
+)
 
 _flaky_spec = importlib.util.spec_from_file_location(
     "check_flaky_tests",
@@ -114,39 +119,38 @@ _flaky_spec = importlib.util.spec_from_file_location(
 _check_flaky = importlib.util.module_from_spec(_flaky_spec)
 _flaky_spec.loader.exec_module(_check_flaky)  # type: ignore[union-attr]
 
-#: Gradle writes one `<flakyFailure>` child per attempt that failed before a
-#: later attempt passed, when `reports.junitXml.mergeReruns=true`. Their count
-#: is therefore the number of *failed attempts* for an otherwise-passing test.
-FLAKY_FAILURE_TAG = "flakyFailure"
-
+# Gradle writes one `<flakyFailure>` child per attempt that failed before a
+# later attempt passed, when `reports.junitXml.mergeReruns=true`. Their count
+# is therefore the number of *failed attempts* for an otherwise-passing test.
+# The reader counts them (`TestCaseResult.flaky_attempts`).
 
 def _flaky_failure_count(directory: pathlib.Path) -> dict[str, int]:
     """test id -> number of `<flakyFailure>` children across every run XML.
 
-    Counted directly from the raw XML rather than from ``parse_junit``'s
-    ``TestCaseResult``, because that reader intentionally reports only the
-    terminal outcome (``passed``/``failed``/``error``/``skipped``) and has no
-    field for a retry-attempt count. The two readers therefore share a file
-    format and a root-shape normalisation but not a dataclass, and that is
-    deliberate: a retry count is a flake-rate concern, not a traceability one.
-    """
-    import xml.etree.ElementTree as ET
+    Read through the shared reader (`traceability.junit_xml`), which carries
+    the retry-attempt count as `TestCaseResult.flaky_attempts`. It used to be
+    counted from raw XML here, on the grounds that the reader "intentionally
+    reports only the terminal outcome" — that was true when this was written,
+    and it stopped being true when the reader gained the field. Two readers of
+    the same file is how the annotation script and the console reporter came to
+    disagree about what had failed.
 
+    The file glob stays local because it differs from the reader's: this counts
+    recursively over every `*.xml` under the run directory, while the reader's
+    `iter_result_files` selects `TEST-*.xml` at the top level only.
+    """
     counts: dict[str, int] = {}
     if not directory.is_dir():
         return counts
     for xml_file in sorted(directory.glob("**/*.xml")):
         try:
-            root = ET.parse(xml_file).getroot()
-        except ET.ParseError:
+            results = parse_junit_file_strict(xml_file)
+        except (ET.ParseError, OSError):
             continue
-        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
-        for suite in suites:
-            for case in suite.findall("testcase"):
-                ident = f"{case.get('classname', '?')}::{case.get('name', '?')}"
-                n = len(case.findall(FLAKY_FAILURE_TAG))
-                if n:
-                    counts[ident] = counts.get(ident, 0) + n
+        for case in results:
+            if case.flaky_attempts:
+                ident = f"{case.classname}::{case.name}"
+                counts[ident] = counts.get(ident, 0) + case.flaky_attempts
     return counts
 
 

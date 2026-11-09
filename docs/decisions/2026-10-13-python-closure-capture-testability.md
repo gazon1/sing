@@ -21,6 +21,7 @@ patches `module.attr = fake_fn`, the binding inside `run_one_flow()` is **not up
 because Python's `from X import Y` creates a local alias, not a indirection.
 
 This makes `run_one_flow()` impossible to test without patching **both**:
+
 - `module.X` (the source of the binding)
 - `runner.X` (the captured alias inside the function)
 

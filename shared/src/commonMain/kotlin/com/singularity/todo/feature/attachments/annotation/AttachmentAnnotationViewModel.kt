@@ -180,13 +180,31 @@ class AttachmentAnnotationViewModel(
      */
     private var documentText: String = ""
 
+    private companion object {
+        /**
+         * The observation of the annotations stopped.
+         *
+         * A fixed label, never the note text or the quoted words: the key leaves the
+         * device, and those are the user's.
+         */
+        const val OBSERVE_FAILED = "attachments.observe_failed"
+    }
+
     init {
         scope.launch {
             repository
                 .watchForAttachment(attachmentId)
                 .map { annotations -> resolve(annotations, documentText) }
-                .catch { e -> updateState { AttachmentAnnotationUiState.Error(e.toMessage()) } }
-                .collect { resolved ->
+                .catch { e ->
+                    // The collection stopped: a defect, not a user-actionable error, so
+                    // the cause goes to the reporter as well as to the screen. The
+                    // failure crossed a channel hop, and a channel carries a *copy*
+                    // of the throwable — the original is its cause, so the copy is
+                    // unwrapped before it is reported.
+                    val reported = e.cause ?: e
+                    crashReporter.report(reported, OBSERVE_FAILED)
+                    updateState { AttachmentAnnotationUiState.Error(reported.toMessage()) }
+                }.collect { resolved ->
                     updateState { current ->
                         val content = current as? AttachmentAnnotationUiState.Content
                         AttachmentAnnotationUiState.Content(

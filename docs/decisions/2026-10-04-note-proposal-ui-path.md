@@ -27,6 +27,7 @@ ProposalCardList(proposals, onConfirm, onReject)
 ### Components
 
 **1. `NoteProposalsCollector`** — `AutoCloseable`, scoped to the editor's `vmScope`.
+
 ```kotlin
 class NoteProposalsCollector(
     noteId: String,
@@ -38,6 +39,7 @@ class NoteProposalsCollector(
 ```
 
 **2. Surface integration** — in `NoteEditor`:
+
 ```kotlin
 class NoteEditor(..., proposals: ProposalRepository) {
     private var collector: NoteProposalsCollector? = null
@@ -56,6 +58,7 @@ class NoteEditor(..., proposals: ProposalRepository) {
 ```
 
 **3. Proposal card list** — reusable composable:
+
 ```kotlin
 @Composable
 fun ProposalCardList(

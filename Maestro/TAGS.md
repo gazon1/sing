@@ -44,7 +44,6 @@ non-alphanumeric characters with `_`.
 | `AUTH_ERROR_TEXT` | `auth_error_text` | |
 | `AUTH_LOADING` | `auth_loading` | |
 | `AUTH_MAGIC_RESEND_BUTTON` | `auth_magic_resend_button` | |
-| `AUTH_MESSAGE_TEXT` | `auth_message_text` | |
 | `AUTH_PASSWORD_INPUT` | `auth_password_input` | |
 | `AUTH_RESEND_BUTTON` | `auth_resend_button` | |
 | `AUTH_SAVE_SERVER_BUTTON` | `auth_save_server_button` | |
@@ -82,12 +81,14 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `CHECKLIST_ADD_BUTTON` | `checklist_add_button` | |
 | `CHECKLIST_ADD_INPUT` | `checklist_add_input` | |
+| `CHECKLIST_EMPTY_HINT` | `checklist_empty_hint` | |
 | `CHECKLIST_INLINE_ADD_BUTTON` | `checklist_inline_add_button` | |
 | `CHECKLIST_INLINE_ADD_INPUT` | `checklist_inline_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
 | `LOGBOOK_EMPTY` | `logbook_empty` | |
+| `LOGBOOK_EMPTY_HINT` | `logbook_empty_hint` | |
 | `LOGBOOK_SECTION` | `logbook_section` | |
 | `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
 | `PRIORITY_OPTION_LOW` | `priority_option_low` | |
@@ -106,6 +107,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
+| `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
 | `SUBTASK_ADD_BUTTON` | `subtask_add_button` | |
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
@@ -117,6 +119,7 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
@@ -142,6 +145,8 @@ non-alphanumeric characters with `_`.
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_GREETING` | `agenda_greeting` | |
+| `AGENDA_HORIZON_NOTE` | `agenda_horizon_note` | |
 | `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
@@ -209,16 +214,20 @@ non-alphanumeric characters with `_`.
 ### Search
 | Constant | Value | Where |
 |---|---|---|
+| `SEARCH_CLEAR_BUTTON` | `search_clear_button` | |
 | `SEARCH_EMPTY_PLACEHOLDER` | `search_empty_placeholder` | |
 | `SEARCH_EMPTY_RESULTS` | `search_empty_results` | |
 | `SEARCH_INPUT` | `search_input` | |
+| `SEARCH_LOADING` | `search_loading` | |
 | `SEARCH_MODE_CONTAINS` | `search_mode_contains` | |
 | `SEARCH_MODE_CONTAINS_NOTE` | `search_mode_contains_note` | |
 | `SEARCH_MODE_WORD` | `search_mode_word` | |
+| `SavedSearches.RENAME_DIALOG_CONFIRM` | `search_rename_dialog_confirm` | |
 | `SavedSearches.SAVE_CHIP` | `search_save_chip` | |
 | `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
+| `SavedSearches.SEARCH_MENU_RENAME_BUTTON` | `search_menu_rename_button` | |
 
 ### Projects
 | Constant | Value | Where |
@@ -232,6 +241,7 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 
 ### Settings
@@ -348,8 +358,10 @@ non-alphanumeric characters with `_`.
 ### Calendar
 | Constant | Value | Where |
 |---|---|---|
+| `CALENDAR_CONTROLS` | `calendar_controls` | |
 | `CALENDAR_DAY_CELL` | `calendar_day_cell` | |
 | `CALENDAR_MONTH_TITLE` | `calendar_month_title` | |
+| `CALENDAR_TODAY` | `calendar_today` | |
 | `CALENDAR_VIEW_MODE_TRIGGER` | `calendar_view_mode_trigger` | |
 | `CALENDAR_WEEKDAY_MON` | `calendar_weekday_mon` | |
 | `CALENDAR_WEEKDAY_SUN` | `calendar_weekday_sun` | |
@@ -395,6 +407,7 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `CHAT_INPUT` | `chat_input` | |
+| `CHAT_MESSAGES` | `chat_messages` | |
 | `Calendar.CANCEL_SELECTION` | `calendar_cancel_selection` | |
 | `Calendar.CREATE_ON_SELECTED` | `calendar_create_on_selected` | |
 | `Calendar.SELECTION_BAR` | `calendar_selection_bar` | |
@@ -414,6 +427,7 @@ non-alphanumeric characters with `_`.
 | `PROPOSALS_EMPTY` | `proposals_empty` | |
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
 | `RESULT_DIALOG` | `result_dialog` | |
+| `RESULT_DIALOG_CONFIRM` | `result_dialog_confirm` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |
 | `SHELL_SEARCH_BUTTON` | `shell_search_button` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |

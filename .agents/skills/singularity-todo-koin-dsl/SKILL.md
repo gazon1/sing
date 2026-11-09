@@ -21,23 +21,27 @@ description: 'Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf
 ### Common Mistakes
 
 **WRONG — causes memory leak (ViewModel stored in singleton scope):**
+
 ```kotlin
 factory { MyViewModel(get(), get()) }  // ❌ never for ViewModel
 ```
 
 **RIGHT — navigation-lifecycle bound:**
+
 ```kotlin
 viewModelOf(::MyViewModel)  // ✅ no-param VM
 viewModel { (id: Id) -> MyViewModel(id, get()) }  // ✅ with-param VM
 ```
 
 **WRONG — doesn't inherit ViewModel lifecycle:**
+
 ```kotlin
 factory { MyViewModel(get()) }  // ❌ for ViewModel
 val vm = koinInject<MyViewModel>()  // ❌ manual injection
 ```
 
 **RIGHT for non-ViewModel classes:**
+
 ```kotlin
 factory { MyService(get(), get()) }  // ✅ fine for non-ViewModel
 val service = koinInject<MyService>()  // ✅
@@ -130,6 +134,7 @@ nowhere. Adding a platform binding means adding a registry row.
 `CalendarSyncViewModel` is **NOT** a `ViewModel` subclass — it's a plain class with 6 constructor parameters (5 Koin-resolved + 1 `CoroutineScope`). This is a known exception because it was designed before the canonical pattern.
 
 **Registration:**
+
 ```kotlin
 factory<CalendarSyncViewModel> {
     CalendarSyncViewModel(get(), get(), get(), get(), get(), createBackgroundScope())
@@ -137,6 +142,7 @@ factory<CalendarSyncViewModel> {
 ```
 
 **Injection:**
+
 ```kotlin
 val viewModel: CalendarSyncViewModel = koinInject()
 ```

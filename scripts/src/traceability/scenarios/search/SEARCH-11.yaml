@@ -1,0 +1,21 @@
+# Scenario specification for SEARCH-11.
+
+id: SEARCH-11
+title: A pending search is not an empty answer
+area: feature.search
+priority: P1
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task titled "Buy milk" exists, and the search has not been asked anything yet.
+steps:
+  - Open the search screen.
+  - Observe that the screen invites the user to search.
+  - Type a query that matches the task.
+  - Observe the screen before the search has answered it.
+  - Let the search answer.
+  - Observe the screen again.
+expected: >-
+  While the search is in flight the screen shows the pending indicator, does not
+  claim that nothing was found, and does not show the previous query's results.
+  Once the answer arrives the indicator is gone and the matching task is shown.

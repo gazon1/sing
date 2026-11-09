@@ -57,7 +57,10 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         snapshot()
             .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.claimToken == null }
-            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+            .filter {
+                val nextAttemptAt = it.nextAttemptAt
+                nextAttemptAt == null || nextAttemptAt <= now
+            }
 
     override suspend fun claim(
         ids: List<String>,
@@ -219,36 +222,107 @@ class SequentialIdGenerator(private val prefix: String = "id") : IdGenerator {
 
 /**
  * In-memory [SyncDeadLetterDao].
+ *
+ * ## The guard set it mirrors
+ *
+ * The same one [SyncDeadLetterDao] wears, and the same one the outbox wears. The
+ * guards are reproduced here rather than approximated, because a fake that drops a
+ * condition is a fake that lets a test assert the condition holds:
+ *
+ * - **global reads** — [watch], [getAll], [watchCount]. The shelf holds several
+ *   accounts' work at once (REQ-UA-006 keeps work across a sign-out), so a read
+ *   that is scoped to one account is a different DAO, not a stricter one.
+ * - **owner-scoped erase and count** — [deleteForOwner], [countForOwner]. These two
+ *   are the ones that must never leak: without the owner filter an account's erase
+ *   would take another account's shelved work with it, and the count that precedes
+ *   it would report rows the erase is about to destroy.
+ * - **patch-id-keyed** — [delete], which names one row by its patch id.
+ * - **global drain** — [clearAll], for a reset with no owner to name. No production
+ *   path calls it: a sign-out keeps local data (REQ-UA-006, `SignOutKeepsLocalDataTest`),
+ *   so it reaches no sync table, and the account switch erases one owner through
+ *   [deleteForOwner] (`OwnerScopedEraserTest`). It is the counterpart of the outbox's
+ *   own `clearAll`, not a substitute for the scoped erase.
+ *
+ * [SyncDaoGuardContractTest] runs the same scenarios against this fake, against the
+ * fake inside `FakeAppDatabase` and against Room, so a fake that loses a guard fails
+ * the contract rather than quietly passing a test written against it.
  */
 class FakeSyncDeadLetterDao : SyncDeadLetterDao {
-    val rows = mutableListOf<SyncDeadLetterEntity>()
+    private val store = MutableStateFlow<List<SyncDeadLetterEntity>>(emptyList())
 
-    override fun watch(): Flow<List<SyncDeadLetterEntity>> = MutableStateFlow(snapshot())
+    /**
+     * The shelved rows, in the order they were shelved.
+     *
+     * A view of the shelf rather than the shelf itself: the shelf is a [MutableStateFlow]
+     * so that [watch] and [watchCount] can report a change, and a list the tests mutate
+     * behind the flow's back would leave the flow describing a shelf that no longer
+     * exists.
+     */
+    val rows: List<SyncDeadLetterEntity> get() = store.value
 
-    override fun watchCount(): Flow<Int> = MutableStateFlow(rows.size)
+    /**
+     * The shelf as Room reports it: a cold flow over the current contents, so a flow
+     * taken before a row was shelved reports that row once it is.
+     *
+     * The earlier version captured a snapshot when `watch()` was called and handed it
+     * back frozen. A test that took the flow first and shelved a patch afterwards saw
+     * an empty shelf forever — a fake that disagreed with the DAO it stands in for,
+     * and one that could not show the very thing the shelf exists to show.
+     */
+    /** Global, as Room's is: every account's shelved work, newest first. */
+    override fun watch(): Flow<List<SyncDeadLetterEntity>> = store.map { snapshot(it) }
 
-    override suspend fun getAll(): List<SyncDeadLetterEntity> = snapshot()
+    /** Global, as [watch] is. */
+    override fun watchCount(): Flow<Int> = store.map { it.size }
 
+    /** Global, as [watch] is. */
+    override suspend fun getAll(): List<SyncDeadLetterEntity> = snapshot(store.value)
+
+    /** The row keeps the owner it was shelved under — the erase is scoped by it. */
     override suspend fun insert(entity: SyncDeadLetterEntity) {
-        rows.removeAll { it.patchId == entity.patchId }
-        rows += entity
+        store.value = store.value.filterNot { it.patchId == entity.patchId } + entity
     }
 
-    override suspend fun delete(id: String): Int = if (rows.removeAll { it.patchId == id }) 1 else 0
+    /**
+     * `DELETE FROM sync_dead_letter WHERE patch_id = :id` — patch-id-keyed, and
+     * therefore not owner-scoped: a patch id names one row, so the key is the guard.
+     */
+    override suspend fun delete(id: String): Int {
+        val present = store.value.any { it.patchId == id }
+        store.value = store.value.filterNot { it.patchId == id }
+        return if (present) 1 else 0
+    }
 
+    /**
+     * `DELETE FROM sync_dead_letter WHERE owner_id = :ownerId` — the owner filter is
+     * the guard, and it is the one that keeps one account's erase from taking
+     * another account's shelved work with it.
+     */
     override suspend fun deleteForOwner(ownerId: String): Int {
-        val doomed = rows.filter { it.ownerId == ownerId }
-        rows.removeAll { it.ownerId == ownerId }
+        val doomed = store.value.filter { it.ownerId == ownerId }
+        store.value = store.value.filterNot { it.ownerId == ownerId }
         return doomed.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int = rows.count { it.ownerId == ownerId }
+    /** `SELECT COUNT(*) ... WHERE owner_id = :ownerId` — the owner's rows only. */
+    override suspend fun countForOwner(ownerId: String): Int = store.value.count { it.ownerId == ownerId }
 
+    /**
+     * `DELETE FROM sync_dead_letter` — the wholesale drain, for a reset with no owner
+     * to name.
+     *
+     * No production path calls it. A sign-out keeps local data (REQ-UA-006,
+     * `SignOutKeepsLocalDataTest`) and so reaches no sync table; the account switch
+     * erases one owner through [deleteForOwner], which is what `OwnerScopedEraserTest`
+     * pins. A switch that reached for this instead would take the incoming account's
+     * shelved work with the outgoing one's.
+     */
     override suspend fun clearAll() {
-        rows.clear()
+        store.value = emptyList()
     }
 
-    private fun snapshot(): List<SyncDeadLetterEntity> = rows.sortedByDescending { it.failedAt }
+    private fun snapshot(shelf: List<SyncDeadLetterEntity>): List<SyncDeadLetterEntity> =
+        shelf.sortedByDescending { it.failedAt }
 }
 
 /**
@@ -360,6 +434,28 @@ class ThrowingSyncScopeProvider(private val cause: Throwable = IllegalStateExcep
  * the database owns it. This one exists because these tests build an engine without
  * a database, and the shadow's `in_flight_patch_id` guard is behaviour worth having
  * a handle on rather than only asserting through.
+ *
+ * ## The guard set it mirrors
+ *
+ * Every operation is scoped by `(owner_id, profile_id)`, and two of them carry a
+ * second guard on `in_flight_patch_id`:
+ *
+ * - [get], [updateConfirmed], [confirm], [release] and [upsert] address one row of
+ *   one account's one profile — the composite key *is* the scope, so a fake that
+ *   stored rows in a list keyed by entity id could not tell two profiles' rows
+ *   apart, and would let a test assert an isolation that the fake never had.
+ * - [confirm] and [release] additionally require the patch id to still own the
+ *   in-flight marker, so a response for a superseded patch promotes nothing.
+ * - [deleteForOwner] and [countForOwner] are scoped by the owner alone: a switch
+ *   must take every profile the account has, not the one that happens to be active.
+ * - [clearScope] is scoped by owner *and* profile; [clearAll] is the wholesale drain,
+ *   for a reset with no owner to name. No production path calls [clearAll]: a sign-out
+ *   keeps local data (REQ-UA-006), and the account switch erases one owner through
+ *   [deleteForOwner] (`OwnerScopedEraserTest`).
+ *
+ * [SyncDaoGuardContractTest] runs the same scenarios against this fake, against the
+ * fake inside `FakeAppDatabase` and against Room, so a fake that loses a guard fails
+ * the contract rather than quietly passing a test written against it.
  */
 class FakeSyncShadowDao : SyncShadowDao {
     private data class Key(val ownerId: String, val profileId: String, val entityType: String, val entityId: String)
@@ -373,6 +469,7 @@ class FakeSyncShadowDao : SyncShadowDao {
         entityId: String,
     ): SyncShadowEntity? = rows[Key(ownerId, profileId, entityType, entityId)]
 
+    /** `WHERE owner_id = :ownerId AND profile_id = :profileId AND ...` — the whole key. */
     override suspend fun get(
         ownerId: String,
         profileId: String,
@@ -380,10 +477,12 @@ class FakeSyncShadowDao : SyncShadowDao {
         entityId: String,
     ): SyncShadowEntity? = state(ownerId, profileId, entityType, entityId)
 
+    /** The row keeps the owner and profile it was written under. */
     override suspend fun upsert(entity: SyncShadowEntity) {
         rows[Key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)] = entity
     }
 
+    /** The whole key, and only the confirmed column — the queued patch's base is untouched. */
     override suspend fun updateConfirmed(
         ownerId: String,
         profileId: String,
@@ -397,6 +496,7 @@ class FakeSyncShadowDao : SyncShadowDao {
         return 1
     }
 
+    /** The whole key, plus the in-flight marker guard. */
     override suspend fun confirm(
         ownerId: String,
         profileId: String,
@@ -417,6 +517,7 @@ class FakeSyncShadowDao : SyncShadowDao {
             )
         }
 
+    /** The whole key, plus the in-flight marker guard. */
     override suspend fun release(
         ownerId: String,
         profileId: String,
@@ -428,20 +529,34 @@ class FakeSyncShadowDao : SyncShadowDao {
             it.copy(inFlightJson = null, inFlightPatchId = null)
         }
 
+    /**
+     * `DELETE FROM sync_shadow WHERE owner_id = :ownerId` — the owner alone, and not
+     * the owner *and* profile: a switch must take every profile the account has.
+     */
     override suspend fun deleteForOwner(ownerId: String): Int {
         val keys = rows.keys.filter { it.ownerId == ownerId }
         keys.forEach(rows::remove)
         return keys.size
     }
 
+    /** `SELECT COUNT(*) ... WHERE owner_id = :ownerId` — the owner's rows only. */
     override suspend fun countForOwner(ownerId: String): Int = rows.count { it.key.ownerId == ownerId }
 
+    /** `DELETE ... WHERE owner_id = :ownerId AND profile_id = :profileId` — one scope only. */
     override suspend fun clearScope(
         ownerId: String,
         profileId: String,
     ) {
         rows.keys.filter { it.ownerId == ownerId && it.profileId == profileId }.forEach(rows::remove)
     }
+
+    /**
+     * `DELETE FROM sync_shadow` — the wholesale drain, for a reset with no owner to
+     * name.
+     *
+     * No production path calls it, for the same reason as the shelf's: a sign-out keeps
+     * local data (REQ-UA-006) and the account switch erases through [deleteForOwner].
+     */
 
     override suspend fun clearAll() {
         rows.clear()

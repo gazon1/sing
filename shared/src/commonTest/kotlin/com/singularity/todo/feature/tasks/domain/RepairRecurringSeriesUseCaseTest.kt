@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -34,6 +37,8 @@ import kotlin.time.Instant
  * otherwise have no open occurrence**. It is idempotent.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class RepairRecurringSeriesUseCaseTest {
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))
