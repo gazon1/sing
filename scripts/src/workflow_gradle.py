@@ -252,6 +252,96 @@ def profile_tasks(profile: str, path: pathlib.Path | None = None) -> tuple[str, 
     return tuple(profiles[profile]["tasks"])  # type: ignore[arg-type]
 
 
+def _profile_property(
+    profile: str,
+    prop: str,
+    path: pathlib.Path | None = None,
+) -> str:
+    """One property of one profile, or an empty string.
+
+    A profile that does not declare the property has not made a claim about
+    it, and an empty string says so. It is not an error: the property is
+    optional, and a profile that leaves it out is a profile that says less.
+    """
+    profiles = load_profiles(path)
+    if profile not in profiles:
+        known = ", ".join(sorted(profiles))
+        raise RuntimeError(
+            f"unknown test profile {profile!r} — the known ones are: {known} ({PROFILES_FILE})"
+        )
+    return str(profiles[profile].get(prop, ""))
+
+
+def _profile_tasks_property(
+    profile: str,
+    prop: str,
+    path: pathlib.Path | None = None,
+) -> tuple[str, ...]:
+    """A property that holds a comma-separated list of tasks."""
+    raw = _profile_property(profile, prop, path)
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
+
+
+def profile_reported(profile: str, path: pathlib.Path | None = None) -> tuple[str, ...]:
+    """The tasks whose reports a run of this profile is expected to have.
+
+    A profile runs tasks, and a run does not necessarily write a report for
+    every task it runs — so the tasks and the reports are two lists, and this
+    is the second one. The difference is declared, not guessed:
+
+    * `deferred` — the report is written after the evidence index is built
+      (the ADR modules run in their own invocation, below the index step);
+    * the slow half — a task whose only test is `slow` writes a report under
+      the `full` population and writes nothing under `fast`, because Gradle
+      writes no XML for a task that selected no test.
+
+    Without the second list, the reporter would call a task that ran and
+    selected nothing a task that never ran — and the index would be wrong on
+    every run.
+    """
+    return _profile_tasks_property(profile, "reported", path)
+
+
+def profile_deferred(profile: str, path: pathlib.Path | None = None) -> tuple[str, ...]:
+    """The tasks whose reports arrive after the evidence index is built."""
+    return _profile_tasks_property(profile, "deferred", path)
+
+
+def profile_conditional(profile: str, path: pathlib.Path | None = None) -> tuple[str, ...]:
+    """The tasks whose report exists only under some populations.
+
+    A task whose only test is `slow` writes a report under the `full`
+    population and writes nothing under `fast`: Gradle writes no XML for a
+    task that selected no test. The task RAN — the build log says so — and
+    the evidence reporter has to say "it ran and wrote nothing" rather than
+    "it did not run", because those are different claims and only one of them
+    is true.
+
+    Without this list the reporter would have to be told about the difference
+    on the command line, and the command line is where a list of expectations
+    goes to drift away from the declaration it claims to follow.
+    """
+    return _profile_tasks_property(profile, "conditional", path)
+
+
+def profile_globs(profile: str, path: pathlib.Path | None = None) -> tuple[str, ...]:
+    """The globs that find the reports of a run of this profile.
+
+    A profile says which tasks run, and the tasks say where their reports
+    are: a Gradle report lives under `<module>/build/test-results/`, the
+    instrumented one under `<module>/build/outputs/androidTest-results/`, and
+    a Maestro flow's under `build/maestro-results/`. A reporter asked for the
+    `device` profile has to look in the second place, and a reporter that
+    looked in the first would report a complete run that has no reports in
+    it.
+
+    The globs are declared per profile rather than derived from the task
+    names, because the mapping from a report path back to a task is the
+    reader's job and the two directions do not have to be mirrors.
+    """
+    return _profile_tasks_property(profile, "reports", path)
+
+
 def profile_population(profile: str, path: pathlib.Path | None = None) -> str:
     """The named population a profile runs with, or an empty string.
 
@@ -260,14 +350,17 @@ def profile_population(profile: str, path: pathlib.Path | None = None) -> str:
     and an empty string says so. It is not an error: the profile exists, and
     what it runs is not tag-selected.
     """
-    profiles = load_profiles(path)
-    if profile not in profiles:
-        known = ", ".join(sorted(profiles))
-        raise RuntimeError(
-            f"unknown test profile {profile!r} — the known ones are: {known} ({PROFILES_FILE})"
-        )
-    return str(profiles[profile].get("population", ""))
+    return _profile_property(profile, "population", path)
 
+
+def profile_tier(profile: str, path: pathlib.Path | None = None) -> str:
+    """The tier a profile belongs to, or an empty string.
+
+    The tier says what KIND of run this is — `jvm`, `android`, `maestro` or
+    `all` — and it is what tells a reader whether the profile needs a device.
+    It is not one profile per tier: `fast` and `full` are both the JVM tier.
+    """
+    return _profile_property(profile, "tier", path)
 
 #: Shell separators. Fragments are split on these so a pipeline cannot hide an
 #: invocation on its right-hand side.
