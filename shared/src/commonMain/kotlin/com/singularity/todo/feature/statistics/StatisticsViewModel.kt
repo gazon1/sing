@@ -23,6 +23,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -92,6 +93,13 @@ class StatisticsViewModel(
         scope.launch {
             state
                 .map { it.rangeDays }
+                // The range is the *input* to this computation, so the flow that
+                // drives it may only fire when the range changes. Without the
+                // dedupe every state write re-subscribed the repository, and the
+                // snapshot carries a `computedAt` timestamp — so each recomputation
+                // produced a different snapshot, which changed the state, which
+                // re-subscribed again: a loop that re-queried the database forever.
+                .distinctUntilChanged()
                 .flatMapLatest { rangeDays ->
                     deps.taskRepository
                         .observeByFilter(TaskFilter.All)
@@ -184,6 +192,9 @@ class StatisticsViewModel(
         scope.launch {
             state
                 .map { it.rangeDays }
+                // Same dedupe as the task statistics above: the range is the
+                // input to the computation, not the state it writes to.
+                .distinctUntilChanged()
                 .flatMapLatest { days ->
                     val now = deps.clock.now()
                     val zone = TimeZone.currentSystemDefault()
@@ -237,6 +248,11 @@ class StatisticsViewModel(
             is StatisticsIntent.SetRange -> {
                 val days = intent.days
                 if (days !in listOf(7, 30, 90)) return
+                // Selecting the range that is already selected is not a change:
+                // the collectors recompute on a *new* range, so asking for the
+                // same one would set the loading flag for a recomputation that
+                // never comes, and the screen would wait on it forever.
+                if (days == currentState.rangeDays) return
                 updateState { it.copy(rangeDays = days, loading = true) }
             }
         }
