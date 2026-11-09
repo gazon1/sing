@@ -627,10 +627,6 @@ private fun StatisticsScreenLightPreview() =
                                 totalCompleted = 35,
                                 totalOverdue = 3,
                                 averagePerDay = 5.0,
-                                computedAt =
-                                    kotlin.time.Instant
-                                        .fromEpochMilliseconds(0)
-                                        .toEpochMilliseconds(),
                             ),
                     ),
             )

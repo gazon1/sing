@@ -23,6 +23,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -120,7 +121,8 @@ class StatisticsViewModelTest {
      * threw, not a look-alike carrying the same message.
      *
      * All three collectors observe the same failing repository, so all three
-     * keys have to carry the original.
+     * keys have to carry the original. A failure is retried before it is
+     * reported, so the retries have to run out first.
      */
     @Test
     fun `a failed observation reports the original cause`() =
@@ -134,7 +136,8 @@ class StatisticsViewModelTest {
             // left. `runCurrent()` dispatches what is scheduled right now, background
             // work included — which is what starts the observations that fail.
             runCurrent()
-            runCurrent()
+            // The failure is retried before it is reported, and the retries wait.
+            settleRetries()
 
             listOf(
                 "statistics.tasks_failed",
@@ -166,7 +169,8 @@ class StatisticsViewModelTest {
 
             val vm = createVm(FailingTaskRepository(IllegalStateException("no health today")), reporter)
             runCurrent()
-            runCurrent()
+            // The failure is retried before it is reported, and the retries wait.
+            settleRetries()
 
             assertEquals(
                 TaskHealthState.Unavailable,
@@ -204,10 +208,8 @@ class StatisticsViewModelTest {
      *
      * The range drives the recomputation, and the range lives in the state the
      * recomputation writes to. Without a dedupe on the range, every state write
-     * re-subscribed the repository; the snapshot carries a `computedAt`
-     * timestamp, so each recomputation produced a different snapshot, which
-     * changed the state, which re-subscribed again — a loop that re-queried the
-     * database forever.
+     * re-subscribed the repository, and the recomputation changed the state it
+     * had just read — a loop that re-queried the database forever.
      */
     @Test
     fun `the repository is observed once per collector and once more per range change`() =
@@ -254,6 +256,57 @@ class StatisticsViewModelTest {
 
             assertFalse(vm.state.value.loading, "the screen must not wait for a recomputation that never comes")
         }
+
+    /**
+     * A transient failure does not end the collector.
+     *
+     * The catch that reported a failure was also the end of the collector: one
+     * failed observation, and the tab was never asked again for the lifetime of
+     * the ViewModel — so a database that was busy for a moment left the screen
+     * on a value nobody knew was stale, and nothing ever said so.
+     *
+     * A failure that goes away on its own has to recover without the user
+     * doing anything, and it must not be filed as a failure either: it did not
+     * end anything.
+     */
+    @Test
+    fun `a transient failure is retried and the collector recovers`() =
+        runTest {
+            val reporter = RecordingCrashReportingPort()
+            val repo = FakeTaskRepository()
+            repo.seed(task("t1"))
+            // The fake breaks one subscription and lets the next one through,
+            // which is what a momentary failure looks like from here.
+            repo.nextObserveFilterFailure = IllegalStateException("the database was busy")
+
+            val vm = createVm(repo, reporter)
+            runCurrent()
+            settleRetries()
+
+            assertNotNull(
+                vm.state.value.snapshot,
+                "the collector must recover and put a snapshot on screen",
+            )
+            assertFalse(
+                vm.state.value.loading,
+                "the recovered screen must not stay on the loading flag",
+            )
+            assertTrue(
+                reporter.reports.isEmpty(),
+                "a failure that recovered must not be filed as a failure: ${reporter.reports}",
+            )
+        }
+
+    /**
+     * Lets the retry pauses run out.
+     *
+     * A failure is retried before it is reported, and the retries wait — in
+     * virtual time, so the test moves the clock instead of sleeping.
+     */
+    private fun TestScope.settleRetries() {
+        advanceTimeBy(10_000)
+        runCurrent()
+    }
 }
 
 /**
