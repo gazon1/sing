@@ -446,6 +446,7 @@ include(":core-database")
 include(":adr-core")
 include(":mcp-server")
 include(":adr-cli")
+include(":import-cli")
 include(":detekt-rules")
 // A KSP processor, its own module: a detekt rule is handed one file at a
 // time and this question spans files. Not yet applied to :shared.
