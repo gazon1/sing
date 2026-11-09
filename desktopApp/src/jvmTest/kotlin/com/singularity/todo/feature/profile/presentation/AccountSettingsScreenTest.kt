@@ -86,6 +86,29 @@ class AccountSettingsScreenTest {
         }
 
     @Test
+    fun `a session that is still loading says so instead of showing nothing`() =
+        runIsolatedComposeTest(height = 1200) {
+            setContent {
+                MaterialTheme {
+                    AccountSettingsScreenPreviewContent(
+                        activeProfile = profile(),
+                        onNavigateToProfileSwitcher = {},
+                        onChangePassword = {},
+                        onSignOut = {},
+                        session = Session.Loading,
+                    )
+                }
+            }
+
+            // The card used to be absent while the session resolved, so it
+            // appeared out of nothing under the user.
+            assertTextDisplayed("Checking the session…")
+            // And nothing is known yet, so nothing is offered yet.
+            assertTagNotExists(TestTags.AUTH_ACCOUNT_EMAIL)
+            assertTagNotExists(TestTags.AUTH_SIGN_OUT_BUTTON)
+        }
+
+    @Test
     fun `a profile with no emoji draws a person icon`() =
         runIsolatedComposeTest {
             setContent {

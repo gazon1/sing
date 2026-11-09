@@ -233,8 +233,8 @@ private fun ActiveProfileSection(profile: Profile) {
  */
 @Composable
 private fun ProfileAvatar(profile: Profile) {
-    // The emoji-or-person fallback lives in the shared-ui avatar, so this
-    // screen and the profile switcher cannot disagree about what a profile
+    // The emoji-or-person fallback lives in the shared avatar component, so
+    // this screen and the profile switcher cannot disagree about what a profile
     // with no emoji looks like.
     ProfileAvatar(emoji = profile.emoji)
 }
@@ -280,10 +280,24 @@ private fun AccountStatusSection(session: Session) {
             }
         }
 
-        // Nothing is known yet, and a signed-out session never reaches this
-        // screen — the auth guard shows the sign-in screen instead.
-        Session.Loading, Session.SignedOut -> {
-            // Nothing is known yet — the card appears when the session resolves.
+        // The session is not known yet. The card used to be absent in this
+        // state, so it appeared out of nothing once the session resolved; now it
+        // says that it is looking. The action cards below it (security, attach
+        // account, sign out) belong to a known state and still arrive with it.
+        Session.Loading -> {
+            SettingsSection(title = "Account") {
+                Text(
+                    text = "Checking the session…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // A signed-out session never reaches this screen — the auth guard
+        // shows the sign-in screen instead.
+        Session.SignedOut -> {
+            // Nothing to say about an account that is not there.
         }
     }
 }
