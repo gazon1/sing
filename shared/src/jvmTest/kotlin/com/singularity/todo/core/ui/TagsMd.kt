@@ -248,10 +248,6 @@ object TagsMd {
                 DynamicMeta(fnName, "Settings", "Dark", "Theme-mode radio buttons")
             }
 
-            "Settings.reminderOffsetRadioRow" -> {
-                DynamicMeta(fnName, "Settings", "At due time", "Reminder-offset radio rows in notification settings")
-            }
-
             "CalendarSync.providerSegment" -> {
                 DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
             }

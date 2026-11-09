@@ -1,6 +1,5 @@
 package com.singularity.todo.core.ui
 
-import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.datetime.DayOfWeek
 
 // The one flat namespace for every automation tag is the point of this object: a
@@ -790,12 +789,6 @@ object TestTags {
         /** Per-event vibration toggle. Rendered only while notifications are enabled. */
         const val NOTIFICATIONS_VIBRATION_SWITCH = "settings_notifications_vibration_switch"
 
-        /** Section container for the "Default Reminder" radio group. */
-        const val REMINDER_DEFAULTS_SECTION = "reminder_defaults_section"
-
-        /** Dynamic tag for a reminder-offset radio row. Uses the locale-aware label as input. */
-        fun reminderOffsetRadioRow(offset: ReminderOffset): String = "reminder_offset_radio_${slug(offset.label)}"
-
         /**
          * Toggle for one day of the working week, on the work schedule screen.
          *
@@ -1220,10 +1213,6 @@ object TestTags {
     // The cards that show what an agent did. Shared by the built-in chat and the
     // external-agent screen, so a tag here names a thing both screens draw.
 
-    const val AGENT_TOOL_CALL_CARD = "agent_tool_call_card"
-    const val AGENT_TOOL_CALL_STATUS = "agent_tool_call_status"
-    const val AGENT_TOOL_CALL_SUMMARY = "agent_tool_call_summary"
-    const val AGENT_TOOL_CALL_SUMMARY_TOGGLE = "agent_tool_call_summary_toggle"
     const val AGENT_PLAN_CARD = "agent_plan_card"
 
     // ─── External agent ─────────────────────────────────────────────────────

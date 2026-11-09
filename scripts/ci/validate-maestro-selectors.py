@@ -365,12 +365,6 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "settings_accent_swatch_teal",
     # Agenda selector options (agendaSelectorOption function)
     "agenda_selector_option_none",
-    # Reminder offset radio rows (reminderOffsetRadioRow function — slug of label)
-    "reminder_defaults_section",
-    "reminder_offset_radio_at_due_time",
-    "reminder_offset_radio_15_minutes_before",
-    "reminder_offset_radio_1_hour_before",
-    "reminder_offset_radio_1_day_before",
 }
 
 # ---------------------------------------------------------------------------

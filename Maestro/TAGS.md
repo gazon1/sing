@@ -265,7 +265,6 @@ non-alphanumeric characters with `_`.
 | `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
-| `Settings.REMINDER_DEFAULTS_SECTION` | `reminder_defaults_section` | |
 | `Settings.TAB_DROPDOWN` | `settings_tab_dropdown` | |
 | `Settings.VALUE_ROW` | `settings_value_row` | |
 
@@ -369,10 +368,6 @@ non-alphanumeric characters with `_`.
 | `ACP_TURN_CANCELLED` | `acp_turn_cancelled` | |
 | `ACP_TURN_FAILED` | `acp_turn_failed` | |
 | `AGENT_PLAN_CARD` | `agent_plan_card` | |
-| `AGENT_TOOL_CALL_CARD` | `agent_tool_call_card` | |
-| `AGENT_TOOL_CALL_STATUS` | `agent_tool_call_status` | |
-| `AGENT_TOOL_CALL_SUMMARY` | `agent_tool_call_summary` | |
-| `AGENT_TOOL_CALL_SUMMARY_TOGGLE` | `agent_tool_call_summary_toggle` | |
 
 ### Calendar
 
@@ -478,7 +473,6 @@ use the expanded string directly).
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
 | `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in Settings |
 | `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
-| `Settings.reminderOffsetRadioRow("At due time")` | `"At due time"` | `reminder_offset_radio_at_due_time` | Reminder-offset radio rows in notification settings |
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `Settings.workingDaySwitch("MONDAY")` | `"MONDAY"` | `settings_working_day_monday` | Working-day toggles in the work schedule section |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
