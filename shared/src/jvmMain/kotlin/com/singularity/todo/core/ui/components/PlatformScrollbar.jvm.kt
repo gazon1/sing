@@ -23,11 +23,10 @@ import androidx.compose.ui.unit.dp
  * one — the notes list carries `TestTags.NOTES_LIST` — and Compose keeps one value
  * per key, so whichever tag came second would silently replace the other.
  *
- * This file is in `:shared-ui`'s own `jvmMain`, next to the `expect` in
+ * This file is in `:shared`'s own `jvmMain`, next to the `expect` in
  * `commonMain`. An `actual` has to live in the module that declares its
- * `expect` — `:shared` does not declare this one, so an `actual` there would
- * be a stray declaration with no `expect` to satisfy, and `:shared-ui` would
- * report the `expect` with no `actual`.
+ * `expect` — a module that only depends on `:shared` could not satisfy it,
+ * because a dependency's `expect` is not the dependent's to answer.
  */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier =

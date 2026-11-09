@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
  * It publishes neither [PlatformScrollbarSemantics] key, so a test that reads one
  * back is by construction a desktop test.
  *
- * This file is in `:shared-ui`'s own `androidMain`, next to the `expect` in
+ * This file is in `:shared`'s own `androidMain`, next to the `expect` in
  * `commonMain`. An `actual` has to live in the module that declares its
  * `expect`; putting it in a dependency does not satisfy the compiler.
  */
