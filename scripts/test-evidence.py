@@ -179,6 +179,10 @@ class Evidence:
     commit: str = ""
     run_id: str = ""
     profile: str = ""
+    #: The repository the paths in this index are relative to. A manifest
+    #: that spells out `/home/someone/build/...` is a manifest of one
+    #: machine, and the evidence is meant to travel between them.
+    root: pathlib.Path | None = None
     metadata: dict[str, str] = field(default_factory=dict)
     reports: list[Report] = field(default_factory=list)
     missing_tasks: list[str] = field(default_factory=list)
@@ -201,6 +205,10 @@ class Evidence:
 #: task: the `test` task of the debug variant writes `testDebugUnitTest`. The
 #: profile vocabulary names tasks, so the identity is the task.
 _VARIANT_UNIT_TEST = re.compile(r"^test(?:Debug|Release)?UnitTest$")
+
+#: A diagnostics attempt directory: `attempt-1`, `attempt-10`. The number is
+#: the attempt's ordinal, and it is compared as one.
+_ATTEMPT = re.compile(r"^attempt-(\d+)$")
 
 
 def _task_name(task_dir: str) -> str:
@@ -230,6 +238,14 @@ def report_identity(root: pathlib.Path, path: pathlib.Path) -> tuple[str, str]:
     would call that module `tools` — a name no profile declares and no task
     answers to, so its reports would look like a task nobody ran.
 
+    The module is written the way the profile vocabulary writes it: with
+    COLONS (`tools:unwritten-properties`), not with slashes. The vocabulary
+    says `module:task`, and a report whose module is spelled `tools` while
+    every profile spells it `tools:unwritten-properties` is a report of a task
+    nobody declared — the reporter would call it missing and list it in the
+    same breath as the report it was reading. The slash form is a FILE path
+    and `module_path()` turns the identity back into one.
+
     A path that matches none of them yields the module and an unknown task
     rather than a guess: a wrong task name is worse than an absent one.
 
@@ -251,9 +267,10 @@ def report_identity(root: pathlib.Path, path: pathlib.Path) -> tuple[str, str]:
     if "maestro-results" in parts:
         return "maestro", "maestro:flows"
     if "build" not in parts:
-        return "/".join(parts[:-1]) or "?", "/".join(parts[:-1]) + ":?"
+        module = ":".join(parts[:-1]) or "?"
+        return module, f"{module}:?"
     index = parts.index("build")
-    module = "/".join(parts[:index]) or "?"
+    module = ":".join(parts[:index]) or "?"
     rest = parts[index:]
     if "androidTest-results" in rest:
         # AGP writes `androidTest-results/connected/<variant>/<device>/…`, so
@@ -266,6 +283,17 @@ def report_identity(root: pathlib.Path, path: pathlib.Path) -> tuple[str, str]:
         task_dir = rest[task_index + 1] if len(rest) > task_index + 1 else "?"
         return module, f"{module}:{_task_name(task_dir)}"
     return module, f"{module}:?"
+
+
+def module_path(module: str) -> str:
+    """The FILE path of a module, from its colon-form identity.
+
+    The identity is `tools:unwritten-properties` and the directory is
+    `tools/unwritten-properties` — the two directions are not mirrors, and a
+    reporter that mixed them up would look for the diagnostics bundle of a
+    directory that does not exist.
+    """
+    return module.replace(":", "/")
 
 
 def simple_class_names(classname: str) -> list[str]:
@@ -305,7 +333,11 @@ def diagnostics_dirs(
       JUnit file.
 
     The latest `attempt-N` wins: a retried test's last attempt is the one the
-    report talks about.
+    report talks about. The number is compared as a NUMBER — `attempt-10` is
+    later than `attempt-2`, and a string comparison says the opposite, which
+    would link a failed test to the bundle of a run nine attempts older. A
+    directory that is not a numbered attempt is not an attempt at all, and is
+    ignored rather than guessed at.
     """
     found: list[pathlib.Path] = []
     if module == "maestro":
@@ -314,12 +346,16 @@ def diagnostics_dirs(
             found.append(candidate)
         return found
     for name in simple_class_names(classname):
-        base = root / module / "build" / "diagnostics" / name
+        base = root / module_path(module) / "build" / "diagnostics" / name
         if not base.is_dir():
             continue
         attempts = sorted(
-            (child for child in base.iterdir() if child.is_dir() and child.name.startswith("attempt-")),
-            key=lambda child: child.name,
+            (
+                child
+                for child in base.iterdir()
+                if child.is_dir() and _ATTEMPT.match(child.name)
+            ),
+            key=lambda child: int(_ATTEMPT.match(child.name).group(1)),  # type: ignore[union-attr]
         )
         found.append(attempts[-1] if attempts else base)
         break
@@ -397,7 +433,7 @@ def collect(
     task_outcome: str = "unknown",
 ) -> Evidence:
     """Read every report the globs name and work out what is missing."""
-    evidence = Evidence(task_outcome=task_outcome)
+    evidence = Evidence(task_outcome=task_outcome, root=root)
     seen: set[pathlib.Path] = set()
     for pattern in globs:
         for path in sorted(root.glob(pattern)):
@@ -411,7 +447,13 @@ def collect(
     # A task that was supposed to run and left no report is `not_run`. A task
     # that left a report with no testcase in it is a successful empty report —
     # a different thing, and the reason this distinction is worth a table.
-    produced = {report.task for report in evidence.reports if report.readable}
+    #
+    # The existence of a report and its READABILITY are two questions. A report
+    # that exists and cannot be parsed is a report the task wrote and the
+    # reader could not make sense of: it is in the `unreadable` list, and it
+    # is NOT a task that did not run. Saying both would say the same thing
+    # twice, and the second thing would be false.
+    produced = {report.task for report in evidence.reports}
     for task in expect:
         if task not in produced:
             evidence.missing_tasks.append(task)
@@ -419,6 +461,34 @@ def collect(
 
 
 # ── rendering ─────────────────────────────────────────────────────────────────
+
+
+def _code(text: str) -> str:
+    """An inline code span that survives the text inside it.
+
+    A test name is untrusted text. A backtick in it closes the span, and the
+    rest of the name stops being a name and becomes markdown. A double fence
+    survives a single backtick, and the span is still a span.
+
+    A pipe is the other one that matters: this index puts untrusted text in
+    MARKDOWN TABLES, and a pipe ends a cell even inside a code span — the
+    table would grow a column that nobody wrote. The pipe is escaped, and so
+    is the backslash that would otherwise escape the escape.
+    """
+    fence = "``" if "`" in text else "`"
+    body = text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
+    return f"{fence}{body}{fence}"
+
+
+def _cell(text: str) -> str:
+    """A table cell out of untrusted text.
+
+    A pipe ends the cell, a newline ends the row, and a backtick opens a code
+    span. All three are things a failure message can contain — a stack trace
+    is not written by this repository and does not agree to keep its pipes
+    to itself.
+    """
+    return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").replace("`", "'")
 
 
 def profile_expectations(profile: str) -> list[str]:
@@ -429,8 +499,13 @@ def profile_expectations(profile: str) -> list[str]:
     XML file that happens to be under `build/`. A wildcard sweep counts the
     reports of a task nobody ran in this run, and a report of an unrelated
     task is evidence about a different execution.
+
+    The expected tasks are the profile's REPORTED ones, not all of its tasks:
+    a task whose report arrives after the index is built, and a task that ran
+    and selected no test, are both tasks that ran — and the reporter that
+    called them missing would report every run as incomplete.
     """
-    return list(wg.profile_tasks(profile))
+    return list(wg.profile_reported(profile))
 
 
 def render_index(evidence: Evidence) -> str:
@@ -438,15 +513,15 @@ def render_index(evidence: Evidence) -> str:
     lines: list[str] = ["# Test evidence", ""]
     lines.append(f"- task outcome: **{evidence.task_outcome}**")
     if evidence.population:
-        lines.append(f"- population: `{evidence.population}`")
+        lines.append(f"- population: {_code(evidence.population)}")
     if evidence.profile:
-        lines.append(f"- profile: `{evidence.profile}`")
+        lines.append(f"- profile: {_code(evidence.profile)}")
     if evidence.commit:
-        lines.append(f"- commit: `{evidence.commit}`")
+        lines.append(f"- commit: {_code(evidence.commit)}")
     if evidence.run_id:
-        lines.append(f"- run id: `{evidence.run_id}`")
+        lines.append(f"- run id: {_code(evidence.run_id)}")
     for key in sorted(evidence.metadata):
-        lines.append(f"- {key}: `{evidence.metadata[key]}`")
+        lines.append(f"- {key}: {_code(evidence.metadata[key])}")
     lines.append("")
 
     failures = evidence.failures
@@ -474,11 +549,11 @@ def render_index(evidence: Evidence) -> str:
         lines.append("| test | outcome | message | diagnostics | report |")
         lines.append("|---|---|---|---|---|")
         for failure in failures:
-            diagnostics = "<br>".join(f"`{d}`" for d in failure.diagnostics) or "—"
-            message = failure.message.replace("|", "\\|").replace("\n", " ")
+            diagnostics = "<br>".join(_code(d) for d in failure.diagnostics) or "—"
+            message = _cell(failure.message)
             lines.append(
-                f"| `{failure.classname}.{failure.name}` | {failure.outcome} | {message} | "
-                f"{diagnostics} | `{failure.report}` |"
+                f"| {_code(f'{failure.classname}.{failure.name}')} | {failure.outcome} | "
+                f"{message} | {diagnostics} | {_code(failure.report)} |"
             )
         lines.append("")
 
@@ -497,7 +572,8 @@ def render_index(evidence: Evidence) -> str:
             counts = "—"
             outcome = "**unreadable**"
         lines.append(
-            f"| `{report.path.name}` | `{report.module}` | `{report.task}` | {outcome} | {counts or '—'} |"
+            f"| {_code(report.path.name)} | {_code(report.module)} | {_code(report.task)} | "
+            f"{outcome} | {counts or '—'} |"
         )
     lines.append("")
 
@@ -510,9 +586,12 @@ def render_index(evidence: Evidence) -> str:
         )
         lines.append("")
         for path, reason in evidence.unreadable:
-            lines.append(f"- `{path}` — unreadable: {reason}")
+            lines.append(f"- {_code(path)} — unreadable: {_cell(reason)}")
         for task in evidence.missing_tasks:
-            lines.append(f"- `{task}` — no report: the task did not execute, or its output never arrived.")
+            lines.append(
+                f"- {_code(task)} — no report: the task did not execute, "
+                f"or its output never arrived."
+            )
         lines.append("")
     else:
         lines.append("## Incomplete evidence")
@@ -525,6 +604,7 @@ def render_index(evidence: Evidence) -> str:
 
 def render_manifest(evidence: Evidence) -> dict:
     """The machine-readable manifest."""
+    root = evidence.root
     return {
         "task_outcome": evidence.task_outcome,
         "population": evidence.population,
@@ -534,7 +614,11 @@ def render_manifest(evidence: Evidence) -> dict:
         "metadata": dict(evidence.metadata),
         "reports": [
             {
-                "path": str(report.path),
+                "path": (
+                    str(report.path.relative_to(root))
+                    if root is not None and report.path.is_relative_to(root)
+                    else str(report.path)
+                ),
                 "module": report.module,
                 "task": report.task,
                 "readable": report.readable,
@@ -571,24 +655,31 @@ def main(argv: list[str] | None = None) -> int:
         dest="globs",
         action="append",
         default=None,
-        help="A glob, relative to the root, of the JUnit XML to read (repeatable)",
+        help=(
+            "A glob, relative to the root, of the JUnit XML to read (repeatable). "
+            "Without it the profile says where its reports live"
+        ),
     )
     parser.add_argument(
         "--expect",
         dest="expect",
         action="append",
         default=None,
-        help="A task that was supposed to run, as module:task (repeatable)",
+        help=(
+            "A task that was supposed to run, as module:task (repeatable). "
+            "Overrides the profile's own list of expected tasks"
+        ),
     )
     parser.add_argument(
         "--profile",
         default="",
         help=(
             "The named profile the run executed (fast, full, device, e2e, all). "
-            "The profile names the run and supplies its population. Its DECLARED "
-            "tasks become the expected tasks when no --expect is given: 'all' "
-            "expects the tasks the profile file declares, not every XML file "
-            "under build/"
+            "The profile names the run, supplies its population, says where its "
+            "reports live, and says which tasks are expected to have written one "
+            "by the time the index is built — a task whose report arrives later, "
+            "or whose population selected no test of it, is a task that ran and "
+            "is not missing evidence"
         ),
     )
     parser.add_argument(
@@ -611,7 +702,12 @@ def main(argv: list[str] | None = None) -> int:
         "--task-outcome",
         default="unknown",
         choices=list(TASK_OUTCOMES),
-        help="What the task or process did, as the caller saw it",
+        help=(
+            "What the task or process did, as the caller saw it. The caller is "
+            "the only one who knows: a step that hit its deadline and a step "
+            "that failed look the same to GitHub Actions, so CI passes `failed` "
+            "and a caller that knows better passes `timed_out`"
+        ),
     )
     parser.add_argument("--population", default="", help="The population the run selected")
     parser.add_argument("--commit", default="", help="The commit the run measured")
@@ -625,7 +721,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = pathlib.Path(args.root).resolve()
-    globs = args.globs or ["**/build/test-results/**/*.xml"]
+    # Where the reports are comes from the profile: the three tiers write
+    # them in three different places, and a reporter asked for `device` that
+    # looked in the JVM place would report a run that has no reports in it.
+    globs = list(args.globs or [])
+    if not globs and args.profile:
+        globs = list(wg.profile_globs(args.profile))
+    if not globs:
+        globs = ["**/build/test-results/**/*.xml"]
     # The explicit list wins over the profile's declared set: a run that knows
     # exactly which tasks it ran says so, and a run that names only a profile
     # gets the profile's tasks. The two are never merged — a task the caller

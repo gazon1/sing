@@ -129,6 +129,31 @@ class DiagnosticsAssociationTest(TreeTestCase):
             ["desktopApp/build/diagnostics/MenuBarTest/attempt-2"],
         )
 
+    def test_the_latest_attempt_is_the_highest_number(self):
+        # `attempt-10` is LATER than `attempt-2`, and a string comparison
+        # says the opposite — the reporter would link a failed test to the
+        # bundle of a run nine attempts older.
+        self.write("desktopApp/build/test-results/test/TEST-x.xml", _xml(FAILURE, cls="com.example.MenuBarTest"))
+        self.write("desktopApp/build/diagnostics/MenuBarTest/attempt-2/tree.txt", "two")
+        self.write("desktopApp/build/diagnostics/MenuBarTest/attempt-10/tree.txt", "ten")
+        evidence = self.collect()
+        self.assertEqual(
+            evidence.failures[0].diagnostics,
+            ["desktopApp/build/diagnostics/MenuBarTest/attempt-10"],
+        )
+
+    def test_a_directory_that_is_not_an_attempt_is_not_guessed_at(self):
+        # `attempt-x` is not an attempt the reporter can order, so it is
+        # ignored: the numbered bundle is the one it can speak about.
+        self.write("desktopApp/build/test-results/test/TEST-x.xml", _xml(FAILURE, cls="com.example.MenuBarTest"))
+        self.write("desktopApp/build/diagnostics/MenuBarTest/attempt-1/tree.txt", "one")
+        self.write("desktopApp/build/diagnostics/MenuBarTest/attempt-x/tree.txt", "x")
+        evidence = self.collect()
+        self.assertEqual(
+            evidence.failures[0].diagnostics,
+            ["desktopApp/build/diagnostics/MenuBarTest/attempt-1"],
+        )
+
     def test_another_class_bundle_is_not_borrowed(self):
         # The association is by class, so a bundle that belongs to a different
         # test is never attached to this one.
@@ -212,8 +237,17 @@ class IncompleteEvidenceTest(TreeTestCase):
         # a task that ran and found nothing.
         self.write("shared/build/test-results/jvmTest/TEST-broken.xml", "<testsuite")
         evidence = self.collect(expect=["shared:jvmTest"])
-        self.assertEqual(evidence.missing_tasks, ["shared:jvmTest"])
         self.assertTrue(evidence.reports[0].counts == {})
+
+    def test_an_unreadable_report_is_not_a_missing_one(self):
+        # The report EXISTS — the task wrote it. What failed is the reader.
+        # Calling it a missing report would say twice that the task wrote
+        # nothing, and the second statement would be false.
+        self.write("shared/build/test-results/jvmTest/TEST-broken.xml", "<testsuite")
+        evidence = self.collect(expect=["shared:jvmTest"])
+        self.assertEqual(evidence.missing_tasks, [])
+        self.assertEqual(len(evidence.unreadable), 1)
+        self.assertTrue(evidence.incomplete)
 
     def test_a_complete_run_says_so(self):
         self.write("shared/build/test-results/jvmTest/TEST-a.xml", _xml(FAILURE))
@@ -263,11 +297,20 @@ class ReportIdentityTest(TreeTestCase):
         # `tools/unwritten-properties` is a Gradle project INSIDE another
         # directory. Taking the first segment of the path would call it
         # `tools` — a module no profile declares, so its reports would look
-        # like a task nobody ran.
+        # like a task nobody ran. The identity is written the way the profile
+        # vocabulary writes it: with colons.
         self.write("tools/unwritten-properties/build/test-results/test/TEST-a.xml", _xml(FAILURE))
         evidence = self.collect()
-        self.assertEqual(evidence.reports[0].task, "tools/unwritten-properties:test")
-        self.assertEqual(evidence.reports[0].module, "tools/unwritten-properties")
+        self.assertEqual(evidence.reports[0].task, "tools:unwritten-properties:test")
+        self.assertEqual(evidence.reports[0].module, "tools:unwritten-properties")
+
+    def test_the_nested_module_is_the_one_the_profile_declares(self):
+        # The profile says `tools:unwritten-properties:test`, so the report of
+        # that task has to answer to the same name — otherwise the reporter
+        # calls a report it is holding missing.
+        self.write("tools/unwritten-properties/build/test-results/test/TEST-a.xml", _xml(FAILURE))
+        evidence = self.collect(expect=["tools:unwritten-properties:test"])
+        self.assertEqual(evidence.missing_tasks, [])
 
 
 class ProfileAndMetadataTest(TreeTestCase):
@@ -304,6 +347,45 @@ class ProfileAndMetadataTest(TreeTestCase):
     def test_the_population_comes_from_the_profile(self):
         manifest = self.run_main("--profile", "fast", "--task-outcome", "passed")
         self.assertEqual(manifest["population"], "fast")
+
+    def test_the_device_profile_finds_the_instrumented_reports(self):
+        # The device tier writes its reports under `androidTest-results`, and
+        # a reporter asked for `device` that looked in the JVM place would
+        # report a run that has no reports in it.
+        self.write(
+            "androidApp/build/outputs/androidTest-results/connected/debug/TEST-a.xml",
+            _xml(FAILURE),
+        )
+        manifest = self.run_main("--profile", "device", "--task-outcome", "failed")
+        self.assertEqual(manifest["missing_tasks"], [])
+        self.assertEqual(
+            sorted(report["task"] for report in manifest["reports"]),
+            ["androidApp:connectedDebugAndroidTest"],
+        )
+
+    def test_the_e2e_profile_finds_the_maestro_reports(self):
+        self.write("build/maestro-results/01-launch-today.xml", _xml(FAILURE))
+        manifest = self.run_main("--profile", "e2e", "--task-outcome", "failed")
+        self.assertEqual(manifest["missing_tasks"], [])
+        self.assertEqual(
+            sorted(report["task"] for report in manifest["reports"]),
+            ["maestro:flows"],
+        )
+
+    def test_the_all_profile_finds_the_reports_of_every_tier(self):
+        self.write("shared/build/test-results/jvmTest/TEST-a.xml", _xml(FAILURE))
+        self.write(
+            "androidApp/build/outputs/androidTest-results/connected/debug/TEST-b.xml",
+            _xml(FAILURE),
+        )
+        self.write("build/maestro-results/01-launch-today.xml", _xml(FAILURE))
+        manifest = self.run_main("--profile", "all", "--task-outcome", "failed")
+        # The union of the three globs, and each tier's report found by its
+        # own name — the point of the profile saying where its reports live.
+        self.assertEqual(
+            sorted(report["task"] for report in manifest["reports"]),
+            ["androidApp:connectedDebugAndroidTest", "maestro:flows", "shared:jvmTest"],
+        )
 
     def test_a_metadata_file_describes_the_environment(self):
         # The platform runner already knows the device, the API level and the
@@ -352,6 +434,49 @@ class ManifestTest(TreeTestCase):
         # It has to survive a round trip: the point of a manifest is that
         # something else reads it.
         self.assertEqual(json.loads(json.dumps(manifest)), manifest)
+
+    def test_the_manifest_paths_are_relative_to_the_repository(self):
+        # A manifest that spells out `/home/someone/build/...` is a manifest
+        # of one machine, and the evidence is meant to travel between them.
+        self.write("shared/build/test-results/jvmTest/TEST-a.xml", _xml(FAILURE))
+        evidence = self.collect(task_outcome="failed")
+        manifest = mod.render_manifest(evidence)
+        self.assertEqual(
+            manifest["reports"][0]["path"],
+            "shared/build/test-results/jvmTest/TEST-a.xml",
+        )
+
+
+class MarkdownTest(TreeTestCase):
+    """The index is read by a person; the report content is not written by us."""
+
+    def test_a_pipe_in_a_test_name_does_not_break_the_table(self):
+        body = '<failure message="a | b">trace</failure>'
+        self.write(
+            "shared/build/test-results/jvmTest/TEST-a.xml",
+            _xml(body, cls="com.example.Suite", case="test | pipe"),
+        )
+        index = mod.render_index(self.collect(task_outcome="failed"))
+        rows = [
+            line
+            for line in index.splitlines()
+            if line.startswith("| ") and "com.example.Suite" in line
+        ]
+        self.assertTrue(rows)
+        for row in rows:
+            # A row of the failure table has five columns and six pipes; an
+            # unescaped pipe in the name would make it seven.
+            self.assertEqual(row.count("|") - row.count("\\|"), 6)
+
+    def test_a_backtick_in_a_test_name_does_not_close_the_code_span(self):
+        self.write(
+            "shared/build/test-results/jvmTest/TEST-a.xml",
+            _xml(FAILURE, cls="com.example.Suite", case="test `code`"),
+        )
+        index = mod.render_index(self.collect(task_outcome="failed"))
+        # The fence is doubled, so the backtick in the name stays inside the
+        # span instead of ending it.
+        self.assertIn("``com.example.Suite.test `code`", index)
 
 
 if __name__ == "__main__":
