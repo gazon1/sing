@@ -41,8 +41,8 @@ import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.auth.AuthFormFields
-import com.singularity.todo.feature.auth.AuthScreenEffects
 import com.singularity.todo.feature.auth.AuthIntent
+import com.singularity.todo.feature.auth.AuthScreenEffects
 import com.singularity.todo.feature.auth.AuthUiEvent
 import com.singularity.todo.feature.auth.AuthUiState
 import com.singularity.todo.feature.auth.AuthViewModel
