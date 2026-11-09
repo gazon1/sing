@@ -26,6 +26,16 @@ sealed class BackupPayloadError(message: String, cause: Throwable? = null) : Bac
             "schemaVersion $version < minimum supported ${BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION}",
         )
 
+    /**
+     * The archive's manifest names another application.
+     *
+     * Every archive this app writes carries [BackupFormat.APP_NAME]; one that
+     * names something else was written by another tool, and its versions say
+     * nothing about whether this build can read its rows.
+     */
+    class ForeignArchive(val appName: String) :
+        BackupPayloadError("appName '$appName' is not '${BackupFormat.APP_NAME}'")
+
     /** The payload does not hash to what the manifest says it hashes to. */
     class ChecksumMismatch(val expected: String, val actual: String) :
         BackupPayloadError(

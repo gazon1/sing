@@ -44,9 +44,15 @@ internal fun removalTaskRows(now: Long) =
         TaskDto(id = "task-2", title = "Another task", createdAt = now, updatedAt = now),
     )
 
-/** The note. */
+/**
+ * The note, and the project it belongs to.
+ *
+ * `notes.project_id` is one of the two foreign keys the schema enforces, so the
+ * link makes every restore of this fixture prove that the rows it points at are
+ * written first. A note with no container would leave that order untested.
+ */
 internal fun removalNoteRows(now: Long) =
-    listOf(NoteDto(id = "note-1", title = "A note", createdAt = now, updatedAt = now))
+    listOf(NoteDto(id = "note-1", title = "A note", createdAt = now, updatedAt = now, projectId = "project-1"))
 
 /** The project. */
 internal fun removalProjectRows(now: Long) =

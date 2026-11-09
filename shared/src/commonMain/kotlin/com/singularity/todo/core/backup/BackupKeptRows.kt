@@ -8,8 +8,6 @@ package com.singularity.todo.core.backup
  * nothing here touches the database.
  */
 
-// Keep in sync with BackupEntityKind.entries / existingRowKeys / BackupKeptRows.counts.
-
 /**
  * [payload], less the rows the account already holds.
  *
@@ -17,6 +15,8 @@ package com.singularity.todo.core.backup
  * travel. The removals are dropped whole: a restore that keeps what is there
  * cannot take a row out, because the row it would take out is one of the
  * rows it was asked to leave alone.
+ *
+ * Keep in sync with BackupEntityKind.entries / existingRowKeys / BackupKeptRows.counts.
  */
 internal fun withoutExistingRows(
     payload: BackupPayload,

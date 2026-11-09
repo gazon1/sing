@@ -455,7 +455,13 @@ class BackupImporter(
                     .mapTo(mutableSetOf()) { it.id },
         )
 
-    /** The rows that carry the account itself: tasks, notes, projects and tags. */
+    /**
+     * The rows that carry the account itself: tasks, projects, notes and tags.
+     *
+     * The projects land before the notes because `notes.project_id` is a foreign key:
+     * a note that belongs to a project the archive brings with it fails to insert
+     * otherwise ("FOREIGN KEY constraint failed"). Tasks go first for the same reason.
+     */
     private suspend fun applyRows(
         payload: BackupPayload,
         userId: UserId,
@@ -470,14 +476,6 @@ class BackupImporter(
                 ),
             )
         }
-        for (note in payload.notes) {
-            noteDao.upsert(
-                note.toEntity(userId.value).copy(
-                    updatedAt = now,
-                    createdAt = note.createdAt,
-                ),
-            )
-        }
         for (project in payload.projects) {
             projectDao.upsert(
                 project.toEntity(userId.value).copy(
@@ -486,13 +484,42 @@ class BackupImporter(
                 ),
             )
         }
+        for (note in payload.notes) {
+            noteDao.upsert(
+                note.toEntity(userId.value).copy(
+                    updatedAt = now,
+                    createdAt = note.createdAt,
+                ),
+            )
+        }
+        // The tags, with names made unique the way the account's index demands.
+        // `tags` carries a unique `(user_id, name_normalized)`, and two tags of the
+        // same name are legitimate on the way in: a foreign backup can hold both,
+        // and one of them may already be in the account under another id. The
+        // second row keeps its id and its links and takes a numbered name;
+        // dropping it would take the tasks tagged with it along.
+        val owners =
+            tagDao
+                .listAllForUser(userId.value)
+                .associateTo(HashMap()) { it.nameNormalized to it.id }
         for (tag in payload.tags) {
-            tagDao.upsert(
+            var entity =
                 tag.toEntity(userId.value).copy(
                     updatedAt = now,
                     createdAt = tag.createdAt,
-                ),
-            )
+                )
+            val owner = owners[entity.nameNormalized]
+            if (owner != null && owner != entity.id) {
+                val base = entity.name.trim()
+                var n = 2
+                // A re-import is stable: the row may already own the numbered
+                // name an earlier restore gave it.
+                while (owners["$base ($n)".lowercase()]?.let { it != entity.id } == true) n++
+                val name = "$base ($n)"
+                entity = entity.copy(name = name, nameNormalized = name.lowercase())
+            }
+            owners[entity.nameNormalized] = entity.id
+            tagDao.upsert(entity)
         }
     }
 

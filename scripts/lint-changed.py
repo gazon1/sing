@@ -73,6 +73,7 @@ TASKS: list[str] = [
     ":core-base:detektChanged",
     ":adr-core:detektChanged",
     ":adr-cli:detektChanged",
+    ":import-cli:detektChanged",
 ]
 
 # detekt writes one checkstyle report per module under

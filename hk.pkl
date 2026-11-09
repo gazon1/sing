@@ -170,7 +170,7 @@ hooks {
       ["detekt"] {
         exclusive = true
         profiles = List("full")
-        check = "./gw :shared:detekt :core-database:detekt :core-domain:detekt :core-base:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet"
+        check = "./gw :shared:detekt :core-database:detekt :core-domain:detekt :core-base:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt :import-cli:detekt --quiet"
       }
 
       ["detekt (changed files only)"] {
