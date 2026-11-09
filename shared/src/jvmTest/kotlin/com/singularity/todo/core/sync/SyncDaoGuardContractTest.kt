@@ -3,8 +3,7 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -16,8 +15,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -537,17 +534,9 @@ abstract class SyncDaoGuardContractTest {
  */
 @Tag("slow")
 class RoomSyncDaoGuardContractTest : SyncDaoGuardContractTest() {
-    private val tempDirLazy = lazy { Files.createTempDirectory("singularity-sync-guards-").toFile() }
-    private val tempDir: File by tempDirLazy
+    private val fixture = DatabaseTestFixture.onDisk()
 
-    private val dbLazy =
-        lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "sync-guards.db").absolutePath,
-            )
-        }
-    private val db: AppDatabase by dbLazy
+    private val db: AppDatabase by lazy { fixture.database("sync-guards") }
 
     override val deadLetterDao: SyncDeadLetterDao get() = db.syncDeadLetterDao()
 
@@ -555,8 +544,7 @@ class RoomSyncDaoGuardContractTest : SyncDaoGuardContractTest() {
 
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        fixture.close()
     }
 }
 
