@@ -51,7 +51,6 @@ import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
-import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -490,18 +489,33 @@ private fun StatCard(
  */
 @Composable
 private fun HealthTabContent(
-    health: TaskHealthSummary?,
+    health: TaskHealthState,
     onBucketClick: (TaskHealthBucket) -> Unit,
 ) {
-    if (health == null) {
-        // Null means the query failed or has not landed — not "zero problems", which
-        // would be a healthy-looking screen standing in for a broken one.
-        EmptyState(
-            title = "Task health unavailable",
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
+    val summary =
+        when (health) {
+            TaskHealthState.Loading -> {
+                // The query has not landed yet. Saying "unavailable" here showed a
+                // broken-looking screen on a perfectly healthy database, for as
+                // long as the first computation took.
+                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+                return
+            }
+
+            TaskHealthState.Unavailable -> {
+                // The query failed: the health of the task list is unknown, which
+                // is not the same as "no problems".
+                EmptyState(
+                    title = "Task health unavailable",
+                    modifier = Modifier.fillMaxSize(),
+                )
+                return
+            }
+
+            is TaskHealthState.Ready -> {
+                health.summary
+            }
+        }
 
     val scrollState = rememberScrollState()
     Column(
@@ -512,33 +526,24 @@ private fun HealthTabContent(
                 .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())
+        StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
 
-        health.actionable.forEach { bucket ->
-            val clickable = bucket in health.actionable
-            val testTag =
-                when (bucket) {
-                    TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
-                    TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
-                    TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
-                    TaskHealthBucket.FINE -> null
-                }
+        summary.actionable.forEach { bucket ->
             StatCard(
                 title = bucket.displayLabel(),
-                value = health[bucket].toString(),
+                value = summary[bucket].toString(),
+                // Every bucket in `actionable` is a problem the user can open —
+                // the list itself is what makes a bucket actionable, so there is
+                // nothing to test here.
                 modifier =
-                    if (clickable) {
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onBucketClick(bucket) }
-                    } else {
-                        Modifier.fillMaxWidth()
-                    },
-                testTag = testTag,
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onBucketClick(bucket) },
+                testTag = bucket.testTag(),
             )
         }
 
-        health.medianStalledFor?.let { stalled ->
+        summary.medianStalledFor?.let { stalled ->
             Text(
                 text = "Median time untouched: ${stalled.formatDays()}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -548,13 +553,26 @@ private fun HealthTabContent(
 
         Text(
             text =
-                health.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
+                summary.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
                     ?: "Completion rate: nothing created yet",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/** The card's test tag, or null for a bucket that never gets a card. */
+private fun TaskHealthBucket.testTag(): String? =
+    when (this) {
+        TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
+
+        TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
+
+        TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
+
+        // FINE is healthy — it is not in `actionable`, so it has no card.
+        TaskHealthBucket.FINE -> null
+    }
 
 private fun TaskHealthBucket.displayLabel(): String =
     when (this) {

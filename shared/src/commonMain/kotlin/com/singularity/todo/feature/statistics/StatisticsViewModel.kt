@@ -42,8 +42,8 @@ import kotlin.time.Duration.Companion.milliseconds
 data class StatisticsUiState(
     val snapshot: StatisticsSnapshot? = null,
     val insights: InsightsData = InsightsData(),
-    /** Task-health buckets for the Health tab; null until the first computation lands. */
-    val health: TaskHealthSummary? = null,
+    /** Task-health buckets for the Health tab, and what the query behind them is doing. */
+    val health: TaskHealthState = TaskHealthState.Loading,
     val loading: Boolean = true,
     val rangeDays: Int = 7,
 ) {
@@ -54,6 +54,26 @@ data class StatisticsUiState(
         val projectBuckets: ImmutableList<ProjectInsightsBucket> = persistentListOf(),
         val totalMs: Long = 0L,
     )
+}
+
+/**
+ * The Health tab's data, and what the query behind it is doing right now.
+ *
+ * The three states are separate on purpose. A null summary cannot tell "the
+ * query has not landed yet" from "the query failed", and the Health tab said
+ * "unavailable" for both — so a healthy database flashed a broken-looking
+ * screen every time the tab opened, and a real failure looked like a screen
+ * that was merely still loading.
+ */
+sealed interface TaskHealthState {
+    /** The query has not landed yet. */
+    data object Loading : TaskHealthState
+
+    /** The query failed: the health of the task list is unknown. */
+    data object Unavailable : TaskHealthState
+
+    /** The health of the task list, computed. */
+    data class Ready(val summary: TaskHealthSummary) : TaskHealthState
 }
 
 /** A single project's time total. */
@@ -182,10 +202,18 @@ class StatisticsViewModel(
                 // before it is reported.
                 val reported = error.cause ?: error
                 crashReporter.report(reported, TASK_HEALTH_FAILED)
-                // A null summary is the error state: the screen renders "Task
-                // health unavailable" instead of a healthy-looking zero.
+                // The failure is a state of its own: the Health tab says
+                // "unavailable" instead of showing a healthy-looking zero.
                 emit(null)
-            }.collect { summary -> updateState { it.copy(health = summary) } }
+            }.collect { summary ->
+                updateState {
+                    it.copy(
+                        health =
+                            summary?.let { TaskHealthState.Ready(it) }
+                                ?: TaskHealthState.Unavailable,
+                    )
+                }
+            }
         }
 
         // ── Time-tracking insights (recomputed when rangeDays changes) ────────
