@@ -168,8 +168,17 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
             )
 
     def test_deprecated_helpers_are_removed(self):
-        """The deprecated stubs are gone: a helper nobody calls is dead code."""
-        deprecated = ["open-menu-item.yaml", "start-focus-task.yaml"]
+        """The deprecated stubs are gone: a helper nobody calls is dead code.
+
+        `open-menu-item.yaml` was on this list once. It was then built into a
+        live helper again — sixteen flows reach a destination through it, and
+        `Maestro/CONVENTIONS.md` names it — so it is not deprecated. A list
+        that says otherwise fails on a tree that is right.
+
+        `start-focus-task.yaml` is the name of a removed stub, and of nothing
+        else: the pomodoro flow of that name is `flows/pomodoro/02-start-focus-task.yaml`.
+        """
+        deprecated = ["start-focus-task.yaml"]
         for name in deprecated:
             path = ROOT / "Maestro/helpers" / name
             self.assertFalse(path.exists(), f"{name} should have been removed")
