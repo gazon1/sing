@@ -473,6 +473,7 @@ use the expanded string directly).
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
 | `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in Settings |
 | `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
+| `Settings.reminderOffsetRadioRow("At due time")` | `"At due time"` | `reminder_offset_radio_at_due_time` | Reminder-offset radio rows in notification settings |
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `Settings.workingDaySwitch("MONDAY")` | `"MONDAY"` | `settings_working_day_monday` | Working-day toggles in the work schedule section |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |

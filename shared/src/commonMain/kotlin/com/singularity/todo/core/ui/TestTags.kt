@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui
 
+import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.datetime.DayOfWeek
 
 // The one flat namespace for every automation tag is the point of this object: a
@@ -788,6 +789,16 @@ object TestTags {
 
         /** Per-event vibration toggle. Rendered only while notifications are enabled. */
         const val NOTIFICATIONS_VIBRATION_SWITCH = "settings_notifications_vibration_switch"
+
+        /**
+         * Dynamic tag for a reminder-offset radio row. Uses the locale-aware label as input.
+         *
+         * The reminder-defaults UI left the app, but the generator stays: it is the
+         * published namespace for these ids, and `scripts/ci/validate-maestro-selectors.py`
+         * warns about an id whose generator is gone. A flow written against it must be
+         * answered "unknown id" only when the feature itself is gone for good.
+         */
+        fun reminderOffsetRadioRow(offset: ReminderOffset): String = "reminder_offset_radio_${slug(offset.label)}"
 
         /**
          * Toggle for one day of the working week, on the work schedule screen.
