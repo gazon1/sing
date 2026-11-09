@@ -3,6 +3,9 @@
 
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
@@ -45,6 +48,8 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskCreateDebounceTest {
     /**
      * A fixed instant, so a draft that resolves `DueDateOption.Today` gets a date

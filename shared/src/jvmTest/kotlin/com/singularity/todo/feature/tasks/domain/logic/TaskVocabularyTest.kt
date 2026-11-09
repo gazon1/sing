@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -41,6 +44,8 @@ import kotlin.test.assertTrue
  * and its section headers from the presets' own selectors.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskVocabularyTest {
     @Test
     fun `every filter shape is registered, and the registry names no other filter`() {

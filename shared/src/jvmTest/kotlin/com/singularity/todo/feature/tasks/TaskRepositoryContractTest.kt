@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
@@ -516,6 +519,8 @@ abstract class TaskRepositoryContractTest {
  *
  * Fast (~100 ms): no SQLite, no I/O.
  */
+@Epic("Tasks")
+@Feature("Tasks")
 class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
     override suspend fun newRepository(userId: UserId): TaskRepository {
         val auth = FakeAuthRepository(Session.Anonymous(userId))

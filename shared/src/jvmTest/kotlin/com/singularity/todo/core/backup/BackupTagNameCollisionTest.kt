@@ -5,18 +5,17 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -32,30 +31,23 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class BackupTagNameCollisionTest {
+    private lateinit var fixture: DatabaseTestFixture
+    private lateinit var db: AppDatabase
+
     private val owner = UserId("tag-name-owner")
-
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-backup-tag-name-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
-
-    private val dbLazy =
-        lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "target.db").absolutePath,
-            )
-        }
-    private val db: AppDatabase by dbLazy
 
     private val fs = JvmFileSystem()
     private val now = Clock.System.now().toEpochMilliseconds()
 
-    @AfterTest
+    @BeforeEach
+    fun setUp() {
+        fixture = DatabaseTestFixture.onDisk()
+        db = fixture.database()
+    }
+
+    @AfterEach
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test
@@ -129,7 +121,7 @@ class BackupTagNameCollisionTest {
             StableJson
                 .encodeToString(BackupManifest.serializer(), manifest)
                 .encodeToByteArray()
-        val path = File(tempDir, name).absolutePath
+        val path = File(fixture.directory(), name).absolutePath
         JvmBackupCodec().export(manifestBytes, payloadBytes, emptyList(), path, fs).getOrThrow()
 
         val restored =
@@ -160,7 +152,7 @@ class BackupTagNameCollisionTest {
             agendaViewDao = db.agendaViewDao(),
             attachmentDao = db.attachmentDao(),
             annotationDao = db.annotationDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath),
             codec = JvmBackupCodec(),
             clock = Clock.System,
             createFileSource = JvmFileSourceFactory(),

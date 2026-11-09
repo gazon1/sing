@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
@@ -73,6 +76,8 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:data")
 @OptIn(ExperimentalCoroutinesApi::class)
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskPushClaimTest {
     private val alice = UserId("alice")
 

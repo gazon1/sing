@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.Blocking.isBlocked
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -30,6 +33,8 @@ import kotlin.time.Instant
  * every fact that applies is stated.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskMarkingPolicyTest {
     private val today = LocalDate(2026, 10, 14)
     private val epoch0 = Instant.fromEpochMilliseconds(0)

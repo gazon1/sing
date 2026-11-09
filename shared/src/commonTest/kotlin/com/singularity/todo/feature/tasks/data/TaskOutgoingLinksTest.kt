@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.data
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.links.InternalLinkSchemes
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -21,6 +24,8 @@ import kotlin.test.assertEquals
  * outgoing link would crash. Fixed by binding the list receiver explicitly.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Data")
 class TaskOutgoingLinksTest {
     // ─── extractOutgoingLinks ─────────────────────────────────────────────────
 

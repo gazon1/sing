@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
@@ -21,6 +24,8 @@ import kotlin.test.assertTrue
  * breaks it, and what a repair looks like.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class TaskSeriesInvariantsTest {
     private val alice = UserId("alice")
     private val seriesId = TaskSeriesId("series-1")

@@ -7,18 +7,17 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -46,32 +45,25 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class BackupKeepExistingTest {
+    private lateinit var fixture: DatabaseTestFixture
+    private lateinit var db: AppDatabase
+
     private val owner = UserId("keep-owner")
-
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-backup-keep-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
-
-    private val dbLazy =
-        lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "target.db").absolutePath,
-            )
-        }
-    private val db: AppDatabase by dbLazy
 
     private val fs = JvmFileSystem()
     private val settings = FakeTasksSettingsRepository()
-    private val attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath)
+    private val attachmentStorage by lazy { AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath) }
     private val now = Clock.System.now().toEpochMilliseconds()
 
-    @AfterTest
+    @BeforeEach
+    fun setUp() {
+        fixture = DatabaseTestFixture.onDisk()
+        db = fixture.database()
+    }
+
+    @AfterEach
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        fixture.close()
     }
 
     /** The default restore is the archive winning, exactly as it always was. */
@@ -222,7 +214,7 @@ class BackupKeepExistingTest {
             StableJson
                 .encodeToString(BackupManifest.serializer(), manifest)
                 .encodeToByteArray()
-        val path = File(tempDir, name).absolutePath
+        val path = File(fixture.directory(), name).absolutePath
         val written = JvmBackupCodec().export(manifestBytes, payloadBytes, attachments, path, fs)
         assertTrue(written.isSuccess, "the archive was not written: ${written.exceptionOrNull()}")
         return path
@@ -328,7 +320,7 @@ class BackupKeepExistingTest {
             )
 
             val archiveBytes = "archive-different-bytes".toByteArray()
-            val archiveFile = File(tempDir, "att-archive.dat")
+            val archiveFile = File(fixture.directory(), "att-archive.dat")
             archiveFile.writeBytes(archiveBytes)
             val archivePayload =
                 BackupPayload(

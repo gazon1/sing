@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -22,6 +25,8 @@ import kotlin.test.assertTrue
 /** Covers the child collections: checklist, subtasks, and attachments. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskChildrenSlotTest {
     private fun slot(
         fakes: SlotFakes,

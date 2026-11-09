@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -39,6 +42,8 @@ import kotlin.time.Instant
  * closed occurrence stays on its date, and the future is real rows.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class CompleteRecurringTaskUseCaseTest {
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))

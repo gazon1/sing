@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.state
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,6 +12,8 @@ import kotlin.test.assertEquals
  * every case here is one of those orderings rather than a rendering concern.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class FirstRunResolverTest {
     @Test
     fun `new empty task offers scaffolding`() {

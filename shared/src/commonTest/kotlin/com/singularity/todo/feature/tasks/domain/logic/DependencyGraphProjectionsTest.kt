@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.domain.logic
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -39,6 +42,8 @@ import kotlin.test.assertTrue
  * how the two got confused in the first place.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class DependencyGraphProjectionsTest {
     private val user = UserId("graph-user")
 

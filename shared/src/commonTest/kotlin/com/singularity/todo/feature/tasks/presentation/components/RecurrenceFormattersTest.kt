@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
@@ -13,6 +16,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class RecurrenceFormattersTest {
     private fun d(
         y: Int,
