@@ -140,6 +140,10 @@ object TagsMd {
             val entries = byCategory[section] ?: continue
             appendLine()
             appendLine("### $section")
+            // A blank line below the heading: the table that follows is a separate
+            // block, and the markdown linter that reads this file wants it
+            // separated from the heading it belongs to.
+            appendLine()
             appendLine("| Constant | Value | Where |")
             appendLine("|---|---|---|")
             for ((constName, value) in entries.sortedBy { it.first }) {
