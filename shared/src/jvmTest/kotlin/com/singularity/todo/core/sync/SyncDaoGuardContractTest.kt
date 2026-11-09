@@ -44,21 +44,23 @@ import kotlin.test.fail
  *
  * ## Which members are pinned, and by what
  *
- * No member of either DAO is left to inspection. The scenarios below are the whole
- * set, and each one names what it holds:
+ * The scenarios pin the guard set (owner-scoped erase/count, patch-id deletes, the
+ * stale-token promotion/release, and the shadow's composite key). They do not pin
+ * everything: `insert` conflict behavior and the global reads are left to the DAO
+ * contract and production callers.
  *
  * | member | pinned by |
  * | --- | --- |
  * | shelf `deleteForOwner` | `the shelf's owner erase takes only that owner's rows` |
  * | shelf `countForOwner` | `the shelf's count is the owner's own` |
- * | shelf `delete` | `the shelf's patch-id delete takes that patch and nothing else` (returns 1, takes one row, and returns 0 for a patch not on the shelf) |
+ * | shelf `delete` | `the shelf's patch-id delete takes that patch and nothing else` |
  * | shelf `clearAll` | `the shelf's global drain empties every account` |
- * | shelf `watch` / `getAll` / `watchCount` | `the shelf is read whole, across every account` and `the shelf reports a patch shelved after the flow was taken` |
+ * | shelf `watch` / `watchCount` flow delivery | `the shelf reports a patch shelved after the flow was taken` |
  * | shadow `deleteForOwner` / `countForOwner` | `the shadow's owner erase takes every profile of that owner` |
  * | shadow `clearScope` | `the shadow's scope clear leaves the owner's other profiles alone` |
  * | shadow `get` / `upsert` | `the shadow's row belongs to one account's one profile` |
  * | shadow `confirm` | `the shadow promotes only the patch that still owns the marker` and `the shadow's promotion does not reach another account's row` |
- * | shadow `release` | `the shadow's release does not reach another account's row` |
+ * | shadow `release` | `the shadow's release does not reach another account's row`, `releasing the marker that still owns the row clears it`, `a stale release does not clear the current marker` |
  * | shadow `updateConfirmed` | `updating the confirmed state leaves the queued patch's marker alone` and `the shadow's confirmed update does not reach another account's row` |
  *
  * ## Why this class is abstract, and what actually runs it
@@ -80,11 +82,9 @@ import kotlin.test.fail
  *
  * ## What is deliberately not asserted here
  *
- * That the shelf's *reads* are owner-scoped. They are not, and that is the outbox's
- * shape too — `watchPending` is unscoped, `getPending` is owner-and-profile scoped —
- * so a transport queue is read globally and erased per owner. What the contract pins
- * is the pair — the global read and the owner-scoped erase — so a change to either
- * half has to be a deliberate one.
+ * The shelf's global reads (`watch`/`getAll`/`watchCount`) are a known cross-account
+ * weakness shared with the outbox; the contract pins owner-scoped erase/count and
+ * flow delivery, not global-read behavior as a desired invariant.
  *
  * Also not asserted: that an `owner_id = ''` row is visible to `deleteForOwner`. It is
  * not, and it must not be, because no live row can carry one: the empty string is the
@@ -263,23 +263,6 @@ abstract class SyncDaoGuardContractTest {
     }
 
     /**
-     * The shelf's reads are global, and that is a decision rather than a gap.
-     *
-     * Pinned here so that a change to either half — a read that stops being global,
-     * or an erase that stops being owner-scoped — has to be a deliberate one. The
-     * erase's half is asserted by the scenarios above; this is the read's.
-     */
-    @Test
-    fun `the shelf is read whole, across every account`() = runTest {
-        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
-        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
-
-        assertEquals(2, deadLetterDao.getAll().size, "the shelf hands over every account's shelved work")
-        assertEquals(2, deadLetterDao.watchCount().first())
-        assertEquals(2, deadLetterDao.watch().first().size)
-    }
-
-    /**
      * The patch-id delete is the shelf's patch-id-keyed operation.
      *
      * It names one row, so it takes one row and leaves the rest — the account's
@@ -293,13 +276,14 @@ abstract class SyncDaoGuardContractTest {
         assertEquals(1, deadLetterDao.delete("patch-a"))
         assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
         assertEquals(1, deadLetterDao.countForOwner(OWNER_B), "another account's shelved work survives")
+        assertEquals(0, deadLetterDao.delete("no-such-patch"), "a missing patch is not an error")
     }
 
     /**
      * The global drain empties the shelf for every account.
      *
-     * The counterpart of the owner-scoped erase, and a different operation: the
-     * first is a switch, this is a sign-out.
+     * Wholesale reset with no owner to name. Sign-out keeps local data (REQ-UA-006)
+     * and must not call this; account switches use [SyncDeadLetterDao.deleteForOwner].
      */
     @Test
     fun `the shelf's global drain empties every account`() = runTest {
@@ -379,6 +363,57 @@ abstract class SyncDaoGuardContractTest {
         val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
         assertEquals("""{"title":"old"}""", row.confirmedJson)
         assertEquals("patch-new", row.inFlightPatchId, "the owner's queued patch keeps its marker")
+    }
+
+    /**
+     * Releasing the marker that still owns the row clears it.
+     */
+    @Test
+    fun `releasing the marker that still owns the row clears it`() = runTest {
+        shadowDao.upsert(
+            shadowRow(
+                OWNER_A,
+                PROFILE_ONE,
+                "entity-1",
+                confirmedJson = """{"title":"old"}""",
+                inFlightJson = """{"title":"new"}""",
+                inFlightPatchId = "patch-new",
+                serverVersion = 7,
+            ),
+        )
+
+        val released = shadowDao.release(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new")
+
+        assertEquals(1, released)
+        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+        assertNull(row.inFlightPatchId)
+        assertNull(row.inFlightJson)
+        assertEquals("""{"title":"old"}""", row.confirmedJson)
+        assertEquals(7L, row.serverVersion)
+    }
+
+    /**
+     * A stale release (same owner, wrong patch id) must not clear the current marker.
+     */
+    @Test
+    fun `a stale release does not clear the current marker`() = runTest {
+        shadowDao.upsert(
+            shadowRow(
+                OWNER_A,
+                PROFILE_ONE,
+                "entity-1",
+                confirmedJson = """{"title":"old"}""",
+                inFlightJson = """{"title":"new"}""",
+                inFlightPatchId = "patch-new",
+            ),
+        )
+
+        val released = shadowDao.release(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-old")
+
+        assertEquals(0, released)
+        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+        assertEquals("patch-new", row.inFlightPatchId)
+        assertEquals("""{"title":"new"}""", row.inFlightJson)
     }
 
     /**
