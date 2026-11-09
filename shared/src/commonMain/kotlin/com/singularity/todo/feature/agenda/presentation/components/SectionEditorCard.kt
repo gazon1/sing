@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.components
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -10,12 +12,17 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TouchTarget
 import com.singularity.todo.core.ui.components.DragHandleIcon
 import com.singularity.todo.core.ui.components.DragHandleRow
 import com.singularity.todo.core.ui.components.HandleSide
@@ -41,17 +48,24 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  *
  * ## The size of the three state buttons
  *
- * Three 40 dp state layers in one row already crowd a phone's width, so each button
- * keeps the 40 dp painted size it has always had, and the *modifier order* decides how
- * much layout space the row sets aside for it. `Modifier.minimumInteractiveComponentSize()`
- * comes first and `size(40.dp)` second: the minimum sits outside the size, so it
- * reserves Material's 48 dp while the size still constrains what is drawn, and the row
- * reserves 48 dp per button and leaves the rest to the name column. Reversed, the size
- * would cap the minimum back to 40 dp.
+ * Each of the three buttons is a 48 dp square that carries the click, with a 24 dp
+ * glyph centred inside it. Material's `IconButton` cannot be laid out that way: the
+ * size it paints at (40 dp) sits *inside* its clickable, so the clickable's own node
+ * is 40 dp and no modifier widens it. A control that has to be 48 dp wide is laid out
+ * at 48 dp itself, which is what [SectionActionButton] does.
  *
- * The reservation is layout space: the button's own clickable is laid out at the 40 dp
- * it is drawn at, so a control that needs a guaranteed 48 dp pointer target has to be
- * laid out at 48 dp instead.
+ * What the old 40 dp node cost was the button's *bounds*: the rect the semantics tree
+ * reports, and the one an accessibility service treats as the control's target. The
+ * pointer area was never 40 dp — Compose expands the touch bounds of a `clickable`
+ * smaller than the platform's minimum touch target to that minimum, centred — so the
+ * band around the old buttons was not dead. The guarantee was emergent, held by a
+ * framework behaviour rather than by the layout, and the announced bounds were still
+ * 40 dp. Now the layout holds it.
+ *
+ * The row reserves 48 dp per button, as it always has. The reservation used to come
+ * from `minimumInteractiveComponentSize()` around a 40 dp button; it now comes from the
+ * size of the button, so the row's layout does not change and the name column keeps
+ * the width it had.
  *
  * @param section The section to display.
  * @param index The section's position in the list.
@@ -95,37 +109,87 @@ fun SectionEditorCard(
                     bottom = 4.dp,
                 ),
             trailing = {
-                IconButton(
-                    onClick = onMoveUp,
+                SectionActionButton(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Move section up",
                     enabled = canMoveUp,
-                    modifier = Modifier.minimumInteractiveComponentSize().size(40.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Move section up",
-                    )
-                }
-                IconButton(
-                    onClick = onMoveDown,
+                    onClick = onMoveUp,
+                )
+                SectionActionButton(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Move section down",
                     enabled = canMoveDown,
-                    modifier = Modifier.minimumInteractiveComponentSize().size(40.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Move section down",
-                    )
-                }
-                IconButton(
+                    onClick = onMoveDown,
+                )
+                SectionActionButton(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Delete section",
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     onClick = onDelete,
-                    modifier = Modifier.minimumInteractiveComponentSize().size(40.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Delete section",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
+                )
             },
+        )
+    }
+}
+
+/**
+ * The size of the glyph inside a [SectionActionButton].
+ *
+ * The size Material's icon button paints its glyph at, named here so the layout reads
+ * as what it is: a 48 dp target with a 24 dp glyph inside it.
+ */
+private val SectionActionGlyphSize = 24.dp
+
+/**
+ * An icon action whose target is the full [TouchTarget.MinSize].
+ *
+ * Material's `IconButton` cannot be laid out that way: the 40 dp it paints at sits
+ * inside its clickable, so the clickable's own node is 40 dp and no modifier widens
+ * it. This lays the clickable out at [TouchTarget.MinSize] and centres a smaller
+ * glyph inside it, so the control's own bounds — the rect the semantics tree reports
+ * and the one an accessibility service treats as the target — are the 48 dp the
+ * control is meant to have.
+ *
+ * The clickable merges the glyph's semantics, so the control is announced once, with
+ * the glyph's description — the same contract `IconButton` offers.
+ *
+ * @param imageVector The glyph to draw.
+ * @param contentDescription What the control is announced as.
+ * @param onClick Called when the control is activated.
+ * @param modifier Compose modifier.
+ * @param enabled False disables the control: it is still drawn, but it does not
+ *        answer a pointer and is announced as disabled.
+ * @param colors The colours of the glyph. The enabled colour is the content colour of
+ *        the surface the control sits on; the disabled one is that colour at
+ *        Material's disabled opacity.
+ */
+@Composable
+private fun SectionActionButton(
+    imageVector: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
+) {
+    val contentColor = if (enabled) colors.contentColor else colors.disabledContentColor
+    Box(
+        modifier =
+            modifier
+                .size(TouchTarget.MinSize)
+                .clip(IconButtonDefaults.standardShape)
+                .clickable(
+                    onClick = onClick,
+                    enabled = enabled,
+                    role = Role.Button,
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = contentColor,
+            modifier = Modifier.size(SectionActionGlyphSize),
         )
     }
 }
