@@ -2,35 +2,58 @@
 """
 scripts/junit-annotations.py
 
-Reads JUnit XML files from desktop test results, parses them with junitparser,
-and emits GitHub Actions ::error and ::notice workflow commands — one annotation
-per failing or retry-passed test case.
+Reads JUnit XML files and emits GitHub Actions ::error and ::notice workflow
+commands — one annotation per failing or retry-passed test case.
 
-Exit code: 0 always (annotation failures are informational and must not crash CI).
+The XML is parsed by ``scripts/src/traceability/junit_xml.py`` — the
+repository's one JUnit reader. This script used to parse with ``junitparser``
+on its own, and the two readers disagreed in the place that mattered:
+
+* ``junitparser.Error`` is not a subclass of ``junitparser.Failure``, so a
+  testcase whose only outcome was ``<error>`` (an OOM, a timeout, a crashed
+  fixture) was counted as a **clean pass** and never annotated;
+* the reader ``continue``d on the first ``<flakyFailure>`` child, so a
+  retried test that *also* failed terminally was reported as "passed on retry"
+  and its real failure was dropped.
+
+Both defects are now impossible here: the outcome comes from the shared
+reader, which classifies ``failure > error > skipped > passed`` and treats
+``<flakyFailure>`` as retry history rather than as the outcome.
+
+Exit code: 0 always. Annotations are advisory — the build result comes from
+Gradle, and a reporter that crashes must not crash CI with it.
 
 Usage:
     python scripts/junit-annotations.py desktopApp/build/test-results/test/
-    python scripts/junit-annotations.py --glob "**/test-results/test/*.xml"
-
-Dependencies:
-    pip install junitparser
+    python scripts/junit-annotations.py --glob "**/build/test-results/**/*.xml" .
 
 Annotation format:
-    ::error file={path}::title={Class.method}::{failure_message}
+    ::error file={path},line=1::title={Class.method}::{failure_message}
     ::notice title=Passed on retry::{N} test(s) passed on retry (class: ClassName)
 """
 
 import argparse
-import glob as glob_module
 import sys
 from pathlib import Path
 
-try:
-    import junitparser
-except ImportError:
-    print("::warning ::junitparser not installed — skipping annotation generation")
-    print("::warning ::Install with: pip install junitparser")
-    sys.exit(0)
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this script must read the reader from *this* checkout, not from
+# whatever happens to be installed. When this file is loaded by a test harness
+# via importlib, sys.path[0] is `scripts/tests` and the package is invisible;
+# this file's own location is authoritative.
+_scripts_src = str(Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
+from traceability.junit_xml import parse_junit_file_strict  # noqa: E402
+
+if _added:
+    sys.path.remove(_scripts_src)
+
+#: GitHub truncates very long annotations anyway, and an annotation is a
+#: pointer to the report, not the report. The full text stays in the XML.
+ANNOTATION_MESSAGE_LIMIT = 500
 
 
 def annotation_title(classname: str, methodname: str, max_len: int = 64) -> str:
@@ -43,10 +66,11 @@ def annotation_title(classname: str, methodname: str, max_len: int = 64) -> str:
 
 
 def emit_error(classname: str, methodname: str, message: str, file_path: str = "."):
-    """Emit a ::error annotation for a persistent (non-flaky) failure."""
+    """Emit a ::error annotation for a failing test (failure *or* error)."""
     title = annotation_title(classname, methodname)
-    # Truncate message to avoid extremely long annotations
-    truncated_msg = message[:500] + ("…" if len(message) > 500 else "")
+    truncated_msg = message[:ANNOTATION_MESSAGE_LIMIT] + (
+        "…" if len(message) > ANNOTATION_MESSAGE_LIMIT else ""
+    )
     print(f"::error file={file_path},line=1::title={title}::{truncated_msg}", flush=True)
 
 
@@ -55,71 +79,56 @@ def emit_notice(message: str):
     print(f"::notice title=Passed on retry::{message}", flush=True)
 
 
-def parse_flaky_failure(testcase) -> tuple[bool, str, str]:
+def process_xml_file(xml_path: Path) -> tuple[int, int, int, int]:
     """
-    Check if a testcase has a <flakyFailure> child element.
-    Returns (is_flaky, failure_message, failure_type).
-    junitparser maps flakyFailure to a Failure-like element with tag 'flakyFailure'.
-    """
-    # Access the underlying XML element directly
-    elem = testcase._elem  # lxml element
-    flaky_nodes = elem.findall("flakyFailure")
-    if not flaky_nodes:
-        return False, "", ""
-    flaky_node = flaky_nodes[0]
-    message = flaky_node.get("message", "test passed on retry")
-    failure_type = flaky_node.get("type", "flaky")
-    return True, message, failure_type
+    Process one JUnit XML file. Returns (clean_passed, failures, retry_passes, skipped).
 
+    Prints an annotation for each failure and each retry-pass. A testcase that
+    failed terminally is a failure even when it also carries ``<flakyFailure>``
+    children — those record earlier attempts, not the outcome.
 
-def process_xml_file(xml_path: Path) -> tuple[int, int, int]:
-    """
-    Process one JUnit XML file. Returns (passed, failures, flaky_passes).
-    Prints annotations for each failure and flaky pass.
+    A skipped test is counted as skipped, not as a clean pass. It did not run,
+    and a summary line that counts it as a pass is a summary line that claims
+    more than the run did.
     """
     try:
-        junit_xml = junitparser.JUnitXml.fromfile(str(xml_path))
-    except Exception as e:
-        print(f"::warning ::Failed to parse {xml_path}: {e}", flush=True)
-        return 0, 0, 0
+        results = parse_junit_file_strict(xml_path)
+    except Exception as exc:  # noqa: BLE001 — a malformed report must not crash CI
+        print(f"::warning ::Failed to parse {xml_path}: {exc}", flush=True)
+        return 0, 0, 0, 0
 
     failures = 0
-    flaky_passes = 0
+    retry_passes = 0
     passed = 0
+    skipped = 0
 
-    # JUnitXml iterates over TestSuite objects; TestSuite iterates over TestCase objects.
-    for suite in junit_xml:
-        for tc in suite:
-            classname = tc.classname or "unknown"
-            methodname = tc.name or "unknown"
+    for case in results:
+        classname = case.classname or "unknown"
+        methodname = case.name or "unknown"
 
-            # Check for flakyFailure (retry-passed) via direct XML element access.
-            # tc.result is [] for flakyFailure — junitparser does not map it to Failure.
-            is_flaky, flaky_msg, flaky_type = parse_flaky_failure(tc)
-            if is_flaky:
-                flaky_passes += 1
-                emit_notice(
-                    f"Test '{classname}.{methodname}' passed on retry "
-                    f"(original failure: {flaky_msg or 'recorded in <flakyFailure>'})"
-                )
-                continue
+        if case.failed_like:
+            failures += 1
+            detail = case.message or case.stacktrace or f"test {case.status}"
+            emit_error(classname, methodname, detail, case.file or ".")
+            continue
 
-            # Check for regular failure
-            has_failure = False
-            failure_msg = ""
-            for result in tc.result:
-                if isinstance(result, junitparser.Failure):
-                    has_failure = True
-                    failure_msg = result.message or str(result)
-                    break
+        if case.retried:
+            # The test ended green, but only after failing earlier attempts.
+            # A notice, not an error — and never counted as a clean pass.
+            retry_passes += 1
+            emit_notice(
+                f"Test '{classname}.{methodname}' passed on retry "
+                f"({case.flaky_attempts} earlier attempt(s) failed)"
+            )
+            continue
 
-            if has_failure:
-                failures += 1
-                emit_error(classname, methodname, failure_msg)
-            else:
-                passed += 1
+        if case.status == "skipped":
+            skipped += 1
+            continue
 
-    return passed, failures, flaky_passes
+        passed += 1
+
+    return passed, failures, retry_passes, skipped
 
 
 def main():
@@ -142,7 +151,7 @@ def main():
     if base.is_file():
         xml_files = [base]
     elif base.is_dir():
-        xml_files = list(base.glob(args.glob_pattern))
+        xml_files = sorted(base.glob(args.glob_pattern))
     else:
         print(
             f"::warning ::Path does not exist: {base} — skipping annotation generation",
@@ -160,15 +169,18 @@ def main():
     total_passed = 0
     total_failures = 0
     total_flaky = 0
+    total_skipped = 0
 
-    for xml_path in sorted(xml_files):
-        p, f, fl = process_xml_file(xml_path)
+    for xml_path in xml_files:
+        p, f, fl, sk = process_xml_file(xml_path)
         total_passed += p
         total_failures += f
         total_flaky += fl
+        total_skipped += sk
 
     print(
-        f"Annotations: {total_failures} failure(s), {total_flaky} retry-pass(es), {total_passed} clean pass(es)",
+        f"Annotations: {total_failures} failure(s), {total_flaky} retry-pass(es), "
+        f"{total_passed} clean pass(es), {total_skipped} skipped",
         flush=True,
     )
 

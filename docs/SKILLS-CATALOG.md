@@ -7,7 +7,7 @@
 > The SKILL.md <= 500 lines and `description` <= 1024 chars budgets were enforced by a
 > doc-sizes gate that was removed on 2026-10-19; nothing enforces them now.
 
-127 skills: 85 project-specific, 42 generic/meta.
+128 skills: 86 project-specific, 42 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -85,6 +85,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-swipe-actions` | 263 | Swipe-to-dismiss pattern for Compose Multiplatform using Material3 SwipeToDismissBox. |
 | `singularity-todo-task-callback-groups` | 326 | Decision tree for grouping callbacks in Composable function signatures — when to use raw lambdas (≤3 params), when to use a @JvmInline value class Action hierarchy (outgoing events), and when to avoid data class "parameter objects" that group unrelated callbacks. |
 | `singularity-todo-task-detail-ux` | 278 | Document-style vs form-style UX pattern for task detail screens. |
+| `singularity-todo-tech-debt-refactor` | 161 | High-level plan for the tech-debt refactor epic (3 epics x 10 PRs), with per-PR pointers to the skill that carries the detail. |
 | `singularity-todo-test-flaky-prevention` | 303 | Rules to prevent test flakiness in the Singularity Todo project. |
 | `singularity-todo-test-helpers` | 382 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 273 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |

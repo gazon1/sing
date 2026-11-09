@@ -22,10 +22,11 @@ sealed interface AuthUiEvent :
     /**
      * Something the user has to act on that is not a failure.
      *
-     * Distinct from [Error] because the screen paints that one in the error colour,
-     * and telling someone in red that their account was created is its own small
-     * wrong: it reads as the sign-up having failed, which is the one thing it did
-     * not do, and the user retypes an address that is already registered.
+     * Distinct from [Error] because the two are presented differently: an error
+     * is a dialog, and this one is a snackbar. Telling someone in a dialog that
+     * their account was created is its own small wrong: it reads as the sign-up
+     * having failed, which is the one thing it did not do, and the user retypes
+     * an address that is already registered.
      */
     data class Message(val message: String) : AuthUiEvent
 }

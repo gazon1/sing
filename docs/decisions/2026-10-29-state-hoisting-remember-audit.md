@@ -7,6 +7,11 @@ tags: [vm, compose, state-hoisting, refactor, audit]
 
 # State Hoisting Audit — `remember { mutableStateOf }` in composables
 
+> **Superseded in part (2026-11-04):** the `LoginScreen` row of the KEEP table is
+> reversed — the login screen's error and message flags are gone, and the events are
+> presented where they arrive instead.
+> See [2026-11-04-the-login-screen-presents-the-event-where-it-arrives.md](2026-11-04-the-login-screen-presents-the-event-where-it-arrives.md).
+
 Source issue: #1411. Follows up on `2026-09-21-state-hoisting-audit.md` (phases 0-4).
 
 ## Scope

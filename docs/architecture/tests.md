@@ -87,6 +87,59 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
 `adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
 
+## Диагностика падения
+
+Красный тест должен отвечать на вопрос «что было на экране и как далеко дошёл тест» без
+открытия артефактов. Ответ — **бандл**: набор файлов, который лежит рядом с отчётом и имя
+которого едет в само сообщение об ошибке.
+
+| Продюсер | Артефакты | Куда | Кто везёт в CI |
+|---|---|---|---|
+| `shared` — `FailureContextExtension` | `coroutines.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
+| `shared` — `TestFailureDetailsWriter` | `failure-details.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
+| `desktopApp` — `FailureBundle` | screenshot, screen tree, steps, nodes, db-state, kermit log, coroutines | `desktopApp/build/diagnostics/<TestClass>/attempt-N/` | `ci-evidence-<run_id>` |
+| `androidApp` (instrumented) — `FailureBundle` | screenshot, screen tree, steps, environment | `/data/local/tmp/singularity-diagnostics/<TestClass>/attempt-N/`, затем `androidApp/build/diagnostics/` | `android-failure-diagnostics-<run_id>` |
+
+Правила контракта:
+
+1. **Каждый артефакт снимается независимо.** Упавший скриншот не должен стоить шагов и
+   окружения: снимок экрана — единственное, чего нельзя восстановить позже, а шаги — то, что
+   отвечает на «как далеко дошёл тест».
+2. **Имена артефактов едут в сообщение об ошибке.** Бандл добавляет себя в исключение как
+   suppressed-exceptions, поэтому отчёт сам называет файлы, и до артефакта доходишь по отчёту.
+3. **Каждая попытка — свой каталог.** `attempt-N/` перезаписывается на старте попытки: два
+   ретрая не смешивают артефакты. На Android файлы лежат плоско (`<Class>-attempt-N-<name>`),
+   потому что umask приложения (0077) делает созданный им подкаталог недоступным оболочке.
+4. **Два `FailureBundle` — две реализации одного контракта.** Кодом они не делятся:
+   `desktopApp/jvmTest` и `androidApp/androidTest` — разные модули и разные source set'ы, и
+   общий код означал бы тестовую зависимость, которую тащит ещё и прод-сборка. Набор
+   артефактов, независимость захвата и правило про попытки — одни и те же.
+
+Диагностика падения — не только бандл: `scripts/src/traceability/junit_xml.py` читает JUnit
+отчёты, а `scripts/junit-annotations.py` и `scripts/ci/print-test-failures.sh` показывают
+одну и ту же сводку по ним. Формат отчёта задаёт `build.gradle.kts` (`mergeReruns`,
+`exceptionFormat = FULL`), поэтому читателю не нужно знать, какой модуль отчёт породил.
+
+### Артефакты прогона
+
+Что CI везёт с собой и что в каждом лежит:
+
+| Артефакт | Что внутри | Кто его читает |
+|---|---|---|
+| `junit-results` | JUnit XML всех модулей | `check-test-runs.py`, аннотации, трейсировка |
+| `allure-results` | сырые `*-result.json` и вложения | доказательство; читает отчёт |
+| `allure-report-<run_id>` | собранный HTML-отчёт | человек |
+| `ci-evidence-<run_id>` | бандлы диагностики, трейсировка, kover | человек, гейты |
+| `html-reports-<run_id>` | Gradle HTML-отчёты всех модулей | человек |
+| `build-log-<run_id>`, `build-log-detekt-<run_id>` | полный лог Gradle | человек |
+
+Отчёт Allure собирается задачей `allureReport` в корневом `build.gradle.kts`: результаты трёх
+модулей сливаются в один плоский каталог (`allureMergeResults`), потому что генератор читает
+ровно один каталог и не заходит в подкаталоги. Отчёт без результатов не собирается: задача
+`allureRequireResults` останавливает сборку, иначе CI загрузил бы пустую страницу, которая
+читается как «всё прошло». ADR —
+`docs/decisions/2026-11-06-the-allure-report-is-generated-in-the-build.md`.
+
 ## Тесты гейт-сьюта
 
 Сьют гейтов живёт в `scripts/tests/`, и точка входа у него одна:

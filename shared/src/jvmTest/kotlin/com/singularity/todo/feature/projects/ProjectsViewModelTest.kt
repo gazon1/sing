@@ -16,6 +16,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsInte
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -303,6 +305,49 @@ class ProjectsViewModelTest {
                 "a failed retry must land in the error state, not on the spinner",
             )
         }
+
+    /**
+     * A stopped observation must hand the *cause* to the reporter.
+     *
+     * The screen can only show a message; the message alone says nothing about
+     * why the list stopped, and the throwable that explains it is the thing the
+     * reporter exists for. So the report has to carry the original throwable —
+     * the very instance the repository threw, not a copy of it — under this
+     * screen's own key.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            seedProject("p1", "Work Project")
+            val failure = IllegalStateException("the project repository is down")
+            val reporter = RecordingCrashReportingPort()
+            val vm =
+                ProjectsViewModel(
+                    projectRepo = FailingProjectsRepository(fakeProjectRepo, failure),
+                    taskRepository = fakeTaskRepo,
+                    deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
+                    crashReporter = reporter,
+                    scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+                )
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
+
+            // The next subscription fails, with the user's choices in force.
+            vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val error = assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
+            assertEquals("Work", error.searchQuery.text, "a failure must not clear the query")
+
+            val reported = reporter.reports.single { it.second == "projects.observe_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
+        }
 }
 
 /**
@@ -316,7 +361,17 @@ class ProjectsViewModelTest {
  * has loaded and the user has chosen something — which is the only moment where
  * "the error kept the query" means anything.
  */
-private class FailingProjectsRepository(private val delegate: ProjectsRepository) : ProjectsRepository by delegate {
+private class FailingProjectsRepository(
+    private val delegate: ProjectsRepository,
+    /**
+     * The throwable the failure carries.
+     *
+     * The report has to carry this exact instance — the one the repository threw —
+     * so a test can tell "the cause reached the reporter" from "something was
+     * reported about a cause".
+     */
+    private val failure: Throwable = IllegalStateException("the project repository is down"),
+) : ProjectsRepository by delegate {
     private var subscriptions = 0
 
     override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> =
@@ -325,7 +380,7 @@ private class FailingProjectsRepository(private val delegate: ProjectsRepository
             if (subscriptions == 1) {
                 emitAll(delegate.observeProjectsWithCounts())
             } else {
-                throw IllegalStateException("the project repository is down")
+                throw failure
             }
         }
 }

@@ -14,6 +14,13 @@ betterleaks = "1.9.0"
 osv-scanner = "2.0.0"
 hk = "1.23.0"
 rumdl = "0.3.2"
-"github:mokevnin/easement" = "latest"
+# The fork, not the upstream release: the fix for a duplicated declaration
+# across components (mokevnin/easement#114) is not in an upstream release yet.
+# The fork publishes its own release for it, so this is a download, not a build.
+"github:gazon1/easement" = "0.5.1"
 "github:mokevnin/heavy" = "latest"
 "npm:@sourcegraph/scip-python" = "latest"
+# The toolchain that builds easement from source, pinned to the version the
+# easement repository pins itself. A released binary needs no toolchain, so
+# this is the fallback for a checkout that has to build it.
+rust = "1.99.1"

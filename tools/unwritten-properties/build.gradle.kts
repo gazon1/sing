@@ -25,4 +25,8 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Discovering nothing is a configuration error, not a pass — see
+    // `shared/build.gradle.kts`. This module's test class carries no tag and
+    // this task applies no tag filter, so it is always discovered.
+    failOnNoDiscoveredTests = true
 }

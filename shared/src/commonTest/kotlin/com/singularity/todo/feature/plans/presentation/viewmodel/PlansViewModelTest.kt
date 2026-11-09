@@ -5,6 +5,8 @@ package com.singularity.todo.feature.plans.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.plans.domain.model.PlansGranularity
 import com.singularity.todo.feature.plans.domain.port.PlansSettingsRepository
 import com.singularity.todo.feature.reminders.Reminder
@@ -17,6 +19,7 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeReminderScheduler
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.fakes.TEST_TZ
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +34,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -161,6 +165,37 @@ class PlansViewModelTest {
             h.close()
         }
 
+    /**
+     * The reporter receives the throwable the repository threw.
+     *
+     * The observation fails inside a channel hop, and a channel carries a *copy*
+     * of the throwable — the original is the copy's cause. Reporting the copy
+     * would file a throwable that never existed, so the identity is what this
+     * asserts: the reporter has to receive the very instance the repository
+     * threw, not a look-alike carrying the same message.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val repo = FakeTaskRepository(clock = FakeClock(now), timeZone = TEST_TZ)
+            val failure = IllegalStateException("the tasks are unavailable")
+            repo.nextObserveFilterFailure = failure
+            val reporter = RecordingCrashReportingPort()
+
+            val h = newHarness(repo, reporter = reporter)
+            advanceUntilIdle()
+
+            assertIs<PlansUiState.Error>(h.vm.stateFlow.value)
+
+            val reported = reporter.reports.single { it.second == "plans.load_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
+            h.close()
+        }
+
     private fun task(
         id: String,
         title: String,
@@ -186,6 +221,7 @@ class PlansViewModelTest {
         repo: FakeTaskRepository,
         settings: FakePlansSettings = FakePlansSettings(),
         scheduler: FakeReminderScheduler = FakeReminderScheduler(),
+        reporter: CrashReportingPort = NoOpCrashReportingPort(),
     ): Harness {
         val scope = testScope(this)
         val vm =
@@ -199,6 +235,7 @@ class PlansViewModelTest {
                         reminderScheduler = scheduler,
                         currentUser = FakeProfileAwareCurrentUser(),
                     ),
+                crashReporter = reporter,
                 scope = scope,
             )
         return Harness(vm, scope)

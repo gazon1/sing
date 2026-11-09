@@ -66,8 +66,9 @@ tags:
 
 # Wait for the "Check your email" screen — AUTH-SIGNUP-02 expects this
 # neutral message, NOT an error. The headline is the tagged part of the
-# confirmation screen: the message under it is untagged, and the form's own
-# message slot is not on the screen once the form is replaced.
+# confirmation screen; the notice itself reaches the user as a snackbar,
+# which is transient, so it is not waited for here — the headline carries
+# the same fact and stays.
 - extendedWaitUntil:
     visible:
       id: auth_confirmation_headline
@@ -78,8 +79,14 @@ tags:
 # to the agenda/home. The form fields are replaced by ConfirmationPendingContent.
 - assertVisible:
     id: auth_confirmation_email
+
+# The confirmation notice must not be dressed as a failure: every auth error is
+# raised as the shared error dialog, so its absence is what says the outcome
+# was reported as a neutral notice. Asserting the absence of the inline error
+# line this flow used to name would pass for the wrong reason — that slot no
+# longer exists on any auth screen.
 - assertNotVisible:
-    id: auth_error_text
+    id: result_dialog
 
 # AUTH-SIGNUP-02 verified: account created, check mail shown, user stayed
 # on the auth screen and was not let in as signed-in.

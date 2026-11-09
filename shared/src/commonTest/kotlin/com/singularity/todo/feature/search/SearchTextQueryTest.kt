@@ -137,7 +137,7 @@ class SearchTextQueryTest {
         runTest {
             val query = "zzzznomatchzzzz999999"
 
-            assertEquals(SearchContent.NoResults, searchContent(query, search(query)))
+            assertEquals(SearchContent.NoResults, searchContent(query, search(query), false))
         }
 
     @Test
@@ -145,7 +145,7 @@ class SearchTextQueryTest {
         runTest {
             val query = "milk"
 
-            assertEquals(SearchContent.Results, searchContent(query, search(query)))
+            assertEquals(SearchContent.Results, searchContent(query, search(query), false))
         }
 
     private suspend fun search(query: String): SearchResults =

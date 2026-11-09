@@ -1182,5 +1182,115 @@ class SessionResetTest(unittest.TestCase):
         self.assertEqual(calls, [])
 
 
+class SleepScreenTest(unittest.TestCase):
+    """The run leaves the phone dark, unless it is asked to leave it on."""
+
+    def test_a_live_device_is_put_to_sleep(self):
+        deps = unittest.mock.Mock()
+        deps.device_alive.return_value = True
+
+        _cli._sleep_screen("0O65321F32204DD5", deps)
+
+        deps.adb_on.assert_called_once_with(
+            "0O65321F32204DD5", "shell", "input", "keyevent", "KEYCODE_SLEEP"
+        )
+
+    def test_a_dead_device_is_not_asked(self):
+        deps = unittest.mock.Mock()
+        deps.device_alive.return_value = False
+
+        _cli._sleep_screen("0O65321F32204DD5", deps)
+
+        deps.adb_on.assert_not_called()
+
+    def _run_cli(self, *extra: str, serial: str = "emulator-5554") -> tuple[object, list[tuple[str, ...]]]:
+        fake_maestro = FakeMaestro([FakeMaestroResult(0)])
+        recorded: list[tuple[str, ...]] = []
+
+        def fake_try_run(cmd, **kw):
+            if cmd and cmd[0] == "maestro":
+                if "--output" in cmd:
+                    report = pathlib.Path(cmd[cmd.index("--output") + 1])
+                    report.parent.mkdir(parents=True, exist_ok=True)
+                    report.write_text(
+                        '<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<testsuite name="smoke" tests="1" failures="0"/>\n'
+                    )
+                return fake_maestro.test(pathlib.Path(cmd[2]))
+            return unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+        def fake_adb_on(serial, *args, **kw):
+            recorded.append(args)
+            return ""
+
+        noop_cp = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+        deps = DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: noop_cp,
+            acquire_device=lambda pin: Acquisition(serial, EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=fake_adb_on,
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+        from click.testing import CliRunner
+
+        old = _cli._default_device_deps
+        try:
+            _cli._default_device_deps = lambda: deps
+            result = CliRunner().invoke(
+                _cli.main,
+                [
+                    "--flow", str(ROOT / "Maestro/flows/smoke/01-launch-today.yaml"),
+                    "--serial", serial,
+                    "--skip-install",
+                    "--allow-stale-apk",
+                    *extra,
+                ],
+            )
+        finally:
+            _cli._default_device_deps = old
+        return result, recorded
+
+    def test_the_cli_turns_the_screen_off_when_the_run_ends(self):
+        result, recorded = self._run_cli()
+
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        self.assertIn(("shell", "input", "keyevent", "KEYCODE_WAKEUP"), recorded)
+        self.assertIn(("shell", "input", "keyevent", "KEYCODE_SLEEP"), recorded)
+        self.assertLess(
+            recorded.index(("shell", "input", "keyevent", "KEYCODE_WAKEUP")),
+            recorded.index(("shell", "input", "keyevent", "KEYCODE_SLEEP")),
+            "the wake must come before the sleep",
+        )
+
+    def test_keep_screen_on_leaves_the_screen_on(self):
+        result, recorded = self._run_cli("--keep-screen-on")
+
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        self.assertNotIn(("shell", "input", "keyevent", "KEYCODE_SLEEP"), recorded)
+
+    def test_a_refused_run_does_not_touch_the_screen(self):
+        serial = "emulator-refused"
+        lock = pathlib.Path(os.environ["MAESTRO_LOCK_DIR"]) / f"singularity-maestro-{serial}.lock"
+        lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
+        try:
+            result, recorded = self._run_cli(serial=serial)
+        finally:
+            lock.unlink(missing_ok=True)
+
+        self.assertEqual(result.exit_code, EXIT_FAIL)
+        self.assertNotIn(("shell", "input", "keyevent", "KEYCODE_WAKEUP"), recorded)
+        self.assertNotIn(("shell", "input", "keyevent", "KEYCODE_SLEEP"), recorded)
+
+
 if __name__ == "__main__":
     unittest.main()

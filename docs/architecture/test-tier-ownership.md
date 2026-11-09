@@ -33,10 +33,12 @@ Three copies went, each because the scenario had an owner that could assert it:
   code, and
 - the device tier's **FAB** flow test, whose scenario the desktop flow test owns.
 
-The instrumented tier lost one class and three tests: `config/docs/instrumented-test-floor.txt`
-records 7 classes and 23 tests, with the loss acknowledged in that file's notes
-rather than regenerated silently. The android host tier lost four tests, and its six
-classes deliver 13 again — the number `config/docs/test-runs-baseline.txt` records.
+The instrumented tier lost one class and three tests; `TaskEditorDraftTest` later
+added one class and two tests for a scenario only a device can observe (a persisted
+draft being restored). `config/docs/instrumented-test-floor.txt` records 8 classes
+and 25 tests, with the loss acknowledged in that file's notes rather than regenerated
+silently. The android host tier lost four tests, and its six classes deliver 13
+again — the number `config/docs/test-runs-baseline.txt` records.
 
 ## The four features that had no end-to-end flow
 

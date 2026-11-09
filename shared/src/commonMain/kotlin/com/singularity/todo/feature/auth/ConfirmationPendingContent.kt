@@ -33,7 +33,6 @@ import com.singularity.todo.core.ui.text.SelectableText
  * a way to resend the email or go back.
  *
  * @param email          The email address that is awaiting confirmation.
- * @param message        Optional neutral message to display (e.g. "Account created…").
  * @param isLoading      Whether to show the spinner — true during a resend round-trip.
  * @param onResend       Called when the user taps "Resend email".
  * @param onBack         Called when the user taps "Back to sign in".
@@ -41,7 +40,6 @@ import com.singularity.todo.core.ui.text.SelectableText
 @Composable
 fun ConfirmationPendingContent(
     email: String,
-    message: String?,
     isLoading: Boolean,
     onResend: () -> Unit,
     onBack: () -> Unit,
@@ -89,16 +87,6 @@ fun ConfirmationPendingContent(
             modifier = Modifier.testTag(TestTags.AUTH_CONFIRMATION_EMAIL),
         )
 
-        if (message != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-
         Spacer(modifier = Modifier.height(32.dp))
 
         if (isLoading) {
@@ -142,20 +130,6 @@ private fun ConfirmationPendingPreview() =
     PreviewThemed(darkTheme = false) {
         ConfirmationPendingContent(
             email = "user@example.com",
-            message = null,
-            isLoading = false,
-            onResend = {},
-            onBack = {},
-        )
-    }
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun ConfirmationPendingWithMessagePreview() =
-    PreviewThemed(darkTheme = false) {
-        ConfirmationPendingContent(
-            email = "user@example.com",
-            message = "Account created. Check your email to confirm the address, then sign in.",
             isLoading = false,
             onResend = {},
             onBack = {},
@@ -168,7 +142,6 @@ private fun ConfirmationPendingLoadingPreview() =
     PreviewThemed(darkTheme = false) {
         ConfirmationPendingContent(
             email = "user@example.com",
-            message = null,
             isLoading = true,
             onResend = {},
             onBack = {},

@@ -104,17 +104,16 @@ Thumbs.db
 
 # Allure results.
 #
-# A symptom, not a design: the build files say these go to
-# `<module>/build/allure-results/` and set `allure.results.directory` to say so,
-# but the Allure 2.x JUnit listener resolves its own directory relative to the
-# forked JVM's working directory and ignores that key (it is allure-kotlin's
-# spelling). The result lands in `<module>/allure-results/` — outside `build/`,
-# so the entries above did not cover it, and ~10k files sat untracked in
-# `git status` after a local run.
+# The results live in `<module>/build/allure-results/`, and the build scripts
+# say so with the `allure.results.directory` system property: the Allure 2.x
+# JUnit listener reads it (`AllureLifecycle.getDefaultWriter()`) and falls back
+# to a working-directory-relative `allure-results` only when the key is absent.
 #
-# Ignoring the symptom is not the fix; see `.github/workflows/ci.yml`, which
-# uploads `*/build/allure-results/**/*` — the path that is never written to —
-# with `if-no-files-found: ignore`. Filed as an issue rather than fixed here.
+# The fallback is why this entry exists. A test task that does not set the
+# property writes to `<module>/allure-results/` — outside `build/`, so the
+# entries above did not cover it, and ~10k files sat untracked in `git status`
+# after a local run. Every test task sets the property now; this line stays as
+# the safety net that keeps a forgotten one from dirtying the working tree.
 **/allure-results/
 
 # KSP generated

@@ -2,10 +2,13 @@ package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.IndexedRecord
+import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.SearchLimits
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
+import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.core.search.TextMatchPlan
+import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -22,6 +25,7 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
@@ -143,7 +147,9 @@ class SearchUseCase(
             when {
                 plan !is TextMatchPlan.Narrowed -> {
                     structuredTaskFlow.map { tasks ->
-                        tasks.map { task -> IndexedRecord(task, persistentListOf()) }
+                        tasks.map { task ->
+                            IndexedRecord(task, containsRanges(task.title, SearchColumn.TITLE, rule, mode))
+                        }
                     }
                 }
 
@@ -269,7 +275,15 @@ class SearchUseCase(
                         .filter { note -> rule.accepts(plan) { term -> mode.matches(note, term) } }
                         .sortedByDescending { note -> note.updatedAt }
                         .take(SearchLimits.NOTES)
-                        .map { note -> IndexedRecord(note, persistentListOf()) }
+                        .map { note ->
+                            // The note is searched by its title (F3), and the card
+                            // draws that title: the range and the text it lands on
+                            // are the same surface.
+                            IndexedRecord(
+                                note,
+                                containsRanges(note.title, SearchColumn.TITLE, rule, mode),
+                            )
+                        }
                 }
             }
         }
@@ -291,7 +305,12 @@ class SearchUseCase(
 
                 TextMatchPlan.BroadScan -> {
                     projectRepo.observeAll().map { projects ->
-                        projects.map { project -> IndexedRecord(project, persistentListOf()) }
+                        projects.map { project ->
+                            IndexedRecord(
+                                project,
+                                containsRanges(project.name, SearchColumn.NAME, rule, mode),
+                            )
+                        }
                     }
                 }
             }
@@ -318,13 +337,68 @@ class SearchUseCase(
 
                 TextMatchPlan.BroadScan -> {
                     tagRepo.observeAll().map { tags ->
-                        tags.map { tag -> IndexedRecord(tag, persistentListOf()) }
+                        tags.map { tag ->
+                            IndexedRecord(
+                                tag,
+                                containsRanges(tag.name, SearchColumn.NAME, rule, mode),
+                            )
+                        }
                     }
                 }
             }
         return source.map { tags ->
             tags.filter { tag -> rule.accepts(plan) { term -> mode.matches(tag.record, term) } }
         }
+    }
+
+    /**
+     * Where the matched terms are in the text a result card draws.
+     *
+     * The index reports the position of a match — but only in the word mode,
+     * and only for the words it stores. The contains mode has no index to ask:
+     * the rows are read and matched in memory, so the position has to be found
+     * in the text, with the same folding the rule folded with.
+     *
+     * ## Why the word mode reports nothing here
+     *
+     * In the word mode the positions are the index's, and only the index's
+     * (see [com.singularity.todo.core.search.IndexedRecord]): a record read
+     * through the index arrives with them, and a record a broad scan read
+     * arrives *without* them — the scan read the rows and never tokenized them,
+     * so it has no beginning of a word to report. Measuring them again in
+     * Kotlin would be a second answer to a question the index already answered,
+     * and a term of several words can land in a different place the second
+     * time. So this reports positions for the mode that has no index, and the
+     * word mode keeps the index's answer for the records the index read.
+     *
+     * ## Why the drawn surface and not every surface
+     *
+     * The card knows which text it draws, and a range belongs to the surface it
+     * was measured in: the offsets of one surface say nothing about the
+     * characters of another. Measuring the drawn surface is therefore the only
+     * answer that can be used, and it is the whole answer — a match in a
+     * surface the card does not draw (a task's description) leaves the card
+     * exactly as a match in the word mode does.
+     *
+     * @param text the surface the card draws, or `null` when the record has none.
+     * @param column the column [text] is — [SearchColumn.TITLE] for a task or a
+     *   note, [SearchColumn.NAME] for a project or a tag.
+     * @param rule the rule the record was matched by.
+     * @param mode the mode the free text is matched in.
+     */
+    private fun containsRanges(
+        text: String?,
+        column: SearchColumn,
+        rule: FreeTextRule,
+        mode: SearchMode,
+    ): ImmutableList<TextMatchRange> {
+        if (mode != SearchMode.Contains || text.isNullOrEmpty()) return persistentListOf()
+        val terms = rule.positives.map { it.text }
+        if (terms.isEmpty()) return persistentListOf()
+        return TextMatch
+            .containsSpans(text, terms)
+            .mapNotNull { span -> span?.let { TextMatchRange(column, it.first, it.last + 1) } }
+            .toImmutableList()
     }
 
     private fun sortTasks(

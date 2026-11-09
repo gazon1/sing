@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -179,6 +180,43 @@ class SearchViewModel(
     private val _activeFilter = MutableStateFlow<SimpleFilter?>(null)
     private val _mode = MutableStateFlow(SearchMode.Word)
 
+    /**
+     * One question the screen asked: the text, the AST it parsed to, and the
+     * mode the free text is matched in.
+     *
+     * The three are one value because they are one question, and because an
+     * answer has to be attributable to the question it answers. [parsed] is null
+     * when the text did not parse, which is a question whose answer is already
+     * known: nothing.
+     */
+    private data class SearchRequest(val text: String, val parsed: Query?, val mode: SearchMode)
+
+    /** The question the screen is asking now. */
+    private fun currentRequest(): SearchRequest =
+        SearchRequest(text = _queryString.value.text, parsed = _parsedQuery.value, mode = _mode.value)
+
+    /**
+     * True when the question on the screen is one the search will actually run.
+     *
+     * A blank query is not a question, and a query that did not parse has its
+     * answer already — neither leaves anything to wait for, so neither may raise
+     * the pending flag. The flag is only ever lowered by an answer, and these two
+     * have none coming.
+     */
+    private fun awaitsAnswer(): Boolean = isRunnable(_queryString.value.text, _parsedQuery.value)
+
+    /**
+     * True when a question with this text and this AST will be run.
+     *
+     * One answer to one question: the intent paths and the pipeline must agree on
+     * what "the search will run" means, or a flag raised by one would be lowered —
+     * or not — by the other's rules. The rule lives here and nowhere else.
+     */
+    private fun isRunnable(
+        text: String,
+        parsed: Query?,
+    ): Boolean = text.isNotBlank() && parsed != null
+
     // ─── Observations ──────────────────────────────────────────────────────────
 
     init {
@@ -193,20 +231,65 @@ class SearchViewModel(
         // changes. The mode is part of the question: the same query asks a
         // different thing in the contains mode, so the answer has to be asked
         // again when the mode changes.
+        //
+        // Every request is answered, and every answer names the request it
+        // answers. Both halves matter:
+        //
+        //  * The answer names its request because the debounce sits *upstream*
+        //    of `flatMapLatest`: for up to 300 ms after a keystroke the previous
+        //    search is still running and still emitting, and its answer answers
+        //    a question the user has already changed. Applying it would report
+        //    results — or "no results" — for a query that has not run.
+        //  * A request that cannot be run is answered with the empty answer
+        //    rather than with silence. Silence is what left the pending flag
+        //    raised forever: the flag is lowered in the collector below, and
+        //    that collector must be reached by every request an intent raises.
         vmScope.launch {
-            combine(_queryString, _parsedQuery, _mode) { qs, pq, mode -> Triple(qs, pq, mode) }
-                .debounce(300.milliseconds)
-                .flatMapLatest { (qs, pq, mode) ->
-                    if (qs.text.isBlank()) {
-                        flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+            combine(_queryString, _parsedQuery, _mode) { qs, pq, mode ->
+                SearchRequest(text = qs.text, parsed = pq, mode = mode)
+            }.debounce(300.milliseconds)
+                .flatMapLatest { request ->
+                    val parsed = request.parsed
+                    if (request.text.isBlank() || parsed == null) {
+                        flowOf(request to SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
                     } else {
                         channelFlow {
-                            val userId = savedSearchRepo.currentUserId()
-                            val q = pq ?: return@channelFlow
-                            searchUseCase(q, userId, mode).collect { send(it) }
+                            // Every request is answered, including the one the
+                            // search fails on. A throw out of this builder would
+                            // cancel the collector below — and with it the flag,
+                            // which is only ever lowered by an answer: the screen
+                            // would keep the spinner of a question that will never
+                            // be answered, for the rest of the ViewModel's life,
+                            // and no later query would run either. So a failure is
+                            // answered with the empty answer and reported through
+                            // the same spelling every other failure uses.
+                            val answer =
+                                try {
+                                    val userId = savedSearchRepo.currentUserId()
+                                    searchUseCase(parsed, userId, request.mode).collect { send(request to it) }
+                                    null
+                                } catch (e: CancellationException) {
+                                    // A cancelled search is a question the user
+                                    // withdrew, not a failure: it is re-thrown, and
+                                    // `flatMapLatest` has already stopped wanting
+                                    // the answer.
+                                    throw e
+                                } catch (e: Exception) {
+                                    e
+                                }
+                            if (answer != null) {
+                                reportSearchError(answer)
+                                send(
+                                    request to SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+                                )
+                            }
                         }
                     }
-                }.collect { results ->
+                }.collect { (request, results) ->
+                    // The answer belongs to the question it answers. An answer
+                    // for a superseded request is dropped, and the flag stays
+                    // raised until the question now on the screen is answered.
+                    if (request != currentRequest()) return@collect
                     updateState {
                         it.copy(results = results, isSearching = false)
                     }
@@ -264,49 +347,144 @@ class SearchViewModel(
      * question the answer is the answer to.
      */
     private fun onModeChange(mode: SearchMode) {
+        // The same mode again is not a new question: the pipeline deduplicates an
+        // unchanged `SearchRequest`, so nothing would be asked and nothing would
+        // ever lower the flag. Raising it here would leave a spinner over an
+        // answer that has already arrived.
+        if (mode == _mode.value) return
+        // The mode is part of the question, so the answer has to be asked again —
+        // and the screen has to know that it is waiting for it. Only a question
+        // that will actually be run raises the flag: a blank query and one that
+        // did not parse have no answer coming, and the flag is only ever lowered
+        // by an answer. It is raised *before* the mode is written, so that no
+        // observer can see the new question beside the previous answer with the
+        // flag already down — that combination is the "no results for a query
+        // that has not run" defect the flag exists to prevent.
+        updateState { it.copy(isSearching = awaitsAnswer()) }
         _mode.value = mode
+    }
+
+    /**
+     * The search is over: nothing is in flight, and there is no answer to show.
+     *
+     * The results are cleared as well as the flag. A query that cannot be run
+     * has no answer, and the results of the previous query would be the answer
+     * to a question the user is no longer asking.
+     */
+    private fun stopSearching() {
+        updateState {
+            it.copy(
+                isSearching = false,
+                results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+            )
+        }
     }
 
     private fun onQueryChange(query: String) {
         _activeSavedSearchId.value = null
-        // The field's own text: the field wrote it, and the field already shows it.
-        _queryString.value = _queryString.value.echoed(query)
 
         if (query.isBlank()) {
-            _parsedQuery.value = null
-            _activeFilter.value = null
-            updateState {
-                it.copy(
-                    isSearching = false,
-                    results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
-                )
-            }
+            // The field's own text: the field wrote it, and the field already shows it.
+            stopUnanswerable(_queryString.value.echoed(query))
             return
         }
 
-        try {
-            val parsed = parseQuery(query)
-            _parsedQuery.value = parsed
-            // Try to derive a SimpleFilter; unsupported conditions → null
-            _activeFilter.value = SimpleFilterMapper().fromQuery(parsed).getOrNull()
-        } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
-            _parsedQuery.value = null
-            _activeFilter.value = null
-            vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message, e.position)) }
-        } catch (_: UnsupportedSimpleFilterException) {
-            // Expected: query cannot be expressed as SimpleFilter — activeFilter = null signals this
-            _parsedQuery.value = null
-            _activeFilter.value = null
-        } catch (e: Exception) {
-            _parsedQuery.value = null
-            _activeFilter.value = null
-            vmScope.launch { emit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}")) }
-        }
-        updateState { it.copy(isSearching = true) }
+        val parsed =
+            try {
+                parseQuery(query)
+            } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
+                // The query cannot be executed, so there is no answer to wait for:
+                // the screen must not sit on a spinner for a query that will never
+                // run. The error is reported by the event.
+                stopUnanswerable(_queryString.value.echoed(query))
+                vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message, e.position)) }
+                return
+            } catch (e: Exception) {
+                stopUnanswerable(_queryString.value.echoed(query))
+                reportSearchError(e)
+                return
+            }
+
+        // Try to derive a SimpleFilter; unsupported conditions → null. The null
+        // is the documented signal, not an error — the query still runs.
+        //
+        // Every other failure keeps the surface it had when the mapper was
+        // reached through the parser's `catch (Exception)`: it is reported as a
+        // [SearchUiEvent.Error] and the query is not run. Narrowing the parser's
+        // catch to [QueryParseException] must not narrow this one with it — the
+        // mapper has its own failure modes, and `onIntent` is not a place to let
+        // one escape.
+        val filter =
+            try {
+                SimpleFilterMapper().fromQuery(parsed).getOrNull()
+            } catch (_: UnsupportedSimpleFilterException) {
+                null
+            } catch (e: Exception) {
+                stopUnanswerable(_queryString.value.echoed(query))
+                reportSearchError(e)
+                return
+            }
+
+        showQuestion(_queryString.value.echoed(query), parsed, filter)
+    }
+
+    /**
+     * Puts a question on the screen.
+     *
+     * The pending flag is raised *before* the flows that carry the question are
+     * written. An observer that saw the new query beside the previous answer
+     * with the flag already down would draw that answer — or "no results" — for
+     * a question that has not run, which is the defect the flag exists to
+     * prevent. Raising it first leaves no such window: every state the screen
+     * can observe carries the question and the pending flag together.
+     *
+     * A question identical to the one already on the screen raises nothing: the
+     * pipeline deduplicates an unchanged request, so no answer would come and
+     * the flag would never be lowered.
+     */
+    private fun showQuestion(
+        text: FieldOwnedText,
+        parsed: Query?,
+        filter: SimpleFilter?,
+    ) {
+        val pending =
+            isRunnable(text.text, parsed) &&
+                !(text.text == _queryString.value.text && parsed == _parsedQuery.value)
+        if (pending) updateState { it.copy(isSearching = true) }
+        _queryString.value = text
+        _parsedQuery.value = parsed
+        _activeFilter.value = filter
+    }
+
+    /**
+     * Shows a question that cannot be run, and stops waiting for it.
+     *
+     * No answer is coming, so no spinner is left behind, and the results of the
+     * previous question are not left under the new one.
+     */
+    private fun stopUnanswerable(text: FieldOwnedText) {
+        showQuestion(text, parsed = null, filter = null)
+        stopSearching()
+    }
+
+    /**
+     * Reports a failure that stopped a question from being asked or run.
+     *
+     * One spelling for the message, because the surface a failure reaches is part
+     * of the promise the pending state makes: a question that cannot be run stops
+     * waiting and says why, rather than leaving the spinner up or throwing out of
+     * the intent's coroutine.
+     */
+    private fun reportSearchError(cause: Throwable) {
+        vmScope.launch { emit(SearchUiEvent.Error("Search error: ${cause.message ?: "unknown"}")) }
     }
 
     private fun onApplyFilter(filter: SimpleFilter?) {
         _activeSavedSearchId.value = null
+        // What the surface states before this intent, kept so the failure branch
+        // can put it back: a filter that cannot be applied must not be left
+        // standing as the one the screen says it is showing.
+        val previousFilter = _activeFilter.value
         _activeFilter.value = filter
 
         if (filter == null) {
@@ -325,12 +503,27 @@ class SearchViewModel(
         val queryResult = SimpleFilterMapper().toQuery(filter)
         queryResult.fold(
             onSuccess = { query ->
-                // Keep _queryString as-is; raw text + filter coexist in state
+                // Keep _queryString as-is; raw text + filter coexist in state.
+                // The flag is raised before the new question is written, so no
+                // observer sees the new question beside the previous answer with
+                // the flag already down. A filter that yields the question already
+                // on screen raises nothing: the pipeline would not emit for it.
+                if (query != _parsedQuery.value) updateState { it.copy(isSearching = true) }
                 _parsedQuery.value = query
-                updateState { it.copy(isSearching = true) }
+                _activeFilter.value = filter
             },
             onFailure = { e ->
-                vmScope.launch { emit(SearchUiEvent.Error("Cannot apply filter: ${e.message}")) }
+                // The filter cannot be turned back into a query, so no question
+                // is asked and none is answered. This is the same shape as a
+                // query that does not parse, and it is answered the same way:
+                // the flag is lowered, the results of the question the user is
+                // no longer asking are cleared, the filter the surface states is
+                // put back, and the failure is reported in the one spelling
+                // `reportSearchError` gives it. Leaving the flag up here was the
+                // one place the pending state promised an answer nobody owed.
+                _activeFilter.value = previousFilter
+                stopSearching()
+                reportSearchError(e)
             },
         )
     }
@@ -342,21 +535,50 @@ class SearchViewModel(
                 emit(SearchUiEvent.Error("Saved search not found"))
                 return@launch
             }
-            _activeSavedSearchId.value = id
-            // A seed: the saved search's query came from outside the field, so the field
-            // never produced it and takes it as it stands.
-            _queryString.value = _queryString.value.seeded(saved.queryString)
 
-            try {
-                val parsed = parseQuery(saved.queryString)
-                _parsedQuery.value = parsed
-                _activeFilter.value = SimpleFilterMapper().fromQuery(parsed).getOrNull()
-            } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
-                _parsedQuery.value = null
-                _activeFilter.value = null
-                emit(SearchUiEvent.QueryParseError(e.message, e.position))
-            }
-            updateState { it.copy(isSearching = true) }
+            // A seed: the saved search's query came from outside the field, so the
+            // field never produced it and takes it as it stands. It is written on
+            // every path — the field has to show the query the saved search
+            // carries, whether or not that query can run.
+            val seeded = _queryString.value.seeded(saved.queryString)
+
+            val parsed =
+                try {
+                    parseQuery(saved.queryString)
+                } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
+                    // The saved query cannot be executed, so there is no answer to
+                    // wait for: the screen must not sit on a spinner for a query
+                    // that will never run. The error is reported by the event.
+                    _activeSavedSearchId.value = id
+                    stopUnanswerable(seeded)
+                    emit(SearchUiEvent.QueryParseError(e.message, e.position))
+                    return@launch
+                } catch (e: Exception) {
+                    _activeSavedSearchId.value = id
+                    stopUnanswerable(seeded)
+                    reportSearchError(e)
+                    return@launch
+                }
+
+            // The mapper's failure surface is the one `onQueryChange` keeps: an
+            // unsupported condition means "no filter" and the query still runs,
+            // every other failure is reported and the query is not run. A throwable
+            // escaping here would escape the intent's coroutine instead of reaching
+            // the screen as `SearchUiEvent.Error`.
+            val filter =
+                try {
+                    SimpleFilterMapper().fromQuery(parsed).getOrNull()
+                } catch (_: UnsupportedSimpleFilterException) {
+                    null
+                } catch (e: Exception) {
+                    _activeSavedSearchId.value = id
+                    stopUnanswerable(seeded)
+                    reportSearchError(e)
+                    return@launch
+                }
+
+            _activeSavedSearchId.value = id
+            showQuestion(seeded, parsed, filter)
         }
     }
 

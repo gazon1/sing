@@ -46,7 +46,8 @@ import kotlin.time.Clock
  * cross-module home for a test double in this repository is
  * `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/`, where the
  * other shared doubles (`FakeAppDatabase`, `FakeTextGen`, the fake
- * repositories) already live.
+ * repositories) already live — the arrangement recorded in
+ * `docs/decisions/2026-09-09-preview-with-koin-helper.md`.
  *
  * It is a double, not production code: nothing in the app resolves it, and the
  * sync port it stands in for ([SyncApiClient]) is bound by the DI module, not by

@@ -17,21 +17,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import kotlinx.coroutines.flow.Flow
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -42,13 +39,17 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     // choices that are not text.
     val emailState = rememberTextFieldState()
     val passwordState = rememberTextFieldState()
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Kept apart from `errorMessage` so a neutral "your account was created, go check
-    // your mail" is not painted in the error colour and is not announced as a failure.
-    var message by remember { mutableStateOf<String?>(null) }
 
     val navigator = LocalAppNavigator.current
+
+    // The event bus is collected here, before anything can return early. It used to be
+    // collected *after* the no-server branch returned, so the error that branch produces
+    // — "Both the project URL and the anon key are required" — had nowhere to go and the
+    // user was told nothing.
+    LoginScreenEffects(
+        events = viewModel.events,
+        onNavigateHome = { navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today)) },
+    )
 
     // With no project configured there is nothing to sign in to, and the
     // credential form's failure would arrive as a network error pointing at the
@@ -60,29 +61,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     // would be invisible to exactly the people who have nothing to configure.
     if (state is AuthUiState.SignedOutWithNoServer) {
         ServerConfigForm(
-            errorMessage = errorMessage,
             onSave = { url, key -> viewModel.onIntent(AuthIntent.SaveServerConfig(url, key)) },
             onContinueOffline = { viewModel.onIntent(AuthIntent.ContinueOffline) },
         )
         return
-    }
-
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            AuthUiEvent.NavigateToHome -> {
-                navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
-            }
-
-            is AuthUiEvent.Error -> {
-                errorMessage = event.message
-                message = null
-            }
-
-            is AuthUiEvent.Message -> {
-                message = event.message
-                errorMessage = null
-            }
-        }
     }
 
     Column(
@@ -104,15 +86,11 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
         if (awaitingConfirmation != null) {
             ConfirmationPendingContent(
                 email = awaitingConfirmation.email,
-                message = message,
                 isLoading = state is AuthUiState.Loading,
                 onResend = {
-                    message = null
                     viewModel.onIntent(AuthIntent.SendMagicLink(awaitingConfirmation.email))
                 },
                 onBack = {
-                    message = null
-                    errorMessage = null
                     viewModel.onIntent(AuthIntent.ResetState)
                 },
             )
@@ -125,8 +103,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
                 emailState = emailState,
                 passwordState = passwordState,
                 isLoading = state is AuthUiState.Loading,
-                errorMessage = errorMessage,
-                message = message,
                 onSubmit = {
                     val email = emailState.text.toString()
                     val password = passwordState.text.toString()
@@ -143,8 +119,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             TextButton(
                 onClick = {
                     form.update { copy(isSignUp = !isSignUp) }
-                    errorMessage = null
-                    message = null
                 },
                 modifier =
                     Modifier
@@ -176,6 +150,24 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 }
 
 /**
+ * Everything the login screen does that is not drawing: the one collection of the
+ * auth event bus, and the two ways an event can reach the user.
+ *
+ * The implementation is [AuthScreenEffects], shared with the other auth screens —
+ * the login screen was the first to take this shape, and the other two follow it.
+ * This name is the login screen's own contract: a contract that cannot be mounted
+ * on its own cannot be tested on its own, so the desktop test mounts this, hands
+ * it an event, and asserts that the user is told.
+ */
+@Composable
+fun LoginScreenEffects(
+    events: Flow<AuthUiEvent>,
+    onNavigateHome: () -> Unit,
+) {
+    AuthScreenEffects(events = events, onNavigateHome = onNavigateHome)
+}
+
+/**
  * The project URL and anon key, entered once.
  *
  * The anon key is a **publishable** identifier — it ships inside every copy of the
@@ -191,7 +183,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
  */
 @Composable
 private fun ServerConfigForm(
-    errorMessage: String?,
     onSave: (String, String) -> Unit,
     onContinueOffline: () -> Unit,
 ) {
@@ -239,16 +230,6 @@ private fun ServerConfigForm(
             lineLimits = TextFieldLineLimits.SingleLine,
         )
 
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
-            )
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
@@ -285,7 +266,6 @@ private fun LoginScreenFormPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = false,
-            errorMessage = null,
             isSignUp = false,
             onSignIn = {},
             onToggleMode = {},
@@ -300,7 +280,6 @@ private fun LoginScreenLoadingPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = true,
-            errorMessage = null,
             isSignUp = false,
             onSignIn = {},
             onToggleMode = {},
@@ -315,23 +294,6 @@ private fun LoginScreenDarkPreview() =
             emailState = rememberTextFieldState(),
             passwordState = rememberTextFieldState(),
             isLoading = false,
-            errorMessage = "Invalid email or password",
-            isSignUp = true,
-            onSignIn = {},
-            onToggleMode = {},
-        )
-    }
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun LoginScreenMessagePreview() =
-    PreviewThemed(darkTheme = false) {
-        LoginScreenFormContent(
-            emailState = rememberTextFieldState("user@example.com"),
-            passwordState = rememberTextFieldState("password"),
-            isLoading = false,
-            errorMessage = null,
-            message = "Account created. Check your email to confirm the address.",
             isSignUp = true,
             onSignIn = {},
             onToggleMode = {},
@@ -347,8 +309,6 @@ private fun LoginScreenFormContent(
     emailState: TextFieldState,
     passwordState: TextFieldState,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String? = null,
     isSignUp: Boolean,
     onSignIn: () -> Unit,
     onToggleMode: () -> Unit,
@@ -371,8 +331,6 @@ private fun LoginScreenFormContent(
             emailState = emailState,
             passwordState = passwordState,
             isLoading = isLoading,
-            errorMessage = errorMessage,
-            message = message,
             onSubmit = onSignIn,
         )
         Spacer(modifier = Modifier.height(8.dp))

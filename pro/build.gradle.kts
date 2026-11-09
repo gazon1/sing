@@ -238,6 +238,11 @@ detekt {
 // verified nothing — the exact failure mode this project keeps paying for.
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Discovering nothing is a configuration error, not a pass — see
+    // `shared/build.gradle.kts`. Both of this module's test classes are
+    // `@Tag("fast")` and this task applies no tag filter, so they are always
+    // discovered.
+    failOnNoDiscoveredTests = true
     testLogging {
         events("passed", "skipped", "failed")
     }

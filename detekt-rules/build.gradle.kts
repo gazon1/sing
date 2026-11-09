@@ -66,6 +66,10 @@ val testTaskHeap =
 // was 3 GB, and the comment was the wrong one.)
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Discovering nothing is a configuration error, not a pass — see
+    // `shared/build.gradle.kts`. This module's test classes carry no tag and
+    // this task applies no tag filter, so they are always discovered.
+    failOnNoDiscoveredTests = true
     maxHeapSize = testTaskHeap
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",

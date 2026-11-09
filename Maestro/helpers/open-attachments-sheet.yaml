@@ -1,0 +1,18 @@
+# Opens the attachments sheet from the task detail's "+ Add file" row.
+#
+# The row is at the bottom of the task, below the fold. DOWN scrolls the content
+# up so what is below comes into view; UP moves it the other way.
+appId: com.singularity.todo
+name: open-attachments-sheet
+---
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: attachments_add_file_row
+- extendedWaitUntil:
+    visible:
+      id: attachments_url_input
+    timeout: 5000

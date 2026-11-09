@@ -108,12 +108,6 @@ else
     report no sgate "resolves to another checkout ($sgate_root) — this checkout is $ROOT"
 fi
 
-if have_python_module junitparser; then
-    report ok junitparser "the per-test CI annotations"
-else
-    report no junitparser "the per-test CI annotations"
-fi
-
 if have_binary lychee; then
     report ok lychee "the 'documentation links resolve' gate"
 else

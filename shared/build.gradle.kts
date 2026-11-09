@@ -481,8 +481,8 @@ val archTest =
         // The fork count is set in the `jvmTest`/`archTest` block below, where both
         // tasks are configured together: one fork for this one, four for the rest.
         // The merge is the same — a retried class must not be counted twice by the
-        // run floor.
-        reports.junitXml.mergeReruns.set(true)
+        // run floor. `mergeReruns` itself is set for every test task in the root
+        // `build.gradle.kts`; this line only records that this task depends on it.
     }
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
@@ -627,7 +627,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // into one <testcase> with a <flakyFailure> child, matching desktopApp. Without it
     // a retried shared test produces two <testcase> elements, and check-test-runs.py
     // counts both — the flake-rate aggregator reads the <flakyFailure> signal instead.
-    reports.junitXml.mergeReruns.set(true)
+    // The setting itself lives in the root `build.gradle.kts`, where every test task
+    // gets it; the reader in `scripts/src/traceability/junit_xml.py` depends on it.
 
     // The architecture gates run in `archTest` — they read the whole tree, and the
     // Konsist scope they build is per-JVM. See the `archTest` task above.
@@ -771,17 +772,28 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .asFile.absolutePath,
     )
     // Allure test reporting — results written to build/allure-results/
-    // allure-kotlin's `allure.results.directory` key is NOT read by allure-junit5's listener;
-    // the listener computes its results path relative to the forked JVM's working directory.
-    // Setting workingDir on the forked JVM makes it write to <module>/build/allure-results/,
-    // which is where the CI upload step and the existing .gitignore `**/build/` entry
-    // expect it. The directory is per-task to avoid collisions when tests run in parallel.
+    //
+    // The listener reads `allure.results.directory` from the SYSTEM PROPERTIES:
+    // `AllureLifecycle.getDefaultWriter()` asks `PropertiesUtils.loadAllureProperties()`,
+    // which is the classpath `allure.properties` plus `System.getProperties()`, and
+    // falls back to a working-directory-relative `allure-results` only when the key
+    // is absent. The comment that used to stand here claimed the key was NOT read
+    // and that the path was always relative to the forked JVM's working directory.
+    // That is wrong, and it cost a directory level: the results landed in
+    // `build/allure-results/allure-results/` — one level deeper than every upload
+    // glob, every report command and the CI artifact path expected.
+    //
+    // `workingDir` stays, because it answers a different question: the tests read
+    // files relative to the module, and the working directory is what made those
+    // paths resolve. The property decides where the RESULTS go; the working
+    // directory decides where the test's own relative paths go.
     val allureDir =
         layout.buildDirectory
             .dir("allure-results")
             .get()
             .asFile
-    workingDir = allureDir.also { it.mkdirs() }
+    systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
+    workingDir = allureDir
     // The tests above read files OUTSIDE :shared while they run, so those trees are
     // inputs to this task whether or not they feed the compiler. Without this, editing
     // a desktopApp or mcp-server test leaves :shared:jvmTest UP-TO-DATE, and an
@@ -1171,6 +1183,29 @@ afterEvaluate {
     tasks.named<Test>("testAndroidHostTest") {
         jvmArgs("-Djava.library.path=${sqliteNativesDir.get().asFile.absolutePath}")
         dependsOn(extractSqliteNatives)
+        // Allure results belong in the same directory as the other tasks' —
+        // `shared/build/allure-results/`.
+        //
+        // The property is set for `jvmTest` and `archTest` further up, but this
+        // task was left out of that block, and the listener's fallback is a
+        // working-directory-relative `allure-results`: the results landed in
+        // `shared/allure-results/` — the module root, outside `build/` — where
+        // neither the report generator (it merges `<module>/build/allure-results`)
+        // nor the CI upload glob ever looks. The 13 tests this task runs were
+        // absent from the report, and nothing said so.
+        //
+        // Only the property, not `workingDir`: the working directory of this task
+        // is the module root on purpose, and the tests resolve their paths from
+        // there.
+        val allureDir =
+            layout.buildDirectory
+                .dir("allure-results")
+                .get()
+                .asFile
+        systemProperty(
+            "allure.results.directory",
+            allureDir.also { it.mkdirs() }.absolutePath,
+        )
         // commonTest is inherited by androidHostTest by default and would re-run
         // ~2600 tests already covered by :shared:jvmTest. Narrow to this source
         // set's own classes only (Robolectric platform seams).
