@@ -46,12 +46,12 @@ sche... | — | — |
 | coverage task list | blocking | `scripts/check-coverage-task-list.py` | check-coverage-task-list.py — the coverage report measures every module that ... | — | — |
 | coverage floor declaration | blocking | `scripts/check-coverage-floor-declaration.py` | check-coverage-floor-declaration.py — the coverage floor is declared where Ko... | — | — |
 | coverage timeout | blocking | `scripts/check-coverage-timeout.py` | check-coverage-timeout.py — the coverage job's timeout covers the measured cost. | — | — |
+| the coverage contract holds | blocking | `scripts/check-coverage-contract.py` | check_coverage_contract.py — what the coverage job promises, in three facts. | — | — |
 | selectable text coverage | blocking | `scripts/check-selectable-text-coverage.py` | Find text surfaces that are neither selectable nor classified. | — | — |
 | issue registry covers every change | blocking | `scripts/check-issue-registry.py` | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
 | AGENTS.md pointers resolve | blocking | `scripts/check-agents-pointers.py` | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
 | review verdicts cover every change | blocking | `scripts/check-review-verdicts.py` | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
 | the tag catalogue matches the tags | blocking | `scripts/check-test-tags-catalog.py` | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |
-| skills catalogue is current | blocking | `scripts/regen-skills-catalog.sh` | skills catalogue is current | — | — |
 | detekt rules config is current | blocking | `scripts/gen-detekt-rules-config.py` | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | `scripts/gen-detekt-rule-table.py` | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
 | detekt rule registry | blocking | `scripts/check-detekt-registrations.sh` | detekt rule registry | — | — |
@@ -97,11 +97,9 @@ sche... | — | — |
 | test runs | blocking | `scripts/check-test-runs.py` | check-test-runs.py — fail when a test run executed fewer tests than the basel... | — | — |
 | instrumented test floor | blocking | `scripts/check-instrumented-test-floor.py` | check-instrumented-test-floor.py — the instrumented suite's floor, and the ra... | — | — |
 | script conventions | blocking | `scripts/check-script-conventions.py` | check-script-conventions.py — enforce naming, docstring, and import conventio... | — | — |
-| the link grammar has one home | blocking | `scripts/check-link-grammar.py` | check-link-grammar.py — the link grammar has one home. | 0=the: grammar has one home, 1=a: file outside the home names the scheme | — |
 | the tool catalogue is current | blocking | `scripts/check-tools-catalog.py` | check-tools-catalog.py — the catalogue of the gate scripts. | 0=the: catalogue is current (or was written), 1=the: catalogue is not what the scripts say today, 2=the: catalogue could not be read or written | — |
 | the skills catalogue is current | blocking | `scripts/regen-skills-catalog.sh` | the skills catalogue is current | — | — |
 | compose stability contract | blocking | `scripts/check-compose-stability-config.py` | check-compose-stability-config.py — the stability contract must name real typ... | — | — |
-| screen state collections | blocking | `scripts/check-screen-state-collections.py` | check-screen-state-collections.py — a screen state does not hold a raw collec... | — | — |
 | the mobile build carries no external-agent code | blocking | `scripts/check-mobile-isolation.py` | check-mobile-isolation.py — the mobile build carries no external-agent code. | — | — |
 | a specification and the tree agree | blocking | `scripts/check-spec-requirement-traceability.py` | check-spec-requirement-traceability.py — every requirement in a spec is trace... | — | — |
 | hideKeyboard follows an input | blocking | `scripts/check-maestro-hidekeyboard.py` | check-maestro-hidekeyboard.py — hideKeyboard must follow an input, not preced... | — | — |

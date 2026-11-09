@@ -590,6 +590,7 @@ tasks.register("koverReport") {
         ":mcp-server:test",
         ":androidApp:test",
         ":adr-core:jvmTest", // app code in the denominator (feature.ai.tools): its own tests measure it
+        ":core-domain:jvmTest", // app code in the denominator: without it the report scored its classes unrun
         ":detekt-rules:test", // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )

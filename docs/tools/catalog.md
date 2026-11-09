@@ -80,7 +80,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gatekit.scenarios` | the semantics of a migration, as data. |
 | `sgate.gatekit.tables` | a document table checked against the code. |
 | `sgate.gatekit.verdicts` | The verdict of a review, and the vocabulary the verdicts are written in. |
-| `sgate.gates` | gate registry loader. |
+| `sgate.gates` | the registry adapter and the one command builder. |
 | `sgate.log` | loguru logger configured for sgate. |
 | `sgate.models` | typed JSON payloads for gate results. |
 | `sgate.module_graph` | The module graph — ``scripts/changed-modules.py`` — loaded by path. |

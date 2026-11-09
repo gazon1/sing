@@ -231,10 +231,9 @@ instance it holds will not change. The value was also built on the wrong side
 of the boundary — the screen that renders it is where the collection was
 assembled, instead of the state that owns it.
 
-So there is a fourth rule, and it is a gate rather than a detekt rule:
-
-- `scripts/check-screen-state-collections.py` — a screen state does not hold a
-  raw collection.
+So there is a fourth rule, and it is an architecture test rather than a detekt
+rule: `shared/src/jvmTest/…/arch/ScreenStateCollectionsTest.kt` — a screen state
+does not hold a raw collection. It runs in `:shared:archTest`.
 
 A **screen state** is a state type of a feature: a declaration whose name ends
 with `UiState` or `State` (`AgendaUiState`, `TaskChildrenState`), or a member
@@ -242,9 +241,12 @@ of such a hierarchy (`ArchiveUiState.Content`). The states of the core —
 `SyncState`, `EphemeralState` — are the state of a repository and of a
 settings bundle, not of a screen that renders them, and they are out of scope.
 
-It is a gate and not a detekt rule because deciding that a declaration is a
-screen state needs the whole tree: a state is not visited by any rule, it is a
-*type* — a parameter of a composable, or a member of a sealed hierarchy.
+It is an architecture test and not a detekt rule because the question needs the
+whole tree in both directions: a detekt rule sees one file, so it cannot report
+a register entry whose property is gone. The test is also what makes the two
+directions one check — a new raw collection, and a debt that was paid while its
+record stayed. A computed property (`val allEntries get() = …`) is not a
+holding: it reads a collection the state already carries.
 
 `config/compose/screen_state_collection_debt.conf` is the register of the
 states that still hold a raw collection, one entry per property, and it

@@ -107,6 +107,7 @@ is the other way round: it writes by default, `--check` verifies.
 | the twin, or a twin that disagrees | Part J of `check-gate-wiring.py` | `the control for '…' and the registry entry disagree about …` |
 | the registry entry (the script alone) | Part H of `check-gate-wiring.py` | `scripts/check-….py can fail and is named by no gate surface` |
 | the shell line | `scripts/check-gate-registries.py` | a gate line with no registry entry, or the other way round |
+| one invocation registered twice | `scripts/check-gate-registries.py` | two gates run one invocation — delete one, or record the pair in `DUPLICATE_INVOCATIONS` with the names and a reason |
 
 ## Traps
 

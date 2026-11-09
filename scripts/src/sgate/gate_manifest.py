@@ -107,6 +107,11 @@ CLUSTERS: dict[str, tuple[str, ...]] = {
         "lint rules are declared decisions",
         "quality page states the enforced thresholds",
     ),
+    "the coverage contract holds": (
+        "coverage floor declaration",
+        "coverage task list",
+        "coverage timeout",
+    ),
 }
 
 
@@ -326,8 +331,8 @@ full one.""",
         command='sgate settings_read_by_a_feature',
     ),
     "coverage task list": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate coverage_task_list',
+        kind=PlacementKind.CLUSTER,
+        cluster="the coverage contract holds",
         note="""The coverage report measures every module that is in it.
 
 The list of test tasks that feed the aggregated report is written by hand,
@@ -338,8 +343,8 @@ like a coverage problem and is a measurement one.
 """,
     ),
     "coverage floor declaration": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate coverage_floor_declaration',
+        kind=PlacementKind.CLUSTER,
+        cluster="the coverage contract holds",
         note="""The coverage floor is declared where Kover reads it.
 
 The app coverage floors lived in the root build script for months, in a
@@ -350,8 +355,8 @@ stops it from moving back.
 """,
     ),
     "coverage timeout": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate coverage_timeout',
+        kind=PlacementKind.CLUSTER,
+        cluster="the coverage contract holds",
         note="""The timeout covers the run it was set for.
 
 The instrumented coverage run takes 37 minutes on the development host and
@@ -359,6 +364,18 @@ longer on a CI runner, and the job's timeout was a literal that nobody
 compared with that number. This gate reads the measured cost and the
 timeout and says so when the timeout cannot cover the measurement — before
 the job is killed at the moment it was about to report.
+""",
+    ),
+    "the coverage contract holds": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-coverage-contract.py',
+        note="""What the coverage job promises, in one row.
+
+Three checks read the coverage configuration: the report measures every module
+in it, the floor is declared where Kover reads it, and the timeout covers the
+measured run. They were three shell rows for one subject, and the wrapper runs
+all three and reports every failure rather than the first. The members keep
+their own scripts, tests and controls.
 """,
     ),
     "selectable text coverage": Placement(
@@ -447,24 +464,6 @@ second whether they still agree.
 It reports; it does not rewrite. Regeneration needs the JVM
 (`-PupdateGoldens=true`), and the gate names that command when it finds a
 difference."""),
-    "skills catalogue is current": Placement(
-        kind=PlacementKind.STATIC,
-        command='bash scripts/regen-skills-catalog.sh --check',
-        note="""The catalogue of the skills, generated from the skills' own frontmatter.
-
-`docs/SKILLS-CATALOG.md` is what an agent reads to choose a skill, so a stale
-line count or a stale description sends it to the wrong file. The catalogue was
-committed stale on a clean tree and nobody noticed: "do not edit by hand"
-discourages the wrong edit, and it does not catch the edit nobody made.
-
-The generator had a `--check` mode for exactly that, and nothing ran it. This
-gate is that mode — the generator compares the committed catalogue with a
-fresh generation and exits non-zero when they differ, so a pull request that
-edits a skill without regenerating the catalogue fails instead of landing one.
-
-The script is invoked directly rather than through `sgate`: a gate dispatched
-through `sgate` is asked for `--json` and held to the JSON contract, and this
-one prints a sentence."""),
     "GitHub workflows are valid": Placement(
         kind=PlacementKind.STATIC,
         command='github_workflows_valid',
@@ -901,25 +900,6 @@ run the compiler and does not read the compiler's stability report: that
 report is a build artifact, and a gate that depends on build output is the
 fragility this repository already has a gate for.""",
     ),
-    "screen state collections": Placement(
-        kind=PlacementKind.STATIC,
-        command='python3 scripts/check-screen-state-collections.py',
-        note="""
-The screen states — `config/compose/screen_state_collection_debt.conf` — name
-the states that still hold a raw collection.
-
-The sibling rule reads the *parameter* of a composable and cannot see inside
-the state: a screen that receives `ArchiveUiState` passes the rule while the
-state itself carries `List<Task>`. The promise a state makes about its own
-contents is then unenforceable, and the value is built on the wrong side of the
-boundary — the state that owns the value must hold the persistent kind.
-
-The file is a register of debt, and it records its own size: the debt may not
-grow without somebody deciding to raise the bar, and a shrink has to be
-recorded. The gate reads the register from both sides — a raw collection the
-register does not name is a new debt, and a registered entry the code no
-longer has is a debt that was paid and whose record did not move with it.""",
-    ),
     # ── Cluster members ─────────────────────────────────────────────────────────
     # They run because their cluster runs them: one gate line, one CI row, one
     # subject. The wrapper runs each member and reports every failure.
@@ -1119,13 +1099,6 @@ seed, so the run id there stays available. The gate reads `QUERY` lines only."""
             "starts. A gate line would read a directory that does not exist yet."
         ),
         tracked_by=".github/workflows/ci.yml#Executed test counts",
-    ),
-    'the link grammar has one home': Placement(
-        kind=PlacementKind.STATIC,
-        command="sgate the_link_grammar_has_one_home",
-        note=(
-            'The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.'
-        ),
     ),
     'the tool catalogue is current': Placement(
         kind=PlacementKind.STATIC,
