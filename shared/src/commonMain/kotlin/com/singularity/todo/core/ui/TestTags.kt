@@ -69,6 +69,9 @@ object TestTags {
     const val AUTH_PASSWORD_INPUT = "auth_password_input"
     const val AUTH_SIGN_IN_BUTTON = "auth_sign_in_button"
     const val AUTH_SIGN_OUT_BUTTON = "auth_sign_out_button"
+
+    /** The signed-in account's e-mail on the account settings screen. */
+    const val AUTH_ACCOUNT_EMAIL = "auth_account_email"
     const val AUTH_TOGGLE_MODE_BUTTON = "auth_toggle_mode_button"
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
@@ -136,6 +139,9 @@ object TestTags {
 
     /** Dynamic tag of the form `settings_tab_<slug>`. */
     fun settingsTab(name: String) = "settings_tab_${slug(name)}"
+
+    /** Dynamic tag of the form `settings_group_<slug>` — a settings section heading. */
+    fun settingsGroup(name: String) = "settings_group_${slug(name)}"
 
     /** Dynamic tag of the form `nav_tab_<slug>`. */
     fun navTab(title: String) = "nav_tab_${slug(title)}"

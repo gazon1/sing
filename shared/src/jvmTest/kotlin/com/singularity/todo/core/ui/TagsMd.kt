@@ -257,7 +257,11 @@ object TagsMd {
             }
 
             "settingsTab" -> {
-                DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
+                DynamicMeta(fnName, "Settings", "Interface", "Settings rows in the rail and the narrow sheet")
+            }
+
+            "settingsGroup" -> {
+                DynamicMeta(fnName, "Settings", "Appearance", "Settings section headings")
             }
 
             "Settings.workingDaySwitch" -> {

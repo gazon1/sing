@@ -98,11 +98,10 @@ their logic.
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
 | `open-settings.yaml` | Opens Settings from the app menu and waits for the settings tab control |
-| `settings-tab.yaml` | Opens a Settings tab by `TAB_ID`, scrolling the dropdown until it is drawn |
+| `settings-tab.yaml` | Flows opening a settings tab by name (`SETTINGS_TAB: settings_tab_account`); it opens the narrow settings sheet, scrolls the row into view and taps it |
 | `open-menu-item.yaml` | Opens a menu entry by `ENTRY_ID`, scrolling the sheet until it is on screen, then waits for `DEST_ID` — the way to reach a destination that is not a tab |
 | `session-signedin.yaml` | Flows needing a signed-in session persisted on the device |
 | `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
-| `settings-account-tab.yaml` | Flows needing the Account tab in Settings (a `settings-tab.yaml` call with `TAB_ID: settings_tab_account`) |
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
 | `plans-section.yaml` | Flows waiting for a timeline section by its date tag |

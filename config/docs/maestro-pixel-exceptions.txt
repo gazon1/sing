@@ -12,7 +12,7 @@
 #
 # Format: one `<path-relative-to-Maestro> <reason>` per line. `#` starts a
 # comment. The path is relative to `Maestro/`, so a helper is
-# `helpers/settings-account-tab.yaml`.
+# `helpers/settings-tab.yaml`.
 #
 # The gate also fails when a listed flow no longer names a pixel: a stale
 # exception is a claim that is no longer true, and it hides the day the flow

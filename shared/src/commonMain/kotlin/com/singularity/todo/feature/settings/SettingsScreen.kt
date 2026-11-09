@@ -2,6 +2,7 @@ package com.singularity.todo.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,33 +20,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,6 +60,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -108,40 +96,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-
-private enum class SettingsTab(val label: String) {
-    Interface("Interface"),
-    Agenda("Agenda"),
-    Notifications("Notifications"),
-    AIProvider("AI Provider"),
-    WorkSchedule("Work Schedule"),
-    Calendar("Calendar"),
-    Sync("Sync"),
-    Tags("Tags"),
-    TagGroups("Tag Groups"),
-    Tasks("Tasks"),
-    Files("Files"),
-    Backup("Backup"),
-    Account("Account"),
-}
-
-private val SettingsTab.icon
-    get() =
-        when (this) {
-            SettingsTab.Interface -> Icons.Filled.Palette
-            SettingsTab.Agenda -> Icons.Filled.Schedule
-            SettingsTab.Notifications -> Icons.Filled.Notifications
-            SettingsTab.AIProvider -> Icons.Filled.SmartToy
-            SettingsTab.WorkSchedule -> Icons.Filled.DateRange
-            SettingsTab.Calendar -> Icons.Filled.CalendarMonth
-            SettingsTab.Sync -> Icons.Filled.CloudSync
-            SettingsTab.Tags -> Icons.AutoMirrored.Filled.Label
-            SettingsTab.TagGroups -> Icons.Filled.Category
-            SettingsTab.Tasks -> Icons.Filled.CheckCircle
-            SettingsTab.Files -> Icons.Filled.Folder
-            SettingsTab.Backup -> Icons.Filled.CloudUpload
-            SettingsTab.Account -> Icons.Filled.AccountCircle
-        }
 
 @Composable
 fun SettingsScreen(
@@ -242,7 +196,7 @@ private fun SettingsContent(
         val narrow = maxWidth < 600.dp
         if (narrow) {
             Column(modifier = Modifier.fillMaxSize()) {
-                SettingsTabDropdown(
+                SettingsTabSheet(
                     selectedTab = selectedTab,
                     onSelect = onSelectTab,
                 )
@@ -481,71 +435,67 @@ private fun SettingsNavRail(
                 .padding(vertical = 8.dp)
                 .testTag(TestTags.Settings.NAV_RAIL_SCROLL),
     ) {
-        val groups =
-            listOf(
-                "Appearance" to listOf(SettingsTab.Interface),
-                "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
-                "Notifications" to listOf(SettingsTab.Notifications),
-                "Data" to
-                    listOf(
-                        SettingsTab.Files,
-                        SettingsTab.Backup,
-                        SettingsTab.Sync,
-                        SettingsTab.Calendar,
-                        SettingsTab.Tags,
-                        SettingsTab.TagGroups,
-                    ),
-                "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
-            )
-        groups.forEach { (group, tabs) ->
-            Text(
-                text = group,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-            tabs.forEach { tab ->
-                val isSelected = tab == selectedTab
-                Column(
-                    modifier =
-                        Modifier
-                            .clickable(role = Role.Tab) { onSelect(tab) }
-                            .semantics { selected = isSelected }
-                            .padding(vertical = 12.dp, horizontal = 8.dp)
-                            .testTag(TestTags.settingsTab(tab.name)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(
+        // The same rows the narrow sheet renders — [SETTINGS_MENU_ROWS] is the
+        // one flattening of [SETTINGS_GROUPS], so the two layouts cannot show
+        // different sections, or the same sections in a different order.
+        SETTINGS_MENU_ROWS.forEach { row ->
+            when (row) {
+                is SettingsMenuRow.Group -> {
+                    Text(
+                        text = row.group.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier =
                             Modifier
-                                .size(48.dp)
-                                .background(
-                                    shape = CircleShape,
-                                    color =
-                                        if (isSelected) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.surface
-                                        },
-                                ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(tab.icon, contentDescription = tab.label)
-                        if (tab == SettingsTab.AIProvider) {
-                            AiStatusBadge(
-                                aiTestResult = aiTestResult,
-                                modifier =
-                                    Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 2.dp, y = (-2).dp),
-                            )
-                        }
-                    }
-                    Text(
-                        tab.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .testTag(TestTags.settingsGroup(row.group.title)),
                     )
+                }
+
+                is SettingsMenuRow.Tab -> {
+                    val tab = row.tab
+                    val isSelected = tab == selectedTab
+                    Column(
+                        modifier =
+                            Modifier
+                                .clickable(role = Role.Tab) { onSelect(tab) }
+                                .semantics { selected = isSelected }
+                                .padding(vertical = 12.dp, horizontal = 8.dp)
+                                .testTag(TestTags.settingsTab(tab.name)),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        shape = CircleShape,
+                                        color =
+                                            if (isSelected) {
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            },
+                                    ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(tab.icon, contentDescription = tab.label)
+                            if (tab == SettingsTab.AIProvider) {
+                                AiStatusBadge(
+                                    aiTestResult = aiTestResult,
+                                    modifier =
+                                        Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 2.dp, y = (-2).dp),
+                                )
+                            }
+                        }
+                        Text(
+                            tab.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }
@@ -553,60 +503,120 @@ private fun SettingsNavRail(
 }
 
 /**
- * The narrow-window settings switcher: a dropdown that stands in for the tab
- * rail.
+ * The narrow screen's way into the settings sections.
  *
- * The fill is dropped on purpose. As a full-width filled [Button] this control
- * was a dark band above every piece of content — louder than the "Theme",
- * "Accent Color" and "Font Size" cards below it — for what is a navigation
- * element, not the primary action.
+ * It is a bottom sheet, not a dropdown: the sheet holds five headings and
+ * thirteen tabs, and a dropdown popup is shorter than a phone — the rows of
+ * the last group sat below its fold and had to be scrolled to.
  *
- * This is the whole of the narrow layout: [SettingsContent] renders this
- * dropdown only when the window is under 600dp wide, and the wide layout
- * renders [SettingsNavRail] — a column of tabs, which carries no fill to keep.
- * There is therefore no wide-layout filled button that could lose its fill; the
- * filled form existed only here, on the narrow window the audit was about.
+ * The sheet reads [SETTINGS_GROUPS], the same list the wide nav rail reads, so
+ * the two layouts cannot drift apart again: the phone is a narrower version of
+ * the rail, not a different screen.
+ *
+ * The trigger carries no fill, and that is deliberate: as a full-width filled
+ * button this control was a dark band above every piece of content — louder
+ * than the "Theme", "Accent Color" and "Font Size" cards below it — for what
+ * is a navigation element, not the primary action. The wide layout renders
+ * [SettingsNavRail], which carries no fill to keep, so this is the only place
+ * the fill would have been.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsTabDropdown(
+private fun SettingsTabSheet(
     selectedTab: SettingsTab,
     onSelect: (SettingsTab) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
+    var showSheet by rememberSaveable { mutableStateOf(false) }
+
+    OutlinedButton(
+        onClick = { showSheet = true },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag(TestTags.Settings.TAB_DROPDOWN),
     ) {
-        OutlinedButton(
-            onClick = { expanded = !expanded },
-            modifier =
-                Modifier
-                    // The anchor's own expansion is off: `menuAnchor` toggles in
-                    // the Initial pointer pass, and a second toggle here closed the
-                    // menu the anchor had just opened.
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = false)
-                    .fillMaxWidth()
-                    .testTag(TestTags.Settings.TAB_DROPDOWN),
+        Text(selectedTab.groupedLabel)
+        Icon(Icons.Filled.ExpandMore, contentDescription = null)
+    }
+
+    if (showSheet) {
+        // The sheet starts expanded: the visible state is the one it is shown
+        // in, so it composes showing what it holds instead of animating from
+        // hidden on every open. Partial expansion is disabled, so the sheet is
+        // either fully open or gone. See
+        // docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
+        val sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Expanded,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            )
+        // The canonical sheet host, not a bare ModalBottomSheet: it applies the
+        // window insets and asserts the testTag→resource-id mapping on the
+        // sheet's own window.
+        BottomSheetHost(
+            onDismiss = { showSheet = false },
+            sheetState = sheetState,
         ) {
-            Text(selectedTab.label)
-            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-        }
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.mapTestTagsAsResourceIds(),
-        ) {
-            SettingsTab.entries.forEach { tab ->
-                DropdownMenuItem(
-                    text = { Text(tab.label) },
-                    modifier = Modifier.testTag(TestTags.settingsTab(tab.name)),
-                    onClick = {
-                        onSelect(tab)
-                        expanded = false
-                    },
-                )
+            Column(
+                // The sheet renders into its own window, so the app-root
+                // testTagsAsResourceId never reaches the rows.
+                //
+                // The column scrolls: eighteen rows do not fit a phone, and the
+                // rows of the last group have to be reachable, not clipped.
+                //
+                // This is the sheet's *only* scroller, and it holds
+                // [SETTINGS_MENU_ROWS] — every heading and every tab — so "a tab
+                // can be scrolled to" is "the tab is a row of that list".
+                // `verticalScroll` composes every row (nothing here is lazy), so
+                // a row that exists in the list exists in the tree; the only way
+                // to lose one is to drop it from the list, which
+                // `SettingsMenuTest` fails on.
+                modifier =
+                    Modifier
+                        .mapTestTagsAsResourceIds()
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                // The same rows the wide nav rail renders, from the same list:
+                // the phone offers the rail's five headings with the rail's tabs
+                // under them, in the rail's order.
+                SETTINGS_MENU_ROWS.forEach { row ->
+                    when (row) {
+                        is SettingsMenuRow.Group -> {
+                            Text(
+                                text = row.group.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                    Modifier
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .testTag(TestTags.settingsGroup(row.group.title)),
+                            )
+                        }
+
+                        is SettingsMenuRow.Tab -> {
+                            NavigationDrawerItem(
+                                label = { Text(row.tab.label) },
+                                selected = row.tab == selectedTab,
+                                onClick = {
+                                    onSelect(row.tab)
+                                    showSheet = false
+                                },
+                                icon = { Icon(row.tab.icon, contentDescription = null) },
+                                // The mapping lives on the sheet's column, once.
+                                // Mapping the item as well mapped the same tag tree
+                                // twice, which was a guess rather than a constraint.
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .testTag(TestTags.settingsTab(row.tab.name)),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
