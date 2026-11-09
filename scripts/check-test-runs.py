@@ -480,7 +480,7 @@ def executed_classes(detail_dir: pathlib.Path) -> set[str]:
     for xml in detail_dir.glob("**/*.xml"):
         try:
             root = ET.parse(xml).getroot()
-        except ET.ParseError:
+        except (ET.ParseError, OSError):
             continue
         if root.tag != "testsuite":
             continue
@@ -549,7 +549,7 @@ def count(detail_dir: pathlib.Path, since: float | None = None, max_age: float |
     for xml in detail_dir.glob("**/*.xml"):
         try:
             root = ET.parse(xml).getroot()
-        except ET.ParseError:
+        except (ET.ParseError, OSError):
             continue
         if root.tag != "testsuite":
             continue
