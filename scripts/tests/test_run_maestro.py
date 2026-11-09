@@ -152,7 +152,7 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
             "seed.yaml",
             "session-signedin.yaml",
             "session-signedout.yaml",
-            "settings-account-tab.yaml",
+            "settings-tab.yaml",
         ]
         for name in live:
             helper = ROOT / "Maestro/helpers" / name

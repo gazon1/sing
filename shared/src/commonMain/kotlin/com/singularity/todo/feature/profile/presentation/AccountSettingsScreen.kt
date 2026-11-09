@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -25,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -66,6 +63,12 @@ fun AccountSettingsScreen(
             ActiveProfileSection(profile)
         }
 
+        // The account the app is signed in to — or the fact that it is signed
+        // in to none. The screen used to show two cards both titled "Account"
+        // and never named the account, so a signed-in session and a signed-out
+        // one looked the same.
+        AccountStatusSection(session = session)
+
         // Change password — only shown for signed-in accounts.
         if (session is Session.SignedIn) {
             ChangePasswordSection(onChangePassword = { settingsNavigator.openChangePassword() })
@@ -74,17 +77,25 @@ fun AccountSettingsScreen(
         ProfileSwitcherSection(onSwitchProfile = { settingsNavigator.openProfileSwitcher() })
 
         // Attach account — only shown for anonymous sessions.
-        if (authVm.session.value is Session.Anonymous) {
+        if (session is Session.Anonymous) {
             AttachAccountSection(onAttachAccount = { settingsNavigator.openAttachAccount() })
         }
 
-        SignOutSection(onSignOut = { showSignOutConfirm = true })
+        // Sign out — only for a session that has an account to sign out of. An
+        // anonymous session has nothing to sign out of: the button there was an
+        // enabled destructive action that signed out of nothing, and the card's
+        // own wording had to explain that. The account card above already says
+        // which state the session is in, and "Attach account" is the action an
+        // anonymous session actually offers.
+        if (session is Session.SignedIn) {
+            SignOutSection(session = session, onSignOut = { showSignOutConfirm = true })
+        }
     }
 
     if (showSignOutConfirm) {
         ConfirmActionDialog(
             title = "Sign out",
-            text = "You will be signed out of this account on this device.",
+            text = signOutExplanation(session),
             confirmButtonText = "Sign out",
             onConfirm = {
                 showSignOutConfirm = false
@@ -124,13 +135,19 @@ private fun AccountSettingsScreenDarkPreview() =
 /**
  * Stateless preview variant that takes an explicit callback instead of [LocalSettingsNavigator].
  * Mirrors the layout of [AccountSettingsScreen] without requiring the nav graph context.
+ *
+ * Public rather than internal because the desktop test module is a different
+ * compilation and cannot see an `internal` declaration of this one — and the
+ * screen it renders is the one that says who is signed in, so it is the one
+ * worth a test.
  */
 @Composable
-internal fun AccountSettingsScreenPreviewContent(
+fun AccountSettingsScreenPreviewContent(
     activeProfile: Profile?,
     onNavigateToProfileSwitcher: () -> Unit,
     onChangePassword: () -> Unit,
     onSignOut: () -> Unit,
+    onAttachAccount: () -> Unit = {},
     session: Session =
         Session.SignedIn(
             userId =
@@ -153,6 +170,8 @@ internal fun AccountSettingsScreenPreviewContent(
             ActiveProfileSection(profile)
         }
 
+        AccountStatusSection(session = session)
+
         // Change password — only shown for signed-in accounts.
         if (session is Session.SignedIn) {
             ChangePasswordSection(onChangePassword = onChangePassword)
@@ -160,38 +179,34 @@ internal fun AccountSettingsScreenPreviewContent(
 
         ProfileSwitcherSection(onSwitchProfile = onNavigateToProfileSwitcher)
 
-        SignOutSection(onSignOut = onSignOut)
+        // Attach account — only shown for anonymous sessions.
+        if (session is Session.Anonymous) {
+            AttachAccountSection(onAttachAccount = onAttachAccount)
+        }
+
+        // Sign out — only for a session that has an account to sign out of.
+        if (session is Session.SignedIn) {
+            SignOutSection(session = session, onSignOut = onSignOut)
+        }
     }
 }
 
 // ─── Sections ──────────────────────────────────────────────────────────────
 //
 // One definition per row of this screen, shared by [AccountSettingsScreen] and
-// [AccountSettingsScreenPreviewContent]. The two were byte-identical for three of
-// the four rows, so a label or test tag changed in one was a divergence the other
-// only revealed in a screenshot.
+// [AccountSettingsScreenPreviewContent]. The two used to drift — a label or a
+// test tag changed in one was a divergence the other only revealed in a
+// screenshot — so every row below is rendered by both.
 
 @Composable
 private fun ActiveProfileSection(profile: Profile) {
-    SettingsSection(title = "Account") {
-        Text(
-            text = "Active profile",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    SettingsSection(title = "Active profile") {
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = profile.emoji,
-                style = MaterialTheme.typography.headlineSmall,
-                modifier =
-                    Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-            )
+            ProfileAvatar(profile = profile)
             Column {
                 Text(
                     text = profile.name,
@@ -204,6 +219,85 @@ private fun ActiveProfileSection(profile: Profile) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/**
+ * The profile's emoji, or the person icon when the profile has none.
+ *
+ * The emoji field of the new-profile form is optional — only the name is
+ * required — so a profile can legitimately have an empty one, and an empty
+ * circle said nothing at all. The buttons next to it already fall back to
+ * [Icons.Default.Person].
+ */
+@Composable
+private fun ProfileAvatar(profile: Profile) {
+    // The emoji-or-person fallback lives in the shared avatar component, so
+    // this screen and the profile switcher cannot disagree about what a profile
+    // with no emoji looks like.
+    ProfileAvatar(emoji = profile.emoji)
+}
+
+/**
+ * The account the app is signed in to — or the fact that it is signed in to
+ * none.
+ *
+ * The screen used to hold two cards both titled "Account" and never named the
+ * account, so a signed-in session and a signed-out one were not visually
+ * distinguishable.
+ */
+@Composable
+private fun AccountStatusSection(session: Session) {
+    when (session) {
+        is Session.SignedIn -> {
+            SettingsSection(title = "Signed in") {
+                Text(
+                    text = "Signed in as",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SelectableText(
+                    text = session.email,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag(TestTags.AUTH_ACCOUNT_EMAIL),
+                )
+            }
+        }
+
+        is Session.Anonymous -> {
+            SettingsSection(title = "Not signed in") {
+                // The title already says it; a second line saying it again
+                // said nothing and made the card read as a stutter.
+                SelectableText(
+                    text =
+                        "This device works on its own. Attach an account to keep your data " +
+                            "across devices.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+
+        // The session is not known yet. The card used to be absent in this
+        // state, so it appeared out of nothing once the session resolved; now it
+        // says that it is looking. The action cards below it (security, attach
+        // account, sign out) belong to a known state and still arrive with it.
+        Session.Loading -> {
+            SettingsSection(title = "Account") {
+                Text(
+                    text = "Checking the session…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // A signed-out session never reaches this screen — the auth guard
+        // shows the sign-in screen instead.
+        Session.SignedOut -> {
+            // Nothing to say about an account that is not there.
         }
     }
 }
@@ -254,7 +348,7 @@ private fun ProfileSwitcherSection(onSwitchProfile: () -> Unit) {
 /** Attach account — only shown for anonymous sessions. */
 @Composable
 private fun AttachAccountSection(onAttachAccount: () -> Unit) {
-    SettingsSection(title = "Account") {
+    SettingsSection(title = "Attach account") {
         FilledTonalButton(
             onClick = onAttachAccount,
             modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_ATTACH_ACCOUNT_BUTTON),
@@ -276,7 +370,10 @@ private fun AttachAccountSection(onAttachAccount: () -> Unit) {
 }
 
 @Composable
-private fun SignOutSection(onSignOut: () -> Unit) {
+private fun SignOutSection(
+    session: Session,
+    onSignOut: () -> Unit,
+) {
     SettingsSection(title = "Sign out") {
         FilledTonalButton(
             onClick = onSignOut,
@@ -289,10 +386,38 @@ private fun SignOutSection(onSignOut: () -> Unit) {
             )
         }
         SelectableText(
-            text = "You will stay on this device. To remove all data, delete the app.",
+            text = signOutExplanation(session),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
+
+/**
+ * What signing out will do — and that is not the same sentence when there is
+ * no account to be signed out of.
+ *
+ * The card is drawn only for a signed-in session, so this is usually the
+ * signed-in sentence. The other one is still reachable: the confirmation
+ * dialog is open, and the session ends underneath it — the token is revoked,
+ * the account is detached — so the sentence has to be true of the session the
+ * dialog is about to act on, not of the one the screen was drawn for.
+ *
+ * It is public rather than private because it is the whole of the two-state
+ * distinction on this screen: `SignOutExplanationTest` (desktopApp) asserts
+ * that the signed-in sentence and the anonymous one differ, and a private
+ * function could only be checked by reading it.
+ */
+fun signOutExplanation(session: Session): String =
+    when (session) {
+        is Session.SignedIn -> {
+            "You will be signed out of this account on this device. " +
+                "Your tasks stay on this device."
+        }
+
+        else -> {
+            "You are not signed in. Signing out returns you to the sign-in screen. " +
+                "Your tasks stay on this device."
+        }
+    }

@@ -47,9 +47,9 @@ tags:
     id: note_editor_body
 - inputText: "Discuss roadmap"
 - hideKeyboard
-# The editor autosaves; saving does not leave the editor.
-- tapOn:
-    id: note_editor_save
+# The editor autosaves and has no save button of its own: the shell draws the
+# screen's top bar, so `note_editor_save` is not on it. Leaving the editor is
+# what commits the draft.
 - back
 # Reload to verify the body survives a full process restart.
 - runFlow: ../../helpers/relaunch.yaml

@@ -1,9 +1,9 @@
-# Smoke: the Account tab opens from the settings nav rail.
+# Smoke: the Account tab opens from the narrow settings menu.
 #
-# The rail is a scrollable column of twelve ~76dp rows, so the trailing tabs
-# (Files, Backup, Account) are below the fold on a phone viewport — the screen
-# looks complete, but the tab is not on it. This flow walks the rail the way a
-# user does and lands on Account.
+# The menu is a bottom sheet holding five headings and thirteen rows, so the
+# trailing tabs (Files, Backup, Account) are below the fold on a phone viewport
+# — the screen looks complete, but the row is not on it. This flow opens the
+# menu the way a user does and lands on Account.
 #
 # What is asserted is what the E2E build can actually show. The "Attach
 # account" button is rendered only for `Session.Anonymous`, and the E2E build
@@ -11,14 +11,14 @@
 # `Session.SignedIn` from the first frame ("the session is immediately
 # `Session.SignedIn` and the auth screen never appears"). The attach affordance
 # is therefore unreachable in this environment, and a flow that waits for it
-# waits forever for an element that cannot be on the screen. The signed-in
-# account section is the thing this tab really shows, so that is what is
-# asserted.
+# waits forever for an element that cannot be on the screen. The sign-out
+# action — the last card of the tab — is what is asserted instead, by its own
+# test tag rather than by the label it shares with the card title.
 #
 # The attach path itself is covered by Maestro/flows/auth/07-account-attach.yaml
 # (scenario AUTH-ATTACH-01), which needs an anonymous session to exist at all.
 #
-# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
+# прогнан на устройстве: да (2026-11-09) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: smoke-account-tab
 tags:
@@ -35,16 +35,24 @@ tags:
 
 # Open menu -> Settings.
 - runFlow: ../../helpers/open-settings.yaml
+
+# Switch to the Account tab through the narrow settings sheet.
 - runFlow:
     file: ../../helpers/settings-tab.yaml
     env:
-      TAB_ID: settings_tab_account
+      SETTINGS_TAB: settings_tab_account
 
-# The Account tab is open: its sign-out action is on the screen. The button's
-# own `auth_sign_out_button` tag is below the section card, which merges its
-# descendants; the visible label is what Maestro can see.
-- extendedWaitUntil:
-    visible: "Sign out"
+# The Account tab is open: its sign-out action is the last card on the screen,
+# and it is BELOW the fold. The account status card — the one that names the
+# account — sits above it, and together with the profile, change-password and
+# profile-switcher cards it pushes the sign-out card off a phone viewport. A
+# user scrolls; the flow has to scroll too, or it asserts on an element that
+# is not on the screen.
+- scrollUntilVisible:
+    element:
+      id: auth_sign_out_button
+    direction: DOWN
     timeout: 8000
-- assertVisible: "Sign out"
+- assertVisible:
+    id: auth_sign_out_button
 - takeScreenshot: smoke/03-account-tab

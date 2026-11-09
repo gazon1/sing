@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.formatDateCount
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import com.singularity.todo.feature.attachments.AttachmentsIntent
 import com.singularity.todo.feature.attachments.AttachmentsUiEvent
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
@@ -124,6 +125,10 @@ fun TaskDetailContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAiSheet by rememberSaveable { mutableStateOf(false) }
+    // The pill that says an inline edit landed — the same state holder the note editor
+    // uses. The screen is the single collector of this channel, so it pulses the holder
+    // here rather than collecting the flow a second time.
+    val savedPill = rememberSavedPillState()
     // Separate flag rather than one `showSheet` enum: the two sheets are
     // reachable from two different sections far apart in the list, and an enum
     // would mean every call site names a state it does not own.
@@ -145,6 +150,12 @@ fun TaskDetailContent(
     LaunchedEffect(coordinator.events) {
         coordinator.events.collect { event ->
             when (event) {
+                // A debounced inline edit landed. Pulse the pill without a snackbar:
+                // autosaves on every pause are not operations the user asked for.
+                TaskDetailUiEvent.SavedPulse -> {
+                    savedPill.pulse()
+                }
+
                 is TaskDetailUiEvent.Saved -> {
                     scope.launch {
                         snackbarHostState.showSnackbar(
@@ -360,6 +371,7 @@ fun TaskDetailContent(
                                 TaskTitleValidation.error(ui.titleDraft.value)
                                     .takeIf { ui.task.title.isBlank() || ui.titleDraft.value != ui.task.title },
                             descriptionSource = ui.descriptionSource,
+                            savedVisible = savedPill.visible,
                             onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
                             onDescriptionChange = {
                                 coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))

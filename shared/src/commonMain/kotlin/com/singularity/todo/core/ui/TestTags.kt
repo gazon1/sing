@@ -69,6 +69,9 @@ object TestTags {
     const val AUTH_PASSWORD_INPUT = "auth_password_input"
     const val AUTH_SIGN_IN_BUTTON = "auth_sign_in_button"
     const val AUTH_SIGN_OUT_BUTTON = "auth_sign_out_button"
+
+    /** The signed-in account's e-mail on the account settings screen. */
+    const val AUTH_ACCOUNT_EMAIL = "auth_account_email"
     const val AUTH_TOGGLE_MODE_BUTTON = "auth_toggle_mode_button"
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
@@ -136,6 +139,9 @@ object TestTags {
 
     /** Dynamic tag of the form `settings_tab_<slug>`. */
     fun settingsTab(name: String) = "settings_tab_${slug(name)}"
+
+    /** Dynamic tag of the form `settings_group_<slug>` — a settings section heading. */
+    fun settingsGroup(name: String) = "settings_group_${slug(name)}"
 
     /** Dynamic tag of the form `nav_tab_<slug>`. */
     fun navTab(title: String) = "nav_tab_${slug(title)}"
@@ -241,6 +247,14 @@ object TestTags {
     const val TASK_EDITOR_SAVING = "task_editor_saving"
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
     const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
+
+    /**
+     * The "Saved" pill of the task detail.
+     *
+     * The detail stores its inline title and description edits silently, so this is the
+     * only thing on the screen that says a debounced write landed.
+     */
+    const val TASK_DETAIL_SAVED_INDICATOR = "task_detail_saved_indicator"
 
     /** Confirm (✓) button in task-editor sheet hosts (recurrence picker, etc.). */
     const val SHEET_CONFIRM = "sheet_confirm"
@@ -664,6 +678,7 @@ object TestTags {
     const val NOTE_EDITOR_TITLE_INPUT = "note_editor_title_input"
     const val NOTE_EDITOR_BODY = "note_editor_body"
     const val NOTE_EDITOR_SAVE = "note_editor_save"
+    const val NOTE_EDITOR_BACK = "note_editor_back"
     const val NOTE_EDITOR_NOTIFICATION_HOST = "note_editor_notification_host"
 
     /**

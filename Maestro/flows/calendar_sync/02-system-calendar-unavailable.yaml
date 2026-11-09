@@ -29,12 +29,14 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_interface
+      id: settings_tab_dropdown
     timeout: 10000
 
-# Navigate to Calendar tab.
-- tapOn:
-    id: settings_tab_calendar
+# Open the Calendar tab through the narrow settings sheet.
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_calendar
 - extendedWaitUntil:
     visible:
       id: calendar_sync_system_enable_switch

@@ -59,6 +59,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.maxLengthTransformation
 import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.feature.profile.presentation.ProfileAvatar
 import com.singularity.todo.preview.PreviewProfileRepository
 import kotlinx.collections.immutable.ImmutableList
 import org.koin.compose.viewmodel.koinViewModel
@@ -244,20 +245,12 @@ private fun ProfileCard(
                     .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Color dot
-            Box(
-                modifier =
-                    Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(ProfileIdentityColors.at(profile.colorIdx)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = profile.emoji,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+            // The emoji-or-person fallback is shared with the account screen,
+            // so a profile with no emoji still shows an avatar here.
+            ProfileAvatar(
+                emoji = profile.emoji,
+                backgroundColor = ProfileIdentityColors.at(profile.colorIdx),
+            )
 
             Spacer(Modifier.width(12.dp))
 

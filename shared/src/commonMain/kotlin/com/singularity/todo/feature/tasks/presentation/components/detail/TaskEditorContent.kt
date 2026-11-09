@@ -172,6 +172,7 @@ private fun TaskEditorContent(
     // a failure there had nowhere to go at all.
     snackbarHost: (@Composable () -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
+    savedVisible: Boolean = false,
 ) {
     Scaffold(
         topBar = {
@@ -179,6 +180,7 @@ private fun TaskEditorContent(
                 onBackClick = onBack,
                 onAiClick = onAiClick,
                 menuItems = menuItems,
+                savedVisible = savedVisible,
             )
         },
         bottomBar = bottomBar ?: {},
@@ -451,11 +453,10 @@ private fun StartDateRow(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
- * @param titleError the message drawn under the title field when the title cannot be saved,
- *   or `null` when there is nothing to say. It has no default: a caller that forgets it would
- *   silently lose the message this parameter exists for.
- * @param snackbarHost where transient failures land. `null` for an editor that sits inside a
- *   surface which already hosts a snackbar — two hosts would race for the same message.
+ * @param titleError the message drawn under the title field when the title cannot be saved.
+ * @param snackbarHost where transient failures land. `null` for an editor inside a surface
+ *   that already hosts a snackbar.
+ * @param savedVisible whether the top bar shows the "Saved" pill.
  */
 @Composable
 fun TaskEditorContent(
@@ -469,8 +470,9 @@ fun TaskEditorContent(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
-    titleError: String?,
+    titleError: String? = null,
     snackbarHost: (@Composable () -> Unit)? = null,
+    savedVisible: Boolean = false,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -483,6 +485,7 @@ fun TaskEditorContent(
         showAttachmentsRow = showAttachmentsRow,
         titleError = titleError,
         snackbarHost = snackbarHost,
+        savedVisible = savedVisible,
     )
 }
 
@@ -559,8 +562,9 @@ private fun TaskEditorScaffold(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
-    titleError: String?,
+    titleError: String? = null,
     snackbarHost: (@Composable () -> Unit)? = null,
+    savedVisible: Boolean = false,
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
@@ -609,6 +613,7 @@ private fun TaskEditorScaffold(
         onAiClick = callbacks.onAiClick,
         snackbarHost = snackbarHost,
         sheets = sheets,
+        savedVisible = savedVisible,
     )
 
     TaskEditorSheetsHost(

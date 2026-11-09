@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -36,6 +37,7 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
@@ -43,6 +45,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator
+import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.nav.NotesRoute
@@ -94,17 +97,14 @@ internal fun NoteEditorScreen(
         }
     }
 
-    // Saved-pill animation: on each successful save, show "Saved" for 1.5s.
-    var savedVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        viewModel.events
-            .filterIsInstance<NotesUiEvent.SavedPulse>()
-            .collect {
-                savedVisible = true
-                kotlinx.coroutines.delay(com.singularity.todo.core.platform.TimeConstants.AutoSaveDebounceMs)
-                savedVisible = false
-            }
-    }
+    // Saved-pill animation: one state holder owns the timer (see SavedPillState).
+    // The filtered flow is remembered so recomposition does not restart the collector
+    // and drop a pulse that lands mid-restart.
+    val savedPulses =
+        remember(viewModel.events) {
+            viewModel.events.filterIsInstance<NotesUiEvent.SavedPulse>()
+        }
+    val savedPill = rememberSavedPillState(savedPulses)
 
     // The AI's proposed changes to this note. A note that is being created has none
     // yet, so the ViewModel is asked about an empty id and shows nothing.
@@ -114,21 +114,32 @@ internal fun NoteEditorScreen(
         }
     val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
 
+    // Leaving with text the editor has not stored yet asks first. `isDirty` stands
+    // until the autosave has written the text (NoteEditor clears it in onAutosaved),
+    // so the guard asks only while a back press would really drop keystrokes.
+    var showDiscard by rememberSaveable { mutableStateOf(false) }
     val onBack: () -> Unit = {
         viewModel.onIntent(NotesEditorIntent.Close)
         navigator.back()
     }
+    val guardedBack: () -> Unit = {
+        if (editorState.draft.isDirty) {
+            showDiscard = true
+        } else {
+            onBack()
+        }
+    }
     // The system back press means what the header's back button means — and
     // with the keyboard open it means "close the keyboard" first.
-    ImeAwareBackHandler { onBack() }
+    ImeAwareBackHandler { guardedBack() }
     NoteEditorScreenContent(
         editorState = editorState,
         noteNotFound = viewModel.noteNotFound,
         onTitleChange = { title -> viewModel.onIntent(NotesEditorIntent.EditTitle(title)) },
         onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
-        onBack = onBack,
-        savedVisible = savedVisible,
+        onBack = guardedBack,
+        savedVisible = savedPill.visible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
         onAiAction = { action -> viewModel.onIntent(NotesEditorIntent.RunAiAction(action)) },
@@ -150,6 +161,18 @@ internal fun NoteEditorScreen(
         },
         proposalFailures = proposalsState.failures,
     )
+
+    // "Discard" leaves and drops the text — the same thing Close has always done —
+    // but the user says so first.
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onDiscard = {
+                showDiscard = false
+                onBack()
+            },
+            onKeepEditing = { showDiscard = false },
+        )
+    }
 
     // The proposals carry their own failures, on their own bus. They are merged into
     // the editor's notification stream rather than hosted separately: two hosts over
@@ -225,7 +248,7 @@ fun NoteEditorScreenContent(
             TopAppBar(
                 title = { Text("Note") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_BACK)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

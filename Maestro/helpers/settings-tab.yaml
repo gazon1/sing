@@ -1,20 +1,33 @@
-# Opens a Settings tab by its id. The dropdown holds more tabs than fit on a
-# phone screen, so the menu is scrolled until the tab is drawn.
+# Opens one Settings tab by name.
 #
 # Usage:
 #   - runFlow:
 #       file: ../../helpers/settings-tab.yaml
 #       env:
-#         TAB_ID: settings_tab_backup
+#         SETTINGS_TAB: settings_tab_account
+#
+# The flow is already in Settings — it has tapped the menu's Settings item.
+#
+# The narrow screen's menu is a bottom sheet: its rows are composed only once
+# the trigger is tapped, and the sheet holds five headings and thirteen tabs,
+# so the row a caller names can sit below the fold. The sheet's column scrolls;
+# scroll to the row instead of assuming it is on screen.
+#
+# The trigger keeps `settings_tab_dropdown`, and each row keeps the
+# `settingsTab(name)` id its caller passes in `SETTINGS_TAB`.
 appId: com.singularity.todo
 name: settings-tab
 ---
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_dropdown
+    timeout: 10000
 - tapOn:
     id: settings_tab_dropdown
 - scrollUntilVisible:
     element:
-      id: "${TAB_ID}"
+      id: "${SETTINGS_TAB}"
     direction: DOWN
     timeout: 10000
 - tapOn:
-    id: "${TAB_ID}"
+    id: "${SETTINGS_TAB}"

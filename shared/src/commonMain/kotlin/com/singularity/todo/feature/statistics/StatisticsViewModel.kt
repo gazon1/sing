@@ -20,11 +20,18 @@ import com.singularity.todo.feature.timetracking.domain.logic.splitAtMidnight
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -41,8 +48,8 @@ import kotlin.time.Duration.Companion.milliseconds
 data class StatisticsUiState(
     val snapshot: StatisticsSnapshot? = null,
     val insights: InsightsData = InsightsData(),
-    /** Task-health buckets for the Health tab; null until the first computation lands. */
-    val health: TaskHealthSummary? = null,
+    /** Task-health buckets for the Health tab, and what the query behind them is doing. */
+    val health: TaskHealthState = TaskHealthState.Loading,
     val loading: Boolean = true,
     val rangeDays: Int = 7,
 ) {
@@ -53,6 +60,26 @@ data class StatisticsUiState(
         val projectBuckets: ImmutableList<ProjectInsightsBucket> = persistentListOf(),
         val totalMs: Long = 0L,
     )
+}
+
+/**
+ * The Health tab's data, and what the query behind it is doing right now.
+ *
+ * The three states are separate on purpose. A null summary cannot tell "the
+ * query has not landed yet" from "the query failed", and the Health tab said
+ * "unavailable" for both — so a healthy database flashed a broken-looking
+ * screen every time the tab opened, and a real failure looked like a screen
+ * that was merely still loading.
+ */
+sealed interface TaskHealthState {
+    /** The query has not landed yet. */
+    data object Loading : TaskHealthState
+
+    /** The query failed: the health of the task list is unknown. */
+    data object Unavailable : TaskHealthState
+
+    /** The health of the task list, computed. */
+    data class Ready(val summary: TaskHealthSummary) : TaskHealthState
 }
 
 /** A single project's time total. */
@@ -85,36 +112,47 @@ class StatisticsViewModel(
     init {
         addCloseable(scope)
 
-        // ── Task statistics ────────────────────────────────────────────────
+        // ── Task statistics (recomputed when rangeDays changes) ─────────────
+        // The chart draws one bar per day of the selected range, so the
+        // snapshot has to follow the range too: a snapshot fixed at seven days
+        // put a seven-bar chart under a "Last 30 days" title.
         scope.launch {
-            deps.taskRepository
-                .observeByFilter(TaskFilter.All)
-                .map { tasks ->
-                    val nowMs = deps.clock.now().toEpochMilliseconds()
-                    // The statistics measure works, and a series is one work
-                    // scheduled on several dates: the copies count once. The
-                    // grouping happens here, before the buckets are counted, so
-                    // no bucket can see two copies of the same work.
-                    val rows =
-                        tasks.map { task ->
-                            StatisticsWorkRow(
-                                id = task.id.value,
-                                seriesId = task.seriesId?.value,
-                                completedAt = task.completedAt?.toEpochMilliseconds(),
-                                dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
-                            )
-                        }
-                    val (completed, overdue) = groupIntoWorks(rows)
-                    // Snapshot is always computed at 7-day range here; range is tracked
-                    // in state and used by the insights side.
-                    computeStatistics(completed, overdue, nowMs, 7)
+            state
+                .map { it.rangeDays }
+                // The range is the *input* to this computation, so the flow that
+                // drives it may only fire when the range changes. Without the
+                // dedupe every state write re-subscribed the repository: the
+                // recomputation changed the state, which re-subscribed the
+                // recomputation — a loop that re-queried the database forever.
+                .distinctUntilChanged()
+                .flatMapLatest { rangeDays ->
+                    retryTransient("statistics.tasks") {
+                        deps.taskRepository.observeByFilter(TaskFilter.All)
+                    }.map { tasks ->
+                        val nowMs = deps.clock.now().toEpochMilliseconds()
+                        // The statistics measure works, and a series is one work
+                        // scheduled on several dates: the copies count once. The
+                        // grouping happens here, before the buckets are counted, so
+                        // no bucket can see two copies of the same work.
+                        val rows =
+                            tasks.map { task ->
+                                StatisticsWorkRow(
+                                    id = task.id.value,
+                                    seriesId = task.seriesId?.value,
+                                    completedAt = task.completedAt?.toEpochMilliseconds(),
+                                    dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
+                                )
+                            }
+                        val (completed, overdue) = groupIntoWorks(rows)
+                        computeStatistics(completed, overdue, nowMs, rangeDays)
+                    }
                 }.catch { error ->
                     // The failure crossed a channel hop, and a channel carries a *copy* of
                     // the throwable — the original is its cause, so the copy is unwrapped
                     // before it is reported.
                     val reported = error.cause ?: error
                     crashReporter.report(reported, TASK_STATISTICS_FAILED)
-                    emit(StatisticsSnapshot(persistentListOf(), 0, 0, 0.0, 0))
+                    emit(StatisticsSnapshot(persistentListOf(), 0, 0, 0.0))
                 }.collect { snapshot ->
                     updateState { it.copy(snapshot = snapshot, loading = false) }
                 }
@@ -129,7 +167,9 @@ class StatisticsViewModel(
         // Stagnation window is read from SettingsRepository so it can be changed at runtime.
         scope.launch {
             combine(
-                deps.taskRepository.observeByFilter(TaskFilter.All),
+                retryTransient("statistics.health") {
+                    deps.taskRepository.observeByFilter(TaskFilter.All)
+                },
                 deps.settingsRepository.stalenessThresholdDays,
             ) { tasks, stalenessDays ->
                 val now = deps.clock.now()
@@ -151,28 +191,45 @@ class StatisticsViewModel(
                         // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
                         null
                     }
-                summarizeTaskHealthFromSelectors(
-                    allTasks = tasks,
-                    today = today,
-                    now = now,
-                    stagnationWindow = stagnationWindow,
-                    lastActivityOf = lastTouched,
-                )
+                // Typed nullable on purpose: the catch below emits null, and a
+                // non-null zero summary is what made the screen's "Task health
+                // unavailable" branch unreachable.
+                val summary: TaskHealthSummary? =
+                    summarizeTaskHealthFromSelectors(
+                        allTasks = tasks,
+                        today = today,
+                        now = now,
+                        stagnationWindow = stagnationWindow,
+                        lastActivityOf = lastTouched,
+                    )
+                summary
             }.catch { error ->
                 // The failure crossed a channel hop, and a channel carries a *copy* of
                 // the throwable — the original is its cause, so the copy is unwrapped
                 // before it is reported.
                 val reported = error.cause ?: error
                 crashReporter.report(reported, TASK_HEALTH_FAILED)
-                // Pure function — no exception expected, but report and fall back gracefully.
-                emit(TaskHealthSummary(emptyMap(), 0, null, null))
-            }.collect { summary -> updateState { it.copy(health = summary) } }
+                // The failure is a state of its own: the Health tab says
+                // "unavailable" instead of showing a healthy-looking zero.
+                emit(null)
+            }.collect { summary ->
+                updateState {
+                    it.copy(
+                        health =
+                            summary?.let { TaskHealthState.Ready(it) }
+                                ?: TaskHealthState.Unavailable,
+                    )
+                }
+            }
         }
 
         // ── Time-tracking insights (recomputed when rangeDays changes) ────────
         scope.launch {
             state
                 .map { it.rangeDays }
+                // Same dedupe as the task statistics above: the range is the
+                // input to the computation, not the state it writes to.
+                .distinctUntilChanged()
                 .flatMapLatest { days ->
                     val now = deps.clock.now()
                     val zone = TimeZone.currentSystemDefault()
@@ -181,13 +238,23 @@ class StatisticsViewModel(
                     val userId = deps.currentUser.current
 
                     combine(
-                        deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs),
-                        deps.taskRepository.observeByFilter(TaskFilter.All),
-                        deps.projectsRepo.observeProjectsWithCounts(),
+                        retryTransient("statistics.insights.entries") {
+                            deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs)
+                        },
+                        retryTransient("statistics.insights.tasks") {
+                            deps.taskRepository.observeByFilter(TaskFilter.All)
+                        },
+                        retryTransient("statistics.insights.projects") {
+                            deps.projectsRepo.observeProjectsWithCounts()
+                        },
                     ) { entries, tasks, projects ->
                         val taskProjectMap = tasks.associate { it.id.value to it.projectId?.value }
                         val projectNameMap = projects.associate { row -> row.project.id to row.project.name }
 
+                        // The running entry is read here rather than as a source of
+                        // the combine: it changes on its own, and a source that
+                        // emits once would freeze the running session at whatever
+                        // it was when the range was picked.
                         val openEntry = deps.timeTrackingRepo.getOpenEntry(userId)
                         val openInterval = openEntry?.let { OpenInterval(it.startedAt.toEpochMilliseconds()) }
                         val merged = mergeIntervalsWithOpen(entries, openInterval, nowMs)
@@ -226,6 +293,11 @@ class StatisticsViewModel(
             is StatisticsIntent.SetRange -> {
                 val days = intent.days
                 if (days !in listOf(7, 30, 90)) return
+                // Selecting the range that is already selected is not a change:
+                // the collectors recompute on a *new* range, so asking for the
+                // same one would set the loading flag for a recomputation that
+                // never comes, and the screen would wait on it forever.
+                if (days == currentState.rangeDays) return
                 updateState { it.copy(rangeDays = days, loading = true) }
             }
         }
@@ -237,4 +309,41 @@ class StatisticsViewModel(
         const val TASK_HEALTH_FAILED = "statistics.health_failed"
         const val TIME_INSIGHTS_FAILED = "statistics.insights_failed"
     }
+
+    /**
+     * A failed observation is not the end of the collector.
+     *
+     * The `catch` that follows this used to be the end of the story: one transient
+     * failure — a database that was busy, a channel that dropped — and the
+     * collector was gone for the lifetime of the ViewModel. The tab kept the value
+     * it had, the query was never asked again, and nothing said that the data had
+     * stopped being fresh.
+     *
+     * So the failure is retried: three tries in all, with a pause that grows. A
+     * failure that survives the retries is a real one — it reaches the caller's
+     * `catch`, which reports it and puts the explicit failure state on screen.
+     *
+     * The upstream comes as a factory, because a retry has to *ask again*: a flow
+     * that was built once can only be collected again, and collecting a broken
+     * flow again fails in exactly the same way.
+     *
+     * Only the *read* goes through here. A read that fails and is retried must not
+     * drag the calculation that reads its result through the retries with it — the
+     * calculation is not what failed, and running it again changes nothing.
+     */
+    private fun <T> retryTransient(
+        label: String,
+        upstream: () -> Flow<T>,
+    ): Flow<T> =
+        flow { emitAll(upstream()) }.retryWhen { cause, attempt ->
+            // A cancellation is not a failure to retry — it is the caller saying stop.
+            if (cause is CancellationException) return@retryWhen false
+            // Three tries in all: the first one and two retries.
+            if (attempt >= 2) return@retryWhen false
+            // A failure that a retry papers over leaves no trace otherwise, and the
+            // crash that happens exactly once is the one nobody ever sees.
+            crashReporter.addBreadcrumb("$label retried after ${cause::class.simpleName}")
+            delay(500.milliseconds * (attempt + 1).toInt())
+            true
+        }
 }
