@@ -8,13 +8,12 @@ import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -470,10 +469,9 @@ abstract class SyncDaoGuardContractTest {
         deferred: CompletableDeferred<T>,
         what: String,
     ): T =
-        try {
-            withContext(Dispatchers.Default) { withTimeout(FLOW_TIMEOUT_MS) { deferred.await() } }
-        } catch (timeout: TimeoutCancellationException) {
-            fail("$what never arrived on a flow taken before the change: $timeout")
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(FLOW_TIMEOUT_MS) { deferred.await() }
+                ?: fail("$what never arrived on a flow taken before the change")
         }
 
     /** A shelved patch, as the shelf holds it. */
