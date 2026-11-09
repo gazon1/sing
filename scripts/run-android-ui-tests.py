@@ -71,6 +71,21 @@ def write_environment(facts: dict[str, str]) -> None:
         print(f"{YELLOW}Could not write the run's environment: {exc}{_col('0', '')}", flush=True)
 
 
+def apk_facts(apk: Path, version: str, installed_sha: str) -> dict[str, str]:
+    """The three facts about the APK, each named after what it is.
+
+    A file name is not a hash and a version is not a commit: one field that
+    means different things in two producers is a field every consumer has to
+    guess about. The Maestro runner writes the same three names, and the
+    evidence manifest copies both runs' metadata side by side.
+    """
+    return {
+        "apk_filename": apk.name,
+        "app_version": version,
+        "apk_commit_sha": installed_sha,
+    }
+
+
 # ── APK provenance ─────────────────────────────────────────────────────────────
 def sdk_root() -> Path:
     return Path(os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or "")
@@ -413,8 +428,10 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_FAIL
     print(f"APK provenance OK: {apk.name} ({version})", flush=True)
 
-    environment["apk"] = apk.name
-    environment["apk_version"] = version
+    # The three names say what they are: a file name is not a hash, and a
+    # version is not a commit. The Maestro runner writes the same fields,
+    # and the evidence manifest copies both runs' metadata side by side.
+    environment.update(apk_facts(apk, version, installed_sha))
     write_environment(environment)
 
     # ── 4. Clear logcat ───────────────────────────────────────────────────

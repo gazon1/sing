@@ -42,7 +42,7 @@ environment:
   api: 35
   device: RMX3938
   measured_on: '2026-10-22'
-  apk: 742deef01cd1
+  apk_commit_sha: 742deef01cd1
   note: >-
     The floor belongs to this environment. The Maestro shards are skipped in
     CI — there is no emulator there — so the emulator's calibration guarded
@@ -55,12 +55,12 @@ environments:
     api: 35
     device: RMX3938
     measured_on: '2026-10-22'
-    apk: 742deef01cd1
+    apk_commit_sha: 742deef01cd1
   - kind: emulator
     api: 36
     device: sdk_gphone64_x86_64
     measured_on: '2026-10-29'
-    apk: 742deef01cd1
+    apk_commit_sha: 742deef01cd1
 
 causes:
 - key: "No visible element found: id: attachments_add_file_row"

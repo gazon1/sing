@@ -173,7 +173,7 @@ def _write_environment(
         "api": deps.device_api_level(serial),
         "device": deps.device_model(serial),
         "serial": serial,
-        "apk": deps.apk_sha_from_device(serial),
+        "apk_commit_sha": deps.apk_sha_from_device(serial),
         "commit": deps.git_sha(deps),
         "shard": shard,
         "shards": shards,
