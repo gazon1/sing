@@ -142,6 +142,19 @@ class Nav3StateFallbackTest {
             )
         withPreviousTab.setPreviousTopLevelRoute(upcoming)
         assertTrue(Navigator(withPreviousTab).canGoBack())
+
+        // Malformed single-element non-tab-key active stack: back pops/reseeds.
+        val malformed =
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(today to NavBackStack(today), upcoming to NavBackStack(upcoming)),
+            )
+        malformed.topLevelRoute = upcoming
+        malformed.setPreviousTopLevelRoute(upcoming) // previous == top: only the non-tab top makes it navigable
+        malformed.requireBackStackFor(upcoming).clear()
+        malformed.requireBackStackFor(upcoming).add(AppDestination.Settings)
+        assertTrue(Navigator(malformed).canGoBack())
     }
 
     @Test
