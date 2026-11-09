@@ -27,8 +27,7 @@ its helper tools — and the gates are described here, once.
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
-| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported
-sche... | — | — |
+| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported sche... | — | — |
 | tag entity constructions include nameNormalized | blocking | `scripts/ci/check-tag-entity-normalized.py` | Fail if a TagEntity(...) construction omits nameNormalized. | — | — |
 | migration index names follow convention | blocking | `scripts/ci/check-migration-naming.py` | Cheap migration-naming checks: partial indexes must be named index_<table>_<c... | — | — |
 | gates are alive | blocking | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
@@ -107,3 +106,4 @@ sche... | — | — |
 | hideKeyboard follows an input | blocking | `scripts/check-maestro-hidekeyboard.py` | check-maestro-hidekeyboard.py — hideKeyboard must follow an input, not preced... | — | — |
 | maestro smoke suite matches the doc | blocking | `scripts/check-maestro-smoke-suite.py` | check-maestro-smoke-suite.py — the smoke suite is what the doc says it is. | — | — |
 | touch targets meet minimum | blocking | `scripts/check-touch-targets.py` | check-touch-targets.py — a touch target is 48 dp, and the order of the modifi... | 0=every: touch target is at least 48 dp, 1=a: touch target is below the minimum, 2=the: tree could not be read | — |
+| the test profiles agree with the repository | blocking | `scripts/check-test-profiles.py` | check-test-profiles.py — the profiles are declared, and the declaration is true. | — | — |

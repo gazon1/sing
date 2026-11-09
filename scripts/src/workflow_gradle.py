@@ -163,6 +163,112 @@ def _resolve_population(value: str) -> str:
         return name
     return ",".join(population_tags(name))
 
+
+#: Where the named test profiles live: `config/test-profiles.properties`.
+#:
+#: A profile says which TASKS run; a population says which TAGS they select.
+#: The two were one question until the profiles file existed, and the price
+#: was paid in words: "the tests" meant the fast population on a pull request
+#: and the whole JVM tier on a laptop, and nothing in the repository said so.
+PROFILES_FILE = pathlib.Path(__file__).resolve().parents[2] / "config" / "test-profiles.properties"
+
+#: The profiles every repository has. A name outside this list is a profile
+#: nobody can ask for, and a name inside it that the file does not declare is
+#: a profile the vocabulary promises and the file does not keep.
+PROFILE_NAMES = ("fast", "full", "device", "e2e", "all")
+
+#: The pseudo-module a Maestro flow belongs to.
+#:
+#: A Maestro flow is not a Gradle task, and `settings.gradle.kts` does not
+#: include a project called `maestro` — but a profile still has to say which
+#: tier a flow belongs to, and `maestro:flows` is the name the evidence
+#: reporter reads off `build/maestro-results/`. The gate knows it is a
+#: pseudo-module, so a profile that names a project that does not exist is
+#: still a finding.
+PSEUDO_MODULES = frozenset({"maestro"})
+
+
+@lru_cache(maxsize=1)
+def load_profiles(path: pathlib.Path | None = None) -> dict[str, dict[str, object]]:
+    """The named test profiles: their tasks and their properties.
+
+    Read from `config/test-profiles.properties`. Returns
+    `{profile: {"tasks": (task, …), "population": str, "tier": str}}`.
+
+    A missing file is an error and not an empty mapping, for the same reason
+    the populations reader raises: a caller that cannot read the definitions
+    would compare profiles it does not understand, and "I did not look" and
+    "they agree" look exactly the same in the output.
+    """
+    source = path or PROFILES_FILE
+    try:
+        text = source.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"the named test profiles are unreadable: {source} ({exc})") from exc
+    profiles: dict[str, dict[str, object]] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # The properties come first: `profile.property: value` is a property,
+        # and `profile=task,task` is a profile. A line with `=` before `:` is
+        # a profile, and the colon in `module:task` inside it does not make it
+        # a property.
+        if ":" in line and "=" not in line.split(":", 1)[0]:
+            name, _, value = line.partition(":")
+            profile_name, _, prop = name.strip().partition(".")
+            if not profile_name or not prop:
+                raise RuntimeError(f"{source}: a property without a profile: {line!r}")
+            entry = profiles.setdefault(profile_name, {"tasks": (), "population": "", "tier": ""})
+            entry[prop.strip()] = value.strip()
+            continue
+        if "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        name = name.strip()
+        tasks = tuple(part.strip() for part in value.split(",") if part.strip())
+        if not name or not tasks:
+            raise RuntimeError(f"{source}: a profile without tasks: {line!r}")
+        entry = profiles.setdefault(name, {"tasks": (), "population": "", "tier": ""})
+        entry["tasks"] = tasks
+    if not profiles:
+        raise RuntimeError(f"{source}: no profiles are declared")
+    return profiles
+
+
+def profile_tasks(profile: str, path: pathlib.Path | None = None) -> tuple[str, ...]:
+    """The tasks a named profile runs.
+
+    An unknown name is an error, not an empty selection: an empty selection
+    would look like "this profile selects nothing", which is a different claim
+    from "this profile names one nobody declared".
+    """
+    profiles = load_profiles(path)
+    if profile not in profiles:
+        known = ", ".join(sorted(profiles))
+        raise RuntimeError(
+            f"unknown test profile {profile!r} — the known ones are: {known} ({PROFILES_FILE})"
+        )
+    return tuple(profiles[profile]["tasks"])  # type: ignore[arg-type]
+
+
+def profile_population(profile: str, path: pathlib.Path | None = None) -> str:
+    """The named population a profile runs with, or an empty string.
+
+    A tier that is not tag-selected (the instrumented tests carry no
+    `@Tag`, and a Maestro flow's tag is not a JUnit tag) has no population,
+    and an empty string says so. It is not an error: the profile exists, and
+    what it runs is not tag-selected.
+    """
+    profiles = load_profiles(path)
+    if profile not in profiles:
+        known = ", ".join(sorted(profiles))
+        raise RuntimeError(
+            f"unknown test profile {profile!r} — the known ones are: {known} ({PROFILES_FILE})"
+        )
+    return str(profiles[profile].get("population", ""))
+
+
 #: Shell separators. Fragments are split on these so a pipeline cannot hide an
 #: invocation on its right-hand side.
 _SPLIT = re.compile(r"[|\n;&]+")
@@ -250,6 +356,22 @@ class Step:
     text: str
 
 
+def is_report_task(token: str) -> bool:
+    """True when this task writes a JUnit report under its own name.
+
+    `is_test_task` also answers yes for a Kover task, because a Kover task
+    re-runs the test tasks it measures — and that is the right answer for the
+    question "does this invocation run tests?". It is the wrong answer for
+    "which task's report is this?", because a Kover task writes no report of
+    its own: the reports are the ones its dependencies wrote, under their own
+    names. The two questions are different, so they have two answers.
+    """
+    bare = token.rsplit(":", 1)[-1]
+    if bare in EXACT_TEST_TASKS:
+        return True
+    return bool(_TEST_SUFFIX.match(bare)) and "test" in bare.lower()
+
+
 def is_test_task(token: str) -> bool:
     """True when this command-line word names a task that runs tests.
 
@@ -258,12 +380,9 @@ def is_test_task(token: str) -> bool:
     """
     if token.startswith("-") or "=" in token:
         return False
-    bare = token.rsplit(":", 1)[-1]
-    if bare in EXACT_TEST_TASKS:
+    if is_report_task(token):
         return True
-    if _KOVER.match(token):
-        return True
-    return bool(_TEST_SUFFIX.match(bare)) and "test" in bare.lower()
+    return bool(_KOVER.match(token))
 
 
 def iter_invocations(text: str, origin: str = "") -> Iterator[Invocation]:
@@ -346,8 +465,14 @@ def iter_steps(path: pathlib.Path, root: pathlib.Path | None = None) -> Iterator
 __all__ = [
     "Invocation",
     "Step",
+    "is_report_task",
     "is_test_task",
     "join_continuations",
     "iter_invocations",
     "iter_steps",
+    "load_populations",
+    "load_profiles",
+    "population_tags",
+    "profile_population",
+    "profile_tasks",
 ]

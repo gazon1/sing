@@ -108,6 +108,13 @@ def _generate_table(commands_dir: Path) -> str:
         adr_str = adr_link if adr_link else "—"
 
         purpose_str = purpose if purpose else spec.name
+        # A docstring's first paragraph is written for a reader, so it wraps:
+        # the room-schema gate's purpose runs onto a second line. A newline
+        # inside a markdown table cell ends the row, and the row after it
+        # reads as a row of its own — the table then has a line that is not a
+        # row, and `rumdl` (MD055, MD056) says so. One line of prose, one
+        # cell.
+        purpose_str = " ".join(purpose_str.split())
         if len(purpose_str) > 80:
             purpose_str = purpose_str[:77] + "..."
 

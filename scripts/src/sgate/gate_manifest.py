@@ -1193,6 +1193,13 @@ do.""",
                 'the expansion has to come before the size.'
             ),
         ),
+        'the test profiles agree with the repository': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate the_test_profiles_agree_with_the_repository",
+            note=(
+                'The profiles file names what a run is, and this compares the name with the tasks the repository actually runs.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.

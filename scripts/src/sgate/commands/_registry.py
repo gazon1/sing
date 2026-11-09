@@ -1200,6 +1200,17 @@ _REGISTERED: tuple[GateSpec, ...] = (
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-touch-targets.py"),
         ),
+        # The profiles file names what a run is, and this compares the name with the tasks the repository actually runs.
+        GateSpec(
+            name="the test profiles agree with the repository",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-test-profiles.py"),
+            # No `--check`: this script's `--check` means "report without failing",
+            # the Click house style its sibling gates use. Passing it here would
+            # make the gate unable to fail — a gate that always passes is a gate
+            # nobody has to read.
+        ),
 )
 
 
@@ -2034,6 +2045,22 @@ GATE_CONTROLS: dict[str, Control] = {
                 'and the expansion has to come before the size: applied after it, the '
                 'size caps the hit area and the target stays small however the '
                 'modifier chain is read'
+            ),
+        ),
+        # the profiles are the vocabulary every test run reports itself in: a profile that declares a task nobody runs reports every run as incomplete, and a task that runs and is declared in no profile is evidence the report ignores
+        'test-profiles': Control(
+            kind='sabotage',
+            proves='scripts/check-test-profiles.py',
+            argv=('{python}', 'scripts/check-test-profiles.py',),
+            path='config/test-profiles.properties',
+            edit=Edit(
+                kind='replace',
+                old='e2e=maestro:flows',
+                new='e2e=maestro:nowhere',
+                count=1,
+            ),
+            why=(
+                'the profiles are the vocabulary every test run reports itself in: a profile that declares a task nobody runs reports every run as incomplete, and a task that runs and is declared in no profile is evidence the report ignores'
             ),
         ),
 }
