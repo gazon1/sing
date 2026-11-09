@@ -598,6 +598,24 @@ fun DesktopComposeUiTest.textOfTag(testTag: String): String? =
         }
 
 /**
+ * Every text the node with [testTag] holds, in the order the row draws them.
+ *
+ * [textOfTag] answers "the *first* text it holds" — for a settings row that is
+ * the title ("Interval"), which never changes, so a test watching a value cycle
+ * through states was comparing a label with itself. The value a row shows is the
+ * trailing text, the last of them.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.textsOfTag(testTag: String): List<String> =
+    onAllNodesWithTag(testTag)
+        .fetchSemanticsNodes()
+        .firstOrNull()
+        ?.config
+        ?.getOrNull(SemanticsProperties.Text)
+        ?.map { it.text }
+        ?: emptyList()
+
+/**
  * Waits until the node with [tag] holds exactly [expected], then returns.
  *
  * The wait counterpart of [assertTagTextEquals], and the one a test wants when the

@@ -86,11 +86,11 @@ class CreateTaskFlowTest {
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
             typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
-            // Pushing the editor turns the shell's hamburger into a back arrow, so
-            // the drawer is unreachable until the push is popped. This is desktop
-            // behaviour with no Android counterpart, since the bottom bar stays put.
-            assertContentDescriptionDisplayed(DesktopShell.BACK)
-            clickContentDescription(DesktopShell.BACK)
+            // The shell draws a back arrow of its own next to the drawer's button
+            // as soon as there is something to pop, and the editor draws one of
+            // its own — the tag is what tells the two apart.
+            assertTagDisplayed(TestTags.SHELL_BACK_BUTTON)
+            clickTag(TestTags.SHELL_BACK_BUTTON)
 
             // The pop is asynchronous: the editor stays composed until the shell has
             // navigated back, so a one-shot "does not exist" right after the click

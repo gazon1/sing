@@ -10,6 +10,7 @@ import com.singularity.todo.test.helpers.TIMEOUT_MS
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTagTextEquals
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
+import com.singularity.todo.test.helpers.clickSettingsTab
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -43,7 +44,7 @@ class SyncStatus01ScenarioTest {
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")
-            clickTag(TestTags.settingsTab("Sync"))
+            clickSettingsTab("Sync")
 
             // Manual sync action is reachable.
             assertTagDisplayed(TestTags.Sync.SYNC_NOW_ROW)

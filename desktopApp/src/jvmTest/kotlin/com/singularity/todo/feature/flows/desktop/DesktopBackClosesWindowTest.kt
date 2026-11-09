@@ -1,10 +1,13 @@
 package com.singularity.todo.feature.flows.desktop
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -17,9 +20,9 @@ import kotlin.time.Instant
  * The positive half of that claim lives in `DesktopBackTest`, at the policy: nothing on
  * screen is a back control at the ultimate root of the start tab, so no mounted flow can
  * press one there. This test covers the other direction through the real shell — a back
- * the shell *can* show (the task editor's arrow) must return to the tab and leave the
- * window alone. Without it, routing every back through the close request would pass the
- * policy test and close the app on the first editor dismissal.
+ * the shell *can* show (its own arrow, drawn while the editor is pushed) must return to
+ * the tab and leave the window alone. Without it, routing every back through the close
+ * request would pass the policy test and close the app on the first editor dismissal.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -36,10 +39,15 @@ class DesktopBackClosesWindowTest {
 
             // The FAB pushes the task editor on top of the start tab.
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
-            assertContentDescriptionDisplayed(DesktopShell.BACK)
 
-            // Its own back arrow: one nested screen to pop, so goBack() answers true.
-            clickContentDescription(DesktopShell.BACK)
+            // The shell's own back arrow: one nested screen to pop, so the
+            // shell draws it next to the drawer's button. The editor draws an
+            // arrow of its own, so the tag is what tells the two apart.
+            assertTagDisplayed(TestTags.SHELL_BACK_BUTTON)
+
+            // The shell's leading control, which the push turned into a back arrow:
+            // one nested screen to pop, so goBack() answers true.
+            clickTag(TestTags.SHELL_BACK_BUTTON)
 
             assertEquals(
                 0,

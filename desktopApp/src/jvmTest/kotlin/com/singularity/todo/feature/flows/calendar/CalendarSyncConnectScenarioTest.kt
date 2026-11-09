@@ -10,6 +10,7 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
+import com.singularity.todo.test.helpers.clickSettingsTab
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.connectedCredential
@@ -74,7 +75,7 @@ class CalendarSyncConnectScenarioTest {
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")
-            clickTag(TestTags.settingsTab("Calendar"))
+            clickSettingsTab("Calendar")
             clickTag(TestTags.CalendarSync.providerSegment("Google Calendar"))
 
             // Connected: the invitation is gone and the account can be disconnected.

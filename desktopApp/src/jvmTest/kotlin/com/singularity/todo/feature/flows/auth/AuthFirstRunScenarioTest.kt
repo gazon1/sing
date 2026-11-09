@@ -54,6 +54,11 @@ class AuthFirstRunScenarioTest {
         runDesktopAppTest(checkA11y = true) {
             val title = "No account needed"
 
+            // The FAB is opened from the **Inbox** tab on purpose: the resolver
+            // pre-fills `dueDate = Today` when creating from the Today tab (MR-13
+            // source-tab prefill), which would put the task in the Today bucket
+            // instead of the undated Inbox one this scenario is about.
+            tapTab("Inbox")
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
             typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, title)
             clickTag(TestTags.TASK_EDITOR_SAVE)

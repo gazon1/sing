@@ -43,7 +43,13 @@ class TaskDetailFirstRunOfferTest {
             clock = TEST_CLOCK,
             overrides = module { single<TimeZoneProvider> { TestTimeZone } },
         ) { koin ->
-            tasks(koin).given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Fresh task")
+            tasks(koin).given(
+                due = todayAt(TEST_CLOCK, TEST_ZONE),
+                title = "Fresh task",
+                // The offer is drawn for a task that is minutes old, and the clock
+                // is fixed — so the seeded task has to be as young as that clock.
+                createdAt = TEST_CLOCK.now(),
+            )
 
             tapTab("Today")
             awaitTag(TestTags.taskItem("Fresh task")).performClick()
@@ -76,8 +82,9 @@ class TaskDetailFirstRunOfferTest {
          * Midday UTC on a Saturday, so no timezone that can reach this test can roll the
          * date across a midnight boundary and empty the Today tab.
          *
-         * The clock is fixed, so the seeded task is always minutes old — which is what
-         * keeps the first-run offer on the screen instead of ageing out of the test.
+         * The clock is fixed, and the seeded task is created at that clock's moment — so
+         * the task is always minutes old, which is what keeps the first-run offer on the
+         * screen instead of ageing out of the test.
          */
         val TEST_CLOCK = FakeClock(Instant.parse("2026-03-14T12:00:00Z"))
     }
