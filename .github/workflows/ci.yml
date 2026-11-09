@@ -575,7 +575,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [changes]
-    if: ${{ github.event_name == 'pull_request' }}
+    # This job is the fast signal: it answers "what is worth running first".
+    # When the run's population is `full`, the suite job runs the whole
+    # population — every module the map can select, at every tag — and the
+    # answer this job would give is a subset of a run that already happened.
+    # The two jobs then do the same work twice, and the second one costs 371 s.
+    #
+    # The population is read from the job that decided it, not from a label
+    # spelled here: one answer to "which half runs" is what keeps the two
+    # jobs from drifting apart.
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.population != 'full' }}
     permissions:
       actions: read
       contents: read
