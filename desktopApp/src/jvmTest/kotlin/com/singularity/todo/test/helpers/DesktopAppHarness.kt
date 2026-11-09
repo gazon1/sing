@@ -9,8 +9,11 @@ import com.singularity.todo.App
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.llm.TextGenPort
+import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
+import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.shell.LocalWindowCloseRequest
+import com.singularity.todo.test.fakes.FakeOnboardingSettingsRepository
 import com.singularity.todo.test.fakes.FakeTextGen
 import org.koin.compose.KoinIsolatedContext
 import org.koin.core.Koin
@@ -36,6 +39,25 @@ private const val RELEASES_URL = "https://github.com/singularity-todo/singularit
 private fun fakeModelModule(): Module = module { single<TextGenPort> { FakeTextGen() } }
 
 /**
+ * The onboarding record, replaced by a fake that has already seen the spotlight tour.
+ *
+ * The tour is a first-run modal: its scrim covers the whole screen and swallows every
+ * tap, so an app that mounts it in a test answers no clicks at all. The flows are about
+ * the agenda, the tasks and the saved views — none of them about the tour — so the
+ * harness starts as a user who has finished it. The tour has its own tests
+ * (`SpotlightTourTest`), and they bring their own record.
+ *
+ * Loaded after `domainModule()` so it wins Koin's last-definition-wins rule over the
+ * platform module's real DataStore-backed binding.
+ */
+private fun seenSpotlightTourModule(): Module =
+    module {
+        single<OnboardingSettingsRepository> {
+            FakeOnboardingSettingsRepository(initialSeenVersion = SpotlightContent.VERSION)
+        }
+    }
+
+/**
  * Assembles the desktop app Koin graph for a test, reused by [runDesktopAppTest]
  * and by multi-instance harnesses so the module list is defined once.
  */
@@ -51,6 +73,7 @@ fun buildDesktopAppKoin(
                 // SupabaseAuthRepository would otherwise override the fake here.
                 testPlatformModule() + listOf(testKermitModule(), gateModule(RELEASES_URL)) +
                 fakeModelModule() +
+                seenSpotlightTourModule() +
                 listOfNotNull(clock?.let { fixed -> module { single<Clock> { fixed } } }) +
                 listOf(overrides),
         )

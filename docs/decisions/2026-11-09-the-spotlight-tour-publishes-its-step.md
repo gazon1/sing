@@ -47,8 +47,9 @@ machine started a moment later — with nothing left to wake the publisher. The
 overlay appeared only if the registry changed *again* afterwards.
 
 In the app that "again" was a later layout pass, so the tour could appear by
-accident. In the isolated harness there is no second layout pass, so the
-overlay never appeared at all: the tree stayed empty.
+accident. In the isolated harness the overlay appeared — it is the first-run
+tour, and the harness started as a user who had never seen it — and its scrim
+covers the whole screen, so every tap in every flow was swallowed by it.
 
 ## Idea
 
@@ -104,6 +105,9 @@ dispatcher resumes first.
 - The state machine is now Compose-aware. It is still a plain class — the
   decisions stay in it and its unit tests still run without a composition — but
   a caller that mutates it off the main thread writes to the global snapshot.
+- The tour now shows up in the desktop harness, which starts as a user who has
+  never seen it. That harness treats the tour as covering the screen; see
+  `2026-11-09-the-desktop-harness-starts-after-the-spotlight-tour.md`.
 
 ## Links
 
