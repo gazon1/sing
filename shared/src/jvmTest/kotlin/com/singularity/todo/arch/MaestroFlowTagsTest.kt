@@ -2,6 +2,7 @@ package com.singularity.todo.arch
 
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.TestTagsCatalog
+import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.test.fakes.FakeClock
 import org.junit.jupiter.api.Tag
@@ -35,7 +36,7 @@ import kotlin.test.assertTrue
  *
  * Run from repo root:
  * ```
- * ./gradlew :shared:jvmTest --tests "com.singularity.todo.arch.MaestroFlowTagsTest"
+ * ./gw :shared:archTest --tests "com.singularity.todo.arch.MaestroFlowTagsTest"
  * ```
  */
 @Tag("fast")
@@ -193,6 +194,66 @@ class MaestroFlowTagsTest {
                 broken.joinToString("\n") { "  - $it" } +
                 "\nPaths are relative to the flow's own directory. Helpers live in " +
                 "Maestro/helpers/, which is ../../ from a flow in Maestro/flows/<group>/.",
+        )
+    }
+
+    /**
+     * A `nav_tab_*` id outside [DestinationKind.tabs] addresses a tab the bar
+     * does not draw.
+     *
+     * Plans and Pomodoro were tabs once. When they moved behind the Menu button
+     * the flows kept tapping `nav_tab_plans` / `nav_tab_pomodoro`, and nothing
+     * here could see it: `nav_tab_` is a live dynamic prefix, so a dead tab is a
+     * perfectly valid id to every check above — and to
+     * `scripts/ci/validate-maestro-selectors.py` — while the tap finds nothing on
+     * a device and the flow fails on an id that never existed.
+     *
+     * The allowed set is read off `DestinationKind.tabs` rather than written down,
+     * so a tab that moves into the menu fails this test on the pull request and a
+     * tab that moves back needs no edit here. The absence commands are exempt:
+     * "this destination is not in the bar" is a claim the nav flows make on
+     * purpose.
+     *
+     * shortcut: matched a line at a time, so a selector in the inline mapping form
+     * (`- tapOn: { id: nav_tab_plans }`) is missed — no flow in the tree writes one,
+     * and adopting that style should adopt a parser here.
+     */
+    @Test
+    fun `no flow addresses a bottom-bar tab the bar does not draw`() {
+        val live = DestinationKind.tabs.map { destination -> TestTags.navTab(destination.title) }.toSet()
+        val stale = mutableListOf<String>()
+        var checked = 0
+
+        Files.walk(workspaceRoot.resolve("Maestro")).use { stream ->
+            stream
+                .filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file ->
+                    var command = ""
+                    Files.readAllLines(file).forEachIndexed { index, raw ->
+                        if (raw.trim().startsWith("#")) return@forEachIndexed
+                        val line = raw.trim()
+                        if (line.startsWith("- ")) {
+                            command = line.removePrefix("- ").substringBefore(':').trim()
+                        }
+                        val id = idPattern.find(raw)?.groupValues?.get(1) ?: return@forEachIndexed
+                        if (!id.startsWith("nav_tab_")) return@forEachIndexed
+                        checked++
+                        if (id in live || command in ABSENCE_COMMANDS) return@forEachIndexed
+                        stale += "${workspaceRoot.relativize(file)}:${index + 1} $command $id"
+                    }
+                }
+        }
+
+        assertTrue(
+            checked >= 20,
+            "scanned only $checked nav_tab ids — the collector is likely broken (expected >= 20 on the current tree)",
+        )
+        assertTrue(
+            stale.isEmpty(),
+            "The bottom bar draws DestinationKind.tabs ($live) and nothing else. " +
+                "These steps address a tab the bar does not render, so they fail on a device " +
+                "against an id that never existed — open the destination through " +
+                "Maestro/helpers/open-menu-item.yaml instead:\n" + stale.joinToString("\n") { "  - $it" },
         )
     }
 
@@ -547,6 +608,9 @@ class MaestroFlowTagsTest {
     }
 
     private companion object {
+        /** The commands that assert a thing is *not* there; a retired tab may be named in those. */
+        val ABSENCE_COMMANDS = setOf("assertNotVisible", "assertAbsent")
+
         // The horizontal whitespace is `[ \t]` and not `\s`: `\s` matches the
         // newline, so a flow that uses the mapping form — `- runFlow:` with
         // `when:` and `commands:` underneath it — was read as a runFlow of

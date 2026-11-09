@@ -40,15 +40,21 @@ tags:
     id: menu_notes
 - assertVisible:
     id: menu_aichat
+# Search and Archive sit above Settings in the sheet (`menu_search` is not an
+# entry at all: the Search destination is its own section, addressed by
+# `menu_quick_search` above, and the destination list runs Statistics -> Pomodoro).
+- scrollUntilVisible:
+    element:
+      id: menu_archive
+    direction: DOWN
+    timeout: 5000
+- assertVisible:
+    id: menu_archive
 - scrollUntilVisible:
     element:
       id: menu_settings
     direction: DOWN
     timeout: 5000
-- assertVisible:
-    id: menu_search
-- assertVisible:
-    id: menu_archive
 - assertVisible:
     id: menu_settings
 
