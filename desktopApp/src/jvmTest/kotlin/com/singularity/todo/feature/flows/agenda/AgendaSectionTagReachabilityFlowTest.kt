@@ -177,7 +177,7 @@ class AgendaSectionTagReachabilityFlowTest {
         fun task(
             id: String,
             title: String,
-            blockedBy: List<TaskId>,
+            blockedBy: Set<TaskId>,
         ) = testTask(
             id = TaskId(id),
             title = title,
@@ -189,9 +189,9 @@ class AgendaSectionTagReachabilityFlowTest {
 
         val blocker = TaskId("robot-blocker")
         val repository = get<TaskRepository>()
-        repository.upsert(TaskDocument.of(task(blocker.value, "Draft the spec", emptyList())))
+        repository.upsert(TaskDocument.of(task(blocker.value, "Draft the spec", emptySet())))
         repository.upsert(
-            TaskDocument.of(task("robot-blocked", "Publish the spec", listOf(blocker))),
+            TaskDocument.of(task("robot-blocked", "Publish the spec", setOf(blocker))),
         )
     }
 

@@ -13,9 +13,11 @@ import kotlin.test.assertTrue
  * The Android writer keeps records for as long as the policy says.
  *
  * The policy in `config/docs/tool-call-records.json` is what the report reads to
- * decide its window. If this writer deleted on a different schedule, the report's
- * window would be a span in which some records exist and others do not — and the
- * report would be counting a bound it had no way to name.
+ * decide its window. If the policy constant the writer purges by drifted from the
+ * file, the report's window would be a span in which some records exist and others
+ * do not — and the report would be counting a bound it had no way to name. The
+ * writer takes its retention from [ToolCallRecordPolicy.RETENTION_DAYS], so that
+ * constant and the file are the pair that can disagree.
  *
  * The JVM writer's side of the same question is in `ToolCallRecordPolicyTest`.
  */
@@ -32,7 +34,7 @@ class AndroidRecordRetentionTest {
 
         assertEquals(
             declared,
-            AndroidFileToolCallLog.RETENTION_DAYS,
+            ToolCallRecordPolicy.RETENTION_DAYS,
             "the Android writer deletes records on a different schedule than the policy " +
                 "says, so the window the report reports over is not the window the " +
                 "data lives in",
