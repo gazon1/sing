@@ -3,6 +3,7 @@ package com.singularity.todo.arch
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.fail
 
 /**
