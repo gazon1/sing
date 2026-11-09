@@ -35,7 +35,6 @@ import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -127,7 +126,7 @@ class StatisticsViewModel(
                 // recomputation — a loop that re-queried the database forever.
                 .distinctUntilChanged()
                 .flatMapLatest { rangeDays ->
-                    retryTransient {
+                    retryTransient("statistics.tasks") {
                         deps.taskRepository.observeByFilter(TaskFilter.All)
                     }.map { tasks ->
                         val nowMs = deps.clock.now().toEpochMilliseconds()
@@ -167,43 +166,43 @@ class StatisticsViewModel(
         //
         // Stagnation window is read from SettingsRepository so it can be changed at runtime.
         scope.launch {
-            retryTransient {
-                combine(
-                    deps.taskRepository.observeByFilter(TaskFilter.All),
-                    deps.settingsRepository.stalenessThresholdDays,
-                ) { tasks, stalenessDays ->
-                    val now = deps.clock.now()
-                    val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
-                    // TaskCompletionSlot copies `completedAt` without bumping `updatedAt`,
-                    // so a task finished this morning would otherwise read as untouched
-                    // since whenever it was last edited.
-                    val lastTouched = { task: Task ->
-                        listOfNotNull(task.completedAt, task.updatedAt).max()
-                    }
-                    // Selector-based computation: null stagnationWindow means "use built-in default"
-                    // (Selector.Stagnant uses 21.days by default). Passing a non-null Duration
-                    // from the settings overrides that default.
-                    val stagnationWindow =
-                        if (stalenessDays > 0) {
-                            (stalenessDays.toLong() * 86_400_000L).milliseconds
-                        } else {
-                            // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
-                            null
-                        }
-                    // Typed nullable on purpose: the catch below emits null, and a
-                    // non-null zero summary is what made the screen's "Task health
-                    // unavailable" branch unreachable.
-                    val summary: TaskHealthSummary? =
-                        summarizeTaskHealthFromSelectors(
-                            allTasks = tasks,
-                            today = today,
-                            now = now,
-                            stagnationWindow = stagnationWindow,
-                            lastActivityOf = lastTouched,
-                        )
-                    summary
+            combine(
+                retryTransient("statistics.health") {
+                    deps.taskRepository.observeByFilter(TaskFilter.All)
+                },
+                deps.settingsRepository.stalenessThresholdDays,
+            ) { tasks, stalenessDays ->
+                val now = deps.clock.now()
+                val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
+                // TaskCompletionSlot copies `completedAt` without bumping `updatedAt`,
+                // so a task finished this morning would otherwise read as untouched
+                // since whenever it was last edited.
+                val lastTouched = { task: Task ->
+                    listOfNotNull(task.completedAt, task.updatedAt).max()
                 }
+                // Selector-based computation: null stagnationWindow means "use built-in default"
+                // (Selector.Stagnant uses 21.days by default). Passing a non-null Duration
+                // from the settings overrides that default.
+                val stagnationWindow =
+                    if (stalenessDays > 0) {
+                        (stalenessDays.toLong() * 86_400_000L).milliseconds
+                    } else {
+                        // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
+                        null
+                    }
+                // Typed nullable on purpose: the catch below emits null, and a
+                // non-null zero summary is what made the screen's "Task health
+                // unavailable" branch unreachable.
+                val summary: TaskHealthSummary? =
+                    summarizeTaskHealthFromSelectors(
+                        allTasks = tasks,
+                        today = today,
+                        now = now,
+                        stagnationWindow = stagnationWindow,
+                        lastActivityOf = lastTouched,
+                    )
+                summary
             }.catch { error ->
                 // The failure crossed a channel hop, and a channel carries a *copy* of
                 // the throwable — the original is its cause, so the copy is unwrapped
@@ -238,35 +237,43 @@ class StatisticsViewModel(
                     val startMs = nowMs - (days * TimeConstants.MILLIS_PER_DAY)
                     val userId = deps.currentUser.current
 
-                    retryTransient {
-                        combine(
-                            deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs),
-                            deps.taskRepository.observeByFilter(TaskFilter.All),
-                            deps.projectsRepo.observeProjectsWithCounts(),
-                        ) { entries, tasks, projects ->
-                            val taskProjectMap = tasks.associate { it.id.value to it.projectId?.value }
-                            val projectNameMap = projects.associate { row -> row.project.id to row.project.name }
+                    combine(
+                        retryTransient("statistics.insights.entries") {
+                            deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs)
+                        },
+                        retryTransient("statistics.insights.tasks") {
+                            deps.taskRepository.observeByFilter(TaskFilter.All)
+                        },
+                        retryTransient("statistics.insights.projects") {
+                            deps.projectsRepo.observeProjectsWithCounts()
+                        },
+                    ) { entries, tasks, projects ->
+                        val taskProjectMap = tasks.associate { it.id.value to it.projectId?.value }
+                        val projectNameMap = projects.associate { row -> row.project.id to row.project.name }
 
-                            val openEntry = deps.timeTrackingRepo.getOpenEntry(userId)
-                            val openInterval = openEntry?.let { OpenInterval(it.startedAt.toEpochMilliseconds()) }
-                            val merged = mergeIntervalsWithOpen(entries, openInterval, nowMs)
-                            val split = merged.flatMap { splitAtMidnight(it, zone) }
+                        // The running entry is read here rather than as a source of
+                        // the combine: it changes on its own, and a source that
+                        // emits once would freeze the running session at whatever
+                        // it was when the range was picked.
+                        val openEntry = deps.timeTrackingRepo.getOpenEntry(userId)
+                        val openInterval = openEntry?.let { OpenInterval(it.startedAt.toEpochMilliseconds()) }
+                        val merged = mergeIntervalsWithOpen(entries, openInterval, nowMs)
+                        val split = merged.flatMap { splitAtMidnight(it, zone) }
 
-                            val dayBuckets = bucketByDay(split, nowMs, days, zone)
-                            val projectBuckets =
-                                bucketByProject(entries, taskProjectMap)
-                                    .map { (projectId, totalMs) ->
-                                        val name = projectId?.let { projectNameMap[it] } ?: "No project"
-                                        ProjectInsightsBucket(projectId, name, totalMs)
-                                    }.sortedByDescending { it.totalMs }
+                        val dayBuckets = bucketByDay(split, nowMs, days, zone)
+                        val projectBuckets =
+                            bucketByProject(entries, taskProjectMap)
+                                .map { (projectId, totalMs) ->
+                                    val name = projectId?.let { projectNameMap[it] } ?: "No project"
+                                    ProjectInsightsBucket(projectId, name, totalMs)
+                                }.sortedByDescending { it.totalMs }
 
-                            StatisticsUiState.InsightsData(
-                                loading = false,
-                                dayBuckets = dayBuckets.toImmutableList(),
-                                projectBuckets = projectBuckets.toImmutableList(),
-                                totalMs = split.sumOf { it.durationMs },
-                            )
-                        }
+                        StatisticsUiState.InsightsData(
+                            loading = false,
+                            dayBuckets = dayBuckets.toImmutableList(),
+                            projectBuckets = projectBuckets.toImmutableList(),
+                            totalMs = split.sumOf { it.durationMs },
+                        )
                     }
                 }.catch { error ->
                     // The failure crossed a channel hop, and a channel carries a *copy* of
@@ -302,34 +309,41 @@ class StatisticsViewModel(
         const val TASK_HEALTH_FAILED = "statistics.health_failed"
         const val TIME_INSIGHTS_FAILED = "statistics.insights_failed"
     }
-}
 
-/**
- * A failed observation is not the end of the collector.
- *
- * The `catch` that follows this used to be the end of the story: one transient
- * failure — a database that was busy, a channel that dropped — and the
- * collector was gone for the lifetime of the ViewModel. The tab kept the value
- * it had, the query was never asked again, and nothing said that the data had
- * stopped being fresh.
- *
- * So the failure is retried, a few times, with a pause that grows. A failure
- * that survives the retries is a real one: it reaches the caller's `catch`,
- * which reports it and puts the explicit failure state on screen.
- *
- * The upstream comes as a factory, because a retry has to *ask again*: a flow
- * that was built once can only be collected again, and collecting a broken
- * flow again fails in exactly the same way.
- */
-private fun <T> retryTransient(
-    attempts: Int = 3,
-    pause: Duration = 500.milliseconds,
-    upstream: () -> Flow<T>,
-): Flow<T> =
-    flow { emitAll(upstream()) }.retryWhen { cause, attempt ->
-        // A cancellation is not a failure to retry — it is the caller saying stop.
-        if (cause is CancellationException) return@retryWhen false
-        if (attempt >= attempts - 1) return@retryWhen false
-        delay(pause * (attempt + 1).toInt())
-        true
-    }
+    /**
+     * A failed observation is not the end of the collector.
+     *
+     * The `catch` that follows this used to be the end of the story: one transient
+     * failure — a database that was busy, a channel that dropped — and the
+     * collector was gone for the lifetime of the ViewModel. The tab kept the value
+     * it had, the query was never asked again, and nothing said that the data had
+     * stopped being fresh.
+     *
+     * So the failure is retried: three tries in all, with a pause that grows. A
+     * failure that survives the retries is a real one — it reaches the caller's
+     * `catch`, which reports it and puts the explicit failure state on screen.
+     *
+     * The upstream comes as a factory, because a retry has to *ask again*: a flow
+     * that was built once can only be collected again, and collecting a broken
+     * flow again fails in exactly the same way.
+     *
+     * Only the *read* goes through here. A read that fails and is retried must not
+     * drag the calculation that reads its result through the retries with it — the
+     * calculation is not what failed, and running it again changes nothing.
+     */
+    private fun <T> retryTransient(
+        label: String,
+        upstream: () -> Flow<T>,
+    ): Flow<T> =
+        flow { emitAll(upstream()) }.retryWhen { cause, attempt ->
+            // A cancellation is not a failure to retry — it is the caller saying stop.
+            if (cause is CancellationException) return@retryWhen false
+            // Three tries in all: the first one and two retries.
+            if (attempt >= 2) return@retryWhen false
+            // A failure that a retry papers over leaves no trace otherwise, and the
+            // crash that happens exactly once is the one nobody ever sees.
+            crashReporter.addBreadcrumb("$label retried after ${cause::class.simpleName}")
+            delay(500.milliseconds * (attempt + 1).toInt())
+            true
+        }
+}

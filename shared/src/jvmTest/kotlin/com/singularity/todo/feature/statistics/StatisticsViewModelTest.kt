@@ -295,6 +295,12 @@ class StatisticsViewModelTest {
                 reporter.reports.isEmpty(),
                 "a failure that recovered must not be filed as a failure: ${reporter.reports}",
             )
+            // A failure the retry papers over leaves no trace otherwise, and the
+            // crash that happens exactly once is the one nobody ever sees.
+            assertTrue(
+                reporter.breadcrumbs.any { it.contains("statistics.tasks") },
+                "a retried failure must leave a breadcrumb: ${reporter.breadcrumbs}",
+            )
         }
 
     /**
