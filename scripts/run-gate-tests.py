@@ -8,7 +8,7 @@
 What went wrong
 ---------------
 The gate scripts have their own unit tests — the regression tests for the
-wiring gate, the liveness probe, the controls and the verdict registry. They
+wiring gate, the controls and the verdict registry. They
 run in the `Gate tooling` job of `ci.yml`, and until now they ran as a plain
 `python3 -m unittest discover`: the console of the job step.
 

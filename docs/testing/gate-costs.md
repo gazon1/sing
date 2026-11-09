@@ -75,7 +75,6 @@ Recorded on 2026-11-03T15:13:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Step: detekt | 1.0 s |
 | Step: detekt-rules:koverVerify | 1.3 s |
 | Step: detekt-rules:test | 1.7 s |
-| Step: gate liveness | 1 min 10 s |
 | Step: gate script tests | 1 min 45 s |
 | Step: gate wiring | 2 min 27 s |
 | Step: ktlint (formatting) | 13.0 s |
@@ -96,7 +95,6 @@ Recorded on 2026-11-03T15:13:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Gate: doc links | 573 ms |
 | Gate: gate registries agree | 300 ms |
 | Gate: gate registry is current | 710 ms |
-| Gate: gates speak the JSON contract | 36.0 s |
 | Gate: git hooks path is per-worktree | 674 ms |
 | Gate: maestro flow catalogue is current | 880 ms |
 | Gate: maestro selectors valid | 809 ms |

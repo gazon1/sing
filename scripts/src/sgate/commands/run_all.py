@@ -166,6 +166,7 @@ FAILURE_LINE = re.compile(
 #: The list is the one the liveness probe used, kept here because the runner is
 #: where the verdict is now taken: the probe re-ran every gate to ask this
 #: question, and the answer was already in the output the run had captured.
+#: The probe that used it is gone; the question it asked is answered here.
 TRACEBACK_MARKERS = (
     "Traceback (most recent call last)",
     "NameError:",
@@ -343,8 +344,8 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             # result (ADR `2026-10-21-one-owner-of-stdout.md`).
             #
             # The module is run with this checkout's `scripts/src` on the import
-            # path, which is the same arrangement the JSON-contract probe uses
-            # (`scripts/check-gate-json-contract.py`).
+            # path, so the gate that runs is this checkout's gate and not
+            # whatever an editable install on PATH points at.
             cmd = [sys.executable, "-m", "sgate", *args, "--json"]
             result = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                    cwd=repo_root, env=_repo_env())

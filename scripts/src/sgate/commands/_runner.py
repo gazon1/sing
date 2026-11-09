@@ -48,13 +48,13 @@ def run(
             sys.stdout.flush()
         # Forward the child's stderr instead of dropping it.
         #
-        # `check-gate-liveness.py` decides "died instead of reported" by looking
-        # for a traceback on stderr. Every registry gate runs through this runner,
-        # so while stderr was captured and discarded, no gate could ever show one:
-        # a gate that raised was reported as `exit 1: violation` and judged alive.
-        # The liveness gate was not weak on one gate — it was blind on all of them,
-        # which is why its own sabotage control kept passing after the subject it
-        # aimed at had been retired.
+        # "Died instead of reported" is decided by looking for a traceback on
+        # stderr. Every registry gate runs through this runner, so while stderr
+        # was captured and discarded, no gate could ever show one: a gate that
+        # raised was reported as `exit 1: violation` and judged alive.
+        # The separate probe was not weak on one gate — it was blind on all of
+        # them, which is why its own sabotage control kept passing after the
+        # subject it aimed at had been retired.
         #
         # A finding is unaffected: gates report findings on stdout (`ERROR:` lines)
         # and exit non-zero, and this changes nothing about their exit status.
@@ -232,7 +232,7 @@ def run_json_contract(
     result = run_capture(cmd, gate_name)
     raw = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
     # The producer's stderr is diagnostics, and the contract owns stdout only.
-    # Forwarding it keeps a traceback visible: the liveness gate reads stderr to
+    # Forwarding it keeps a traceback visible: the runner reads stderr to
     # tell "the gate died" from "the gate reported a finding", and a swallowed
     # traceback makes a crash look like a quiet failure.
     if result.stderr:
