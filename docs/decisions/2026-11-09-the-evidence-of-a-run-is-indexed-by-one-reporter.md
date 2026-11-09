@@ -62,34 +62,78 @@ exist.
 finish" — they are the states in which the absence of a report says nothing
 about the test's own outcome.
 
+**`timed_out` is an input, and CI cannot supply it.** GitHub Actions does
+not distinguish a step that hit its deadline from a step that failed on its
+own account — both are `conclusion: failure`. CI therefore passes `failed`,
+and a caller that knows better (a wrapper with its own deadline) passes
+`timed_out`. Inferring it from the report would be a guess.
+
 **Incomplete evidence is called out.** A promised task with no report is
 `not_run`; a report that was read but holds no testcase is empty. Both are
 marked in the index, and under `GITHUB_ACTIONS` both raise
 `::warning::the evidence of this run is incomplete: …`, because a run that
 silently collected nothing reads exactly like a run where everything passed.
 
+**Existence and readability are two questions.** A report that exists and
+cannot be parsed is `unreadable`, not `missing`: the task wrote the file, and
+what failed is the reader. Counting it as missing would say twice that the
+task wrote nothing, and the second statement would be false. `missing_tasks`
+is built from the reports that were FOUND, readable or not.
+
+**The task identity is the profile's vocabulary.** A report's module is
+written with colons (`tools:unwritten-properties`), because that is how the
+profile registry names a task (`module:task`). A report whose module was
+spelled with slashes would answer to a name no profile declares, and the
+reporter would call it missing while holding it. `module_path()` turns the
+identity back into a file path.
+
 **A failing test's bundle is attached by name.** The bundle path is derived
 from the failing test's class name (for Maestro: from the flow's stem), and
 the class name is the directory name under `build/diagnostics/`. This is
 deterministic and cannot cross-link two concurrently running tests.
 
+**The latest diagnostics attempt wins, and the attempt number is a number.**
+`attempt-10` is later than `attempt-2`; a string comparison says the opposite
+and would link a failed test to a bundle nine attempts older. A directory
+that is not a numbered attempt is ignored rather than guessed at.
+
 **The paths in the index are repo-relative**, matching the layout inside the
 uploaded artifact, so the path to a failing test's bundle resolves inside
-`ci-evidence-<run_id>`.
+`ci-evidence-<run_id>-<run_attempt>`.
 
 **Explicit `--expect` wins over the profile's tasks**, and the two are never
 merged. A task the caller did not promise must not be reported as missing.
 
+**The profile says where the reports are.** Without `--glob` the reporter
+reads the profile's `reports` globs, because the three tiers write their
+reports in three different places and a reporter asked for `device` that
+looked in the JVM place would report a run with no reports in it. The
+workflows pass `--profile` and nothing else.
+
 **The environment is written by the runners, not by the reporter.**
 `scripts/run-android-ui-tests.py` writes `build/android-ui-results/environment.json`
-(device, API level, serial, APK, commit) and the Maestro runner writes
-`build/maestro-results/environment.json` (serial, shard, commit). The reporter
-merges it via `--metadata-file`.
+and the Maestro runner writes `build/maestro-results/environment.json`. The
+reporter merges it via `--metadata-file`. The field names are a **schema**,
+and one name means one thing: `apk_filename` is the name of the file,
+`app_version` is the `versionName`, and `apk_commit_sha` is the git SHA the
+APK was built from — not a sha256, and not a file name. The two producers
+are checked against the schema by `scripts/tests/test_environment_metadata.py`.
 
 **CI wires the reporter into three workflows**: `ci.yml` (JVM tier),
 `android-device-tests.yml` (instrumented tier) and `e2e.yml` (Maestro shard).
 Each uploads its own index under a unique name and appends it to the job
 summary.
+
+**Evidence is collected and uploaded on `always()`.** A cancelled job is
+still a run, and its account of what it did is worth more than no account.
+The condition is `always() && steps.checkout.outcome == 'success'`: after a
+checkout that did not happen there is no tree and nothing to read.
+
+**Artifact names carry the run attempt.** `github.run_id` does not change
+when a workflow is re-run, so two attempts of one run would write into the
+same artifact and the first attempt — usually the failed one — would become
+indistinguishable from the second. The names carry
+`<run_id>-<run_attempt>`.
 
 ## Rationale
 
@@ -119,18 +163,34 @@ exit code.
 stays the evidence; the index is the reading of it, and the manifest is what a
 machine consumes.
 
+**One declaration of what a profile owes.** The workflows used to carry a
+second, hand-maintained list of expected tasks, and the profile registry
+carried another. They disagreed: the registry declared every task of a
+profile, while the workflow expected fewer, because some reports arrive after
+the index is built and some tasks select no test at all. The profile now
+says which of the three it is, and the workflows pass `--profile` alone. A
+second list is a second opinion about the same run, and it drifts.
+
+**Cancellation is a state, not an excuse.** `!cancelled()` says "if the job
+was cancelled, produce nothing" — which throws away the account of a run that
+was mostly finished. The evidence of a cancelled run is exactly the evidence
+that tells a reader how far it got.
+
 ## Consequences
 
 - A failed test's row in the index names the bundle with the screenshot, the
   screen tree and the log — one click instead of three artifacts.
 - Each run's summary says what ran, what was skipped, and whether the
   evidence is complete.
-- The artifact names carry the run id (and the shard, in E2E), so two shards of
-  one suite in one run are two artifacts, not one written twice.
+- The artifact names carry the run id and the run attempt (and the shard, in
+  E2E), so two attempts of one run and two shards of one suite are four
+  artifacts, not two written twice.
 - The reporter is a script with tests in `scripts/tests/test_test_evidence.py`;
   it is in the tool catalogue.
 - The reporter knows nothing about Android or Maestro beyond their report
   layout — platform facts arrive as metadata files.
+- The environment metadata has a schema, and both producers are tested
+  against it: `scripts/tests/test_environment_metadata.py`.
 - **Rollback**: delete the script, its tests and the three workflow steps. The
   XML and the bundles keep being uploaded exactly as before.
 
@@ -138,8 +198,11 @@ machine consumes.
 
 - `scripts/test-evidence.py` — the reporter
 - `scripts/tests/test_test_evidence.py` — its tests
+- `scripts/tests/test_environment_metadata.py` — the environment metadata schema
 - `scripts/run-android-ui-tests.py` — writes the Android environment
 - `scripts/src/emulator/maestro/_cli.py` — writes the Maestro environment
 - `.github/workflows/ci.yml`, `.github/workflows/android-device-tests.yml`,
   `.github/workflows/e2e.yml` — the three wirings
+- `docs/decisions/2026-11-09-the-test-profiles-are-declared-in-one-file.md` —
+  the profile registry the reporter reads
 - `docs/architecture/tests.md` — «Доказательства прогона»
