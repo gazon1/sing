@@ -344,6 +344,35 @@ class ProfileAndMetadataTest(TreeTestCase):
         manifest = self.run_main("--profile", "fast", "--task-outcome", "passed")
         self.assertEqual(manifest["missing_tasks"], mod.profile_expectations("fast"))
 
+    def test_the_manifest_explains_the_tasks_it_does_not_report(self):
+        # A task of the profile that is absent from the reports is not missing
+        # evidence — its report arrives later, or the population selected no
+        # test of it. The artifact says which, so it explains itself away from
+        # the repository's configuration file.
+        manifest = self.run_main("--profile", "fast", "--task-outcome", "passed")
+        self.assertEqual(manifest["expected_tasks"], mod.profile_expectations("fast"))
+        self.assertEqual(manifest["deferred_tasks"], list(mod.wg.profile_deferred("fast")))
+        self.assertEqual(manifest["conditional_tasks"], list(mod.wg.profile_conditional("fast")))
+        # The three lists are disjoint: a task is in exactly one of them.
+        lists = [
+            set(manifest["expected_tasks"]),
+            set(manifest["deferred_tasks"]),
+            set(manifest["conditional_tasks"]),
+        ]
+        self.assertEqual(lists[0] & lists[1], set())
+        self.assertEqual(lists[0] & lists[2], set())
+        self.assertEqual(lists[1] & lists[2], set())
+
+    def test_the_index_names_the_tasks_of_the_profile(self):
+        code = mod.main(
+            ["--root", str(self.root), "--out-dir", "build/evidence", "--profile", "fast"]
+        )
+        self.assertEqual(code, 0)
+        index = (self.root / "build" / "evidence" / "index.md").read_text(encoding="utf-8")
+        self.assertIn("## The tasks of the profile", index)
+        self.assertIn("deferred:", index)
+        self.assertIn("conditional:", index)
+
     def test_the_population_comes_from_the_profile(self):
         manifest = self.run_main("--profile", "fast", "--task-outcome", "passed")
         self.assertEqual(manifest["population"], "fast")

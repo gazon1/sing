@@ -187,6 +187,15 @@ class Evidence:
     reports: list[Report] = field(default_factory=list)
     missing_tasks: list[str] = field(default_factory=list)
     unreadable: list[tuple[str, str]] = field(default_factory=list)
+    #: The tasks the run promised a report by now. The manifest says them, so
+    #: the artifact explains itself without the repository's configuration file.
+    expected_tasks: list[str] = field(default_factory=list)
+    #: The tasks whose report arrives after this index — and the tasks that ran
+    #: and wrote nothing, because the population selected no test of them.
+    #: Neither is missing evidence, and an artifact that does not say so leaves
+    #: the reader to guess why a task of the profile is absent from it.
+    deferred_tasks: list[str] = field(default_factory=list)
+    conditional_tasks: list[str] = field(default_factory=list)
 
     @property
     def failures(self) -> list[Failure]:
@@ -577,6 +586,29 @@ def render_index(evidence: Evidence) -> str:
         )
     lines.append("")
 
+    if evidence.profile:
+        lines.append("## The tasks of the profile")
+        lines.append("")
+        if evidence.expected_tasks:
+            lines.append(
+                "- expected: "
+                + ", ".join(_code(task) for task in evidence.expected_tasks)
+                + " — a report of each of them is expected in this index."
+            )
+        if evidence.deferred_tasks:
+            lines.append(
+                "- deferred: "
+                + ", ".join(_code(task) for task in evidence.deferred_tasks)
+                + " — the report arrives after this index, so its absence here is not missing evidence."
+            )
+        if evidence.conditional_tasks:
+            lines.append(
+                "- conditional: "
+                + ", ".join(_code(task) for task in evidence.conditional_tasks)
+                + " — the task ran and the population selected no test of it, so it wrote no report."
+            )
+        lines.append("")
+
     if evidence.incomplete:
         lines.append("## Incomplete evidence")
         lines.append("")
@@ -640,6 +672,9 @@ def render_manifest(evidence: Evidence) -> dict:
         ],
         "missing_tasks": evidence.missing_tasks,
         "unreadable": [{"path": path, "reason": reason} for path, reason in evidence.unreadable],
+        "expected_tasks": list(evidence.expected_tasks),
+        "deferred_tasks": list(evidence.deferred_tasks),
+        "conditional_tasks": list(evidence.conditional_tasks),
         "incomplete": evidence.incomplete,
     }
 
@@ -741,6 +776,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         expected = []
     evidence = collect(root, globs, expected, args.task_outcome)
+    # The three lists of the profile, kept in the artifact: a task of the
+    # profile that is absent from the reports is not missing evidence — its
+    # report arrives later, or the population selected no test of it — and an
+    # artifact that does not say so leaves the reader to guess.
+    evidence.expected_tasks = list(expected)
+    if args.profile:
+        evidence.deferred_tasks = list(wg.profile_deferred(args.profile))
+        evidence.conditional_tasks = list(wg.profile_conditional(args.profile))
     evidence.population = args.population or (
         wg.profile_population(args.profile) if args.profile else ""
     )
