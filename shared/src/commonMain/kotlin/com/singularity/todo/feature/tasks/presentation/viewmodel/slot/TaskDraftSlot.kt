@@ -76,35 +76,14 @@ class TaskDraftSlot(
         val debounceMs = context.debounceMs.milliseconds
 
         scope.launch {
-<<<<<<< HEAD
-            combine(
-                taskFlow.filterNotNull(),
-                titleEdits.debounce(debounceMs),
-            ) { task, edit -> task to edit }
-                .collect { (task, edit) ->
-                    if (edit.title.isBlank()) {
-                        // A title of only whitespace is not a name, so the write is
-                        // refused: the stored title stays, and the field settles back
-                        // on it. The inline message under the field says why; no
-                        // snackbar, because this is validation, not persistence.
-                        //
-                        // "The stored title" is `originalTitle`, and it is not frozen
-                        // at seed time: every accepted write comes back through the
-                        // coordinator's task collector and [TaskDetailDraftState.seed],
-                        // which moves the baseline on the echo of our own save. So
-                        // rename A -> B (saved) then clear, and the field returns to
-                        // B; it does not fall back to A.
-                        draftState.revertTitle()
-                    } else {
-                        write(task, edit) { copy(title = edit.title) }
-                    }
-                }
-=======
             titleEdits.debounce(debounceMs).collect { edit ->
+                if (edit.title.isBlank()) {
+                    draftState.revertTitle()
+                    return@collect
+                }
                 val task = taskFlow.value ?: return@collect
                 write(task, edit) { copy(title = edit.title) }
             }
->>>>>>> origin/main
         }
 
         scope.launch {
