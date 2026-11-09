@@ -224,6 +224,12 @@ def parse_junit_file(path: Path) -> list[TestCaseResult]:
     except ET.ParseError as exc:
         print(f"  ! нечитаемый {path.name}: {exc}", file=sys.stderr)
         return []
+    except OSError as exc:
+        if isinstance(exc, FileNotFoundError):
+            print(f"  ! отсутствует {path.name}: {exc}", file=sys.stderr)
+        else:
+            print(f"  ! нечитаемый {path.name}: {exc}", file=sys.stderr)
+        return []
     return _results_from_root(root)
 
 

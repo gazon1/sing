@@ -134,6 +134,55 @@ script `run-android-ui-tests.py` treats that as a failure and says so, and it is
 the reason the step refuses to call a run a pass on the strength of an exit code
 alone.
 
+### Verifying that a failure keeps its evidence
+
+The three artifacts above are only worth what a failed run can show. To prove the
+retention end to end, inject a failure — add a temporary test that records a step
+and then fails, run only that class, and check that every artifact landed:
+
+```bash
+cat > androidApp/src/androidTest/kotlin/com/singularity/todo/ui/FailureInjectionProbeTest.kt <<'EOF'
+package com.singularity.todo.ui
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.singularity.todo.testing.InstrumentedTestBase
+import org.junit.Assert.fail
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class FailureInjectionProbeTest : InstrumentedTestBase() {
+    @Test
+    fun a_deliberate_failure_leaves_its_evidence() {
+        step("first step — passes") { }
+        step("second step — raises the failure") {
+            fail("injected failure")
+        }
+    }
+}
+EOF
+
+SERIAL=<device-serial> \
+  GRADLE_ARGS="-Pandroid.testInstrumentationRunnerArguments.class=com.singularity.todo.ui.FailureInjectionProbeTest" \
+  python3 scripts/run-android-ui-tests.py
+rm androidApp/src/androidTest/kotlin/com/singularity/todo/ui/FailureInjectionProbeTest.kt
+```
+
+Measured on 2026-11-09 on the phone (`RMX3938`, API 35), all four held:
+
+- `androidApp/build/outputs/androidTest-results/connected/debug/*.xml` — the
+  testcase with `failures="1"` and its message, not an empty suite;
+- `build/android-ui-results/logcat.txt` — the device log from the failing run;
+- `androidApp/build/diagnostics/FailureInjectionProbeTest/attempt-1/` —
+  `screenshot.png` (a real 720×1600 PNG), `tree.txt`, `steps.txt` naming both
+  steps and the failed one, and `environment.txt` with the auth bypass, the
+  session, the device and the build's `versionName`;
+- `scripts/instrumented-run-summary.py` verdict `failed`, naming the test.
+
+The same run with a class name that does not exist reported `did not run`, and a
+report file that is not XML reported `could not read` — the two states a green
+line must not be mistaken for.
+
 ## Reproducing a run locally
 
 ```bash
