@@ -414,7 +414,7 @@ jobs:
         if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: gate-junit-results
+          name: gate-junit-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/diagnostics/gate-tests/*.xml
           if-no-files-found: error
           retention-days: 7
@@ -556,7 +556,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: build-log-detekt-${{ github.run_id }}
+          name: build-log-detekt-${{ github.run_id }}-${{ github.run_attempt }}
           path: build.log
           if-no-files-found: warn
           retention-days: 7

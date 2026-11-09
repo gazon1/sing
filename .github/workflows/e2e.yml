@@ -485,7 +485,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: maestro-failures-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-failures-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ~/.maestro/tests/**
           if-no-files-found: ignore
           retention-days: 7
