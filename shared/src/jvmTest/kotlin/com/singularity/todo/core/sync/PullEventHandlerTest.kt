@@ -5,6 +5,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.testTask
@@ -19,8 +20,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -241,7 +240,7 @@ class PullEventHandlerTest {
     fun `corrupt document from applyRemote leaves local repository untouched`() =
         runTest {
             val tasks = FakeTaskRepository()
-            tasks.upsert(testTask(id = TaskId("existing"), title = "keep me"))
+            tasks.upsert(TaskDocument.of(testTask(id = TaskId("existing"), title = "keep me")))
             val writer = fakeSyncDocumentWriter(tasks = tasks)
             val h =
                 PullEventHandler(
@@ -267,7 +266,7 @@ class PullEventHandlerTest {
     fun `corrupt document via SyncDocumentWriter upsert leaves local repository untouched`() =
         runTest {
             val tasks = FakeTaskRepository()
-            tasks.upsert(testTask(id = TaskId("keep-me"), title = "original"))
+            tasks.upsert(TaskDocument.of(testTask(id = TaskId("keep-me"), title = "original")))
             val writer = fakeSyncDocumentWriter(tasks = tasks)
 
             val before = tasks.observeAll().first()
@@ -288,7 +287,7 @@ class PullEventHandlerTest {
     fun `corrupt document leaves local repository untouched`() =
         runTest {
             val tasks = FakeTaskRepository()
-            tasks.upsert(testTask(id = TaskId("keep-me"), title = "original"))
+            tasks.upsert(TaskDocument.of(testTask(id = TaskId("keep-me"), title = "original")))
             val writer = fakeSyncDocumentWriter(tasks = tasks)
 
             val before = tasks.observeAll().first()

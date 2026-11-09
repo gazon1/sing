@@ -57,9 +57,10 @@ into them field by field, and serve the merged row back.
 - **A patch without a clock is refused with `field_not_writable`**, as the
   server refuses the legacy shape whose absent document expands into zero
   operations.
-- **The fixture honours `isDelete` as a deletion of the row.** The SQL
-  expresses a deletion as a field in the document; the protocol also carries the
-  flag, and the fixture keeps the behaviour it had.
+- **A deletion of a row the server never held still creates the row and delivers
+  its tombstone.** The deleting device holds a copy, so the other devices of the
+  account hold one too; answering `ok` with no event would leave those copies
+  alive and settle the sender's outbox row with nothing to retry.
 
 ## Rationale
 

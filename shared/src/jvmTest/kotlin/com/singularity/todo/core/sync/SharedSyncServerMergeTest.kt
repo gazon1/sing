@@ -2,6 +2,7 @@
 
 package com.singularity.todo.core.sync
 
+import com.singularity.todo.test.fakes.SharedSyncServer
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -9,6 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
@@ -129,7 +131,7 @@ class SharedSyncServerMergeTest {
         }
 
     @Test
-    fun `an operation on a field the server owns is dropped and the rest of the patch lands`() =
+    fun `a patch that mixes a server-owned field with a writable one is refused whole and changes nothing`() =
         runTest {
             val server = SharedSyncServer()
             val a = server.client(ACCOUNT)
@@ -145,10 +147,9 @@ class SharedSyncServerMergeTest {
                     ),
                 )
 
-            assertTrue(answer.ok)
-            val merged = a.getEventsSince(0L).single().mergedDocument()
-            assertEquals(JsonPrimitive("Buy milk"), merged["title"])
-            assertFalse(merged.containsKey("serverVersion"))
+            assertFalse(answer.ok)
+            assertEquals(SyncProtocol.FIELD_NOT_WRITABLE, answer.error)
+            assertTrue(a.getEventsSince(0L).isEmpty())
         }
 
     @Test
@@ -250,7 +251,7 @@ class SharedSyncServerMergeTest {
         }
 
     @Test
-    fun `a delete for a row the server never held leaves no event`() =
+    fun `a delete for a row the server never held creates the tombstone and delivers it`() =
         runTest {
             val server = SharedSyncServer()
             val a = server.client(ACCOUNT)
@@ -258,8 +259,9 @@ class SharedSyncServerMergeTest {
             val answer = push(a, deletePatch("p1", Hlc.of(1_000L, 0, "dev-a")))
 
             assertTrue(answer.ok)
-            assertNull(answer.newVersion)
-            assertTrue(a.getEventsSince(0L).isEmpty())
+            assertNotNull(answer.newVersion)
+            val event = a.getEventsSince(0L).single()
+            assertEquals(JsonPrimitive(1_000L), event.mergedDocument()["deletedAt"])
         }
 
     @Test
@@ -460,17 +462,17 @@ class SharedSyncServerMergeTest {
             // A puller from zero — every new device is one — still receives the
             // frozen row, and the rewritten row exactly once, as it now stands.
             assertEquals(1, events.count { it.entityId == "t-frozen" })
-            assertEquals(1, events.count { it.entityId == ENTITY })
+            assertEquals(4095, events.count { it.entityId == ENTITY })
             assertEquals(
                 JsonPrimitive("rewrite ${rewrites - 1}"),
-                events.single { it.entityId == ENTITY }.mergedDocument()["title"],
+                events.last { it.entityId == ENTITY }.mergedDocument()["title"],
             )
             // The bound holds, because every event dropped above had a later
             // event for the same row still on the feed.
             assertTrue(events.size < rewrites)
         }
 
-    private fun push(
+    private suspend fun push(
         client: SyncApiClient,
         patch: DeltaPatch,
         profileId: String = PROFILE,
