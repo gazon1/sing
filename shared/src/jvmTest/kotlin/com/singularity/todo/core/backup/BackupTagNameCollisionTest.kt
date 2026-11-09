@@ -5,8 +5,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -15,7 +14,6 @@ import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,28 +32,18 @@ import kotlin.time.Clock
 class BackupTagNameCollisionTest {
     private val owner = UserId("tag-name-owner")
 
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-backup-tag-name-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
-
-    private val dbLazy =
-        lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "target.db").absolutePath,
-            )
-        }
-    private val db: AppDatabase by dbLazy
+    // The fixture owns the database and the directory that holds it, so the
+    // archives this test writes are removed with it.
+    private val fixture = DatabaseTestFixture.onDisk()
+    private val tempDir: File by lazy { fixture.directory() }
+    private val db: AppDatabase by lazy { fixture.database("target") }
 
     private val fs = JvmFileSystem()
     private val now = Clock.System.now().toEpochMilliseconds()
 
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test
