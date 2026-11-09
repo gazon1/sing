@@ -23,7 +23,11 @@ internal data class BarChartGeometry(val barWidth: Float, val spacing: Float)
  * That is what keeps a printed day label over its bar: the label row and the
  * bars agree by construction, not by two formulas that happen to be close.
  */
-internal fun barChartGeometry(width: Float, barCount: Int, maxSpacing: Float): BarChartGeometry {
+internal fun barChartGeometry(
+    width: Float,
+    barCount: Int,
+    maxSpacing: Float,
+): BarChartGeometry {
     if (barCount <= 0 || width <= 0f) return BarChartGeometry(0f, 0f)
     val slot = width / barCount
     val spacing = (slot * GAP_FRACTION).coerceAtMost(maxSpacing).coerceAtLeast(0f)
@@ -43,12 +47,17 @@ internal const val MAX_DAY_LABELS = 7
  * Labels are counted back from the newest bar ([hasDayLabel]), so the newest
  * day is always labelled and the printed set does not shift as days land.
  */
-internal fun labelStride(barCount: Int, maxLabels: Int = MAX_DAY_LABELS): Int =
-    if (maxLabels <= 0 || barCount <= maxLabels) 1 else (barCount + maxLabels - 1) / maxLabels
+internal fun labelStride(
+    barCount: Int,
+    maxLabels: Int = MAX_DAY_LABELS,
+): Int = if (maxLabels <= 0 || barCount <= maxLabels) 1 else (barCount + maxLabels - 1) / maxLabels
 
 /** Whether bar [index] of [barCount] gets a printed day label. */
-internal fun hasDayLabel(index: Int, barCount: Int, stride: Int): Boolean =
-    stride <= 1 || (index in 0 until barCount && (barCount - 1 - index) % stride == 0)
+internal fun hasDayLabel(
+    index: Int,
+    barCount: Int,
+    stride: Int,
+): Boolean = stride <= 1 || (index in 0 until barCount && (barCount - 1 - index) % stride == 0)
 
 /**
  * The value one bar's full height stands for: the busiest *stack* in the chart.
@@ -58,8 +67,7 @@ internal fun hasDayLabel(index: Int, barCount: Int, stride: Int): Boolean =
  * day that had both the most completed tasks and an overdue task, the amber
  * segment was placed above the canvas and never drawn.
  */
-internal fun stackScale(bars: List<List<Float>>): Float =
-    bars.maxOfOrNull { stack -> stack.sum() } ?: 0f
+internal fun stackScale(bars: List<List<Float>>): Float = bars.maxOfOrNull { stack -> stack.sum() } ?: 0f
 
 /**
  * The painted height of each segment of one bar, in the order given.
@@ -67,7 +75,11 @@ internal fun stackScale(bars: List<List<Float>>): Float =
  * No height is negative and the heights together never exceed [height], so a
  * bar can always be drawn from the base upward without leaving the canvas.
  */
-internal fun stackHeights(values: List<Float>, scale: Float, height: Float): List<Float> =
+internal fun stackHeights(
+    values: List<Float>,
+    scale: Float,
+    height: Float,
+): List<Float> =
     if (scale <= 0f || height <= 0f) {
         values.map { 0f }
     } else {
