@@ -44,7 +44,7 @@ fun TopAppBar(
     val barPublisher = remember { Any() }
     if (holder != null) {
         SideEffect {
-            holder?.actions = actions
+            holder?.publishActions(barPublisher, actions)
             holder?.selectionTitle = selectionTitle
             holder?.onExitSelection = onExitSelection
             if (overrideShell) {
@@ -53,7 +53,9 @@ fun TopAppBar(
         }
         DisposableEffect(holder, overrideShell) {
             onDispose {
-                holder?.actions = null
+                // Only this bar's own row and selection state go away: a screen
+                // underneath is still composed and must keep the row it published.
+                holder?.releaseActions(barPublisher)
                 holder?.selectionTitle = null
                 holder?.onExitSelection = null
                 // Only the bar that published the override takes it back down.

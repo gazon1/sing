@@ -13,9 +13,14 @@ import androidx.compose.runtime.setValue
  * shell owns the only bar (Android). Screens publish their actions through the
  * platform-aware [TopAppBar]/[BackTopAppBar] wrappers; the Android shell reads
  * [actions] and renders them in its own bar.
+ *
+ * Both the title and the action row are stacks keyed by the publishing screen,
+ * not single slots: several screens are composed at once (a pushed screen over
+ * the one it came from), and a slot with no author let the background one win.
  */
 class ScreenActionsHolder {
     var actions: (@Composable RowScope.() -> Unit)? by mutableStateOf(null)
+        private set
 
     // The bar a screen owns. On Android the shell owns the ONLY bar, so a
     // screen that draws its own header (the calendar's month, the settings
@@ -46,6 +51,10 @@ class ScreenActionsHolder {
     // makes a nested screen's pop restore the previous title even when that
     // screen does not recompose.
     private val publishedBars = mutableListOf<PublishedBar>()
+
+    // One entry per composed bar that publishes an action row, in composition
+    // order. Same contract as [publishedBars]: the slot shows the last entry.
+    private val publishedActions = mutableListOf<PublishedActions>()
 
     /**
      * Publishes [content] as the bar's title on behalf of [publisher].
@@ -89,6 +98,46 @@ class ScreenActionsHolder {
         override = top != null
     }
 
+    /**
+     * Publishes [content] as the bar's action row on behalf of [publisher].
+     *
+     * The row belongs to a publisher for the same reason the title does: a screen
+     * that is still composed underneath the one on screen recomposes too, and a
+     * slot with no author let that background screen replace the row of the screen
+     * the user is looking at. That is not hypothetical — it is why the task
+     * detail's overflow (and the note editor's save) were drawn by nothing while
+     * the bar itself rendered.
+     *
+     * Rows are kept in publication order, so leaving a screen reveals the row of
+     * the screen underneath it.
+     */
+    fun publishActions(
+        publisher: Any,
+        content: @Composable RowScope.() -> Unit,
+    ) {
+        val index = publishedActions.indexOfFirst { it.publisher === publisher }
+        if (index >= 0) {
+            publishedActions[index] = PublishedActions(publisher, content)
+        } else {
+            publishedActions.add(PublishedActions(publisher, content))
+        }
+        publishActionRow()
+    }
+
+    /** Takes down [publisher]'s row, if it still has one. */
+    fun releaseActions(publisher: Any) {
+        if (publishedActions.removeAll { it.publisher === publisher }) publishActionRow()
+    }
+
+    private fun publishActionRow() {
+        actions = publishedActions.lastOrNull()?.content
+    }
+
+    private class PublishedActions(
+        val publisher: Any,
+        val content: @Composable RowScope.() -> Unit,
+    )
+
     private class PublishedBar(
         val publisher: Any,
         val title: @Composable () -> Unit,
@@ -98,17 +147,16 @@ class ScreenActionsHolder {
 
 /**
  * Drops the slots a screen leaves behind when the top-level route changes: the
- * action row and the selection mode.
+ * selection mode.
  *
- * The published title is deliberately not cleared here. This effect runs after
- * the incoming screen has composed, so clearing now would erase the title that
- * screen has just published; each publisher releases its own title when it
- * leaves composition instead (see [ShellOverride]).
+ * Neither the published title nor the action row is cleared here. This effect
+ * runs after the incoming screen has composed, so clearing now would erase what
+ * that screen has just published; each publisher releases its own title and row
+ * when it leaves composition instead (see [publishTitle], [publishActions]).
  */
 @Composable
 fun ScreenActionsHolder.ClearStaleSlotsOnNavigation(routeKey: Any?) {
     LaunchedEffect(routeKey) {
-        actions = null
         selectionTitle = null
         onExitSelection = null
     }
