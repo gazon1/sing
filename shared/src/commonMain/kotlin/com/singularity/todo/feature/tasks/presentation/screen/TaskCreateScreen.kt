@@ -15,6 +15,7 @@ import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
@@ -82,6 +83,9 @@ fun TaskCreateScreen(
     val navigator = LocalTasksNavigator.current
 
     val state by vm.stateFlow.collectAsStateWithLifecycle()
+    val projectsRepo: ProjectsRepository = koinInject()
+    val projects by projectsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    val selectedProject = state.draft.projectId?.let { id -> projects.firstOrNull { it.id.value == id } }
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showDiscard by remember { mutableStateOf(false) }
@@ -156,6 +160,8 @@ fun TaskCreateScreen(
                 startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
                 startTime = state.draft.startTime,
                 project = state.draft.projectId?.let { ProjectId.fromString(it) },
+                projectName = selectedProject?.name,
+                projectColor = selectedProject?.color,
                 tags =
                     remember(state.draft.tagIds) {
                         state.draft.tagIds

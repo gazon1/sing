@@ -57,6 +57,7 @@ import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
+import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
@@ -76,7 +77,6 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
-import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
@@ -343,7 +343,9 @@ fun TaskDetailContent(
                                     dueTime = ui.task.dueTime,
                                     startDate = null,
                                     startTime = null,
-                                    project = ui.project?.id,
+                                    project = ui.task.projectId,
+                                    projectName = ui.project?.name,
+                                    projectColor = ui.project?.color,
                                     tags = remember(ui.tags) { ui.tags.map { it.id }.toImmutableList() },
                                     recurrence = ui.task.recurrence,
                                     isPinned = ui.task.isPinned,
@@ -368,7 +370,8 @@ fun TaskDetailContent(
                             // with a blank title keeps the message: the title is still invalid,
                             // and hiding it would hide why the autosave refuses the write.
                             titleError =
-                                TaskTitleValidation.error(ui.titleDraft.value)
+                                TaskTitleValidation
+                                    .error(ui.titleDraft.value)
                                     .takeIf { ui.task.title.isBlank() || ui.titleDraft.value != ui.task.title },
                             descriptionSource = ui.descriptionSource,
                             savedVisible = savedPill.visible,

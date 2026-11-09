@@ -36,6 +36,8 @@ import kotlinx.datetime.LocalTime
  * @param startDate Current start date (null = not set).
  * @param startTime Current start time (null = not set).
  * @param project Project ID, or null for "no project".
+ * @param projectName Display name for [project], or null when unavailable/unknown.
+ * @param projectColor ARGB color for [project], or null.
  * @param tags List of tag IDs.
  * @param checklist List of checklist items.
  * @param attachments List of attachments.
@@ -70,6 +72,8 @@ data class TaskEditorModel(
     val startDate: LocalDate? = null,
     val startTime: LocalTime? = null,
     val project: ProjectId? = null,
+    val projectName: String? = null,
+    val projectColor: Int? = null,
     val tags: ImmutableList<TagId> = persistentListOf(),
     val checklist: ImmutableList<ChecklistItem> = persistentListOf(),
     val attachments: ImmutableList<Attachment> = persistentListOf(),

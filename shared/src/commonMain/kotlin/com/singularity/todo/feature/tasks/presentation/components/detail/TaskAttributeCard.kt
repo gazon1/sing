@@ -31,7 +31,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
  */
 @Composable
 fun TaskAttributeCard(
-    icon: ImageVector,
+    icon: ImageVector? = null,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -42,6 +42,7 @@ fun TaskAttributeCard(
         if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
     containerColor: Color =
         if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+    leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     /**
      * Tag for the **label**, not for the card.
@@ -79,13 +80,23 @@ fun TaskAttributeCard(
                     ).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(TaskSpacing.iconSize),
-            )
-            Spacer(Modifier.width(TaskSpacing.lg))
+            when {
+                leadingContent != null -> {
+                    leadingContent()
+                }
+
+                icon != null -> {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(TaskSpacing.iconSize),
+                    )
+                }
+            }
+            if (leadingContent != null || icon != null) {
+                Spacer(Modifier.width(TaskSpacing.lg))
+            }
             Text(
                 text = label,
                 color = textColor,
