@@ -33,6 +33,8 @@ import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.ArchiveCrypto
 import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsDataStoreMigration
+import com.singularity.todo.core.settings.SettingsMigrationGate
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
@@ -159,6 +161,23 @@ fun testPlatformModule(): Module =
         // ─── Settings storage ───────────────────────────────────────────────────
         // The three named bindings mirror platformModule(); domainModule()'s
         // appearance and settings repositories resolve the primary one.
+        //
+        // The one-shot migration gate comes with them: platformModule() binds it, and
+        // the parity check compares the two graphs' registrations, so a type the
+        // production graph binds and this one lacks is reported as missing. The gate
+        // is never started here — the test stores are empty, so there is nothing to
+        // migrate — but it is bound, so the mirror is complete.
+        single {
+            SettingsMigrationGate(
+                migration =
+                    SettingsDataStoreMigration(
+                        legacyDataStore = get(named("settings")),
+                        userSettingsDataStore = get(named("user_settings")),
+                        stateDataStore = get(named("state")),
+                    ),
+                scope = get<CoroutineScope>(),
+            )
+        }
         single(qualifier = named("user_settings")) { testDataStore("user_settings") }
         single(qualifier = named("state")) { testDataStore("state") }
         single(qualifier = named("settings")) { testDataStore("settings_legacy") }
