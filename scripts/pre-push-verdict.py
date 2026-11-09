@@ -22,6 +22,12 @@ The tree is chosen like this:
 
 The verdict READS the tree; it does not correct it.
 
+The verdict is about the change, not about the repository: a finding in a file
+the pushed range carries is the change's own, and a finding in a file it does
+not touch is the repository's — the branch did not put it there, and the
+branch is not the place to fix it. The repository's findings are the
+repository's CI run to report.
+
 Two signals make the verdict red, and both are needed:
 
   - the run's exit code — detekt's verdict on the findings it reported;
@@ -54,8 +60,9 @@ Usage:
     python3 scripts/pre-push-verdict.py --sha <sha> --json
 
 Exit codes:
-    0 — the pushed tree is clean
-    1 — the pushed tree holds a violation, or the run changed the tree
+    0 — the pushed tree carries no finding of its own
+    1 — the pushed tree holds a violation this change brought, or the run
+        changed the tree
     2 — the verdict could not be taken (no tree, no Gradle)
 """
 from __future__ import annotations
@@ -233,6 +240,78 @@ def module_of(task: str) -> str:
     and hide which module was meant.
     """
     return task[1:].rsplit(":", 1)[0] if task.startswith(":") else task
+
+
+#: A finding as detekt prints it:
+#:
+#:     TooManyFunctions - [Class 'BackupImporter' with '19' functions ...] at /path/File.kt:44:7
+#:
+#: The rule, what it says, and where it is. The path is absolute — it is the
+#: tree that was judged.
+_FINDING_RE = re.compile(
+    r"(?P<rule>[A-Za-z][\w]*)\s+-\s+\[(?P<message>[^\]]*)\]\s+at\s+"
+    r"(?P<path>.+?):(?P<line>\d+):(?P<col>\d+)"
+)
+
+
+def findings_in(log: pathlib.Path) -> list[tuple[str, str]]:
+    """The findings detekt reported: the file they are in, and their rule.
+
+    The file is what the verdict is about: a finding in a file this change
+    does not touch is the repository's finding, and the repository's CI run
+    is where it is reported. A finding in a file this change carries is the
+    change's own.
+    """
+    try:
+        text = log.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    found: list[tuple[str, str]] = []
+    for match in _FINDING_RE.finditer(text):
+        found.append((match.group("path"), match.group("rule")))
+    return found
+
+
+def relative_to(tree: pathlib.Path, path: str) -> str:
+    """The path of a finding, as the tree names it.
+
+    A finding outside the tree that was judged cannot be relativised — and a
+    finding that is not in the tree is not the change's own file, so it is
+    left as it is.
+    """
+    try:
+        return str(pathlib.Path(path).resolve().relative_to(tree.resolve()))
+    except (ValueError, OSError):
+        return path
+
+
+def classify_findings(
+    findings: list[tuple[str, str]],
+    tree: pathlib.Path,
+    changed: list[str],
+    wide: bool,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """The findings this change brought, and the ones it inherited.
+
+    A finding in a file the change carries is the change's own. A finding in a
+    file the change does not touch is the repository's — the branch did not
+    put it there, and the branch is not the place to fix it.
+
+    A change in the rules, in the custom rules or in the build is different:
+    it can change what every file looks like to detekt, so every finding
+    counts as the change's own. The same goes for the editorconfig, which
+    ktlint reads from inside detekt.
+    """
+    changed_set = set(changed)
+    own: list[tuple[str, str]] = []
+    inherited: list[tuple[str, str]] = []
+    for path, rule in findings:
+        relative = relative_to(tree, path)
+        if wide or relative in changed_set:
+            own.append((relative, rule))
+        else:
+            inherited.append((relative, rule))
+    return own, inherited
 
 
 def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> tuple[list[str], str]:
@@ -453,12 +532,23 @@ def judge(
     if tasks is None:
         tasks, reason = detekt_tasks_for_change(tree, base, sha)
 
+    # The files this change carries. They say which findings are the change's
+    # own: a finding in a file the change does not touch is the repository's.
+    changed: list[str] = []
+    wide = False
+    if base:
+        try:
+            changed = changed_paths(tree, base, sha)
+        except VerdictUnavailable:
+            changed = []
+        wide = any(path.startswith(VERDICT_WIDE_PATHS) for path in changed)
+
     before = kotlin_digest(tree) if tasks else ""
 
     failed: list[str] = []
     run_failed = False
+    log = log_dir / f"detekt-{sha[:8]}.log"
     if tasks:
-        log = log_dir / f"detekt-{sha[:8]}.log"
         rc, failed = run_tasks(tree, tuple(tasks), gradle_cmd, log)
         run_failed = rc != 0
         if run_failed and not failed:
@@ -470,6 +560,23 @@ def judge(
     after = kotlin_digest(tree) if tasks else ""
     mutated = bool(tasks) and before != after
 
+    # The findings, and who brought them.
+    #
+    # The verdict is about the pushed tree, and the pushed tree holds every
+    # finding the repository carries — including the ones that were already
+    # there before the branch forked. Those are the repository's findings:
+    # the branch did not put them there, and the branch is not the place to
+    # fix them. The ones in the files the change carries are the change's.
+    findings = findings_in(log) if tasks else []
+    own, inherited = classify_findings(findings, tree, changed, wide)
+    if run_failed and not findings:
+        # The run failed without naming a finding: a broken build script, a
+        # configuration failure. There is nothing to classify, so nothing is
+        # cleared — the verdict stays red.
+        verdict_red = True
+    else:
+        verdict_red = bool(own)
+
     return {
         "sha": sha,
         "tree": str(tree),
@@ -479,8 +586,10 @@ def judge(
         "base": base,
         "failed_tasks": failed,
         "mutated": mutated,
-        "clean": not run_failed and not mutated,
+        "clean": not verdict_red and not mutated,
         "judged": bool(tasks),
+        "own_findings": [{"path": path, "rule": rule} for path, rule in own],
+        "inherited_findings": [{"path": path, "rule": rule} for path, rule in inherited],
         "log_dir": str(log_dir),
     }
 
@@ -548,6 +657,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"   detekt verdict: nothing to judge — {report['coverage_reason']}")
     for task in report["failed_tasks"]:
         print(f"   detekt {task}: FAILED — see {report['log_dir']}")
+    for finding in report["own_findings"]:
+        print(f"   detekt finding: {finding['path']} — {finding['rule']}")
+    if report["inherited_findings"]:
+        print(
+            f"   {len(report['inherited_findings'])} finding(s) are in files this change does "
+            f"not touch — the repository's own, and the repository's CI run is where they "
+            f"are reported",
+        )
     if report["mutated"]:
         print("   the tree that is being pushed changed under the verdict run:")
         diff = subprocess.run(
@@ -560,7 +677,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(diff.stdout)
     if report["clean"]:
-        print("   the pushed tree is clean")
+        if report["inherited_findings"]:
+            print("   the pushed tree carries no finding of its own")
+        else:
+            print("   the pushed tree is clean")
     return 0 if report["clean"] else 1
 
 

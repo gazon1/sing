@@ -87,6 +87,22 @@ cd "$REPO_ROOT"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 ZERO_SHA="0000000000000000000000000000000000000000"
 
+# The wrapper the long commands run through, when it can run.
+#
+# `heavy` is installed through mise, and mise resolves a shim from the tree's
+# own mise.toml — so a tree that does not declare it has no heavy, and the
+# shim fails with "No version is set for shim: heavy". The wrapper is then
+# not used at all and the command runs directly, which is what a machine
+# without heavy does anyway.
+#
+# It used to be decided by whether the name was on PATH, and the answer was
+# the same on every machine until it was not: a tree without a mise.toml has
+# the shim on PATH and cannot run it.
+HEAVY_WRAPPER=""
+if command -v heavy >/dev/null 2>&1 && heavy --version >/dev/null 2>&1; then
+    HEAVY_WRAPPER="heavy --timeout 600 --on-timeout run --"
+fi
+
 # The git environment a hook exports, dropped once.
 #
 # The helper lives in scripts/git-env.sh, and it reads the list of names from
@@ -140,6 +156,9 @@ PUSH_REMOTE_SHAS=()
 # that was skipped (a deletion, a ref that is already up to date) or whose
 # worktree could not be created.
 REF_TREES=()
+# The commit each pushed ref is measured against — the commit the branch
+# forked from. The empty string when no base could be resolved.
+REF_BASES=()
 while read -r local_ref local_sha remote_ref remote_sha; do
     [ -n "${local_sha:-}" ] || continue
     PUSH_REFS+=("$local_ref")
@@ -267,6 +286,33 @@ tree_for_sha() {
     return 1
 }
 
+# The base of the ratchet: the commit the pushed branch forked from.
+#
+# A push is judged against what it CHANGES, not against what the repository
+# already carries. The trunk's own findings are the trunk's business — CI
+# judges the whole tree — and a hook that blocks on them blocks every push,
+# forever, on somebody else's debt. So the base is the merge-base of the
+# trunk and the pushed commit, and every gate that fails is run again there:
+# what the base does not have, the push brought.
+#
+# `SGATE_BASE_REF` names the base when the caller knows better (a release
+# line, a fork); the trunk's remote-tracking ref is the fallback, and `main`
+# the last one. A push with no base at all is judged as if everything in the
+# tree were new — the safe direction.
+resolve_base_commit() {
+    local sha="$1" candidate resolved base
+    for candidate in "${SGATE_BASE_REF:-}" "refs/remotes/${PUSH_REMOTE_NAME}/main" "origin/main" "main"; do
+        [ -n "$candidate" ] || continue
+        resolved="$(git rev-parse --verify --quiet "${candidate}^{commit}" 2>/dev/null || true)"
+        [ -n "$resolved" ] || continue
+        base="$(git merge-base "$resolved" "$sha" 2>/dev/null || true)"
+        [ -n "$base" ] || continue
+        printf '%s' "$base"
+        return 0
+    done
+    return 1
+}
+
 # The names of the tests that failed, from the suite's own output.
 #
 # `unittest` prints one line per failure — "FAIL: test_x" — and this hook used
@@ -330,6 +376,31 @@ promise_touched_files() {
     return 0
 }
 
+# ── The ratchet ─────────────────────────────────────────────────────────
+#
+# A push is judged against what it changes. The base of the judgement is the
+# commit the branch forked from, and a finding the base already has is the
+# trunk's finding: the trunk's CI run is where it is reported, and a hook that
+# blocks on it blocks every push, forever, on somebody else's debt.
+#
+# The comparison itself is done by scripts/pre-push-ratchet.py — a tool, not a
+# gate: it judges nothing about the tree, it only says whether what the push
+# carries is something the base did not have.
+#
+# Both helpers answer the same question in two shapes: two captured outputs of
+# one gate, and the failing tests of the gate suite's own run.
+
+ratchet_outputs() {
+    python3 "$REPO_ROOT/scripts/pre-push-ratchet.py" outputs \
+        --pushed "$1" --base "$2" \
+        --pushed-tree "$tree" --base-tree "$base_tree"
+}
+
+ratchet_tests() {
+    python3 "$REPO_ROOT/scripts/pre-push-ratchet.py" tests \
+        --report "$1" --base-tree "$base_tree"
+}
+
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
 # Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
@@ -385,6 +456,39 @@ for i in "${!PUSH_REFS[@]}"; do
         tree="$REPO_ROOT"
     fi
 
+    # ── The base of the ratchet ───────────────────────────────────────────
+    #
+    # The commit this branch forked from: the point where the trunk and this
+    # branch met. It is what the push is measured against, and it is the tree
+    # every failing gate is run in again — a finding the base already has is
+    # the trunk's finding, and the trunk's CI run is where it is reported.
+    #
+    # A push of the trunk itself has no fork point: the base is then what the
+    # remote already holds.
+    base_commit=""
+    if resolved_base="$(resolve_base_commit "$local_sha")"; then
+        base_commit="$resolved_base"
+        if [ "$base_commit" = "$local_sha" ]; then
+            base_commit=""
+            if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+                base_commit="$(git rev-parse --verify --quiet "${remote_sha}^{commit}" 2>/dev/null || true)"
+            fi
+        fi
+    fi
+    REF_BASES[$i]="$base_commit"
+
+    base_tree=""
+    if [ -n "$base_commit" ]; then
+        if checkout_pushed_tree "$base_commit" "base-$i"; then
+            base_tree="$CHECKOUT_TREE"
+            echo "   base tree checked out in a temporary worktree (detached at ${base_commit:0:8})"
+        else
+            base_commit=""
+        fi
+    else
+        echo "   no base could be resolved — every finding counts as this push's own"
+    fi
+
     # ── The promise files ─────────────────────────────────────────────────
     #
     # Some files in this repository promise something about the code next to
@@ -411,24 +515,25 @@ for i in "${!PUSH_REFS[@]}"; do
     # The checks themselves are declared in the registry, like every other
     # gate; what is here is what the push touched, which is what decides
     # whether a check runs at all.
-    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
-        PROMISE_RANGE=("$remote_sha..$local_sha")
-    else
-        PROMISE_RANGE=("$local_sha" --not --remotes)
-    fi
-    # The files the pushed commits touch. `git log --name-only` rather than
-    # `git diff`: the range is the pushed commits, and a file that a commit
-    # touched is a file this push carries.
+    # The files this push carries: the files whose content on the remote
+    # differs from the files this push delivers.
     #
-    # An empty range means the commits are already on some remote — a branch
-    # pushed under another name, or a mirror — and `git log --not --remotes`
-    # drops every commit a remote already has, while the push still carries
-    # them to the ref it names. Then the history of the pushed commit is the
-    # answer: a gate that judges too much only costs time, while a gate that
-    # judges too little lets a defect through.
-    PROMISE_TOUCHED="$(promise_touched_files "${PROMISE_RANGE[@]}")"
-    if [ -z "$PROMISE_TOUCHED" ]; then
-        PROMISE_TOUCHED="$(promise_touched_files "$local_sha")"
+    # It used to be `git log --name-only` over the pushed commits, and that
+    # says nothing for a merge: git prints no files for a merge commit, so a
+    # push that merges the trunk carried NO files as far as the promise gates
+    # were concerned, and every one of them was skipped. The diff between the
+    # two trees says what the push delivers, merge or not.
+    #
+    # A branch the remote does not have yet is compared with the trunk it
+    # forked from: the trunk is already on the remote, so what is left is what
+    # the branch delivers.
+    PROMISE_TOUCHED=""
+    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+        PROMISE_TOUCHED="$(git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || true)"
+    elif [ -n "$base_commit" ]; then
+        PROMISE_TOUCHED="$(git diff --name-only "$base_commit" "$local_sha" 2>/dev/null || true)"
+    else
+        PROMISE_TOUCHED="$(promise_touched_files "$local_sha" --not --remotes)"
     fi
     # Touched Markdown files (newline-delimited), for gates that check only the
     # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
@@ -636,32 +741,97 @@ EOF
             step_hint="${step_hint//@REF@/$local_ref}"
             step_hint="${step_hint//@TREE@/$tree}"
 
+            step_failed=0
             if [ "$step_show_output" = "yes" ]; then
                 # The output is captured and shown only when the gate fails:
                 # the gate CLI writes a DEBUG line per loaded module, and a
                 # hook that people read while they are trying to push should
                 # not bury the finding in it.
+                #
+                # The output of the steps that are shown anyway is captured as
+                # well: the ratchet compares what the gate said, and a gate
+                # whose output was streamed away cannot be compared with
+                # anything.
                 if (cd "$tree" && without_hook_git_env \
                     ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}) \
                     >"$PROMISE_OUT" 2>&1; then
                     echo "   $step_label: OK"
                 else
-                    echo "   $step_label: FAILED"
-                    GATES_FAILED=1
-                    echo ""
-                    echo "$step_message"
-                    sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
-                    echo "$step_hint"
+                    step_failed=1
                 fi
             else
                 if (cd "$tree" && without_hook_git_env \
-                    ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}); then
+                    ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}) \
+                    2>&1 | tee "$PROMISE_OUT"; then
                     echo "   $step_label: OK"
+                else
+                    step_failed=1
+                fi
+            fi
+
+            if [ "$step_failed" = "1" ]; then
+                # Is the finding this push's own, or was it already there?
+                #
+                # The gate is run again in the BASE tree — the commit this
+                # branch forked from — and the two answers are compared. What
+                # the base does not have, the push brought; what the base has
+                # as well is the trunk's finding, and the trunk's CI run is
+                # where it is reported. A push must not make a gate redder
+                # than the base it starts from.
+                #
+                # The base tree is judged by its OWN copy of the gate, the
+                # same way the pushed tree is judged by its own: each tree is
+                # judged by the rules it carries, and the two answers are
+                # about the two trees.
+                step_ratchet_rc=1
+                step_ratchet_out=""
+                if [ -n "$base_tree" ]; then
+                    base_step_path="$step_path"
+                    if [ "$step_script_from" = "tree" ]; then
+                        base_step_path="$base_tree/$step_script"
+                    fi
+                    base_step_env=()
+                    case "$step_pythonpath_from" in
+                        repo) base_step_env+=("PYTHONPATH=$REPO_ROOT/scripts/src") ;;
+                        tree) base_step_env+=("PYTHONPATH=$base_tree/scripts/src") ;;
+                    esac
+                    base_step_argv=()
+                    for step_arg in $step_args; do
+                        step_arg="${step_arg//@TREE@/$base_tree}"
+                        step_arg="${step_arg//@BASE@/$base_commit}"
+                        step_arg="${step_arg//@TOUCHED_MD@/$PROMISE_TOUCHED_MD_FILE}"
+                        base_step_argv+=("$step_arg")
+                    done
+                    # A base tree without the gate cannot say what was already
+                    # there: without the comparison the finding is the push's.
+                    if [ -f "$base_step_path" ]; then
+                        base_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-base-step-XXXXXX")"
+                        (cd "$base_tree" && without_hook_git_env \
+                            ${base_step_env[@]+"${base_step_env[@]}"} python3 "$base_step_path" \
+                            ${base_step_argv[@]+"${base_step_argv[@]}"}) >"$base_out" 2>&1 || true
+                        step_ratchet_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-ratchet-XXXXXX")"
+                        if ratchet_outputs "$PROMISE_OUT" "$base_out" >"$step_ratchet_out" 2>&1; then
+                            step_ratchet_rc=0
+                        else
+                            step_ratchet_rc=$?
+                        fi
+                        rm -f "$base_out"
+                    fi
+                fi
+                if [ "$step_ratchet_rc" = "0" ]; then
+                    echo "   $step_label: PRE-EXISTING (the base tree has the same findings — this push adds none)"
                 else
                     echo "   $step_label: FAILED"
                     GATES_FAILED=1
                     echo ""
                     echo "$step_message"
+                    if [ "$step_show_output" = "yes" ]; then
+                        sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+                    fi
+                    if [ -n "$step_ratchet_out" ] && [ -s "$step_ratchet_out" ]; then
+                        echo "   what this push adds:"
+                        sed 's/^/     /' "$step_ratchet_out"
+                    fi
                     echo "$step_hint"
                 fi
             fi
@@ -821,6 +991,17 @@ EOF
         suite_module_args+=(--module "$suite_module")
         suite_unittest_args+=("scripts.tests.$suite_module")
     done
+
+    # The report of the run, when the tree's runner writes one: the ratchet
+    # compares the failing TESTS with the base tree, and the console of a run
+    # carries the output of the runs the suite itself makes — so the console
+    # cannot say which tests failed.
+    suite_xml="$(mktemp "${TMPDIR:-/tmp}/pre-push-gate-suite-XXXXXX.xml")"
+    suite_xml_args=()
+    if [ -f "$tree/scripts/run-gate-tests.py" ] \
+        && grep -q -- '--junit-xml' "$tree/scripts/run-gate-tests.py" 2>/dev/null; then
+        suite_xml_args=(--junit-xml "$suite_xml")
+    fi
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
     elif [ "${#suite_module_args[@]}" -eq 0 ]; then
@@ -858,51 +1039,89 @@ EOF
         (cd "$tree" && without_hook_git_env \
             GATE_SUITE_INSIDE_HOOK=1 \
             PYTHONPATH="$tree/scripts/src" \
-            python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}") >"$suite_log" 2>&1 || suite_rc=$?
+            python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}" \
+                ${suite_xml_args[@]+"${suite_xml_args[@]}"}) >"$suite_log" 2>&1 || suite_rc=$?
         if [ "$suite_rc" -eq 0 ]; then
             echo "   gate suite tests: OK (${suite_modules# })"
             rm -f "$suite_log"
         elif [ "$suite_rc" -eq "$NO_TESTS_RAN" ]; then
-            # The runner answers with NO_TESTS_RAN when the modules it was
-            # given hold no test cases at all. The absence of a measurement
-            # is not a failure the push caused, and a push must not be
-            # blocked by it.
+            # No test ran: the modules the push touches hold no test cases.
+            # That is the absence of a measurement, not a failure of the
+            # tree — a module without tests cannot fail.
             echo "   gate suite tests: SKIPPED (the modules the push touches hold no test cases)"
             rm -f "$suite_log"
         else
-            echo "   gate suite tests: FAILED (${suite_modules# })"
-            GATES_FAILED=1
-            report_failed_tests "$suite_log"
-            echo ""
-            echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
-            keep_suite_log "$suite_log" "$suite_log_kept"
+            # The failing tests, and the question the ratchet answers: are they
+            # this push's own, or did the base tree fail them as well? A test
+            # that fails on the base tree as well is the trunk's failure — CI
+            # judges the whole tree, and the trunk's CI run is where it is
+            # reported.
+            suite_ratchet_rc=1
+            suite_ratchet_out=""
+            if [ -n "$base_tree" ] && [ -s "$suite_xml" ]; then
+                suite_ratchet_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-ratchet-XXXXXX")"
+                if ratchet_tests "$suite_xml" >"$suite_ratchet_out" 2>&1; then
+                    suite_ratchet_rc=0
+                else
+                    suite_ratchet_rc=$?
+                fi
+            fi
+            if [ "$suite_ratchet_rc" = "0" ]; then
+                echo "   gate suite tests: PRE-EXISTING (the same tests fail on the base tree — this push adds none)"
+            else
+                echo "   gate suite tests: FAILED (${suite_modules# })"
+                GATES_FAILED=1
+                report_failed_tests "$suite_log"
+                if [ -n "$suite_ratchet_out" ] && [ -s "$suite_ratchet_out" ]; then
+                    echo "   the failing tests this push adds:"
+                    sed 's/^/     /' "$suite_ratchet_out"
+                fi
+                echo ""
+                echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
+                keep_suite_log "$suite_log" "$suite_log_kept"
+            fi
         fi
     fi
+    rm -f "$suite_xml"
 
     # ── easement: architecture boundary check (against the pushed tree) ──
+    #
+    # The tree's own declaration decides whether it has this gate: a tree that
+    # does not name easement in its mise.toml does not use it, and a push of
+    # such a tree is not blocked by a tool it does not have.
+    #
+    # It used to be decided by whether the binary could be found, and the
+    # answer depended on the machine: the tool is installed through mise, and
+    # mise resolves a shim from the tree's own mise.toml — so the same tree
+    # passed on one machine and failed on another, and a tree without a
+    # mise.toml failed everywhere ("No version is set for shim: easement").
     if [ -n "$tree" ]; then
-        easement_bin=""
-        if command -v easement >/dev/null 2>&1; then
-            easement_bin="easement"
-        elif command -v mise >/dev/null 2>&1; then
-            easement_bin="mise exec -- easement"
-        fi
-        if [ -z "$easement_bin" ]; then
-            echo "   easement: FAILED (easement is not installed)"
-            GATES_FAILED=1
+        if ! grep -q 'easement' "$tree/mise.toml" 2>/dev/null; then
+            echo "   easement: SKIPPED (the pushed tree does not declare easement)"
         else
-            easement_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-easement-XXXXXX")"
-            if (cd "$tree" && without_hook_git_env $easement_bin check) >"$easement_out" 2>&1; then
-                echo "   easement: OK"
-            else
-                echo "   easement: FAILED"
-                GATES_FAILED=1
-                echo ""
-                echo "pre-push FAILED — easement check failed in the tree of $local_ref."
-                sed '/DEBUG/d' "$easement_out" | sed 's/^/   /'
-                echo "Run easement check to see violations, or push with --no-verify."
+            easement_bin=""
+            if command -v easement >/dev/null 2>&1; then
+                easement_bin="easement"
+            elif command -v mise >/dev/null 2>&1; then
+                easement_bin="mise exec -- easement"
             fi
-            rm -f "$easement_out"
+            if [ -z "$easement_bin" ]; then
+                echo "   easement: FAILED (easement is not installed)"
+                GATES_FAILED=1
+            else
+                easement_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-easement-XXXXXX")"
+                if (cd "$tree" && without_hook_git_env $easement_bin check) >"$easement_out" 2>&1; then
+                    echo "   easement: OK"
+                else
+                    echo "   easement: FAILED"
+                    GATES_FAILED=1
+                    echo ""
+                    echo "pre-push FAILED — easement check failed in the tree of $local_ref."
+                    sed '/DEBUG/d' "$easement_out" | sed 's/^/   /'
+                    echo "Run easement check to see violations, or push with --no-verify."
+                fi
+                rm -f "$easement_out"
+            fi
         fi
     fi
 
@@ -1064,23 +1283,23 @@ for i in "${!PUSH_REFS[@]}"; do
         fallback="${REF_TREES[$i]}"
     fi
 
-    # The base of the pushed range: the tree the remote already holds. It is
-    # what the change is measured against. A branch the remote does not have
-    # yet is measured against its own upstream, and only then against the
-    # trunk (the script's default) — so a branch that targets a release line
-    # is not measured against `main`.
-    base=""
-    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
-        base="$remote_sha"
-    fi
+    # The base of the pushed range: the commit the branch forked from.
+    #
+    # It used to be the tree the remote already holds, and for a push that
+    # merges the trunk that is the whole trunk: the diff from the branch's
+    # old tip to a merge commit carries every file the trunk changed, so the
+    # verdict judged the merge rather than the branch — every module, and
+    # every finding in the repository as the change's own. The base is the
+    # merge-base with the trunk, and what it measures is the branch.
+    base="${REF_BASES[$i]:-}"
     local_branch="${local_ref#refs/heads/}"
 
     new_temp_root
     verdict_rc=0
     verdict_out=""
     if [ -n "$base" ]; then
-        if command -v heavy >/dev/null 2>&1; then
-            verdict_out="$(heavy --timeout 600 --on-timeout run -- python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+        if [ -n "$HEAVY_WRAPPER" ]; then
+            verdict_out="$($HEAVY_WRAPPER python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
                 --sha "$local_sha" \
                 --repo "$REPO_ROOT" \
                 --fallback-tree "$fallback" \
@@ -1097,8 +1316,8 @@ for i in "${!PUSH_REFS[@]}"; do
                 --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
         fi
     else
-        if command -v heavy >/dev/null 2>&1; then
-            verdict_out="$(heavy --timeout 600 --on-timeout run -- python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+        if [ -n "$HEAVY_WRAPPER" ]; then
+            verdict_out="$($HEAVY_WRAPPER python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
                 --sha "$local_sha" \
                 --repo "$REPO_ROOT" \
                 --fallback-tree "$fallback" \
@@ -1176,7 +1395,7 @@ elif [ "$DETEKT_JUDGED" = "0" ]; then
     # detekt task are different claims, and the hook does not get to pick one.
     echo "detekt verdict: not taken — ${NOTHING_REASONS:-the verdict script did not say why it took none}"
 else
-    echo "detekt verdict: the pushed tree is clean for the modules the change can affect"
+    echo "detekt verdict: the pushed tree carries no finding of its own, for the modules the change can affect"
     echo "detekt coverage: CI judges the modules its own list names (that list is hand-written); the hook judges the ones this change reaches"
     report_coverage_gap
 fi

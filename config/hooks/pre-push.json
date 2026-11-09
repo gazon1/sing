@@ -4,7 +4,16 @@
     "declared_in": "scripts/src/sgate/commands/_registry.py",
     "declaration": "PRE_PUSH_STEPS in scripts/src/sgate/gatekit/pre_push.py, and PRE_PUSH_SCRIPTS derived from it in scripts/src/sgate/commands/_registry.py",
     "verdict_delegate": "scripts/pre-push-verdict.py",
+    "ratchet_tool": "scripts/pre-push-ratchet.py",
     "why": "one declaration serves the hook, the test fixture that drives it and this record — the hook reads the gates it runs instead of naming them, so a gate added to the declaration is a gate the hook runs, and a gate written into the hook is a gate nobody declared"
+  },
+  "ratchet": {
+    "rule": "A push must not make a gate redder than the base it starts from.",
+    "base": "the commit the branch forked from — the merge-base of the trunk and the pushed commit. SGATE_BASE_REF names it when the caller knows better; refs/remotes/<remote>/main, origin/main and main are the fallbacks.",
+    "how": "a gate that fails on the pushed tree is run again in the base tree, and the two answers are compared. What the base does not have, the push brought; what the base has as well is the trunk's finding. The gate suite's own tests are compared by their failing test ids, re-run one by one in the base tree.",
+    "what_it_is_not": "The gate still reads the whole tree, on both sides. The ratchet decides whether a finding STOPS THE PUSH — it never decides whether the finding is there. CI still judges the whole tree, and the trunk's findings are the trunk's CI run to report.",
+    "tool": "scripts/pre-push-ratchet.py — a tool, not a gate: it judges nothing about the tree, it only compares two answers.",
+    "no_base": "a push with no base is judged as if everything in the tree were new — the safe direction."
   },
   "detekt": {
     "judged_by_the_hook": "the modules the pushed change can affect — computed from the module graph in scripts/changed-modules.py, never a list written here",
