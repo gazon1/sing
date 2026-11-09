@@ -182,6 +182,51 @@ class CoversTest(unittest.TestCase):
         self.assertFalse(mod.covers('other.test_x', 'mod'))
 
 
+class BaseTreeRunTest(unittest.TestCase):
+    """The failing tests are re-run on the base tree, and read from its output."""
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-ratchet-'))
+        tests = self.tmp / 'scripts' / 'tests'
+        tests.mkdir(parents=True)
+        (tests / 'test_sample.py').write_text(
+            'import unittest\n'
+            '\n'
+            '\n'
+            'class SampleTest(unittest.TestCase):\n'
+            '    def test_a_plain_failure(self):\n'
+            '        self.fail("boom")\n'
+            '\n'
+            '    def test_a_sub_test_fails(self):\n'
+            '        for i in (1, 2):\n'
+            '            with self.subTest(i=i):\n'
+            '                self.fail("boom")\n',
+            encoding='utf-8',
+        )
+
+    def test_a_failure_is_read_as_the_failure_of_its_test(self):
+        failed = mod.run_tests_on_base(
+            str(self.tmp),
+            ['test_sample.SampleTest.test_a_plain_failure'],
+        )
+        self.assertIn('test_sample.SampleTest.test_a_plain_failure', failed)
+
+    def test_a_failure_with_sub_test_parameters_is_the_failure_of_the_test(self):
+        """The parameters belong to the sub-test, the failure belongs to the test.
+
+        `unittest` prints the parameters after the id — `FAIL: test_x
+        (mod.Class.test_x) (i=1)` — and a reader that stops at the id is right
+        about the test and wrong about the line: a line that does not parse is
+        a failure the base tree cannot be said to have, and the push is then
+        blocked on somebody else's debt.
+        """
+        failed = mod.run_tests_on_base(
+            str(self.tmp),
+            ['test_sample.SampleTest.test_a_sub_test_fails'],
+        )
+        self.assertIn('test_sample.SampleTest.test_a_sub_test_fails', failed)
+
+
 class CommandLineTest(unittest.TestCase):
     """The tool as the hook calls it."""
 

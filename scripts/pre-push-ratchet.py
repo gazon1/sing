@@ -97,7 +97,14 @@ COUNT_RE = re.compile(r"\b\d+ file")
 
 #: The failure lines `unittest` prints: `FAIL: test_x (module.Class.test_x)`.
 #: The id in the parentheses is the test's own name.
-UNITTEST_FAILURE_RE = re.compile(r"^(?:FAIL|ERROR): \S+ \((?P<id>[^)]+)\)$")
+#:
+#: A sub-test prints its parameters after the id — `FAIL: test_x
+#: (module.Class.test_x) (consumer=setup-local-tools.sh)` — and the id is still
+#: the test's own. The line is therefore read up to the first parentheses: a
+#: line that does not match is a line whose failure cannot be attributed to a
+#: test, and a failure that cannot be attributed is not evidence that the base
+#: tree passes it.
+UNITTEST_FAILURE_RE = re.compile(r"^(?:FAIL|ERROR): .+?\((?P<id>[^()]+)\)")
 
 #: The setup failures `unittest` reports for a whole class or a whole module.
 #: They are not findings of one test: they are findings of the class.
