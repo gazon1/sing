@@ -23,10 +23,10 @@ import com.singularity.todo.feature.tasks.domain.state.FirstRun
 import com.singularity.todo.feature.tasks.domain.state.FirstRunResolver
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.domain.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
-import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.domain.state.TaskTimeSlotIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskAiSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksState

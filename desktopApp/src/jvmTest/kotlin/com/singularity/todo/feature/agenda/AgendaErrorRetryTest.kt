@@ -3,8 +3,8 @@
 package com.singularity.todo.feature.agenda
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaContent
+import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest

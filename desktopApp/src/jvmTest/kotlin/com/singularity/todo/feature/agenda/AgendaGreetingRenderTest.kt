@@ -7,8 +7,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaContent
+import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest

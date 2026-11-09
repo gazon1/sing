@@ -9,7 +9,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
-import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.testPlatformModule

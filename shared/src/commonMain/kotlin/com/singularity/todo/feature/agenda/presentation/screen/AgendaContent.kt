@@ -53,9 +53,9 @@ import com.singularity.todo.core.ui.onboarding.spotlightAnchor
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
-import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
-import com.singularity.todo.feature.agenda.domain.model.toTaskUi
+import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
+import com.singularity.todo.feature.agenda.presentation.state.toTaskUi
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
