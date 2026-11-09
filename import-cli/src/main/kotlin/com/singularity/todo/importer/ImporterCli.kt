@@ -77,7 +77,7 @@ class ConvertCommand : CliktCommand(name = "convert") {
         println(
             "Manifest: appVersion=${manifest.appVersion} schemaVersion=${manifest.schemaVersion} formatVersion=${manifest.formatVersion}",
         )
-        println("Completed candidates (checked==1 && state==0): ${result.skipped["completedCandidates"]}")
+        println("Completed candidates (legacy checked==1): ${result.skipped["completedCandidates"]}")
         println(
             "Not imported: " +
                 result.skipped

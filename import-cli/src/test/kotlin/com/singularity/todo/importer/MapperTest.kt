@@ -244,3 +244,48 @@ class MapperTest {
             ?: error("no recurrence rule was mapped for $type")
     }
 }
+
+@Test
+fun `mark-completed treats legacy checked as done regardless of state`() {
+    val backup =
+        LegacyBackup(
+            data =
+                LegacyData(
+                    tasks =
+                        listOf(
+                            LegacyTask(id = "T-done-10", title = "Done", checked = 1, state = 0),
+                            LegacyTask(id = "T-done-11", title = "Done dominant", checked = 1, state = 1),
+                            LegacyTask(id = "T-open-01", title = "Open", checked = 0, state = 1),
+                            LegacyTask(id = "T-odd-21", title = "Odd checked value", checked = 2, state = 1),
+                        ),
+                ),
+        )
+
+    val mapped =
+        Mapper
+            .map(backup, markCompleted = true)
+            .payload.tasks
+            .associateBy { it.id }
+    assertTrue(mapped.getValue("T-done-10").completedAt != null, "checked==1,state==0 is completed")
+    assertTrue(mapped.getValue("T-done-11").completedAt != null, "checked==1,state==1 is completed")
+    assertNull(mapped.getValue("T-open-01").completedAt, "checked==0 is not completed")
+    assertNull(mapped.getValue("T-odd-21").completedAt, "checked!=1 is not completed")
+}
+
+@Test
+fun `without mark-completed legacy checked tasks stay active`() {
+    val backup =
+        LegacyBackup(
+            data =
+                LegacyData(
+                    tasks = listOf(LegacyTask(id = "T-done", title = "Done", checked = 1, state = 1)),
+                ),
+        )
+
+    val task =
+        Mapper
+            .map(backup, markCompleted = false)
+            .payload.tasks
+            .single()
+    assertNull(task.completedAt, "completion is only applied when explicitly requested")
+}
