@@ -635,18 +635,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-test-tags-catalog.py"),
         script_args=("--quiet", "--check"),
     ),
-    # The catalogue of the skills, generated from the skills' own frontmatter:
-    # the index an agent chooses a skill from, and a stale line in it sends the
-    # reader to the wrong file. The generator's `--check` mode is the gate, and
-    # `docs/SKILLS-CATALOG.md` is its control — which is why the registry exempts
-    # the script from a sabotage control. The prose is in the placement.
-    GateSpec(
-        name="skills catalogue is current",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.SHELL,
-        script=Path("scripts/regen-skills-catalog.sh"),
-        script_args=("--check",),
-    ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
     GateSpec(
         name="detekt rules config is current",
@@ -1201,6 +1189,21 @@ _REGISTERED: tuple[GateSpec, ...] = (
             script=Path("scripts/check-touch-targets.py"),
         ),
 )
+
+
+# Invocations that two gates are allowed to share, keyed by the normalized
+# invocation ``check-gate-registries.py`` builds from a ``GateSpec`` (cmd type,
+# resolved script, exact arguments). The value is the gate names it backs and
+# the reason the second registration is deliberate.
+#
+# Empty on purpose: a gate declared twice runs twice in `sgate run-all`, and the
+# second run buys nothing. An entry is a decision — it names the gates and says
+# why, so the allowance cannot become an anonymous way to duplicate a command.
+#
+# Two gates once ran `scripts/regen-skills-catalog.sh --check` under different
+# names, and nothing said so: the shell registry carried both lines, the suite
+# ran the generator twice, and no check could see it.
+DUPLICATE_INVOCATIONS: dict[tuple[str, ...], tuple[tuple[str, ...], str]] = {}
 
 
 # ── Positive controls ────────────────────────────────────────────────────────

@@ -33,7 +33,9 @@ nine names while every check agreed. Five shapes of it, each caught here:
     which surface ran it;
   - a name in ``NOT_RUN_IN_STATIC`` that is not a registered gate any more —
     a declaration that outlived its gate, and can hide one from the check
-    above.
+    above;
+  - the same normalized invocation registered twice under two names — the
+    suite runs it twice, and the second run buys nothing.
 
 This was a warning for a while, because the drift predated the script and
 failing on it would have blocked every run on someone else's debt. It is a
@@ -276,6 +278,94 @@ def _same_command(shell_command: str, registry_command: str, spec) -> bool:
     return False
 
 
+def _normalized_invocation(spec) -> tuple[str, ...]:
+    """The invocation a gate runs, normalized to the parts that decide it.
+
+    The comparison unit is the *invocation*, not the executable and not the
+    script path: one script with two different argument lists is two checks, and
+    a duplicate detection that compared file names would forbid that. The parts:
+
+    - ``cmd_type`` — the enum value, so the same dispatch is spelled one way;
+    - ``script`` — resolved from the repository root (``./``, ``..``, doubled
+      slashes and symlinks collapse), because ``scripts/foo.py``,
+      ``./scripts/foo.py`` and ``scripts/../scripts/foo.py`` are one file and a
+      string comparison would let the duplicate through;
+    - ``script_args`` — the exact sequence: order and quoting are part of what
+      runs, so they are not sorted or joined;
+    - ``bash_func`` / ``path_cmd`` — the exact function name and argv tuple.
+
+    A ``python3_m`` gate names a module, not a path: it resolves through the
+    import system, so its spelling is already canonical.
+    """
+    from sgate.commands._registry import CmdType
+
+    kind = spec.cmd_type.value
+    if spec.cmd_type is CmdType.BASH_C:
+        return (kind, spec.bash_func)
+    if spec.cmd_type is CmdType.PATH:
+        return (kind, *spec.path_cmd)
+    if not spec.script:
+        return (kind,)
+    if spec.cmd_type is CmdType.PYTHON3_M:
+        return (kind, spec.script.as_posix(), *spec.script_args)
+    resolved = (ROOT / spec.script).resolve()
+    try:
+        script = resolved.relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        script = resolved.as_posix()
+    return (kind, script, *spec.script_args)
+
+
+def _duplicate_invocation_problems(gates, allowed) -> list[str]:
+    """No invocation is registered twice unless the registry says it may be.
+
+    A gate declared twice runs twice in ``sgate run-all``: the second run buys
+    nothing, doubles the wait, and — when the two entries are spelled
+    differently — makes one check look like two. Two gates did exactly that with
+    ``scripts/regen-skills-catalog.sh --check``, and nothing noticed, because
+    every existing check compared names and commands between the two registries
+    and both entries agreed with themselves.
+
+    ``allowed`` is ``_registry.DUPLICATE_INVOCATIONS``: an invocation that is
+    deliberately shared, the gate names it backs, and the reason. An allowance
+    that does not name the sharing gates, or gives no reason, is reported too —
+    an anonymous allowance is a duplicate nobody can see.
+    """
+    by_invocation: dict[tuple[str, ...], list[str]] = {}
+    for spec in gates:
+        by_invocation.setdefault(_normalized_invocation(spec), []).append(spec.name)
+
+    problems: list[str] = []
+    for invocation, names in sorted(by_invocation.items()):
+        if len(names) < 2:
+            continue
+        rendered = " ".join(invocation)
+        names_sorted = sorted(names)
+        named = ", ".join(f"'{name}'" for name in names_sorted)
+        allowance = allowed.get(invocation)
+        if allowance is not None:
+            declared, reason = allowance
+            if sorted(declared) != names_sorted:
+                problems.append(
+                    f"DUPLICATE_INVOCATIONS allows '{rendered}' for "
+                    f"{sorted(declared)}, but it is registered for {names_sorted} — "
+                    "the allowance names gates that no longer share it."
+                )
+            elif not reason.strip():
+                problems.append(
+                    f"DUPLICATE_INVOCATIONS allows '{rendered}' with no reason — an "
+                    "allowance nobody can explain is a duplicate nobody can see."
+                )
+            continue
+        problems.append(
+            f"{named} all run '{rendered}' — one gate declared twice runs twice in "
+            "`sgate run-all`, and the second run buys nothing. Delete one, or record "
+            "the pair in _registry.DUPLICATE_INVOCATIONS with the gate names and the "
+            "reason the second registration is deliberate."
+        )
+    return problems
+
+
 def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     """
     Return `(violations, warnings, summary)` for the two gate registries.
@@ -288,7 +378,7 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     failing on it would block every run on someone else's debt.
     """
     try:
-        from sgate.commands._registry import GATES, NOT_RUN_IN_STATIC
+        from sgate.commands._registry import DUPLICATE_INVOCATIONS, GATES, NOT_RUN_IN_STATIC
         from sgate.commands.run_all import _load_static_gates
         from sgate.gates import load_gates
 
@@ -396,6 +486,9 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
             )
 
     for problem in _cluster_problems(_REGISTRY_BY_NAME):
+        report(problem)
+
+    for problem in _duplicate_invocation_problems(GATES, DUPLICATE_INVOCATIONS):
         report(problem)
 
     for problem in _module_classification_problems():
