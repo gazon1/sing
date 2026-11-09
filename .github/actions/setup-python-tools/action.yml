@@ -62,7 +62,7 @@ runs:
         VENV="$HOME/ci-venv"
         uv venv "$VENV"
         # shellcheck disable=SC2086
-        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ ${{ inputs.extra-packages }}
+        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ -r scripts/documentation/requirements.txt ${{ inputs.extra-packages }}
         echo "bin=$VENV/bin" >> "$GITHUB_OUTPUT"
         echo "$VENV/bin" >> "$GITHUB_PATH"
         # mise shims must be on PATH for later steps too.

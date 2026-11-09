@@ -55,6 +55,9 @@ GATE_TOOLS = (
     "lychee",
     "ktlint",
     "rumdl",
+    # The pkl CLI is what hk reads hk.pkl through: hk shells out to it, so the
+    # gate suite shells out to it too.
+    "pkl",
 )
 
 #: Directories that hold build output, caches or vendored tool state. They are
