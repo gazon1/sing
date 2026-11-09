@@ -50,7 +50,6 @@ its helper tools — and the gates are described here, once.
 | AGENTS.md pointers resolve | blocking | `scripts/check-agents-pointers.py` | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
 | review verdicts cover every change | blocking | `scripts/check-review-verdicts.py` | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
 | the tag catalogue matches the tags | blocking | `scripts/check-test-tags-catalog.py` | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |
-| skills catalogue is current | blocking | `scripts/regen-skills-catalog.sh` | skills catalogue is current | — | — |
 | detekt rules config is current | blocking | `scripts/gen-detekt-rules-config.py` | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | `scripts/gen-detekt-rule-table.py` | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
 | detekt rule registry | blocking | `scripts/check-detekt-registrations.sh` | detekt rule registry | — | — |

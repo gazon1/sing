@@ -480,22 +480,6 @@ gate blocking "review verdicts cover every change" python3 scripts/check-review-
 # (`-PupdateGoldens=true`), and the gate names that command when it finds a
 # difference.
 gate blocking "the tag catalogue matches the tags" sgate the_tag_catalogue_matches_the_tags
-# The catalogue of the skills, generated from the skills' own frontmatter.
-#
-# `docs/SKILLS-CATALOG.md` is what an agent reads to choose a skill, so a stale
-# line count or a stale description sends it to the wrong file. The catalogue was
-# committed stale on a clean tree and nobody noticed: "do not edit by hand"
-# discourages the wrong edit, and it does not catch the edit nobody made.
-#
-# The generator had a `--check` mode for exactly that, and nothing ran it. This
-# gate is that mode — the generator compares the committed catalogue with a
-# fresh generation and exits non-zero when they differ, so a pull request that
-# edits a skill without regenerating the catalogue fails instead of landing one.
-#
-# The script is invoked directly rather than through `sgate`: a gate dispatched
-# through `sgate` is asked for `--json` and held to the JSON contract, and this
-# one prints a sentence.
-gate blocking "skills catalogue is current" bash scripts/regen-skills-catalog.sh --check
 #
 # Workflow + YAML lint, two real tools over the corpus the gates above only
 # parse. actionlint checks GitHub Actions *semantics* — expressions, action
