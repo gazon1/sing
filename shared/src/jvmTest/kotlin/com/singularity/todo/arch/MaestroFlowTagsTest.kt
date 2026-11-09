@@ -34,6 +34,10 @@ import kotlin.test.assertTrue
  * routes through `slug()` as the terminal interpolation in its template literal,
  * so both are intentionally excluded from [TestTagsCatalog.dynamicFunctions].
  *
+ * Ids under [PLATFORM_ID_PREFIX] are the operating system's own (a system
+ * dialog's button), not this app's tags, so the catalogue has nothing to say
+ * about them.
+ *
  * Run from repo root:
  * ```
  * ./gw :shared:archTest --tests "com.singularity.todo.arch.MaestroFlowTagsTest"
@@ -126,6 +130,7 @@ class MaestroFlowTagsTest {
         val unknown =
             ids.keys.filter { id ->
                 id !in staticValues &&
+                    !id.startsWith(PLATFORM_ID_PREFIX) &&
                     dynamicPrefixes.none { prefix -> id.startsWith(prefix) } &&
                     !id.matches(calendarDayPattern) &&
                     !id.matches(profileItemPattern)
@@ -608,6 +613,9 @@ class MaestroFlowTagsTest {
     }
 
     private companion object {
+        /** The prefix of an id the platform owns — a system dialog's button, not an app tag. */
+        const val PLATFORM_ID_PREFIX = "android:id/"
+
         /** The commands that assert a thing is *not* there; a retired tab may be named in those. */
         val ABSENCE_COMMANDS = setOf("assertNotVisible", "assertAbsent")
 
