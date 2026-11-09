@@ -32,6 +32,9 @@ import kotlin.test.assertTrue
  * (`profile_item_<slug>`) are accepted as known exceptions: neither function
  * routes through `slug()` as the terminal interpolation in its template literal,
  * so both are intentionally excluded from [TestTagsCatalog.dynamicFunctions].
+ * A platform id (`android:id/...`) is accepted for the same kind of reason: the
+ * save dialog's confirm button is the OS's widget, and the app has no tag for
+ * a widget that is not its own.
  *
  * Run from repo root:
  * ```
@@ -87,6 +90,17 @@ class MaestroFlowTagsTest {
     private val profileItemPattern = Regex("""^profile_item_[a-z][a-z0-9_]*$""")
 
     /**
+     * `android:id/...` — a resource id of the platform, not of the app.
+     *
+     * The save dialog's confirm button belongs to the OS: its label is the
+     * system's, in the system's language, so a flow names it by the resource id
+     * instead. The app has no tag for that button and cannot have one — it is not
+     * the app's widget, and a `TestTags` entry for it would be a lie about what
+     * the app renders.
+     */
+    private val systemIdPattern = Regex("""^android:id/\S+$""")
+
+    /**
      * Walks [dir] (flows or helpers) and collects every `id:` value → flow path.
      * Template expressions (`${...}`) are skipped.
      */
@@ -127,7 +141,8 @@ class MaestroFlowTagsTest {
                 id !in staticValues &&
                     dynamicPrefixes.none { prefix -> id.startsWith(prefix) } &&
                     !id.matches(calendarDayPattern) &&
-                    !id.matches(profileItemPattern)
+                    !id.matches(profileItemPattern) &&
+                    !id.matches(systemIdPattern)
             }
 
         val failureMessage =
