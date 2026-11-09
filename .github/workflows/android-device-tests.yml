@@ -310,10 +310,46 @@ jobs:
 
       # The full tier: the whole instrumented suite, and it fails the job.
       - name: Instrumented tests
+        id: instrumented
         if: needs.plan.outputs.tier == 'full'
         env:
           GRADLE_ARGS: -PTEST_AUTH_BYPASS=true
         run: python3 scripts/run-android-ui-tests.py
+
+      # The index of what this run produced: the failing testcases, the
+      # diagnostics bundle of each one, and the environment they ran in.
+      #
+      # The environment is a file the runner writes (`environment.json`): the
+      # device, its API level, the APK and the commit. The workflow passes it
+      # on instead of retyping what the runner already knows, and the index
+      # prints it — a failure on an emulator and a failure on a phone are
+      # two different things, and a report that does not say which one it is
+      # describes nothing.
+      #
+      # The task outcome comes from the step that ran the tests: a run that
+      # failed is a failed task, and a failed task is not a set of failed
+      # testcases. The index keeps the two apart.
+      - name: Index the evidence of this run
+        if: ${{ !cancelled() }}
+        run: |
+          case "${{ steps.instrumented.outcome }}" in
+            success) outcome=passed ;;
+            failure) outcome=failed ;;
+            cancelled) outcome=cancelled ;;
+            skipped) outcome=not_run ;;
+            *) outcome=unknown ;;
+          esac
+          python3 scripts/test-evidence.py \
+            --root . \
+            --glob "androidApp/build/outputs/androidTest-results/**/*.xml" \
+            --profile device \
+            --expect androidApp:connectedDebugAndroidTest \
+            --task-outcome "$outcome" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --metadata-file build/android-ui-results/environment.json \
+            --summary \
+            --out-dir build/android-ui-results/evidence
 
       # The floor of the instrumented suite.
       #
@@ -365,6 +401,17 @@ jobs:
           path: |
             androidApp/build/reports/androidTests/
             androidApp/build/outputs/androidTest-results/
+            build/android-ui-results/environment.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      # The index and the manifest of this run's evidence.
+      - name: Upload the evidence index
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-evidence-${{ github.run_id }}
+          path: build/android-ui-results/evidence/
           if-no-files-found: warn
           retention-days: 14
 

@@ -902,6 +902,7 @@ jobs:
       # `scripts/check-waiver-references.py` requires an anchor to resolve to a
       # STEP NAME — not to a name this file used to carry.
       - name: Gradle (tests)
+        id: jvm-tests
         # `:androidApp:test` is NO-SOURCE and runs zero tests: the module has
         # no JVM unit-test source set — its suite is `src/androidTest/`, which
         # needs a device and cannot run here. The task stays in this list so the
@@ -1176,6 +1177,76 @@ jobs:
       # dependency edge is the point of that build file. So the reports this
       # invocation writes are its own, and the readers above have already
       # measured theirs.
+      # The index of what this run produced.
+      #
+      # Everything above reads ONE number out of the reports. This step writes
+      # down the whole thing: which testcases failed, where the diagnostics
+      # bundle of each one is, and which tasks produced no report at all. The
+      # three used to be three artifacts a reader had to hold in their head
+      # at once, and the link between a failing test and its bundle was
+      # manual — the bundle directory was found by eye and matched by hand.
+      #
+      # The task outcome is an INPUT, taken from the step that ran the tests.
+      # A cancelled or timed-out invocation is not a run whose tests failed,
+      # and the index says so in its own section instead of counting the
+      # partial reports as failures.
+      #
+      # Placement: this step reads `**/build/test-results/**`, so it has to
+      # sit above the Gradle invocations that can rewrite those reports (the
+      # ADR module tests below). The ADR modules' own reports are therefore
+      # NOT in this index — they are written after it — and they are in the
+      # uploaded JUnit XML all the same.
+      #
+      # The expectations are named one by one rather than taken from the
+      # profile, for two reasons: `mcp-server:test` selects nothing under the
+      # fast population (its only test is slow), so a task that ran and
+      # selected nothing must not be reported as a task that did not run; and
+      # the ADR invocation has not happened yet.
+      - name: Index the evidence of this run
+        if: ${{ !cancelled() }}
+        run: |
+          case "${{ steps.jvm-tests.outcome }}" in
+            success) outcome=passed ;;
+            failure) outcome=failed ;;
+            cancelled) outcome=cancelled ;;
+            skipped) outcome=not_run ;;
+            *) outcome=unknown ;;
+          esac
+          expect=(
+            --expect shared:jvmTest
+            --expect core-domain:jvmTest
+            --expect shared:archTest
+            --expect shared:testAndroidHostTest
+            --expect desktopApp:test
+            --expect detekt-rules:test
+            --expect tools:unwritten-properties:test
+          )
+          if [ "$TEST_POPULATION" = "full" ]; then
+            expect+=(--expect mcp-server:test)
+          fi
+          gradle_version=$(sed -n 's/.*gradle-\([0-9.]*\)-bin.zip.*/\1/p' gradle/wrapper/gradle-wrapper.properties)
+          kotlin_version=$(sed -n 's/^kotlin = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          # The JDK is the one fact here that the build does not pin: the JVM
+          # modules take the runner's default. So it is read, not written —
+          # a metadata line that says "21" on a runner that has 17 is worse
+          # than no metadata line at all.
+          jdk_version=$(java -version 2>&1 | sed -n '1s/.*version "\([0-9._]*\)".*/\1/p')
+          jdk_version=${jdk_version:-unknown}
+          python3 scripts/test-evidence.py \
+            --root . \
+            --glob "**/build/test-results/**/*.xml" \
+            "${expect[@]}" \
+            --profile "$TEST_POPULATION" \
+            --task-outcome "$outcome" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --metadata "os=${{ runner.os }}" \
+            --metadata "jdk=$jdk_version" \
+            --metadata "gradle=$gradle_version" \
+            --metadata "kotlin=$kotlin_version" \
+            --summary \
+            --out-dir build/evidence
+
       - name: ADR module tests
         run: |
           set -o pipefail
@@ -1308,25 +1379,49 @@ jobs:
       - name: Coverage floors
         if: env.COVERAGE_ENABLED == 'true'
         run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"
+      # The raw JUnit XML of EVERY module that ran a test task.
+      #
+      # The list used to name five modules, so the reports of the other five
+      # — the ADR modules, the detekt rules, the unwritten-properties check —
+      # were never uploaded. The artifact was a partial record that looked
+      # like a complete one: a reader could not tell the difference between
+      # "this suite passed" and "this suite's reports were never collected".
+      # The glob names the shape (`<module>/build/test-results/**`) instead of
+      # the modules, so a module that starts running tests is uploaded without
+      # anybody editing this list.
+      #
+      # `warn` and not `error`: a run that failed to COMPILE has no reports at
+      # all, and a second red mark saying "no files found" adds nothing to a
+      # red job that already says what went wrong. The evidence index is the
+      # thing that says which reports are missing, and it says it about the
+      # tasks that owed one.
       - name: Upload JUnit results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: junit-results
-          path: |
-            shared/build/test-results/jvmTest/**/*.xml
-            core-domain/build/test-results/jvmTest/**/*.xml
-            shared/build/test-results/testAndroidHostTest/**/*.xml
-            desktopApp/build/test-results/test/**/*.xml
-            mcp-server/build/test-results/test/**/*.xml
-          if-no-files-found: error
+          name: junit-results-${{ github.run_id }}
+          path: "**/build/test-results/**/*.xml"
+          if-no-files-found: warn
           retention-days: 7
+
+      # The index and the manifest: what failed, where each failure's
+      # diagnostics are, and what is missing. It is uploaded under a name that
+      # carries the run id, so two runs of the same branch never write over
+      # each other's index.
+      - name: Upload the evidence index
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-evidence-${{ github.run_id }}
+          path: build/evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload Allure results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: allure-results
+          name: allure-results-${{ github.run_id }}
           path: |
             shared/build/allure-results/**/*
             desktopApp/build/allure-results/**/*

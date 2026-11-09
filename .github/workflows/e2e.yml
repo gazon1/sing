@@ -362,6 +362,41 @@ jobs:
             --commit "${{ github.sha }}" \
             --out-dir build/traceability
 
+      # The index of what this shard produced.
+      #
+      # A flow's JUnit result, its screenshots and its logcat live together
+      # under the flow's own name, and this step is what says so: a failing
+      # flow points at the directory that holds its picture of the screen and
+      # at the report that says what it asserted.
+      #
+      # The environment file the runner wrote (`environment.json`) says which
+      # shard this was, on what device, with which APK, at which commit. A
+      # suite runs as several shards, and "the flows of shard 2 failed" is not
+      # a fact about the suite — it is a fact about one piece of it, and a
+      # reader who cannot tell the pieces apart is looking at a part and
+      # calling it the whole.
+      - name: Index the evidence of this shard
+        if: ${{ !cancelled() }}
+        run: |
+          case "${{ job.status }}" in
+            success) outcome=passed ;;
+            failure) outcome=failed ;;
+            cancelled) outcome=cancelled ;;
+            *) outcome=unknown ;;
+          esac
+          python3 scripts/test-evidence.py \
+            --root . \
+            --glob "build/maestro-results/*.xml" \
+            --profile e2e \
+            --task-outcome "$outcome" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --metadata "shard=${{ matrix.shard }}/${{ strategy.job-total }}" \
+            --metadata "suite=${{ needs.plan.outputs.suite }}" \
+            --metadata-file build/maestro-results/environment.json \
+            --summary \
+            --out-dir build/maestro-results/evidence
+
       # The shard plan compares the shards by TIME when the flows have been
       # measured, and by COUNT when they have not. The measurements exist in
       # the JUnit reports this job just produced, so the step folds them into
@@ -406,6 +441,18 @@ jobs:
         with:
           name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
           path: build/maestro-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # The index and the manifest of this shard's evidence. The name carries
+      # the suite, the shard and the run id: two shards of the same suite in
+      # the same run are two artifacts, not one written twice.
+      - name: Upload the evidence index
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-evidence-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          path: build/maestro-results/evidence/
           if-no-files-found: warn
           retention-days: 14
 
