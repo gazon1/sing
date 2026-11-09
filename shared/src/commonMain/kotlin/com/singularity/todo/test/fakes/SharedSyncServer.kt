@@ -52,8 +52,14 @@ import kotlin.time.Clock
  * It is a double, not production code: nothing in the app resolves it, and the
  * sync port it stands in for ([SyncApiClient]) is bound by the DI module, not by
  * this class.
+ *
+ * @param clock the clock the server stamps its events with. Defaults to [FakeClock]
+ *   so the server reads no wall clock: the detekt rule `NoDirectClockSystem` bans
+ *   `Clock.System` in every source set, and a fake that reached for it would fail
+ *   the rule's own check that nothing under `test/fakes/` reads the system clock.
+ *   Nothing reads the events' `createdAt`, so a fixed epoch is enough.
  */
-class SharedSyncServer {
+class SharedSyncServer(private val clock: Clock = FakeClock()) {
     private val mutex = Mutex()
     private val events = mutableListOf<SyncEvent>()
 
@@ -88,7 +94,7 @@ class SharedSyncServer {
                             entityType = patch.entityType,
                             eventType = if (patch.isDelete) SyncEventType.DELETED else SyncEventType.UPDATED,
                             data = document,
-                            createdAt = Clock.System.now().toEpochMilliseconds(),
+                            createdAt = clock.now().toEpochMilliseconds(),
                             profileId = request.profileId,
                         )
                     PatchResult(patchId = patch.patchId, ok = true, newVersion = newLsn)
