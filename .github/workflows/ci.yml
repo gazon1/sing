@@ -381,10 +381,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [changes]
+    # The gate scripts' own unit tests answer one question: does the corpus of
+    # the gates still work? The corpus is `scripts/**`, `config/**`,
+    # `.github/**`, `.githooks/**` — and `needs.changes.outputs.gates` is
+    # exactly that question, already answered by the job that has nothing
+    # else to do.
+    #
+    # The condition used to also ask `all`, and `all` is every path: the job
+    # ran on every pull request, including the ones that changed no gate
+    # script, and paid 303 s for a corpus nothing had touched.
+    #
+    # The trunk and a manual run still prove the corpus: the trunk is where
+    # the corpus lands, and a manual run is a request to see everything.
     if: >
       (
-        needs.changes.outputs.scripts == 'true'
-        || needs.changes.outputs.all == 'true'
+        needs.changes.outputs.gates == 'true'
         || github.ref == 'refs/heads/main'
         || github.event_name == 'workflow_dispatch'
       )
