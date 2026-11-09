@@ -369,7 +369,6 @@ gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_workt
 # partiality is part of the record, because an unwritten partiality reads as a
 # full one.
 gate blocking "hook gates are declared once" sgate hook_gates_are_declared_once
-gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # The coverage report measures every module that is in it.
 #

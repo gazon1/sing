@@ -312,8 +312,16 @@ partiality is part of the record, because an unwritten partiality reads as a
 full one.""",
     ),
     "unwired surfaces": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate unwired_surfaces',
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "a person runs it when the wiring changes: `python3 scripts/"
+            "find-unwired-surfaces.py`. The scan reads every Kotlin file in the tree "
+            "and cost 140 s of runner time on every push — the price of a ratchet "
+            "nobody read in the run it was paid for. The gate is still a gate: it "
+            "still reports the count and still compares it with the floor, and a "
+            "person who wires something runs it and writes the new floor down."
+        ),
+        tracked_by="scripts/find-unwired-surfaces.py",
     ),
     "settings read by a feature": Placement(
         kind=PlacementKind.STATIC,

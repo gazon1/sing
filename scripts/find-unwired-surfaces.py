@@ -47,8 +47,13 @@ floor move when somebody merely renames an exemption's message.
 
 Usage:
     scripts/find-unwired-surfaces.py           # human-readable report
-    scripts/find-unwired-surfaces.py --quiet   # findings only, for CI
+    scripts/find-unwired-surfaces.py --quiet   # findings only
     scripts/find-unwired-surfaces.py --update-floor   # write the current count
+
+This gate is not in the automatic registry: a person runs it when the wiring
+changes. It reads every Kotlin file in the tree, so paying 140 s of runner
+time on every push for a verdict nobody read was the wrong trade. See ADR
+`docs/decisions/2026-11-09-the-unwired-surfaces-gate-runs-when-a-person-runs-it.md`.
 
 Exit code is 1 when anything is reported, so it can gate a check.
 """
