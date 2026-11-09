@@ -80,6 +80,32 @@ internal class SyncDocumentWriter(
         )
 
     /**
+     * The server's row, completed into a document this device can decode.
+     *
+     * The server keeps a **row**, not a document: the row's identity is the id the
+     * event names and the owner the session has, and the fields it stores are the
+     * ones the server writes. A row therefore arrives without the two fields every
+     * model cannot do without — the `id` and the `userId` — and a document decoded
+     * from it fails on the first missing one.
+     *
+     * The id is the event's own: the event names the row it is about. The owner is
+     * the session's: the server serves only the rows of the account that asks for
+     * them, so a row that arrived here belongs to this session.
+     *
+     * A document that carries either of them keeps it. The owner of a document is
+     * never overwritten from the session when the document states one — see [upsert].
+     */
+    fun documentFromRow(
+        entityId: String,
+        row: JsonObject,
+    ): JsonObject {
+        val completed = LinkedHashMap(row)
+        completed.putIfAbsent(ID_WIRE_NAME, JsonPrimitive(entityId))
+        completed.putIfAbsent(OWNER_WIRE_NAME, JsonPrimitive(currentUser.scopedUserId.value.value))
+        return JsonObject(completed)
+    }
+
+    /**
      * Decodes [document] as [type] and upserts it.
      *
      * The document's own `userId` and ids are used as they are. The owner of the
@@ -360,3 +386,9 @@ internal class InadmissibleTaskDocumentException(message: String) : RuntimeExcep
  * `docs/decisions/2026-10-23-the-row-keeps-what-the-document-does-not-say.md`.
  */
 private val PARTS_OUTSIDE_THE_ROW = setOf(TAGS_WIRE_NAME, BLOCKED_BY_WIRE_NAME)
+
+/** The wire name of the row's own key — the one field of the four the server stores as a column. */
+private const val ID_WIRE_NAME = "id"
+
+/** The wire name of the row's owner — the account the server keeps the row for. */
+private const val OWNER_WIRE_NAME = "userId"
