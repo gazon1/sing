@@ -64,9 +64,11 @@ about the test's own outcome.
 
 **`timed_out` is an input, and CI cannot supply it.** GitHub Actions does
 not distinguish a step that hit its deadline from a step that failed on its
-own account — both are `conclusion: failure`. CI therefore passes `failed`,
-and a caller that knows better (a wrapper with its own deadline) passes
-`timed_out`. Inferring it from the report would be a guess.
+own account — both are `conclusion: failure`. The CI, Android and E2E
+workflows therefore pass `failed`, and a caller that knows better (a wrapper
+with its own deadline) passes `timed_out`. Inferring it from the report would
+be a guess. The reporter supports the outcome; the workflows do not yet
+detect it, and a `failed` in a manifest must not be read as "timed out".
 
 **Incomplete evidence is called out.** A promised task with no report is
 `not_run`; a report that was read but holds no testcase is empty. Both are
@@ -127,7 +129,15 @@ summary.
 **Evidence is collected and uploaded on `always()`.** A cancelled job is
 still a run, and its account of what it did is worth more than no account.
 The condition is `always() && steps.checkout.outcome == 'success'`: after a
-checkout that did not happen there is no tree and nothing to read.
+checkout that did not happen there is no tree and nothing to read. An upload
+that runs under `always()` therefore does not fail on an absent file
+(`if-no-files-found: warn`): the report it looks for may never have been
+written, and a missing report is recorded in the evidence — a cancelled job
+must not be reported as a failure of the uploader.
+
+**The manifest explains itself.** It carries `expected_tasks`,
+`deferred_tasks` and `conditional_tasks`, so an artifact that leaves the
+repository still says why a task of the profile is absent from the reports.
 
 **Artifact names carry the run attempt.** `github.run_id` does not change
 when a workflow is re-run, so two attempts of one run would write into the
