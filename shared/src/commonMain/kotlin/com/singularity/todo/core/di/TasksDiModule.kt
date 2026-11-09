@@ -13,6 +13,7 @@ import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
@@ -25,6 +26,7 @@ import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsDeps
 import com.singularity.todo.feature.statistics.StatisticsViewModel
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
@@ -249,7 +251,20 @@ fun tasksModule(): org.koin.core.module.Module =
             )
         }
 
-        viewModel { (initialDueDate: kotlinx.datetime.LocalDate?, draftKey: String?) ->
+        // One parameter, one value. This used to destructure four arguments —
+        // `(initialDueDate, draftKey, initialProjectId, initialTagIds)` — supplied
+        // positionally by `TaskCreateScreen`, in another module. Koin matches by
+        // order and type and not by name, so swapping two of them compiled, kept
+        // every unit test green, and failed inside this graph at runtime, on a
+        // device. `TaskCreateSeed` closes the seam: there is nothing left to
+        // reorder, and its fields are named on both sides.
+        //
+        // Its `initialProjectId`/`initialTagIds` are the agenda drill-down seed
+        // (#1952/#1958): a task created from a project's or a tag's task list
+        // belongs to that list, rather than arriving unseeded as it did from the
+        // Inbox branch.
+        viewModel {
+            (seed: com.singularity.todo.feature.tasks.domain.state.TaskCreateSeed) ->
             TaskCreateViewModel(
                 deps =
                     TaskCreateDeps(
@@ -257,8 +272,10 @@ fun tasksModule(): org.koin.core.module.Module =
                         logger = Logger.withTag("TaskCreate"),
                         draftStore = get(),
                     ),
-                initialDueDate = initialDueDate,
-                draftKey = draftKey,
+                initialDueDate = seed.initialDueDate,
+                draftKey = seed.draftKey,
+                initialProjectId = seed.initialProjectId,
+                initialTagIds = seed.initialTagIds,
                 crashReporter = get(),
             )
         }
