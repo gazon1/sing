@@ -1369,7 +1369,11 @@ jobs:
 
       # Publish a live Allure report to GitHub Pages (Allure 2 via simple-elf).
       # Only on main: PR runs keep uploading the artifact above instead.
-      - name: Load Allure report history
+      #
+      # Advisory: the gh-pages branch does not exist until the first publish,
+      # so the checkout can fail on a trunk that has never published. A missing
+      # history is a report without a trend line, not a broken build.
+      - name: Load Allure report history (advisory)
         if: github.ref == 'refs/heads/main' && !cancelled()
         continue-on-error: true
         uses: actions/checkout@v7
