@@ -6,6 +6,8 @@ import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import org.junit.jupiter.api.Tag
@@ -23,6 +25,8 @@ import kotlin.time.Instant
  * Pure domain: no database, no repository, no Compose.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class TaskSeriesPlannerTest {
     private val userId = UserId("test-user")
     private val now = Instant.fromEpochMilliseconds(1_700_000_000_000)

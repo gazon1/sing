@@ -20,6 +20,8 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -516,6 +518,8 @@ abstract class TaskRepositoryContractTest {
  *
  * Fast (~100 ms): no SQLite, no I/O.
  */
+@Epic("Tasks")
+@Feature("Tasks")
 class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
     override suspend fun newRepository(userId: UserId): TaskRepository {
         val auth = FakeAuthRepository(Session.Anonymous(userId))

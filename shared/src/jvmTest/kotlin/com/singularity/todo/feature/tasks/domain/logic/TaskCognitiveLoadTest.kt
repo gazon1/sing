@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +17,8 @@ import kotlin.test.assertTrue
  * matters to them.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskCognitiveLoadTest {
     @Test
     fun `the load grows with the estimate`() {

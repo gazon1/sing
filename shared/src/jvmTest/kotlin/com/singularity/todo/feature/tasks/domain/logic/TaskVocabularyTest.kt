@@ -7,6 +7,8 @@ import com.singularity.todo.feature.agenda.domain.model.heldBuckets
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
@@ -41,6 +43,8 @@ import kotlin.test.assertTrue
  * and its section headers from the presets' own selectors.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskVocabularyTest {
     @Test
     fun `every filter shape is registered, and the registry names no other filter`() {

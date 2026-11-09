@@ -18,6 +18,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -73,6 +75,8 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:data")
 @OptIn(ExperimentalCoroutinesApi::class)
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskPushClaimTest {
     private val alice = UserId("alice")
 

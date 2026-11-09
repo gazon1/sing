@@ -20,6 +20,8 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TEST_TZ
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -45,6 +47,8 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskCreateDebounceTest {
     /**
      * A fixed instant, so a draft that resolves `DueDateOption.Today` gets a date

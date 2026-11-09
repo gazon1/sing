@@ -7,6 +7,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -24,6 +26,8 @@ import kotlin.test.assertTrue
  * left, and the group it left keeps a member that is not there.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class DetachTaskFromSeriesUseCaseTest {
     private val alice = UserId("alice")
     private val seriesId = TaskSeriesId("series-1")

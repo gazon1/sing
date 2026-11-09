@@ -3,20 +3,38 @@ package com.singularity.todo.feature.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.Note
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FolderShared
+import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.platform.systemToday
@@ -393,53 +411,151 @@ sealed interface AppDestination : AppNavKey {
     }
 }
 
-/** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
+/**
+ * The glyph a destination is drawn with.
+ *
+ * One metaphor per destination, and the metaphor is the destination's name: a box
+ * for the archive, a to-do list for the tasks, a notebook for the notes, a chart
+ * for the statistics and a different chart for the AI usage.
+ *
+ * The rules, each held by a test rather than by this comment:
+ *
+ * 1. no two entries of one presented list — the menu, the bottom bar — share a
+ *    glyph (`MenuIconsTest` in the shell);
+ * 2. the agenda's start routes do not share one glyph among themselves, and none
+ *    of them is the tasks' glyph (`DestinationIconsTest`);
+ * 3. no destination anywhere is drawn with the "done" tick, which says a task is
+ *    finished rather than naming a screen (`DestinationIconsTest`).
+ *
+ * Every destination is named in the `when` below, and it has no `else`: the
+ * hierarchy is sealed, so a destination that joins it does not compile until it
+ * is named here. A catch-all branch is how the agenda's drill-downs came to share
+ * one glyph with Tasks: the branch compiled, the list of destinations looked
+ * plausible, and nothing said which ones fell into it.
+ *
+ * ## Why no start route appears in this `when`
+ *
+ * A start route is not a destination. `AgendaStartRoute`, `TasksStartRoute`,
+ * `ProjectsStartRoute`, `NotesStartRoute` and `CalendarStartRoute` all extend
+ * [AppNavKey]; the *graph* they start ([AppDestination.AgendaGraph] and its
+ * siblings) is the destination, and it is the graph that is drawn. An
+ * `is AgendaStartRoute ->` branch in a `when` over [AppDestination] could
+ * therefore never match — it is unreachable, it adds nothing to exhaustiveness,
+ * and its presence reads as though start routes were drawn on their own.
+ *
+ * Only [AppDestination.AgendaGraph]'s glyph varies by its start route, because
+ * three of those routes are bottom-bar tabs and the rest are drill-downs; that
+ * mapping lives in [agendaStartIcon], typed on [AgendaStartRoute] where a branch
+ * per route is exhaustive by the compiler.
+ */
 val AppDestination.icon: ImageVector
     get() =
-        when {
-            this is AppDestination.AgendaGraph -> {
-                when (this.start) {
-                    AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
-                    AgendaStartRoute.Today -> Icons.Filled.Today
-                    AgendaStartRoute.Upcoming -> Icons.Filled.Event
-                    else -> Icons.Filled.Check
-                }
-            }
+        when (this) {
+            // ─── Tabs and menu entries ──────────────────────────────────────
+            AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
 
-            else -> {
-                when (this) {
-                    AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
-                    AppDestination.Pomodoro -> Icons.Filled.Repeat
-                    AppDestination.Statistics -> Icons.Filled.BarChart
-                    AppDestination.Calendar -> Icons.Filled.CalendarMonth
-                    AppDestination.Notes -> Icons.Filled.Create
-                    AppDestination.AiChat -> Icons.Filled.AutoAwesome
-                    is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
-                    AppDestination.Search -> Icons.Filled.Search
-                    AppDestination.ExternalAgent -> Icons.Filled.AutoAwesome
-                    AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
-                    AppDestination.Archive -> Icons.Filled.Check
-                    AppDestination.Settings -> Icons.Filled.Settings
-                    AppDestination.AiUsage -> Icons.Filled.BarChart
-                    AppDestination.ProfileSwitcher -> Icons.Filled.Person
-                    AppDestination.AttachAccount -> Icons.Filled.Person
-                    AppDestination.ChangePassword -> Icons.Filled.Person
-                    is AppDestination.MagicLinkConfirm -> Icons.Filled.Person
-                    is AppDestination.TasksGraph -> Icons.Filled.Check
-                    is AppDestination.TasksByProject -> Icons.Filled.Folder
-                    is AppDestination.ProjectEditor -> Icons.Filled.Check
-                    is AppDestination.ProjectDetail -> Icons.Filled.Check
-                    is AppDestination.ProjectsGraph -> Icons.Filled.Check
-                    is AppDestination.ProjectsStartRoute -> Icons.Filled.Check
-                    is AppDestination.NotesGraph -> Icons.Filled.Create
-                    is AppDestination.NotesStartRoute -> Icons.Filled.Create
-                    is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
-                    is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
-                    is AgendaStartRoute -> Icons.Filled.Check
-                    is AppDestination.TasksStartRoute -> Icons.Filled.Check
-                }
-            }
+            AppDestination.Pomodoro -> Icons.Filled.Repeat
+
+            AppDestination.Statistics -> Icons.Filled.Insights
+
+            AppDestination.Calendar -> Icons.Filled.CalendarMonth
+
+            AppDestination.Notes -> Icons.AutoMirrored.Filled.Note
+
+            AppDestination.AiChat -> Icons.Filled.AutoAwesome
+
+            AppDestination.Search -> Icons.Filled.Search
+
+            AppDestination.ExternalAgent -> Icons.Filled.Extension
+
+            AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
+
+            AppDestination.Archive -> Icons.Filled.Archive
+
+            AppDestination.Settings -> Icons.Filled.Settings
+
+            AppDestination.AiUsage -> Icons.Filled.BarChart
+
+            AppDestination.ProfileSwitcher -> Icons.Filled.Person
+
+            AppDestination.AttachAccount -> Icons.Filled.PersonAdd
+
+            AppDestination.ChangePassword -> Icons.Filled.Lock
+
+            is AppDestination.MagicLinkConfirm -> Icons.Filled.VerifiedUser
+
+            // ─── Nested graphs: one glyph for the graph ─────────────────────
+            // Tasks are a list, not a tick: a tick says one task is finished, a
+            // list says where the tasks live. Nothing in the destination map
+            // draws the tick at all.
+            is AppDestination.TasksGraph -> Icons.AutoMirrored.Filled.ListAlt
+
+            is AppDestination.ProjectsGraph -> Icons.Filled.Folder
+
+            is AppDestination.NotesGraph -> Icons.AutoMirrored.Filled.Note
+
+            is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
+
+            // The one graph whose glyph is the start route's: the agenda's
+            // start is what tells Inbox from Today from a project's drill-down.
+            is AppDestination.AgendaGraph -> agendaStartIcon(start)
+
+            // ─── Record screens ─────────────────────────────────────────────
+            is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
+
+            is AppDestination.TasksByProject -> Icons.Filled.FolderShared
+
+            is AppDestination.ProjectEditor -> Icons.Filled.CreateNewFolder
+
+            is AppDestination.ProjectDetail -> Icons.Filled.FolderOpen
         }
+
+/**
+ * The glyph of an agenda start route.
+ *
+ * The only place where a route that is not itself an [AppDestination] decides a
+ * glyph, and it is typed on the route rather than on the destination: the
+ * `when` is exhaustive over [AgendaStartRoute] by the compiler, so a start route
+ * added later has to be given a glyph instead of silently landing in a
+ * catch-all — which is how every drill-down came to draw the generic task tick.
+ *
+ * The project's agenda keeps the folder the projects list carries: it *is* a
+ * project's tasks, and the two are never drawn in one list — the projects list
+ * is a sub-route, not a tab and not a menu entry. The project's own screens
+ * split the folder family instead — open folder for the project, new folder for
+ * its editor, shared folder for its tasks — rather than all repeating one glyph.
+ * `DestinationIconsTest` holds that allowance to those conditions.
+ */
+private fun agendaStartIcon(start: AgendaStartRoute): ImageVector =
+    when (start) {
+        AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
+
+        AgendaStartRoute.Today -> Icons.Filled.Today
+
+        AgendaStartRoute.Upcoming -> Icons.Filled.Event
+
+        is AgendaStartRoute.Project -> Icons.Filled.Folder
+
+        is AgendaStartRoute.Tag -> Icons.AutoMirrored.Filled.Label
+
+        is AgendaStartRoute.Tags -> Icons.Filled.LocalOffer
+
+        // The saved views are a list of saved views — the same metaphor the
+        // agenda top bar's "Saved views" button carries.
+        AgendaStartRoute.SavedAgendaList -> Icons.Filled.ViewList
+
+        is AgendaStartRoute.SavedAgendaResults -> Icons.Filled.QueryStats
+
+        is AgendaStartRoute.SavedAgendaEdit -> Icons.Filled.Edit
+
+        AgendaStartRoute.SavedAgendaCreate -> Icons.Filled.Add
+
+        AgendaStartRoute.Blocked -> Icons.Filled.Block
+
+        AgendaStartRoute.Stagnant -> Icons.Filled.HourglassEmpty
+
+        AgendaStartRoute.Overdue -> Icons.Filled.WarningAmber
+    }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */
 const val MENU_BUTTON_TITLE = "Menu"

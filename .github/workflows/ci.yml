@@ -702,9 +702,7 @@ jobs:
       )
     permissions:
       actions: read # flake analysis downloads the previous run's results
-      # No `contents: write` here any more: the permission existed for the
-      # detekt auto-correct branch, and that step now lives in the `detekt`
-      # job — the one job that needs it, and the one that judges detekt.
+      contents: write # publish Allure report to gh-pages
     env:
       # The population, decided ONCE by the `changes` job and read here. Every
       # Gradle invocation in this job that can run tests names the same one,
@@ -1368,6 +1366,32 @@ jobs:
           path: build/reports/allure
           if-no-files-found: warn
           retention-days: 14
+
+      # Publish a live Allure report to GitHub Pages (Allure 2 via simple-elf).
+      # Only on main: PR runs keep uploading the artifact above instead.
+      - name: Load Allure report history
+        if: github.ref == 'refs/heads/main' && !cancelled()
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Build Allure report for Pages
+        if: github.ref == 'refs/heads/main' && !cancelled()
+        uses: simple-elf/allure-report-action@master
+        with:
+          gh_pages: gh-pages
+          allure_history: allure-history
+          allure_results: build/allure-results-merged
+
+      - name: Publish Allure report to GitHub Pages
+        if: github.ref == 'refs/heads/main' && !cancelled()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
 
       - name: Upload evidence (diagnostics, traceability, coverage)
         if: ${{ !cancelled() }}

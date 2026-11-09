@@ -9,6 +9,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
@@ -30,6 +32,8 @@ import kotlin.time.Instant
  * every fact that applies is stated.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskMarkingPolicyTest {
     private val today = LocalDate(2026, 10, 14)
     private val epoch0 = Instant.fromEpochMilliseconds(0)

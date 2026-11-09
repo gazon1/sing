@@ -14,9 +14,10 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import java.io.File
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -44,20 +45,28 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class BackupKeepExistingTest {
-    private val owner = UserId("keep-owner")
+    private lateinit var fixture: DatabaseTestFixture
+    private lateinit var db: AppDatabase
 
-    // The fixture owns the database and the directory that holds it, so the
-    // archives and the attachments this test writes are removed with it.
-    private val fixture = DatabaseTestFixture.onDisk()
-    private val tempDir: File by lazy { fixture.directory() }
-    private val db: AppDatabase by lazy { fixture.database("target") }
+    private val owner = UserId("keep-owner")
 
     private val fs = JvmFileSystem()
     private val settings = FakeTasksSettingsRepository()
-    private val attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath)
+    private val attachmentStorage by lazy {
+        AttachmentStorage(
+            fs,
+            File(fixture.directory(), "attachments").absolutePath,
+        )
+    }
     private val now = Clock.System.now().toEpochMilliseconds()
 
-    @AfterTest
+    @BeforeEach
+    fun setUp() {
+        fixture = DatabaseTestFixture.onDisk()
+        db = fixture.database()
+    }
+
+    @AfterEach
     fun tearDown() {
         fixture.close()
     }
@@ -210,7 +219,7 @@ class BackupKeepExistingTest {
             StableJson
                 .encodeToString(BackupManifest.serializer(), manifest)
                 .encodeToByteArray()
-        val path = File(tempDir, name).absolutePath
+        val path = File(fixture.directory(), name).absolutePath
         val written = JvmBackupCodec().export(manifestBytes, payloadBytes, attachments, path, fs)
         assertTrue(written.isSuccess, "the archive was not written: ${written.exceptionOrNull()}")
         return path
@@ -316,7 +325,7 @@ class BackupKeepExistingTest {
             )
 
             val archiveBytes = "archive-different-bytes".toByteArray()
-            val archiveFile = File(tempDir, "att-archive.dat")
+            val archiveFile = File(fixture.directory(), "att-archive.dat")
             archiveFile.writeBytes(archiveBytes)
             val archivePayload =
                 BackupPayload(

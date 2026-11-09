@@ -8,6 +8,8 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -25,6 +27,8 @@ import kotlin.time.Clock
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskEntitySlotTest {
     @Test
     fun `state is empty before a task arrives`() =

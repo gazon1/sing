@@ -2,11 +2,15 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.feature.tasks.domain.model.AiActionResult
 import com.singularity.todo.feature.tasks.domain.model.formatAiResult
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TasksFormattersTest {
     @Test
     fun refineTitleFormatsWithPrefix() {

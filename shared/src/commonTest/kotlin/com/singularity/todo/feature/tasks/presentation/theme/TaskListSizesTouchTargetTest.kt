@@ -2,6 +2,8 @@ package com.singularity.todo.feature.tasks.presentation.theme
 
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TouchTarget
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,6 +20,8 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 @Suppress("DEPRECATION")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskListSizesTouchTargetTest {
     @Test
     fun `task list minimum touch target follows the shared touch target token`() {

@@ -29,19 +29,12 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,7 +45,6 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
 import com.singularity.todo.core.ui.components.rememberDialogState
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.touchTarget
@@ -175,14 +167,12 @@ private fun TaskEditorContent(
     onAiClick: (() -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             TaskDetailTopBar(
                 onBackClick = onBack,
-                onMoreClick = { showMenu = true },
                 onAiClick = onAiClick,
+                menuItems = menuItems,
             )
         },
         bottomBar = bottomBar ?: {},
@@ -411,35 +401,6 @@ private fun TaskEditorContent(
             }
 
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
-        }
-    }
-
-    // Dropdown menu
-    if (menuItems.isNotEmpty()) {
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-            // The menu renders in its own popup window; the app-root
-            // testTagsAsResourceId never reaches it (same as MenuBottomSheet),
-            // so the mapping is re-asserted here or every row tag stays
-            // invisible to UI automation.
-            modifier = Modifier.mapTestTagsAsResourceIds(),
-        ) {
-            menuItems.forEach { item ->
-                DropdownMenuItem(
-                    text = { Text(item.label) },
-                    onClick = {
-                        showMenu = false
-                        item.onClick()
-                    },
-                    modifier =
-                        if (item.testTag != null) {
-                            Modifier.testTag(item.testTag)
-                        } else {
-                            Modifier
-                        },
-                )
-            }
         }
     }
 }

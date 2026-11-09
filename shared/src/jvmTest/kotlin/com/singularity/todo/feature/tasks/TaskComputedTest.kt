@@ -4,6 +4,8 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
@@ -16,6 +18,8 @@ import kotlin.test.assertTrue
  * Tests for [TaskComputed] derived predicates.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskComputedTest {
     private val testUserId = UserId("test-user")
     private val today = LocalDate(2026, Month.SEPTEMBER, 16)

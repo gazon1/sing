@@ -15,6 +15,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonArray
@@ -42,6 +44,8 @@ import kotlin.time.Clock
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Data")
 class TaskRepositorySyncPropagationTest {
     private val user = UserId("u1")
 

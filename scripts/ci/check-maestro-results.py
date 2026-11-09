@@ -519,6 +519,11 @@ def read_reports(results_dir: pathlib.Path) -> tuple[list[Report], list[Finding]
                 Finding("unreadable report", f"{xml.name}: the report is not valid XML ({exc})")
             )
             continue
+        except OSError as exc:
+            findings.append(
+                Finding("unreadable report", f"{xml.name}: the report could not be read ({exc})")
+            )
+            continue
         flow: str | None = None
         messages: list[str] = []
         for case in root.iter("testcase"):

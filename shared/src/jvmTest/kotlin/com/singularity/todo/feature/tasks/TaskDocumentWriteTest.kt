@@ -34,6 +34,8 @@ import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -76,6 +78,8 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskDocumentWriteTest {
     private val alice = UserId("alice")
     private val bob = UserId("bob")

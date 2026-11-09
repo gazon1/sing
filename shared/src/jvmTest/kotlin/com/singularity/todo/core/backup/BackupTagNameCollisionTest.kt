@@ -12,9 +12,10 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import java.io.File
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -30,18 +31,21 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class BackupTagNameCollisionTest {
-    private val owner = UserId("tag-name-owner")
+    private lateinit var fixture: DatabaseTestFixture
+    private lateinit var db: AppDatabase
 
-    // The fixture owns the database and the directory that holds it, so the
-    // archives this test writes are removed with it.
-    private val fixture = DatabaseTestFixture.onDisk()
-    private val tempDir: File by lazy { fixture.directory() }
-    private val db: AppDatabase by lazy { fixture.database("target") }
+    private val owner = UserId("tag-name-owner")
 
     private val fs = JvmFileSystem()
     private val now = Clock.System.now().toEpochMilliseconds()
 
-    @AfterTest
+    @BeforeEach
+    fun setUp() {
+        fixture = DatabaseTestFixture.onDisk()
+        db = fixture.database()
+    }
+
+    @AfterEach
     fun tearDown() {
         fixture.close()
     }
@@ -117,7 +121,7 @@ class BackupTagNameCollisionTest {
             StableJson
                 .encodeToString(BackupManifest.serializer(), manifest)
                 .encodeToByteArray()
-        val path = File(tempDir, name).absolutePath
+        val path = File(fixture.directory(), name).absolutePath
         JvmBackupCodec().export(manifestBytes, payloadBytes, emptyList(), path, fs).getOrThrow()
 
         val restored =
@@ -148,7 +152,7 @@ class BackupTagNameCollisionTest {
             agendaViewDao = db.agendaViewDao(),
             attachmentDao = db.attachmentDao(),
             annotationDao = db.annotationDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath),
             codec = JvmBackupCodec(),
             clock = Clock.System,
             createFileSource = JvmFileSourceFactory(),

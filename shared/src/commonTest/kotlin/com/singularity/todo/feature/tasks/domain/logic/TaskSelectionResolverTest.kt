@@ -6,6 +6,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -37,6 +39,8 @@ import kotlin.time.Instant
  * are out. `active` is the wider set: the same, with the deferred tasks kept.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class TaskSelectionResolverTest {
     private val today = LocalDate(2026, 10, 14)
     private val epoch = Instant.fromEpochMilliseconds(0)

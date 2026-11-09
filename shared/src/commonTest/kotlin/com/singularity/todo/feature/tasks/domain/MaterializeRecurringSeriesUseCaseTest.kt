@@ -13,6 +13,8 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -31,6 +33,8 @@ import kotlin.time.Instant
  * that a re-plan removes the future the new rule does not give.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class MaterializeRecurringSeriesUseCaseTest {
     private val monday = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))

@@ -30,17 +30,25 @@ def capture_artifacts(
         return
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    # Raw framebuffer screenshot
+    # `screencap -p <file>` prints nothing on success, so the return value is
+    # the only success signal. `pull` is an adb command, not a shell one
+    # (`adb shell pull` exits 127), and its progress goes to stderr — so the
+    # file on disk is the evidence that it worked.
     remote = f"/sdcard/{flow_name}_screen.png"
     local = artifact_dir / f"{flow_name}_screen.png"
-    if deps.adb_on(serial, "shell", "screencap", "-p", remote):
-        deps.adb_on(serial, "shell", "pull", remote, str(local))
-        deps.adb_on(serial, "shell", "rm", "-f", remote)
-        logger.info(f"Screenshot: {local}")
+    if deps.adb_on(serial, "shell", "screencap", "-p", remote, timeout=60) is not None:
+        # A longer deadline than adb_on's 5s default: a screenshot or a pull can
+        # outlast it on a loaded runner, and a timeout would drop the evidence.
+        deps.adb_on(serial, "pull", remote, str(local), timeout=120)
+        # The device copy is removed only once the host has it. A pull that
+        # failed must leave the only copy on the device.
+        if local.is_file():
+            deps.adb_on(serial, "shell", "rm", "-f", remote)
+            logger.info(f"Screenshot: {local}")
 
-    # Logcat buffer
+    # Logcat buffer. Also past adb_on's default: it is the crash/ANR evidence.
     logcat_file = artifact_dir / f"{flow_name}_logcat.txt"
-    logcat_out = deps.adb_on(serial, "shell", "logcat", "-d")
+    logcat_out = deps.adb_on(serial, "shell", "logcat", "-d", timeout=120)
     if logcat_out:
         logcat_file.write_text(logcat_out)
         logger.info(f"Logcat: {logcat_file}")

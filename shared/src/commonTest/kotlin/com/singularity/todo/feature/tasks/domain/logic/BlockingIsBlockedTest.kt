@@ -5,6 +5,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -16,6 +18,8 @@ import kotlin.test.assertTrue
  * These are pure domain tests — no database, no repository, no Compose.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class BlockingIsBlockedTest {
     private val userId = UserId("test-user")
     private val epoch = kotlin.time.Instant.fromEpochMilliseconds(0)

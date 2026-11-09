@@ -12,6 +12,8 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -33,6 +35,8 @@ import kotlin.test.assertTrue
  * there at all.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class UpdateTaskSeriesUseCaseTest {
     private val alice = UserId("alice")
     private val bob = UserId("bob")

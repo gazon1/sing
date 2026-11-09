@@ -9,6 +9,8 @@ import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -34,6 +36,8 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskExtrasLoadingTest {
     private val testUserId = UserId("test-user")
     private val repo = FakeTaskRepository()

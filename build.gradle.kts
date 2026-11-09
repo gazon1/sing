@@ -351,7 +351,7 @@ allprojects {
 // The report every test task writes
 // ---------------------------------------------------------------------------
 //
-// Three settings that decide what a failed test LOOKS like, and that every
+// Four settings that decide what a failed test LOOKS like, and that every
 // module has to agree on — because the reporters read the reports, and a
 // report whose shape depends on which module produced it is a report that
 // has to be understood twice.
@@ -366,12 +366,15 @@ allprojects {
 //    failure as a plain failure. Two modules set this by hand; it belongs to
 //    every test task.
 //
-// 2. `exceptionFormat = FULL` — Gradle's default prints the exception's
+// 2. `events("failed", "skipped")` — a failed testcase prints its identity and
+//    full trace; a skipped testcase prints as SKIPPED, never as a failure.
+//
+// 3. `exceptionFormat = FULL` — Gradle's default prints the exception's
 //    `toString()` and a truncated trace. The trace is the evidence: a
 //    developer who reads the CI log has to find the failing frame in it, and
 //    a summary where the evidence is is the defect this audit found.
 //
-// 3. There is no third knob: Gradle's `maxStackTraceLines` is gone from the
+// 4. There is no third knob: Gradle's `maxStackTraceLines` is gone from the
 //    `Test` task (it was a Gradle 2.x property, and `FULL` prints the whole
 //    trace without a cap). The audit that proposed it had remembered a
 //    property that no longer exists.
@@ -384,6 +387,7 @@ allprojects {
     tasks.withType<Test>().configureEach {
         reports.junitXml.mergeReruns.set(true)
         testLogging {
+            events("failed", "skipped")
             exceptionFormat = TestExceptionFormat.FULL
         }
     }

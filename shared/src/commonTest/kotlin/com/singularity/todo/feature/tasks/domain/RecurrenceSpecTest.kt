@@ -5,6 +5,8 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.domain.model.isExhaustedBy
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -29,6 +31,8 @@ import kotlin.test.assertTrue
  * makes editing a series' end date a change worth re-planning.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class RecurrenceSpecTest {
     private val today = LocalDate(2026, 6, 15)
     private val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)

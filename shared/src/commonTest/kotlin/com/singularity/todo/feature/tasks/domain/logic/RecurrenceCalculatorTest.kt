@@ -6,6 +6,8 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
@@ -15,6 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class RecurrenceCalculatorTest {
     companion object {
         private fun d(

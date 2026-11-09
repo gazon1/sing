@@ -33,6 +33,8 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -54,6 +56,8 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskDetailCoordinatorTest {
     private fun coordinator(
         fakes: SlotFakes,

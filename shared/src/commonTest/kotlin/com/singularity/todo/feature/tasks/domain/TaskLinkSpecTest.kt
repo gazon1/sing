@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +17,8 @@ import kotlin.test.assertNull
  * guaranteed by anything.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class TaskLinkSpecTest {
     @Test
     fun `a task id becomes a link`() {

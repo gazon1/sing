@@ -289,4 +289,5 @@ class TwoDeviceHarness {
 | `shared/src/jvmTest/.../core/sync/HlcTest.kt` | HLC unit tests |
 | `shared/src/jvmTest/.../core/sync/BuildPatchDiffTest.kt` | One-field edit yields one operation; a stale response cannot promote a superseded patch |
 | `shared/src/jvmTest/.../core/sync/SyncApiClientTest.kt` | Wire parsing, 64-bit log positions, RPC failure as an AppError |
+| `shared/src/jvmTest/.../core/sync/SharedSyncServer.kt` | The shared in-memory server: it merges patches per field, the way the Postgres functions do |
 | `shared/src/jvmTest/.../core/sync/SyncProtocolTest.kt` | End-to-end sync protocol tests |

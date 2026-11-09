@@ -300,9 +300,17 @@ class Navigator(private val state: Nav3State) {
     }
 
     /** True when [goBack] would perform a navigation instead of signalling "at root". */
-    fun canGoBack(): Boolean =
-        state.requireBackStackFor(state.topLevelRoute).size > 1 ||
+    fun canGoBack(): Boolean {
+        val currentStack = state.requireBackStackFor(state.topLevelRoute)
+        // Mirror goBack(): an empty stack is reseeded (no navigation); a tab root
+        // navigates only with a distinct previous tab; any other top navigates.
+        val currentRoute = currentStack.lastOrNull() ?: return false
+        return if (currentRoute == state.topLevelRoute) {
             state.previousTopLevelRoute != state.topLevelRoute
+        } else {
+            true
+        }
+    }
 
     /**
      * Go back in the current stack.

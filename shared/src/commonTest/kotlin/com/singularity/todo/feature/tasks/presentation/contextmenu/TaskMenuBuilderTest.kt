@@ -7,6 +7,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -18,6 +20,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskMenuBuilderTest {
     private val testUserId =
         com.singularity.todo.core.ids

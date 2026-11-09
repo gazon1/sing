@@ -21,6 +21,8 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -56,6 +58,8 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskSeriesWritePathTest {
     private val alice = UserId("alice")
     private val bob = UserId("bob")

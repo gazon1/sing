@@ -202,8 +202,14 @@ class SyncProtocolTest {
         assertEquals(1, patch.ops.size)
         assertEquals(FieldOp.SET, patch.ops[0].op)
 
-        val deletePatch = deltaPatchDelete("pid2", "eid2", DocType.Tag, 10L)
+        val clock = Hlc.of(1_234L, 0, "dev-test")
+        val deletePatch = deltaPatchDelete("pid2", "eid2", DocType.Tag, 10L, clock)
         assertEquals("pid2", deletePatch.patchId)
         assertTrue(deletePatch.isDelete)
+        // The clock is the one the caller supplied — the helper cannot invent one —
+        // and the timestamp is that clock's physical time unless the caller says
+        // otherwise, because that is the value the legacy path orders and records.
+        assertEquals(clock, deletePatch.hlc)
+        assertEquals(1_234L, deletePatch.timestampMs)
     }
 }

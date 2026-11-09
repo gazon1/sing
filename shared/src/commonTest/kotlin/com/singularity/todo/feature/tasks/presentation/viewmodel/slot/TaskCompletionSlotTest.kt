@@ -8,6 +8,8 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
@@ -26,6 +28,8 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskCompletionSlotTest {
     /** The blocker requests the slot raised, in order. */
     private class BlockedRecorder {

@@ -4,6 +4,8 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -18,6 +20,8 @@ import kotlin.time.Instant
  * nothing.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Use cases")
 class TaskMutationsUseCaseTest {
     private val now: Instant = Instant.parse("2026-01-15T12:00:00Z")
     private val userId = UserId("test-user")

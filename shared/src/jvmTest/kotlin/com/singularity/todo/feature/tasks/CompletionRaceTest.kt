@@ -16,6 +16,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -54,6 +56,8 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class CompletionRaceTest {
     private val alice = UserId("alice")
 

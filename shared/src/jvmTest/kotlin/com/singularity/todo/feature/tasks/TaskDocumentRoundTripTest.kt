@@ -8,6 +8,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Tag
@@ -16,6 +18,8 @@ import kotlin.test.assertEquals
 import kotlin.time.Instant
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskDocumentRoundTripTest {
     private class RecordingTaskRepository : FakeTaskRepository() {
         val documents = mutableListOf<TaskDocument>()

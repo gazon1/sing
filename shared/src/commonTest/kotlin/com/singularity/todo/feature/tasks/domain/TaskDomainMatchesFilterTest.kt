@@ -5,6 +5,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -13,6 +15,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class TaskDomainMatchesFilterTest {
     private val today = LocalDate(2026, 9, 16)
 

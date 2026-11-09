@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.text.Revisioned
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +17,8 @@ import kotlin.test.assertTrue
  * from an echo — moves exactly when the text was replaced.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskDetailDraftStateTest {
     private fun newState(initial: TaskDetailDraft = TaskDetailDraft.empty()) = TaskDetailDraftState(initial)
 

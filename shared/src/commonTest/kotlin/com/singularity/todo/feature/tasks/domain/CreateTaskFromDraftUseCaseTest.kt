@@ -15,6 +15,8 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TEST_TZ
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -36,6 +38,8 @@ import kotlin.time.Instant
  * the rule survives the create, and that a rule together with picked dates loses.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class CreateTaskFromDraftUseCaseTest {
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))

@@ -28,6 +28,8 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.TEST_TZ
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -51,6 +53,8 @@ import kotlin.time.Instant
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class CreateTaskFromDraftAtomicityTest {
     private val alice = UserId("alice")
     private val today = LocalDate(2026, 6, 15)

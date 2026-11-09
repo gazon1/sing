@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
 import androidx.compose.ui.unit.dp
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test
@@ -18,6 +20,8 @@ import kotlin.test.assertTrue
  * объявления, а не подменой его значения.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskListSizesSwipeDeleteIconTest {
     @Test
     fun `the swipe delete icon has the stated visible size`() {

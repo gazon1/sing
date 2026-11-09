@@ -7,6 +7,9 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.sync.SyncDeadLetterEntity
+import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.flow.first
@@ -135,6 +138,48 @@ class OwnerScopedEraserTest {
         note = null,
         createdAt = 1_000L,
         updatedAt = 1_000L,
+    )
+
+    /** A patch still waiting in the outbox, as the queue holds it. */
+    private fun outboxPatch(
+        patchId: String,
+        ownerId: String,
+    ) = SyncOutboxEntity(
+        patchId = patchId,
+        ownerId = ownerId,
+        profileId = "prof",
+        entityId = "entity-$patchId",
+        entityType = "task",
+        payload = """{"title":"patch"}""",
+        createdAt = 1_000L,
+    )
+
+    /** A patch that gave up, as the shelf holds it. */
+    private fun shelvedPatch(
+        patchId: String,
+        ownerId: String,
+    ) = SyncDeadLetterEntity(
+        patchId = patchId,
+        ownerId = ownerId,
+        entityId = "entity-$patchId",
+        entityType = "task",
+        payload = """{"title":"patch"}""",
+        createdAt = 1_000L,
+        failedAt = 2_000L,
+        attempts = 10,
+    )
+
+    /** The server's known state for one entity, as the shadow holds it. */
+    private fun shadow(
+        ownerId: String,
+        profileId: String,
+        entityId: String,
+    ) = SyncShadowEntity(
+        ownerId = ownerId,
+        profileId = profileId,
+        entityType = "task",
+        entityId = entityId,
+        confirmedJson = "{}",
     )
 
     private fun db() = FakeAppDatabase()
@@ -386,6 +431,42 @@ class OwnerScopedEraserTest {
             )
         }
 
+    /**
+     * The sync queues are erased by owner, not drained whole.
+     *
+     * Two failures are possible here and this pins both. A switch that reached for the
+     * shelf's `clearAll` would take the incoming account's shelved work with it, and a
+     * switch that skipped the sync tables altogether would leave the outgoing account's
+     * unsent work on the device, to be attributed to whoever signs in next. The other
+     * account's rows are asserted to survive for the same reason as everywhere else in
+     * this file: "gone" means nothing until something is shown to have stayed.
+     */
+    @Test
+    fun `the erase takes the owner's sync queues and leaves another account's`() =
+        runTest {
+            val db = db()
+            db.syncOutboxDao().insert(outboxPatch("p1", owner.value))
+            db.syncOutboxDao().insert(outboxPatch("p2", other.value))
+            db.syncDeadLetterDao().insert(shelvedPatch("s1", owner.value))
+            db.syncDeadLetterDao().insert(shelvedPatch("s2", other.value))
+            db.syncShadowDao().upsert(shadow(owner.value, "prof", "t1"))
+            db.syncShadowDao().upsert(shadow(other.value, "prof", "t2"))
+
+            val counts = OwnerScopedEraser(db).eraseOwner(db, owner)
+
+            assertEquals(1, counts.outbox)
+            assertEquals(1, counts.deadLetter)
+            assertEquals(1, counts.shadows)
+
+            assertEquals(0, db.syncOutboxDao().countForOwner(owner.value), "the owner's queue is gone")
+            assertEquals(0, db.syncDeadLetterDao().countForOwner(owner.value), "the owner's shelf is gone")
+            assertEquals(0, db.syncShadowDao().countForOwner(owner.value), "the owner's shadow is gone")
+
+            assertEquals(1, db.syncOutboxDao().countForOwner(other.value), "another account's queue survives")
+            assertEquals(1, db.syncDeadLetterDao().countForOwner(other.value), "another account's shelf survives")
+            assertEquals(1, db.syncShadowDao().countForOwner(other.value), "another account's shadow survives")
+        }
+
     // ── preview() ─────────────────────────────────────────────────────────────
 
     /**
@@ -431,6 +512,9 @@ class OwnerScopedEraserTest {
             db.seedProfiles(listOf(profile("prof", owner.value)))
             db.seedTasks(listOf(task("t1", owner.value)))
             db.seedNotes(listOf(note("n1", owner.value)))
+            db.syncOutboxDao().insert(outboxPatch("p1", owner.value))
+            db.syncDeadLetterDao().insert(shelvedPatch("s1", owner.value))
+            db.syncShadowDao().upsert(shadow(owner.value, "prof", "t1"))
 
             val preview = OwnerScopedEraser(db).previewOwner(db, owner)
             val erased = OwnerScopedEraser(db).eraseOwner(db, owner)
@@ -442,6 +526,11 @@ class OwnerScopedEraserTest {
             assertEquals(preview.tagRefs, erased.tagRefs)
             assertEquals(preview.dependencies, erased.dependencies)
             assertEquals(preview.checklists, erased.checklists)
+            // The sync queues are counted by the same owner filter that erases them, so a
+            // preview built from `countForOwner` must promise exactly what the erase takes.
+            assertEquals(preview.outbox, erased.outbox)
+            assertEquals(preview.deadLetter, erased.deadLetter)
+            assertEquals(preview.shadows, erased.shadows)
         }
 
     @Test

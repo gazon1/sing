@@ -145,7 +145,7 @@ def _flaky_failure_count(directory: pathlib.Path) -> dict[str, int]:
     for xml_file in sorted(directory.glob("**/*.xml")):
         try:
             results = parse_junit_file_strict(xml_file)
-        except ET.ParseError:
+        except (ET.ParseError, OSError):
             continue
         for case in results:
             if case.flaky_attempts:

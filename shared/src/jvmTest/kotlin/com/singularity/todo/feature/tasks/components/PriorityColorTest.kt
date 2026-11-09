@@ -4,12 +4,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.list.priorityColor
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class PriorityColorTest {
     @Test
     fun `None priority has a defined tertiary color`() {

@@ -12,6 +12,8 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -35,6 +37,8 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskFilterInheritanceTest {
     private lateinit var db: AppDatabase
     private lateinit var fixture: DatabaseTestFixture

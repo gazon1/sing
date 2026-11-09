@@ -14,6 +14,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -28,6 +30,8 @@ import kotlin.time.Instant
  * No mocks needed - all functions are pure.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TasksDomainTest {
     // ===== validateTitle =====
 
