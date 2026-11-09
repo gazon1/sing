@@ -1,7 +1,20 @@
-"""sgate.gates — gate registry loader.
+"""sgate.gates — the registry adapter and the one command builder.
 
-Loads gate definitions from sgate.commands._registry.GATES (the single source
-of truth). The Gate namedtuple provides a read-only view of the registry data.
+`Gate` is the read-only view of a `GateSpec` that the CLI, `info` and
+`gate_reachability` consume; the registry is `_registry.GATES`, and this module
+is where its dispatch fields become the command a surface runs. `_build_command`
+is the only place that conversion happens — `load_gates()` and
+`check-gate-registries.py` both call it, which is why the two surfaces cannot
+spell one gate's command two ways.
+
+The shell registry's line for a gate is a *declaration*, not a rendering of
+this function: `gate_manifest.PLACEMENTS` names the command each placement
+runs, and the three spellings that differ on purpose (dispatch through `sgate`,
+a bash function, the interpreter) are compared against this builder by
+`check-gate-registries.py`. Deriving the lines from `_build_command` instead
+would rewrite forms the manifest chose for a reason — `sgate <name>` keeps a
+gate's stderr out of the JSON wrapper, and a bash gate names the function the
+shell registry exports.
 
 Gate = NamedTuple with fields:
     name: str           — display name from the registry

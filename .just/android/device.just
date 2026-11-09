@@ -41,8 +41,4 @@ test serial="":
 test-unit:
     #!/usr/bin/env bash
     set -euo pipefail
-    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
         ./gw :androidApp:testDebugUnitTest
-    else
-        ./gw :androidApp:testDebugUnitTest
-    fi
