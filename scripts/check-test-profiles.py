@@ -51,6 +51,21 @@ profiles file names the answer, and this gate is what keeps the name honest.
    profile that declares a task nobody runs is a profile that promises a
    report that will never arrive, and the reporter would report the run as
    incomplete forever.
+8. **Every task of a profile is in exactly one of three lists.** `reported`
+   (the task wrote a report by the time the index is built), `deferred` (the
+   report arrives later) and `conditional` (the task ran and wrote nothing,
+   because the population selected no test of it). Three lists because there
+   are three honest answers, and one list because the reporter has to be able
+   to tell "did not run" from "ran and wrote nothing".
+9. **The tier is one of the known tiers.** `jvm`, `android`, `maestro`, `all`.
+   A tier nobody validated is a word in a file.
+10. **Every profile says where its reports live.** The three tiers write their
+    reports in three different places, and a reporter asked for the `device`
+    profile has to look in the second one.
+11. **A workflow carries no list of expected tasks of its own.** The
+    expectations come from the profile registry, and a second list in a
+    workflow is a definition that drifts away from the declaration it claims
+    to follow.
 
 ## What it does not do
 
@@ -75,10 +90,12 @@ Exit codes:
 
 from __future__ import annotations
 
+import io
 import json
 import pathlib
 import re
 import sys
+import tokenize
 
 import click
 
@@ -135,6 +152,20 @@ TASK_SOURCE_SETS: dict[str, tuple[str, ...]] = {
 #: The source sets that count as "this module has tests at all".
 TEST_SOURCE_SETS = ("test", "jvmTest", "commonTest", "androidTest", "androidHostTest")
 
+#: The tiers a profile may declare.
+TIERS = ("jvm", "android", "maestro", "all")
+
+#: `--expect module:task` in a workflow's own command line.
+EXPECT_ARG = re.compile(r"--expect[= ]+[\"']?([\w:.-]+)")
+
+#: The artifact names that carry the evidence of a run. A step that writes or
+#: uploads one of them has to run even when the job was cancelled: a
+#: cancelled run is still a run, and its account of how far it got is worth
+#: more than no account.
+EVIDENCE_ARTIFACT = re.compile(
+    r"(evidence|junit|allure|traceability|html-reports)", re.IGNORECASE
+)
+
 
 def _gradle_projects() -> set[str]:
     """The project paths `settings.gradle.kts` includes, without the colon."""
@@ -180,8 +211,21 @@ def _task_module(token: str) -> tuple[str, str] | None:
     return ":".join(parts[:-1]), parts[-1]
 
 
+def _code_without_comments(text: str) -> str:
+    """The source without its comments.
+
+    A comment says what somebody wished the repository did; the code says
+    what it does. A gate that reads both cannot tell the difference.
+    """
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(text).readline)
+        return " ".join(tok.string for tok in tokens if tok.type != tokenize.COMMENT)
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return text
+
+
 def _script_mentions(task: str) -> bool:
-    """Does any script in `scripts/` name this Gradle task?
+    """Does any runner script name this Gradle task?
 
     The device tier is not a Gradle invocation in a workflow: it is driven by
     `scripts/run-android-ui-tests.py`, which names the task it runs. A surface
@@ -191,13 +235,22 @@ def _script_mentions(task: str) -> bool:
     spelled anywhere in the runner scripts", not "does the script run it" —
     the rule it feeds is about a typo in a profile, and a typo is a string
     that appears nowhere.
+
+    Two things do not count as a mention. A TEST of the gate says what the
+    gate should find, not what the repository runs; and a COMMENT says what
+    somebody wrote down. Counting either would let the gate pass on the
+    strength of a word rather than of a run.
     """
-    for script in sorted((ROOT / "scripts").rglob("*.py")):
+    scripts = ROOT / "scripts"
+    for script in sorted(scripts.rglob("*.py")):
+        if script.relative_to(scripts).parts[:1] == ("tests",):
+            continue
         try:
-            if task in script.read_text(encoding="utf-8"):
-                return True
+            text = script.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        if task in _code_without_comments(text):
+            return True
     return False
 
 
@@ -221,6 +274,37 @@ def _surfaces() -> list[tuple[str, str]]:
                 found.append((f"{workflow.name}::{job_name}", "\n".join(texts)))
     if LOCAL_SURFACE.exists():
         found.append((LOCAL_SURFACE.name, LOCAL_SURFACE.read_text(encoding="utf-8")))
+    return found
+
+
+def _evidence_steps() -> list[tuple[str, dict]]:
+    """The workflow steps that write or upload the evidence of a run.
+
+    Two kinds of step: the one that indexes the reports, and the ones that
+    upload them. Both have to survive a cancelled job — see rule 12.
+    """
+    found: list[tuple[str, dict]] = []
+    for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
+        try:
+            data = yaml.safe_load(workflow.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            raise RuntimeError(f"{workflow}: {exc}") from exc
+        for job_name, job in (data.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            for step in job.get("steps") or []:
+                if not isinstance(step, dict):
+                    continue
+                run_text = step.get("run") if isinstance(step.get("run"), str) else ""
+                name = str(step.get("name") or "")
+                uses = str(step.get("uses") or "")
+                with_block = step.get("with") if isinstance(step.get("with"), dict) else {}
+                artifact = str(with_block.get("name") or "")
+                if "test-evidence.py" in run_text or (
+                    "upload-artifact" in uses
+                    and EVIDENCE_ARTIFACT.search(f"{name} {artifact}")
+                ):
+                    found.append((f"{workflow.name}::{job_name}::{name}", step))
     return found
 
 
@@ -330,10 +414,57 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
             "and the tiers do not share one selection"
         )
 
+    # Rules 8, 9 and 10: the partition of the tasks, the tier, the globs.
+    for name in sorted(declared):
+        tasks = set(wg.profile_tasks(name, PROFILES_FILE))
+        reported = set(wg.profile_reported(name, PROFILES_FILE))
+        deferred = set(wg.profile_deferred(name, PROFILES_FILE))
+        conditional = set(wg.profile_conditional(name, PROFILES_FILE))
+        for label, listed in (
+            ("reported", reported),
+            ("deferred", deferred),
+            ("conditional", conditional),
+        ):
+            for task in sorted(listed - tasks):
+                violations.append(
+                    f"the profile {name!r} lists the task {task!r} as {label}, and the "
+                    f"profile does not declare it"
+                )
+        for task in sorted((reported & deferred) | (reported & conditional) | (deferred & conditional)):
+            violations.append(
+                f"the profile {name!r} lists the task {task!r} in more than one of "
+                f"reported, deferred and conditional — a task is in one of them or in "
+                f"none, and the reporter has to be able to tell them apart"
+            )
+        for task in sorted(tasks - reported - deferred - conditional):
+            violations.append(
+                f"the profile {name!r} declares the task {task!r}, and the task is in "
+                f"none of reported, deferred and conditional — the reporter would have "
+                f"no way to say whether the task ran"
+            )
+        tier = wg.profile_tier(name, PROFILES_FILE)
+        if tier not in TIERS:
+            violations.append(
+                f"the profile {name!r} declares the tier {tier!r}, and the known tiers "
+                f"are: {', '.join(TIERS)}"
+            )
+        if not wg.profile_globs(name, PROFILES_FILE):
+            violations.append(
+                f"the profile {name!r} declares no report globs — a reporter asked for "
+                f"this profile would not know where its reports live"
+            )
+
     # Rules 6 and 7: the surfaces and the profiles must see the same tasks.
     declared_all = set(wg.profile_tasks("all", PROFILES_FILE)) if "all" in declared else set()
     run_tasks: dict[str, list[str]] = {}
     for location, text in _surfaces():
+        # Rule 11: the expectations come from the profile registry.
+        for task in EXPECT_ARG.findall(text):
+            violations.append(
+                f"{location}: the workflow lists the expected task {task!r} of its own "
+                f"— the expectations come from the profile registry, and a second list "
+                f"is a definition that drifts away from it"
+            )
         for invocation in wg.iter_invocations(text, location):
             if not invocation.test_capable:
                 continue
@@ -365,6 +496,22 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
                 f"hk.pkl and no runner script runs it — a profile that promises a "
                 f"report that never arrives is a profile that reports every run as "
                 f"incomplete"
+            )
+
+    # Rule 12: the evidence of a run survives the cancellation of the job.
+    for location, step in _evidence_steps():
+        condition = str(step.get("if") or "")
+        if "!cancelled()" in condition:
+            violations.append(
+                f"{location}: the step that carries the evidence of the run is guarded by "
+                f"!cancelled() — a cancelled job is still a run, and throwing its evidence "
+                f"away leaves the reader with nothing about how far it got"
+            )
+        elif "always()" not in condition:
+            violations.append(
+                f"{location}: the step that carries the evidence of the run does not run on "
+                f"always() — the evidence of a run that failed, was skipped or was cancelled "
+                f"is exactly the evidence a reader needs"
             )
 
     if verbose:

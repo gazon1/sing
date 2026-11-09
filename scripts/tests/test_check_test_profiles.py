@@ -46,6 +46,18 @@ all.tier: all
 
 fast.population: fast
 full.population: full
+
+fast.reported: shared:jvmTest,desktopApp:test
+full.reported: shared:jvmTest,desktopApp:test
+device.reported: androidApp:connectedDebugAndroidTest
+e2e.reported: maestro:flows
+all.reported: shared:jvmTest,desktopApp:test,androidApp:connectedDebugAndroidTest,maestro:flows
+
+fast.reports: **/build/test-results/**/*.xml
+full.reports: **/build/test-results/**/*.xml
+device.reports: androidApp/build/outputs/androidTest-results/**/*.xml
+e2e.reports: build/maestro-results/**/*.xml
+all.reports: **/build/test-results/**/*.xml,androidApp/build/outputs/androidTest-results/**/*.xml,build/maestro-results/**/*.xml
 """
 
 POPULATIONS = """\
@@ -251,6 +263,131 @@ class ProfilesGateTest(unittest.TestCase):
             any("androidApp:test" in v for v in violations),
             f"a NO-SOURCE task was called out: {violations}",
         )
+
+    def test_a_task_in_none_of_the_three_lists_is_a_finding(self) -> None:
+        # A task nobody classified cannot be told apart from a task that
+        # never ran, and the reporter has to be able to tell them apart.
+        profiles = PROFILES.replace(
+            "fast.reported: shared:jvmTest,desktopApp:test",
+            "fast.reported: shared:jvmTest",
+        )
+        violations = FakeRepo(profiles=profiles).violations()
+        self.assertTrue(
+            any("desktopApp:test" in v and "none of reported" in v for v in violations),
+            f"the unclassified task was not called out: {violations}",
+        )
+
+    def test_a_task_in_two_of_the_three_lists_is_a_finding(self) -> None:
+        profiles = PROFILES.replace(
+            "fast.reported: shared:jvmTest,desktopApp:test",
+            "fast.reported: shared:jvmTest,desktopApp:test\nfast.conditional: desktopApp:test",
+        )
+        violations = FakeRepo(profiles=profiles).violations()
+        self.assertTrue(
+            any("more than one" in v for v in violations),
+            f"the double-classified task was not called out: {violations}",
+        )
+
+    def test_an_unknown_tier_is_a_finding(self) -> None:
+        profiles = PROFILES.replace("device.tier: android", "device.tier: phone")
+        violations = FakeRepo(profiles=profiles).violations()
+        self.assertTrue(
+            any("'phone'" in v for v in violations),
+            f"the unknown tier was not called out: {violations}",
+        )
+
+    def test_a_profile_without_report_globs_is_a_finding(self) -> None:
+        profiles = PROFILES.replace("e2e.reports: build/maestro-results/**/*.xml\n", "")
+        violations = FakeRepo(profiles=profiles).violations()
+        self.assertTrue(
+            any("no report globs" in v for v in violations),
+            f"the profile without globs was not called out: {violations}",
+        )
+
+    def test_a_workflow_may_not_carry_its_own_expectations(self) -> None:
+        workflow = WORKFLOW + """\
+      - name: index
+        run: |
+          python3 scripts/test-evidence.py --profile fast --expect shared:jvmTest
+"""
+        violations = FakeRepo(workflow=workflow).violations()
+        self.assertTrue(
+            any("--expect" in v or "expected task" in v for v in violations),
+            f"the second list of expectations was not called out: {violations}",
+        )
+
+
+class EvidenceConditionTest(unittest.TestCase):
+    """The evidence of a run survives the cancellation of the job."""
+
+    def setUp(self) -> None:
+        mod.wg.load_profiles.cache_clear()
+        mod.wg.load_populations.cache_clear()
+
+    def _workflow(self, condition: str) -> str:
+        return WORKFLOW + f"""\
+      - name: Upload JUnit results
+        if: ${{{{ {condition} }}}}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-results-${{{{ github.run_id }}}}
+          path: shared/build/test-results/**/*.xml
+"""
+
+    def test_a_cancelled_job_must_not_throw_its_evidence_away(self) -> None:
+        violations = FakeRepo(workflow=self._workflow("!cancelled()")).violations()
+        self.assertTrue(
+            any("!cancelled()" in v for v in violations),
+            f"the guarded upload was not called out: {violations}",
+        )
+
+    def test_an_upload_without_a_condition_is_a_finding(self) -> None:
+        workflow = WORKFLOW + """\
+      - name: Upload JUnit results
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-results
+          path: shared/build/test-results/**/*.xml
+"""
+        violations = FakeRepo(workflow=workflow).violations()
+        self.assertTrue(
+            any("always()" in v for v in violations),
+            f"the unguarded upload was not called out: {violations}",
+        )
+
+    def test_an_upload_that_always_runs_is_not_a_finding(self) -> None:
+        violations = FakeRepo(workflow=self._workflow("always()")).violations()
+        self.assertFalse(
+            any("always()" in v for v in violations),
+            f"a correct upload was called out: {violations}",
+        )
+
+
+class ScriptMentionTest(unittest.TestCase):
+    """What counts as a script that runs a task."""
+
+    def setUp(self) -> None:
+        mod.wg.load_profiles.cache_clear()
+
+    def test_a_comment_is_not_a_mention(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "runner.py").write_text(
+                "# :androidApp:connectedDebugAndroidTest is run here\n", encoding="utf-8"
+            )
+            mod.ROOT = root
+            self.assertFalse(mod._script_mentions(":androidApp:connectedDebugAndroidTest"))
+
+    def test_a_test_of_the_gate_is_not_a_mention(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "scripts" / "tests").mkdir(parents=True)
+            (root / "scripts" / "tests" / "test_runner.py").write_text(
+                "task = ':androidApp:connectedDebugAndroidTest'\n", encoding="utf-8"
+            )
+            mod.ROOT = root
+            self.assertFalse(mod._script_mentions(":androidApp:connectedDebugAndroidTest"))
 
 
 class ProfileReaderTest(unittest.TestCase):

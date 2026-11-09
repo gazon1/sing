@@ -203,7 +203,11 @@ jobs:
       SHARD: ${{ matrix.shard }}
       SHARDS: ${{ strategy.job-total }}
     steps:
+      # The id is what lets the steps below say "the checkout succeeded" —
+      # they run after a cancellation, and a runner with no checkout has no
+      # reports to index.
       - uses: actions/checkout@v7
+        id: checkout
 
       # KVM has to be enabled on *this* runner, not on the runner that produced
       # the AVD. The setup job enables it for itself; that enabling does not
@@ -329,6 +333,10 @@ jobs:
       # The whole lifecycle (boot + APK install + Maestro run) lives in
       # run_maestro_e2e.py so the emulator stays up for the full duration.
       - name: Run Maestro E2E
+        # The id is what the evidence index reads the outcome from: the
+        # job's own status is the status of the WHOLE job, and a job that
+        # failed at the upload step would report the flows as failed.
+        id: maestro
         env:
           EMULATOR_EXTRA_FLAGS: -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio -prop persist.sys.locale=ru-RU
           EMULATOR_TIMEOUT: 600
@@ -376,21 +384,26 @@ jobs:
       # reader who cannot tell the pieces apart is looking at a part and
       # calling it the whole.
       - name: Index the evidence of this shard
-        if: ${{ !cancelled() }}
+        # `always()` and not `!cancelled()`: the evidence of a cancelled
+        # shard is part of what a reader needs, and the reporter has a
+        # `cancelled` outcome for precisely that. The guard is the checkout:
+        # a runner with no checkout has no reports to index.
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         run: |
-          case "${{ job.status }}" in
+          case "${{ steps.maestro.outcome }}" in
             success) outcome=passed ;;
             failure) outcome=failed ;;
             cancelled) outcome=cancelled ;;
+            skipped) outcome=not_run ;;
             *) outcome=unknown ;;
           esac
           python3 scripts/test-evidence.py \
             --root . \
-            --glob "build/maestro-results/*.xml" \
             --profile e2e \
             --task-outcome "$outcome" \
             --commit "${{ github.sha }}" \
             --run-id "${{ github.run_id }}" \
+            --metadata "run_attempt=${{ github.run_attempt }}" \
             --metadata "shard=${{ matrix.shard }}/${{ strategy.job-total }}" \
             --metadata "suite=${{ needs.plan.outputs.suite }}" \
             --metadata-file build/maestro-results/environment.json \
@@ -436,31 +449,32 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit results
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/maestro-results/
           if-no-files-found: warn
           retention-days: 14
 
       # The index and the manifest of this shard's evidence. The name carries
-      # the suite, the shard and the run id: two shards of the same suite in
-      # the same run are two artifacts, not one written twice.
+      # the suite, the shard, the run id AND the attempt: two shards of the
+      # same suite in the same run are two artifacts, not one written twice,
+      # and a re-run of the workflow keeps the first attempt's evidence.
       - name: Upload the evidence index
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: maestro-evidence-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-evidence-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/maestro-results/evidence/
           if-no-files-found: warn
           retention-days: 14
 
       - name: Upload traceability result matrix
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: traceability-matrix-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          name: traceability-matrix-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/traceability/
           if-no-files-found: warn
           retention-days: 14

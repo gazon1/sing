@@ -171,7 +171,11 @@ jobs:
       EMULATOR_TIMEOUT: 600
 
     steps:
+      # The id is what lets the steps below say "the checkout succeeded" —
+      # they run after a cancellation, and a runner with no checkout has no
+      # reports to index.
       - uses: actions/checkout@v7
+        id: checkout
 
       # KVM has to be enabled on *this* runner, not on the runner that produced
       # the AVD. The setup job enables it for itself; that enabling does not
@@ -300,6 +304,7 @@ jobs:
       # suite: slower, still correct, and the floor check below would still
       # notice that the tier grew.
       - name: Instrumented smoke (advisory — one class, never blocks a merge)
+        id: smoke
         if: needs.plan.outputs.tier == 'smoke'
         continue-on-error: true
         env:
@@ -330,9 +335,22 @@ jobs:
       # failed is a failed task, and a failed task is not a set of failed
       # testcases. The index keeps the two apart.
       - name: Index the evidence of this run
-        if: ${{ !cancelled() }}
+        # `always()` and not `!cancelled()`: the evidence of a cancelled run
+        # is part of what a reader needs, and the reporter has a `cancelled`
+        # outcome for precisely that. The guard is the checkout: a runner
+        # with no checkout has no reports to index.
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         run: |
-          case "${{ steps.instrumented.outcome }}" in
+          # The tier decides which step ran the tests: the smoke tier runs
+          # the smoke step and the full tier runs the instrumented one, and
+          # the step that did not run is `skipped`. The smoke step is soft
+          # (`continue-on-error`), so its OUTCOME is the honest one — a smoke
+          # that failed did fail, even though it does not block the merge.
+          ran="${{ steps.instrumented.outcome }}"
+          if [ "$ran" = "skipped" ]; then
+            ran="${{ steps.smoke.outcome }}"
+          fi
+          case "$ran" in
             success) outcome=passed ;;
             failure) outcome=failed ;;
             cancelled) outcome=cancelled ;;
@@ -341,12 +359,11 @@ jobs:
           esac
           python3 scripts/test-evidence.py \
             --root . \
-            --glob "androidApp/build/outputs/androidTest-results/**/*.xml" \
             --profile device \
-            --expect androidApp:connectedDebugAndroidTest \
             --task-outcome "$outcome" \
             --commit "${{ github.sha }}" \
             --run-id "${{ github.run_id }}" \
+            --metadata "run_attempt=${{ github.run_attempt }}" \
             --metadata-file build/android-ui-results/environment.json \
             --summary \
             --out-dir build/android-ui-results/evidence
@@ -385,7 +402,7 @@ jobs:
       # It never fails the job: a reporter that crashes the pipeline is a
       # reporter nobody trusts to report.
       - name: Summarise the instrumented run (advisory)
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         run: |
           python3 scripts/instrumented-run-summary.py \
             --tier "${{ needs.plan.outputs.tier }}" >> "$GITHUB_STEP_SUMMARY"
@@ -394,10 +411,10 @@ jobs:
       # something broke cannot answer "did NavigationFlowInstrumentedTest pass on abc1234",
       # which is the question a nightly run gets asked the next morning.
       - name: Upload instrumentation reports
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: android-instrumentation-reports-${{ github.run_id }}
+          name: android-instrumentation-reports-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             androidApp/build/reports/androidTests/
             androidApp/build/outputs/androidTest-results/
@@ -407,10 +424,10 @@ jobs:
 
       # The index and the manifest of this run's evidence.
       - name: Upload the evidence index
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: android-evidence-${{ github.run_id }}
+          name: android-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/android-ui-results/evidence/
           if-no-files-found: warn
           retention-days: 14
@@ -424,10 +441,10 @@ jobs:
       # with that. `run-android-ui-tests.py` pulls it into
       # `androidApp/build/diagnostics/`.
       - name: Upload failure diagnostics
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: android-failure-diagnostics-${{ github.run_id }}
+          name: android-failure-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: androidApp/build/diagnostics/
           if-no-files-found: warn
           retention-days: 14
@@ -436,10 +453,10 @@ jobs:
       # the tests fail or report zero executions. Contains the ANR and crash traces
       # that a test process which hangs cannot write to its own report.
       - name: Upload failure logcat
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: android-failure-logcat-${{ github.run_id }}
+          name: android-failure-logcat-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/android-ui-results/logcat.txt
           if-no-files-found: warn
           retention-days: 14

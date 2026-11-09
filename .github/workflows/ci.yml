@@ -379,7 +379,8 @@ jobs:
         || github.event_name == 'workflow_dispatch'
       )
     steps:
-      - uses: actions/checkout@v7
+      - id: checkout
+        uses: actions/checkout@v7
 
       # Same action as the other jobs, one reason: the checks import `sgate`,
       # which the action installs.
@@ -408,7 +409,9 @@ jobs:
           --junit-xml build/diagnostics/gate-tests/junit.xml
 
       - name: Upload gate test results
-        if: ${{ !cancelled() }}
+        # `always()`: a cancelled gate run is still a gate run, and its JUnit
+        # report says which checks had already passed when it was called off.
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: gate-junit-results
@@ -703,7 +706,11 @@ jobs:
       # A single run carries both verdicts: tests always, coverage conditionally.
       COVERAGE_ENABLED: ${{ (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.label.name == 'run-full-tests' || contains(github.event.pull_request.labels.*.name, 'run-full-tests')))) && 'true' || 'false' }}
     steps:
+      # The id is what lets the steps below say "the checkout succeeded" —
+      # they run after a cancellation, and running the reporter on a runner
+      # with no checkout would report a run that never happened.
       - uses: actions/checkout@v7
+        id: checkout
 
       - uses: ./.github/actions/setup-jvm-gradle
         with:
@@ -956,10 +963,10 @@ jobs:
       # uploaded it: a failing run left its evidence only in the run UI, where
       # it is truncated, unsearchable and gone after the retention window.
       - name: Upload build log
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: build-log-${{ github.run_id }}
+          name: build-log-${{ github.run_id }}-${{ github.run_attempt }}
           path: build.log
           if-no-files-found: warn
           retention-days: 7
@@ -1197,13 +1204,21 @@ jobs:
       # NOT in this index — they are written after it — and they are in the
       # uploaded JUnit XML all the same.
       #
-      # The expectations are named one by one rather than taken from the
-      # profile, for two reasons: `mcp-server:test` selects nothing under the
-      # fast population (its only test is slow), so a task that ran and
-      # selected nothing must not be reported as a task that did not run; and
-      # the ADR invocation has not happened yet.
+      # The expectations come from the PROFILE, and the profile says which
+      # tasks are expected to have written a report by the time this step
+      # runs: the tasks whose report is written later (the ADR invocation
+      # below) and the tasks whose population selected no test of them
+      # (`mcp-server:test` has one test and that test is `slow`) are declared
+      # as such in `config/test-profiles.properties`. A second list here
+      # would be a second definition of "what fast runs", and the two would
+      # drift apart — which is exactly what happened while both existed.
       - name: Index the evidence of this run
-        if: ${{ !cancelled() }}
+        # `always()` and not `!cancelled()`: the evidence of a cancelled run
+        # is part of what a reader needs, and the reporter has a `cancelled`
+        # outcome for precisely that. The guard is the checkout — a runner
+        # with no checkout has no reports to index, and an index of nothing
+        # would say "a complete run with no testcase in it".
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         run: |
           case "${{ steps.jvm-tests.outcome }}" in
             success) outcome=passed ;;
@@ -1212,18 +1227,6 @@ jobs:
             skipped) outcome=not_run ;;
             *) outcome=unknown ;;
           esac
-          expect=(
-            --expect shared:jvmTest
-            --expect core-domain:jvmTest
-            --expect shared:archTest
-            --expect shared:testAndroidHostTest
-            --expect desktopApp:test
-            --expect detekt-rules:test
-            --expect tools:unwritten-properties:test
-          )
-          if [ "$TEST_POPULATION" = "full" ]; then
-            expect+=(--expect mcp-server:test)
-          fi
           gradle_version=$(sed -n 's/.*gradle-\([0-9.]*\)-bin.zip.*/\1/p' gradle/wrapper/gradle-wrapper.properties)
           kotlin_version=$(sed -n 's/^kotlin = "\(.*\)"/\1/p' gradle/libs.versions.toml)
           # The JDK is the one fact here that the build does not pin: the JVM
@@ -1234,12 +1237,11 @@ jobs:
           jdk_version=${jdk_version:-unknown}
           python3 scripts/test-evidence.py \
             --root . \
-            --glob "**/build/test-results/**/*.xml" \
-            "${expect[@]}" \
             --profile "$TEST_POPULATION" \
             --task-outcome "$outcome" \
             --commit "${{ github.sha }}" \
             --run-id "${{ github.run_id }}" \
+            --metadata "run_attempt=${{ github.run_attempt }}" \
             --metadata "os=${{ runner.os }}" \
             --metadata "jdk=$jdk_version" \
             --metadata "gradle=$gradle_version" \
@@ -1396,32 +1398,34 @@ jobs:
       # thing that says which reports are missing, and it says it about the
       # tasks that owed one.
       - name: Upload JUnit results
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: junit-results-${{ github.run_id }}
+          name: junit-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: "**/build/test-results/**/*.xml"
           if-no-files-found: warn
           retention-days: 7
 
       # The index and the manifest: what failed, where each failure's
       # diagnostics are, and what is missing. It is uploaded under a name that
-      # carries the run id, so two runs of the same branch never write over
-      # each other's index.
+      # carries the run id AND the attempt, so two runs of the same branch
+      # never write over each other's index — and so a RE-RUN of the same
+      # workflow keeps the first attempt's evidence, which is the whole point
+      # of looking at a flaky test a second time.
       - name: Upload the evidence index
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: test-evidence-${{ github.run_id }}
+          name: test-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/evidence/
           if-no-files-found: warn
           retention-days: 14
 
       - name: Upload Allure results
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: allure-results-${{ github.run_id }}
+          name: allure-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             shared/build/allure-results/**/*
             desktopApp/build/allure-results/**/*
@@ -1432,10 +1436,10 @@ jobs:
       # The rendered report — the part a human opens. The raw results above are
       # the evidence; this is the reading of it.
       - name: Upload Allure report
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: allure-report-${{ github.run_id }}
+          name: allure-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/reports/allure
           if-no-files-found: warn
           retention-days: 14
@@ -1467,10 +1471,10 @@ jobs:
           publish_dir: allure-history
 
       - name: Upload evidence (diagnostics, traceability, coverage)
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ci-evidence-${{ github.run_id }}
+          name: ci-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             desktopApp/build/diagnostics/**
             shared/build/diagnostics/**
@@ -1494,10 +1498,10 @@ jobs:
       # `index.html` too — `<report>/<fully.qualified.ClassName>/index.html` —
       # so one glob covers the summary and the detail.
       - name: Upload HTML test reports
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: html-reports-${{ github.run_id }}
+          name: html-reports-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             **/build/reports/tests/**/index.html
             **/build/reports/tests/**/css/**
