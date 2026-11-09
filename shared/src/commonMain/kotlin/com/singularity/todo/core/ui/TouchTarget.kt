@@ -19,8 +19,8 @@ object TouchTarget {
 }
 
 /**
- * Expands the hit area of a control to at least [minSize], leaving the content at its
- * own size.
+ * Reserves at least [minSize] of layout space around a control's content, leaving the
+ * content at its own size.
  *
  * Material 3's `Modifier.minimumInteractiveComponentSize()` takes no size argument in
  * 1.12 — the minimum is a `LocalMinimumInteractiveComponentSize` composition local — so
@@ -31,20 +31,13 @@ object TouchTarget {
  * a 20 dp icon, while `Modifier.size(20.dp).touchTarget()` is capped back to 20 dp,
  * because the outer size modifier constrains the whole chain.
  *
- * **What this does not prove.** The box it reports is wider than the content, but a
- * pointer in that extra band is still outside the content's own bounds, so whether it
- * reaches a control inside depends on the control's own touch handling. It usually does
- * not: hit testing descends into the child at its own offset, so a pointer 2 dp inside
- * this box but 2 dp outside a 20 dp icon lands on a negative coordinate in the icon and
- * misses it. What this helper buys is layout space, not hit area.
- *
- * **That is not a flaw in this helper; it is what the idea is.** Material's
- * `Modifier.minimumInteractiveComponentSize()` is the same mechanism — it lays out a
- * larger box and centres its child in it, and the child's own `clickable` stays at the
- * child's size. Neither of the two turns a small control into a large target; a control
- * is tappable at the size its own pointer handling says. #2173 tracks the question, and
- * a control that needs a guaranteed 48 dp target has to be *laid out* at 48 dp rather
- * than wrapped in reservation.
+ * **What the reservation is.** The content is measured and centred inside a larger box,
+ * so the box this modifier reports is wider than the content. The content's own pointer
+ * handling keeps its own bounds, so a pointer in the extra band reaches the content
+ * only if that content handles touches outside its own bounds — a control that needs a
+ * guaranteed 48 dp pointer target has to be laid out at 48 dp. Material's
+ * `Modifier.minimumInteractiveComponentSize()` is the same mechanism, and #2485 tracks
+ * the change that makes the guarantee real.
  */
 fun Modifier.touchTarget(minSize: Dp = TouchTarget.MinSize): Modifier =
     this.layout { measurable, constraints ->

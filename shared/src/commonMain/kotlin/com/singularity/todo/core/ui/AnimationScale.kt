@@ -5,36 +5,30 @@ import androidx.compose.runtime.compositionLocalOf
 import com.singularity.todo.core.platform.rememberSystemAnimationDurationScale
 
 /**
- * An animation scale pinned by this composition, or `null` when none has been pinned
- * and the platform should be asked — see [animationDurationScale].
+ * The animation scale this composition should honour, or `null` when nothing has
+ * pinned one and the platform is to be asked — see [animationDurationScale].
  *
- * ## Why this is not `staticCompositionLocalOf { systemAnimationDurationScale() }`
+ * ## Why the default does not read the platform
  *
  * A composition local's **default** is evaluated once per composition and cached, so a
- * default that reads the platform freezes the platform's answer at startup. That is a
- * real bug, not a theory: launched with animations on, the app kept a rotating sync
- * spinner after the user turned "Remove animations" on; launched with animations off,
- * the spinner never rotated again until the process restarted.
+ * default that reads the platform freezes the platform's answer at startup. The
+ * platform's answer is not constant: Android's "Remove animations" is one tap away and
+ * does not restart the process.
  *
  * So the platform is not read by the default at all. [animationDurationScale] reads it,
  * and does so *again* on the next read rather than replaying a cached answer, while a
  * composition that overrides this local — a test pinning `0f`, a preview — wins and the
  * platform is not consulted.
  *
- * ## Why it is dynamic rather than static, stated correctly
+ * ## Why the local is dynamic
  *
  * The local is a [compositionLocalOf], not a `staticCompositionLocalOf`, and the
- * difference is granularity — not whether a reader ever hears about a change. A static
- * local does invalidate when the provided value changes; what it does is invalidate
- * *every* composable under the provider rather than only the ones that read it, because
- * it keeps no per-reader tracking. This local is provided at the shell, above the whole
- * UI, so a static local would re-compose the app on every change to a value that a
- * handful of spinners care about. A dynamic local invalidates the readers and nothing
- * else.
- *
- * (An earlier revision of this doc said static locals "deliberately skip" invalidating
- * readers on change. That is not true of Compose, and it was the kind of justification a
- * later reader inherits without checking.)
+ * difference is granularity. A static local does invalidate when the provided value
+ * changes; what it does is invalidate *every* composable under the provider rather than
+ * only the ones that read it, because it keeps no per-reader tracking. This local is
+ * provided at the shell, above the whole UI, so a static local would re-compose the app
+ * on every change to a value that a handful of spinners care about. A dynamic local
+ * invalidates the readers and nothing else.
  */
 val LocalAnimationDurationScale = compositionLocalOf<Float?> { null }
 

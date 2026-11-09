@@ -6,25 +6,16 @@ import androidx.compose.runtime.remember
 /**
  * JVM actual of [systemAnimationDurationScale].
  *
- * ## There is no scale to read here
+ * ## What this platform can answer
  *
  * Compose Desktop installs no `MotionDurationScale` element, and neither the JVM nor
  * Skiko exposes macOS "Reduce motion", GNOME's `enable-animations` or Windows'
  * "Animation effects" portably — the only ways to reach them are a shell-out to
- * `defaults`/`gsettings` or a platform-specific JNI call, per platform, per read. So
- * the answer defaults to `1f`: animations on.
+ * `defaults`/`gsettings` or a platform-specific native call, per platform, per read.
  *
- * **That is a hole, not a decision.** On a desktop whose OS reduce-motion switch is on,
- * the sync spinner still turns (#2175). Earlier versions of this file claimed "the
- * desktop's own accessibility switch governs what it governs" — a claim about a switch
- * this code never read. It does not any more.
- *
- * ## What that means for #1669's acceptance
- *
- * #1669's clause "read the OS animation scale and stop the sync spinner when animations
- * are off" is met on **Android only**. On desktop nothing reads the OS, and the switch
- * honoured is the process knob below, which a user does not have. Do not read this file
- * as evidence that the requirement holds on every platform; it is why #2175 is open.
+ * So the OS reduce-motion switch is not read here. The answer is `1f` — animations on
+ * — unless the process is configured otherwise, below. #2486 tracks reading the
+ * desktop's own switch.
  *
  * ## The knob that does exist
  *

@@ -39,32 +39,19 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * `LazyColumn` and so could not be used inside this screen's; it was removed with
  * the other dead UI components. See ADR 2026-09-30-section-reorder-via-buttons.
  *
- * ## The state layer is drawn 40 dp
+ * ## The size of the three state buttons
  *
  * Three 40 dp state layers in one row already crowd a phone's width, so each button
- * keeps the 40 dp painted size it had, and the *modifier order* decides how much
- * layout space the row sets aside for it. `Modifier.minimumInteractiveComponentSize()`
- * comes first and `size(40.dp)` second: the minimum sits outside the size, so it can
- * reserve Material's 48 dp while the size still constrains what is drawn, and the row
- * therefore reserves 48 dp per button and leaves the rest to the name column. Reversed,
- * the size would cap the minimum back to 40 dp — the arrangement this screen shipped
- * with, where the button was drawn 40 dp and its target was 40 dp too.
+ * keeps the 40 dp painted size it has always had, and the *modifier order* decides how
+ * much layout space the row sets aside for it. `Modifier.minimumInteractiveComponentSize()`
+ * comes first and `size(40.dp)` second: the minimum sits outside the size, so it
+ * reserves Material's 48 dp while the size still constrains what is drawn, and the row
+ * reserves 48 dp per button and leaves the rest to the name column. Reversed, the size
+ * would cap the minimum back to 40 dp.
  *
- * **What that does not buy: a 48 dp target.** The reserved box is laid out larger and
- * the button is centred inside it, but hit testing descends into the button at its own
- * offset, so a tap 2 dp inside the reserved box and 2 dp outside the painted 40 dp
- * circle lands on a negative coordinate in the button and misses. The target stays
- * 40 dp; 48 dp is the space the row sets aside. That is not specific to this screen or
- * to this modifier: Material's `minimumInteractiveComponentSize()` and the project's
- * `Modifier.touchTarget()` helper — which this screen used to call — are the same
- * mechanism. #2173 tracks whether either should be trusted as a hit area; until it is
- * answered, read both as a layout reservation and nothing more. A control that needs a
- * genuinely 48 dp target has to be laid out at 48 dp.
- *
- * So #1669's touch-target clause is satisfied only in the sense the brief can be checked
- * mechanically: the three calls are present and the row now reserves 48 dp per button.
- * The hit area is still 40 dp, and #2173 — not this change — owes the fix. Do not record
- * the clause as an accessibility fix delivered.
+ * The reservation is layout space: the button's own clickable is laid out at the 40 dp
+ * it is drawn at, so a control that needs a guaranteed 48 dp pointer target has to be
+ * laid out at 48 dp instead. #2485 tracks that change.
  *
  * @param section The section to display.
  * @param index The section's position in the list.

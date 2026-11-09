@@ -46,14 +46,12 @@ import com.singularity.todo.core.ui.animationsEnabled
  * moves, because a spinner that rotates forever is the one thing a user who has
  * turned animations off does not want to watch.
  *
- * ## What a reduced-motion user gives up
+ * ## What a reduced-motion user sees
  *
- * The still icon is the whole progress signal for them: the enabled state and the
- * "Syncing…" description are the only things that distinguish a sync that is running
- * from one that has hung. That is the behaviour the requirement asks for, but it is not
- * parity — a rotating spinner says "alive" without being read. A non-motion progress cue
- * (an indeterminate bar, a last-synced timestamp) is a follow-up, not a regression this
- * change introduced, and it is deliberately not invented here.
+ * The still icon is the whole progress signal: the button is disabled while a sync
+ * runs and the icon's content description says "Syncing…", so the running state is
+ * reported, but a running sync and a hung one look the same. A non-motion progress cue
+ * is tracked by #2487.
  *
  * Tapping triggers [SyncIntent.SyncNow].
  */
@@ -122,10 +120,8 @@ fun SyncButton(
 /**
  * The rotation of the syncing icon, in degrees.
  *
- * The infinite transition is not created at all when the animation is off. A
- * transition that ran against a zero duration scale would spin at the frame
- * rate of the display — the fastest motion there is, asked for by the user who
- * asked for no motion.
+ * The infinite transition is not created at all when the animation is off, so nothing
+ * is running for a user who asked for no motion.
  */
 @Composable
 internal fun rememberSyncRotation(animate: Boolean): Float {

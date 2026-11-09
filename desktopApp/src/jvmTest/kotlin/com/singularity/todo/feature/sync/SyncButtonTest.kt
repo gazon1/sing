@@ -2,6 +2,9 @@ package com.singularity.todo.feature.sync.presentation
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toPixelMap
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.ui.LocalAnimationDurationScale
@@ -67,6 +70,39 @@ class SyncButtonTest {
             assertFalse(
                 before.contentEquals(after),
                 "a sync in progress must turn while animations are on",
+            )
+        }
+
+    @Test
+    fun `the spinner stops when the user turns animations off mid-sync`() =
+        runIsolatedComposeTest(width = 200, height = 200) {
+            mainClock.autoAdvance = false
+            var scale by mutableStateOf(1f)
+            setContent {
+                MaterialTheme {
+                    CompositionLocalProvider(LocalAnimationDurationScale provides scale) {
+                        SyncButton(status = SyncEngineStatus.Pushing, onClick = {})
+                    }
+                }
+            }
+
+            mainClock.advanceTimeBy(32)
+            val turning = captureToImage().toPixelMap().buffer.copyOf()
+            mainClock.advanceTimeBy(500)
+            val turned = captureToImage().toPixelMap().buffer
+            assertFalse(
+                turning.contentEquals(turned),
+                "a sync in progress must be turning before the user changes anything",
+            )
+
+            scale = 0f
+            mainClock.advanceTimeBy(32)
+            val stopped = captureToImage().toPixelMap().buffer.copyOf()
+            mainClock.advanceTimeBy(500)
+            val still = captureToImage().toPixelMap().buffer
+            assertTrue(
+                stopped.contentEquals(still),
+                "a sync in progress must stop when the user turns animations off mid-sync",
             )
         }
 }
