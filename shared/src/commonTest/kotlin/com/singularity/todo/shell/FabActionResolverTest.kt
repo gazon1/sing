@@ -24,6 +24,11 @@ class FabActionResolverTest {
      */
     private val today: LocalDate = LocalDate(2026, 9, 16)
 
+    private val project = ProjectId("project-1")
+    private val tag = TagId("tag-1")
+    private val otherTag = TagId("tag-2")
+    private val view = SavedAgendaViewId("view-1")
+
     private var navigatedTo: AppDestination? = null
     private val navigate: (AppDestination) -> Unit = { navigatedTo = it }
 
@@ -73,6 +78,34 @@ class FabActionResolverTest {
     @Test
     fun agendaGraph_savedAgendaList_returnsNull() {
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaList), today, navigate)
+        assertNull(result)
+    }
+
+    @Test
+    fun agendaGraph_savedAgendaResults_returnsNull() {
+        val result =
+            fabActionForNav3(
+                AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaResults(view)),
+                today,
+                navigate,
+            )
+        assertNull(
+            result,
+            "a saved view's results screen is not the shell's task list: #1952 and #1958 " +
+                "keep it buttonless, and FabActionResolver.kt records why that beat #2057",
+        )
+    }
+
+    @Test
+    fun agendaGraph_savedAgendaEdit_returnsNull() {
+        val result =
+            fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(view)), today, navigate)
+        assertNull(result)
+    }
+
+    @Test
+    fun agendaGraph_savedAgendaCreate_returnsNull() {
+        val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaCreate), today, navigate)
         assertNull(result)
     }
 
@@ -178,20 +211,22 @@ class FabActionResolverTest {
         }
     }
 
-    // ── Every agenda route is classified (#2057) ───────────────────────────────
+    // ── Every agenda route is classified ───────────────────────────────────────
 
     /**
-     * What the shell is expected to offer on an agenda route.
+     * What the shell is expected to offer on an agenda route: the editor it
+     * opens, with the scope it seeds and the date it pre-fills — or no action.
      */
-    private enum class ExpectedFab {
-        /** An "Add task" action that opens the editor with today's date pre-filled. */
-        AddTaskDueToday,
-
-        /** An "Add task" action that opens the editor with no date pre-filled. */
-        AddTaskNoDueDate,
-
-        /** No action at all. */
-        None,
+    private data class ExpectedFab(
+        /** The editor route the action opens, or `null` when the route has no action. */
+        val start: AppDestination.TasksStartRoute.Create?,
+        /** The due date the editor opens with, or `null` when it prefills none. */
+        val dueDate: LocalDate?,
+    ) {
+        companion object {
+            /** No action at all. */
+            val None = ExpectedFab(start = null, dueDate = null)
+        }
     }
 
     /**
@@ -203,17 +238,17 @@ class FabActionResolverTest {
      * what it is. That is the point: the Upcoming tab once shipped with no
      * button because nobody said anything about it (#1959).
      */
-    private val everyAgendaStartRoute: List<AgendaStartRoute> =
+    private val everyAgendaRoute: List<AgendaStartRoute> =
         listOf(
             AgendaStartRoute.Inbox,
             AgendaStartRoute.Today,
             AgendaStartRoute.Upcoming,
-            AgendaStartRoute.Project(ProjectId("project-1")),
-            AgendaStartRoute.Tag(TagId("tag-1")),
-            AgendaStartRoute.Tags(setOf(TagId("tag-1"), TagId("tag-2"))),
+            AgendaStartRoute.Project(project),
+            AgendaStartRoute.Tag(tag),
+            AgendaStartRoute.Tags(setOf(tag, otherTag)),
             AgendaStartRoute.SavedAgendaList,
-            AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId("view-1")),
-            AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("view-1")),
+            AgendaStartRoute.SavedAgendaResults(view),
+            AgendaStartRoute.SavedAgendaEdit(view),
             AgendaStartRoute.SavedAgendaCreate,
             AgendaStartRoute.Blocked,
             AgendaStartRoute.Stagnant,
@@ -229,73 +264,80 @@ class FabActionResolverTest {
      */
     private fun expectedFabFor(route: AgendaStartRoute): ExpectedFab =
         when (route) {
-            // The tabs and the health views.
+            // The tabs and the health views: an unscoped task, no date.
             AgendaStartRoute.Inbox,
             AgendaStartRoute.Upcoming,
             AgendaStartRoute.Blocked,
             AgendaStartRoute.Stagnant,
             AgendaStartRoute.Overdue,
-            -> ExpectedFab.AddTaskNoDueDate
+            -> {
+                ExpectedFab(AppDestination.TasksStartRoute.Create(), dueDate = null)
+            }
 
             // Today is the one route that knows what day it is.
-            AgendaStartRoute.Today -> ExpectedFab.AddTaskDueToday
+            AgendaStartRoute.Today -> {
+                ExpectedFab(AppDestination.TasksStartRoute.Create(), dueDate = today)
+            }
 
-            // A list of tasks is a list of tasks: one project, one tag, a set of
-            // tags, and a saved view's results (#2057).
-            is AgendaStartRoute.Project,
-            is AgendaStartRoute.Tag,
-            is AgendaStartRoute.Tags,
-            is AgendaStartRoute.SavedAgendaResults,
-            -> ExpectedFab.AddTaskNoDueDate
+            // A drill-down seeds the task with the scope of the list it came
+            // from, so the task it creates belongs to that list.
+            is AgendaStartRoute.Project -> {
+                ExpectedFab(AppDestination.TasksStartRoute.Create(projectId = route.projectId), dueDate = null)
+            }
 
-            // The screens that manage saved views are not task lists.
+            is AgendaStartRoute.Tag -> {
+                ExpectedFab(AppDestination.TasksStartRoute.Create(tagIds = setOf(route.tagId)), dueDate = null)
+            }
+
+            is AgendaStartRoute.Tags -> {
+                ExpectedFab(AppDestination.TasksStartRoute.Create(tagIds = route.tagIds), dueDate = null)
+            }
+
+            // The saved-view screens are not task lists — the list of views, the
+            // editor, the creator, and a view's *results*. The results screen is
+            // the contested one: #2057 asks for a button there, #1952 and #1958
+            // keep it buttonless. The majority won, and `FabActionResolver`'s
+            // saved-view branch records why. This line is the same decision seen
+            // from the test side: move one, move both.
             AgendaStartRoute.SavedAgendaList,
+            is AgendaStartRoute.SavedAgendaResults,
+            is AgendaStartRoute.SavedAgendaEdit,
             AgendaStartRoute.SavedAgendaCreate,
-            -> ExpectedFab.None
-
-            is AgendaStartRoute.SavedAgendaEdit -> ExpectedFab.None
+            -> {
+                ExpectedFab.None
+            }
         }
 
     /**
-     * Asserts that the route offers the "Add task" action and that tapping it
-     * opens the task editor with the due date the route is supposed to carry.
+     * Whether the route is expected to carry an "Add task" action.
+     *
+     * The projection of [expectedFabFor], kept under the name the resolver's
+     * saved-view branch and the decision that settles it point at: the resolver
+     * and this classification are the same decision written twice, so they move
+     * together.
      */
-    private fun assertAddTaskAction(
-        route: AgendaStartRoute,
-        dueDate: LocalDate?,
-    ) {
-        navigatedTo = null
-        val result = fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate)
-        assertEquals("Add task", result.label(), "$route must offer a way to create a task")
-        result.click()
-        val nav = assertIs<AppDestination.TasksGraph>(navigatedTo, "$route must open the task editor")
-        assertEquals(AppDestination.TasksStartRoute.Create(), nav.start, "$route must open the task editor")
-        assertEquals(dueDate, nav.initialDueDate, "$route must carry the due date it is given")
-    }
+    private fun expectedAddTask(route: AgendaStartRoute): Boolean = expectedFabFor(route).start != null
 
     /**
      * Every agenda route resolves to the action it is classified as, and the
      * failure names the route that was walked.
      */
     @Test
-    fun everyAgendaStartRoute_resolvesToTheClassifiedAction() {
-        everyAgendaStartRoute.forEach { route ->
-            when (expectedFabFor(route)) {
-                ExpectedFab.None -> {
-                    assertNull(
-                        fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate),
-                        "$route must resolve to no action",
-                    )
-                }
-
-                ExpectedFab.AddTaskDueToday -> {
-                    assertAddTaskAction(route, today)
-                }
-
-                ExpectedFab.AddTaskNoDueDate -> {
-                    assertAddTaskAction(route, null)
-                }
+    fun everyAgendaRoute_resolvesToTheClassifiedAction() {
+        everyAgendaRoute.forEach { route ->
+            val expected = expectedFabFor(route)
+            navigatedTo = null
+            val result = fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate)
+            assertEquals(expectedAddTask(route), result != null, "route $route")
+            if (expected.start == null) {
+                assertNull(result, "$route must resolve to no action")
+                return@forEach
             }
+            assertEquals("Add task", result.label(), "$route must offer a way to create a task")
+            result.click()
+            val nav = assertIs<AppDestination.TasksGraph>(navigatedTo, "$route must open the task editor")
+            assertEquals(expected.start, nav.start, "$route must open the editor with the scope it seeds")
+            assertEquals(expected.dueDate, nav.initialDueDate, "$route must carry the due date it is given")
         }
     }
 

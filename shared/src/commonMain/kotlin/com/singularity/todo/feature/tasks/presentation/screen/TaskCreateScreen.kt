@@ -21,7 +21,7 @@ import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
 import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
-import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateSeed
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
@@ -35,6 +35,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSav
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -45,13 +46,38 @@ import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
 import kotlin.time.Instant
 
+/**
+ * Task create screen for the tasks nested navigation graph.
+ * Reads [LocalTasksNavigator] for all navigation — no callbacks needed.
+ *
+ * Uses [org.koin.compose.viewmodel.koinViewModel] with [parametersOf] for
+ * per-entry ViewModel scoping (requires [rememberViewModelStoreNavEntryDecorator]
+ * in the NavDisplay entry decorators).
+ */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun TaskCreateScreen(
     initialDueDate: LocalDate?,
     draftKey: String? = null,
+    initialProjectId: ProjectId? = null,
+    initialTagIds: ImmutableSet<TagId> = persistentSetOf(),
 ) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, draftKey) }
+    val vm: TaskCreateViewModel =
+        koinViewModel {
+            parametersOf(
+                TaskCreateSeed(
+                    initialDueDate = initialDueDate,
+                    draftKey = draftKey,
+                    initialProjectId = initialProjectId,
+                    initialTagIds = initialTagIds,
+                ),
+            )
+        }
+    // The injected clock, not the system one. This screen hands `now` down to the
+    // editor and stamps draft attachments with it, so a test that pins a clock in
+    // Koin controls both. `koinInject` rather than a parameter: this is a nav
+    // entry, and a parameter would have to be threaded from the graph for the
+    // sake of a value the graph already provides.
     val clock: Clock = koinInject()
     val now: Instant = clock.now()
     val navigator = LocalTasksNavigator.current
@@ -64,7 +90,7 @@ fun TaskCreateScreen(
     val sheets = rememberDialogState<TaskEditorSheet>()
 
     CollectEvents(vm.events) { event ->
-        if (event is TaskCreateUiEvent.Saved) {
+        if (event is com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent.Saved) {
             isNavigatingBack = true
             navigator.back()
         }
@@ -72,9 +98,6 @@ fun TaskCreateScreen(
 
     val titleError = TaskTitleValidation.error(state.draft.title.text)
 
-    // Non-validation errors (persistence failures, recurrence-dropped notice)
-    // surface in the snackbar. The title validation message is drawn inline and
-    // must not be duplicated. Key on `state.error` only.
     LaunchedEffect(state.error) {
         val message = state.error ?: return@LaunchedEffect
         if (message != TaskTitleValidation.REQUIRED_MESSAGE) {
@@ -91,6 +114,11 @@ fun TaskCreateScreen(
         }
     }
 
+    // The system back press goes through the same guard as the header's button.
+    // Without this, the button asked "discard?" and the gesture did not: the
+    // gesture popped the screen and the typed title was lost. With the keyboard
+    // open, the gesture closes the keyboard first — that is what a back press is
+    // for while the keyboard is up.
     ImeAwareBackHandler { guardedBack() }
 
     DiscardChangesDialogHost(
@@ -105,6 +133,9 @@ fun TaskCreateScreen(
 
     val checklistItems = state.draft.checklist.toChecklistItems()
     val attachmentItems = state.draft.attachments.toAttachments(now)
+    // The *whole* set of dates, primary date first. The row has to be able to say
+    // "12 окт, 17 окт, 3 ноя" — a list without its primary date would name two
+    // of the three.
     val dueDates =
         remember(state.draft.dueDate, state.draft.extraDueDates) {
             val primary = listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date)
@@ -118,6 +149,9 @@ fun TaskCreateScreen(
                 priority = state.draft.priority,
                 dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
                 dueDates = dueDates,
+                // The create editor is where several dates make sense: the work does
+                // not exist yet, so there is nothing to split. Everywhere else a task
+                // has one date.
                 multiDateEnabled = true,
                 dueTime = state.draft.dueTime,
                 startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
@@ -142,6 +176,7 @@ fun TaskCreateScreen(
         callbacks =
             TaskEditorCallbacks(
                 onBack = guardedBack,
+                // Create mode: no task exists yet, so there is nothing to complete.
                 onCheckToggle = null,
                 priority =
                     RowCallbacks(
@@ -200,13 +235,16 @@ fun TaskCreateScreen(
                     AttachmentsCallbacks(
                         onOpen = { sheets.show(TaskEditorSheet.Attachments) },
                         onAddUrl = { url, title -> vm.onIntent(TaskCreateIntent.AddAttachmentUrl(url, title)) },
+                        // null, not an empty lambda: the task has no id until it is saved, so
+                        // there is nothing to attach the file to. The sheet hides its
+                        // "Add file" button rather than offering one that cannot work.
                         onAttachFile = null,
                         onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveAttachmentUrl(id.value)) },
                     ),
                 dependencies = null,
                 bottomBar = {
                     TaskSaveBar(
-                        isEnabled = !state.isSaving && state.isSaveEnabled,
+                        isEnabled = state.isSaveEnabled,
                         isLoading = state.isSaving,
                         onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
                     )
@@ -221,6 +259,8 @@ fun TaskCreateScreen(
         sheets = sheets,
     )
 }
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun DiscardChangesDialogHost(

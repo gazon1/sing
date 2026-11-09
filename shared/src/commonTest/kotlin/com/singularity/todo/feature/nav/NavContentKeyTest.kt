@@ -4,6 +4,7 @@ import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
@@ -91,6 +92,35 @@ class NavContentKeyTest {
             plain,
             today,
             "one screen's draft is not the other's: the date is part of what the screen shows",
+        )
+    }
+
+    @Test
+    fun `two new-task screens opened from different lists are two screens`() {
+        val plain = AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()).stableContentKey()
+        val fromProject =
+            AppDestination
+                .TasksGraph(AppDestination.TasksStartRoute.Create(projectId = ProjectId("p1")))
+                .stableContentKey()
+        val fromTag =
+            AppDestination
+                .TasksGraph(AppDestination.TasksStartRoute.Create(tagIds = setOf(TagId("t1"))))
+                .stableContentKey()
+
+        assertNotEquals(
+            plain,
+            fromProject,
+            "a task created under a project is not the same screen as an unscoped one",
+        )
+        assertNotEquals(
+            plain,
+            fromTag,
+            "a task created under a tag is not the same screen as an unscoped one",
+        )
+        assertNotEquals(
+            fromProject,
+            fromTag,
+            "one list's draft is not the other's: the scope is part of what the screen shows",
         )
     }
 

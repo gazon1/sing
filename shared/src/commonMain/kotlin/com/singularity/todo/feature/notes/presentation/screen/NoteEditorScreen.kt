@@ -178,6 +178,27 @@ internal fun NoteEditorScreen(
     // The proposals carry their own failures, on their own bus. They are merged into
     // the editor's notification stream rather than hosted separately: two hosts over
     // one editor would show two snackbars in the same place.
+    EditorNotifications(
+        viewModel = viewModel,
+        proposalsViewModel = proposalsViewModel,
+        onNavigateBack = { navigator.back() },
+    )
+}
+
+/**
+ * The editor's notifications, with the proposals' own failures merged into the same
+ * stream.
+ *
+ * Two hosts over one editor would show two snackbars in the same place, so the
+ * proposals' failures travel in the editor's stream rather than being hosted
+ * separately.
+ */
+@Composable
+private fun EditorNotifications(
+    viewModel: NoteEditor,
+    proposalsViewModel: NoteProposalsViewModel,
+    onNavigateBack: () -> Unit,
+) {
     val notifications =
         remember(viewModel.events, proposalsViewModel.events) {
             merge(
@@ -192,7 +213,7 @@ internal fun NoteEditorScreen(
 
     NotificationHost(
         events = notifications,
-        onNavigateBack = { navigator.back() },
+        onNavigateBack = onNavigateBack,
         modifier = Modifier.testTag(TestTags.NOTE_EDITOR_NOTIFICATION_HOST),
     )
 }

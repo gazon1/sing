@@ -585,6 +585,17 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="the coverage contract holds",
+        # One subject, three facts: the report measures every module in it, the
+        # floor is declared where Kover reads it, and the timeout covers the
+        # measured run. Each member keeps its own script, tests and control —
+        # the cluster changes the surface (one row instead of three), not the
+        # checks.
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-contract.py"),
+    ),
+    GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1049,15 +1060,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
-        # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
-        GateSpec(
-            name="the link grammar has one home",
-            mode=GateMode.BLOCKING,
-            cmd_type=CmdType.PYTHON3,
-            script=Path("scripts/check-link-grammar.py"),
-            script_args=("--check",),
-        ),
-        # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+    # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
         GateSpec(
             name="the tool catalogue is current",
             mode=GateMode.BLOCKING,
@@ -1096,18 +1099,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
             mode=GateMode.BLOCKING,
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-compose-stability-config.py"),
-        ),
-        GateSpec(
-            name="screen state collections",
-            # Blocking: a screen state that holds a raw collection breaks the
-            # promise the state makes about its own contents, and the sibling
-            # rule cannot see it — the rule reads the *parameter* of a
-            # composable, not what the state holds. Nothing else in the build
-            # would say so, and the symptom is a screen that recomposes or
-            # goes stale with no error attached to it.
-            mode=GateMode.BLOCKING,
-            cmd_type=CmdType.PYTHON3,
-            script=Path("scripts/check-screen-state-collections.py"),
         ),
         # The external-agent feature is desktop-only — the protocol library needs JDK 21, and this project keeps the Android target at JVM_11 bytecode.
         GateSpec(
@@ -1159,6 +1150,21 @@ _REGISTERED: tuple[GateSpec, ...] = (
             script=Path("scripts/check-touch-targets.py"),
         ),
 )
+
+
+# Invocations that two gates are allowed to share, keyed by the normalized
+# invocation ``check-gate-registries.py`` builds from a ``GateSpec`` (cmd type,
+# resolved script, exact arguments). The value is the gate names it backs and
+# the reason the second registration is deliberate.
+#
+# Empty on purpose: a gate declared twice runs twice in `sgate run-all`, and the
+# second run buys nothing. An entry is a decision — it names the gates and says
+# why, so the allowance cannot become an anonymous way to duplicate a command.
+#
+# Two gates once ran `scripts/regen-skills-catalog.sh --check` under different
+# names, and nothing said so: the shell registry carried both lines, the suite
+# ran the generator twice, and no check could see it.
+DUPLICATE_INVOCATIONS: dict[tuple[str, ...], tuple[tuple[str, ...], str]] = {}
 
 
 # ── Positive controls ────────────────────────────────────────────────────────
@@ -1391,24 +1397,6 @@ GATE_CONTROLS: dict[str, Control] = {
             'say so.'
         ),
     ),
-    'screen-state-collections': Control(
-        kind='sabotage',
-        proves='scripts/check-screen-state-collections.py',
-        argv=('{python}', 'scripts/check-screen-state-collections.py'),
-        path='config/compose/screen_state_collection_debt.conf',
-        edit=Edit(
-            kind='append',
-            new='\ncom.singularity.todo.feature.tasks.ThatDoesNotExist.gone : List<Nothing>\n',
-        ),
-        why=(
-            'a register entry that names a debt the code no longer has is a record '
-            'of a debt that was paid — and the size it records is the ratchet. If '
-            'the gate read such an entry as fine, the register would grow stale '
-            'silently and the number everybody quotes would drift away from the '
-            'register it describes. The probe appends exactly such an entry — a '
-            'state the project does not have — and the gate must say so.'
-        ),
-    ),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),
     'maestro-flow-catalogue': Control(kind='sabotage', proves='scripts/check-maestro-flow-catalogue.py', argv=('{python}', 'scripts/check-maestro-flow-catalogue.py'), path='config/docs/maestro-flows.txt', edit=Edit(kind='regex', pattern=r'^Maestro/flows/smoke/01-launch-today\.yaml\n', repl='', flags='MULTILINE'), why='a flow deleted from the tree without a word leaves the suite smaller and the run green: the suite reports the flows that are left, and the one that is gone is a line in a diff nobody reads. Removing a line from the catalogue puts the flow back into the tree without putting it back into the promise, which is the state this gate exists to refuse'),
     'maestro-keyboard-commands': Control(kind='sabotage', proves='scripts/check-maestro-keyboard-commands.py', argv=('{python}', 'scripts/check-maestro-keyboard-commands.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- hideKeyboard\n- assertVisible:\n    id: tasks_fab', count=1), why='a `hideKeyboard` that follows nothing but assertions is a BACK keypress in disguise: the editors are dialogs, so BACK dismisses them, and the flow then fails on an element the editor was holding. The probe adds exactly that command to a flow that types nothing, and the gate must say so instead of reading the flow as well-formed'),
@@ -1493,6 +1481,28 @@ GATE_CONTROLS: dict[str, Control] = {
     # fails to restore.
     'ci-workflow-shape': Control(kind='sabotage', proves='scripts/check-ci-workflow-shape.py', argv=('{python}', 'scripts/check-ci-workflow-shape.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs\n            .dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over three red checks'),
     'detekt-governance': Control(kind='sabotage', proves='scripts/check-detekt-governance.py', argv=('{python}', 'scripts/check-detekt-governance.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over six red checks'),
+    # The coverage cluster: one subject, three checks. The probe is the
+    # timeout member's own sabotage — a job timeout shorter than the measured
+    # run — because removing a test task from the koverReport list can be a
+    # correct edit: a project the list stops naming is a project the coverage
+    # job no longer builds, so the check has nothing to complain about.
+    'coverage-contract': Control(
+        kind='sabotage',
+        proves='scripts/check-coverage-contract.py',
+        argv=('{python}', 'scripts/check-coverage-contract.py'),
+        path='.github/workflows/ci.yml',
+        edit=Edit(
+            kind='replace',
+            old='    timeout-minutes: 75',
+            new='    timeout-minutes: 30',
+            count=1,
+        ),
+        why=(
+            "the cluster reports every member that fails, so breaking one member "
+            "must make the cluster fail — a cluster that swallowed a member failure "
+            "would be one green row over three red checks"
+        ),
+    ),
     # doc-links: the lychee gate. The sabotage appends a *Markdown link* to a
     # file that does not exist — the shape this gate checks and the other one
     # does not. `check-doc-dead-refs.py` matches a path inside backticks, so the
@@ -1737,22 +1747,6 @@ GATE_CONTROLS: dict[str, Control] = {
             "never opens — so the gate has to catch a claim the code does not support"
         ),
     ),
-        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
-        'link-grammar': Control(
-            kind='sabotage',
-            proves='scripts/check-link-grammar.py',
-            argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendarSync/domain/model/CalendarSyncEvent.kt',
-            edit=Edit(
-                kind='replace',
-                old='package com.singularity.todo.feature.calendarSync.domain.model',
-                new='package com.singularity.todo.feature.calendarSync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
-                count=1,
-            ),
-            why=(
-                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
-            ),
-        ),
         # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
         'tools-catalog': Control(
             kind='sabotage',

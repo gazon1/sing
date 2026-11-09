@@ -10,6 +10,8 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
 import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
@@ -28,30 +30,47 @@ data class TaskCreateDeps(val createFromDraft: CreateTaskFromDraft, val logger: 
     }
 }
 
+/**
+ * The ViewModel behind the task create editor.
+ *
+ * It owns the draft the person is editing: the title, the date, the checklist and
+ * the attachments. The draft is autosaved under a key derived from the scope the
+ * editor was opened from, so a draft started in a project's agenda is restored
+ * into that project rather than into the generic one.
+ *
+ * The scope arrives as four named seed values rather than as four positional
+ * arguments, because Koin matches parameters by position and type and not by
+ * name — see [TaskCreateSeed] for the seam this closes.
+ */
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: LocalDate?,
     private val draftKey: String?,
+    initialProjectId: ProjectId? = null,
+    initialTagIds: Set<TagId> = emptySet(),
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
-        initialDraft =
-            TaskDraft(
-                dueDate =
-                    initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
-                        ?: DueDateOption.None,
-            ),
+        initialDraft = taskDraftSeed(initialDueDate, initialProjectId, initialTagIds),
         autosave = { draft ->
-            deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
+            deps.draftStore.save(
+                taskDraftStorageKey(draftKey, initialProjectId, initialTagIds),
+                draft,
+                TaskDraft.serializer(),
+            )
         },
         crashReporter = crashReporter,
         restore = {
-            val key = draftKey ?: TaskCreateDeps.DRAFT_KEY
-            deps.draftStore.load(key, TaskDraft.serializer())
+            deps.draftStore.load(
+                taskDraftStorageKey(draftKey, initialProjectId, initialTagIds),
+                TaskDraft.serializer(),
+            )
         },
         logger = deps.logger,
         scope = scope,
     ) {
+    private val storageKey = taskDraftStorageKey(draftKey, initialProjectId, initialTagIds)
+
     override fun validate(draft: TaskDraft): String? = TaskTitleValidation.error(draft.title.text)
 
     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
@@ -62,10 +81,7 @@ class TaskCreateViewModel(
 
     override suspend fun onSaved() {
         deps.logger.i(tag = "TaskCreateViewModel") { "task created, clearing draft" }
-        listOfNotNull(draftKey, TaskCreateDeps.DRAFT_KEY).distinct().forEach { key ->
-            runCatchingCancellable { deps.draftStore.clear(key) }
-                .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed" } }
-        }
+        clearDrafts()
         emit(TaskCreateUiEvent.Saved)
     }
 
@@ -204,13 +220,15 @@ class TaskCreateViewModel(
             }
 
             TaskCreateIntent.Discard -> {
-                vmScope.launch {
-                    listOfNotNull(draftKey, TaskCreateDeps.DRAFT_KEY).distinct().forEach { key ->
-                        runCatchingCancellable { deps.draftStore.clear(key) }
-                            .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed" } }
-                    }
-                }
+                vmScope.launch { clearDrafts() }
             }
+        }
+    }
+
+    private suspend fun clearDrafts() {
+        listOfNotNull(storageKey, draftKey, TaskCreateDeps.DRAFT_KEY).distinct().forEach { key ->
+            runCatchingCancellable { deps.draftStore.clear(key) }
+                .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed" } }
         }
     }
 
@@ -239,3 +257,35 @@ class TaskCreateViewModel(
         const val RECURRENCE_DROPPED_MESSAGE = "Повтор отменён: выбрано несколько дат"
     }
 }
+
+/**
+ * The draft a fresh create editor starts from.
+ *
+ * The due date is the prefill the tab that opened the screen asked for; the
+ * project and tags are the scope of the list it was opened from. All three are
+ * seeds: a restored draft wins over this one, because it carries what the person
+ * was already writing.
+ */
+private fun taskDraftSeed(
+    initialDueDate: LocalDate?,
+    initialProjectId: ProjectId?,
+    initialTagIds: Set<TagId>,
+): TaskDraft =
+    TaskDraft(
+        dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None,
+        projectId = initialProjectId?.value,
+        tagIds = initialTagIds.map { it.value },
+    )
+
+internal fun taskDraftStorageKey(
+    draftKey: String?,
+    initialProjectId: ProjectId?,
+    initialTagIds: Set<TagId>,
+): String =
+    buildString {
+        append(draftKey ?: TaskCreateDeps.DRAFT_KEY)
+        initialProjectId?.let { append(":project:").append(it.value) }
+        if (initialTagIds.isNotEmpty()) {
+            append(":tags:").append(initialTagIds.map { it.value }.sorted().joinToString(","))
+        }
+    }

@@ -18,6 +18,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateSeed
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.test.helpers.testPlatformModule
@@ -216,8 +217,8 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> =
         ProjectEditorViewModel::class to listOf(ProjectId("project-1")),
         // TaskDetailCoordinator(route) — the route carries the task and the view it came from
         TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1"))),
-        // TaskCreateViewModel(initialDueDate, draftKey)
-        TaskCreateViewModel::class to listOf(LocalDate(2026, 9, 16), "section-1"),
+        // TaskCreateViewModel(seed)
+        TaskCreateViewModel::class to listOf(sampleTaskCreateSeed()),
         // AgendaViewModel(definition)
         AgendaViewModel::class to listOf(sampleAgendaDefinition()),
         // SavedAgendaViewModel(mode)
@@ -228,3 +229,6 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> =
 
 /** An [AgendaDefinition] with no sections — enough to construct a ViewModel with it. */
 private fun sampleAgendaDefinition() = AgendaDefinition(title = "Sample", sections = emptyList())
+
+/** A [TaskCreateSeed] with a due date and a draft key — enough to build the editor with it. */
+private fun sampleTaskCreateSeed() = TaskCreateSeed(initialDueDate = LocalDate(2026, 9, 16), draftKey = "section-1")
