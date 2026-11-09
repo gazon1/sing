@@ -55,6 +55,8 @@ class AccountSettingsScreenTest {
             assertTextDisplayed("Signed in")
             assertTagDisplayed(TestTags.AUTH_ACCOUNT_EMAIL)
             assertTextDisplayed("alice@example.com")
+            // The way out of a signed-in session is signing out of it.
+            assertTagDisplayed(TestTags.AUTH_SIGN_OUT_BUTTON)
         }
 
     @Test
@@ -77,6 +79,10 @@ class AccountSettingsScreenTest {
             // The way out of an anonymous session is attaching an account —
             // the signed-in screen must not offer it.
             assertTagDisplayed(TestTags.AUTH_ATTACH_ACCOUNT_BUTTON)
+            // And there is nothing to sign out of. The card used to be drawn
+            // for an anonymous session too, with wording that had to explain
+            // that the button signs out of nothing.
+            assertTagNotExists(TestTags.AUTH_SIGN_OUT_BUTTON)
         }
 
     @Test

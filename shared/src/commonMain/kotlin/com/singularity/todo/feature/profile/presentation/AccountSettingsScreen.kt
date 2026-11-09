@@ -81,7 +81,15 @@ fun AccountSettingsScreen(
             AttachAccountSection(onAttachAccount = { settingsNavigator.openAttachAccount() })
         }
 
-        SignOutSection(session = session, onSignOut = { showSignOutConfirm = true })
+        // Sign out — only for a session that has an account to sign out of. An
+        // anonymous session has nothing to sign out of: the button there was an
+        // enabled destructive action that signed out of nothing, and the card's
+        // own wording had to explain that. The account card above already says
+        // which state the session is in, and "Attach account" is the action an
+        // anonymous session actually offers.
+        if (session is Session.SignedIn) {
+            SignOutSection(session = session, onSignOut = { showSignOutConfirm = true })
+        }
     }
 
     if (showSignOutConfirm) {
@@ -176,7 +184,10 @@ fun AccountSettingsScreenPreviewContent(
             AttachAccountSection(onAttachAccount = onAttachAccount)
         }
 
-        SignOutSection(session = session, onSignOut = onSignOut)
+        // Sign out — only for a session that has an account to sign out of.
+        if (session is Session.SignedIn) {
+            SignOutSection(session = session, onSignOut = onSignOut)
+        }
     }
 }
 
@@ -373,11 +384,16 @@ private fun SignOutSection(
  * What signing out will do — and that is not the same sentence when there is
  * no account to be signed out of.
  *
- * The card used to read the same in both states, so a signed-in session and a
- * signed-out one looked alike. It is public rather than private because it is
- * the whole of the two-state distinction on this screen: `SignOutExplanationTest`
- * (desktopApp) asserts that the signed-in sentence and the anonymous one differ,
- * and a private function could only be checked by reading it.
+ * The card is drawn only for a signed-in session, so this is usually the
+ * signed-in sentence. The other one is still reachable: the confirmation
+ * dialog is open, and the session ends underneath it — the token is revoked,
+ * the account is detached — so the sentence has to be true of the session the
+ * dialog is about to act on, not of the one the screen was drawn for.
+ *
+ * It is public rather than private because it is the whole of the two-state
+ * distinction on this screen: `SignOutExplanationTest` (desktopApp) asserts
+ * that the signed-in sentence and the anonymous one differ, and a private
+ * function could only be checked by reading it.
  */
 fun signOutExplanation(session: Session): String =
     when (session) {
