@@ -456,6 +456,11 @@ class HarnessConventionTest {
                 "CalendarTopBarNarrowTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
                 "DesktopBackClosesWindowTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
                 "SearchScreenSheetSmokeTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
+                // The profile avatar is drawn inside the account card, not in the
+                // navigation drawer. It has no scrollable parent at all — the
+                // scroll-aware helper would fail on it.
+                "AccountSettingsScreenTest.kt" to
+                    "the profile avatar is not a drawer item and has no scrollable parent",
             )
 
         /**

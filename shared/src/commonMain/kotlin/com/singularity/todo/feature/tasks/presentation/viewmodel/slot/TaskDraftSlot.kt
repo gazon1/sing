@@ -12,9 +12,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailDraft
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -28,10 +26,12 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * ## Why the task comes from a collector, not from the transform
  *
- * The persistence pipeline pairs the debounced text with the *current* task so a write
- * carries every field the user did not touch. The pairing is done in a `collect { }` block:
- * `combine` would re-pair on every emission of the task flow, and a write inside a
- * `combine` transform re-fires on emissions of the other side of the pair.
+ * The persistence pipeline reads the *current* task when a debounced edit lands so a write
+ * carries every field the user did not touch. Edits are collected independently — not paired
+ * with [taskFlow] via `combine` — because `combine` replays its latest value on every
+ * emission from either side. That would re-fire the previous edit whenever the task row
+ * changes (priority, tags, completion), producing a redundant write and a false "saved"
+ * signal.
  *
  * ## Why [seed] is public
  *
@@ -49,6 +49,14 @@ class TaskDraftSlot(
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
+    /**
+     * Reports a write that landed.
+     *
+     * The detail stores these edits silently, so this is the only sign the user gets
+     * that the text they typed is on disk — and it fires once per debounced write, not
+     * once per keystroke.
+     */
+    private val onSaved: () -> Unit = {},
 ) : FeatureSlot<TaskDetailDraft, TaskDraftIntent> {
     private val draftState = TaskDetailDraftState()
     override val state: StateFlow<TaskDetailDraft> = draftState.state
@@ -68,23 +76,21 @@ class TaskDraftSlot(
         val debounceMs = context.debounceMs.milliseconds
 
         scope.launch {
-            combine(
-                taskFlow.filterNotNull(),
-                titleEdits.debounce(debounceMs),
-            ) { task, edit -> task to edit }
-                .collect { (task, edit) ->
-                    write(task, edit) { copy(title = edit.title) }
+            titleEdits.debounce(debounceMs).collect { edit ->
+                if (edit.title.isBlank()) {
+                    draftState.revertTitle()
+                    return@collect
                 }
+                val task = taskFlow.value ?: return@collect
+                write(task, edit) { copy(title = edit.title) }
+            }
         }
 
         scope.launch {
-            combine(
-                taskFlow.filterNotNull(),
-                descriptionEdits.debounce(debounceMs),
-            ) { task, edit -> task to edit }
-                .collect { (task, edit) ->
-                    write(task, edit) { copy(description = edit.description.ifBlank { null }) }
-                }
+            descriptionEdits.debounce(debounceMs).collect { edit ->
+                val task = taskFlow.value ?: return@collect
+                write(task, edit) { copy(description = edit.description.ifBlank { null }) }
+            }
         }
     }
 
@@ -106,10 +112,12 @@ class TaskDraftSlot(
             core.updateSeries
                 .updateSeries(seriesId) { it.transform() }
                 .onFailure { onError("Save failed") }
+                .onSuccess { onSaved() }
         } else {
             core
                 .updateTask(task.id) { it.transform() }
                 .onFailure { onError("Save failed") }
+                .onSuccess { onSaved() }
         }
     }
 
@@ -133,7 +141,7 @@ class TaskDraftSlot(
     fun flush() {
         val task = taskFlow.value ?: return
         val draft = draftState.state.value
-        if (draft.title.value != task.title) {
+        if (draft.title.value.isNotBlank() && draft.title.value != task.title) {
             scope.launch {
                 write(task, TaskDetailIntent.Domain.TitleChanged(draft.title.value)) { copy(title = draft.title.value) }
             }

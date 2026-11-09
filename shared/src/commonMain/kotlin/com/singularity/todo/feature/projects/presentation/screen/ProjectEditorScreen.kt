@@ -140,6 +140,7 @@ fun ProjectEditorContent(
             EditorTopBar(
                 isEditMode = state.isEditMode,
                 canSave = state.name.text.isNotBlank() && !state.saving,
+                isSaving = state.saving,
                 onBack = onBack,
                 onSave = { viewModel.onIntent(ProjectEditorIntent.Save) },
             )
@@ -267,6 +268,7 @@ private fun ParentPickerSheetHost(
 private fun EditorTopBar(
     isEditMode: Boolean,
     canSave: Boolean,
+    isSaving: Boolean,
     onBack: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -286,7 +288,14 @@ private fun EditorTopBar(
                 enabled = canSave,
                 modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_SAVE),
             ) {
-                Icon(Icons.Filled.Check, contentDescription = "Save")
+                // A save in flight shows progress in the button that started it,
+                // the same way the task editor's save bar does.
+                if (isSaving) {
+                    com.singularity.todo.core.ui.components
+                        .ButtonSpinner()
+                } else {
+                    Icon(Icons.Filled.Check, contentDescription = "Save")
+                }
             }
         },
     )

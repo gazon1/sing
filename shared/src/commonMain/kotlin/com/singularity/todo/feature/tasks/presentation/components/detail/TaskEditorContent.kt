@@ -124,6 +124,7 @@ import kotlin.time.Instant
 private fun TaskEditorContent(
     taskId: String,
     titleState: TextFieldState,
+    titleError: String?,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
     descriptionState: TextFieldState,
@@ -165,7 +166,13 @@ private fun TaskEditorContent(
     menuItems: ImmutableList<TaskEditorMenuItem>,
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
+    // Null means "this editor hosts no snackbar of its own" — the detail screen
+    // wraps the editor in a Scaffold that already carries one, and two hosts
+    // would race for the same message. The create screen has no other host, so
+    // a failure there had nowhere to go at all.
+    snackbarHost: (@Composable () -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
+    savedVisible: Boolean = false,
 ) {
     Scaffold(
         topBar = {
@@ -173,9 +180,11 @@ private fun TaskEditorContent(
                 onBackClick = onBack,
                 onAiClick = onAiClick,
                 menuItems = menuItems,
+                savedVisible = savedVisible,
             )
         },
         bottomBar = bottomBar ?: {},
+        snackbarHost = { snackbarHost?.invoke() },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
@@ -193,6 +202,7 @@ private fun TaskEditorContent(
                 titleState = titleState,
                 isCompleted = isCompleted,
                 onCheckToggle = onCheckToggle,
+                titleError = titleError,
             )
 
             // Description
@@ -443,6 +453,10 @@ private fun StartDateRow(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
+ * @param titleError the message drawn under the title field when the title cannot be saved.
+ * @param snackbarHost where transient failures land. `null` for an editor inside a surface
+ *   that already hosts a snackbar.
+ * @param savedVisible whether the top bar shows the "Saved" pill.
  */
 @Composable
 fun TaskEditorContent(
@@ -456,6 +470,9 @@ fun TaskEditorContent(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
+    titleError: String? = null,
+    snackbarHost: (@Composable () -> Unit)? = null,
+    savedVisible: Boolean = false,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -466,6 +483,9 @@ fun TaskEditorContent(
         now = now,
         sheets = sheets,
         showAttachmentsRow = showAttachmentsRow,
+        titleError = titleError,
+        snackbarHost = snackbarHost,
+        savedVisible = savedVisible,
     )
 }
 
@@ -486,6 +506,8 @@ fun TaskEditorContent(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
+ * @param titleError see [TaskEditorContent]. No default here either.
+ * @param snackbarHost see [TaskEditorContent].
  */
 @Composable
 fun TaskCreateEditorContent(
@@ -497,6 +519,8 @@ fun TaskCreateEditorContent(
     callbacks: TaskEditorCallbacks,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
+    titleError: String?,
+    snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -506,6 +530,8 @@ fun TaskCreateEditorContent(
         isCompleted = false,
         now = now,
         sheets = sheets,
+        titleError = titleError,
+        snackbarHost = snackbarHost,
     )
 }
 
@@ -536,10 +562,14 @@ private fun TaskEditorScaffold(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
+    titleError: String? = null,
+    snackbarHost: (@Composable () -> Unit)? = null,
+    savedVisible: Boolean = false,
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
         titleState = titleState,
+        titleError = titleError,
         isCompleted = isCompleted,
         onCheckToggle = callbacks.onCheckToggle,
         descriptionState = descriptionState,
@@ -581,7 +611,9 @@ private fun TaskEditorScaffold(
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
+        snackbarHost = snackbarHost,
         sheets = sheets,
+        savedVisible = savedVisible,
     )
 
     TaskEditorSheetsHost(
@@ -618,6 +650,7 @@ private fun TaskEditorContentEmptyPreview() =
         TaskEditorContent(
             taskId = "",
             titleState = TextFieldState(""),
+            titleError = null,
             isCompleted = false,
             onCheckToggle = null,
             descriptionState = TextFieldState(""),
@@ -644,6 +677,7 @@ private fun TaskEditorContentFilledPreview() =
         TaskEditorContent(
             taskId = "",
             titleState = TextFieldState("Buy groceries"),
+            titleError = null,
             isCompleted = false,
             onCheckToggle = null,
             descriptionState = TextFieldState("Milk, eggs, bread"),
@@ -675,6 +709,7 @@ private fun TaskEditorContentDarkPreview() =
         TaskEditorContent(
             taskId = "",
             titleState = TextFieldState("Review PR"),
+            titleError = null,
             isCompleted = false,
             onCheckToggle = null,
             descriptionState = TextFieldState(""),

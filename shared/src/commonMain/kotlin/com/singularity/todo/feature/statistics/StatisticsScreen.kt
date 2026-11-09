@@ -28,12 +28,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -53,7 +52,6 @@ import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
-import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -218,89 +216,57 @@ private fun TasksTabContent(state: StatisticsUiState) {
 
         Spacer(Modifier.height(8.dp))
 
+        val buckets = snapshot?.tasksPerDay ?: persistentListOf()
+
         Text(
-            text = "Last 7 days",
+            // The range is the screen's own selection, not however many buckets
+            // happen to have arrived: a title derived from the list said "Last 7
+            // days" while the user had picked 30.
+            text = "Last ${state.rangeDays} days",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
 
-        // Bar chart
-        val buckets =
-            snapshot?.tasksPerDay
-                ?: persistentListOf()
+        // Bar chart — one bar per day of the selected range, so the title, the
+        // scale and the labels all describe the same window.
         TasksBarChart(buckets = buckets)
     }
 }
 
 @Composable
 private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
-    val maxCount =
-        (
-            buckets.maxOfOrNull { it.completedCount }
-                ?: 1
-        ).coerceAtLeast(
-            buckets.maxOfOrNull { it.overdueCount }
-                ?: 1,
-        )
+    val bars =
+        remember(buckets) {
+            buckets
+                .map { bucket ->
+                    DayBar(
+                        label = LocalDate.parse(bucket.date).day.toString(),
+                        // Overdue is painted from the base and completed above it: the
+                        // segment the user is asked to act on starts at the baseline.
+                        // The bar is scaled against the stack (DayBarChart), so the
+                        // busiest day's completed segment can no longer push the amber
+                        // one off the top of the chart and hide it.
+                        segments =
+                            listOf(
+                                BarSegment(bucket.overdueCount.toFloat(), DataStatusColors.Overdue),
+                                BarSegment(bucket.completedCount.toFloat(), DataStatusColors.Completed),
+                            ),
+                    )
+                }.toImmutableList()
+        }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Canvas(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(16.dp),
-        ) {
-            val barCount = buckets.size
-            if (barCount == 0) return@Canvas
-
-            val spacing = 8.dp.toPx()
-            val availableWidth = size.width - (spacing * (barCount - 1))
-            val barWidth = availableWidth / barCount
-            val chartHeight = size.height
-
-            buckets.forEachIndexed { index, bucket ->
-                if (maxCount > 0) {
-                    // Completed: green bar from bottom
-                    val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                    drawRect(
-                        color = DataStatusColors.Completed,
-                        topLeft = Offset(index * (barWidth + spacing), chartHeight - completedHeight),
-                        size = Size(barWidth, completedHeight),
-                    )
-
-                    // Overdue: amber bar below completed
-                    val overdueHeight = (bucket.overdueCount.toFloat() / maxCount) * chartHeight
-                    if (overdueHeight > 0) {
-                        drawRect(
-                            color = DataStatusColors.Overdue,
-                            topLeft =
-                                Offset(
-                                    index * (barWidth + spacing),
-                                    chartHeight - completedHeight - overdueHeight,
-                                ),
-                            size = Size(barWidth, overdueHeight),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        buckets
-            .takeLast(7)
-            .forEach { bucket ->
-                val day = LocalDate.parse(bucket.date).day.toString()
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (bars.isEmpty()) {
                 Text(
-                    text = day,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = "Nothing recorded yet",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else {
+                DayBarChart(bars = bars, chartHeight = 200.dp)
             }
+        }
     }
 }
 
@@ -426,57 +392,22 @@ private fun InsightsStackedBarChart(
     buckets: ImmutableList<DayInsightsBucket>,
     modifier: Modifier = Modifier,
 ) {
+    val bars =
+        remember(buckets) {
+            buckets
+                .map { bucket ->
+                    DayBar(
+                        label = LocalDate.parse(bucket.date).day.toString(),
+                        segments = listOf(BarSegment(bucket.totalMs.toFloat(), DataStatusColors.Completed)),
+                    )
+                }.toImmutableList()
+        }
+
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Canvas(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-            ) {
-                val barCount = buckets.size
-                if (barCount == 0) return@Canvas
-
-                val spacing = 6.dp.toPx()
-                val availableWidth = size.width - (spacing * (barCount - 1))
-                val barWidth = availableWidth / barCount
-                val chartHeight = size.height
-
-                // Determine max for scaling
-                val maxMs =
-                    buckets.maxOfOrNull { it.totalMs }
-                        ?: 1L
-
-                buckets.forEachIndexed { index, bucket ->
-                    val normalizedHeight =
-                        if (maxMs > 0) {
-                            (bucket.totalMs.toFloat() / maxMs) * chartHeight
-                        } else {
-                            0f
-                        }
-
-                    drawRect(
-                        color = DataStatusColors.Completed,
-                        topLeft = Offset(index * (barWidth + spacing), chartHeight - normalizedHeight),
-                        size = Size(barWidth, normalizedHeight),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Day labels
-            Row(modifier = Modifier.fillMaxWidth()) {
-                buckets.forEach { bucket ->
-                    val date = LocalDate.parse(bucket.date)
-                    Text(
-                        text = date.day.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            // The same chart the Tasks tab uses: one geometry, one label rule,
+            // so the day numbers sit under their bars at every range.
+            DayBarChart(bars = bars, chartHeight = 180.dp)
         }
     }
 }
@@ -565,18 +496,33 @@ private fun StatCard(
  */
 @Composable
 private fun HealthTabContent(
-    health: TaskHealthSummary?,
+    health: TaskHealthState,
     onBucketClick: (TaskHealthBucket) -> Unit,
 ) {
-    if (health == null) {
-        // Null means the query failed or has not landed — not "zero problems", which
-        // would be a healthy-looking screen standing in for a broken one.
-        EmptyState(
-            title = "Task health unavailable",
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
+    val summary =
+        when (health) {
+            TaskHealthState.Loading -> {
+                // The query has not landed yet. Saying "unavailable" here showed a
+                // broken-looking screen on a perfectly healthy database, for as
+                // long as the first computation took.
+                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+                return
+            }
+
+            TaskHealthState.Unavailable -> {
+                // The query failed: the health of the task list is unknown, which
+                // is not the same as "no problems".
+                EmptyState(
+                    title = "Task health unavailable",
+                    modifier = Modifier.fillMaxSize(),
+                )
+                return
+            }
+
+            is TaskHealthState.Ready -> {
+                health.summary
+            }
+        }
 
     val scrollState = rememberScrollState()
     Column(
@@ -587,33 +533,24 @@ private fun HealthTabContent(
                 .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())
+        StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
 
-        health.actionable.forEach { bucket ->
-            val clickable = bucket in health.actionable
-            val testTag =
-                when (bucket) {
-                    TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
-                    TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
-                    TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
-                    TaskHealthBucket.FINE -> null
-                }
+        summary.actionable.forEach { bucket ->
             StatCard(
                 title = bucket.displayLabel(),
-                value = health[bucket].toString(),
+                value = summary[bucket].toString(),
+                // Every bucket in `actionable` is a problem the user can open —
+                // the list itself is what makes a bucket actionable, so there is
+                // nothing to test here.
                 modifier =
-                    if (clickable) {
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onBucketClick(bucket) }
-                    } else {
-                        Modifier.fillMaxWidth()
-                    },
-                testTag = testTag,
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onBucketClick(bucket) },
+                testTag = bucket.testTag(),
             )
         }
 
-        health.medianStalledFor?.let { stalled ->
+        summary.medianStalledFor?.let { stalled ->
             Text(
                 text = "Median time untouched: ${stalled.formatDays()}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -623,13 +560,26 @@ private fun HealthTabContent(
 
         Text(
             text =
-                health.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
+                summary.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
                     ?: "Completion rate: nothing created yet",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/** The card's test tag, or null for a bucket that never gets a card. */
+private fun TaskHealthBucket.testTag(): String? =
+    when (this) {
+        TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
+
+        TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
+
+        TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
+
+        // FINE is healthy — it is not in `actionable`, so it has no card.
+        TaskHealthBucket.FINE -> null
+    }
 
 private fun TaskHealthBucket.displayLabel(): String =
     when (this) {
@@ -677,10 +627,6 @@ private fun StatisticsScreenLightPreview() =
                                 totalCompleted = 35,
                                 totalOverdue = 3,
                                 averagePerDay = 5.0,
-                                computedAt =
-                                    kotlin.time.Instant
-                                        .fromEpochMilliseconds(0)
-                                        .toEpochMilliseconds(),
                             ),
                     ),
             )

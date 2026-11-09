@@ -37,7 +37,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             assertEquals("", slot.state.value.title.value)
         }
@@ -53,7 +55,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             slot.seed("Original", "Body")
 
@@ -72,7 +76,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             slot.seed("Original", "Body")
             slot.onIntent(TaskDetailIntent.Domain.TitleChanged("User edit"))
@@ -93,7 +99,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -116,7 +124,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -143,7 +153,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "Old")
             runCurrent()
 
@@ -172,7 +184,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -213,7 +227,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -225,6 +241,103 @@ class TaskDraftSlotTest {
             assertNotNull(saved)
             assertEquals("🎯", saved.emoji, "an unrelated field must survive a debounced title write")
         }
+
+    @Test
+    fun `a blank title is refused and the draft returns to the stored one`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1", title = "Original"))
+            val source = TaskSource(task("t1", title = "Original"))
+            val slot =
+                TaskDraftSlot(
+                    core = fakes.core(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    onError = {},
+                    onSaved = {},
+                )
+            slot.seed("Original", "")
+            runCurrent()
+
+            // Whitespace-only, not the empty string: the rule the field and the write
+            // share says a title of spaces is a title with no name.
+            slot.onIntent(TaskDetailIntent.Domain.TitleChanged("   "))
+            advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+            runCurrent()
+
+            assertEquals(
+                "Original",
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.title,
+                "a blank title must not reach the store",
+            )
+            assertEquals(
+                "Original",
+                slot.state.value.title.value,
+                "the field settles back on the title the store holds",
+            )
+            assertEquals(
+                "Original",
+                slot.state.value.originalTitle,
+                "a refused edit leaves the draft clean",
+            )
+        }
 }
+
+@Test
+fun `a task-field change after a saved title edit does not replay the edit or pulse again`() =
+    runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1", title = "Original"))
+        val source = TaskSource(task("t1", title = "Original"))
+        var saved = 0
+        val slot =
+            TaskDraftSlot(
+                core = fakes.core(),
+                context = fakes.context(),
+                scope = testSlotScope(backgroundScope),
+                taskFlow = source.state,
+                onError = {},
+                onSaved = { saved++ },
+            )
+        slot.seed("Original", "")
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
+        advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+        runCurrent()
+        assertEquals(1, saved)
+        assertEquals(
+            "Edited",
+            fakes.taskRepo.tasks.value["t1"]
+                ?.title,
+        )
+        val afterFirstWrite =
+            fakes.taskRepo.tasks.value["t1"]
+                ?.updatedAt
+
+        // An unrelated task change (e.g. priority) emits a new task row. The
+        // previous debounced title edit must not be replayed against it: that
+        // would rewrite the title and report a save the user did not make.
+        source.emit(
+            source.state.value!!.copy(priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.High),
+        )
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        assertEquals(1, saved, "no extra save pulse for an unrelated task change")
+        assertEquals(
+            afterFirstWrite,
+            fakes.taskRepo.tasks.value["t1"]
+                ?.updatedAt,
+            "no redundant rewrite",
+        )
+        assertEquals(
+            "Edited",
+            fakes.taskRepo.tasks.value["t1"]
+                ?.title,
+        )
+    }
 
 private const val DEBOUNCE_PLUS_SETTLE = 400L

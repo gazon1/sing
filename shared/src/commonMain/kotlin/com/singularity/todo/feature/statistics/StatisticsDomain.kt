@@ -12,12 +12,20 @@ data class DayBucket(
     val overdueCount: Int,
 )
 
+/**
+ * The computed statistics.
+ *
+ * Every field is a function of the tasks and the range — there is no
+ * "computed at" timestamp in here on purpose. A timestamp would make two
+ * computations of the same data unequal, so every recomputation would look
+ * like a change, and a state that carries the recomputation would keep
+ * waking the recomputation up.
+ */
 data class StatisticsSnapshot(
     val tasksPerDay: ImmutableList<DayBucket>,
     val totalCompleted: Int,
     val totalOverdue: Int,
     val averagePerDay: Double,
-    val computedAt: Long,
 )
 
 /**
@@ -152,6 +160,5 @@ internal fun computeStatistics(
         totalCompleted = recentCompleted.size,
         totalOverdue = recentOverdue.size,
         averagePerDay = if (rangeDays > 0) recentCompleted.size.toDouble() / rangeDays else 0.0,
-        computedAt = nowEpochMs,
     )
 }

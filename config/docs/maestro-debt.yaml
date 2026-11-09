@@ -358,3 +358,21 @@ causes:
   status: accepted
   flows: 1
   note: "The flow asserts on the text of a button that carries the label as its accessibility description, not as its text (#921)."
+- key: "Assertion is false: id: dialog_confirm is visible"
+  issue: 2721
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "Measured 2026-11-09 (backup/01-round-trip, RMX3938/API 35); the confirmation the flow waits for is not on the screen. Owned by its own issue."
+- key: "Assertion is false: id: subtask_item_r<n>_child_task_one is visible"
+  issue: 2722
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "Measured 2026-11-09 (tasks/subtasks/TASK-SUB-01, RMX3938/API 35); the seeded subtask row is not on the screen. Owned by its own issue."
+- key: "No visible element found: id: task_item_r<n>_buy_milk"
+  issue: 2723
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "Measured 2026-11-09 (tasks/create-task, RMX3938/API 35); the task the flow types is not in the list afterwards. Owned by its own issue."

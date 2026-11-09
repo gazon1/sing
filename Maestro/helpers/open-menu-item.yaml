@@ -27,6 +27,12 @@ name: open-menu-item
     element:
       id: "${ENTRY_ID}"
     direction: DOWN
+    # The sheet is taller than the list, so its last row can be "visible" while
+    # sitting on the gesture-navigation strip. A tap there is a home gesture: the
+    # app goes to the background and the destination never opens (measured on
+    # RMX3938/API 35 — `menu_pomodoro` at y=1480 of 1600). Centering moves the row
+    # to the middle of the screen before it is tapped.
+    centerElement: true
     timeout: 5000
 - tapOn:
     id: "${ENTRY_ID}"

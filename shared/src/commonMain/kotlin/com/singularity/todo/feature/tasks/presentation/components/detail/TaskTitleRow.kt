@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
@@ -56,9 +58,47 @@ fun TaskTitleRow(
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    titleError: String? = null,
+) {
+    // The caller's modifier is the whole block's: the message is part of the title,
+    // so the caller's padding or width has to cover the row and the line under it.
+    // No call site passes a modifier today (TaskEditorContent, and the previews below).
+    Column(modifier = modifier) {
+        TitleFieldRow(
+            taskId = taskId,
+            titleState = titleState,
+            isCompleted = isCompleted,
+            onCheckToggle = onCheckToggle,
+        )
+
+        // The message sits under the field, in the same place whatever the
+        // screen: the create editor and the detail editor hand the row the same
+        // string, so "the title is missing" reads the same in both. It is a
+        // separate node rather than a decoration of the field, because a second
+        // `testTag` on the field's modifier chain is dropped by the semantics
+        // merge — the tag would exist in `TestTags` and nowhere in the tree.
+        if (titleError != null) {
+            Text(
+                text = titleError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier =
+                    Modifier
+                        .padding(top = TaskSpacing.md)
+                        .testTag(TestTags.TASK_EDITOR_TITLE_ERROR),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TitleFieldRow(
+    taskId: String,
+    titleState: TextFieldState,
+    isCompleted: Boolean,
+    onCheckToggle: (() -> Unit)?,
 ) {
     Row(
-        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onCheckToggle != null) {

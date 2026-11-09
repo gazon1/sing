@@ -6,9 +6,11 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -68,6 +70,32 @@ class OpenTaskFromAgendaFlowTest {
             // The editor must show the task title, not be empty
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
             assertTextDisplayed("Existing task")
+        }
+
+    /**
+     * The detail editor edits the title in place, so it needs the same "a task
+     * needs a name" message the create editor draws — from the same rule, so the
+     * two editors cannot drift into saying different things. This pins that the
+     * detail screen actually hands the message to the field.
+     */
+    @Test
+    fun clearing_the_title_in_the_detail_editor_shows_the_validation_message() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            tasks(koin).given(due = today, title = "Existing task")
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Existing task")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            clearTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The draft is seeded from the field a beat after the keystroke, so
+            // the message arrives asynchronously.
+            awaitTag(TestTags.TASK_EDITOR_TITLE_ERROR)
+            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_ERROR, "Title is required")
         }
 
     @Test

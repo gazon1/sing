@@ -41,6 +41,7 @@ import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateRecurringTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
@@ -146,7 +147,24 @@ fun tasksModule(): org.koin.core.module.Module =
 
         factory { CreateTaskUseCase(get(), get(), get()) }
         factory { CreateRecurringTaskUseCase(get(), get(), get(), get(), get()) }
-        factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get(), get(), get()) }
+        // Bound as the *interface*, which is the only shape anything asks for:
+        // `TaskCreateDeps.createFromDraft` takes `CreateTaskFromDraft`, and no
+        // production or test consumer resolves the concrete use case out of Koin —
+        // the use-case tests construct it directly. The interface is the seam a
+        // failing-save test replaces, and binding the concrete class would leave
+        // that seam with nothing to substitute.
+        factory<CreateTaskFromDraft> {
+            CreateTaskFromDraftUseCase(
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+            )
+        }
         factory { UpdateTaskUseCase(get(), get()) }
         factory { MaterializeRecurringSeriesUseCase(get(), get(), get()) }
         factory { StartRecurringSeriesUseCase(get(), get(), get(), get()) }

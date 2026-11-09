@@ -29,6 +29,7 @@ non-alphanumeric characters with `_`.
 
 | Constant | Value | Where |
 |---|---|---|
+| `AUTH_ACCOUNT_EMAIL` | `auth_account_email` | |
 | `AUTH_ATTACH_ACCOUNT_BUTTON` | `auth_attach_account_button` | |
 | `AUTH_ATTACH_BACK_BUTTON` | `auth_attach_back_button` | |
 | `AUTH_ATTACH_DISCARD_BUTTON` | `auth_attach_discard_button` | |
@@ -123,6 +124,7 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
+| `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
@@ -137,8 +139,10 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_RECURRENCE_LABEL` | `task_editor_recurrence_label` | |
 | `TASK_EDITOR_RECURRENCE_ROW` | `task_editor_recurrence_row` | |
 | `TASK_EDITOR_SAVE` | `task_editor_save` | |
+| `TASK_EDITOR_SAVING` | `task_editor_saving` | |
 | `TASK_EDITOR_START_DATE_ROW` | `task_editor_start_date_row` | |
 | `TASK_EDITOR_TAGS_ROW` | `task_editor_tags_row` | |
+| `TASK_EDITOR_TITLE_ERROR` | `task_editor_title_error` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 | `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
@@ -213,6 +217,7 @@ non-alphanumeric characters with `_`.
 | `NOTES_LIST` | `notes_list` | |
 | `NOTES_LIST_EMPTY` | `notes_list_empty` | |
 | `NOTES_QUICK_ADD_INPUT` | `notes_quick_add_input` | |
+| `NOTE_EDITOR_BACK` | `note_editor_back` | |
 | `NOTE_EDITOR_BODY` | `note_editor_body` | |
 | `NOTE_EDITOR_NOTIFICATION_HOST` | `note_editor_notification_host` | |
 | `NOTE_EDITOR_SAVE` | `note_editor_save` | |
@@ -476,7 +481,8 @@ use the expanded string directly).
 | `Settings.reminderOffsetRadioRow("At due time")` | `"At due time"` | `reminder_offset_radio_at_due_time` | Reminder-offset radio rows in notification settings |
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `Settings.workingDaySwitch("MONDAY")` | `"MONDAY"` | `settings_working_day_monday` | Working-day toggles in the work schedule section |
-| `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
+| `settingsGroup("Appearance")` | `"Appearance"` | `settings_group_appearance` | Settings section headings |
+| `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings rows in the rail and the narrow sheet |
 | `menuProjectExpander("p1")` | `"p1"` | `menu_project_expander_p1` | The expander of a project in the menu's tree |
 | `menuProjectNode("p1")` | `"p1"` | `menu_project_node_p1` | A project in the menu's project tree |
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |

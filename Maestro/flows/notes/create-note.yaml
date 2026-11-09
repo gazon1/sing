@@ -41,8 +41,8 @@ tags:
     visible:
       id: note_editor_title_input
     timeout: 5000
-# The note editor autosaves: tapping save does not pop the screen. Leaving the
-# editor is what puts the row back in the list.
+# The note editor autosaves; saving flushes the row and does not pop the screen.
+# Leaving the editor is what puts the row back in the list.
 - tapOn:
     id: note_editor_save
 - back

@@ -147,7 +147,19 @@ class TaskDetailCoordinator(
         pendingBlockedClose.value = request
     }
 
-    private val draft = TaskDraftSlot(deps.core, deps.context, vmScope, taskFlow, ::reportError)
+    private val draft =
+        TaskDraftSlot(
+            core = deps.core,
+            context = deps.context,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            onError = ::reportError,
+            // A debounced write is stored without a message of its own: the screen's
+            // snackbar is for the operations the user asked for explicitly. The pill
+            // is what says an inline edit landed, so the write reports itself here
+            // and not through [reportSaved].
+            onSaved = { tryEmit(TaskDetailUiEvent.SavedPulse) },
+        )
 
     /** Flushes any pending debounced title/description edits before navigation. */
     fun flushDraft() = draft.flush()

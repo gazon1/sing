@@ -161,6 +161,31 @@ class NoteEditorTest {
         }
 
     @Test
+    fun `an explicit save clears dirty before the autosave debounce fires`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.openEditor(testNote.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
+
+            // No advanceTimeBy past the 500ms debounce: the save itself has to
+            // clear the flag. Only the autosave used to, so a back press right
+            // after an explicit save asked about text that was already stored.
+            val savedState = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(savedState)
+            assertFalse(savedState.isDirty)
+        }
+
+    @Test
     fun `editBody marks dirty then autosave clears it`() =
         runTest {
             val notesRepo = FakeNotesRepository()

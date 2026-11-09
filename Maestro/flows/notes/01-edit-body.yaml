@@ -47,7 +47,8 @@ tags:
     id: note_editor_body
 - inputText: "Discuss roadmap"
 - hideKeyboard
-# The editor autosaves; saving does not leave the editor.
+# The editor autosaves, but the debounce may not have fired yet: the save button
+# flushes the body into the note and does not pop the screen.
 - tapOn:
     id: note_editor_save
 - back

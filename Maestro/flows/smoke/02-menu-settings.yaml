@@ -1,6 +1,6 @@
 # Smoke: open Settings from the menu sheet and return.
 #
-# Covers: menu sheet -> Settings entry -> settings_tab_interface visible -> back.
+# Covers: menu sheet -> Settings entry -> the narrow settings trigger visible -> back.
 # This is the smoke subset's settings coverage — full tab cycling is in
 # settings/03-cycle-tabs.yaml.
 appId: com.singularity.todo
