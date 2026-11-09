@@ -52,7 +52,7 @@ tags:
     element:
       id: auth_sign_out_button
     direction: DOWN
-    timeout: 10000
+    timeout: 8000
 - assertVisible:
     id: auth_sign_out_button
 - takeScreenshot: smoke/03-account-tab
