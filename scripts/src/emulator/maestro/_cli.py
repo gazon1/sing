@@ -146,7 +146,13 @@ def _report_is_clean(report: pathlib.Path) -> bool:
     return all(case.find("failure") is None for case in cases)
 
 
-def _write_environment(results_dir: Path, serial: str, deps: DeviceDeps) -> None:
+def _write_environment(
+    results_dir: Path,
+    serial: str,
+    deps: DeviceDeps,
+    shard: int | None = None,
+    shards: int | None = None,
+) -> None:
     """Write down the environment the run happened in.
 
     A floor belongs to an environment. The number of flows that may fail on an
@@ -154,6 +160,13 @@ def _write_environment(results_dir: Path, serial: str, deps: DeviceDeps) -> None
     quantities, and a gate that compares a phone's number with an emulator's
     floor is not measuring anything. The gate reads this file and refuses to
     judge a run it cannot compare.
+
+    The shard and the commit belong here for the same reason. A suite runs as
+    several shards, and "the flows of shard 2 failed" is not a fact about the
+    suite — it is a fact about one of four pieces of it, and a reader who
+    cannot tell which piece is looking at a part and calling it the whole.
+    The commit is the same: the file says which build produced the reports
+    next to it, so a report and a checkout can be put back together.
     """
     payload = {
         "kind": "emulator" if serial.startswith("emulator-") else "device",
@@ -161,6 +174,9 @@ def _write_environment(results_dir: Path, serial: str, deps: DeviceDeps) -> None
         "device": deps.device_model(serial),
         "serial": serial,
         "apk": deps.apk_sha_from_device(serial),
+        "commit": deps.git_sha(),
+        "shard": shard,
+        "shards": shards,
     }
     try:
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -510,11 +526,11 @@ def main(
             )
         if not flows:
             logger.info("Resume: every selected flow already has a clean report")
-            _write_environment(junit_path, serial, deps)
+            _write_environment(junit_path, serial, deps, shard, shards)
             _write_run_summary(junit_path, [], [], [], [])
             return ctx.exit(EXIT_PASS)
 
-    _write_environment(junit_path, serial, deps)
+    _write_environment(junit_path, serial, deps, shard, shards)
 
     # ── Host bridge ────────────────────────────────────────────────────────────
     #
