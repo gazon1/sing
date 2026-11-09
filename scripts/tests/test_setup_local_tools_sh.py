@@ -1,37 +1,47 @@
-"""Tests for `scripts/ci/setup-local-tools.sh` — the shared store of pinned binaries.
+"""Tests for `scripts/ci/setup-local-tools.sh` — the gate tooling comes from mise.
 
-The pinned binaries are the same bytes in every checkout, and they are the
-expensive part: `lychee` alone is 303 MB, and one copy per checkout was 8.9 GB
-of identical binaries on one machine (measured: thirty venvs). So they live in
-one store, keyed by version, and each venv's copy is a symlink into it.
+The script does not install the external binaries: mise does, from the pins in
+`mise.toml`. What the script does is make them reachable from the checkout's
+own venv — one PATH that serves both the gate suite (`sgate`) and the tools
+the gates shell out to (`actionlint`, `shellcheck`, `yamllint`, `lychee`,
+`ktlint`, `rumdl`).
 
-What matters here is the property, not the layout: two checkouts must end up
-with the SAME file behind `bin/lychee`, and a different pinned version must get
-a copy of its own. A copy per checkout would satisfy the first and miss the
-point; a shared copy that ignored the version would satisfy the first and break
-the second — the pins are what make the sharing safe.
+Two properties matter, and both are about the venv rather than the tools:
 
-The fixture is a throwaway layout, not a mock: the real script, a real pins
-file, and a stand-in for the package manager (it creates the file the wheel
-would ship, in the venv it is told about) and for the release download.
+* a missing tool is a loud failure, not a skip — a gate that cannot run looks
+  exactly like a gate that has nothing to report;
+* the venv's copy is a *link* to the tool mise installed, not a copy of it.
+  The binaries are large (`lychee` alone is 303 MB) and identical in every
+  checkout, so a copy per checkout is a machine full of the same bytes.
+
+The fixture is a throwaway layout, not a mock: the real script, a real
+`HOME`, and stand-ins for `uv` and for the six binaries mise would have put on
+`PATH`.
 """
 
-import io
 import os
 import pathlib
 import shutil
 import subprocess
-import tarfile
 import tempfile
 import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'ci' / 'setup-local-tools.sh'
-PINS_FILE = REPO_ROOT / 'config' / 'toolchain-versions.env'
+
+#: The binaries the script expects on PATH. mise installs them; the script
+#: only checks that they are there and links them into the venv.
+TOOLS = ('actionlint', 'shellcheck', 'yamllint', 'lychee', 'ktlint', 'rumdl')
+
+#: The PATH the script runs under: the stubs, and the system directories the
+#: shell needs (`#!/usr/bin/env bash`, `env` itself). The developer's own PATH
+#: is deliberately not inherited — mise's shims live there, and a test that
+#: finds the real `lychee` cannot see what the script would see on a machine
+#: that has not installed it.
+SYSTEM_PATH = '/usr/bin:/bin'
 
 #: The stand-in for uv. It does what the script needs of it and nothing more:
-#: make the venv, and put the binary a wheel ships into the venv it is told
-#: about (`VIRTUAL_ENV` is how uv is told, and how the script tells it).
+#: make the venv (with a bin/ inside it) and accept the editable install.
 STUB_UV = """#!/usr/bin/env bash
 set -euo pipefail
 command="${1:-}"
@@ -41,44 +51,14 @@ case "$command" in
     mkdir -p "${@: -1}/bin"
     ;;
   pip)
-    for argument in "$@"; do
-      case "$argument" in
-        *lychee-bin==*) name=lychee ;;
-        *shellcheck-py==*) name=shellcheck ;;
-        *) continue ;;
-      esac
-      printf '#!/usr/bin/env bash\\necho "%s from the shared store"\\n' "$name" \\
-        > "${VIRTUAL_ENV:?}/bin/$name"
-      chmod +x "${VIRTUAL_ENV:?}/bin/$name"
-    done
+    :
     ;;
 esac
 """
 
-#: The stand-in for the release download: it emits the archive the actionlint
-#: release ships — one file named `actionlint`, which is the member the script
-#: extracts.
-STUB_CURL = """#!/usr/bin/env bash
-set -euo pipefail
-cat "${STUB_RELEASE_ARCHIVE:?}"
-"""
 
-
-def _pin_value(pins: str, key: str) -> str:
-    """The value of a pin, read from the pins file.
-
-    Read, never written out: a version written in two places is a version that
-    can drift, and the gate that watches for exactly that would fail on this
-    test.
-    """
-    for line in pins.splitlines():
-        if line.startswith(f'{key}='):
-            return line.split('=', 1)[1]
-    raise AssertionError(f'{key} is not in the pins file')
-
-
-class SharedToolStoreTest(unittest.TestCase):
-    """The pinned binaries are shared by version, and the code is not."""
+class SetupLocalToolsTest(unittest.TestCase):
+    """The venv links the tools mise installed, and says so when one is missing."""
 
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='setup-local-tools-'))
@@ -88,126 +68,79 @@ class SharedToolStoreTest(unittest.TestCase):
         self.stubs = self.tmp / 'stubs'
         self.stubs.mkdir()
         self._write_stub('uv', STUB_UV)
-        self._write_stub('curl', STUB_CURL)
-        self.archive = self.tmp / 'actionlint.tar.gz'
-        self._write_release_archive(self.archive)
+        for tool in TOOLS:
+            self._write_stub(tool, f'#!/usr/bin/env bash\necho "{tool} from mise"\n')
 
     def _write_stub(self, name: str, body: str) -> None:
         stub = self.stubs / name
         stub.write_text(body, encoding='utf-8')
         stub.chmod(0o755)
 
-    def _write_release_archive(self, path: pathlib.Path) -> None:
-        """The archive the actionlint release ships: one file, named actionlint."""
-        payload = b'#!/usr/bin/env bash\necho "actionlint from the shared store"\n'
-        with tarfile.open(path, 'w:gz') as archive:
-            info = tarfile.TarInfo('actionlint')
-            info.size = len(payload)
-            info.mode = 0o755
-            archive.addfile(info, io.BytesIO(payload))
-
-    def _checkout(self, name: str, pins: str | None = None) -> pathlib.Path:
-        """A throwaway checkout: the real script, a pins file, and a package root."""
-        root = self.tmp / name
-        (root / 'scripts' / 'ci').mkdir(parents=True)
-        (root / 'scripts' / 'src').mkdir()
-        (root / 'config').mkdir()
-        target = root / 'scripts' / 'ci' / 'setup-local-tools.sh'
-        target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
-        target.chmod(0o755)
-        (root / 'config' / 'toolchain-versions.env').write_text(
-            pins if pins is not None else PINS_FILE.read_text(encoding='utf-8'),
-            encoding='utf-8',
-        )
-        return root
-
-    def _install(self, root: pathlib.Path) -> subprocess.CompletedProcess:
+    def _run(self, *, without: str | None = None) -> subprocess.CompletedProcess:
+        if without is None:
+            path = f"{self.stubs}:{SYSTEM_PATH}"
+        else:
+            # A PATH without one of the tools: the file is still there, the
+            # shell just cannot find it. The other tools and uv stay
+            # reachable, so the failure is about the missing tool and nothing
+            # else.
+            hidden = self.tmp / 'hidden'
+            hidden.mkdir(exist_ok=True)
+            (hidden / 'uv').symlink_to(self.stubs / 'uv')
+            for tool in TOOLS:
+                if tool != without:
+                    (hidden / tool).symlink_to(self.stubs / tool)
+            path = f"{hidden}:{SYSTEM_PATH}"
         env = dict(os.environ)
         env['HOME'] = str(self.home)
-        env['PATH'] = f"{self.stubs}:{env['PATH']}"
-        env['STUB_RELEASE_ARCHIVE'] = str(self.archive)
+        env['PATH'] = path
         return subprocess.run(
-            ['bash', str(root / 'scripts' / 'ci' / 'setup-local-tools.sh')],
-            cwd=root,
+            ['bash', str(SCRIPT)],
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             env=env,
             check=False,
         )
 
-    def _venv_bin(self, root: pathlib.Path, tool: str) -> pathlib.Path:
-        return self.home / '.venvs' / f'singularity-todo-{root.name}' / 'bin' / tool
+    def _venv_bin(self, tool: str) -> pathlib.Path:
+        venv = self.home / '.venvs' / f'singularity-todo-{REPO_ROOT.name}'
+        return venv / 'bin' / tool
 
-    # ── the property ─────────────────────────────────────────────────────
+    def test_a_missing_tool_is_a_loud_failure(self):
+        """A gate that cannot run must not look like a gate with nothing to report."""
+        result = self._run(without='lychee')
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn('lychee', result.stderr)
+        self.assertIn('mise install', result.stderr)
 
-    def test_two_checkouts_share_one_copy_of_a_pinned_binary(self):
-        """The bytes are the same in every checkout, so they are stored once."""
-        first = self._checkout('checkout-a')
-        second = self._checkout('checkout-b')
+    def test_the_venvs_tools_are_links_to_the_ones_mise_installed(self):
+        """The binaries are shared across checkouts; a copy per checkout is not."""
+        result = self._run()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
-        for root in (first, second):
-            result = self._install(root)
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-
-        for tool in ('lychee', 'shellcheck', 'actionlint'):
+        for tool in TOOLS:
             with self.subTest(tool=tool):
-                first_copy = self._venv_bin(first, tool)
-                second_copy = self._venv_bin(second, tool)
-                self.assertTrue(first_copy.is_symlink(), f'{tool} was copied, not linked')
+                link = self._venv_bin(tool)
+                self.assertTrue(link.is_symlink(), f'{tool} was copied, not linked')
                 self.assertEqual(
-                    os.path.realpath(first_copy),
-                    os.path.realpath(second_copy),
-                    f'{tool} was installed twice',
-                )
-                # One file on disk, not two that happen to be equal.
-                self.assertEqual(
-                    os.stat(first_copy).st_ino,
-                    os.stat(second_copy).st_ino,
-                    f'{tool} exists twice on disk',
+                    os.path.realpath(link),
+                    os.path.realpath(self.stubs / tool),
+                    f'{tool} in the venv is not the tool on PATH',
                 )
 
-    def test_the_store_is_keyed_by_the_pinned_version(self):
-        """Sharing is safe because the pin is part of the name."""
-        pins = PINS_FILE.read_text(encoding='utf-8')
-        current = _pin_value(pins, 'LYCHEE_BIN_VERSION')
-        # The other version is derived, never written out: a version literal
-        # outside the pins file is a pin that can drift, and the gate that
-        # watches for those would (rightly) fail on this test.
-        other = f'{current}-other'
-        older = self._checkout('checkout-a')
-        newer = self._checkout(
-            'checkout-b',
-            pins=pins.replace(f'LYCHEE_BIN_VERSION={current}', f'LYCHEE_BIN_VERSION={other}'),
-        )
-
-        self._install(older)
-        self._install(newer)
-
-        older_copy = os.path.realpath(self._venv_bin(older, 'lychee'))
-        newer_copy = os.path.realpath(self._venv_bin(newer, 'lychee'))
-        self.assertNotEqual(
-            older_copy,
-            newer_copy,
-            'two pinned versions share one file — the pin stopped meaning anything',
-        )
-        self.assertIn(current, older_copy)
-        self.assertIn(other, newer_copy)
-
-    def test_the_shared_binary_is_the_one_that_runs(self):
+    def test_the_linked_tool_is_the_one_that_runs(self):
         """The link is not decoration: the tool behind it is the shared copy."""
-        root = self._checkout('checkout-a')
-        self._install(root)
-
-        linked = self._venv_bin(root, 'lychee')
-        self.assertTrue(linked.is_symlink())
+        self._run()
+        link = self._venv_bin('lychee')
         ran = subprocess.run(
-            [str(linked)],
+            [str(link)],
             capture_output=True,
             text=True,
             check=False,
         )
         self.assertEqual(0, ran.returncode, ran.stdout + ran.stderr)
-        self.assertEqual('lychee from the shared store', ran.stdout.strip())
+        self.assertEqual('lychee from mise', ran.stdout.strip())
 
 
 if __name__ == '__main__':

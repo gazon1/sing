@@ -1,26 +1,23 @@
-"""The toolchain pins live in exactly one file.
+"""The toolchain pins live in exactly one file: mise.toml.
 
-The gate-tooling versions — lychee, yamllint, shellcheck-py, the actionlint
-release and the ktlint release — used to be written out twice: once in the local install
-path (`scripts/ci/setup-local-tools.sh`) and once in the CI install path
-(`.github/actions/setup-python-tools/action.yml`). Two copies of a pin is a pin
-that can drift, and the drift does not announce itself: the local run and the
-CI run of the same gate simply disagree, which reads as a broken gate rather
-than as a version bump.
+The gate-tooling versions — actionlint, shellcheck, yamllint, lychee, ktlint,
+rumdl — are written down once, in `mise.toml`, and mise installs them from
+there: on a developer machine and on a runner. The local run and the CI run of
+the same gate therefore use the same bytes, because there is only one answer
+to read.
 
-So the pins now live in `config/toolchain-versions.env`, and this test holds
-that arrangement in place:
+This test holds that arrangement in place:
 
-* the pins file exists and declares exactly the five tools with a version;
-* neither consumer repeats a version literal;
+* every gate tool the suite shells out to has a fixed version in mise.toml;
+* neither install path repeats a version literal;
 * no version literal appears anywhere else in the repository.
 
-The expected values are *derived from the pins file*, not hard-coded here. A
-test that hard-codes the versions would have to be edited every time a pin
-moves, and an edit of a test to accommodate a change is exactly the edit that
-lets a second copy back in. The literal check therefore asks a different
-question — "does this version string appear anywhere but the one file?" — and
-that question stays true across a bump.
+The expected values are *derived from mise.toml*, not hard-coded here. A test
+that hard-codes the versions would have to be edited every time a pin moves,
+and an edit of a test to accommodate a change is exactly the edit that lets a
+second copy back in. The literal check therefore asks a different question —
+"does this version string appear anywhere but the one file?" — and that question
+stays true across a bump.
 
 The one thing this test cannot see is a duplicate that uses a *different*
 spelling of the same version (e.g. `1.7` for `1.7.7`). That is what the
@@ -33,28 +30,31 @@ Run with: python3 -m unittest discover -s scripts/tests
 """
 import os
 import pathlib
-import re
+import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-PINS_FILE = ROOT / "config" / "toolchain-versions.env"
+MISE_TOML = ROOT / "mise.toml"
+RESOLVER = ROOT / "scripts" / "toolchain-version.py"
 
-#: The two install paths. Both must read the pins file, neither may repeat it.
+#: The install paths. Neither may repeat a version: the tools come from mise,
+#: and mise reads the pin out of mise.toml.
 CONSUMERS = (
     ROOT / "scripts" / "ci" / "setup-local-tools.sh",
     ROOT / ".github" / "actions" / "setup-python-tools" / "action.yml",
 )
 
-#: The pinned gate/tooling binaries, and the key each one is pinned under.
-#: The keys are part of the contract: both consumers read them.
-EXPECTED_KEYS = (
-    "LYCHEE_BIN_VERSION",
-    "YAMLLINT_VERSION",
-    "SHELLCHECK_PY_VERSION",
-    "ACTIONLINT_VERSION",
-    "KTLINT_VERSION",
-    "RUMDL_VERSION",
+#: The gate/tooling binaries the gate suite shells out to, and the tool name
+#: each one is pinned under in mise.toml.
+GATE_TOOLS = (
+    "actionlint",
+    "shellcheck",
+    "yamllint",
+    "lychee",
+    "ktlint",
+    "rumdl",
 )
 
 #: Directories that hold build output, caches or vendored tool state. They are
@@ -88,9 +88,9 @@ SKIP_DIRS = frozenset(
 
 #: Files that still name a pin, and why that is allowed. None of them installs
 #: anything: they are prose (a skill page, an ADR, a change proposal) or a
-#: comment / help message that describes what CI installs. A file that DOES
-#: install must read the pins file instead — that is the rule the two
-#: consumers are held to above.
+#: version catalog that happens to hold the same string for another tool. A
+#: file that DOES install must read the pin out of mise.toml — that is the rule
+#: the two consumers are held to above.
 #:
 #: Every entry here is a *tracked* file. A generated one (the decisions digest
 #: mirrors the ADR text) cannot be an entry: the file does not exist in a fresh
@@ -103,16 +103,8 @@ ALLOWED_DUPLICATES = {
         "spelling as the ktlint pin. Two different tools, two different "
         "releases, one string."
     ),
-    "mise.toml": (
-        "mise pins the same external binaries for developer machines; "
-        "config/toolchain-versions.env is the source of truth for gate "
-        "install paths (setup-local-tools.sh / CI action)."
-    ),
     ".agents/skills/singularity-todo-quality-tools/SKILL.md": (
         "skill page: prose that tells the reader which versions CI installs"
-    ),
-    ".agents/skills/singularity-todo-quality-tools/REFERENCE.md": (
-        "skill reference page: the prose that tells the reader which versions CI installs"
     ),
     "docs/decisions/2026-10-19-doc-links-gate-lychee.md": (
         "ADR: the historical record of the decision to adopt lychee"
@@ -140,37 +132,27 @@ GENERATED_FILES = frozenset(
     }
 )
 
-#: A pin file line: KEY=VALUE, plain shell assignment.
-_PIN_LINE = re.compile(r"^[A-Z][A-Z0-9_]*=[A-Za-z0-9._+-]+$")
-
 #: Files bigger than this are binaries or generated blobs, not source.
 _MAX_FILE_BYTES = 1_000_000
 
 
 def read_pins() -> dict[str, str]:
-    """The pins file as a mapping. Raises if the file is missing."""
-    text = PINS_FILE.read_text(encoding="utf-8")
-    pins: dict[str, str] = {}
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, _, value = line.partition("=")
-        pins[key.strip()] = value.strip()
-    return pins
+    """The pinned versions, keyed by tool name. Raises if mise.toml is missing."""
+    import tomllib
+
+    with MISE_TOML.open("rb") as handle:
+        tools = tomllib.load(handle).get("tools", {})
+    return {str(name): str(version) for name, version in tools.items()}
 
 
-def version_literals(pins: dict[str, str]) -> set[str]:
-    """Every spelling of a pin that must not appear outside the pins file.
-
-    The actionlint pin is a GitHub release tag (`v1.7.7`) but the asset it
-    downloads is named after the version without the `v` (`1.7.7`), so both
-    spellings are searched for.
-    """
+def version_literals(pins: dict[str, str], tools: tuple[str, ...]) -> set[str]:
+    """Every spelling of a pin that must not appear outside mise.toml."""
     literals: set[str] = set()
-    for value in pins.values():
-        literals.add(value)
-        literals.add(value.lstrip("v"))
+    for tool in tools:
+        value = pins.get(tool)
+        if value:
+            literals.add(value)
+            literals.add(value.lstrip("v"))
     return {lit for lit in literals if lit}
 
 
@@ -218,72 +200,53 @@ def scan_for_duplicates(root: pathlib.Path, literals: set[str], *, skip: set[str
 class PinsFileTest(unittest.TestCase):
     """The one file the pins live in."""
 
-    def test_pins_file_exists(self):
-        self.assertTrue(PINS_FILE.is_file(), f"missing {PINS_FILE}")
+    def test_mise_toml_exists(self):
+        self.assertTrue(MISE_TOML.is_file(), f"missing {MISE_TOML}")
 
-    def test_declares_exactly_the_pinned_tools(self):
+    def test_every_gate_tool_has_a_fixed_version(self):
         pins = read_pins()
-        self.assertEqual(
-            sorted(EXPECTED_KEYS),
-            sorted(pins),
-            f"{PINS_FILE.name} must declare exactly the pinned tools",
+        for tool in GATE_TOOLS:
+            with self.subTest(tool=tool):
+                version = pins.get(tool)
+                self.assertTrue(version, f"{tool} has no pin in {MISE_TOML.name}")
+                self.assertNotEqual(
+                    version,
+                    "latest",
+                    f"the pin of {tool} is 'latest' — that is not a version",
+                )
+
+    def test_the_resolver_answers_with_the_pinned_version(self):
+        # The shell cannot read TOML, so it asks this script. If the answer
+        # were not the pin, the formatter in CI would install a version the
+        # gate does not expect.
+        pins = read_pins()
+        for tool in GATE_TOOLS:
+            with self.subTest(tool=tool):
+                answer = subprocess.run(
+                    [sys.executable, str(RESOLVER), tool],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(0, answer.returncode, answer.stderr)
+                self.assertEqual(pins[tool], answer.stdout.strip())
+
+    def test_the_resolver_refuses_a_tool_that_is_not_pinned(self):
+        answer = subprocess.run(
+            [sys.executable, str(RESOLVER), "no-such-tool"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
-
-    def test_every_pin_has_a_version(self):
-        pins = read_pins()
-        for key in EXPECTED_KEYS:
-            with self.subTest(key=key):
-                self.assertTrue(pins.get(key), f"{key} has no version")
-
-    def test_actionlint_pin_is_a_release_tag(self):
-        # The consumers derive the asset name from the tag by dropping the
-        # leading "v", so a tag without one would download a file that does not
-        # exist.
-        pins = read_pins()
-        self.assertTrue(
-            pins["ACTIONLINT_VERSION"].startswith("v"),
-            "the actionlint pin must be a release tag with a leading 'v'",
-        )
-
-    def test_the_file_is_safe_to_source(self):
-        # Both consumers source it under `set -euo pipefail`. A command
-        # substitution that can fail, or an expansion of a variable that may be
-        # unset, would take the install down with it. Comments are inert, so
-        # only the assignment lines are checked.
-        text = PINS_FILE.read_text(encoding="utf-8")
-        for raw in text.splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            with self.subTest(line=line):
-                self.assertNotIn("$(", line, "no command substitution")
-                self.assertNotIn("`", line, "no backticks")
-                self.assertNotIn("${", line, "no expansion of an unset variable")
-                self.assertRegex(line, _PIN_LINE, f"not a plain assignment: {line}")
+        self.assertNotEqual(0, answer.returncode)
+        self.assertIn("not pinned", answer.stderr)
 
 
 class ConsumerTest(unittest.TestCase):
-    """The two install paths read the pins file; neither repeats it."""
-
-    def test_each_consumer_reads_the_pins_file(self):
-        for consumer in CONSUMERS:
-            with self.subTest(consumer=consumer.name):
-                self.assertTrue(consumer.is_file(), f"missing {consumer}")
-                self.assertIn(
-                    "toolchain-versions.env",
-                    consumer.read_text(encoding="utf-8"),
-                    f"{consumer.name} does not read the pins file",
-                )
-
-    def test_each_consumer_uses_every_pin_key(self):
-        for consumer in CONSUMERS:
-            text = consumer.read_text(encoding="utf-8")
-            for key in EXPECTED_KEYS:
-                with self.subTest(consumer=consumer.name, key=key):
-                    self.assertIn(key, text, f"{consumer.name} does not use {key}")
+    """The install paths take the tools from mise; neither repeats a version."""
 
     def test_no_consumer_repeats_a_version_literal(self):
-        literals = version_literals(read_pins())
+        literals = version_literals(read_pins(), GATE_TOOLS)
         for consumer in CONSUMERS:
             text = consumer.read_text(encoding="utf-8")
             for literal in sorted(literals):
@@ -292,17 +255,17 @@ class ConsumerTest(unittest.TestCase):
                         literal,
                         text,
                         f"{consumer.name} repeats the pin {literal} — "
-                        "the pins file is the only place it may appear",
+                        "mise.toml is the only place it may appear",
                     )
 
 
 class DuplicatePinTest(unittest.TestCase):
-    """A pin is written once, in the pins file."""
+    """A pin is written once, in mise.toml."""
 
-    def test_no_pin_is_written_outside_the_pins_file(self):
-        literals = version_literals(read_pins())
-        skip = {PINS_FILE.relative_to(ROOT).as_posix()}
-        # The test derives its expectations from the pins file, so it holds no
+    def test_no_pin_is_written_outside_mise_toml(self):
+        literals = version_literals(read_pins(), GATE_TOOLS)
+        skip = {MISE_TOML.relative_to(ROOT).as_posix()}
+        # The test derives its expectations from mise.toml, so it holds no
         # literal of its own — but it is skipped anyway, so that adding one
         # (e.g. in a comment) cannot make the test fail on itself.
         skip.add(pathlib.Path(__file__).resolve().relative_to(ROOT).as_posix())
@@ -317,8 +280,8 @@ class DuplicatePinTest(unittest.TestCase):
             {},
             unexpected,
             "a toolchain pin is written outside "
-            f"{PINS_FILE.relative_to(ROOT).as_posix()}: "
-            f"{unexpected}. Move the version into the pins file and read it "
+            f"{MISE_TOML.relative_to(ROOT).as_posix()}: "
+            f"{unexpected}. Move the version into mise.toml and read it "
             "from there. If a site is allowed to name the version, add it to "
             "ALLOWED_DUPLICATES in this test, with the reason.",
         )
@@ -336,12 +299,12 @@ class DuplicatePinTest(unittest.TestCase):
     def test_the_scan_actually_finds_a_duplicate(self):
         # A scan that finds nothing proves nothing. This plants a pin in a
         # throwaway tree and asserts the scanner reports it.
-        literals = version_literals(read_pins())
+        literals = version_literals(read_pins(), GATE_TOOLS)
         planted = sorted(literals)[0]
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             (root / "sub").mkdir()
-            (root / "sub" / "copy.txt").write_text(f"install lychee-bin=={planted}\n", encoding="utf-8")
+            (root / "sub" / "copy.txt").write_text(f"install lychee == {planted}\n", encoding="utf-8")
             hits = scan_for_duplicates(root, literals, skip=set())
         self.assertIn("sub/copy.txt", hits)
         self.assertIn(planted, hits["sub/copy.txt"])

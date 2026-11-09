@@ -3,8 +3,7 @@ description: >-
   Install the gate suite's Python package (editable from scripts/src/) into a
   venv, and make the external binaries (actionlint, shellcheck, yamllint, lychee,
   ktlint, rumdl, ...) available through mise (see mise.toml). The versions are
-  pinned in mise.toml and config/toolchain-versions.env so local and CI runs
-  agree.
+  pinned in mise.toml, so local and CI runs agree.
 
 inputs:
   python-version:
