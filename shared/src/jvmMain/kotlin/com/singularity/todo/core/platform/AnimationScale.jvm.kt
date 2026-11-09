@@ -14,8 +14,7 @@ import androidx.compose.runtime.remember
  * `defaults`/`gsettings` or a platform-specific native call, per platform, per read.
  *
  * So the OS reduce-motion switch is not read here. The answer is `1f` — animations on
- * — unless the process is configured otherwise, below. #2486 tracks reading the
- * desktop's own switch.
+ * — unless the process is configured otherwise, below.
  *
  * ## The knob that does exist
  *

@@ -50,8 +50,7 @@ import com.singularity.todo.core.ui.animationsEnabled
  *
  * The still icon is the whole progress signal: the button is disabled while a sync
  * runs and the icon's content description says "Syncing…", so the running state is
- * reported, but a running sync and a hung one look the same. A non-motion progress cue
- * is tracked by #2487.
+ * reported, but a running sync and a hung one look the same.
  *
  * Tapping triggers [SyncIntent.SyncNow].
  */

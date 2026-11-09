@@ -36,8 +36,7 @@ object TouchTarget {
  * handling keeps its own bounds, so a pointer in the extra band reaches the content
  * only if that content handles touches outside its own bounds — a control that needs a
  * guaranteed 48 dp pointer target has to be laid out at 48 dp. Material's
- * `Modifier.minimumInteractiveComponentSize()` is the same mechanism, and #2485 tracks
- * the change that makes the guarantee real.
+ * `Modifier.minimumInteractiveComponentSize()` is the same mechanism.
  */
 fun Modifier.touchTarget(minSize: Dp = TouchTarget.MinSize): Modifier =
     this.layout { measurable, constraints ->

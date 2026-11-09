@@ -51,7 +51,7 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  *
  * The reservation is layout space: the button's own clickable is laid out at the 40 dp
  * it is drawn at, so a control that needs a guaranteed 48 dp pointer target has to be
- * laid out at 48 dp instead. #2485 tracks that change.
+ * laid out at 48 dp instead.
  *
  * @param section The section to display.
  * @param index The section's position in the list.

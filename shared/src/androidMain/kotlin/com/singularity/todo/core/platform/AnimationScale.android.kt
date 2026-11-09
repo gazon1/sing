@@ -45,7 +45,7 @@ actual fun systemAnimationDurationScale(): Float = animationDurationScaleFor(Val
  * Each composition that calls this installs its own [ContentObserver] and its own
  * main-looper [Handler], and unregisters on dispose. The fact being observed is
  * process-wide, so the cheaper shape as readers multiply is one observer at the shell
- * feeding a single provided local; #2486 tracks that change.
+ * feeding a single provided local.
  */
 @Composable
 actual fun rememberSystemAnimationDurationScale(): Float {

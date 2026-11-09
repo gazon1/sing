@@ -35,7 +35,7 @@ import androidx.compose.runtime.Composable
  * Android reads the system animator setting, which is what "Remove animations"
  * in the developer options and the accessibility animation settings write. The
  * desktop has no such setting that can be read portably, so it answers `1f` —
- * see the JVM actual and #2486.
+ * see the JVM actual.
  */
 expect fun systemAnimationDurationScale(): Float
 
