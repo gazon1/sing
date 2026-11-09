@@ -94,6 +94,7 @@ SOURCE_ROOTS = [
     "core-database/src",
     "core-domain/src",
     "mcp-server/src",
+    "import-cli/src",
     "pro/src",
     "tools/unwritten-properties/src",
 ]

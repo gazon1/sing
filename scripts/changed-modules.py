@@ -387,6 +387,7 @@ TASKS: ModuleChecks = ModuleChecks({
         ':detekt-rules:detekt',
     ],
     'tools:unwritten-properties': [':tools:unwritten-properties:test'],
+    'import-cli': [':import-cli:test', ':import-cli:detekt'],
 })
 
 #: What a change in a module can break.
@@ -408,11 +409,12 @@ DOWNSTREAM: dict[str, list[str]] = {
     'adr-core': ['adr-core', 'adr-cli', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'core-domain': ['core-domain', 'core-database', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'core-database': ['core-database', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
-    'shared': ['shared', 'androidApp', 'desktopApp', 'mcp-server'],
+    'shared': ['shared', 'androidApp', 'desktopApp', 'mcp-server', 'import-cli'],
     'desktopApp': ['desktopApp'],
     'androidApp': ['androidApp'],
     'mcp-server': ['mcp-server'],
     'adr-cli': ['adr-cli'],
+    'import-cli': ['import-cli'],
     'core-base-only': ['core-base'],
     'detekt-rules': ['detekt-rules'],
 }
@@ -489,6 +491,7 @@ COMPILE_TASKS: dict[str, list[str]] = {
     'mcp-server': [':mcp-server:compileKotlin', ':mcp-server:compileTestKotlin'],
     'androidApp': [':androidApp:compileDebugKotlin'],
     'tools:unwritten-properties': [':tools:unwritten-properties:compileKotlin', ':tools:unwritten-properties:compileTestKotlin'],
+    'import-cli': [':import-cli:compileKotlin', ':import-cli:compileTestKotlin'],
     'pro': [],
 }
 
