@@ -62,6 +62,17 @@ spec.loader.exec_module(mod)
 
 SOURCE = 'package com.example\n\nclass Example\n'
 
+
+def _every_detekt_task() -> set[str]:
+    """The detekt task of every module the graph judges.
+
+    Read from the graph, not written down: the number of modules moves when
+    the build moves, and a test that names the old number fails on the change
+    that added a module instead of on the behaviour it means to check.
+    """
+    graph = mod.load_module_graph()
+    return {f':{module}:detekt' for module in graph.TASKS.detekt_modules()}
+
 #: A stand-in for ./gw. The mode says what detekt would do in this tree.
 #: It also records how it was called, so a test can see whether the verdict
 #: paid the Gradle configuration phase once or once per module.
@@ -274,12 +285,12 @@ class ModuleSelectionTest(unittest.TestCase):
 
     def test_a_change_in_the_rules_judges_every_module(self):
         tasks, reason = self._tasks({'config/detekt/detekt.yml': 'complexity:\n'})
-        self.assertEqual(8, len(tasks), reason)
+        self.assertEqual(_every_detekt_task(), set(tasks), reason)
         self.assertIn('rules', reason)
 
     def test_a_change_in_the_build_judges_every_module(self):
         tasks, _ = self._tasks({'gradle/libs.versions.toml': 'x = "1"\n'})
-        self.assertEqual(8, len(tasks))
+        self.assertEqual(_every_detekt_task(), set(tasks))
 
     def test_a_change_that_moves_no_kotlin_needs_no_detekt_run(self):
         tasks, reason = self._tasks({'docs/notes.md': 'a note\n'})
@@ -319,7 +330,7 @@ class ModuleSelectionTest(unittest.TestCase):
 
     def test_a_range_with_no_known_base_is_judged_in_full(self):
         tasks, reason = mod.detekt_tasks_for_change(self.repo, None, self.base)
-        self.assertEqual(8, len(tasks))
+        self.assertEqual(_every_detekt_task(), set(tasks))
         self.assertIn('no known base', reason)
 
     # ── the base a push does not name ─────────────────────────────────────
