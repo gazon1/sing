@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.contextmenu
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
@@ -18,6 +21,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskMenuBuilderTest {
     private val testUserId =
         com.singularity.todo.core.ids

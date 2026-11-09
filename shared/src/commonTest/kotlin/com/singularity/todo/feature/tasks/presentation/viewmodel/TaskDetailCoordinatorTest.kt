@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
@@ -54,6 +57,8 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskDetailCoordinatorTest {
     private fun coordinator(
         fakes: SlotFakes,

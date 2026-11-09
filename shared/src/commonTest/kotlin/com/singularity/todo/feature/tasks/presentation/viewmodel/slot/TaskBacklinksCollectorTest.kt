@@ -3,6 +3,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
@@ -21,6 +24,8 @@ import kotlin.time.Clock
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskBacklinksCollectorTest {
     private class FakeLinks(
         private val notes: List<Note> = emptyList(),

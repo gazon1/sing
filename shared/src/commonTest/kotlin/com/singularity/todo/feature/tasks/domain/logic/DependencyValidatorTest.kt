@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.domain.logic
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -24,6 +27,8 @@ import kotlin.test.assertTrue
  * user-isolation of the analysis, and [assertNoCycles] self-loop guard.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class DependencyValidatorTest {
     private val userA = UserId("user-a")
     private val userB = UserId("user-b")

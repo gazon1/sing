@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
@@ -31,6 +34,8 @@ import kotlin.time.Instant
  * that a re-plan removes the future the new rule does not give.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class MaterializeRecurringSeriesUseCaseTest {
     private val monday = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))

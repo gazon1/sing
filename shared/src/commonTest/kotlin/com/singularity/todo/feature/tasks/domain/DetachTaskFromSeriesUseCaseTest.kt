@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -24,6 +27,8 @@ import kotlin.test.assertTrue
  * left, and the group it left keeps a member that is not there.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class DetachTaskFromSeriesUseCaseTest {
     private val alice = UserId("alice")
     private val seriesId = TaskSeriesId("series-1")

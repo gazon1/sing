@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
@@ -28,6 +31,8 @@ import kotlin.time.Instant
  * No mocks needed - all functions are pure.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TasksDomainTest {
     // ===== validateTitle =====
 

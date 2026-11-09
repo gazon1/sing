@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import app.cash.turbine.test
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
@@ -35,6 +38,8 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskFilterInheritanceTest {
     private lateinit var db: AppDatabase
     private lateinit var fixture: DatabaseTestFixture

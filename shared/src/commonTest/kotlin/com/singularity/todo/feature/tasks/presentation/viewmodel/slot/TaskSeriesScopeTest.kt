@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
@@ -26,6 +29,8 @@ import kotlin.test.assertEquals
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskSeriesScopeTest {
     private val seriesId = TaskSeriesId("series-1")
 

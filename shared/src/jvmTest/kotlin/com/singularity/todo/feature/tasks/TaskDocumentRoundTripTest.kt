@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.fakeSyncDocumentWriter
@@ -16,6 +19,8 @@ import kotlin.test.assertEquals
 import kotlin.time.Instant
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskDocumentRoundTripTest {
     private class RecordingTaskRepository : FakeTaskRepository() {
         val documents = mutableListOf<TaskDocument>()

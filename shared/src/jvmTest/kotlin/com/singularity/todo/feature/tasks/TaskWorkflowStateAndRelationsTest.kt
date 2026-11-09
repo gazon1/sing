@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
@@ -36,6 +39,8 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class TaskWorkflowStateAndRelationsTest {
     private val alice = UserId("alice")
 
