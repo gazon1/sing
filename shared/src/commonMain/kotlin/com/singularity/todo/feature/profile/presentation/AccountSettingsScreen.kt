@@ -283,7 +283,7 @@ private fun AccountStatusSection(session: Session) {
         // Nothing is known yet, and a signed-out session never reaches this
         // screen — the auth guard shows the sign-in screen instead.
         Session.Loading, Session.SignedOut -> {
-            Unit
+            // Nothing is known yet — the card appears when the session resolves.
         }
     }
 }
