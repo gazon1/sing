@@ -64,6 +64,20 @@ repeated. The only exceptions are the two unscoped `@Upsert` cross-ref methods k
 
 **No Room migration** — no columns changed, only query signatures.
 
+**The sync outbox's claim and release are scoped, not allowlisted.** `SyncOutboxDao.claim`
+and `release` write rows the user owns, so they filter on `owner_id` like every other write.
+The gates reported them, and they were fixed rather than excepted: the sibling methods that
+are still allowlisted (`delete`, `markFailed`, `clearAll`) are on the list because they are
+internal machinery keyed by a patch id, but a claim *is* a write of the user's pending
+work, and the honest scope is the account it belongs to. The ids they take come from
+`getPending`, which is owner-scoped, so the scope is redundant for an honest caller — which
+is precisely why it is worth having: the write itself can no longer reach another account's
+row, whatever the caller passed in.
+
+The release runs under the owner the claim was taken under, not the one that happens to be
+active when it runs. The account can change under a cycle, and a release that followed the
+current scope would find no rows to give back — leaving the user's edits claimed for good.
+
 ### 3. Deletion propagates as state, not as a tombstone
 
 `softDelete`/`restore` never called `enqueue`, and `SyncEngine.buildPatch` hardcodes

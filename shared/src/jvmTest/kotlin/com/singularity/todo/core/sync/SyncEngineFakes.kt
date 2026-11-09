@@ -64,20 +64,22 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
 
     override suspend fun claim(
         ids: List<String>,
+        ownerId: String,
         token: String,
     ) {
         ids.forEach { id ->
-            val index = rows.indexOfFirst { it.patchId == id && it.claimToken == null }
+            val index = rows.indexOfFirst { it.patchId == id && it.ownerId == ownerId && it.claimToken == null }
             if (index >= 0) rows[index] = rows[index].copy(claimToken = token)
         }
     }
 
     override suspend fun release(
         ids: List<String>,
+        ownerId: String,
         token: String,
     ) {
         ids.forEach { id ->
-            val index = rows.indexOfFirst { it.patchId == id }
+            val index = rows.indexOfFirst { it.patchId == id && it.ownerId == ownerId }
             if (index >= 0 && rows[index].claimToken == token) {
                 rows[index] = rows[index].copy(claimToken = null)
             }

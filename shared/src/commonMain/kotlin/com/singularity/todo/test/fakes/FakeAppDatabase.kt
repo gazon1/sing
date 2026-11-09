@@ -1788,22 +1788,24 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
 
     override suspend fun claim(
         ids: List<String>,
+        ownerId: String,
         token: String,
     ) {
         store.update { current ->
             current.mapValues { (k, v) ->
-                if (k in ids && v.claimToken == null) v.copy(claimToken = token) else v
+                if (k in ids && v.ownerId == ownerId && v.claimToken == null) v.copy(claimToken = token) else v
             }
         }
     }
 
     override suspend fun release(
         ids: List<String>,
+        ownerId: String,
         token: String,
     ) {
         store.update { current ->
             current.mapValues { (k, v) ->
-                if (k in ids && v.claimToken == token) v.copy(claimToken = null) else v
+                if (k in ids && v.ownerId == ownerId && v.claimToken == token) v.copy(claimToken = null) else v
             }
         }
     }

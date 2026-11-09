@@ -35,7 +35,7 @@ class SyncOutboxClaimFakeTest {
                     createdAt = 2L,
                 ),
             )
-            dao.claim(listOf("p1"), "token-1")
+            dao.claim(listOf("p1"), "o", "token-1")
             val pending = dao.getPending(now, "o", "pr")
             assertEquals(listOf("p2"), pending.map { it.patchId })
         }
@@ -56,7 +56,7 @@ class SyncOutboxClaimFakeTest {
                     createdAt = 1L,
                 ),
             )
-            dao.claim(listOf("p1"), token)
+            dao.claim(listOf("p1"), "o", token)
             assertTrue(dao.rows.first().claimToken == token)
         }
 
@@ -98,8 +98,8 @@ class SyncOutboxClaimFakeTest {
                     createdAt = 1L,
                 ),
             )
-            dao.claim(listOf("p1"), first)
-            dao.claim(listOf("p1"), second)
+            dao.claim(listOf("p1"), "o", first)
+            dao.claim(listOf("p1"), "o", second)
             assertEquals(first, dao.rows.first().claimToken)
         }
 
@@ -139,7 +139,46 @@ class SyncOutboxClaimFakeTest {
                     claimToken = "token-B",
                 ),
             )
-            dao.release(listOf("p1"), "token-A")
+            dao.release(listOf("p1"), "o", "token-A")
             assertEquals("token-B", dao.rows.first().claimToken)
+        }
+
+    @Test
+    fun claim_doesNotTouchAnotherOwnersRow() =
+        runTest {
+            val dao = FakeSyncOutboxDao()
+            dao.insert(
+                SyncOutboxEntity(
+                    patchId = "p1",
+                    ownerId = "other",
+                    profileId = "pr",
+                    entityId = "e",
+                    entityType = "t",
+                    payload = "{}",
+                    createdAt = 1L,
+                ),
+            )
+            dao.claim(listOf("p1"), "o", "token-1")
+            assertEquals(null, dao.rows.first().claimToken)
+        }
+
+    @Test
+    fun release_doesNotTouchAnotherOwnersRow() =
+        runTest {
+            val dao = FakeSyncOutboxDao()
+            dao.insert(
+                SyncOutboxEntity(
+                    patchId = "p1",
+                    ownerId = "other",
+                    profileId = "pr",
+                    entityId = "e",
+                    entityType = "t",
+                    payload = "{}",
+                    createdAt = 1L,
+                    claimToken = "token-1",
+                ),
+            )
+            dao.release(listOf("p1"), "o", "token-1")
+            assertEquals("token-1", dao.rows.first().claimToken)
         }
 }

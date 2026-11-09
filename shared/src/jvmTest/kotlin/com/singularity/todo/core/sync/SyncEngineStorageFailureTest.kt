@@ -66,6 +66,7 @@ class SyncEngineStorageFailureTest {
 
         override suspend fun claim(
             ids: List<String>,
+            ownerId: String,
             token: String,
         ) = Unit
     }
@@ -84,6 +85,7 @@ class SyncEngineStorageFailureTest {
 
         override suspend fun claim(
             ids: List<String>,
+            ownerId: String,
             token: String,
         ) = Unit
 
