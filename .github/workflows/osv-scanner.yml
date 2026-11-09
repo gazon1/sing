@@ -18,5 +18,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+      # Advisory: the scanner reports vulnerabilities, it does not gate the build.
+      # A finding opens an issue instead; the step name says so for the next reader.
+      - name: "Advisory: OSV vulnerability scan (non-blocking)"
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         continue-on-error: true
