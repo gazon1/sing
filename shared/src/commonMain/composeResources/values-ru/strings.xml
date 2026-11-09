@@ -61,15 +61,15 @@
     <string name="month_short_nov">ноя</string>
     <string name="month_short_dec">дек</string>
     <plurals name="date_count">
-        <item quantity="one">%d дата</item>
-        <item quantity="few">%d даты</item>
-        <item quantity="many">%d дат</item>
-        <item quantity="other">%d дат</item>
+        <item quantity="one">%1$d дата</item>
+        <item quantity="few">%1$d даты</item>
+        <item quantity="many">%1$d дат</item>
+        <item quantity="other">%1$d дат</item>
     </plurals>
     <plurals name="series_label">
-        <item quantity="one">Серия · %d дата</item>
-        <item quantity="few">Серия · %d даты</item>
-        <item quantity="many">Серия · %d дат</item>
-        <item quantity="other">Серия · %d дат</item>
+        <item quantity="one">Серия · %1$d дата</item>
+        <item quantity="few">Серия · %1$d даты</item>
+        <item quantity="many">Серия · %1$d дат</item>
+        <item quantity="other">Серия · %1$d дат</item>
     </plurals>
 </resources>
