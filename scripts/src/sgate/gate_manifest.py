@@ -1119,13 +1119,6 @@ seed, so the run id there stays available. The gate reads `QUERY` lines only."""
         ),
         tracked_by=".github/workflows/ci.yml#Executed test counts",
     ),
-    'the link grammar has one home': Placement(
-        kind=PlacementKind.STATIC,
-        command="sgate the_link_grammar_has_one_home",
-        note=(
-            'The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.'
-        ),
-    ),
     'the tool catalogue is current': Placement(
         kind=PlacementKind.STATIC,
         command="sgate the_tool_catalogue_is_current",

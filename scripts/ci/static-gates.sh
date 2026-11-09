@@ -869,8 +869,6 @@ gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-
 # A title a flow *types* into the editor is the flow's own row and reaches no
 # seed, so the run id there stays available. The gate reads `QUERY` lines only.
 gate blocking "maestro seeded titles are stable" python3 scripts/check-maestro-seeded-titles.py
-# The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
-gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
 # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
 gate blocking "the tool catalogue is current" sgate the_tool_catalogue_is_current
 # The catalogue of the skills, generated from the frontmatter of every

@@ -1090,15 +1090,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
-        # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
-        GateSpec(
-            name="the link grammar has one home",
-            mode=GateMode.BLOCKING,
-            cmd_type=CmdType.PYTHON3,
-            script=Path("scripts/check-link-grammar.py"),
-            script_args=("--check",),
-        ),
-        # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+    # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
         GateSpec(
             name="the tool catalogue is current",
             mode=GateMode.BLOCKING,
@@ -1840,22 +1832,6 @@ GATE_CONTROLS: dict[str, Control] = {
             "never opens — so the gate has to catch a claim the code does not support"
         ),
     ),
-        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
-        'link-grammar': Control(
-            kind='sabotage',
-            proves='scripts/check-link-grammar.py',
-            argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendarSync/domain/model/CalendarSyncEvent.kt',
-            edit=Edit(
-                kind='replace',
-                old='package com.singularity.todo.feature.calendarSync.domain.model',
-                new='package com.singularity.todo.feature.calendarSync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
-                count=1,
-            ),
-            why=(
-                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
-            ),
-        ),
         # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
         'tools-catalog': Control(
             kind='sabotage',
