@@ -69,6 +69,31 @@ CLEAN = 0
 VALIDATION_FAILURE = 1
 
 
+def split_first_sentence(line: str) -> str:
+    """The first sentence of `line`, with inline code spans left intact.
+
+    A period inside an inline code span — `runBlocking { ... }`, `combine(...) { ... }` —
+    ends a sentence for the regex but not for the reader: the cut leaves the code span
+    unterminated, and a table cell whose backtick is never closed swallows the column
+    separator that follows it. The row then reads as a short row, and the markdown
+    linter counts the wrong number of cells.
+    """
+    spans: list[str] = []
+
+    def hide(match: re.Match[str]) -> str:
+        spans.append(match.group())
+        return f"\x00{len(spans) - 1}\x00"
+
+    masked = re.sub(r"`[^`]+`", hide, line)
+    parts = re.split(r"(?<=[.!?])\s+", masked)
+    first = parts[0].strip()
+    return re.sub(
+        r"\x00(\d+)\x00",
+        lambda m: spans[int(m.group(1))],
+        first,
+    )
+
+
 def first_kdoc_sentence(text: str, class_name: str) -> str:
     """The first sentence of the KDoc immediately above `class_name`."""
     idx = text.find(f"class {class_name}")
@@ -86,8 +111,8 @@ def first_kdoc_sentence(text: str, class_name: str) -> str:
         if not line or line.startswith("@"):
             continue
         # First sentence, but keep an abbreviation intact if the line is a single short one.
-        parts = re.split(r"(?<=[.!?])\s+", line)
-        return parts[0].strip()
+        parts = split_first_sentence(line)
+        return parts
     return ""
 
 
