@@ -56,7 +56,8 @@ it would misrepresent a navigation as an AI capability.
 
 ## Consequences
 
-- Desktop is unchanged: same trailing buttons, same call sites, same tests.
+- Desktop keeps its trailing buttons except the search result card, which loses
+  its AI icon (decision 4); no Desktop test changed.
 - Android loses the archive card's "AI actions" icon; its only behaviour was
   navigating to the task, which the row tap still does.
 - A hardware keyboard cannot open the menu without the long-press gesture. The

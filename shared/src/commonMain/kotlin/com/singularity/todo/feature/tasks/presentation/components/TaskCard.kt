@@ -94,7 +94,6 @@ import kotlinx.datetime.LocalDate
 fun TaskCard(
     task: Task,
     onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
     actions: TaskCardActions = TaskCardActions(),
     touchLayout: Boolean = isAndroidPlatform,
     modifier: Modifier = Modifier,
@@ -126,7 +125,7 @@ fun TaskCard(
                     .combinedClickable(
                         onClick = onClick,
                         onLongClick =
-                            onLongClick ?: if (hasTouchActions) {
+                            if (hasTouchActions) {
                                 { actionSheetOpen = true }
                             } else {
                                 null
@@ -365,7 +364,6 @@ private fun TaskCardLightPreview() =
         TaskCard(
             task = PreviewSamples.task(),
             onClick = {},
-            onLongClick = {},
         )
     }
 
@@ -376,7 +374,6 @@ private fun TaskCardCompletedDarkPreview() =
         TaskCard(
             task = PreviewSamples.task(completed = true),
             onClick = {},
-            onLongClick = {},
         )
     }
 
@@ -390,6 +387,5 @@ private fun TaskCardPinnedPurpleDarkPreview() =
         TaskCard(
             task = PreviewSamples.task(pinned = true, priority = TaskPriority.High),
             onClick = {},
-            onLongClick = {},
         )
     }

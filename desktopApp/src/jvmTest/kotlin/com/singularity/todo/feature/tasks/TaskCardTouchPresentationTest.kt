@@ -89,6 +89,9 @@ class TaskCardTouchPresentationTest {
                 announced.map { it.label }.containsAll(listOf("Pin", "Delete")),
                 "a screen reader reaches the actions without the long press: ${announced.map { it.label }}",
             )
+            assertTrue(announced.first { it.label == "Pin" }.action(), "the custom action reports handled")
+            assertEquals(1, pinCalls, "the screen-reader pin row runs the card's own pin callback")
+            assertEquals(0, deleteCalls, "the pin row is not the delete row")
             assertTrue(announced.first { it.label == "Delete" }.action(), "the custom action reports handled")
             assertEquals(1, deleteCalls, "the screen-reader row runs the card's own delete callback")
 
@@ -101,7 +104,7 @@ class TaskCardTouchPresentationTest {
 
             clickTagFirst(TestTags.TASK_CARD_ACTION_PIN)
             awaitTagGone(TestTags.TASK_CARD_ACTION_PIN)
-            assertEquals(1, pinCalls, "the long-press row runs the card's own pin callback")
+            assertEquals(2, pinCalls, "the long-press row runs the card's own pin callback")
 
             longClickTag(TestTags.taskItem(task().title))
             awaitAnyDisplayed(TestTags.TASK_CARD_ACTION_DELETE)
