@@ -26,7 +26,7 @@ on:
     - cron: "0 1 * * *"
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -1490,7 +1490,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -o pipefail
           mkdir -p gh-pages/last-history
           http=$(curl -sSL --retry 3 -o history.tar.gz \
             -H "Authorization: Bearer ${GH_TOKEN}" \
@@ -1511,7 +1510,7 @@ jobs:
 
       - name: Build Allure report for Pages
         if: github.ref == 'refs/heads/main' && !cancelled()
-        uses: simple-elf/allure-report-action@master
+        uses: simple-elf/allure-report-action@v1.15
         with:
           gh_pages: gh-pages
           allure_history: allure-history
