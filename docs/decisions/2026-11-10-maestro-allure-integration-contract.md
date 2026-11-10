@@ -102,9 +102,12 @@ Consequences of the table:
 
 - The converter takes the run-level facts as inputs (from the workflow, in
   #2772) and **cross-checks** them against every shard's `environment.json`;
-  any disagreement is a hard failure (exit 1, nothing written).
-- `maestro_version` and `apk_sha256` are not recorded today; #2772 adds them.
-  Until then the manifest records `null` for both and the run is not
+  any disagreement is a hard failure (exit 1, nothing written). The runner
+  records `git rev-parse --short=12`, so this check compares git abbreviations:
+  an abbreviated SHA is the same commit, not a disagreement.
+- `maestro_version` and `apk_sha256` are not recorded by the runner; the
+  workflow passes them to the converter (`MAESTRO_VERSION`, and the hash of the
+  downloaded `e2e-apk`). A run without them records `null` for both and is not
   publishable.
 - A shard whose `environment.json` carries no `commit` is incomplete: the run
   cannot be tied to a checkout, so it converts but is not publishable.
@@ -228,7 +231,10 @@ fixtures — not a change to this contract.
 1. Fixtures (done, `scripts/tests/fixtures/maestro-allure/`).
 2. Local converter proof of concept on those fixtures (done, see Links).
 3. Shadow conversion in `e2e.yml` — produce and upload results, publish nothing;
-   compare counts, statuses and evidence with the gate and the index (#2772).
+   compare counts, statuses and evidence with the gate and the index (#2772:
+   producing and uploading are done — the `maestro-allure` job writes
+   `maestro-allure-results-<scope>-<run_id>-<run_attempt>`, and nothing reads
+   it; the comparison is not done).
 4. Publish the `maestro-smoke` namespace; then enable `maestro-full` (#2772).
 5. Attach screenshots and logcat tails (#2773).
 

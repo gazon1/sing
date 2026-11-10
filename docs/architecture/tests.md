@@ -139,6 +139,7 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 | `maestro-junit-<suite>-<shard>-<run_id>-<run_attempt>` | отчёты потоков и `environment.json` | человек, трейсировка |
 | `maestro-evidence-<suite>-<shard>-<run_id>-<run_attempt>` | индекс доказательств шарда | человек |
 | `maestro-failures-<shard>-<run_id>-<run_attempt>` | скриншоты и логи Maestro при падении | человек |
+| `maestro-allure-results-<suite>-<run_id>-<run_attempt>` | результаты Allure из JUnit-отчётов шардов и манифест прогона | будущая публикация; человек |
 | `gate-junit-results-<run_id>-<run_attempt>` | JUnit XML гейтов | человек, `check-review-verdicts.py` |
 
 Имя артефакта несёт `run_id` **и `run_attempt`**, а в E2E — ещё и шард: два шарда одной сюиты в
