@@ -173,10 +173,14 @@ being read as a pass.
   evidence) are warnings: the converter exits 0. It exits 1 only for its own
   errors: unreadable inputs, no results directory, or an identity disagreement
   between shards.
-- `publishable=true` requires: every identity field known, shard set complete,
-  `task_outcome` in `{passed, failed}`, and no finding that removes a fact the
-  report is built from — a missing/unreadable `environment.json` or
-  `run-summary.json`, an identity disagreement, or a duplicate status conflict.
+- `publishable=true` requires: at least one result, every identity field
+  known, shard set complete, `task_outcome` in `{passed, failed}`, and no
+  finding that removes a fact the report is built from — a missing or
+  unreadable `environment.json`/`run-summary.json`, a report that cannot be
+  read or holds no testcase, an unreadable flow file, an identity
+  disagreement, or a duplicate status conflict. A shard set that cannot be
+  established (no total, or two totals) is a finding, so a manifest that is
+  not publishable says why.
 - The converter is not a gate: it runs with neither `|| true` nor
   `continue-on-error`, it cannot change the Maestro verdict, and a converter
   failure is a failure of its own job.
@@ -264,9 +268,11 @@ defect is to let whichever record was read second decide whether the run failed.
   directories; the existing gate is not changed.
 - Allure retries are not reconstructible from artifacts; the contract records
   retries as a label rather than inventing attempts.
-- The converter refuses to clean a results directory that holds `*-result.json`
-  files it did not write (its own manifest is the proof), so a mistyped `--out`
-  cannot delete the JVM results that publication needs.
+- The converter refuses to clean a results directory holding `*-result.json`
+  files without a Maestro testcase id, so a mistyped `--out` cannot delete the
+  JVM results that publication needs; its own interrupted output stays
+  recognisable and recoverable. The directory is cleaned only after the
+  conversion succeeds, so a crash leaves the previous run intact.
 - **Rollback**: delete the converter, its tests, the fixtures and (when they
   exist) the workflow steps. The JUnit XML, the evidence and the gate are
   untouched, so removing the report costs the report and nothing else.

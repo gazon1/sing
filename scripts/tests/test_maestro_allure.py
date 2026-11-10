@@ -20,6 +20,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import sys
 import tempfile
@@ -424,6 +425,128 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertTrue(data["complete_shards"])
             self.assertFalse(data["publishable"])
             self.assertTrue(any(f["kind"] == "run-summary.json missing" for f in data["findings"]))
+
+
+class RobustnessTest(unittest.TestCase):
+    def test_non_finite_duration_does_not_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "a", time="NaN")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"),
+                           "--now", "2026-11-10T00:00:00Z", "--out", str(out)])
+            self.assertEqual(code, 0)
+            result = results(out)[flow]
+            self.assertEqual(result["start"], result["stop"])
+
+    def test_relative_file_with_parent_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            shard = write_shard(root, "s1")
+            write_report(shard, "../../etc/passwd", "x")
+            (root / "catalogue.txt").write_text("")
+            out = root / "out"
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            self.assertEqual(code, 0)
+            self.assertEqual(results(out), {})
+            self.assertIn("unknown flow", err)
+
+    def test_unreadable_flow_file_is_a_finding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            path = root / flow
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"\xff\xfe\x00bad")
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            self.assertEqual(code, 0)
+            self.assertIn("flow unreadable", err)
+            self.assertEqual(list(results(out)), [flow])
+
+    def test_an_interrupted_conversion_is_cleanable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            out.mkdir()
+            # A conversion that wrote results and then died before the manifest.
+            (out / "x-result.json").write_text(json.dumps({"testCaseId": "maestro:" + flow}))
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            self.assertEqual(code, 0)
+            self.assertTrue((out / mod.MANIFEST_NAME).is_file())
+            self.assertFalse((out / "x-result.json").exists())
+
+    def test_each_report_keeps_its_own_stop_time(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flows = {}
+            for name in ("a", "b"):
+                flow = f"Maestro/flows/{name}.yaml"
+                flows[name] = flow
+                write_flow(root, flow, name, [])
+            shards = {}
+            for name, shard_name in (("a", "s1"), ("b", "s2")):
+                shards[name] = write_shard(root, shard_name, {"shard": 1 if name == "a" else 2,
+                                                              "shards": 2, "commit": "abc"})
+                write_report(shards[name], flows[name], name)
+            os.utime(shards["a"] / "a.xml", (1_700_000_000, 1_700_000_000))
+            os.utime(shards["b"] / "b.xml", (1_800_000_000, 1_800_000_000))
+            (root / "catalogue.txt").write_text(f"{flows['a']}\n{flows['b']}\n")
+            out = root / "out"
+            run(["--results", str(shards["a"]), "--results", str(shards["b"]), "--scope", "full",
+                 "--root", str(root), "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            a = results(out)[flows["a"]]
+            b = results(out)[flows["b"]]
+            self.assertNotEqual(a["stop"], b["stop"])
+
+    def test_shard_count_disagreement_is_a_finding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            one = write_shard(root, "s1", {"shard": 1, "shards": 2, "commit": "abc"})
+            two = write_shard(root, "s2", {"shard": 2, "shards": 3, "commit": "abc"})
+            write_report(one, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            run(["--results", str(one), "--results", str(two), "--scope", "full",
+                 "--root", str(root), "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            kinds = [f["kind"] for f in manifest(out)["findings"]]
+            self.assertIn("shard count disagreement", kinds)
+            self.assertFalse(manifest(out)["publishable"])
+
+    def test_zero_results_are_not_publishable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            (shard / "empty.xml").write_text(
+                '<?xml version="1.0"?><testsuites><testsuite name="T"/></testsuites>'
+            )
+            (root / "catalogue.txt").write_text("")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"),
+                           "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
+                           "--commit", "abc", "--task-outcome", "passed", "--out", str(out)])
+            self.assertEqual(code, 0)
+            self.assertEqual(results(out), {})
+            self.assertFalse(manifest(out)["publishable"])
 
 
 class FixtureShapeTest(unittest.TestCase):

@@ -73,6 +73,10 @@ BLOCKING_FINDINGS = frozenset(
         "run-summary.json unreadable",
         "environment.json missing",
         "environment.json unreadable",
+        "unreadable report",
+        "empty report",
+        "flow unreadable",
+        "flow file missing",
         "duplicate conflict",
     }
 )
@@ -93,12 +97,12 @@ def flow_identity(
     raw = (case.file or "").strip()
     if raw:
         path = pathlib.Path(raw)
-        if path.is_absolute():
-            try:
-                path = path.resolve().relative_to(root.resolve())
-            except ValueError:
-                return None
-        return path.as_posix()
+        if not path.is_absolute():
+            path = root / path
+        try:
+            return path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            return None
     matches = [flow for flow in catalogue if pathlib.PurePosixPath(flow).stem == report.stem]
     return matches[0] if len(matches) == 1 else None
 
@@ -111,6 +115,36 @@ def flow_category(flow: str) -> str:
 
 def flow_stem(flow: str) -> str:
     return pathlib.PurePosixPath(flow).stem
+
+
+def flow_tags(path: pathlib.Path, findings: list[dict]) -> list[str]:
+    """The flow's tags, or none when the file cannot be read. Never raises."""
+    try:
+        return flow_tags_text(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        findings.append({"kind": "flow unreadable", "detail": f"{path}: {exc}"})
+        return []
+
+
+def duration_ms(case: TestCaseResult) -> int:
+    """A testcase's duration, or 0 when the reader accepted a non-finite value.
+
+    `float("NaN")` and `float("inf")` survive the shared reader's parse, and
+    `int()` on either raises. A malformed duration is a finding about one field,
+    not a reason to lose the whole run.
+    """
+    try:
+        return max(int(case.time * 1000), 0)
+    except (OverflowError, ValueError):
+        return 0
+
+
+def report_stop(report: pathlib.Path) -> int:
+    """When the report was written — the end of its flow, unless the run said otherwise."""
+    try:
+        return int(report.stat().st_mtime * 1000)
+    except OSError:
+        return 0
 
 
 def read_catalogue(path: pathlib.Path) -> list[str]:
@@ -134,7 +168,7 @@ def scope_flows(
         if not path.is_file():
             findings.append({"kind": "flow file missing", "detail": flow})
             continue
-        if SCOPE_TAG in flow_tags_text(path.read_text(encoding="utf-8")):
+        if SCOPE_TAG in flow_tags(path, findings):
             selected.append(flow)
     return selected
 
@@ -198,7 +232,7 @@ def result_for(
         "status": status,
         "statusDetails": details,
         "stage": "finished",
-        "start": stop_ms - int(case.time * 1000),
+        "start": stop_ms - duration_ms(case),
         "stop": stop_ms,
         "labels": labels_for(flow, tags, scope, shard, retried),
         "links": [],
@@ -235,17 +269,19 @@ def read_shard(directory: pathlib.Path, findings: list[dict]) -> dict:
     return shard
 
 
-def convert(shards: list[dict], root: pathlib.Path, meta: dict, stop_ms: int) -> dict:
+def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | None) -> dict:
     """Results by flow identity, with the duplicate rule that never loses a failure."""
     results: dict[str, dict] = {}
     findings: list[dict] = []
     retried = {stem for shard in shards for stem in shard["summary"].get("retried", [])}
     catalogue = meta["catalogue"]
+    first_report: dict[str, pathlib.Path] = {}
 
     for shard in shards:
         shard_no = shard["environment"].get("shard")
         shard_no = shard_no if isinstance(shard_no, int) else None
         for xml, cases in shard["cases"]:
+            stop_ms = now_ms if now_ms is not None else report_stop(xml)
             for case in cases:
                 flow = flow_identity(case, xml, root, catalogue)
                 if flow is None:
@@ -255,7 +291,7 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, stop_ms: int) ->
                     continue
                 flow_file = root / flow
                 if flow_file.is_file():
-                    tags = flow_tags_text(flow_file.read_text(encoding="utf-8"))
+                    tags = flow_tags(flow_file, findings)
                 else:
                     tags = []
                     findings.append({"kind": "flow file missing", "detail": flow})
@@ -266,9 +302,13 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, stop_ms: int) ->
                 existing = results.get(result["testCaseId"])
                 if existing is None:
                     results[result["testCaseId"]] = result
+                    first_report[result["testCaseId"]] = xml
                     continue
                 findings.append(
-                    {"kind": "duplicate testcase", "detail": f"{flow} appears in {xml} and in another shard"}
+                    {
+                        "kind": "duplicate testcase",
+                        "detail": f"{flow}: reported by {first_report[result['testCaseId']]} and {xml}",
+                    }
                 )
                 if existing["status"] != result["status"]:
                     findings.append(
@@ -300,15 +340,26 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     return (not findings), findings
 
 
-def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool]:
-    """The shard numbers observed, the count expected, and whether the set is complete."""
+def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dict]]:
+    """The shard numbers observed, the count expected, completeness, and why not."""
+    findings: list[dict] = []
     observed = sorted(
         {shard["environment"]["shard"] for shard in shards if isinstance(shard["environment"].get("shard"), int)}
     )
     counts = {shard["environment"].get("shards") for shard in shards if isinstance(shard["environment"].get("shards"), int)}
-    expected = counts.pop() if len(counts) == 1 else None
+    if len(counts) > 1:
+        findings.append(
+            {"kind": "shard count disagreement", "detail": f"shards report different totals: {sorted(counts)}"}
+        )
+    expected = next(iter(counts)) if len(counts) == 1 else None
+    if expected is None and not counts:
+        findings.append({"kind": "shard count unknown", "detail": "no shard count in environment.json"})
     complete = expected is not None and observed == list(range(1, expected + 1))
-    return observed, expected, complete
+    if expected is not None and not complete:
+        findings.append(
+            {"kind": "incomplete shard set", "detail": f"observed shards {observed}, expected 1..{expected}"}
+        )
+    return observed, expected, complete, findings
 
 
 def manifest_for(
@@ -321,10 +372,12 @@ def manifest_for(
     produced = set(results)
     missing = [flow for flow in expected_flows if "maestro:" + flow not in produced]
     not_measured = sorted({stem for shard in shards for stem in shard["summary"].get("not_measured", [])})
-    observed, expected_shards, complete = shard_set(shards)
+    observed, expected_shards, complete, shard_findings = shard_set(shards)
+    findings = list(findings) + shard_findings
     identity_known = all(meta[key] for key in ("run_id", "run_number", "run_attempt", "commit"))
     publishable = bool(
-        identity_known
+        results
+        and identity_known
         and complete
         and meta["task_outcome"] in ("passed", "failed")
         and not any(finding["kind"] in BLOCKING_FINDINGS for finding in findings)
@@ -372,22 +425,38 @@ def executor_for(meta: dict) -> dict:
     return executor
 
 
-def reset(out: pathlib.Path) -> bool:
-    """Drop a previous conversion; refuse a directory that is not this tool's.
+def is_ours(out: pathlib.Path) -> bool:
+    """Whether the results in a directory are this tool's own, or there are none.
 
-    A stale result is evidence about another run, so a re-conversion cleans the
-    directory first. It may only clean a directory it wrote: a `*-result.json`
-    without our manifest is somebody else's evidence — the JVM tier's, when
-    `--out` is pointed at `build/allure-results-merged` — and deleting it would
-    destroy the input of the published report.
+    A result of ours carries a Maestro testcase id. Anything else is somebody's
+    evidence — the JVM tier's, when `--out` points at the merged results — and
+    cleaning it would destroy the input of a published report. This is also what
+    makes an interrupted conversion recoverable: its files are recognisably ours
+    even when the manifest was never written.
     """
-    if out.is_dir() and list(out.glob("*-result.json")) and not (out / MANIFEST_NAME).is_file():
-        return False
+    for path in out.glob("*-result.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not str(payload.get("testCaseId", "")).startswith("maestro:"):
+                return False
+        except (OSError, ValueError, AttributeError):
+            return False
+    return True
+
+
+def clean(out: pathlib.Path) -> None:
+    """Drop a previous conversion. Call only after is_ours(out) said yes."""
     out.mkdir(parents=True, exist_ok=True)
     for path in list(out.glob("*-result.json")) + [out / "executor.json", out / MANIFEST_NAME]:
         if path.is_file():
             path.unlink()
-    return True
+
+
+def write_json(path: pathlib.Path, payload: dict) -> None:
+    """Write through a temporary sibling, so a crash never leaves a truncated file."""
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
 
 
 def timestamp_ms(value: str | None) -> int | None:
@@ -454,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     out = pathlib.Path(args.out)
-    if not reset(out):
+    if out.is_dir() and not is_ours(out):
         print(
             f"maestro-allure: {out} holds Allure results this tool did not write; "
             f"refusing to clean it",
@@ -462,33 +531,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    stop_ms = timestamp_ms(args.now)
-    if stop_ms is None:
-        stop_ms = max(
-            (int(xml.stat().st_mtime * 1000) for shard in shards for xml, _ in shard["cases"]),
-            default=0,
-        )
     expected_flows = scope_flows(meta["scope"], catalogue, root, findings)
-    conversion = convert(shards, root, meta, stop_ms)
+    conversion = convert(shards, root, meta, timestamp_ms(args.now))
     findings = findings + conversion["findings"]
     manifest = manifest_for(shards, conversion, meta, expected_flows, findings)
 
+    clean(out)
     for result in conversion["results"].values():
-        (out / f"{result['uuid']}-result.json").write_text(
-            json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
-    (out / "executor.json").write_text(
-        json.dumps(executor_for(meta), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    (out / MANIFEST_NAME).write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+        write_json(out / f"{result['uuid']}-result.json", result)
+    write_json(out / "executor.json", executor_for(meta))
+    write_json(out / MANIFEST_NAME, manifest)
 
-    for finding in findings:
+    for finding in manifest["findings"]:
         print(f"maestro-allure: {finding['kind']}: {finding['detail']}", file=sys.stderr)
     print(
         f"maestro-allure: {len(conversion['results'])} result(s), "
-        f"{len(manifest['missing'])} missing, {len(findings)} finding(s) — {out}",
+        f"{len(manifest['missing'])} missing, {len(manifest['findings'])} finding(s) — {out}",
         file=sys.stderr,
     )
     return 0
