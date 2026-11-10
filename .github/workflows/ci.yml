@@ -1820,7 +1820,7 @@ jobs:
           with-kt-lint: 'false'
 
       - name: Download merged Allure results (Pages input)
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.ALLURE_PAGES_INPUT }}
           path: build/allure-results-merged
