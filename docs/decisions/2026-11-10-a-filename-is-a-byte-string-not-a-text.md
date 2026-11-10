@@ -90,7 +90,7 @@ something it was not, and did so on the strength of a verdict that never ran.
 ## Consequences
 
 - A filename that is not valid UTF-8 is read, named, and judged like any
-  other. Seven regression tests cover it, across both readers: the path is
+  other. Eight regression tests cover it, across both readers: the path is
   read, the path survives the round trip byte for byte, the reader does not
   raise, and a carriage return is not turned into a newline.
 - `scripts/changed-modules.py` had the same defect before this change, and
@@ -103,10 +103,12 @@ something it was not, and did so on the strength of a verdict that never ran.
   anything that *writes* such a path out as text has to say what it will do
   with it. The one place that writes paths out (the diff the verdict prints)
   replaces them.
-- A newline inside a filename is still broken, and not by this decision:
-  `git hash-object --stdin-paths` reads one path per line, so a name with a
-  newline in it cannot be passed to it at all. That is a protocol limit of
-  git's, not a decoding choice, and it is out of scope here.
+- A newline inside a filename does not break the digest, and not because of
+  this decision: git quotes a name that holds a newline (`"we\nird.kt"`) when
+  it writes it, so the name still occupies one line, and
+  `git hash-object --stdin-paths` unquotes what it reads. The round trip
+  through git's own quoting is what makes the newline survive, and it is
+  checked: the hash of a quoted path equals the hash of the file itself.
 
 ## Links
 
