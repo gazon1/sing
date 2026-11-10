@@ -623,8 +623,9 @@ class RetryAndIdentityTest(unittest.TestCase):
             (root / "catalogue.txt").write_text("")
             args = ["--scope", "full", "--root", str(root),
                     "--catalogue", str(root / "catalogue.txt"), "--out", str(root / "out")]
-            for shard in shards:
-                args = ["--results", str(shard)] + args
+            # In shard order: the first abbreviation must reach the check first,
+            # or an anchored implementation would catch the split by accident.
+            args = [token for shard in shards for token in ("--results", str(shard))] + args
             # The first abbreviation agrees with each of the others; only the
             # pairwise check sees that the other two are different commits.
             code, err = run(args)
@@ -656,6 +657,7 @@ class RetryAndIdentityTest(unittest.TestCase):
             # A clean set of results is not a pass: the flow the scope expected
             # and no report covers is the run failing to measure it.
             self.assertEqual(data["task_outcome"], "failed")
+            self.assertFalse(data["publishable"])
 
     def test_auto_outcome_fails_a_flow_the_summary_calls_unmeasured(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -680,6 +682,34 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(manifest(out)["not_measured"], [second])
             self.assertEqual(manifest(out)["task_outcome"], "failed")
+            # A partial measurement must not enter a history as a smaller suite.
+            self.assertFalse(manifest(out)["publishable"])
+
+    def test_a_failed_run_that_measured_every_flow_stays_publishable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            first, second = "Maestro/flows/a.yaml", "Maestro/flows/b.yaml"
+            for flow in (first, second):
+                write_flow(root, flow, pathlib.PurePosixPath(flow).stem, [])
+            one = write_shard(root, "s1", {"shard": 1, "shards": 2, "commit": "abc"})
+            two = write_shard(root, "s2", {"shard": 2, "shards": 2, "commit": "abc"})
+            write_report(one, first, "a")
+            write_report(two, second, "b", status="ERROR", failure="it broke")
+            (root / "catalogue.txt").write_text(f"{first}\n{second}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(one), "--results", str(two), "--scope", "full",
+                           "--root", str(root), "--catalogue", str(root / "catalogue.txt"),
+                           "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
+                           "--commit", "abc", "--maestro-version", "2.10.0",
+                           "--apk-sha256", "f" * 64, "--task-outcome", "auto",
+                           "--out", str(out)])
+            self.assertEqual(code, 0)
+            data = manifest(out)
+            self.assertEqual(data["task_outcome"], "failed")
+            self.assertEqual(data["counts"], {"passed": 1, "failed": 1})
+            self.assertEqual(data["missing"], [])
+            # Every flow reported: a red run is still a run worth publishing.
+            self.assertTrue(data["publishable"])
 
     def test_a_falsy_commit_is_incomplete_not_known(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
