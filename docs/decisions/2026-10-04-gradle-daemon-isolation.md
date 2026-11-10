@@ -40,13 +40,28 @@ them — Gradle's file locking exists for exactly that sharing.
 So the user home is private, and three entries inside it are symlinks back to the
 real `~/.gradle`.
 
+**One entry inside `caches/` cannot be shared, and sharing it breaks the build.**
+Gradle 9 keeps the configuration cache keystore in `caches/<version>/cc-keystore/`
+and opens it under a lock. With `caches/` symlinked wholesale, two worktrees
+share one keystore, and the second build fails with:
+
+    Could not open Gradle Configuration Cache keystore.
+
+The keystore is per-Gradle-version state that two worktrees must not share — the
+same category as the daemon registry, not the same category as the module cache.
+
 # Decision
 
 `./gw` at the repository root is the entry point. It creates the private home,
-links `wrapper`, `caches` and `jdks` to the real ones if they are not linked
-already, and execs `gradlew` with `GRADLE_USER_HOME` set. `daemon/`, `native/`,
+links `wrapper` and `jdks` to the real ones if they are not linked already, and
+execs `gradlew` with `GRADLE_USER_HOME` set. `daemon/`, `native/`,
 `notifications/`, `kotlin-profile/` and `.tmp/` are created locally and never
 shared.
+
+`caches/` is shared down to the last entry, with one exception. `caches/` itself
+is a real directory whose entries are symlinks into the real `~/.gradle`; a
+Gradle version's cache directory is real too, its own entries are symlinks, and
+its `cc-keystore/` is a private directory of its own.
 
 `git worktree add` runs the `post-checkout` hook, with the previous HEAD set to
 the null SHA — that is the only hook Git fires for a new worktree, and it is
@@ -120,6 +135,11 @@ Two things that look like solutions and are not:
 - The symlinks point at `$HOME/.gradle`, so a machine with no populated
   `~/.gradle` simply gets a private home with no links and downloads normally.
   `gw` checks the source exists before linking.
+- `scripts/setup-gradle-home.sh` never replaces a real file or directory with a
+  link. A worktree that already owns state under `.gradle-user-home/` keeps it;
+  only links are (re)pointed. The old layout — `caches/` itself a symlink — is
+  migrated by removing the link, never the directory it pointed at, so the
+  shared home is untouched.
 - Worktrees on the same machine still contend on the module cache. That is
   accepted: it is a lock wait, not a corrupted cache or a killed build.
 - CI is unaffected — it has one checkout, one build, and a fresh runner.
