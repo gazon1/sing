@@ -2,6 +2,7 @@ package com.singularity.todo.feature.flows.plans
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.flows.menu.expandProjectsSection
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
@@ -52,8 +53,10 @@ class PlansProjectsMovedFlowTest {
             // And no project list: the project is not on the tab any more.
             awaitTagGone(TestTags.projectCard("Product"))
 
-            // The project is not lost — it is in the menu, as a tree.
+            // The project is not lost — it is in the menu, as a tree. The tree is
+            // folded until the user unfolds it.
             openDrawer()
+            expandProjectsSection()
             awaitTag(TestTags.menuProjectNode("robot-root"))
         }
 
