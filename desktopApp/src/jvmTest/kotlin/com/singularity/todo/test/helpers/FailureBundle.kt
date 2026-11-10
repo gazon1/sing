@@ -6,6 +6,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import io.qameta.allure.Allure
+import io.qameta.allure.AllureLifecycle
 import org.koin.core.Koin
 import java.awt.image.BufferedImage
 import java.io.File
@@ -77,22 +79,29 @@ data class FailureBundle(val testClassSimpleName: String, val attempt: Int, val 
     val screenshotAnnotatedFile: File get() = outputDir.resolve("screenshot-annotated.png")
 
     /**
+     * The files this bundle reports and attaches, with the media type Allure shows them as.
+     *
+     * One list behind both [addSuppressedTo] and [attachToAllure]: the names a test
+     * report prints and the attachments it carries cannot drift apart.
+     */
+    private val artifacts: List<Pair<File, String>> =
+        listOf(
+            screenshotFile to "image/png",
+            screenshotAnnotatedFile to "image/png",
+            stepsFile to "text/plain",
+            kermitLogFile to "text/plain",
+            treeFile to "text/plain",
+            nodesFile to "text/plain",
+            dbStateFile to "text/plain",
+            coroutinesFile to "text/plain",
+        )
+
+    /**
      * Adds all captured artifacts to [throwable] as suppressed exceptions so the
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        val artifacts =
-            listOf(
-                screenshotFile,
-                dbStateFile,
-                kermitLogFile,
-                coroutinesFile,
-                stepsFile,
-                treeFile,
-                nodesFile,
-                screenshotAnnotatedFile,
-            )
-        artifacts.forEach { file ->
+        artifacts.forEach { (file, _) ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
             } else {
@@ -100,6 +109,28 @@ data class FailureBundle(val testClassSimpleName: String, val attempt: Int, val 
             }
         }
         throwable.addSuppressed(Exception("<diagnostics: $path>"))
+    }
+
+    /**
+     * Attaches every artifact that exists to the running Allure testcase.
+     *
+     * Called only by the attempt that ends the test: a retry that passes must not
+     * carry a failure attachment, and an earlier attempt's bundle stays on disk.
+     *
+     * Best-effort by construction — a missing file is skipped and a failed write is
+     * swallowed, because a diagnostics path that throws would replace the failure it
+     * exists to explain. The native Allure failure already carries the throwable and
+     * its cause chain; no stack trace is attached here.
+     */
+    fun attachToAllure(lifecycle: AllureLifecycle = Allure.getLifecycle()) {
+        artifacts.forEach { (file, mediaType) ->
+            if (!file.isFile) return@forEach
+            runCatching {
+                file.inputStream().use { stream ->
+                    lifecycle.addAttachment(file.name, mediaType, file.extension, stream)
+                }
+            }
+        }
     }
 
     companion object {
