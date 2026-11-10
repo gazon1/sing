@@ -1,13 +1,18 @@
 package com.singularity.todo.shell
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
@@ -33,9 +38,18 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
  * the drawer's items carry theirs. Nothing here decides the metrics — the
  * caller does.
  *
+ * ## The section is folded by default
+ *
+ * A profile with a hundred projects draws a tree longer than the screen, and
+ * the tree sits below the entries the user opened the menu for. So the tree is
+ * folded away until the user unfolds it, and the way into the full list stays
+ * next to the heading — folded or not.
+ *
  * Stateless: the caller owns the ViewModel and hands the state over.
  *
  * @param state The nodes to draw.
+ * @param onToggleSection Called when the user folds the section away or unfolds
+ *   it.
  * @param onToggleExpanded Called with the id of the project whose expander was
  *   tapped.
  * @param onOpenProject Called with the id of the project the user tapped.
@@ -47,6 +61,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
 @Composable
 fun ProjectsMenuSection(
     state: ProjectsTreeUiState,
+    onToggleSection: () -> Unit,
     onToggleExpanded: (ProjectId) -> Unit,
     onOpenProject: (ProjectId) -> Unit,
     onOpenAllProjects: () -> Unit,
@@ -54,19 +69,53 @@ fun ProjectsMenuSection(
     treeModifier: Modifier = Modifier,
     itemModifier: Modifier = Modifier,
 ) {
-    Text(
-        text = "Projects",
-        style = MaterialTheme.typography.labelMedium,
-        modifier = headerModifier,
-    )
+    Row(
+        modifier =
+            headerModifier
+                .fillMaxWidth()
+                .mapTestTagsAsResourceIds()
+                .testTag(TestTags.MENU_PROJECTS_HEADER),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Projects",
+            style = MaterialTheme.typography.labelMedium,
+        )
+        IconButton(
+            onClick = onToggleSection,
+            modifier =
+                Modifier
+                    .mapTestTagsAsResourceIds()
+                    // The button carries the tag of the action it offers, so a
+                    // test can tell the folded section from the unfolded one
+                    // without reading the tree.
+                    .testTag(
+                        if (state.sectionExpanded) {
+                            TestTags.MENU_PROJECTS_COLLAPSE
+                        } else {
+                            TestTags.MENU_PROJECTS_EXPAND
+                        },
+                    ),
+        ) {
+            Icon(
+                imageVector =
+                    if (state.sectionExpanded) {
+                        Icons.Default.ExpandMore
+                    } else {
+                        Icons.Default.ChevronRight
+                    },
+                contentDescription =
+                    if (state.sectionExpanded) {
+                        "Collapse projects"
+                    } else {
+                        "Expand projects"
+                    },
+            )
+        }
+    }
 
-    ProjectTreeSection(
-        state = state,
-        onToggleExpanded = onToggleExpanded,
-        onOpenProject = onOpenProject,
-        modifier = treeModifier,
-    )
-
+    // The way into the full list sits above the tree, so it is reachable
+    // whether the tree is unfolded or not.
     NavigationDrawerItem(
         label = { Text("All projects") },
         selected = false,
@@ -83,4 +132,13 @@ fun ProjectsMenuSection(
                 .mapTestTagsAsResourceIds()
                 .testTag(TestTags.MENU_ALL_PROJECTS),
     )
+
+    if (state.sectionExpanded) {
+        ProjectTreeSection(
+            state = state,
+            onToggleExpanded = onToggleExpanded,
+            onOpenProject = onOpenProject,
+            modifier = treeModifier,
+        )
+    }
 }

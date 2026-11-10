@@ -56,6 +56,7 @@ fun MenuBottomSheet(
     currentDestination: AppDestination? = null,
     onSelect: (AppDestination) -> Unit,
     treeState: ProjectsTreeUiState,
+    onToggleSection: () -> Unit,
     onToggleExpanded: (ProjectId) -> Unit,
     onOpenProject: (ProjectId) -> Unit,
     showAttachAccount: Boolean = false,
@@ -138,6 +139,7 @@ fun MenuBottomSheet(
             // is drawn by the composable the Desktop drawer draws too.
             ProjectsMenuSection(
                 state = treeState,
+                onToggleSection = onToggleSection,
                 onToggleExpanded = onToggleExpanded,
                 onOpenProject = onOpenProject,
                 onOpenAllProjects = { onSelect(AppDestination.ProjectsGraph()) },

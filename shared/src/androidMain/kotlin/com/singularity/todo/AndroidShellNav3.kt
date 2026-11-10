@@ -205,6 +205,9 @@ fun androidShellNav3Root(
                     navigator.open(dest)
                 },
                 treeState = projectsTreeState,
+                onToggleSection = {
+                    projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleSection)
+                },
                 onToggleExpanded = { projectId ->
                     projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
                 },
