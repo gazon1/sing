@@ -33,6 +33,8 @@ Three things make "reserve a fixed 72 dp" the wrong answer:
 2. The shell passes the button's height down to the lists it draws.
 3. The shell publishes the space the button takes, and a list that wants
    clearance adds that space to its own bottom content padding.
+4. The button and the content share one layout that knows where the button
+   sits, and the content is told how much room the button takes.
 
 ## Decision
 
@@ -66,9 +68,42 @@ button it actually drew. Measuring beats assuming, because the assumption
 drifts the moment the button changes shape. And a `CompositionLocal` matches
 how the shell already hands a screen its title bar (`LocalScreenActions`).
 
+(4) is the cleanest in isolation — one layout owns the button's position and
+the content's clearance — but it is a bigger change than the fix needs: the
+content is drawn by a `NavDisplay` under the shell, not next to the button, so
+the layout would have to hand the clearance down through the navigation the
+same way the `CompositionLocal` does. It buys a stronger guarantee at a much
+higher price, and (3) already gets the guarantee from the same source.
+
 The system navigation bar is not part of the reserved space: on a phone the
 bottom panel already lifts the content above itself and consumes the bottom
 insets, so adding them again would reserve the gap twice.
+
+## Verification
+
+What the reserved space has to match is Material3's own placement of the
+button, and that is stated in its source: `Scaffold` sets
+
+```
+fabOffsetFromBottom = fabHeight + FabSpacing + contentWindowInsets.bottom
+```
+
+so the gap between the content's bottom edge and the top of the button is
+`FabSpacing + fabHeight` — exactly what the shell publishes (the Android
+shell's inner `Scaffold` takes horizontal insets only, and the navigation
+suite consumes the bottom ones before it, so the bottom inset is not counted
+twice).
+
+Covered by the regression test
+(`desktopApp/.../AgendaFabClearanceTest.kt`): the test renders Material3's
+`Scaffold` with the button in the FAB slot, the way the desktop shell does,
+so the button is placed by the framework and the test compares the last row
+against the button's real bounds.
+
+Not covered: the Android runtime. The extended button and the navigation
+suite's insets are not exercised by an automated test — there is no Compose UI
+harness in the Android host tests — so the Android path rests on the formula
+above rather than on a measured run.
 
 ## Consequences
 
