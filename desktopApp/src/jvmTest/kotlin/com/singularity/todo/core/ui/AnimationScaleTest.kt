@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
@@ -21,6 +22,7 @@ import kotlin.test.assertTrue
  * what a reader sees — and that changing it is seen, because a local whose reader is
  * not invalidated is the bug this file exists to keep out.
  */
+@OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 @Tag("slow:compose")
 class AnimationScaleTest {

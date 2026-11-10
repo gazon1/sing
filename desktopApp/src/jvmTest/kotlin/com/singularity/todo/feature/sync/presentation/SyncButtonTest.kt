@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.ui.LocalAnimationDurationScale
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
@@ -24,6 +25,7 @@ import kotlin.test.assertTrue
  * plainly visible in a 24 dp icon. The clock is driven by hand so that the comparison
  * does not depend on how long the test took to run.
  */
+@OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 @Tag("slow:compose")
 class SyncButtonTest {
