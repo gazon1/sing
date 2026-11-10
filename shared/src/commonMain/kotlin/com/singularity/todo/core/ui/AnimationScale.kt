@@ -25,10 +25,18 @@ import com.singularity.todo.core.platform.rememberSystemAnimationDurationScale
  * The local is a [compositionLocalOf], not a `staticCompositionLocalOf`, and the
  * difference is granularity. A static local does invalidate when the provided value
  * changes; what it does is invalidate *every* composable under the provider rather than
- * only the ones that read it, because it keeps no per-reader tracking. This local is
- * provided at the shell, above the whole UI, so a static local would re-compose the app
- * on every change to a value that a handful of spinners care about. A dynamic local
- * invalidates the readers and nothing else.
+ * only the ones that read it, because it keeps no per-reader tracking. A provider
+ * belongs above the whole UI, so a static local would re-compose the app on every
+ * change to a value that a handful of spinners care about. A dynamic local invalidates
+ * the readers and nothing else.
+ *
+ * ## Who provides it today
+ *
+ * Nobody in production, yet. No composition pins a scale, so [animationDurationScale]
+ * asks the platform on every read — which is the behaviour this local was made for, not
+ * a fallback to be removed. A provider that *does* pin a scale belongs at the shell,
+ * above the whole UI, so that one observer serves the whole app; that shell ownership is
+ * tracked in #2486 and is not built here.
  */
 val LocalAnimationDurationScale = compositionLocalOf<Float?> { null }
 
