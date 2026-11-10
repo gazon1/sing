@@ -27,11 +27,9 @@ its helper tools — and the gates are described here, once.
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
-| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported
-sche... | — | — |
+| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported sche... | — | — |
 | tag entity constructions include nameNormalized | blocking | `scripts/ci/check-tag-entity-normalized.py` | Fail if a TagEntity(...) construction omits nameNormalized. | — | — |
 | migration index names follow convention | blocking | `scripts/ci/check-migration-naming.py` | Cheap migration-naming checks: partial indexes must be named index_<table>_<c... | — | — |
-| gates are alive | blocking | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
 | the toolbox surface is declared once | blocking | `scripts/check-skill-drift.py` | check-skill-drift.py — the declared toolbox must be the implemented toolbox (... | — | — |
 | workflow env context resolves | blocking | `scripts/check-workflow-env-context.py` | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
 | maestro flow catalogue is current | blocking | `scripts/check-maestro-flow-catalogue.py` | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
@@ -86,7 +84,6 @@ sche... | — | — |
 | gate registry is current | blocking | `sgate` | gate registry is current | — | — |
 | the shell registry is current | blocking | `sgate` | the shell registry is current | — | — |
 | the published gate costs are current | blocking | `sgate` | the published gate costs are current | — | — |
-| gates speak the JSON contract | blocking | `scripts/check-gate-json-contract.py` | check-gate-json-contract.py — every gate dispatched through `sgate` speaks on... | — | — |
 | ci workflow shape is declared | blocking | `scripts/check-ci-workflow-shape.py` | check_ci_workflow_shape.py — the shape of the CI workflow's Gradle block. | — | — |
 | detekt governance is consistent | blocking | `scripts/check-detekt-governance.py` | check_detekt_governance.py — the governance around the detekt rules. | — | — |
 | pro licence boundary | blocking | `scripts/check-pro-licence-boundary.py` | check-pro-licence-boundary.py — prove the Apache-2.0 half contains no `pro` c... | — | — |

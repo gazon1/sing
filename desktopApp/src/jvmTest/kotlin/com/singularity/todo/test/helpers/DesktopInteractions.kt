@@ -28,18 +28,32 @@ fun DesktopComposeUiTest.clickContentDescription(desc: String) {
 }
 
 /**
- * Clicks the first node with contentDescription [desc].
+ * Clicks the back arrow the **screen** draws, not the shell's own.
  *
- * Two screens can offer the same description — the shell's back button and a
- * nested screen's own — and [clickContentDescription] refuses to choose
- * between them ("Expected exactly '1' node but found '2'"). The shell's is
- * composed first, so "first" is the shell's: the one that leaves the screen
- * that was pushed onto the app's stack.
+ * The shell draws a back arrow of its own — `TestTags.SHELL_BACK_BUTTON` — as soon as
+ * there is something to pop, and a screen that can be left draws an arrow of its own.
+ * Both carry the content description "Back", so the description alone matches two
+ * nodes and [clickContentDescription] refuses to choose between them. The tag tells
+ * them apart: the shell's carries one, the screens' do not.
+ *
+ * The screen's arrow is the one a flow means by "leave this screen". The shell's pops
+ * the stack of the top-level route, and for a nested destination — the notes editor
+ * lives in the notes graph — that pops the whole graph, so the list the flow came from
+ * goes with it. The screen's arrow pops only the screen.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.clickContentDescriptionFirst(desc: String) {
-    awaitContentDescription(desc)
-    onAllNodes(hasContentDescription(desc)).onFirst().performClick()
+fun DesktopComposeUiTest.clickScreenBack() {
+    val screenBack =
+        onAllNodes(
+            hasContentDescription(DesktopShell.BACK) and
+                hasTestTag(TestTags.SHELL_BACK_BUTTON).not(),
+        )
+    if (screenBack.fetchSemanticsNodes().isEmpty()) {
+        // No screen drew an arrow of its own — the shell's is the only way back.
+        awaitTag(TestTags.SHELL_BACK_BUTTON).performClick()
+    } else {
+        screenBack.onFirst().performClick()
+    }
 }
 
 /**
@@ -155,6 +169,24 @@ fun DesktopComposeUiTest.submitTag(tag: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.clickTagScrolled(tag: String) {
     awaitTag(tag).performScrollTo().performClick()
+}
+
+/**
+ * Selects a settings tab by its name — the tab the user reads ("Sync", "Calendar").
+ *
+ * The wide settings layout draws its tabs as a nav rail: a column of thirteen entries
+ * that is taller than the 1024x768 test window, so the tabs of the "Data" group (Sync,
+ * Calendar) sit below the fold. Such a tab is *composed*, so a plain click resolves in the
+ * semantics tree and lands on a coordinate outside the window — a no-op that leaves the
+ * previous tab selected. The failure is silent and surfaces far away, as the next tab's
+ * content being missing.
+ *
+ * So the tab is scrolled into view before it is pressed, the same way [clickTagScrolled]
+ * handles a row below the fold of a settings panel.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clickSettingsTab(name: String) {
+    clickTagScrolled(TestTags.settingsTab(name))
 }
 
 /**

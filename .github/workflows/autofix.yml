@@ -37,11 +37,12 @@ jobs:
 
       # The formatter, pinned: the same version the gate and the local run
       # use, so the tree this job pushes is formatted the way the gate expects.
+      # The pin is read out of mise.toml — the file mise installs from — so
+      # there is no second copy of the version to drift.
       - name: Format with ktlint
         run: |
           set -euo pipefail
-          source config/toolchain-versions.env
-          bash scripts/ci/install-ktlint.sh "$RUNNER_TEMP/ktlint-bin" "$KTLINT_VERSION"
+          bash scripts/ci/install-ktlint.sh "$RUNNER_TEMP/ktlint-bin"
           KTLINT_BIN="$RUNNER_TEMP/ktlint-bin/ktlint" python3 scripts/ktlint-lint.py --format
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a

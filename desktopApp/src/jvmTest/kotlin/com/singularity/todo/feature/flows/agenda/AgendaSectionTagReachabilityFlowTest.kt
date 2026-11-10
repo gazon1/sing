@@ -2,7 +2,6 @@ package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onAllNodesWithTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
@@ -11,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagInMergedTree
+import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -148,17 +148,13 @@ class AgendaSectionTagReachabilityFlowTest {
      * Nav3 composes only `stack.top`, so the pushed entry replaces the
      * statistics screen rather than sitting beside it: `STATISTICS_TAB_HEALTH`
      * is absent once the push lands, and still present while the click is inert.
+     *
+     * The wait goes through [awaitTagGone] rather than a hand-rolled
+     * `onAllNodesWithTag`: the navigation commits asynchronously, and the
+     * helper owns that wait — `HarnessConventionTest` forbids the raw
+     * selector outside `test/helpers`.
      */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.assertDrilldownLeftStatistics() =
-        waitUntil(
-            conditionDescription =
-                "the statistics screen is gone after the health bucket click " +
-                    "(the click did not navigate)",
-            timeoutMillis = DRILLDOWN_TIMEOUT_MS,
-        ) {
-            onAllNodesWithTag(TestTags.STATISTICS_TAB_HEALTH).fetchSemanticsNodes().isEmpty()
-        }
+    private fun DesktopComposeUiTest.assertDrilldownLeftStatistics() = awaitTagGone(TestTags.STATISTICS_TAB_HEALTH)
 
     /**
      * Seeds the one dependency edge `Selector.Blocked` needs: `robot-blocked`
@@ -199,12 +195,5 @@ class AgendaSectionTagReachabilityFlowTest {
         val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
         val CLOCK: FakeClock = FakeClock(FIXED_NOW)
         val TODAY: LocalDate = LocalDate(2026, 9, 16)
-
-        /**
-         * Deliberately shorter than `assertTagInMergedTree`'s timeout: a
-         * navigation either lands within a frame or two or it never will, and
-         * the point of this check is to fail fast and name the cause.
-         */
-        const val DRILLDOWN_TIMEOUT_MS = 5_000L
     }
 }

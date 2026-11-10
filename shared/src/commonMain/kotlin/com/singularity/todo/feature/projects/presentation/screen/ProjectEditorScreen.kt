@@ -291,7 +291,8 @@ private fun EditorTopBar(
                 // A save in flight shows progress in the button that started it,
                 // the same way the task editor's save bar does.
                 if (isSaving) {
-                    com.singularity.todo.core.ui.components.ButtonSpinner()
+                    com.singularity.todo.core.ui.components
+                        .ButtonSpinner()
                 } else {
                     Icon(Icons.Filled.Check, contentDescription = "Save")
                 }

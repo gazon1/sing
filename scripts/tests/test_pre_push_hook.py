@@ -39,6 +39,7 @@ the tests take well under a second and need no build.
 
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -123,15 +124,90 @@ fi
 exit 0
 """.format(marker=VIOLATION)
 
-# A gate stub that passes. The real gates read the repository; the hook only
-# needs them to succeed, and the point of these tests is the detekt verdict.
+#: A gate stub that passes. The real gates read the repository; the hook only
+#: needs them to succeed, and the point of these tests is the detekt verdict.
 PASSING_PYTHON_GATE = """#!/usr/bin/env python3
 import sys
 sys.exit(0)
 """
 
+#: A test of the gate suite that passes.
+GREEN_GATE_TEST = """import unittest
+
+
+class GreenGateTest(unittest.TestCase):
+    def test_it_passes(self):
+        self.assertTrue(True)
+"""
+
+#: A test of the gate suite that fails — unless the tree carries the marker.
+#:
+#: The marker is what makes the case possible: a module that is red in the
+#: tree without the push having touched it. The module is green when it is
+#: committed, the push that carries it goes out, and the marker goes away in
+#: a later commit — so the module is red in the tree and the push that made
+#: it red never touched the module.
+RED_GATE_TEST = """import pathlib
+import unittest
+
+
+class RedGateTest(unittest.TestCase):
+    def test_it_fails(self):
+        marker = pathlib.Path(__file__).resolve().parents[2] / 'red-marker.txt'
+        self.assertTrue(marker.exists(), 'the marker is gone')
+"""
+
+#: The file whose absence makes the red module red.
+RED_GATE_MARKER = 'red-marker.txt'
+
 SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
+
+#: The marker a formatted source does not carry. The formatting gate of the
+#: fixture is a stand-in that judges the files it is given — the way the real
+#: one does — and nothing else.
+FORMATTING_DEFECT = 'FORMATTING_DEFECT'
+
+#: The environment variable the stand-in writes the files it was given to.
+KTLINT_LOG_ENV = 'KTLINT_LOG'
+
+#: A stand-in for the formatting script.
+#:
+#: The real script needs the ktlint binary, and the question these cases ask
+#: is not what ktlint says about a file but WHICH files the gate is given: a
+#: gate that judged the whole tree would be given a file with a defect that
+#: the push does not touch, and the push would not go out. The stand-in
+#: judges the files it is given, and writes them down so the test can ask.
+KTLINT_STANDIN = '''#!/usr/bin/env python3
+"""A stand-in for the formatting gate: it judges the files it was given."""
+import os
+import pathlib
+import sys
+
+files = []
+args = sys.argv[1:]
+while args:
+    arg = args.pop(0)
+    if arg == '--root':
+        args.pop(0)
+        continue
+    files.append(arg)
+
+log = os.environ.get('{log_env}')
+if log:
+    pathlib.Path(log).write_text('\\n'.join(files) + '\\n', encoding='utf-8')
+
+for path in files:
+    candidate = pathlib.Path(path)
+    if not candidate.is_file():
+        continue
+    if '{defect}' in candidate.read_text(encoding='utf-8'):
+        print(path + ':1:1: standard:no-consecutive-comments: not formatted', file=sys.stderr)
+        raise SystemExit(1)
+
+print('ktlint-lint: checking ' + str(len(files)) + ' file(s).')
+raise SystemExit(0)
+'''.format(log_env=KTLINT_LOG_ENV, defect=FORMATTING_DEFECT)
 
 # The environment variable the probe writes what it saw to. The hook inherits
 # the environment of the push, so the probe inside the pushed tree can tell
@@ -344,6 +420,47 @@ class PrePushHookTest(unittest.TestCase):
         _git('config', 'commit.gpgsign', 'false', cwd=self.repo)
         # The hook under test travels with the repository.
         _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp)
+        # The architecture check the hook runs last: the fixture's tree does
+        # not carry the tool, and a hook that cannot find it says so and
+        # stops the push. On a machine that has the tool, the step runs the
+        # real one against the fixture's tree — and the answer is then the
+        # machine's, not the fixture's. The fixture installs a stand-in, so
+        # the answer is the fixture's on every machine.
+        self.stub_bin = self.tmp / 'stub-bin'
+        self.stub_bin.mkdir()
+        self.easement_log = self.tmp / 'easement.log'
+        easement = self.stub_bin / 'easement'
+        easement.write_text(
+            '#!/usr/bin/env bash\n'
+            f'printf "%s\\n" "$*" >> "{self.easement_log}"\n'
+            'exit 0\n',
+            encoding='utf-8',
+        )
+        easement.chmod(0o755)
+        # The semaphore the hook runs the detekt verdict under. The hook asks
+        # for it by name and falls back to running the verdict directly when
+        # it is not there — but a machine that HAS it may have a shim that
+        # cannot resolve a version (mise says "No version is set for shim"),
+        # and the verdict then fails for a reason that has nothing to do with
+        # the code. The stand-in does what the hook needs of the semaphore:
+        # it runs the command after the separator.
+        heavy = self.stub_bin / 'heavy'
+        heavy.write_text(
+            '#!/usr/bin/env bash\n'
+            'while [ "$#" -gt 0 ]; do\n'
+            '    if [ "$1" = "--" ]; then shift; break; fi\n'
+            '    shift\n'
+            'done\n'
+            'exec "$@"\n',
+            encoding='utf-8',
+        )
+        heavy.chmod(0o755)
+        # The stand-in is on the PATH of everything the fixture runs, so
+        # every push the fixture makes finds it — the push that carries the
+        # hook, and the push the hook's own steps make.
+        self._original_path = os.environ.get('PATH', '')
+        os.environ['PATH'] = f'{self.stub_bin}{os.pathsep}{self._original_path}'
+        self.addCleanup(os.environ.__setitem__, 'PATH', self._original_path)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative
@@ -417,8 +534,21 @@ class PrePushHookTest(unittest.TestCase):
         _git('add', '-A', cwd=self.repo)
         _git('commit', '-q', '-m', message, cwd=self.repo)
 
+    def _commit(self, message: str) -> None:
+        """Commit what the fixture holds — the source and the gate travel with it."""
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', message, cwd=self.repo)
+
     def _push(self, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        # The remote is added once: a fixture that pushes twice must not fail
+        # on a remote that is already there.
+        subprocess.run(
+            ['git', 'remote', 'add', 'origin', str(self.remote)],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         push_env = _clean_git_env()
         if env:
             push_env.update(env)
@@ -494,6 +624,27 @@ class PrePushHookTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('=== Pre-push OK ===', result.stdout + result.stderr)
 
+    def test_the_architecture_check_still_runs(self):
+        """The stand-in does not stand in for the step — it stands in for the tool.
+
+        The hook runs the architecture check last, against the tree that is
+        being pushed. The fixture's tree does not carry the tool, so the
+        fixture installs one — and a stand-in that made the step disappear
+        would be a step nobody runs any more, so the hook's own answer is
+        checked: the step ran, and it ran against the pushed tree.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('easement: OK', output)
+        ran = self.easement_log.read_text(encoding='utf-8') if self.easement_log.exists() else ''
+        self.assertIn('check', ran, 'the architecture check did not run:\n' + output)
+
     def test_a_hook_that_answers_for_no_gate_fails_the_push(self):
         """A hook that ran no gate and said OK checked a tree it never looked at.
 
@@ -557,6 +708,275 @@ class PrePushHookTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, output)
         self.assertIn('gate suite tests: OK', output)
         self.assertIn('the tree has no runner', output)
+
+    def _a_tree_with_a_gate_suite(self) -> None:
+        """A tree whose gate suite holds a passing module and a failing one.
+
+        The failing module fails because a marker is gone — so it is green
+        when it is committed and red afterwards, and the commit that made it
+        red does not have to touch the module. The remote holds the tree
+        before that commit, so the push that follows carries the red module
+        without carrying the commit that made it red.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._write('scripts/tests/test_gate_red.py', RED_GATE_TEST)
+        self._write(RED_GATE_MARKER, 'the marker is here\n')
+        self._commit('a gate suite with a passing module and a failing one')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+    def _the_failing_module_is_red(self) -> None:
+        """The premise: the module the push does not touch is red.
+
+        A case about a module that is not red proves nothing, so the test
+        says so: the module is run here, in the tree the push carries, and it
+        fails.
+        """
+        red = subprocess.run(
+            [sys.executable, '-m', 'unittest', 'scripts.tests.test_gate_red'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=_clean_git_env(),
+        )
+        self.assertNotEqual(0, red.returncode, 'the premise: the module is not red')
+
+    def test_a_failing_module_the_push_does_not_touch_does_not_block_the_push(self):
+        """The gate suite's step judges the modules the push touches.
+
+        The tree carries a module of the gate suite that is red, and this push
+        touches another module of it. The red module is upstream's debt: it
+        is red in CI, where the whole suite runs, and it is not this push's
+        to carry.
+        """
+        self._a_tree_with_a_gate_suite()
+        (self.repo / RED_GATE_MARKER).unlink()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST + '\n# this push touches this module\n')
+        self._commit('the marker is gone and the passing module changed')
+        self._the_failing_module_is_red()
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('test_gate_green', output)
+        self.assertNotIn(
+            'test_gate_red',
+            output,
+            'the gate suite step judged a module the push does not touch:\n' + output,
+        )
+
+    def test_a_failing_module_the_push_touches_blocks_the_push(self):
+        """The narrowing does not make the step deaf.
+
+        A module the push touches and a failure in it are a finding the push
+        does not go out with — the step judges what the change reaches, and
+        that includes the change itself.
+        """
+        self._a_tree_with_a_gate_suite()
+        (self.repo / RED_GATE_MARKER).unlink()
+        self._write('scripts/tests/test_gate_red.py', RED_GATE_TEST + '\n# this push touches this module\n')
+        self._commit('the marker is gone and the failing module changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('test_gate_red', output)
+        self.assertIn('gate suite tests: FAILED', output)
+
+    def test_a_module_the_push_deletes_does_not_block_the_push(self):
+        """A module the push deletes is not a module the push breaks.
+
+        The step judges the modules of the suite the push carries, and the
+        tree is what the push carries: a module this push deletes is not in
+        the tree any more. A name the tree does not hold is a name the
+        runner turns into a failed test — and the push would be blocked by a
+        module that is not there.
+
+        The push carries the commit that created the module as well: the
+        name of a deleted module is in the history of the push, and a step
+        that reads the history and not the tree judges a module that is
+        gone.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._write('scripts/tests/test_gate_other.py', GREEN_GATE_TEST)
+        self._commit('a gate suite with two passing modules')
+
+        (self.repo / 'scripts/tests/test_gate_green.py').unlink()
+        self._commit('one of the modules is gone')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertNotIn(
+            '_FailedTest',
+            output,
+            'the step judged a module the tree does not hold:\n' + output,
+        )
+        self.assertIn('test_gate_other', output)
+
+    def test_a_module_the_push_renames_is_judged_under_its_new_name(self):
+        """A rename is a deletion and an addition, and the addition is the one.
+
+        The old name is not in the tree any more, so it is not a module to
+        judge; the new name is, and it is judged under the name the tree
+        gives it.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._commit('a gate suite with one passing module')
+
+        _git('mv', 'scripts/tests/test_gate_green.py', 'scripts/tests/test_gate_renamed.py', cwd=self.repo)
+        self._commit('the module has a new name')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('test_gate_renamed', output)
+        self.assertNotIn(
+            '_FailedTest',
+            output,
+            'the step judged a module the tree does not hold:\n' + output,
+        )
+
+    def test_a_helper_the_push_changes_reaches_the_modules_that_import_it(self):
+        """A helper of the suite is not a test, but the change reaches its importers.
+
+        The scope of the step is the change the push carries: a helper under
+        scripts/tests/ is part of the suite, and the modules that import it
+        are judged by it.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/helper_mod.py', 'def helper():\n    return 1\n')
+        self._write(
+            'scripts/tests/test_uses_helper.py',
+            'import unittest\n\nfrom helper_mod import helper\n\n\n'
+            'class UsesHelperTest(unittest.TestCase):\n'
+            '    def test_it_passes(self):\n'
+            '        self.assertEqual(1, helper())\n',
+        )
+        self._commit('a helper and a test that uses it')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        self._write('scripts/tests/helper_mod.py', 'def helper():\n    return 1\n\n\ndef other():\n    return 2\n')
+        self._commit('the helper changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn(
+            'test_uses_helper',
+            output,
+            'the step did not reach the module the changed helper serves:\n' + output,
+        )
+
+    def test_a_helper_the_push_changes_reaches_a_test_behind_another_helper(self):
+        """The walk follows the chain of helpers to the test it serves.
+
+        A helper that imports another helper is not a test module — but the
+        test module it serves is reached by the change just the same, two
+        steps away. A walk that stops at the first helper judges nothing,
+        and the push goes out with a broken helper.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/helper_a.py', 'def helper():\n    return 1\n')
+        self._write(
+            'scripts/tests/helper_b.py',
+            'from helper_a import helper as helper_a\n\n\ndef helper():\n    return helper_a() + 1\n',
+        )
+        self._write(
+            'scripts/tests/test_uses_b.py',
+            'import unittest\n\nfrom helper_b import helper\n\n\n'
+            'class UsesBTest(unittest.TestCase):\n'
+            '    def test_it_passes(self):\n'
+            '        self.assertEqual(2, helper())\n',
+        )
+        self._commit('a helper, a helper that uses it, and a test that uses that one')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The change breaks the helper two steps away from the test.
+        self._write('scripts/tests/helper_a.py', 'def helper():\n    return 41\n')
+        self._commit('the helper changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(
+            0,
+            result.returncode,
+            'the walk stopped at the helper and judged nothing:\n' + output,
+        )
+        self.assertIn(
+            'test_uses_b',
+            output,
+            'the step did not reach the test behind the changed helper:\n' + output,
+        )
+        self.assertIn('gate suite tests: FAILED', output)
+
+    def test_a_module_the_push_touches_that_holds_no_test_cases_does_not_block_the_push(self):
+        """A module without tests cannot fail.
+
+        The runner answers with NO TESTS RAN when the modules it was given
+        hold no test cases at all. That is the absence of a measurement, not
+        a failure of the tree — and a push that adds a placeholder module
+        must not be blocked by it.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._write('scripts/tests/test_placeholder.py', '"""A module with no test cases yet."""\n')
+        self._commit('a gate suite with a passing module and a placeholder')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The push touches the placeholder alone: the runner has nothing to
+        # measure, and nothing to fail.
+        self._write(
+            'scripts/tests/test_placeholder.py',
+            '"""A module with no test cases yet."""\n\n# touched by this push\n',
+        )
+        self._commit('the placeholder changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertNotIn(
+            'gate suite tests: FAILED',
+            output,
+            'the push was blocked by a module that holds no test cases:\n' + output,
+        )
+
+    def test_the_hook_and_the_runner_agree_on_the_code_that_means_no_test_ran(self):
+        """The hook reads the runner's answer, and the answer is a number.
+
+        The runner says "nothing was measured" with an exit code, and the
+        hook reads that code as "skipped" rather than as a failure. The
+        number lives in the runner — so a runner that changes it without the
+        hook changing would turn every empty module back into a blocked push.
+        """
+        hook_code = re.search(
+            r'^NO_TESTS_RAN=(\d+)$', HOOK.read_text(encoding='utf-8'), re.MULTILINE,
+        )
+        runner_code = re.search(
+            r'^NO_TESTS_RAN = (\d+)$', GATE_TEST_RUNNER.read_text(encoding='utf-8'), re.MULTILINE,
+        )
+        self.assertIsNotNone(hook_code, 'the hook does not name the code it reads')
+        self.assertIsNotNone(runner_code, 'the runner does not name the code it answers with')
+        self.assertEqual(runner_code.group(1), hook_code.group(1))
 
     def test_the_push_prints_the_ci_verdict_of_the_commit_it_pushes(self):
         """The CI verdict is a line of the push, not a thing to remember to ask for.
@@ -1078,6 +1498,169 @@ class PrePushHookTest(unittest.TestCase):
             'environment of the hook:\n' + output,
         )
         self.assertEqual(0, result.returncode, output)
+
+
+    # ── the formatting gate ───────────────────────────────────────────────
+
+    def _a_remote_that_holds_the_formatting_gate(self) -> pathlib.Path:
+        """A remote whose tree carries the formatting gate and a clean source."""
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ktlint-lint.py', KTLINT_STANDIN)
+        self._write('shared/src/main/kotlin/Clean.kt', CLEAN_SOURCE)
+        self._commit('a clean source and the formatting gate')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        return self.tmp / 'ktlint-files.txt'
+
+    def test_a_file_born_in_a_merge_is_judged_by_the_formatting_gate(self):
+        """A merge carries files that no commit of the range shows.
+
+        `git log --name-only` says nothing about a merge commit: the diff of
+        a merge is computed against its parents, and the plain log does not
+        show it. A file that a merge introduced is therefore invisible to it
+        — and a gate that judges only what the plain log names does not
+        judge that file at all. The push of such a merge carries the file,
+        so the gate has to judge it.
+        """
+        log = self._a_remote_that_holds_the_formatting_gate()
+
+        # Two branches add the same file, and the merge resolves the
+        # conflict by hand. The resolution also creates a file that neither
+        # parent has: that file is born in the merge commit.
+        _git('checkout', '-q', '-b', 'side', cwd=self.repo)
+        self._write('shared/src/main/kotlin/Contested.kt', 'package com.example\n\nclass ContestedSide\n')
+        self._commit('the side branch adds the contested file')
+        _git('checkout', '-q', 'main', cwd=self.repo)
+        self._write('shared/src/main/kotlin/Contested.kt', 'package com.example\n\nclass ContestedMain\n')
+        self._commit('the mainline adds the contested file')
+        # The merge conflicts: that is the point — the resolution is a file
+        # the merge alone carries.
+        subprocess.run(
+            ['git', 'merge', 'side'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=_clean_git_env(),
+        )
+        self._write('shared/src/main/kotlin/Contested.kt', 'package com.example\n\nclass ContestedResolved\n')
+        self._write(
+            'shared/src/main/kotlin/BornInMerge.kt',
+            'package com.example\n\nclass BornInMerge\n' + FORMATTING_DEFECT + '\n',
+        )
+        self._commit('the merge resolves the conflict and adds a file of its own')
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertIn(
+            'shared/src/main/kotlin/BornInMerge.kt',
+            judged,
+            'the formatting gate did not judge the file the merge introduced:\n' + output,
+        )
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('ktlint gate: FAILED', output)
+
+    def test_a_source_with_a_non_ascii_name_is_judged_by_the_formatting_gate(self):
+        """A path with non-ASCII letters is a path.
+
+        Git escapes such a path by default (`"f/Caf\\303\\251.kt"`), and the
+        escaped form matches no pattern the gates use: the file is in the
+        push and no gate sees it.
+        """
+        log = self._a_remote_that_holds_the_formatting_gate()
+
+        self._write('shared/src/main/kotlin/Café.kt', CLEAN_SOURCE)
+        self._commit('a source whose name is not ASCII')
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertIn(
+            'shared/src/main/kotlin/Café.kt',
+            judged,
+            'the formatting gate did not judge the source with the non-ASCII name:\n' + output,
+        )
+
+    def _a_remote_that_holds_a_formatting_defect(self) -> pathlib.Path:
+        """A remote whose tree holds a source with a formatting defect.
+
+        The defect is in every tree the later pushes carry, and in none of the
+        commits those pushes carry: it is the defect the tree came with — the
+        upstream defect that used to block every push of the branch.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write(
+            'shared/src/main/kotlin/Legacy.kt',
+            'package com.example\n\n' + FORMATTING_DEFECT + '\n',
+        )
+        self._commit('a source with a formatting defect')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The gate of the pushes that follow is the stand-in, and they touch
+        # one clean source.
+        self._write('scripts/ktlint-lint.py', KTLINT_STANDIN)
+        self._write('shared/src/main/kotlin/Clean.kt', CLEAN_SOURCE)
+        self._commit('a clean source and the formatting gate')
+        return self.tmp / 'ktlint-files.txt'
+
+    def test_a_formatting_defect_the_push_does_not_touch_does_not_block_the_push(self):
+        """A push is not blocked by a formatting defect it does not carry.
+
+        The formatting gate judges the Kotlin sources the push touches. The
+        tree this push carries holds a source with a defect that the push
+        does not touch, and the push goes out.
+
+        The gate is a stand-in that judges the files it is given and writes
+        them down: a gate that judged the whole tree would be given the file
+        with the defect, and the push would not go out.
+        """
+        log = self._a_remote_that_holds_a_formatting_defect()
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertEqual(
+            ['shared/src/main/kotlin/Clean.kt'],
+            sorted(judged),
+            'the formatting gate judged ' + repr(judged) + ' — it has to judge the '
+            'sources the push touches, and only them:\n' + output,
+        )
+
+    def test_a_formatting_defect_the_push_touches_still_blocks_the_push(self):
+        """The narrowing does not make the gate deaf.
+
+        A source the push touches and a defect in it are a finding the push
+        does not go out with — the gate judges what the change reaches, and
+        that includes the change itself.
+        """
+        log = self._a_remote_that_holds_a_formatting_defect()
+        self._write(
+            'shared/src/main/kotlin/New.kt',
+            'package com.example\n\n' + FORMATTING_DEFECT + '\n',
+        )
+        self._commit('a source with a formatting defect')
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('ktlint gate: FAILED', output)
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertIn('shared/src/main/kotlin/New.kt', judged)
+        self.assertNotIn(
+            'shared/src/main/kotlin/Legacy.kt',
+            judged,
+            'the formatting gate was given a source the push does not touch',
+        )
 
 
 class HookGitEnvironmentTest(unittest.TestCase):

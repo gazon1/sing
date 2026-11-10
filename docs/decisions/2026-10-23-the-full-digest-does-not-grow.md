@@ -148,8 +148,14 @@ has to lie above the whole series.
 The measurement (2026-10-24, the prefix series rendered and measured again). Two corpora
 are named in this record, and they are not the same one. The **rates** below are measured
 on the *prefix* of the first 814 decisions — the corpus as it stood on that day. A prefix
-does not move when the corpus grows, so the rates of the record stay true and the gate
-that checks them keeps checking the same thing. The **counts** — the status groups, the
+does not move when the corpus grows at its tail, so the rates of the record stay true and
+the gate that checks them keeps checking the same thing — **unless a decision dated inside
+the prefix is added later.** That is what happened on 2026-11-09: `2026-10-20-the-toolchain-pins-live-in-one-file`
+was written after this record and dated before it, so it landed *inside* the measured
+prefix and moved the window by one decision. The last-100 rate is therefore **0.200** and
+not 0.190; every other rate is unchanged, because every other window either lies outside
+the moved decision or absorbs it on both ends. The gate found this, which is what it is
+for: the record is amended rather than the gate weakened. The **counts** — the status groups, the
 size of the two files — are of the corpus as it stands: 847 decisions on 2026-10-25.
 
 The corpus moved this time because two `supersedes:` edges that named their target
@@ -160,7 +166,7 @@ shorter.
 | what | measured |
 |---|---|
 | the last 50 decisions | 0.200 lines each |
-| the last 100 decisions | 0.190 lines each |
+| the last 100 decisions | 0.200 lines each |
 | the last 200 decisions | 0.225 lines each |
 | the whole corpus | 0.289 lines each |
 | the index section alone, the worst window of 50 in the history | 0.240 lines each |

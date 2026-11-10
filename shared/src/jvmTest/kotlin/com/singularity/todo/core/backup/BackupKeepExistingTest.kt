@@ -52,7 +52,12 @@ class BackupKeepExistingTest {
 
     private val fs = JvmFileSystem()
     private val settings = FakeTasksSettingsRepository()
-    private val attachmentStorage by lazy { AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath) }
+    private val attachmentStorage by lazy {
+        AttachmentStorage(
+            fs,
+            File(fixture.directory(), "attachments").absolutePath,
+        )
+    }
     private val now = Clock.System.now().toEpochMilliseconds()
 
     @BeforeEach

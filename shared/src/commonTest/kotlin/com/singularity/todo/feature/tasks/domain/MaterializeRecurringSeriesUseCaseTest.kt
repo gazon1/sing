@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks.domain
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
@@ -16,6 +13,8 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate

@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks.domain
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
@@ -11,6 +8,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

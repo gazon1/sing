@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TouchTarget
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -287,18 +287,12 @@ passes, for every consumer that reads only the exit code. This found a real
 one on its first run: check-kiwi-inventory-ratchet.py crashed with
 "NoneType has no attribute loader" and had been dead since #430 (#529).
 
-"Gates are alive" — the probe that runs every gate here once and reports the
-ones that die — is NOT in this registry any more. It was, and it cost this
-job a second full pass over the gate corpus: 63 seconds to prove that gates
-do not crash, on a job whose other gates take 13 seconds together. It now
-runs in the `tests` job of ci.yml, where the Gradle step has already
-warmed everything and 63 seconds lands in slack nobody waits on.
+The question "did this gate die or did it report?" is answered by the runner
+that dispatched it: `sgate run-all` holds each gate's stdout, stderr and exit
+code, so it tells a traceback from a finding without running the corpus a
+second time. The separate probe that answered it is gone for the same reason
+the JSON-contract probe is gone — the runner already holds the answer.
 
-Two things follow from it no longer being here. It probes the gates named in
-this file, so it no longer probes itself — a probe that probed itself would
-launch every gate, and every gate would launch the probe (#529). And the
-`# no-self-probe` marker it used to carry is gone with the line; the filter
-stays in check-gate-liveness.py for the gates that still need it (#534).
 A skill is a hand-written description of code nobody diffs against it, so it is
 always the stale one and always reads like documentation rather than like a bug.
 The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
@@ -323,8 +317,16 @@ partiality is part of the record, because an unwritten partiality reads as a
 full one.""",
     ),
     "unwired surfaces": Placement(
-        kind=PlacementKind.STATIC,
-        command='sgate unwired_surfaces',
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "a person runs it when the wiring changes: `python3 scripts/"
+            "find-unwired-surfaces.py`. The scan reads every Kotlin file in the tree "
+            "and cost 140 s of runner time on every push — the price of a ratchet "
+            "nobody read in the run it was paid for. The gate is still a gate: it "
+            "still reports the count and still compares it with the floor, and a "
+            "person who wires something runs it and writes the new floor down."
+        ),
+        tracked_by="scripts/find-unwired-surfaces.py",
     ),
     "settings read by a feature": Placement(
         kind=PlacementKind.STATIC,
@@ -478,7 +480,7 @@ than the PyYAML the duplicate-key gate uses, so a defect one parser accepts
 silently still fails here. Its config (.yamllint.yml) is structure-only: the
 default profile was 213/220 line-length noise, and a gate that is red on the
 day it lands is a gate nobody reads. Both binaries must be on PATH — CI's
-static job installs them (pinned in config/toolchain-versions.env) through
+static job installs them (pinned in mise.toml) through
 .github/actions/setup-python-tools; a missing binary is a loud 127, not a
 skip, because an unreachable gate is worse than an absent one.
 
@@ -518,8 +520,8 @@ fixed, not accepted.
 
 The binary must be on PATH, for the same reason actionlint needs shellcheck:
 a gate that cannot run looks exactly like a gate that has nothing to report.
-CI installs it pinned (config/toolchain-versions.env holds the version; the
-PyPI wheel of the upstream Rust binary) through .github/actions/setup-python-tools.""",
+CI installs it pinned (mise.toml holds the version) through
+.github/actions/setup-python-tools.""",
     ),
     "navigation doc matches the code": Placement(
         kind=PlacementKind.STATIC,
@@ -660,21 +662,6 @@ baseline. That is a question a CI runner can answer honestly. The comparison wit
 a *local* measurement is not one CI can answer, and it is not asked here — the
 local report names what got slower, and a CI runner has no local measurement to
 name.""",
-    ),
-    "gates speak the JSON contract": Placement(
-        kind=PlacementKind.STATIC,
-        command='python3 scripts/check-gate-json-contract.py',
-        note="""
-Every gate dispatched through `sgate` is called with `--json` by
-`sgate run-all`, and the document that lands on stdout is what a consumer
-reads. The contract is one shape: one JSON object, and nothing else.
-
-Nothing checked that, and the defect happened twice: the GitHub Actions
-annotation is written to stdout, because that is where Actions reads
-workflow commands from, so a gate whose stdout carried a document had two
-claimants for one channel; and four adapters rebuilt a verdict from prose
-instead of reading the verdict their producer already emitted. Both were
-found by reading the code, and both were found late.""",
     ),
     "detekt governance is consistent": Placement(
         kind=PlacementKind.STATIC,
@@ -966,18 +953,6 @@ fragility this repository already has a gate for.""",
             "before any test has run, so the directory it reads does not exist."
         ),
         tracked_by=".github/workflows/ci.yml#Late flake pass (advisory)",
-    ),
-    "gates are alive": Placement(
-        kind=PlacementKind.ELSEWHERE,
-        reason=(
-            "CI runs it as a step of the `meta` job. It probes every gate named in "
-            "static-gates.sh, so inside that file it would probe the file it is "
-            "probing — a probe that probes itself launches every gate, and every gate "
-            "launches the probe (#529). It also costs a second full pass over the gate "
-            "corpus (63s), which belongs in its own job, parallel with the JVM tests, "
-            "not in the one whose wall time is the sum of its slowest gate."
-        ),
-        tracked_by=".github/workflows/ci.yml#Gates are alive",
     ),
     "gate scripts' own unit tests": Placement(
         kind=PlacementKind.ELSEWHERE,

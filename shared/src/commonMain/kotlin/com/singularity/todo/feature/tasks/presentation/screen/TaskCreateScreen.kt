@@ -36,6 +36,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSav
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -60,7 +61,7 @@ fun TaskCreateScreen(
     initialDueDate: LocalDate?,
     draftKey: String? = null,
     initialProjectId: ProjectId? = null,
-    initialTagIds: Set<TagId> = emptySet(),
+    initialTagIds: ImmutableSet<TagId> = persistentSetOf(),
 ) {
     val vm: TaskCreateViewModel =
         koinViewModel {

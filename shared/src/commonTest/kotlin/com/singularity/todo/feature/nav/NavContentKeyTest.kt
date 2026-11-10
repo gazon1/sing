@@ -99,10 +99,12 @@ class NavContentKeyTest {
     fun `two new-task screens opened from different lists are two screens`() {
         val plain = AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()).stableContentKey()
         val fromProject =
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(projectId = ProjectId("p1")))
+            AppDestination
+                .TasksGraph(AppDestination.TasksStartRoute.Create(projectId = ProjectId("p1")))
                 .stableContentKey()
         val fromTag =
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(tagIds = setOf(TagId("t1"))))
+            AppDestination
+                .TasksGraph(AppDestination.TasksStartRoute.Create(tagIds = setOf(TagId("t1"))))
                 .stableContentKey()
 
         assertNotEquals(

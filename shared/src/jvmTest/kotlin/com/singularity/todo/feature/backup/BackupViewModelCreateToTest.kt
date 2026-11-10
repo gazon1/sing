@@ -127,7 +127,8 @@ class BackupViewModelCreateToTest {
             )
             assertEquals(
                 "$backupDir/a.zip",
-                vm.stateFlow.value.lastBackup?.destPath,
+                vm.stateFlow.value.lastBackup
+                    ?.destPath,
                 "the screen has to say where the archive went",
             )
 
@@ -163,7 +164,12 @@ class BackupViewModelCreateToTest {
             testScheduler.runCurrent()
 
             assertTrue(File(picked).isFile, "the archive must land where the user asked for it")
-            assertEquals(picked, vm.stateFlow.value.lastBackup?.destPath, "the screen has to say where it went")
+            assertEquals(
+                picked,
+                vm.stateFlow.value.lastBackup
+                    ?.destPath,
+                "the screen has to say where it went",
+            )
 
             renameTask("t-1", "after")
 

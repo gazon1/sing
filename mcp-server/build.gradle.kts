@@ -228,6 +228,23 @@ tasks.named<Jar>("jar") {
             if (jar.isDirectory) files(jar) else zipTree(jar)
         }
     })
+    // A dependency's signature files do not survive being merged into another jar.
+    // `META-INF/PFOPENSO.SF` (from `androidx.sqlite:sqlite-bundled-jvm`, which ships
+    // a signed native library) digests the *original* jar's manifest entries, and the
+    // merged jar has neither those entries nor those digests — so the JVM's jar
+    // verifier rejects the whole archive:
+    //
+    //     java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
+    //
+    // and `java -jar` dies before the server's main class loads. The end-to-end test
+    // spawns the fat jar exactly that way, so every test in it failed with
+    // "Connection closed".
+    //
+    // The signature has no meaning in the merged jar anyway: it authenticated the
+    // original artefact, not this one, and the merged jar is not what anybody
+    // verifies against a published signature. Dropping the signature files leaves the
+    // classes untouched.
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.EC")
 }
 
 tasks.named("build") { dependsOn("jar") }

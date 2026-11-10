@@ -7,7 +7,7 @@ import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
-import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickSettingsTab
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.DisplayName
@@ -50,7 +50,7 @@ class CalendarSyncSystemScenarioTest {
         runDesktopAppTest {
             openDrawer()
             clickContentDescriptionScrolled("Settings")
-            clickTag(TestTags.settingsTab("Calendar"))
+            clickSettingsTab("Calendar")
 
             // The message names the constraint *and* reassures the user their tasks are
             // unaffected — a bare "unsupported" reads as data loss.

@@ -8,6 +8,7 @@ import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
 import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
+import com.singularity.todo.test.helpers.clickSettingsTab
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.connectedCredential
 import com.singularity.todo.test.helpers.googleCalendarModule
@@ -69,7 +70,7 @@ class CalendarSyncRenewScenarioTest {
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")
-            clickTag(TestTags.settingsTab("Calendar"))
+            clickSettingsTab("Calendar")
             clickTag(TestTags.CalendarSync.providerSegment("Google Calendar"))
 
             // Connected — the screen cannot tell the difference from a renewable

@@ -9,6 +9,7 @@ a-status-that-was-never-recomputed-was-reported-with-a-stale-value
 a-write-tool-reports-the-write-it-did-not-perform
 account-switch-and-clock-drift
 add-log-export
+afk-issue-agent-pipeline
 agenda-tags-entry-point
 apptracer-integration
 attachment-sync-setting
@@ -36,10 +37,7 @@ jvm-coroutine-diagnostics
 local-storage-failure-classification
 log-export-surface
 notification-routing-must-be-total
-observe-the-provider-session
-plans-timeline-and-projects-menu
 projects-flow-test-flake
-replace-auth-with-kmpauth
 scenario-results-are-authoritative-in-ci
 scope-reporter-agreement
 selector-and-tag-identity
@@ -47,10 +45,8 @@ sync-phase-contracts
 tasks-tokens-follow-the-theme
 text-selection-and-links
 the-orphan-bindings-are-bound-but-never-injected
-the-refresh-is-one-run
 the-review-is-a-place-you-can-go
 theme-mode-offers-system-light-and-dark
 unwired-detector-test-double-exemption
 usage-recording-platform-parity
 verification-baseline-ratchet
-afk-issue-agent-pipeline

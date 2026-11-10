@@ -325,3 +325,29 @@ internal fun decodeMigratedPayload(
         StableJson.encodeToString(JsonObject.serializer(), migrated),
     )
 }
+
+/**
+ * The payload as this build understands it.
+ *
+ * A payload written by an older build is migrated before it is applied; a
+ * payload of this build's own schema is left alone.
+ */
+internal fun migratePayload(
+    payload: BackupPayload,
+    payloadBytes: ByteArray,
+): BackupPayload =
+    if (payload.schemaVersion > BackupFormat.SCHEMA_VERSION) {
+        throw BackupPayloadError.UnsupportedSchemaVersion(payload.schemaVersion)
+    } else if (payload.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
+        // A version below the first one is not an older build's payload, it
+        // is a payload nobody can read — and it says so the way every other
+        // unreadable payload says so.
+        throw BackupPayloadError.SchemaTooOld(payload.schemaVersion)
+    } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
+        // The same decode the test that joins the chain to the payload type
+        // uses — one home, so the reader the test asserts on cannot become a
+        // lenient stand-in for the one a restore uses.
+        decodeMigratedPayload(payloadBytes, payload.schemaVersion)
+    } else {
+        payload
+    }

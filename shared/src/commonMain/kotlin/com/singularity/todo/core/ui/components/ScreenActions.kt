@@ -133,10 +133,7 @@ class ScreenActionsHolder {
         actions = publishedActions.lastOrNull()?.content
     }
 
-    private class PublishedActions(
-        val publisher: Any,
-        val content: @Composable RowScope.() -> Unit,
-    )
+    private class PublishedActions(val publisher: Any, val content: @Composable RowScope.() -> Unit)
 
     private class PublishedBar(
         val publisher: Any,

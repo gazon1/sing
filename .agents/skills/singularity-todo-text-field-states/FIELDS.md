@@ -201,7 +201,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | `StaticText` | `feature/projects/domain/state/ProjectsUiState.kt` | - | - |
 | `feature/search/SearchScreen.kt` | the search query | `StaticText` | `feature/search/SearchViewModel.kt` | - | - |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | `StaticText` | `feature/settings/SettingsUiState.kt` | - | - |
-| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | `OwnedText` | `feature/tasks/domain/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
 | `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (create) | `StaticText` | `feature/tasks/domain/state/TaskDraft.kt` | - | - |
 
 **The columns are checked, and the one that was prose is gone.** The **File** column is

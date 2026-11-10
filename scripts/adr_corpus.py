@@ -265,6 +265,32 @@ def read_status(text: str, cfg: AdrCorpusConfig) -> str:
     return ''
 
 
+def supersedes_slugs(value: str) -> list[str]:
+    """The slugs a `supersedes:` value names.
+
+    A decision can replace more than one: the frontmatter value is then a YAML
+    list — `supersedes: [a, b]`. Every consumer of this field — the drift gate
+    and the digest — used to read it as one slug, so a list was read as the
+    first target with a stray comma attached, and the second target was
+    silently not replaced: the digest kept the Consequences bullets of a
+    decision that no longer stands.
+
+    One reader, one rule: the list is split here, and both consumers ask this
+    function what the value names.
+    """
+    if not value:
+        return []
+    text = value.strip()
+    if text.startswith('[') and text.endswith(']'):
+        text = text[1:-1]
+    slugs = []
+    for raw in text.split(','):
+        slug = raw.strip().strip('"\'').removesuffix('.md').strip()
+        if slug and slug not in slugs:
+            slugs.append(slug)
+    return slugs
+
+
 def frontmatter(text: str) -> str | None:
     """The fenced block at the top of the file, without the `---` fences."""
     lines = text.splitlines()

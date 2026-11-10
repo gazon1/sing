@@ -1,14 +1,13 @@
 package com.singularity.todo.feature.tasks.domain
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import org.junit.jupiter.api.Tag

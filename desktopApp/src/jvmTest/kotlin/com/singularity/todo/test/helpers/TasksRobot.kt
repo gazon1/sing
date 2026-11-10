@@ -55,6 +55,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         isPinned: Boolean = false,
         priority: TaskPriority = TaskPriority.None,
         recurrence: RecurrenceSpec? = null,
+        createdAt: Instant? = null,
     ): TasksRobot =
         apply {
             seed(
@@ -66,6 +67,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
                 isPinned = isPinned,
                 priority = priority,
                 recurrence = recurrence,
+                createdAt = createdAt,
             )
             assertSeeded(koin, expected = ++seeded)
         }
@@ -102,9 +104,13 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         isPinned: Boolean = false,
         priority: TaskPriority = TaskPriority.None,
         recurrence: RecurrenceSpec? = null,
+        createdAt: Instant? = null,
     ) {
         val n = seq++
-        val at = SEED_EPOCH + n.seconds
+        // The seeded task is as old as the epoch unless a test says otherwise. A test
+        // that asks for the age of a task — the first-run offer is drawn for a task
+        // that is minutes old — passes the moment the task was created instead.
+        val at = createdAt ?: (SEED_EPOCH + n.seconds)
         val taskId = TaskId("robot-task-$n")
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
         val baseTask =

@@ -1,9 +1,17 @@
 package com.singularity.todo.core.seed
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * The seed link keys: what they are and which of them remove instead of seed.
+ *
+ * Tag: `@Tag("fast")` — no coroutines, no clock, no repository, so it can never
+ * outlive a second.
+ */
+@Tag("fast")
 class SeedLinkKeysTest {
     @Test
     fun `the historical typo is unknown`() {

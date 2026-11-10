@@ -1,9 +1,9 @@
 ---
 title: SyncScopeProvider interface in wrong module [#261](https://github.com/gazon1/sing/issues/261)
 date: 2026-10-10
-status: open
+status: deferred
 deciders: mavis
-status-was: proposed
+status-was: open
 gh: https://github.com/gazon1/sing/issues/261
 ---
 

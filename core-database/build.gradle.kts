@@ -62,6 +62,31 @@ room3 {
     schemaDirectory("$projectDir/schemas")
 }
 
+/*
+ * `:core-database:koverGenerateArtifact` consumes the JVM target's compiled
+ * classes and the KSP-generated sources next to them, and Gradle 9 reports both
+ * as implicit dependencies unless one side declares them. CI hit it on
+ * 2026-11-09 during `:koverVerify`:
+ *
+ *     Task ':core-database:koverGenerateArtifact' uses this output of task
+ *     ':core-database:kspKotlinJvm' without declaring an explicit or implicit dependency
+ *
+ * and, once that one is declared, the same error for
+ * `:core-database:compileKotlinJvm` (`build/classes/kotlin/jvm/main`).
+ * `:adr-core` needed the same fix for `compileKotlinJvm` alone — see
+ * `adr-core/build.gradle.kts`.
+ *
+ * It reproduces only on a cold `core-database/build`: the validation fires when
+ * the output directory does not already exist, so a warm `build/` hides it.
+ *
+ * `dependsOn("…")` by name rather than `tasks.named(...)`: the KSP plugin
+ * registers its tasks lazily, and a string dependency is resolved when the task
+ * graph is built, so this cannot fail configuration.
+ */
+tasks.matching { it.name == "koverGenerateArtifact" }.configureEach {
+    dependsOn("compileKotlinJvm", "kspKotlinJvm")
+}
+
 // detekt — same rules as every other module. The moved database files were in
 // `:shared`; its baseline is keyed by file name, so sharing it keeps the
 // repository's accepted debt suppressed after the move instead of reporting it

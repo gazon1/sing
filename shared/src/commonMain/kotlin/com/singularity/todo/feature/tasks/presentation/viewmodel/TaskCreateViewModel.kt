@@ -24,16 +24,24 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
-data class TaskCreateDeps(
-    val createFromDraft: CreateTaskFromDraft,
-    val logger: Logger,
-    val draftStore: DraftStore,
-) {
+data class TaskCreateDeps(val createFromDraft: CreateTaskFromDraft, val logger: Logger, val draftStore: DraftStore) {
     companion object {
         const val DRAFT_KEY = TaskDraftKeys.TASK_CREATE
     }
 }
 
+/**
+ * The ViewModel behind the task create editor.
+ *
+ * It owns the draft the person is editing: the title, the date, the checklist and
+ * the attachments. The draft is autosaved under a key derived from the scope the
+ * editor was opened from, so a draft started in a project's agenda is restored
+ * into that project rather than into the generic one.
+ *
+ * The scope arrives as four named seed values rather than as four positional
+ * arguments, because Koin matches parameters by position and type and not by
+ * name — see [TaskCreateSeed] for the seam this closes.
+ */
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: LocalDate?,
@@ -83,36 +91,75 @@ class TaskCreateViewModel(
 
     override fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
-            is TaskCreateIntent.TitleChanged -> updateDraft { it.copy(title = it.title.echoed(intent.title)) }
-            is TaskCreateIntent.DescriptionChanged -> updateDraft { it.copy(description = it.description.echoed(intent.description)) }
-            is TaskCreateIntent.SetPriority -> updateDraft { it.copy(priority = intent.priority) }
+            is TaskCreateIntent.TitleChanged -> {
+                updateDraft { it.copy(title = it.title.echoed(intent.title)) }
+            }
+
+            is TaskCreateIntent.DescriptionChanged -> {
+                updateDraft { it.copy(description = it.description.echoed(intent.description)) }
+            }
+
+            is TaskCreateIntent.SetPriority -> {
+                updateDraft { it.copy(priority = intent.priority) }
+            }
+
             is TaskCreateIntent.SetDueDate -> {
                 updateDraft {
                     val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                     it.copy(dueDate = option, extraDueDates = emptyList())
                 }
             }
-            is TaskCreateIntent.SetDueDates -> setDueDates(intent.dates)
-            is TaskCreateIntent.SetDueTime -> updateDraft { it.copy(dueTime = intent.time) }
-            TaskCreateIntent.DueDateCleared -> updateDraft { it.copy(dueDate = DueDateOption.None, dueTime = null, extraDueDates = emptyList()) }
+
+            is TaskCreateIntent.SetDueDates -> {
+                setDueDates(intent.dates)
+            }
+
+            is TaskCreateIntent.SetDueTime -> {
+                updateDraft { it.copy(dueTime = intent.time) }
+            }
+
+            TaskCreateIntent.DueDateCleared -> {
+                updateDraft { it.copy(dueDate = DueDateOption.None, dueTime = null, extraDueDates = emptyList()) }
+            }
+
             is TaskCreateIntent.SetStartDate -> {
                 updateDraft {
                     val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                     it.copy(startDate = option)
                 }
             }
-            is TaskCreateIntent.SetStartTime -> updateDraft { it.copy(startTime = intent.time) }
+
+            is TaskCreateIntent.SetStartTime -> {
+                updateDraft { it.copy(startTime = intent.time) }
+            }
+
             is TaskCreateIntent.SetEndDate -> {
                 updateDraft {
                     val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
                     it.copy(endDate = option)
                 }
             }
-            is TaskCreateIntent.SetEndTime -> updateDraft { it.copy(endTime = intent.time) }
-            is TaskCreateIntent.SetProject -> updateDraft { it.copy(projectId = intent.projectId?.value) }
-            is TaskCreateIntent.SetTags -> updateDraft { it.copy(tagIds = intent.tagIds.map { it.value }) }
-            is TaskCreateIntent.SetRecurrence -> updateDraft { it.copy(recurrence = intent.spec) }
-            TaskCreateIntent.PinToggled -> updateDraft { it.copy(isPinned = !it.isPinned) }
+
+            is TaskCreateIntent.SetEndTime -> {
+                updateDraft { it.copy(endTime = intent.time) }
+            }
+
+            is TaskCreateIntent.SetProject -> {
+                updateDraft { it.copy(projectId = intent.projectId?.value) }
+            }
+
+            is TaskCreateIntent.SetTags -> {
+                updateDraft { it.copy(tagIds = intent.tagIds.map { it.value }) }
+            }
+
+            is TaskCreateIntent.SetRecurrence -> {
+                updateDraft { it.copy(recurrence = intent.spec) }
+            }
+
+            TaskCreateIntent.PinToggled -> {
+                updateDraft { it.copy(isPinned = !it.isPinned) }
+            }
+
             is TaskCreateIntent.AddChecklistItem -> {
                 val newItem =
                     DraftChecklistItem(
@@ -123,6 +170,7 @@ class TaskCreateViewModel(
                     )
                 updateDraft { it.copy(checklist = it.checklist + newItem) }
             }
+
             is TaskCreateIntent.ToggleChecklistItem -> {
                 updateDraft { draft ->
                     draft.copy(
@@ -133,15 +181,47 @@ class TaskCreateViewModel(
                     )
                 }
             }
-            is TaskCreateIntent.RemoveChecklistItem -> updateDraft { draft -> draft.copy(checklist = draft.checklist.filter { it.id != intent.id }) }
+
+            is TaskCreateIntent.RemoveChecklistItem -> {
+                updateDraft { draft ->
+                    draft.copy(
+                        checklist =
+                            draft.checklist.filter {
+                                it.id !=
+                                    intent.id
+                            },
+                    )
+                }
+            }
+
             is TaskCreateIntent.AddAttachmentUrl -> {
                 val newAttachment = DraftAttachment(url = intent.url, title = intent.title)
                 updateDraft { it.copy(attachments = it.attachments + newAttachment) }
             }
-            is TaskCreateIntent.RemoveAttachmentUrl -> updateDraft { draft -> draft.copy(attachments = draft.attachments.filter { it.url != intent.url }) }
-            TaskCreateIntent.SaveClicked -> save()
-            TaskCreateIntent.DismissError -> dismissError()
-            TaskCreateIntent.Discard -> vmScope.launch { clearDrafts() }
+
+            is TaskCreateIntent.RemoveAttachmentUrl -> {
+                updateDraft { draft ->
+                    draft.copy(
+                        attachments =
+                            draft.attachments.filter {
+                                it.url !=
+                                    intent.url
+                            },
+                    )
+                }
+            }
+
+            TaskCreateIntent.SaveClicked -> {
+                save()
+            }
+
+            TaskCreateIntent.DismissError -> {
+                dismissError()
+            }
+
+            TaskCreateIntent.Discard -> {
+                vmScope.launch { clearDrafts() }
+            }
         }
     }
 
@@ -196,7 +276,6 @@ private fun taskDraftSeed(
         projectId = initialProjectId?.value,
         tagIds = initialTagIds.map { it.value },
     )
-
 
 internal fun taskDraftStorageKey(
     draftKey: String?,

@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import app.cash.turbine.test
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
@@ -15,6 +12,8 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test

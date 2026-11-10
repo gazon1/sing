@@ -42,13 +42,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 if ! command -v lychee >/dev/null 2>&1; then
   echo "lychee is not on PATH; the documentation link check would cover nothing and say nothing" >&2
-  # The version comes from the pins file, like every other install of it: a
-  # second copy of a pin is a pin that can drift.
-  # shellcheck source=../config/toolchain-versions.env
-  . "$(dirname "${BASH_SOURCE[0]}")/../config/toolchain-versions.env"
-  echo "the gate tooling installs it: bash scripts/ci/setup-local-tools.sh" >&2
-  echo "and then put this checkout's venv on PATH — the installer keeps the binary" >&2
-  echo "in a store shared by every checkout (a wheel of version ${LYCHEE_BIN_VERSION})" >&2
+  # The version is not repeated here: mise.toml holds it, and mise installs
+  # from that file. A second copy of a pin is a pin that can drift.
+  echo "the gate tooling installs it: mise install" >&2
+  echo "then put this checkout's venv on PATH: bash scripts/ci/setup-local-tools.sh" >&2
   exit 1
 fi
 

@@ -61,6 +61,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.commands.test_task_external_inputs_declared` | native Click for: test-task external inputs declared. |
 | `sgate.commands.whereami` | print the checkout this sgate belongs to. |
 | `sgate.commands.wiring` | shim for check-gate-wiring.py Part A. |
+| `sgate.control_scope` | which controls this change can have broken. |
 | `sgate.controls` | declarative positive controls for gates. |
 | `sgate.gate_controls` | the control machinery: appliers, gate records, tables. |
 | `sgate.gate_manifest` | one table of placements for every gate. |

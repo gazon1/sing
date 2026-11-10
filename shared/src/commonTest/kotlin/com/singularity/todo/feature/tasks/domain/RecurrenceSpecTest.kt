@@ -1,13 +1,12 @@
 package com.singularity.todo.feature.tasks.domain
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.domain.model.isExhaustedBy
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus

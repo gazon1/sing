@@ -3,12 +3,11 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest

@@ -1,9 +1,9 @@
 ---
 title: SyncEngine singleton never closed [#260](https://github.com/gazon1/sing/issues/260)
 date: 2026-10-10
-status: open
+status: deferred
 deciders: mavis
-status-was: proposed
+status-was: open
 gh: https://github.com/gazon1/sing/issues/260
 ---
 

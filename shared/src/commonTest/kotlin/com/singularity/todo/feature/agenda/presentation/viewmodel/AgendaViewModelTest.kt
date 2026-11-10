@@ -10,7 +10,7 @@ import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
-import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler

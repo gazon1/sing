@@ -152,8 +152,8 @@ class Control:
     #: would prove nothing.
     needs_clean_run: bool = True
     #: For `needs_clean_run=False`: the date this waiver stops being acceptable.
-    #: A waiver with no expiry is output nobody reads, which is the defect
-    #: `check-gate-liveness` exists to catch, reproduced here.
+    #: A waiver with no expiry is output nobody reads, which is the defect a
+    #: gate that dies instead of reporting exists to catch, reproduced here.
     until: str = ""
     #: For `needs_clean_run=False`, the alternative to a date: a reference to the
     #: thing that has to change — an issue slug, or the file whose un-triaged state

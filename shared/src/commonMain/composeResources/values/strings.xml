@@ -61,11 +61,11 @@
     <string name="month_short_nov">Nov</string>
     <string name="month_short_dec">Dec</string>
     <plurals name="date_count">
-        <item quantity="one">%d date</item>
-        <item quantity="other">%d dates</item>
+        <item quantity="one">%1$d date</item>
+        <item quantity="other">%1$d dates</item>
     </plurals>
     <plurals name="series_label">
-        <item quantity="one">Series · %d date</item>
-        <item quantity="other">Series · %d dates</item>
+        <item quantity="one">Series · %1$d date</item>
+        <item quantity="other">Series · %1$d dates</item>
     </plurals>
 </resources>

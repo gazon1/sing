@@ -1,3 +1,9 @@
+---
+title: "The saved-view results route keeps no floating action button"
+date: 2026-12-01
+status: accepted
+---
+
 # The saved-view results route keeps no floating action button
 
 ## Idea

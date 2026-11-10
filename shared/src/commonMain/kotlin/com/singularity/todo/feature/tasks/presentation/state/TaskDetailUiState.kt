@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tasks.domain.state
+package com.singularity.todo.feature.tasks.presentation.state
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -9,6 +9,8 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.state.FirstRun
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import kotlinx.collections.immutable.ImmutableList

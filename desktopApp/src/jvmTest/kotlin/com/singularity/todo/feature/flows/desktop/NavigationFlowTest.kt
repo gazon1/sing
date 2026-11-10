@@ -15,7 +15,7 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
-import com.singularity.todo.test.helpers.clickContentDescriptionFirst
+import com.singularity.todo.test.helpers.clickScreenBack
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -142,7 +142,7 @@ class NavigationFlowTest {
             // opened) and come back through the menu: the project is still there.
             // The shell's own back arrow: the project's own arrow would only go
             // from the project back to the list, still inside the graph.
-            awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
+            awaitTag(TestTags.SHELL_BACK_BUTTON).performClick()
             openAllProjects()
             awaitTag(TestTags.projectCard("Roadmap")).performClick()
 
@@ -194,7 +194,7 @@ class NavigationFlowTest {
             assertTextDisplayed("Ship the policy")
 
             // Back returns to the project — the origin stayed underneath (REQ-NAV-001).
-            clickContentDescriptionFirst("Back")
+            clickScreenBack()
             assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
         }
 

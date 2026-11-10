@@ -441,3 +441,18 @@ specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com
 specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/presentation/viewmodel/PlansViewModelTest.kt
 specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/domain/ProjectTreeBuilderTest.kt
 specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectsTreeViewModelTest.kt
+
+# Added 2026-11-09 when the two gate probes were removed. `check-gate-liveness.py`
+# and `check-gate-json-contract.py` re-ran the whole gate corpus to answer two
+# questions the runner now answers itself: the runner asks a gate for its JSON
+# verdict and treats a traceback as a failure (see
+# docs/decisions/2026-11-09-the-runner-is-the-only-judge-of-a-gate.md). Spec 012
+# records the incident that made the liveness probe expensive, and spec 013 is the
+# plan that made it cheap; both are records of what was decided then, and both
+# name a script that is gone.
+specs/012-skip-rule-identity/spec.md:scripts/check-gate-liveness.py
+specs/013-gate-probe-cost/plan.md:check-gate-liveness.py
+specs/013-gate-probe-cost/research.md:check-gate-liveness.py
+specs/013-gate-probe-cost/tasks.md:check-gate-liveness.py
+specs/013-gate-probe-cost/tasks.md:scripts/check-gate-liveness.py
+specs/013-gate-probe-cost/tasks.md:scripts/tests/test_check_gate_liveness.py

@@ -464,20 +464,35 @@ val AppDestination.icon: ImageVector
         when (this) {
             // ─── Tabs and menu entries ──────────────────────────────────────
             AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
+
             AppDestination.Pomodoro -> Icons.Filled.Repeat
+
             AppDestination.Statistics -> Icons.Filled.Insights
+
             AppDestination.Calendar -> Icons.Filled.CalendarMonth
+
             AppDestination.Notes -> Icons.AutoMirrored.Filled.Note
+
             AppDestination.AiChat -> Icons.Filled.AutoAwesome
+
             AppDestination.Search -> Icons.Filled.Search
+
             AppDestination.ExternalAgent -> Icons.Filled.Extension
+
             AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
+
             AppDestination.Archive -> Icons.Filled.Archive
+
             AppDestination.Settings -> Icons.Filled.Settings
+
             AppDestination.AiUsage -> Icons.Filled.BarChart
+
             AppDestination.ProfileSwitcher -> Icons.Filled.Person
+
             AppDestination.AttachAccount -> Icons.Filled.PersonAdd
+
             AppDestination.ChangePassword -> Icons.Filled.Lock
+
             is AppDestination.MagicLinkConfirm -> Icons.Filled.VerifiedUser
 
             // ─── Nested graphs: one glyph for the graph ─────────────────────
@@ -485,17 +500,24 @@ val AppDestination.icon: ImageVector
             // list says where the tasks live. Nothing in the destination map
             // draws the tick at all.
             is AppDestination.TasksGraph -> Icons.AutoMirrored.Filled.ListAlt
+
             is AppDestination.ProjectsGraph -> Icons.Filled.Folder
+
             is AppDestination.NotesGraph -> Icons.AutoMirrored.Filled.Note
+
             is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
+
             // The one graph whose glyph is the start route's: the agenda's
             // start is what tells Inbox from Today from a project's drill-down.
             is AppDestination.AgendaGraph -> agendaStartIcon(start)
 
             // ─── Record screens ─────────────────────────────────────────────
             is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
+
             is AppDestination.TasksByProject -> Icons.Filled.FolderShared
+
             is AppDestination.ProjectEditor -> Icons.Filled.CreateNewFolder
+
             is AppDestination.ProjectDetail -> Icons.Filled.FolderOpen
         }
 
@@ -518,19 +540,31 @@ val AppDestination.icon: ImageVector
 private fun agendaStartIcon(start: AgendaStartRoute): ImageVector =
     when (start) {
         AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
+
         AgendaStartRoute.Today -> Icons.Filled.Today
+
         AgendaStartRoute.Upcoming -> Icons.Filled.Event
+
         is AgendaStartRoute.Project -> Icons.Filled.Folder
+
         is AgendaStartRoute.Tag -> Icons.AutoMirrored.Filled.Label
+
         is AgendaStartRoute.Tags -> Icons.Filled.LocalOffer
+
         // The saved views are a list of saved views — the same metaphor the
         // agenda top bar's "Saved views" button carries.
         AgendaStartRoute.SavedAgendaList -> Icons.Filled.ViewList
+
         is AgendaStartRoute.SavedAgendaResults -> Icons.Filled.QueryStats
+
         is AgendaStartRoute.SavedAgendaEdit -> Icons.Filled.Edit
+
         AgendaStartRoute.SavedAgendaCreate -> Icons.Filled.Add
+
         AgendaStartRoute.Blocked -> Icons.Filled.Block
+
         AgendaStartRoute.Stagnant -> Icons.Filled.HourglassEmpty
+
         AgendaStartRoute.Overdue -> Icons.Filled.WarningAmber
     }
 

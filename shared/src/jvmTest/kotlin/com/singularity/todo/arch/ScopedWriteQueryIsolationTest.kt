@@ -265,10 +265,14 @@ class ScopedWriteQueryIsolationTest {
                     "single global config row, no user dimension",
                 "DELETE FROM sync_outbox WHERE patch_id = :id" to
                     "sync_outbox is a transport queue with no user_id column; patch_id is a UUID",
-                "UPDATE sync_outbox SET claim_token = :token WHERE patch_id IN (:ids) AND claim_t" to
-                    "claiming rows for a push — patch_id is a UUID, rows already scoped by getPending",
-                "UPDATE sync_outbox SET claim_token = NULL WHERE patch_id IN (:ids) AND claim_tok" to
-                    "releasing rows back onto the queue — patch_id is a UUID, guarded by the claim token",
+                // The claim and the release used to sit here, allowlisted on the grounds
+                // that a UUID cannot collide across profiles. They are gone rather than
+                // re-allowlisted: both queries now scope by `owner_id`, which this gate
+                // already recognises as a scoping column, so they are scoped writes and
+                // need no exemption. The claim takes the owner of the batch it claims;
+                // the release takes the owner the claim was taken under, so a release
+                // cannot strip another account's row even if a caller passed a
+                // foreign patch id.
                 // Exactly the 80-character normalised prefix the gate compares against.
                 "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, next_attemp" to
                     "retry bookkeeping on a transport row keyed by a UUID",

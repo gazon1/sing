@@ -58,15 +58,20 @@ class ScreenStateCollectionsTest {
         val findings =
             holdings().mapNotNull { (key, type) ->
                 when (registered[key]) {
-                    null ->
+                    null -> {
                         "  - $key : $type — a screen state holds a raw collection; the " +
                             "state that owns the value must hold the persistent kind " +
                             "(ImmutableList / ImmutableSet / ImmutableMap)"
-                    type ->
+                    }
+
+                    type -> {
                         null
-                    else ->
+                    }
+
+                    else -> {
                         "  - $key : $type — the register says ${registered[key]}; the " +
                             "declared type and the record disagree"
+                    }
                 }
             }
 
@@ -212,8 +217,7 @@ class ScreenStateCollectionsTest {
             .map { (_, state) -> state.qualifiedName }
             .filter { qualified ->
                 STATE_SUFFIXES.any { suffix -> qualified.substringAfterLast('.').endsWith(suffix) }
-            }
-            .toSet()
+            }.toSet()
     }
 
     /** The raw collections their states hold, keyed by `<qualified name>.<property>`. */
@@ -223,12 +227,12 @@ class ScreenStateCollectionsTest {
                 state.properties
                     .filter { held -> isRawCollection(held.type) }
                     .map { held -> "${state.qualifiedName}.${held.name}" to held.type }
-            }
-            .toMap()
+            }.toMap()
 
     private fun isRawCollection(type: String): Boolean {
         val bare =
-            type.trim()
+            type
+                .trim()
                 .removeSuffix("?")
                 .substringBefore('<')
                 .trim()
@@ -255,12 +259,12 @@ class ScreenStateCollectionsTest {
     }
 
     private fun rawLines(): List<String> =
-        registerFile.readLines()
+        registerFile
+            .readLines()
             .map { line -> line.substringBefore('#').trim() }
             .filter { line -> line.isNotEmpty() }
 
-    private fun entryLines(): List<String> =
-        rawLines().filter { line -> !line.startsWith("properties") }
+    private fun entryLines(): List<String> = rawLines().filter { line -> !line.startsWith("properties") }
 
     private companion object {
         /** The package prefix of a feature; the core's states are not screens. */

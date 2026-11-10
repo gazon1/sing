@@ -6,22 +6,32 @@
 # Gradle build needs it anyway), and the local machine's JDK is the same one
 # the build uses.
 #
-# The version is an argument, not a literal here: the pin lives in
-# config/toolchain-versions.env, and the caller reads it from there. A version
-# written out in two places is a version that can drift.
+# The version is never written out here: the pin lives in mise.toml, the file
+# mise installs from. A version written in two places is a version that can
+# drift, and the formatter that drifts is the one that rewrites the tree.
 #
-# Usage:  bash scripts/ci/install-ktlint.sh <target-dir> <version>
+# The version argument is optional. Without it the pin is read out of
+# mise.toml (scripts/toolchain-version.py), which is the only copy of it; with
+# it, the caller overrides that answer on purpose.
+#
+# Usage:  bash scripts/ci/install-ktlint.sh <target-dir> [version]
 #
 # Exit code: 0 when the binary is in place, 1 when it could not be installed.
 set -euo pipefail
 
-if [ "$#" -ne 2 ]; then
-    echo "usage: $0 <target-dir> <version>" >&2
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "usage: $0 <target-dir> [version]" >&2
     exit 2
 fi
 
 TARGET_DIR=$1
-VERSION=$2
+if [ "$#" -eq 2 ]; then
+    VERSION=$2
+else
+    VERSION="$(python3 "$ROOT/scripts/toolchain-version.py" ktlint)"
+fi
 
 # The release tag is the version without a leading "v" (the asset is named
 # after the tag), so the URL and the file it downloads cannot name different

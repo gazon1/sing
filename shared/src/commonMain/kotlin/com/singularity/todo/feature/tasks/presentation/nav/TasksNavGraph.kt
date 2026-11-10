@@ -15,6 +15,7 @@ import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * The nested navigation graph of the tasks feature.
@@ -86,6 +87,12 @@ internal fun tasksScreenEntryProvider() =
     entryProvider {
         entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
         entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
+            // The route carries a plain `Set` because it is serialized into the
+            // saved back stack; the screen takes a persistent set, because a
+            // `@Composable` parameter has to be stable for the compiler to skip
+            // the recomposition. The conversion is remembered, so the set is
+            // built once per route rather than on every recomposition.
+            val tagIds = remember(route.tagIds) { route.tagIds.toImmutableSet() }
             // This line is the *only* place a create route's project/tag scope
             // reaches the screen, and therefore the only place the FAB's seed
             // (#1952/#1958) can be dropped. Losing `route.projectId` or
@@ -101,7 +108,7 @@ internal fun tasksScreenEntryProvider() =
                 initialDueDate = route.initialDueDate,
                 draftKey = route.draftKey,
                 initialProjectId = route.projectId,
-                initialTagIds = route.tagIds,
+                initialTagIds = tagIds,
             )
         }
     }

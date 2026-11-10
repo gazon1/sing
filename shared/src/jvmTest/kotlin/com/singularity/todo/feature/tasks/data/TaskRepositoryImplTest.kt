@@ -3,9 +3,6 @@
 
 package com.singularity.todo.feature.tasks.data
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -16,6 +13,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take

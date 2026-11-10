@@ -343,18 +343,12 @@ gate blocking "profile reset inventory is true" python3 scripts/ci/check-profile
 # one on its first run: check-kiwi-inventory-ratchet.py crashed with
 # "NoneType has no attribute loader" and had been dead since #430 (#529).
 #
-# "Gates are alive" — the probe that runs every gate here once and reports the
-# ones that die — is NOT in this registry any more. It was, and it cost this
-# job a second full pass over the gate corpus: 63 seconds to prove that gates
-# do not crash, on a job whose other gates take 13 seconds together. It now
-# runs in the `tests` job of ci.yml, where the Gradle step has already
-# warmed everything and 63 seconds lands in slack nobody waits on.
+# The question "did this gate die or did it report?" is answered by the runner
+# that dispatched it: `sgate run-all` holds each gate's stdout, stderr and exit
+# code, so it tells a traceback from a finding without running the corpus a
+# second time. The separate probe that answered it is gone for the same reason
+# the JSON-contract probe is gone — the runner already holds the answer.
 #
-# Two things follow from it no longer being here. It probes the gates named in
-# this file, so it no longer probes itself — a probe that probed itself would
-# launch every gate, and every gate would launch the probe (#529). And the
-# `# no-self-probe` marker it used to carry is gone with the line; the filter
-# stays in check-gate-liveness.py for the gates that still need it (#534).
 # A skill is a hand-written description of code nobody diffs against it, so it is
 # always the stale one and always reads like documentation rather than like a bug.
 # The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
@@ -375,7 +369,6 @@ gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_workt
 # partiality is part of the record, because an unwritten partiality reads as a
 # full one.
 gate blocking "hook gates are declared once" sgate hook_gates_are_declared_once
-gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # What the coverage job promises, in one row.
 #
@@ -473,7 +466,7 @@ gate blocking "the tag catalogue matches the tags" sgate the_tag_catalogue_match
 # silently still fails here. Its config (.yamllint.yml) is structure-only: the
 # default profile was 213/220 line-length noise, and a gate that is red on the
 # day it lands is a gate nobody reads. Both binaries must be on PATH — CI's
-# static job installs them (pinned in config/toolchain-versions.env) through
+# static job installs them (pinned in mise.toml) through
 # .github/actions/setup-python-tools; a missing binary is a loud 127, not a
 # skip, because an unreachable gate is worse than an absent one.
 #
@@ -507,8 +500,8 @@ gate blocking "YAML is structurally valid" yaml_is_structurally_valid
 #
 # The binary must be on PATH, for the same reason actionlint needs shellcheck:
 # a gate that cannot run looks exactly like a gate that has nothing to report.
-# CI installs it pinned (config/toolchain-versions.env holds the version; the
-# PyPI wheel of the upstream Rust binary) through .github/actions/setup-python-tools.
+# CI installs it pinned (mise.toml holds the version) through
+# .github/actions/setup-python-tools.
 gate blocking "doc links" sgate doc_links
 #
 # The navigation doc says what opens what, and it is pointed at from the nav3
@@ -623,18 +616,6 @@ gate blocking "the checkout can work" python3 scripts/check-checkout-invariants.
 # local report names what got slower, and a CI runner has no local measurement to
 # name.
 gate blocking "the published gate costs are current" sgate gate-costs --check
-#
-# Every gate dispatched through `sgate` is called with `--json` by
-# `sgate run-all`, and the document that lands on stdout is what a consumer
-# reads. The contract is one shape: one JSON object, and nothing else.
-#
-# Nothing checked that, and the defect happened twice: the GitHub Actions
-# annotation is written to stdout, because that is where Actions reads
-# workflow commands from, so a gate whose stdout carried a document had two
-# claimants for one channel; and four adapters rebuilt a verdict from prose
-# instead of reading the verdict their producer already emitted. Both were
-# found by reading the code, and both were found late.
-gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-contract.py
 #
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.

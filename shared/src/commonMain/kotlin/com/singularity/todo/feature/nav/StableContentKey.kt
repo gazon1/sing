@@ -26,23 +26,52 @@ internal fun AppDestination.stableContentKey(): String =
 
 private fun AppDestination.RecordDestination.recordContentKey(): String =
     when (this) {
-        is AppDestination.TasksGraph ->
+        is AppDestination.TasksGraph -> {
             "tasks-graph:" + start.stableContentKey() + (initialDueDate?.let { ":$it" } ?: "")
-        is AppDestination.TasksByProject -> "tasks-by-project:" + projectId.value
-        is AppDestination.ProjectEditor -> "project-editor:" + (projectId?.value ?: "new")
-        is AppDestination.ProjectDetail -> "project:" + projectId.value
-        is AppDestination.AttachmentViewer -> "attachment:" + attachmentId.value
-        is AppDestination.ProjectsGraph -> "projects-graph:" + start.stableContentKey()
-        is AppDestination.NotesGraph -> "notes-graph:" + start.stableContentKey()
-        is AppDestination.CalendarGraph -> "calendar-graph:" + start.stableContentKey()
-        is AppDestination.AgendaGraph -> "agenda-graph:" + start.stableContentKey()
+        }
+
+        is AppDestination.TasksByProject -> {
+            "tasks-by-project:" + projectId.value
+        }
+
+        is AppDestination.ProjectEditor -> {
+            "project-editor:" + (projectId?.value ?: "new")
+        }
+
+        is AppDestination.ProjectDetail -> {
+            "project:" + projectId.value
+        }
+
+        is AppDestination.AttachmentViewer -> {
+            "attachment:" + attachmentId.value
+        }
+
+        is AppDestination.ProjectsGraph -> {
+            "projects-graph:" + start.stableContentKey()
+        }
+
+        is AppDestination.NotesGraph -> {
+            "notes-graph:" + start.stableContentKey()
+        }
+
+        is AppDestination.CalendarGraph -> {
+            "calendar-graph:" + start.stableContentKey()
+        }
+
+        is AppDestination.AgendaGraph -> {
+            "agenda-graph:" + start.stableContentKey()
+        }
     }
 
 internal fun AppDestination.TasksStartRoute.stableContentKey(): String =
     when (this) {
-        is AppDestination.TasksStartRoute.Create ->
+        is AppDestination.TasksStartRoute.Create -> {
             taskCreateKey(draftKey = draftKey, projectId = projectId, tagIds = tagIds)
-        is AppDestination.TasksStartRoute.Detail -> "task:" + taskId.value
+        }
+
+        is AppDestination.TasksStartRoute.Detail -> {
+            "task:" + taskId.value
+        }
     }
 
 internal fun AppDestination.ProjectsStartRoute.stableContentKey(): String =
@@ -82,14 +111,18 @@ internal fun AgendaStartRoute.stableContentKey(): String =
 
 internal fun TasksRoute.stableContentKey(): String =
     when (this) {
-        is TasksRoute.Detail -> "task:" + taskId.value
-        is TasksRoute.Create ->
+        is TasksRoute.Detail -> {
+            "task:" + taskId.value
+        }
+
+        is TasksRoute.Create -> {
             taskCreateKey(
                 initialDueDate = initialDueDate,
                 draftKey = draftKey,
                 projectId = projectId,
                 tagIds = tagIds,
             )
+        }
     }
 
 internal fun taskCreateKey(
@@ -101,7 +134,10 @@ internal fun taskCreateKey(
     "task-create:" + (draftKey ?: "plain") + taskScopeKey(projectId, tagIds) +
         (initialDueDate?.let { ":due:$it" } ?: "")
 
-private fun taskScopeKey(projectId: ProjectId?, tagIds: Set<TagId>): String =
+private fun taskScopeKey(
+    projectId: ProjectId?,
+    tagIds: Set<TagId>,
+): String =
     (projectId?.let { ":project:" + it.value } ?: "") +
         (
             tagIds.takeIf { it.isNotEmpty() }?.let { ids ->

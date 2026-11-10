@@ -56,10 +56,9 @@ SHIM_DELEGATION = re.compile(
 #: up running another, and it is invisible to a scanner that only reads surfaces.
 #: The path must be in *command position* — preceded by an interpreter, a shell, or
 #: `./`. Bare prose in a docstring does not count, and that distinction is the whole
-#: reason this is narrower than "any mention": `check-gate-liveness.py` writes
-#: "check-backlog-issue-refs.py went with the removed backlog-issue-refs gate" in its
-#: exemption text, and matching that would keep a retired gate reachable by accident
-#: while appearing to check.
+#: reason this is narrower than "any mention": `check-release-tags.py` writes
+#: "check-backlog-issue-refs.py" in its own prose, and matching that would keep a
+#: retired gate reachable by accident while appearing to check.
 GATE_TO_GATE_CALL = re.compile(
     r"(?:python3\s+|bash\s+|sh\s+|\./)(scripts/check[-_][\w.-]+\.(?:py|sh))"
 )

@@ -38,7 +38,7 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  * The saved-view screens are not task lists, and none of them carries a shell
  * action: the list, the results, the editor and the creator resolve to `null`.
  * The results screen is the contested one — it does show tasks, but it shows
- * the tasks a *view* selects, and the branch below says why the button does
+ * the tasks a *view* selects, and [fabActionForAgendaStart] says why the button does
  * not belong there (#1952, #1958).
  *
  * @param today the date to pre-fill, supplied by the caller. Required rather than
@@ -55,107 +55,7 @@ internal fun fabActionForNav3(
     when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
-            // Every member is classified: no `else`, so a route added to the
-            // hierarchy does not compile until someone decides whether the
-            // screen it opens lists tasks (#1959).
-            val start = current.start
-            when (start) {
-                AgendaStartRoute.Today -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
-                        },
-                    )
-                }
-
-                AgendaStartRoute.Inbox,
-                AgendaStartRoute.Upcoming,
-                AgendaStartRoute.Blocked,
-                AgendaStartRoute.Stagnant,
-                AgendaStartRoute.Overdue,
-                -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
-                        },
-                    )
-                }
-
-                is AgendaStartRoute.Project -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(
-                                AppDestination.TasksGraph(
-                                    AppDestination.TasksStartRoute.Create(projectId = start.projectId),
-                                ),
-                            )
-                        },
-                    )
-                }
-
-                is AgendaStartRoute.Tag -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(
-                                AppDestination.TasksGraph(
-                                    AppDestination.TasksStartRoute.Create(tagIds = setOf(start.tagId)),
-                                ),
-                            )
-                        },
-                    )
-                }
-
-                is AgendaStartRoute.Tags -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(
-                                AppDestination.TasksGraph(
-                                    AppDestination.TasksStartRoute.Create(tagIds = start.tagIds),
-                                ),
-                            )
-                        },
-                    )
-                }
-
-                // Saved-view management is not a task list: listing views,
-                // viewing, editing and creating a view all keep no button.
-                //
-                // `SavedAgendaResults` is classified here too, and that is a
-                // resolved contradiction rather than an oversight (#1952 and
-                // #1958 versus #2057). #2057 puts "the route showing a saved
-                // view's results" among the task-listing routes and asks for an
-                // "Add task" action there. #1952 — the brief this change was
-                // opened against — asks the opposite, in so many words: "the
-                // saved-view agenda routes still draw no button, and a test
-                // says so". #1958 says the same thing twice, once as "the
-                // saved-views list, the saved-view editor and the saved-view
-                // results keep no shell button" and once in its out-of-scope
-                // line, which leaves "the saved-views screens and their own
-                // create button" alone. Two briefs to one is why this branch
-                // stays `null`: the results screen is a saved view applied to
-                // the agenda, and the view owns the way a task is added to it.
-                // A button here would create a task that satisfies no part of
-                // the view's own query — it would appear in the list only if it
-                // happened to match, which is not what the button promises.
-                //
-                // If #2057 is meant to win, move `SavedAgendaResults` into the
-                // "Add task" branch above *and* flip it in
-                // `FabActionResolverTest.expectedAddTask` — the resolver and
-                // that classification are the same decision and move together,
-                // or the suite fails.
-                AgendaStartRoute.SavedAgendaList,
-                is AgendaStartRoute.SavedAgendaResults,
-                is AgendaStartRoute.SavedAgendaEdit,
-                AgendaStartRoute.SavedAgendaCreate,
-                -> {
-                    null
-                }
-            }
+            fabActionForAgendaStart(current.start, today, navigate)
         }
 
         is AppDestination.ProjectsGraph -> {
@@ -179,6 +79,113 @@ internal fun fabActionForNav3(
 
         // NotesNavGraph has its own note creation button — no shell FAB needed here.
         else -> {
+            null
+        }
+    }
+
+/**
+ * The action for an agenda route, or `null` for a route that is not a task list.
+ *
+ * Every member of [AgendaStartRoute] is classified: no `else`, so a route added to
+ * the hierarchy does not compile until someone decides whether the screen it opens
+ * lists tasks (#1959).
+ *
+ * ## The saved-view routes carry no action
+ *
+ * Saved-view management is not a task list: listing views, viewing, editing and
+ * creating a view all keep no button.
+ *
+ * `SavedAgendaResults` is classified here too, and that is a resolved contradiction
+ * rather than an oversight (#1952 and #1958 versus #2057). #2057 puts "the route
+ * showing a saved view's results" among the task-listing routes and asks for an
+ * "Add task" action there. #1952 — the brief this change was opened against — asks
+ * the opposite, in so many words: "the saved-view agenda routes still draw no
+ * button, and a test says so". #1958 says the same thing twice, once as "the
+ * saved-views list, the saved-view editor and the saved-view results keep no shell
+ * button" and once in its out-of-scope line, which leaves "the saved-views screens
+ * and their own create button" alone. Two briefs to one is why this branch stays
+ * `null`: the results screen is a saved view applied to the agenda, and the view
+ * owns the way a task is added to it. A button here would create a task that
+ * satisfies no part of the view's own query — it would appear in the list only if
+ * it happened to match, which is not what the button promises.
+ *
+ * If #2057 is meant to win, move `SavedAgendaResults` into the "Add task" branch
+ * below *and* flip it in `FabActionResolverTest.expectedAddTask` — the resolver and
+ * that classification are the same decision and move together, or the suite fails.
+ */
+private fun fabActionForAgendaStart(
+    start: AgendaStartRoute,
+    today: kotlinx.datetime.LocalDate,
+    navigate: (AppDestination) -> Unit,
+): FabAction? =
+    when (start) {
+        AgendaStartRoute.Today -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
+                },
+            )
+        }
+
+        AgendaStartRoute.Inbox,
+        AgendaStartRoute.Upcoming,
+        AgendaStartRoute.Blocked,
+        AgendaStartRoute.Stagnant,
+        AgendaStartRoute.Overdue,
+        -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
+                },
+            )
+        }
+
+        is AgendaStartRoute.Project -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(
+                        AppDestination.TasksGraph(
+                            AppDestination.TasksStartRoute.Create(projectId = start.projectId),
+                        ),
+                    )
+                },
+            )
+        }
+
+        is AgendaStartRoute.Tag -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(
+                        AppDestination.TasksGraph(
+                            AppDestination.TasksStartRoute.Create(tagIds = setOf(start.tagId)),
+                        ),
+                    )
+                },
+            )
+        }
+
+        is AgendaStartRoute.Tags -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(
+                        AppDestination.TasksGraph(
+                            AppDestination.TasksStartRoute.Create(tagIds = start.tagIds),
+                        ),
+                    )
+                },
+            )
+        }
+
+        AgendaStartRoute.SavedAgendaList,
+        is AgendaStartRoute.SavedAgendaResults,
+        is AgendaStartRoute.SavedAgendaEdit,
+        AgendaStartRoute.SavedAgendaCreate,
+        -> {
             null
         }
     }

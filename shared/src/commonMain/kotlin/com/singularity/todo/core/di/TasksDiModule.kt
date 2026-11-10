@@ -13,7 +13,6 @@ import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
@@ -26,7 +25,6 @@ import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsDeps
 import com.singularity.todo.feature.statistics.StatisticsViewModel
-import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
@@ -155,7 +153,18 @@ fun tasksModule(): org.koin.core.module.Module =
         // the use-case tests construct it directly. The interface is the seam a
         // failing-save test replaces, and binding the concrete class would leave
         // that seam with nothing to substitute.
-        factory<CreateTaskFromDraft> { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory<CreateTaskFromDraft> {
+            CreateTaskFromDraftUseCase(
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+            )
+        }
         factory { UpdateTaskUseCase(get(), get()) }
         factory { MaterializeRecurringSeriesUseCase(get(), get(), get()) }
         factory { StartRecurringSeriesUseCase(get(), get(), get(), get()) }
@@ -263,8 +272,7 @@ fun tasksModule(): org.koin.core.module.Module =
         // (#1952/#1958): a task created from a project's or a tag's task list
         // belongs to that list, rather than arriving unseeded as it did from the
         // Inbox branch.
-        viewModel {
-            (seed: com.singularity.todo.feature.tasks.domain.state.TaskCreateSeed) ->
+        viewModel { (seed: com.singularity.todo.feature.tasks.domain.state.TaskCreateSeed) ->
             TaskCreateViewModel(
                 deps =
                     TaskCreateDeps(

@@ -1,12 +1,11 @@
 package com.singularity.todo.feature.tasks.components
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.list.priorityColor
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -64,20 +64,22 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
 
     override suspend fun claim(
         ids: List<String>,
+        ownerId: String,
         token: String,
     ) {
         ids.forEach { id ->
-            val index = rows.indexOfFirst { it.patchId == id && it.claimToken == null }
+            val index = rows.indexOfFirst { it.patchId == id && it.ownerId == ownerId && it.claimToken == null }
             if (index >= 0) rows[index] = rows[index].copy(claimToken = token)
         }
     }
 
     override suspend fun release(
         ids: List<String>,
+        ownerId: String,
         token: String,
     ) {
         ids.forEach { id ->
-            val index = rows.indexOfFirst { it.patchId == id }
+            val index = rows.indexOfFirst { it.patchId == id && it.ownerId == ownerId }
             if (index >= 0 && rows[index].claimToken == token) {
                 rows[index] = rows[index].copy(claimToken = null)
             }
@@ -268,8 +270,9 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
      * back frozen. A test that took the flow first and shelved a patch afterwards saw
      * an empty shelf forever — a fake that disagreed with the DAO it stands in for,
      * and one that could not show the very thing the shelf exists to show.
+     *
+     * Global, as Room's is: every account's shelved work, newest first.
      */
-    /** Global, as Room's is: every account's shelved work, newest first. */
     override fun watch(): Flow<List<SyncDeadLetterEntity>> = store.map { snapshot(it) }
 
     /** Global, as [watch] is. */

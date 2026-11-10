@@ -90,7 +90,13 @@ internal class PushPhase(
         // The moment travels with the rows because it is the guard: the release
         // clears a row only where the claim is still this cycle's, so a row
         // another cycle took over is left alone.
-        val claimed = mutableListOf<Pair<List<String>, String>>()
+        //
+        // The owner travels with them too: the release gives the rows back
+        // under the owner they were claimed under, not under whoever is signed
+        // in when the release runs. The account can change under a cycle, and a
+        // release that followed the current scope would give nothing back —
+        // leaving the user's edits claimed for good.
+        val claimed = mutableListOf<ClaimedBatch>()
         try {
             while (batches < 1000) {
                 batches++
@@ -106,7 +112,12 @@ internal class PushPhase(
                 // hands the plan over, and hands the plan over only when the
                 // claim succeeded. This is where the cycle learns which rows it
                 // holds.
-                claimed += ready.pending.map { it.patchId } to ready.claimToken
+                claimed +=
+                    ClaimedBatch(
+                        ids = ready.pending.map { it.patchId },
+                        ownerId = ready.scope.ownerId,
+                        token = ready.claimToken,
+                    )
 
                 val result = pushWithPlan(ready, session)
                 when (result) {
@@ -160,15 +171,16 @@ internal class PushPhase(
             // was delivered must not be reported as failed because the queue
             // could not be tidied.
             //
-            // One call per batch, with the moment that batch was claimed: the
-            // release clears a row only where the claim is still this cycle's,
-            // so a row another cycle took over after this one deferred it keeps
-            // that cycle's claim. A batch is one query with one bind variable
-            // per id, and SQLite refuses a statement with too many of them.
+            // One call per batch, with the moment that batch was claimed and the
+            // owner it was claimed under: the release clears a row only where
+            // the claim is still this cycle's, so a row another cycle took over
+            // after this one deferred it keeps that cycle's claim. A batch is
+            // one query with one bind variable per id, and SQLite refuses a
+            // statement with too many of them.
             withContext(NonCancellable) {
-                claimed.forEach { (ids, token) ->
-                    runCatchingCancellable { outboxDao.release(ids, token) }
-                        .onFailure { log.w(it) { "the outbox rows stay claimed: $ids" } }
+                claimed.forEach { batch ->
+                    runCatchingCancellable { outboxDao.release(batch.ids, batch.ownerId, batch.token) }
+                        .onFailure { log.w(it) { "the outbox rows stay claimed: ${batch.ids}" } }
                 }
             }
         }
@@ -399,7 +411,7 @@ internal class PushPhase(
         // is a claim nobody gives back.
         phases
             .localStorage("sync.outbox.claim", "claim the pending patches for push") {
-                outboxDao.claim(batched.map { it.patchId }, plan.claimToken)
+                outboxDao.claim(batched.map { it.patchId }, plan.scope.ownerId, plan.claimToken)
             }.getOrElse { error ->
                 phases.pushFailed(error.toAppError(), batched.size)
                 return Result.failure(error.toAppError())
@@ -576,3 +588,13 @@ private sealed class PushPlan {
     /** Nothing to push — the queue is empty. */
     data object Empty : PushPlan()
 }
+
+/**
+ * A batch of outbox rows one push cycle claimed, and everything needed to give the
+ * claim back.
+ *
+ * The owner is part of the claim rather than something the release looks up: the
+ * account can change under a cycle, and a release that followed the current scope
+ * would find no rows to give back — leaving the user's edits claimed for good.
+ */
+private data class ClaimedBatch(val ids: List<String>, val ownerId: String, val token: String)

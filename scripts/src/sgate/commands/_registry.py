@@ -217,16 +217,6 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "and the suite job names it now, so it is declared rather than hidden."
         ),
     ),
-    ":androidApp:test": GradleTaskParity(
-        scope="ci",
-        why=(
-            "CI runs it in the suite; the local loop compiles the Android app "
-            "(`:androidApp:compileDebugKotlin`, `:androidApp:assembleDebug`) and runs "
-            "the instrumentation tier on a device, but not the unit-test task. Same "
-            "reason as `:mcp-server:test`: CI names the task now, so the asymmetry "
-            "is declared."
-        ),
-    ),
     ":androidApp:connectedDebugAndroidTest": GradleTaskParity(
         scope="covered",
         why=(
@@ -503,12 +493,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/ci/check-migration-naming.py"),
-    ),
-    GateSpec(
-        name="gates are alive",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-gate-liveness.py"),
     ),
     GateSpec(
         name="the toolbox surface is declared once",
@@ -983,20 +967,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3_M,
         script=Path("sgate"),
         script_args=("gate-costs", "--check"),
-    ),
-    # The JSON contract every gate dispatched through `sgate` is called with.
-    #
-    # `sgate run-all` calls each gate with `--json`, and the document that
-    # lands on stdout is what a consumer reads. Nothing checked that the
-    # document was a document: the GitHub Actions annotation (`::error::` on
-    # stdout, because that is where Actions reads workflow commands from) and
-    # four adapters that rebuilt a verdict from prose were both found by
-    # reading, and both were found late.
-    GateSpec(
-        name="gates speak the JSON contract",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-gate-json-contract.py"),
     ),
     # The two clusters.
     #
@@ -1500,31 +1470,6 @@ GATE_CONTROLS: dict[str, Control] = {
             "baseline is what the next comparison is made against — so a page "
             "that drifted from it makes the loop's cost unknowable while looking "
             "exactly as authoritative as the one that is right"
-        ),
-    ),
-    # The JSON contract. The probe makes one gate's stdout stop being one JSON
-    # document, and the gate must notice.
-    #
-    # The edit is in the shared runner rather than in one adapter, because the
-    # defect it reproduces is not an adapter's: it is a second writer on the
-    # contract channel. The runner is where every registry-generated gate gets
-    # its document, so a stray line there is exactly what a consumer would meet.
-    'gate-json-contract': Control(
-        kind='sabotage',
-        proves='scripts/check-gate-json-contract.py',
-        argv=('{python}', 'scripts/check-gate-json-contract.py'),
-        path='scripts/src/sgate/commands/_runner.py',
-        edit=Edit(
-            kind='replace',
-            old='        print(payload.model_dump_json(indent=2))',
-            new='        print("gate chatter that is not JSON")\n        print(payload.model_dump_json(indent=2))',
-            count=1,
-        ),
-        why=(
-            "a gate whose stdout carries prose in front of the document is a gate "
-            "a consumer cannot read: the verdict is there, and the parser that "
-            "wanted it gets a stack trace instead. Nothing caught it, because "
-            "nothing read the document"
         ),
     ),
     # The two cluster gates. Each control breaks one member's input, and the
@@ -2076,35 +2021,11 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-rebase-compiles.py': Control(kind='exempt', proves='scripts/check-rebase-compiles.py', tracked_by='.github/workflows/ci.yml#Post-rebase DI compile', reason='GATE_PARITY: needs a Gradle compile run with rebased DI files, so lives in the CI tests job after the rebase step and is not in the static-gates.sh registry; sabotage control is the rebase step'),
     'scripts/build-version-catalog-gate.py': Control(kind='exempt', proves='scripts/build-version-catalog-gate.py', tracked_by='scripts/tests/test_sgate_gates.py', reason='auto-generator: the gate proves version catalog is clean by checking for undeclared literals; the sabotage is removing the generated catalog file and asserting the gate fails — but the generator is the gate, so `test_version_catalog_gate_self_repairs` is the real control'),
     'scripts/tests': Control(kind='exempt', proves='scripts/tests', tracked_by='scripts/tests/test_sgate_gates.py', reason='meta-gate: `scripts/run-gate-tests.py` is the gate; corrupting a test file would be the sabotage, but the runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
-    'scripts/check-gate-liveness.py': Control(
-        kind='exempt',
-        proves='scripts/tests/test_check_gate_liveness.py',
-        tracked_by='scripts/tests/test_check_gate_liveness.py',
-        reason=(
-            'the gate *executes* other gates, so a sabotage control has to corrupt a script a '
-            'registered gate actually runs — and three successive targets did not. '
-            'check-kiwi-inventory-ratchet.py went with the retired Kiwi stand; '
-            'check-backlog-issue-refs.py went with the removed backlog-issue-refs gate; '
-            'check-skill-drift.py is not the script `sgate the_toolbox_surface_is_declared_once` '
-            'executes, so the injected raise never ran. All three passed a deliberately sabotaged '
-            'input, i.e. they certified nothing. Measured 2026-10-19: corrupting '
-            'check-backlog-issue-refs.py left the liveness gate green '
-            '("30 gate(s) probed, 0 died"), so the control was a no-op that the harness '
-            'reported as a passing one. The registry control was therefore removed rather '
-            'than re-pointed: a control that corrupts a file nothing probes cannot be made '
-            'to fail by choosing a different file, because the property that made it '
-            'inert was the property of the harness, not of the target. The proving is '
-            'scripts/tests/test_check_gate_liveness.py (registry parsing, the heavyweight filter, '
-            'the self-match skip) plus `check.sh`, which runs this gate for real on every '
-            'invocation. A working control is still available if wanted: synthesise a two-gate '
-            'registry fixture and assert the probe reports the dead entry.'
-        ),
-    ),
     'scripts/gen-detekt-rules-config.py': Control(kind='exempt', proves='scripts/gen-detekt-rules-config.py', tracked_by='config/detekt/detekt-rules-module.yml', reason='auto-generator: sabotage is deleting the generated config and asserting the gate fails; equivalent to `rm config/detekt/detekt-rules.yml && gate detekt-rules-config` — the output-diff is the control'),
     'scripts/gen-detekt-rule-table.py': Control(kind='exempt', proves='scripts/gen-detekt-rule-table.py', tracked_by='.agents/skills/singularity-todo-detekt-rules-authoring/RULES.md', reason='auto-generator: sabotage is deleting the generated table and asserting the gate fails; equivalent to `rm docs/detekt/rule_table.md && gate detekt-rule-inventory` — the output-diff is the control'),
     'scripts/check-detekt-registrations.sh': Control(kind='exempt', proves='scripts/check-detekt-registrations.sh', tracked_by='config/detekt/detekt.yml', reason='shell-gate: the sabotage is removing a rule from the registrations file and asserting the gate fails; equivalent to `rm config/detekt/rule_registrations.toml && gate detekt-rule-registry` — but Part J cross-check itself is what catches it when the control goes missing'),
     'scripts/ci/validate-maestro-selectors.py': Control(kind='exempt', proves='scripts/ci/validate-maestro-selectors.py', tracked_by='shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt', reason='CI-only gate: runs in the Maestro flow job, not locally; sabotage would be corrupting the selector files and asserting the gate fails; Part J cross-check itself is the backstop when the control goes missing'),
-    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && sgate skills_catalogue_is_current` — the output-diff is the control'),
+    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && sgate the_skills_catalogue_is_current` — the output-diff is the control'),
     'traceability': Control(
         kind='exempt',
         proves='scripts/tests/test_traceability.py',

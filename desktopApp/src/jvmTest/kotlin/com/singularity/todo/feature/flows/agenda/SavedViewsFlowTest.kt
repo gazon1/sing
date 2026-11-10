@@ -1,9 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -12,7 +9,6 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
@@ -184,8 +180,8 @@ class SavedViewsFlowTest {
 
             // The desktop AWT menu bar also renders a plain "Edit" label (no click
             // action), so menu items are matched by text AND click action.
-            assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
-            assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT)
+            awaitTag(TestTags.SAVED_AGENDA_MENU_DELETE)
         }
 
     // ─── Delete ─────────────────────────────────────────────────────
@@ -203,7 +199,7 @@ class SavedViewsFlowTest {
             // Open menu → Delete → confirm. Confirmation is required for hard-delete
             // (SavedAgendaView has no soft-delete/restore), per delete-affordances spec.
             clickText("⋮")
-            onAllNodes(hasText("Delete") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_DELETE).performClick()
             awaitTag(TestTags.Dialog.CONFIRM).performClick()
 
             // Card is gone from the list

@@ -3,6 +3,7 @@ package com.singularity.todo.core.ui.detail
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -13,12 +14,17 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * These tests exist because the two screens used to own the timer themselves and both
  * copies were wrong in the same way: one uncancelled coroutine per pulse.
+ *
+ * The holder's collector lives as long as the scope it was given, and the test scope
+ * waits for its children — so the scope here is the background one, which the test
+ * cancels when it ends instead of waiting for.
  */
+@Tag("fast")
 class SavedPillStateTest {
     @Test
     fun `a pulse raises the pill and one window takes it down`() =
         runTest {
-            val pill = SavedPillState(scope = this)
+            val pill = SavedPillState(scope = backgroundScope)
             assertFalse(pill.visible, "nothing has been written yet, so there is nothing to say")
 
             pill.pulse()
@@ -33,7 +39,7 @@ class SavedPillStateTest {
     @Test
     fun `a second write inside the window keeps the pill up for its own full window`() =
         runTest {
-            val pill = SavedPillState(scope = this)
+            val pill = SavedPillState(scope = backgroundScope)
             pill.pulse()
             runCurrent()
 
@@ -66,7 +72,7 @@ class SavedPillStateTest {
     @Test
     fun `an explicit pulse behaves exactly like one arriving from a flow`() =
         runTest {
-            val pill = SavedPillState(scope = this)
+            val pill = SavedPillState(scope = backgroundScope)
 
             repeat(3) {
                 pill.pulse()

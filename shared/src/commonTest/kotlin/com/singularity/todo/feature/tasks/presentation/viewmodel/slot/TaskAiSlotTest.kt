@@ -2,11 +2,10 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent

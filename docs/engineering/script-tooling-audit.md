@@ -571,6 +571,14 @@ Writing it found a third instance on the first run: `sgate render-registry
 --check --json` printed `{"status": "current"}` — a status word, and no
 verdict. It carries `passed` now.
 
+**The gate was removed on 2026-11-09.** `scripts/check-gate-json-contract.py`
+re-ran the whole gate corpus to ask a question the runner now asks itself:
+`sgate run-all` dispatches a gate, reads its JSON verdict, and treats a
+traceback as a failure — see
+`docs/decisions/2026-11-09-the-runner-is-the-only-judge-of-a-gate.md`. The
+paragraph above is a record of what was decided then, not a description of a
+gate that still runs.
+
 ADR: `docs/decisions/2026-10-21-one-owner-of-stdout.md`.
 
 ### The findings, as issues
@@ -586,7 +594,7 @@ work without reading this document:
 | F8 | [#776](https://github.com/gazon1/sing/issues/776) | dead `emulator` exports and the `maestro` aliases — **done 2026-10-21** |
 | F9 (round 2) | [#769](https://github.com/gazon1/sing/issues/769) | the last two contract holes: `handle_result`, `adr_status_policy` |
 | F9 (round 2) | [#770](https://github.com/gazon1/sing/issues/770) | one owner for stdout: the contract becomes a mode |
-| F9 (round 2) | [#771](https://github.com/gazon1/sing/issues/771) | meta-gate: every gate speaks the JSON contract |
+| F9 (round 2) | [#771](https://github.com/gazon1/sing/issues/771) | meta-gate: every gate speaks the JSON contract — **the gate removed 2026-11-09; the runner judges the gate itself** |
 | F10 + F11 | [#779](https://github.com/gazon1/sing/issues/779) | one manifest of gates and one table of placements — **done 2026-10-21** |
 | F12 | [#777](https://github.com/gazon1/sing/issues/777) | `measure-baseline-composition.py`: wire it or delete it — **done 2026-10-21** |
 | F13 | [#778](https://github.com/gazon1/sing/issues/778) | 12 gate scripts have no unit test — **done 2026-10-21** |

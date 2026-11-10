@@ -99,7 +99,7 @@ work is owned — this is the answer.
 
 - `TaskRepositoryImpl.update()` + `ProfileRepositoryImpl.update()`: read-before-write guard
 - `repeatOnLifecycle(STARTED)` in all VM init and onIntent (20+ files)
-- `RunInLifecycle.kt` test helper
+- `RunInLifecycle` test helper (not in the tree yet)
 
 **Skills:** `singularity-todo-coroutine-scopes`, `singularity-todo-repository-architecture`
 

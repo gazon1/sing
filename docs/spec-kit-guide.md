@@ -270,7 +270,7 @@ hooks:
 
 ### Где прописано
 
-- `.github/workflows/ci.yml`, джобы `adr-gate` и `spec-create` — фильтр путей
+- `.github/workflows/ci.yml`, джоба `adr-gate` — фильтр путей
   (`.specify/**`, `docs/decisions/**`, `openspec/**`) считается в джобе `changes`
   и передаётся как `needs.changes.outputs.adr`. Раньше это был отдельный workflow
   `adr-gate.yml` с `paths:`; GitHub применяет `paths:` ко всему workflow, а не к
@@ -283,7 +283,12 @@ hooks:
 | Джоб | Триггер | Что делает |
 |---|---|---|
 | `adr-gate` | push/PR с ADR-путями либо `main` | ADR validation, stale (advisory), refresh DIGEST, `adr-ci` workflow |
-| `spec-create` | PR с ADR-путями | `openspec-change`: создаёт ADR-артефакты и коммитит их |
+
+Джоба `spec-create` в CI больше нет: он запускал `openspec-change` — воркфлоу с
+тремя шагами-approvals, которые ждут человека, — не мог дойти до конца без
+TTY, а его ошибку глотал `|| echo`. Создание change остаётся локальным шагом
+воркфлоу `openspec-change`; решение — в
+`docs/decisions/2026-11-09-ci-does-not-create-openspec-changes.md`.
 
 ### static-gates.sh
 

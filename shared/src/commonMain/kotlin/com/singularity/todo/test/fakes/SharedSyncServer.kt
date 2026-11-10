@@ -23,6 +23,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlin.time.Clock
 
 /**
  * In-memory sync server shared by several [SyncApiClient] instances.
@@ -112,8 +113,14 @@ import kotlinx.serialization.json.JsonPrimitive
  * seed, no RLS, no `owner_id` derived from a session — the account is the
  * transport's identity and nothing else. It is enough for a test to assert that
  * two devices really merge, and it is not enough to be the server.
+ *
+ * @param clock the clock the server stamps its events with. Defaults to [FakeClock]
+ *   so the server reads no wall clock: the detekt rule `NoDirectClockSystem` bans
+ *   `Clock.System` in every source set, and a fake that reached for it would fail
+ *   the rule's own check that nothing under `test/fakes/` reads the system clock.
+ *   Nothing reads the events' `createdAt`, so a fixed epoch is enough.
  */
-class SharedSyncServer {
+class SharedSyncServer(private val clock: Clock = FakeClock()) {
     private val mutex = Mutex()
 
     /** The rows the server holds, keyed by owner, profile, type and entity. */
@@ -390,7 +397,7 @@ class SharedSyncServer {
                 entityType = patch.entityType,
                 eventType = eventType,
                 data = data,
-                createdAt = System.currentTimeMillis(),
+                createdAt = this.clock.now().toEpochMilliseconds(),
                 hlc = clock,
                 protocolVersion = patch.protocolVersion,
                 profileId = profileId,

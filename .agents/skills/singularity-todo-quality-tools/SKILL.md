@@ -17,7 +17,7 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 
 ## Key conventions
 
-- ktlint is a **standalone CLI** (pinned in `config/toolchain-versions.env`), not a detekt plugin: detekt owns the semantics, ktlint owns the layout, and neither one corrects the other's findings
+- ktlint is a **standalone CLI** (pinned in `mise.toml`), not a detekt plugin: detekt owns the semantics, ktlint owns the layout, and neither one corrects the other's findings
 - ktlint rules are configured in **`.editorconfig`** (`ktlint_*` keys), not in `config/detekt/detekt.yml` — that file holds the semantic rules only
 - ktlint rule IDs are **kebab-case** (e.g. `no-wildcard-imports`, `max-line-length`), and they are switched off with `ktlint_standard_<rule-id> = disabled`
 - Baseline files at `config/detekt/baseline-{shared,desktopApp}.xml` absorb existing violations — **do not edit them manually**
