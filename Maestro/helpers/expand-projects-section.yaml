@@ -1,0 +1,23 @@
+# Unfolds the menu's Projects section.
+#
+# The section is folded by default: a profile with a hundred projects would
+# draw a tree longer than the sheet, and the entries the user opened the menu
+# for would sit below it. A flow that needs the tree unfolds it first.
+#
+# The unfold is safe to repeat. The button carries the tag of the action it
+# offers — `menu_projects_expand` while the section is folded — so a flow
+# that unfolds a section which is already unfolded taps nothing: the button
+# it would tap is not on the screen.
+#
+# What the helper does not do is wait for the tree: which project is in it
+# depends on the seed, so the flow waits for the node it seeded.
+appId: com.singularity.todo
+---
+- scrollUntilVisible:
+    element:
+      id: menu_projects_header
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_projects_expand
+    optional: true

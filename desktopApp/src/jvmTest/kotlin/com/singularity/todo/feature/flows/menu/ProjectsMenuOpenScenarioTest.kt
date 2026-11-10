@@ -35,6 +35,7 @@ class ProjectsMenuOpenScenarioTest {
             seedProject(koin, "robot-root", "Product")
 
             openDrawer()
+            expandProjectsSection()
             awaitTag(TestTags.menuProjectNode("robot-root")).performScrollTo().performClick()
 
             // The quick-add field only exists in the detail screen's content state.

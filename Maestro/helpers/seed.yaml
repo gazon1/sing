@@ -16,6 +16,7 @@
 #   note=<title>              — create a note
 #   linkTo=<task title>       — link the seeded note to that task
 #   project=<name>            — create a project
+#   projects=<count>          — create <count> projects named "Bulk 001"…
 #   profile=<name>            — create and switch to a profile
 #   session=anonymous|signedout|signedin — change the session
 #   reset=content             — wipe the active profile's content

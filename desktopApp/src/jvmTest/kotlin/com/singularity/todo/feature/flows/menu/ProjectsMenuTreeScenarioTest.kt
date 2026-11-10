@@ -37,6 +37,7 @@ class ProjectsMenuTreeScenarioTest {
             seedProject(koin, "robot-child", "Website", parent = "robot-root")
 
             openDrawer()
+            expandProjectsSection()
 
             val parent = awaitTag(TestTags.menuProjectNode("robot-root"))
             val child = awaitTag(TestTags.menuProjectNode("robot-child"))

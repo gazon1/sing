@@ -250,6 +250,30 @@ class SeedWriterTest {
             assertEquals(emptyList(), note.outgoingLinks)
         }
 
+    @Test
+    fun `the bulk projects are written under ids a flow can address`() =
+        runTest {
+            val written = writer.writeProjects(count = 3, prefix = "Bulk", stamp = stamp)
+
+            assertEquals(
+                listOf("bulk-001", "bulk-002", "bulk-003"),
+                written.map { it.value },
+            )
+            assertEquals(
+                listOf("Bulk 001", "Bulk 002", "Bulk 003"),
+                liveProjectsStartingWith("Bulk").map { it.name }.sorted(),
+            )
+        }
+
+    @Test
+    fun `the bulk projects are the same rows when they are seeded twice`() =
+        runTest {
+            writer.writeProjects(count = 3, prefix = "Bulk", stamp = stamp)
+            writer.writeProjects(count = 3, prefix = "Bulk", stamp = stamp)
+
+            assertEquals(3, liveProjectsStartingWith("Bulk").size)
+        }
+
     /** The rows the task list shows: the ones that are neither trashed nor completed. */
     private suspend fun liveTasks(title: String) =
         tasks.observeAll().first().filter { it.title == title && !it.isTrashed }
@@ -257,4 +281,8 @@ class SeedWriterTest {
     /** The rows the projects list shows: the ones that are not deleted. */
     private suspend fun liveProjects(name: String) =
         projects.observeAll().first().filter { it.name == name && !it.isDeleted }
+
+    /** The rows whose name starts with [prefix]. */
+    private suspend fun liveProjectsStartingWith(prefix: String) =
+        projects.observeAll().first().filter { it.name.startsWith(prefix) && !it.isDeleted }
 }

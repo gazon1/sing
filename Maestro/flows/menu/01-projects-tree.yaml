@@ -15,6 +15,18 @@ tags:
     env:
       QUERY: "project=Roadmap&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
+# The section is folded by default, so the tree is not drawn until the user
+# unfolds it.
+- runFlow: ../../helpers/expand-projects-section.yaml
+# The way to the full list is above the tree, so it is reachable whether the
+# tree is unfolded or not.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
+- assertVisible:
+    id: menu_all_projects
 # The tree sits at the end of the menu, below the fold — a row that is drawn
 # but off-screen is not a row the user can see.
 - scrollUntilVisible:
@@ -24,9 +36,3 @@ tags:
     timeout: 8000
 - assertVisible:
     id: menu_project_node_roadmap
-# And the way to the full list is under it.
-- scrollUntilVisible:
-    element:
-      id: menu_all_projects
-    direction: DOWN
-    timeout: 5000

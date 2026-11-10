@@ -69,6 +69,9 @@ non-alphanumeric characters with `_`.
 | `MENU_PLANS` | `menu_plans` | |
 | `MENU_POMODORO` | `menu_pomodoro` | |
 | `MENU_PROFILES` | `menu_profiles` | |
+| `MENU_PROJECTS_COLLAPSE` | `menu_projects_collapse` | |
+| `MENU_PROJECTS_EXPAND` | `menu_projects_expand` | |
+| `MENU_PROJECTS_HEADER` | `menu_projects_header` | |
 | `MENU_PROJECTS_SECTION` | `menu_projects_section` | |
 | `MENU_PROPOSALS` | `menu_proposals` | |
 | `MENU_QUICK_SEARCH` | `menu_quick_search` | |

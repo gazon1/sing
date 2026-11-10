@@ -274,6 +274,45 @@ class SeedWriter(
     }
 
     /**
+     * Writes [count] projects named after their number.
+     *
+     * A profile with a hundred projects is the fixture the menu's folded
+     * section exists for, and a hundred deep links are not a fixture — they are
+     * a hundred launches. The ids are the numbers, so a flow can address one
+     * of them; the names share [prefix], so one `cleanup=` sweep removes them
+     * again.
+     *
+     * @param prefix the prefix of the names — the handle a cleanup sweeps by.
+     * @return the ids of the projects, in the order they were written.
+     */
+    suspend fun writeProjects(
+        count: Int,
+        prefix: String,
+        stamp: Instant,
+        color: Int = 0xFF2196F3.toInt(),
+    ): List<ProjectId> =
+        (1..count).map { index ->
+            val number = index.toString().padStart(3, '0')
+            projects
+                .create(
+                    Project(
+                        id = ProjectId.fromString("$BULK_ID_PREFIX-$number"),
+                        name = "$prefix $number",
+                        color = color,
+                        createdAt = stamp,
+                        updatedAt = stamp,
+                        userId = currentUser.current,
+                    ),
+                ).getOrThrow()
+                .id
+        }
+
+    private companion object {
+        /** The prefix of the ids of the bulk-written projects. */
+        const val BULK_ID_PREFIX = "bulk"
+    }
+
+    /**
      * Points the seeded task at the task named [TaskSeed.dependsOnTitle].
      *
      * The dependency is named by title because a deep link cannot know an id it has

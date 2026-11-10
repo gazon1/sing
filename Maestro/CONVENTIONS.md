@@ -85,7 +85,7 @@ The `note_editor_title_input` testTag uses `testTag(TestTags.taskAction(label))`
 
 ## Helpers
 
-Nineteen helper files exist in `Maestro/helpers/`. Use them — do not duplicate
+Twenty helper files exist in `Maestro/helpers/`. Use them — do not duplicate
 their logic.
 
 | Helper | When to use |
@@ -97,6 +97,7 @@ their logic.
 | `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
+| `expand-projects-section.yaml` | Flows needing a project from the menu's tree; the Projects section is folded until it is unfolded, and the unfold is safe to repeat |
 | `open-settings.yaml` | Opens Settings from the app menu and waits for the settings tab control |
 | `settings-tab.yaml` | Flows opening a settings tab by name (`SETTINGS_TAB: settings_tab_account`); it opens the narrow settings sheet, scrolls the row into view and taps it |
 | `open-menu-item.yaml` | Opens a menu entry by `ENTRY_ID`, scrolling the sheet until it is on screen, then waits for `DEST_ID` — the way to reach a destination that is not a tab |

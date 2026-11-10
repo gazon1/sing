@@ -27,11 +27,22 @@ tags:
 - assertVisible:
     id: nav_tab_calendar
 - runFlow: ../../helpers/open-app-menu.yaml
-# The projects are in the menu, as a tree, with the way to the full list under it.
+# The section is folded by default, so the tree is unfolded before it is used.
+- runFlow: ../../helpers/expand-projects-section.yaml
+# The way to the full list is above the tree, so it is on the screen before the
+# tree is scrolled through.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
+- assertVisible:
+    id: menu_all_projects
+# And the projects are in the menu, as a tree.
 - scrollUntilVisible:
     element:
       id: menu_project_node_roadmap
     direction: DOWN
     timeout: 8000
 - assertVisible:
-    id: menu_all_projects
+    id: menu_project_node_roadmap

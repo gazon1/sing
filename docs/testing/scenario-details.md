@@ -695,6 +695,20 @@ Steps:
 
 **Expected:** The full project list opens with its search and its sorting, so the tree is not the only way to work with projects.
 
+#### `MENU-07` — The Projects section of the menu starts folded, so the menu's destinations stay reachable
+
+**confirmed** · P1 · `#MENU`
+
+**Given:** The profile holds a hundred projects.
+
+Steps:
+
+1. Open the app menu.
+2. Look at the Projects section.
+3. Unfold the section.
+
+**Expected:** The tree is not drawn, so the entries above it — the destinations and Settings — are reachable without scrolling through a hundred project rows. Unfolding the section draws the tree, and folding it again takes the tree off the screen.
+
 #### `MENU-10` — The menu offers Attach account to an anonymous session
 
 **confirmed** · P1 · `#MENU`

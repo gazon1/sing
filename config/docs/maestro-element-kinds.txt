@@ -76,9 +76,13 @@ menu_calendar menu
 menu_notes menu
 menu_proposals menu
 menu_profiles menu
+menu_project_node_bulk_001 item
 menu_project_node_childless item
 menu_project_node_latecomer item
 menu_project_node_roadmap item
+menu_projects_collapse menu
+menu_projects_expand menu
+menu_projects_header item
 menu_projects_section item
 menu_quick_search menu
 menu_search menu

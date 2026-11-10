@@ -190,6 +190,22 @@ object TestTags {
     /** The Projects section of the menu — the tree and the way to the full list. */
     const val MENU_PROJECTS_SECTION = "menu_projects_section"
 
+    /** The heading of the menu's Projects section. */
+    const val MENU_PROJECTS_HEADER = "menu_projects_header"
+
+    /**
+     * The button that unfolds the menu's Projects section.
+     *
+     * The button carries the tag of the action it offers, and the tag of the
+     * other action belongs to the button in the other state: a control that
+     * says "expand" is not the control that says "collapse", and a test that
+     * has to know which one is on the screen should not have to guess.
+     */
+    const val MENU_PROJECTS_EXPAND = "menu_projects_expand"
+
+    /** The button that folds the menu's Projects section away. */
+    const val MENU_PROJECTS_COLLAPSE = "menu_projects_collapse"
+
     /** The entry at the end of the Projects section: the full project list. */
     const val MENU_ALL_PROJECTS = "menu_all_projects"
 

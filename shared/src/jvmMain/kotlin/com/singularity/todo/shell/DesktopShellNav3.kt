@@ -319,6 +319,9 @@ fun DesktopShellNav3Root(
                     // drawn by the composable the Android sheet draws too.
                     ProjectsMenuSection(
                         state = projectsTreeState,
+                        onToggleSection = {
+                            projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleSection)
+                        },
                         onToggleExpanded = { projectId ->
                             projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
                         },

@@ -1,11 +1,17 @@
 package com.singularity.todo.feature.flows.menu
 
+import androidx.compose.ui.test.DesktopComposeUiTest
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.helpers.awaitTag
 import kotlin.time.Instant
 
 /**
@@ -52,4 +58,43 @@ internal object ProjectsMenuScenarioSupport {
             ),
         )
     }
+
+    /**
+     * Seeds [count] projects named after their number.
+     *
+     * The menu of a profile with a hundred projects is the case the collapsed
+     * section exists for, and it cannot be staged by tapping a hundred times.
+     *
+     * The ids and the names are the ones the Maestro fixture writes, so both
+     * carriers of the scenario speak about the same projects.
+     */
+    suspend fun seedProjects(
+        koin: org.koin.core.Koin,
+        count: Int,
+    ) {
+        repeat(count) { index ->
+            val number = (index + 1).toString().padStart(3, '0')
+            seedProject(koin, "bulk-$number", "Bulk $number")
+        }
+    }
+}
+
+/**
+ * Unfolds the menu's Projects section.
+ *
+ * The section is folded by default — a tree longer than the screen would push
+ * the entries the user came for below the fold — so a test that wants the tree
+ * has to unfold it, the way a person does.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.expandProjectsSection() {
+    awaitTag(TestTags.MENU_PROJECTS_EXPAND).performScrollTo().performClick()
+}
+
+/**
+ * Folds the menu's Projects section away again.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.foldProjectsSection() {
+    awaitTag(TestTags.MENU_PROJECTS_COLLAPSE).performScrollTo().performClick()
 }

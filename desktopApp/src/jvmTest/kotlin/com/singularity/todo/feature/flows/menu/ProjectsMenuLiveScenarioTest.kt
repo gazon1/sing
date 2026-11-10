@@ -31,6 +31,7 @@ class ProjectsMenuLiveScenarioTest {
     fun the_tree_is_live() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             openDrawer()
+            expandProjectsSection()
 
             // Created while the menu is open: the tree has to show it without the
             // menu being closed and reopened in between.
