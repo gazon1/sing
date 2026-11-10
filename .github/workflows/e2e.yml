@@ -573,23 +573,23 @@ jobs:
           with-yaml-lint: 'false'
           with-action-lint: 'false'
 
-      # No artifacts is a state, not a failure: a cancelled run may have uploaded
-      # none, and a re-run of this job alone has no reports under this attempt.
-      # The step below says what happened; the download just does not abort.
-      - name: Collect the shards' reports
+      # Advisory: no artifacts is a state, not a failure — a cancelled run may
+      # have uploaded none, and a re-run of this job alone has no reports under
+      # this attempt. The step below decides what that means.
+      - name: Collect the shards' reports (advisory)
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
           pattern: maestro-junit-${{ needs.plan.outputs.suite }}-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/maestro-shards
 
-      # The APK is hashed, not assumed: `apk_sha256` is one of the identity
-      # fields the converter requires before a run may be published, and this is
-      # the same artifact every shard installed. It is kept ONE day and the
-      # reports fourteen, so this download can be legitimately absent when only
-      # the conversion is re-run later; a converter run without the hash still
-      # describes the run and is not publishable.
-      - name: Download the APK
+      # Advisory: the APK is hashed, not assumed. `apk_sha256` is one of the
+      # identity fields the converter requires before a run may be published,
+      # and this is the same artifact every shard installed. It is kept ONE day
+      # and the reports fourteen, so this download can be legitimately absent
+      # when only the conversion is re-run later; a converter run without the
+      # hash still describes the run and is not publishable.
+      - name: Download the APK (advisory)
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
