@@ -26,7 +26,7 @@ class SeedLinkKeysTest {
         assertTrue(
             SeedLinkKeys
                 .unknown(
-                    listOf(SeedLinkKeys.RESET, SeedLinkKeys.CLEANUP, SeedLinkKeys.SESSION),
+                    listOf(SeedLinkKeys.RESET, SeedLinkKeys.CLEANUP, SeedLinkKeys.SESSION, SeedLinkKeys.COUNT),
                 ).isEmpty(),
         )
     }

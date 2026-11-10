@@ -261,6 +261,13 @@ class TaskRepositoryImpl(
             }
         }
 
+    override suspend fun createAll(items: List<Task>): Result<List<Task>> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                items.map { create(it).getOrThrow() }
+            }
+        }
+
     override suspend fun update(item: Task): Result<Task> =
         runCatchingCancellable {
             unitOfWork.write {

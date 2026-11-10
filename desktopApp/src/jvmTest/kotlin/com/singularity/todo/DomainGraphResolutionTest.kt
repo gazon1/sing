@@ -219,8 +219,8 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> =
         TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1"))),
         // TaskCreateViewModel(seed)
         TaskCreateViewModel::class to listOf(sampleTaskCreateSeed()),
-        // AgendaViewModel(definition)
-        AgendaViewModel::class to listOf(sampleAgendaDefinition()),
+        // AgendaViewModel(definition, isTodayTab)
+        AgendaViewModel::class to listOf(sampleAgendaDefinition(), false),
         // SavedAgendaViewModel(mode)
         SavedAgendaViewModel::class to listOf(SavedAgendaScreenMode.Create(sampleAgendaDefinition())),
         // NoteProposalsViewModel(noteId) — the pending-proposal panel of one note

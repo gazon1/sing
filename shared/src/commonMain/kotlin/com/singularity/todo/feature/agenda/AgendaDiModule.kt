@@ -52,9 +52,9 @@ fun agendaModule(): Module =
 
         singleOf(::SavedAgendaSeedStore)
 
-        // ─── AgendaViewModel (existing, definition is a runtime param) ───────
+        // ─── AgendaViewModel (definition and isTodayTab are runtime params) ──
 
-        viewModel { (definition: AgendaDefinition) ->
+        viewModel { (definition: AgendaDefinition, isTodayTab: Boolean) ->
             AgendaViewModel(
                 deps =
                     AgendaDeps(
@@ -74,6 +74,7 @@ fun agendaModule(): Module =
                     ),
                 definition = definition,
                 crashReporter = get(),
+                isTodayTab = isTodayTab,
             )
         }
 

@@ -83,6 +83,19 @@ open class AgendaNavigator(
         )
     }
 
+    /**
+     * Open the full Overdue agenda in the outer graph.
+     *
+     * A top-level [AppDestination.AgendaGraph], not a push onto this graph's stack:
+     * a nested push here has no working back — the system back pops the *outer*
+     * stack while the nested screen stays on top of the hoisted stack, leaving the
+     * user on Overdue with the shell still naming the origin tab. The outer graph's
+     * back returns to the origin. The statistics drill-down opens this same route.
+     */
+    open fun openOverdue() {
+        onExitGraph(AppDestination.AgendaGraph(AgendaStartRoute.Overdue))
+    }
+
     /** Push the saved agenda views list onto the stack. */
     open fun openSavedAgendaList() {
         backStack.add(AgendaStartRoute.SavedAgendaList)

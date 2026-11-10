@@ -223,7 +223,9 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # grouper, so the expansion is finite.
     "plans_section_overdue",
     # taskItem(...) — from seed flows
+    "task_item_bigoverdue_1",
     "task_item_buy_milk",
+    "task_item_todayreachable",
     "task_item_uniquesearchabletask2026",
     "task_item_water_the_plants",
     "task_item_return_to_today",
@@ -273,6 +275,9 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "agenda_section_no_date",
     "agenda_section_overdue",
     "agenda_section_upcoming",
+    # agendaSectionToggle / agendaSectionViewAll — the large-overdue flow
+    "agenda_section_toggle_overdue",
+    "agenda_section_view_all_overdue",
     # "Tomorrow" — the Upcoming tab's first bucket
     "agenda_section_tomorrow",
     # byBlocked() — Statistics health drill-down

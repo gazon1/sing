@@ -518,16 +518,28 @@ class MaestroFlowTagsTest {
      *
      * The deep link seeds at most one kind of entity, and only these four
      * parameters carry a title — `due`, `desc` and `cleanup` do not.
+     *
+     * A task seed with `count=N` writes titles `Base-1` … `Base-N`: the debug
+     * seed suffixes every row when it writes more than one. A flow that asserts
+     * the first of those rows addresses an id the app really produces.
      */
-    private fun queryTitles(query: String): List<String> =
-        query
-            .split("&")
-            .mapNotNull { pair ->
-                val key = pair.substringBefore("=").trim()
-                if (key !in SEED_TITLE_KEYS) return@mapNotNull null
-                val raw = pair.substringAfter("=", "")
-                if (raw.isEmpty()) null else decode(raw)
-            }
+    private fun queryTitles(query: String): List<String> {
+        val pairs = query.split("&")
+        val count =
+            pairs
+                .firstOrNull { it.substringBefore("=").trim() == "count" }
+                ?.substringAfter("=", "")
+                ?.toIntOrNull()
+                ?: 1
+        return pairs.flatMap { pair ->
+            val key = pair.substringBefore("=").trim()
+            if (key !in SEED_TITLE_KEYS) return@flatMap emptyList()
+            val raw = pair.substringAfter("=", "")
+            if (raw.isEmpty()) return@flatMap emptyList()
+            val title = decode(raw)
+            if (key == "task" && count > 1) (1..count).map { "$title-$it" } else listOf(title)
+        }
+    }
 
     /**
      * URL-decodes a seeded title.

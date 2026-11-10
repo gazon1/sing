@@ -7,6 +7,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
+import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.seed.SeedLinkKeys
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
@@ -127,8 +128,11 @@ import kotlin.time.Instant
 class DebugSeedActivity :
     Activity(),
     KoinComponent {
+    private var seeding = false
+
     override fun onResume() {
         super.onResume()
+        if (seeding) return
         val uri = intent?.data ?: return finish()
 
         val params = parseParams(uri)
@@ -140,40 +144,45 @@ class DebugSeedActivity :
         }
         if (params.isEmpty()) return finish()
 
-        try {
-            runBlocking { seed(params) }
-        } catch (e: Throwable) {
-            android.util.Log.e("DebugSeedActivity", "Seed failed", e)
-        } finally {
-            // Bring the real app up in every case. When the seed link arrived
-            // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
-            // just re-activates it; when the link cold-started the process, we
-            // are the only activity in the task and finishing alone would dump
-            // the user (and the UI test) on the home screen.
-            //
-            // The task is cleared as well, so the app comes up on its first
-            // screen — the agenda — and not on whatever screen it was on. A
-            // seed link is a request to put the app in a known state: the
-            // flows that use it assert against the agenda, and with the old
-            // flags they got whatever the previous flow had left open. Measured
-            // on the device: the search flow that follows another search flow
-            // never saw `nav_tab_today`, because the app came up on the search
-            // screen the previous flow had left it on.
-            //
-            // CLEAR_TASK clears the task, not the data: the session, the
-            // profile and everything else in the database are untouched.
-            startActivity(
-                Intent(this, com.singularity.todo.MainActivity::class.java).apply {
-                    addFlags(
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                            Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TASK,
+        seeding = true
+        Thread {
+            try {
+                runBlocking { seed(params) }
+            } catch (e: Throwable) {
+                android.util.Log.e("DebugSeedActivity", "Seed failed", e)
+            } finally {
+                // Bring the real app up in every case. When the seed link arrived
+                // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
+                // just re-activates it; when the link cold-started the process, we
+                // are the only activity in the task and finishing alone would dump
+                // the user (and the UI test) on the home screen.
+                //
+                // The task is cleared as well, so the app comes up on its first
+                // screen — the agenda — and not on whatever screen it was on. A
+                // seed link is a request to put the app in a known state: the
+                // flows that use it assert against the agenda, and with the old
+                // flags they got whatever the previous flow had left open. Measured
+                // on the device: the search flow that follows another search flow
+                // never saw `nav_tab_today`, because the app came up on the search
+                // screen the previous flow had left it on.
+                //
+                // CLEAR_TASK clears the task, not the data: the session, the
+                // profile and everything else in the database are untouched.
+                runOnUiThread {
+                    startActivity(
+                        Intent(this, com.singularity.todo.MainActivity::class.java).apply {
+                            addFlags(
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                            )
+                        },
                     )
-                },
-            )
-            finish()
-        }
+                    finish()
+                }
+            }
+        }.start()
     }
 
     /**
@@ -290,7 +299,16 @@ class DebugSeedActivity :
         params: Map<String, String>,
         writer: SeedWriter,
     ) {
-        val title = params[SeedLinkKeys.TASK]!!
+        val baseTitle = params[SeedLinkKeys.TASK]!!
+        val count =
+            SeedCount.parse(params[SeedLinkKeys.COUNT])
+                ?: run {
+                    android.util.Log.e(
+                        "DebugSeedActivity",
+                        "Invalid count='${params[SeedLinkKeys.COUNT]}'; expected 1..${SeedCount.MAX}",
+                    )
+                    return
+                }
         // A task stamped "now" is never stagnant: the health window is 21 days
         // without movement, and a flow cannot reach that bucket by seeding a
         // fresh task. `updatedAt=-22d` puts both timestamps in the past, which
@@ -300,27 +318,40 @@ class DebugSeedActivity :
                 ?.let { resolveInstant(it) }
                 ?: Clock.System.now()
 
-        val result =
-            writer.writeTask(
-                TaskSeed(
-                    title = title,
-                    description = params[SeedLinkKeys.DESC],
-                    dueDate = params[SeedLinkKeys.DUE]?.let { resolveDate(it) },
-                    stamp = stamp,
-                    dependsOnTitle = params[SeedLinkKeys.BLOCKED_BY],
-                    id = params[SeedLinkKeys.ID]?.let(TaskId::fromString),
-                ),
+        fun spec(index: Int): TaskSeed {
+            val suffix = if (count == 1) "" else "-${index + 1}"
+            val id =
+                params[SeedLinkKeys.ID]?.let { baseId ->
+                    if (count == 1) TaskId.fromString(baseId) else TaskId.fromString("$baseId-${index + 1}")
+                }
+            return TaskSeed(
+                title = "$baseTitle$suffix",
+                description = params[SeedLinkKeys.DESC],
+                dueDate = params[SeedLinkKeys.DUE]?.let { resolveDate(it) },
+                stamp = stamp,
+                dependsOnTitle = params[SeedLinkKeys.BLOCKED_BY],
+                id = id,
             )
-        android.util.Log.i("DebugSeedActivity", "task '$title' was ${result.outcome}")
-        // A dependency is what makes a task *blocked* — a different bucket from
-        // "stale", and one a fresh task can never be. The dependency is named by
-        // title, because a deep link cannot know an id it has not created
-        // itself; the other task has to be seeded first.
-        result.missingDependency?.let { dependencyTitle ->
-            android.util.Log.w(
-                "DebugSeedActivity",
-                "No task titled '$dependencyTitle' to depend on; seeding without a dependency",
-            )
+        }
+
+        if (count == 1) {
+            val result = writer.writeTask(spec(0))
+            android.util.Log.i("DebugSeedActivity", "task '$baseTitle' was ${result.outcome}")
+            // A dependency is what makes a task *blocked* — a different bucket from
+            // "stale", and one a fresh task can never be. The dependency is named by
+            // title, because a deep link cannot know an id it has not created
+            // itself; the other task has to be seeded first.
+            result.missingDependency?.let { dependencyTitle ->
+                android.util.Log.w(
+                    "DebugSeedActivity",
+                    "No task titled '$dependencyTitle' to depend on; seeding without a dependency",
+                )
+            }
+        } else {
+            // One insert per row: replacing each row in turn reads the whole task
+            // table twice per row, which is O(n²) for a thousand-row fixture.
+            writer.createTasks((0 until count).map { spec(it) })
+            android.util.Log.i("DebugSeedActivity", "seeded $count tasks with base title '$baseTitle'")
         }
     }
 

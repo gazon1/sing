@@ -116,4 +116,10 @@ sealed interface AgendaIntent : MviIntent {
      * which of the two the screen meant.
      */
     data object Retry : AgendaIntent
+
+    /** Toggles a section between collapsed and expanded in the agenda list. */
+    data class ToggleSection(val sectionId: String) : AgendaIntent
+
+    /** Opens the full Overdue agenda destination. */
+    data object OpenOverdue : AgendaIntent
 }

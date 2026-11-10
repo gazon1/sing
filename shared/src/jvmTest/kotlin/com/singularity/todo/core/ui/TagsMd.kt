@@ -348,6 +348,14 @@ object TagsMd {
                 DynamicMeta(fnName, "Agenda", "Today", "Agenda section headers")
             }
 
+            "agendaSectionToggle" -> {
+                DynamicMeta(fnName, "Agenda", "Overdue", "The expand/collapse affordance of an agenda section header")
+            }
+
+            "agendaSectionViewAll" -> {
+                DynamicMeta(fnName, "Agenda", "Overdue", "The \"View all\" action of an agenda section header")
+            }
+
             "plansSection" -> {
                 DynamicMeta(fnName, "Plans", "day:2026-09-16", "Timeline section headers")
             }

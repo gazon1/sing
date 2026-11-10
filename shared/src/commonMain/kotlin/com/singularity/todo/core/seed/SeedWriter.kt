@@ -153,6 +153,30 @@ class SeedWriter(
     }
 
     /**
+     * Creates every task in [specs] without the per-title dedupe [writeTask] does.
+     *
+     * A bulk fixture's titles are distinct and the runner wipes the profile before
+     * the flow, so there is nothing to dedupe against. [writeTask] reads the whole
+     * task table twice per row, which is O(n²) for a few thousand titles; this
+     * builds the rows and creates them in one transaction. Dependencies are not
+     * applied.
+     */
+    suspend fun createTasks(specs: List<TaskSeed>): List<TaskId> =
+        tasks
+            .createAll(
+                specs.map { spec ->
+                    TaskDomain.buildTask(
+                        input = validatedInput(spec),
+                        id = spec.id ?: TaskId.generate(),
+                        createdAt = spec.stamp,
+                        updatedAt = spec.stamp,
+                        userId = currentUser.current,
+                    )
+                },
+            ).getOrThrow()
+            .map { it.id }
+
+    /**
      * Makes the profile hold exactly one live note named [NoteSeed.title].
      *
      * The seed defines the title and nothing else, so a note that already carries
