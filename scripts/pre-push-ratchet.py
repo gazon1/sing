@@ -78,6 +78,62 @@ from gitenv_loader import load_gitenv  # noqa: E402
 #: interpreter the hook runs.
 tree_env = load_gitenv().tree_env
 
+#: The binding module — the one place that knows how to bind the packages to a
+#: checkout. It is loaded *by path*, in the child: it cannot be imported as a
+#: package, because the package it binds may be missing — that is the case it
+#: refuses.
+BINDING_PATH = pathlib.Path(__file__).resolve().parent / "package-binding.py"
+
+#: What the base run starts with.
+#:
+#: The base tree's tests have to measure the base tree, and `PYTHONPATH` alone
+#: cannot promise that. An editable install registers a finder, and the legacy
+#: `easy-install.pth` puts its checkout at the front of `sys.path` — in front
+#: of `PYTHONPATH`. The path is fixed before the interpreter runs the first
+#: line of the program, so the binding has to happen *inside* the child, after
+#: `site` has done its work.
+#:
+#: The moves are the repository's own (`scripts/package-binding.py`), so the
+#: base run and the gate suite bind the same way, and a base tree that cannot
+#: be bound says so instead of being measured against whatever the environment
+#: serves.
+BIND_BOOTSTRAP = """\
+import importlib.util
+import pathlib
+import sys
+
+binding_path, root, *test_ids = sys.argv[1:]
+
+spec = importlib.util.spec_from_file_location("package_binding", binding_path)
+binding = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(binding)
+
+root_path = pathlib.Path(root)
+binding.bind_local_package(root_path)
+
+provided = binding.provided_packages(root_path)
+foreign = [name for name in binding.foreign_packages(root_path) if name in provided]
+if not provided or foreign:
+    sys.stderr.write(
+        "the base tree does not answer for its own packages: %s\\n"
+        % (", ".join(foreign) if foreign else "it carries none")
+    )
+    raise SystemExit(3)
+
+sys.argv = ["unittest", *test_ids]
+import unittest
+
+unittest.main(module=None)
+"""
+
+#: The exit code the child uses when the base tree cannot be bound. It is the
+#: child's own code: `unittest` exits 0, 1 or 5.
+BINDING_FAILED = 3
+
+
+class ComparisonUnavailable(Exception):
+    """The comparison could not be made — the base tree cannot be measured."""
+
 
 #: The colour codes a tool writes into its output. They say nothing about the
 #: finding, and they differ between two runs of the same gate when one of them
@@ -244,10 +300,19 @@ def run_tests_on_base(base_tree: str, test_ids: list[str]) -> set[str]:
     a test which does not exist on the base reports that test as absent, which
     is the answer the caller needs — a test that is not there cannot be
     pre-existing.
+
+    The run is bound to the base tree: the child applies the repository's own
+    binding before it runs anything, so an editable install of another
+    checkout cannot decide what the base tree's tests measure. A base tree
+    that cannot be bound is not measured at all, and the comparison cannot be
+    made — the caller must not read that as "the push carries nothing".
     """
     tests_dir = pathlib.Path(base_tree) / "scripts" / "tests"
     if not tests_dir.is_dir():
         return set()
+
+    if not BINDING_PATH.is_file():
+        raise ComparisonUnavailable(f"the binding module {BINDING_PATH} is missing")
 
     env = tree_env()
     env["PYTHONPATH"] = os.pathsep.join(
@@ -261,15 +326,32 @@ def run_tests_on_base(base_tree: str, test_ids: list[str]) -> set[str]:
     env["GATE_SUITE_INSIDE_HOOK"] = "1"
 
     result = subprocess.run(
-        [sys.executable, "-m", "unittest", *test_ids],
+        [
+            sys.executable,
+            "-c",
+            BIND_BOOTSTRAP,
+            str(BINDING_PATH),
+            str(pathlib.Path(base_tree).resolve()),
+            *test_ids,
+        ],
         cwd=str(tests_dir),
         env=env,
         capture_output=True,
-        text=True,
         check=False,
     )
+    if result.returncode == BINDING_FAILED:
+        raise ComparisonUnavailable(
+            "the base tree does not answer for its own packages — "
+            + (result.stderr.decode("utf-8", "replace").strip() or "the binding failed")
+        )
+    # The output is read as bytes: a test that prints a file name whose bytes
+    # are not valid UTF-8 must not take the comparison down over a byte in a
+    # name.
+    output = result.stdout.decode("utf-8", "surrogateescape") + result.stderr.decode(
+        "utf-8", "surrogateescape"
+    )
     failed: set[str] = set()
-    for line in (result.stdout + result.stderr).splitlines():
+    for line in output.splitlines():
         match = UNITTEST_FAILURE_RE.match(line.strip())
         if match:
             failed.add(canonical_test_id(match.group("id")))
@@ -319,7 +401,15 @@ def cmd_tests(args: argparse.Namespace) -> int:
         )
         return 2
 
-    base_failed = run_tests_on_base(args.base_tree, pushed_ids)
+    try:
+        base_failed = run_tests_on_base(args.base_tree, pushed_ids)
+    except ComparisonUnavailable as exc:
+        # The base tree could not be measured, so the comparison could not be
+        # made. That is not "the push carries nothing of its own" — it is the
+        # safe direction: the caller stops the push.
+        print(f"pre-push-ratchet: {exc} — the comparison cannot be made")
+        return 2
+
     new = [test_id for test_id in pushed_ids if not any(covers(test_id, f) for f in base_failed)]
     if not new:
         return 0

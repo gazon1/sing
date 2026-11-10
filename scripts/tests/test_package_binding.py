@@ -65,6 +65,41 @@ class PackageBindingTest(unittest.TestCase):
             else:
                 os.environ["PYTHONPATH"] = saved_pythonpath
 
+    def test_binding_puts_this_checkout_first_even_when_it_is_already_on_the_path(self) -> None:
+        """A path that is on `sys.path` but not first loses to a foreign checkout.
+
+        The legacy `easy-install.pth` of an editable install puts its checkout
+        at the front of `sys.path`, in front of `PYTHONPATH`. A binding that
+        only adds a path that is already there binds nothing: the foreign
+        checkout still answers `import sgate`.
+        """
+        binding = _load_binding()
+        source = (REPO / "scripts" / "src").resolve()
+        foreign = REPO / "scripts" / "tests"
+        saved_path = list(sys.path)
+        saved_pythonpath = os.environ.get("PYTHONPATH")
+        try:
+            sys.path[:] = [str(foreign), str(source)]
+            os.environ["PYTHONPATH"] = os.pathsep.join([str(foreign), str(source)])
+            binding.bind_local_package(REPO)
+            self.assertEqual(
+                str(source),
+                sys.path[0],
+                "this checkout's packages are on the path but not first — a foreign "
+                "checkout's editable install still answers",
+            )
+            self.assertEqual(
+                str(source),
+                os.environ.get("PYTHONPATH", "").split(os.pathsep)[0],
+                "the children of this process would resolve the package by themselves",
+            )
+        finally:
+            sys.path[:] = saved_path
+            if saved_pythonpath is None:
+                os.environ.pop("PYTHONPATH", None)
+            else:
+                os.environ["PYTHONPATH"] = saved_pythonpath
+
     def test_the_packages_resolve_to_this_checkout(self) -> None:
         """Bound, every package of the install answers from this tree.
 

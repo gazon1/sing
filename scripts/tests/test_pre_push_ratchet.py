@@ -27,6 +27,7 @@ The properties:
 """
 
 import importlib.util
+import os
 import pathlib
 import subprocess
 import sys
@@ -223,6 +224,11 @@ class BaseTreeRunTest(unittest.TestCase):
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-ratchet-'))
         tests = self.tmp / 'scripts' / 'tests'
         tests.mkdir(parents=True)
+        # A checkout carries its own packages: the base run is bound to them,
+        # and a base tree without any is a tree that cannot be measured.
+        package = self.tmp / 'scripts' / 'src' / 'sgate'
+        package.mkdir(parents=True)
+        (package / '__init__.py').write_text('MARKER = "BASE"\n', encoding='utf-8')
         (tests / 'test_sample.py').write_text(
             'import unittest\n'
             '\n'
@@ -259,6 +265,158 @@ class BaseTreeRunTest(unittest.TestCase):
             ['test_sample.SampleTest.test_a_sub_test_fails'],
         )
         self.assertIn('test_sample.SampleTest.test_a_sub_test_fails', failed)
+
+
+class BaseTreeBindingTest(unittest.TestCase):
+    """The base run measures the base tree, whatever the environment serves.
+
+    The packages are installed editable, so the environment decides which
+    checkout answers `import sgate`. The legacy form of that install puts the
+    checkout at the **front of `sys.path`** — in front of `PYTHONPATH` — so a
+    base run that only sets `PYTHONPATH` measures another checkout's code,
+    and a failure it reports there is the other checkout's failure. The base
+    run therefore binds itself to the base tree, the way the gate suite binds
+    itself to the tree it runs in.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-ratchet-'))
+        self.base = self.tmp / 'base'
+        self.foreign = self.tmp / 'foreign'
+        self._package(self.base, 'BASE')
+        self._package(self.foreign, 'FOREIGN')
+        self._test_module()
+
+    def _package(self, root: pathlib.Path, marker: str) -> None:
+        """A checkout with a package of its own."""
+        package = root / 'scripts' / 'src' / 'sgate'
+        package.mkdir(parents=True)
+        (package / '__init__.py').write_text(f'MARKER = "{marker}"\n', encoding='utf-8')
+
+    def _test_module(self) -> None:
+        """A test that fails when another checkout's package answers."""
+        tests = self.base / 'scripts' / 'tests'
+        tests.mkdir(parents=True)
+        (tests / 'test_sample.py').write_text(
+            'import unittest\n'
+            'import sgate\n'
+            '\n'
+            '\n'
+            'class SampleTest(unittest.TestCase):\n'
+            '    def test_the_base_trees_own_package_answers(self):\n'
+            '        self.assertEqual(sgate.MARKER, "BASE")\n',
+            encoding='utf-8',
+        )
+
+    def _foreign_install(self) -> None:
+        """An editable install of another checkout, in the legacy form.
+
+        It is a user site of its own, so the developer's own install is not
+        in the picture, and it does the two things an editable install does:
+        it puts the checkout at the front of `sys.path`, and it registers a
+        meta-path finder for the package.
+        """
+        site = (
+            self.tmp
+            / 'userbase'
+            / 'lib'
+            / f'python{sys.version_info[0]}.{sys.version_info[1]}'
+            / 'site-packages'
+        )
+        site.mkdir(parents=True)
+        (site / 'foreign_editable_install.py').write_text(
+            'import sys\n'
+            'import importlib.util\n'
+            '\n'
+            f'FOREIGN = {str(self.foreign / "scripts" / "src")!r}\n'
+            '\n'
+            'sys.path.insert(0, FOREIGN)\n'
+            '\n'
+            '\n'
+            'class ForeignFinder:\n'
+            '    @classmethod\n'
+            '    def find_spec(cls, name, path=None, target=None):\n'
+            '        if name != "sgate":\n'
+            '            return None\n'
+            '        return importlib.util.spec_from_file_location(\n'
+            '            name, FOREIGN + "/sgate/__init__.py")\n'
+            '\n'
+            '\n'
+            'sys.meta_path.append(ForeignFinder)\n',
+            encoding='utf-8',
+        )
+        (site / 'easy-install.pth').write_text('import foreign_editable_install\n', encoding='utf-8')
+        saved = os.environ.get('PYTHONUSERBASE')
+        os.environ['PYTHONUSERBASE'] = str(self.tmp / 'userbase')
+        self.addCleanup(self._restore_userbase, saved)
+
+    def _restore_userbase(self, saved: str | None) -> None:
+        if saved is None:
+            os.environ.pop('PYTHONUSERBASE', None)
+        else:
+            os.environ['PYTHONUSERBASE'] = saved
+
+    def test_the_base_run_measures_the_base_tree_and_not_another_checkout(self):
+        """A foreign editable install must not decide what the base run measures.
+
+        Without the binding, the base run imports the other checkout's
+        `sgate`, the base tree's own test fails there, and the failure is
+        read as "the base tree fails this test as well" — the push's own
+        failure is called somebody else's, and the push is waved through.
+        """
+        self._foreign_install()
+        failed = mod.run_tests_on_base(
+            str(self.base),
+            ['test_sample.SampleTest.test_the_base_trees_own_package_answers'],
+        )
+        self.assertEqual(
+            set(),
+            failed,
+            'the base run measured another checkout, and its failure was called the base tree’s',
+        )
+
+    def test_a_base_tree_without_packages_of_its_own_cannot_be_compared(self):
+        """A base tree that cannot be bound is not measured at all.
+
+        The comparison cannot be made then, and a comparison that could not be
+        made must not be read as "the push carries nothing of its own".
+        """
+        bare = self.tmp / 'bare'
+        (bare / 'scripts' / 'tests').mkdir(parents=True)
+        (bare / 'scripts' / 'tests' / 'test_sample.py').write_text('', encoding='utf-8')
+        with self.assertRaises(mod.ComparisonUnavailable):
+            mod.run_tests_on_base(str(bare), ['test_sample.SampleTest.test_x'])
+
+    def test_a_test_that_does_not_exist_on_the_base_is_not_pre_existing(self):
+        """A test the base tree does not have cannot be the base tree's failure.
+
+        The base tree is asked about a test it does not carry, and answers
+        that the test is not there — which is the answer the caller needs.
+        """
+        failed = mod.run_tests_on_base(str(self.base), ['test_other.OtherTest.test_x'])
+        self.assertNotIn(
+            'test_other.OtherTest.test_x',
+            failed,
+            'a test the base tree does not have was called the base tree’s failure',
+        )
+
+    def test_a_base_module_that_fails_to_import_is_not_pre_existing(self):
+        """A base tree whose module cannot be imported says nothing about the test.
+
+        The import error is reported for the module, not for the test inside
+        it, so it cannot account for the test's failure: the failure is the
+        push's own until somebody can say otherwise.
+        """
+        (self.base / 'scripts' / 'tests' / 'test_broken.py').write_text(
+            'import a_module_that_is_not_there\n',
+            encoding='utf-8',
+        )
+        failed = mod.run_tests_on_base(str(self.base), ['test_broken.BrokenTest.test_x'])
+        self.assertNotIn(
+            'test_broken.BrokenTest.test_x',
+            failed,
+            'a module that could not be imported was called the base tree’s failure',
+        )
 
 
 class CommandLineTest(unittest.TestCase):
@@ -336,6 +494,32 @@ class CommandLineTest(unittest.TestCase):
             str(self.tmp),
         )
         self.assertEqual(2, result.returncode)
+
+    def test_tests_returns_two_when_the_base_tree_cannot_be_measured(self):
+        """A base tree that cannot be bound is not compared, and not called clean.
+
+        The comparison could not be made, so the caller must stop the push —
+        reading it as "the push carries nothing" would accept a push on the
+        strength of a measurement that never happened.
+        """
+        report = self.tmp / 'report.xml'
+        report.write_text(
+            '<testsuites><testsuite><testcase classname="mod.Class" name="test_x">'
+            '<failure message="boom"/></testcase></testsuite></testsuites>',
+            encoding='utf-8',
+        )
+        base = self.tmp / 'base'
+        (base / 'scripts' / 'tests').mkdir(parents=True)
+        (base / 'scripts' / 'tests' / 'test_sample.py').write_text('', encoding='utf-8')
+        result = self._run(
+            'tests',
+            '--report',
+            str(report),
+            '--base-tree',
+            str(base),
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('cannot be made', result.stdout)
 
     def test_tests_returns_two_when_the_report_names_no_failing_test(self):
         """A suite that failed without a failing test cannot be compared.
