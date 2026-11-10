@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**134 scenarios · 104/175 claimed cells automated · 71 holes**
+**135 scenarios · 106/177 claimed cells automated · 71 holes**
 
 ## feature.agenda
 
@@ -108,6 +108,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
 | `MENU-05` | A project without children shows no expander, and a closed project is absent from the tree | ● | ● | The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The… |
 | `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the tree is not the only way to work with projects. |
+| `MENU-07` | The Projects section of the menu starts folded, so the menu's destinations stay reachable | ● | ● | The tree is not drawn, so the entries above it — the destinations and Settings — are reachable without scrolling… |
 | `MENU-10` | The menu offers Attach account to an anonymous session | ● | — | The menu carries an "Attach account" entry. It is the way out of the local session, so an anonymous session has to be… |
 
 ## feature.nav

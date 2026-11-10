@@ -1,0 +1,24 @@
+# Scenario MENU-07 — the Projects section of the menu is folded by default.
+#
+# A profile with a hundred projects draws a tree longer than the screen, and
+# the tree sits below the entries the user opened the menu for. So the section
+# is folded until the user unfolds it, and the way into the full project list
+# stays next to the heading — folded or not.
+
+id: MENU-07
+title: "The Projects section of the menu starts folded, so the menu's destinations stay reachable"
+area: feature.menu
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  The profile holds a hundred projects.
+steps:
+  - "Open the app menu."
+  - "Look at the Projects section."
+  - "Unfold the section."
+expected: >-
+  The tree is not drawn, so the entries above it — the destinations and
+  Settings — are reachable without scrolling through a hundred project rows.
+  Unfolding the section draws the tree, and folding it again takes the tree
+  off the screen.
