@@ -1,0 +1,61 @@
+# truncated tail of the failing flow's logcat (credentials filtered)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider.queryForSingleItem(MediaProvider.java:10065)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider.queryForDataFile(MediaProvider.java:10005)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider.queryForDataFile(MediaProvider.java:9997)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider.updateQuotaTypeForUri(MediaProvider.java:1034)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider$5.lambda$onUpdate$1(MediaProvider.java:1161)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider$5.$r8$lambda$dE6UDBp7rYHuVV_bubZzTbSKhbU(MediaProvider.java:0)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at com.android.providers.media.MediaProvider$5$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at android.os.Handler.handleCallback(Handler.java:995)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at android.os.Handler.dispatchMessage(Handler.java:103)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at android.os.Looper.loopOnce(Looper.java:248)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at android.os.Looper.loop(Looper.java:338)
+11-10 09:08:19.808  1559  1691 W MediaProvider: 	at android.os.HandlerThread.run(HandlerThread.java:85)
+11-10 09:08:19.810  2862  3062 I UriTaskContentObserver: Throttling content uri change event for content://media/external/file/18 [CONTEXT service_id=218 ]
+11-10 09:08:19.811  1825  5622 I GmsDebugLogger: [73] 1801
+11-10 09:08:19.812  1825  5622 W ZappDownloader: No successful Zapp module downloads for requested modules [MlkitOcrCommon.optional:252635100800:permitMetered, Wasmlibs.optional:252635100800:permitMetered, MlkitBarcodeUi.optional:252635100800:permitMetered, VisionBarcode.optional:252635100800:permitMetered, VisionOcr.optional:252635100000:permitMetered, Appsearch.optional:252635100800:permitMetered, TfliteDynamiteDynamite.integ:264010405100800].
+11-10 09:08:19.812  1825  5622 I GmsDebugLogger: [30] [MlkitOcrCommon.optional:252635100800],[Wasmlibs.optional:252635100800],[MlkitBarcodeUi.optional:252635100800],[VisionBarcode.optional:252635100800],[VisionOcr.optional:252635100000],[Appsearch.optional:252635100800],[TfliteDynamiteDynamite.integ:264010405100800]
+11-10 09:08:19.830  2862  5163 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService finished executing. cause:9 result: 3 elapsed_millis: 341 uptime_millis: 341 exec_start_elapsed_seconds: 227 [CONTEXT service_id=218 ]
+11-10 09:08:19.831  1825  5622 I ChimeraConfigService: Scheduling checkin for one-off execution between [3300,43201] seconds from now (1794301699831) [CONTEXT service_id=264 ]
+11-10 09:08:19.942     0     0 I logd    : logdr: UID=2000 GID=2000 PID=5692 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+11-10 09:08:19.847  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d5bbb8) locale list changing from [] to [en-US]
+11-10 09:08:19.849  1825  5622 I ChimeraConfigService: Scheduling checkin every 43201 seconds, with flex of 21600 seconds [CONTEXT service_id=264 ]
+11-10 09:08:19.887  2862  5163 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.chimera.container.ConfigService finished executing. cause:5 result: 2 elapsed_millis: 152 uptime_millis: 152 exec_start_elapsed_seconds: 228 [CONTEXT service_id=218 ]
+11-10 09:08:19.890  1559  1855 D WM-SystemJobScheduler: Scheduling work ID 45a8c136-b664-4d66-a9be-76d46807cf61Job ID 3
+11-10 09:08:19.895  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d61fb8) locale list changing from [] to [en-US]
+11-10 09:08:19.895  1559  1855 D WM-GreedyScheduler: Ignoring {WorkSpec: 7e916f4c-7d55-48a7-9e6c-f3bb9eceb423}. Requires device idle.
+11-10 09:08:19.895  1559  1855 D WM-GreedyScheduler: Ignoring {WorkSpec: ca240bc8-d1a4-4147-9380-848020eb1548}. Requires device idle.
+11-10 09:08:19.911  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d63bd8) locale list changing from [] to [en-US]
+11-10 09:08:19.918  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d686d8) locale list changing from [] to [en-US]
+11-10 09:08:19.920  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d689f8) locale list changing from [] to [en-US]
+11-10 09:08:19.921  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d69038) locale list changing from [] to [en-US]
+11-10 09:08:19.923  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6c558) locale list changing from [] to [en-US]
+11-10 09:08:19.926  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d683b8) locale list changing from [] to [en-US]
+11-10 09:08:19.930  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d67a58) locale list changing from [] to [en-US]
+11-10 09:08:19.934  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6d1d8) locale list changing from [] to [en-US]
+11-10 09:08:19.935  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6af78) locale list changing from [] to [en-US]
+11-10 09:08:19.938  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6a2f8) locale list changing from [] to [en-US]
+11-10 09:08:19.939  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6e7b8) locale list changing from [] to [en-US]
+11-10 09:08:19.939  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d61978) locale list changing from [] to [en-US]
+11-10 09:08:19.940  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6de58) locale list changing from [] to [en-US]
+11-10 09:08:19.943  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d69678) locale list changing from [] to [en-US]
+11-10 09:08:19.945  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d73f38) locale list changing from [] to [en-US]
+11-10 09:08:19.947  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6f438) locale list changing from [] to [en-US]
+11-10 09:08:19.948  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d700b8) locale list changing from [] to [en-US]
+11-10 09:08:19.951  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6b8d8) locale list changing from [] to [en-US]
+11-10 09:08:19.960  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d67d78) locale list changing from [] to [en-US]
+11-10 09:08:19.971  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d77458) locale list changing from [] to [en-US]
+11-10 09:08:19.990  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d7ac98) locale list changing from [] to [en-US]
+11-10 09:08:19.993  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d7afb8) locale list changing from [] to [en-US]
+11-10 09:08:19.996  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d77778) locale list changing from [] to [en-US]
+11-10 09:08:19.999  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d7d858) locale list changing from [] to [en-US]
+11-10 09:08:20.000  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d783f8) locale list changing from [] to [en-US]
+11-10 09:08:20.002  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d7a018) locale list changing from [] to [en-US]
+11-10 09:08:20.008  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d7e7f8) locale list changing from [] to [en-US]
+11-10 09:08:20.010  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d79078) locale list changing from [] to [en-US]
+11-10 09:08:20.013  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d68098) locale list changing from [] to [en-US]
+11-10 09:08:20.020  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d67738) locale list changing from [] to [en-US]
+11-10 09:08:20.024  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6e7b8) locale list changing from [] to [en-US]
+11-10 09:08:20.025  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6f118) locale list changing from [] to [en-US]
+11-10 09:08:20.027  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6a2f8) locale list changing from [] to [en-US]
+11-10 09:08:20.030  1485  1624 I .apps.wellbeing: AssetManager2(0x779a83d6e498) locale list changing from [] to [en-US]

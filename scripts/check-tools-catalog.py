@@ -87,6 +87,11 @@ EXTRA_TOOLS = [
         "Indexes the evidence a test run produced: what failed, where each failure's "
         "diagnostics are, and what is missing. Writes an index and a manifest.",
     ),
+    (
+        "scripts/maestro-allure.py",
+        "Converts a Maestro run's existing JUnit XML into Allure results and a run "
+        "manifest. Reads artifacts only; never runs Maestro, renders or publishes.",
+    ),
 ]
 
 

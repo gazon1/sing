@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="singularity-api36" tests="1" failures="1" time="85.995" timestamp="2026-11-10T09:08:54">
+    <testcase id="notes-edit-body" name="notes-edit-body" classname="notes-edit-body" file="Maestro/flows/notes/01-edit-body.yaml" time="85.955" timestamp="2026-11-10T09:08:54" status="ERROR">
+      <properties>
+        <property name="tags" value="smoke, regression, notes"/>
+      </properties>
+      <failure>Assertion is false: "Discuss roadmap" is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

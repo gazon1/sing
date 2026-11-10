@@ -1,0 +1,61 @@
+# truncated tail of the failing flow's logcat (credentials filtered)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at agub.a(:com.google.android.gms@252635038@25.26.35 (260800-783060121):1)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at ague.a(:com.google.android.gms@252635038@25.26.35 (260800-783060121):58)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at acba.call(:com.google.android.gms@252635038@25.26.35 (260800-783060121):56)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at azpj.c(:com.google.android.gms@252635038@25.26.35 (260800-783060121):50)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at azpj.run(:com.google.android.gms@252635038@25.26.35 (260800-783060121):70)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1156)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:651)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at azva.run(:com.google.android.gms@252635038@25.26.35 (260800-783060121):8)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at java.lang.Thread.run(Thread.java:1119)
+11-10 09:10:22.045  2862  3100 W GLSUser : Caused by: cilv: Parse Proto Exception with response code 400
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at cina.b(:com.google.android.gms@252635038@25.26.35 (260800-783060121):71)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at cipp.d(:com.google.android.gms@252635038@25.26.35 (260800-783060121):18)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at ciqg.onSucceeded(:com.google.android.gms@252635038@25.26.35 (260800-783060121):9)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at m1.ng.onSucceeded(:com.google.android.gms.dynamite_cronetdynamite@252635038@25.26.35 (260800-0):3)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at m1.md.run(:com.google.android.gms.dynamite_cronetdynamite@252635038@25.26.35 (260800-0):21)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at m1.lx.run(:com.google.android.gms.dynamite_cronetdynamite@252635038@25.26.35 (260800-0):31)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	... 6 more
+11-10 09:10:22.045  2862  3100 W GLSUser : Caused by: gztt: Protocol message contained an invalid tag (zero).
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzqp.k(:com.google.android.gms@252635038@25.26.35 (260800-783060121):43)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzut.c(:com.google.android.gms@252635038@25.26.35 (260800-783060121):398)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzut.i(:com.google.android.gms@252635038@25.26.35 (260800-783060121):8)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzsx.oo(:com.google.android.gms@252635038@25.26.35 (260800-783060121):23)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzss.g(:com.google.android.gms@252635038@25.26.35 (260800-783060121):3)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzql.e(:com.google.android.gms@252635038@25.26.35 (260800-783060121):1)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzql.d(:com.google.android.gms@252635038@25.26.35 (260800-783060121):3)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at gzql.p(:com.google.android.gms@252635038@25.26.35 (260800-783060121):1)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at cina.g(:com.google.android.gms@252635038@25.26.35 (260800-783060121):69)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	at cina.b(:com.google.android.gms@252635038@25.26.35 (260800-783060121):11)
+11-10 09:10:22.045  2862  3100 W GLSUser : 	... 11 more
+11-10 09:10:22.050  1559  2136 I MediaProvider: End Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+11-10 09:10:22.059  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d6db38) locale list changing from [] to [en-US]
+11-10 09:10:22.060  2862  6420 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService finished executing. cause:9 result: 3 elapsed_millis: 270 uptime_millis: 270 exec_start_elapsed_seconds: 350 [CONTEXT service_id=218 ]
+11-10 09:10:22.067  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d6cb98) locale list changing from [] to [en-US]
+11-10 09:10:22.080  1559  1718 D WM-SystemJobScheduler: Scheduling work ID 8e51f021-4621-43ee-9ea6-d086a98e954dJob ID 4
+11-10 09:10:22.081  1559  1718 D WM-GreedyScheduler: Ignoring {WorkSpec: 7e916f4c-7d55-48a7-9e6c-f3bb9eceb423}. Requires device idle.
+11-10 09:10:22.081  1559  1718 D WM-GreedyScheduler: Ignoring {WorkSpec: ca240bc8-d1a4-4147-9380-848020eb1548}. Requires device idle.
+11-10 09:10:22.088  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d62f58) locale list changing from [] to [en-US]
+11-10 09:10:22.102  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d6ac58) locale list changing from [] to [en-US]
+11-10 09:10:22.107  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d5daf8) locale list changing from [] to [en-US]
+11-10 09:10:22.107  1559  3109 W MediaProvider: Ignoring param:deletedata post U for external apps
+11-10 09:10:22.111  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d60398) locale list changing from [] to [en-US]
+11-10 09:10:22.113  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d58cd8) locale list changing from [] to [en-US]
+11-10 09:10:22.114  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d5a8f8) locale list changing from [] to [en-US]
+11-10 09:10:22.116  1559  3109 I MediaProvider: Deleted 0 1 0 0 0 0 0 items on external_primary due to com.android.shell
+11-10 09:10:22.117  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d7bf58) locale list changing from [] to [en-US]
+11-10 09:10:22.118  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d7cef8) locale list changing from [] to [en-US]
+11-10 09:10:22.120  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d7e1b8) locale list changing from [] to [en-US]
+11-10 09:10:22.121  2862  3062 I UriTaskContentObserver: Throttling content uri change event for content://media/external/file/19 [CONTEXT service_id=218 ]
+11-10 09:10:22.124  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d609d8) locale list changing from [] to [en-US]
+11-10 09:10:22.128  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d7a658) locale list changing from [] to [en-US]
+11-10 09:10:22.133  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d7db78) locale list changing from [] to [en-US]
+11-10 09:10:22.135  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d7b2d8) locale list changing from [] to [en-US]
+11-10 09:10:22.138  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d6a618) locale list changing from [] to [en-US]
+11-10 09:10:22.143  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d799d8) locale list changing from [] to [en-US]
+11-10 09:10:22.263     0     0 I logd    : logdr: UID=2000 GID=2000 PID=6490 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+11-10 09:10:22.184  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d69678) locale list changing from [] to [en-US]
+11-10 09:10:22.194  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d700b8) locale list changing from [] to [en-US]
+11-10 09:10:22.196  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d74578) locale list changing from [] to [en-US]
+11-10 09:10:22.202  1485  1658 I .apps.wellbeing: AssetManager2(0x779a83d67d78) locale list changing from [] to [en-US]

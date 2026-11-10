@@ -144,6 +144,9 @@ target/
 
 # UI verification screenshots
 *.png
+# …except the Maestro → Allure fixtures: one real failure screenshot per shard,
+# so the attachment contract (#2773) has evidence to copy and size-check.
+!scripts/tests/fixtures/maestro-allure/**/*.png
 __pycache__/
 .zcode
 

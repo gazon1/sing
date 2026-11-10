@@ -1,0 +1,61 @@
+# truncated tail of the failing flow's logcat (credentials filtered)
+11-10 09:10:42.595  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f30638) locale list changing from [] to [en-US]
+11-10 09:10:42.596  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f2dd98) locale list changing from [] to [en-US]
+11-10 09:10:42.598  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f2f698) locale list changing from [] to [en-US]
+11-10 09:10:42.598  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f33518) locale list changing from [] to [en-US]
+11-10 09:10:42.599  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f31c18) locale list changing from [] to [en-US]
+11-10 09:10:42.599  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f33b58) locale list changing from [] to [en-US]
+11-10 09:10:42.600  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f2da78) locale list changing from [] to [en-US]
+11-10 09:10:42.601  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f2fff8) locale list changing from [] to [en-US]
+11-10 09:10:42.602  1566  1636 I .apps.wellbeing: AssetManager2(0x77e3d6f344b8) locale list changing from [] to [en-US]
+11-10 09:10:42.603  7166  7166 W screencap: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+11-10 09:10:42.603  7166  7166 W BpBinder: Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+11-10 09:10:42.603  7166  7166 W ProcessState: Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+11-10 09:10:42.605   518   544 E HwcComposer: getLuts failed Status(-8, EX_SERVICE_SPECIFIC): '8: '
+11-10 09:10:42.605   518   544 E HWComposer: getLuts: getLuts failed for display 4619827259835644672: UNSUPPORTED (8)
+11-10 09:10:42.748     0     0 I servicemanager: Caller(pid=7166,uid=2000,sid=u:r:shell:s0) Found android.hardware.graphics.allocator.IAllocator/default in device VINTF manifest.
+11-10 09:10:42.751     0     0 I servicemanager: Caller(pid=7166,uid=2000,sid=u:r:shell:s0) Found android.hardware.graphics.allocator.IAllocator/default in device VINTF manifest.
+11-10 09:10:42.757     0     0 I servicemanager: Caller(pid=7166,uid=2000,sid=u:r:shell:s0) Found mapper/ranchu in device VINTF manifest.
+11-10 09:10:42.654  1659  1987 W MediaProvider: isAppCloneUserPair for user 0: false
+11-10 09:10:42.672  1327  7051 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService started execution. cause:9 exec_start_elapsed_seconds: 370 [CONTEXT service_id=218 ]
+11-10 09:10:42.673  1327  7132 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService finished executing. cause:9 result: 1 elapsed_millis: 7 uptime_millis: 7 exec_start_elapsed_seconds: 370 [CONTEXT service_id=218 ]
+11-10 09:10:42.780   641  2053 I ActivityManager: Broadcasting: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }
+11-10 09:10:42.781   641  2053 I ActivityManager: Enqueued broadcast Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }: 0
+11-10 09:10:42.781   641  1764 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+11-10 09:10:42.783   641   664 I ActivityManager: Broadcast completed: result=0
+11-10 09:10:42.784  1659  2222 I MediaProvider: Begin Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+11-10 09:10:42.789  1659  2222 D ExifInterface: Invalid image: ExifInterface got an unsupported or corrupted image file
+11-10 09:10:42.789  1659  2222 D ExifInterface: java.io.IOException: Encountered corrupt PNG file.
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at android.media.ExifInterface.getPngAttributes(ExifInterface.java:3444)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at android.media.ExifInterface.loadAttributes(ExifInterface.java:2008)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at android.media.ExifInterface.<init>(ExifInterface.java:1640)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at android.media.ExifInterface.<init>(ExifInterface.java:1591)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner.scanItemImage(ModernMediaScanner.java:1713)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner.scanItem(ModernMediaScanner.java:1306)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner.-$$Nest$mscanItem(ModernMediaScanner.java:0)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:1020)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:501)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at java.nio.file.Files.walkFileTree(Files.java:2670)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at java.nio.file.Files.walkFileTree(Files.java:2742)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner$Scan.walkFileTree(ModernMediaScanner.java:624)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner$Scan.runInternal(ModernMediaScanner.java:583)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner$Scan.run(ModernMediaScanner.java:572)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.scan.ModernMediaScanner.scanFile(ModernMediaScanner.java:420)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.MediaProvider.scanFile(MediaProvider.java:2396)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.MediaService.onScanFile(MediaService.java:237)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at com.android.providers.media.MediaService.onHandleWork(MediaService.java:85)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:397)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:388)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at android.os.AsyncTask$3.call(AsyncTask.java:394)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1156)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:651)
+11-10 09:10:42.789  1659  2222 D ExifInterface: 	at java.lang.Thread.run(Thread.java:1119)
+11-10 09:10:42.795  1659  2222 I MediaProvider: End Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+11-10 09:10:42.804  1659  1826 D WM-SystemJobScheduler: Scheduling work ID 660c6651-dd5f-4367-b0c8-f68ab732b162Job ID 4
+11-10 09:10:42.805  1659  1826 D WM-GreedyScheduler: Ignoring {WorkSpec: d7e228ae-a7da-4375-aa11-b0fe3079e52d}. Requires device idle.
+11-10 09:10:42.805  1659  1826 D WM-GreedyScheduler: Ignoring {WorkSpec: 6d47c855-4364-4700-ba2c-29d5e0a9758b}. Requires device idle.
+11-10 09:10:42.817  1659  2000 W MediaProvider: Ignoring param:deletedata post U for external apps
+11-10 09:10:42.818  1327  1908 I UriTaskContentObserver: Throttling content uri change event for content://media/external/file/19 [CONTEXT service_id=218 ]
+11-10 09:10:42.819  1659  2000 I MediaProvider: Deleted 0 1 0 0 0 0 0 items on external_primary due to com.android.shell
+11-10 09:10:42.969     0     0 I logd    : logdr: UID=2000 GID=2000 PID=7176 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns

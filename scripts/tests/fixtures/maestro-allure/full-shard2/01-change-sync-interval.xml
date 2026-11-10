@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="singularity-api36" tests="1" failures="0" time="37.364" timestamp="2026-11-10T09:07:38">
+    <testcase id="sync-change-interval" name="sync-change-interval" classname="sync-change-interval" file="Maestro/flows/sync/01-change-sync-interval.yaml" time="37.336" timestamp="2026-11-10T09:07:38" status="SUCCESS">
+      <properties>
+        <property name="tags" value="regression, sync, scenario:SYNC-SETTINGS-01"/>
+      </properties>
+    </testcase>
+  </testsuite>
+</testsuites>

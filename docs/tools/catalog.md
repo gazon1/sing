@@ -26,6 +26,7 @@ A gate script that no registry entry names is not a gate — it is run by a surf
 | `scripts/ci-verdict.py` | Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion. The pre-push hook calls it about the commit that is going out, so the verdict is a line of the push. |
 | `scripts/prune-merged-branches.py` | Plans the deletion of local branches whose pull request is merged; deletes them only with --yes. |
 | `scripts/test-evidence.py` | Indexes the evidence a test run produced: what failed, where each failure's diagnostics are, and what is missing. Writes an index and a manifest. |
+| `scripts/maestro-allure.py` | Converts a Maestro run's existing JUnit XML into Allure results and a run manifest. Reads artifacts only; never runs Maestro, renders or publishes. |
 
 ## The modules of the gate suite
 

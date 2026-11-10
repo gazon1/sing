@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="singularity-api36" tests="1" failures="0" time="11.849" timestamp="2026-11-10T09:10:56">
+    <testcase id="smoke-launch-today" name="smoke-launch-today" classname="smoke-launch-today" file="Maestro/flows/smoke/01-launch-today.yaml" time="11.822" timestamp="2026-11-10T09:10:56" status="SUCCESS">
+      <properties>
+        <property name="tags" value="smoke"/>
+      </properties>
+    </testcase>
+  </testsuite>
+</testsuites>
