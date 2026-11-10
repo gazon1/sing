@@ -242,6 +242,59 @@ class TaskRowDensityTest {
             )
         }
 
+    @Test
+    fun `the project keeps a share when the meta row is crowded`() =
+        runIsolatedComposeTest {
+            setContent {
+                Themed {
+                    Column {
+                        // The same crowded meta row twice: once in the column of a
+                        // 360 dp phone, once in a roomy one. The date must measure
+                        // the same in both; the project must survive the first.
+                        Box(Modifier.width(TITLE_COLUMN)) { CrowdedMetaRow() }
+                        Box(Modifier.width(PHONE_WIDTH * 2)) { CrowdedMetaRow() }
+                    }
+                }
+            }
+
+            val dates = onAllNodesWithText(DUE, useUnmergedTree = true)
+            val projects = onAllNodesWithText(PROJECT, useUnmergedTree = true)
+
+            assertDp(
+                dates[1].getUnclippedBoundsInRoot().widthDp(),
+                dates[0].getUnclippedBoundsInRoot().widthDp(),
+                "the due date's width in a crowded row",
+            )
+            assertTrue(
+                projects[0].getUnclippedBoundsInRoot().widthDp() > 0.dp,
+                "the project name was squeezed out of the crowded row",
+            )
+            assertTrue(
+                projects[0].getUnclippedBoundsInRoot().widthDp() <
+                    projects[1].getUnclippedBoundsInRoot().widthDp(),
+                "the project name was not the field that gave way its width",
+            )
+        }
+
+    @Test
+    fun `the series marker keeps its count for the screen reader`() =
+        runIsolatedComposeTest {
+            setContent {
+                Themed {
+                    Box(Modifier.width(TITLE_COLUMN)) { MetaRow() }
+                }
+            }
+
+            // The word is gone from the row — that is what makes room for the
+            // project — but the count is still in the marker's description, so
+            // nothing is lost for someone who listens to the row.
+            assertNodeDisplayed(hasContentDescription(SERIES_MARK), "the series mark")
+            assertTrue(
+                onAllNodesWithText(SERIES_MARK, useUnmergedTree = true).fetchSemanticsNodes().isEmpty(),
+                "the series mark must not draw its word on the row",
+            )
+        }
+
     // ─── Priority ─────────────────────────────────────────────────────────────
 
     @Test
@@ -322,6 +375,29 @@ class TaskRowDensityTest {
             dueLabel = DUE,
             project = PROJECT,
             markings = persistentSetOf(TaskMarking.Recurring),
+            seriesDates = 5,
+            projectColor = 0xFF6A4C93.toInt(),
+        )
+    }
+
+    /**
+     * The meta row at its worst: a date, three marks, a series and a project.
+     *
+     * This is the row that used to leave the project nothing: the marks and the
+     * series word took the whole column, and the project — the one field allowed
+     * to give way — got zero instead of an ellipsis.
+     */
+    @Composable
+    private fun CrowdedMetaRow() {
+        TaskMetaRow(
+            dueLabel = DUE,
+            project = PROJECT,
+            markings =
+                persistentSetOf(
+                    TaskMarking.InProgress,
+                    TaskMarking.NextUp,
+                    TaskMarking.Pinned,
+                ),
             seriesDates = 5,
             projectColor = 0xFF6A4C93.toInt(),
         )

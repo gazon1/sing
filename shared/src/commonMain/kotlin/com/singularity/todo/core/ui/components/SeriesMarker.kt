@@ -31,7 +31,10 @@ import com.singularity.todo.core.ui.theme.mutedTextColor
  *   show the count — the calendar's chip has no room for it — and not that the
  *   row is not part of a series.
  * @param compact The icon alone, for the places where there is no room for a
- *   word — the calendar's chip.
+ *   word — the calendar's chip, and the task row, where the width belongs to
+ *   the date and the project. The count does not disappear with the word: it
+ *   stays in the icon's description, so a screen reader still hears how many
+ *   dates the series has.
  */
 @Composable
 fun SeriesMarker(
@@ -43,8 +46,7 @@ fun SeriesMarker(
     if (!isSeries) return
     val label =
         when {
-            compact -> "Series"
-            dates == null -> "series"
+            dates == null -> if (compact) "Series" else "series"
             else -> "series · ${formatDateCount(dates)}"
         }
     Row(

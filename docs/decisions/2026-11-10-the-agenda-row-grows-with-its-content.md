@@ -38,6 +38,15 @@ The measurements that started this are the ones in `TaskRowDensityTest`: a
 one-line row's height, the width the due date keeps, and the colour the
 priority's word is painted in.
 
+A later manual inspection of the row — rendered in both themes at 320 dp and
+411 dp and read off the pixels and the semantics tree — found the defect the
+issue only half describes. With a date, three marks, a series and a project, the
+meta row consumed the whole text column of a 360 dp phone (264 px), and the
+project — the one field allowed to give way — got **zero** width instead of an
+ellipsis: its name and its colour dot were not drawn at all, and the separator
+before it hung on empty space. The widest consumer was the series marker's word,
+"series · 5 dates" (102 px), which is context, not a fact the row is read for.
+
 ## Idea
 
 - **Density is padding, not a height.** The row must not have a fixed height
@@ -52,6 +61,11 @@ priority's word is painted in.
 - **Priority is a shape, never a text colour.** The colour coding stays — the
   hue is how the priority is recognised at a glance — but the word next to the
   marker is text, and text has to be readable in both themes.
+- **The row's width belongs to the facts, not to the context.** The date and the
+  project are what the row is read for; the marks and the series are context.
+  When the column runs out, context gives way — and it must give way *before*
+  the project is erased, because a project squeezed to zero is not an
+  ellipsised project, it is a missing one.
 
 ## Decision
 
@@ -71,6 +85,13 @@ child that gives up width (`Modifier.weight(1f, fill = false)`), so it is the
 only field that ellipsises. `TaskMarkingsRow.ConveyedElsewhere` became
 `internal` so the meta row can tell whether a mark is drawn at all — a row
 whose only mark is conveyed elsewhere must not hang a separator on empty space.
+
+The series marker in the row is drawn **compact**: the icon alone, without the
+word "series · 5 dates". The count does not disappear with the word — it stays
+in the icon's description, so a screen reader still hears how many dates the
+series has. `SeriesMarker` grew no new parameter for this: its existing
+`compact` flag already meant "the icon alone", and the only change is that the
+label it speaks keeps the count when the count is known.
 
 `PriorityChip` keeps the priority hue as a 13 dp dot and paints the word in
 `MaterialTheme.colorScheme.onSurfaceVariant`. The agenda row itself was not
@@ -107,12 +128,31 @@ would prove that the theme has a readable colour, not that the chip uses it.
 pixels against the surface behind them, so a label that drifts back to the
 priority hue fails on the rendered result.
 
+**An ellipsis is not the same as a zero.** A project that is measured to zero
+width is not shortened, it is gone — no name, no colour dot, and a separator
+that now hangs on nothing. The order of the row can decide *who* gives way, but
+it cannot create width that the fixed consumers have already taken: the date
+(95 px), three marks (65 px) and the series word (102 px) filled a 264 px
+column on their own. Something had to shrink that is not a fact the row is read
+for, and the series marker's word is the one that says the least: the icon
+already says "this is a series", and the count survives in the description.
+
 ## Consequences
 
 - A one-line agenda row is 72 dp tall instead of 80 dp, and a three-line title
   is fully readable instead of being cut at two.
 - The due date is never truncated: it is measured first and the project gives
   up the width. A long project name ellipsises, as before.
+- **The row no longer erases the project.** With a date, three marks and a
+  series, the project keeps 33 dp on a 320 dp phone and 73 dp on a 360 dp one,
+  ellipsised, where before it was measured to zero and vanished together with
+  its colour dot.
+  `TaskRowDensityTest` asserts the project's width in a crowded row against a
+  roomy one, so a row that erases the project again fails the test.
+- **The series marker in the row is an icon.** The visible word "series · 5
+  dates" is gone from the task row — 102 px that the date and the project now
+  have — while the count stays in the marker's description for a screen reader.
+  The calendar's chip already drew the icon alone and is unchanged.
 - The priority chip (archive, project detail, search) is a coloured dot with a
   readable word. The agenda row itself is unchanged in this respect: it already
   drew the priority once, as a non-clickable star, and it still does.
@@ -134,6 +174,7 @@ priority hue fails on the rendered result.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowContent.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskMetaRow.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskMarkingsRow.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/SeriesMarker.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityChip.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowDensityTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityChipContrastTest.kt`
