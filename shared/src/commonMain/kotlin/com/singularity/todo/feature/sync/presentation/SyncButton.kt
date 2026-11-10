@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.sync.SyncEngineStatus
+import com.singularity.todo.core.ui.animationDurationScale
+import com.singularity.todo.core.ui.animationsEnabled
 
 /**
  * Animated sync button that reflects [SyncEngineStatus].
@@ -35,6 +37,21 @@ import com.singularity.todo.core.sync.SyncEngineStatus
  * recomposition with a different [SyncEngineStatus] does NOT restart a running
  * rotation animation.
  *
+ * ## The rotation stops when the platform's animations are off
+ *
+ * [animationDurationScale] carries the operating system's answer to "are
+ * animations on?", read again rather than replayed from startup. When it says
+ * no, the icon is drawn still: the status is still reported in the content
+ * description, and the button still shows that a sync is running — but nothing
+ * moves, because a spinner that rotates forever is the one thing a user who has
+ * turned animations off does not want to watch.
+ *
+ * ## What a reduced-motion user sees
+ *
+ * The still icon is the whole progress signal: the button is disabled while a sync
+ * runs and the icon's content description says "Syncing…", so the running state is
+ * reported, but a running sync and a hung one look the same.
+ *
  * Tapping triggers [SyncIntent.SyncNow].
  */
 @Composable
@@ -44,22 +61,13 @@ fun SyncButton(
     modifier: Modifier = Modifier,
 ) {
     val isRunning = status.isRunning()
+    val animate = isRunning && animationsEnabled(animationDurationScale())
 
     // Wrapping in key(status) means: when status changes, the entire block is
     // disposed and recreated (fresh animation). When status is the same across
     // recompositions, the block is skipped and the animation continues.
     key(status) {
-        val infiniteTransition = rememberInfiniteTransition(label = "sync_rotation")
-        val rotation by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 1_500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "rotation",
-        )
+        val rotation = rememberSyncRotation(animate)
 
         val icon =
             when (status) {
@@ -101,9 +109,33 @@ fun SyncButton(
                     Modifier
                         .size(24.dp)
                         .then(
-                            if (isRunning) Modifier.rotate(rotation) else Modifier,
+                            if (animate) Modifier.rotate(rotation) else Modifier,
                         ),
             )
         }
     }
+}
+
+/**
+ * The rotation of the syncing icon, in degrees.
+ *
+ * The infinite transition is not created at all when the animation is off, so nothing
+ * is running for a user who asked for no motion.
+ */
+@Composable
+internal fun rememberSyncRotation(animate: Boolean): Float {
+    if (!animate) return 0f
+
+    val infiniteTransition = rememberInfiniteTransition(label = "sync_rotation")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 1_500, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+        label = "rotation",
+    )
+    return rotation
 }

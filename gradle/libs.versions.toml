@@ -1,7 +1,7 @@
 [versions]
 # Kotlin / Build
 agp = "9.5.1"
-kotlin = "2.4.10"
+kotlin = "2.4.21"
 ksp = "2.3.13"
 kotlin-serialization = "1.12.0"
 
@@ -15,7 +15,7 @@ androidx-activity = "1.13.0"
 androidx-appcompat = "1.8.0"
 androidx-core = "1.19.0"
 androidx-espresso = "3.7.0"
-androidx-uiautomator = "2.4.0"
+androidx-uiautomator = "2.4.1"
 androidx-lifecycle = "2.11.0"
 androidx-testExt = "1.3.0"
 
@@ -24,14 +24,14 @@ composeMultiplatform = "1.12.2"
 # Material3 — alpha; stable channel should be used when available
 # 1.12.0-alpha03 is the release that pairs with composeMultiplatform 1.12.2.
 # 1.13.0-beta01 dropped ExposedDropdownMenu; requires compileSdk 37.1.
-material3 = "1.13.0-beta01"
+material3 = "1.13.0-beta02"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
 datetime = "0.8.0"
 
 # Database / SQLDelight
-postgrestKt = "3.8.0"
+postgrestKt = "3.9.0"
 room = "3.0.3"
 sqlite = "2.7.0"
 sqliteJdbc = "3.47.0.0"
@@ -42,7 +42,7 @@ ktor = "3.6.1"
 # DI / Koin
 koin = "4.2.2"
 koin-annotations = "4.2.2"
-koin-compiler-plugin = "1.2.1"
+koin-compiler-plugin = "1.2.3"
 
 # Persistence / DataStore
 datastore = "1.3.0"
@@ -55,7 +55,7 @@ kermit = "2.2.0"
 
 # AppTracer (ru.ok.tracer) — crash / ANR / non-fatal reporting, Android only.
 # BOM-aligned: modules below carry no version of their own.
-tracer = "1.6.0"
+tracer = "1.6.1"
 
 # Markdown
 markdown-renderer = "0.46.0"
@@ -78,7 +78,7 @@ nav3-ui = "1.2.0"
 nav3-lifecycle-vm = "2.11.0"
 
 # Supabase
-supabase = "3.8.0"
+supabase = "3.9.0"
 
 # KMPAuth — the Google sign-in. A personal project (mirzemehdi/KMPAuth), Apache-2.0.
 # It is used for the account sign-in only; the token exchange is this project's.

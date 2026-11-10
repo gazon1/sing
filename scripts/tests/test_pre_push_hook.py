@@ -37,6 +37,7 @@ and the hook copy are all temporary, and the Gradle wrapper is a stand-in, so
 the tests take well under a second and need no build.
 """
 
+import json
 import os
 import pathlib
 import re
@@ -73,6 +74,18 @@ PACKAGE_BINDING = REPO_ROOT / 'scripts' / 'package-binding.py'
 #: goes out, so the verdict is a line in the output of the push and not a
 #: thing a reader has to remember to ask for.
 CI_VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'ci-verdict.py'
+
+#: The tool the hook compares two answers with. It is not a gate — it judges
+#: nothing about the tree — so the fixture carries the real file, the way it
+#: carries the verdict: a stubbed ratchet would say "nothing is new" about
+#: every push, and the tests would prove nothing.
+#:
+#: The path comes from the record of the hook (`config/hooks/pre-push.json`),
+#: so the fixture cannot name a tool the record does not name.
+HOOK_RECORD = REPO_ROOT / 'config' / 'hooks' / 'pre-push.json'
+RATCHET_TOOL = REPO_ROOT / json.loads(
+    HOOK_RECORD.read_text(encoding='utf-8'),
+)['hook_scripts']['ratchet_tool']
 
 #: The canonical answer to "which git variables must a command inside a tree
 #: not inherit". The verdict script loads it by path, the way the checkout
@@ -159,6 +172,38 @@ class RedGateTest(unittest.TestCase):
 
 #: The file whose absence makes the red module red.
 RED_GATE_MARKER = 'red-marker.txt'
+
+#: The gate the ratchet has to tell apart: a finding the base tree holds as
+#: well is pre-existing, and a finding only the pushed tree holds is the
+#: push's own. It fails when the tree it runs in holds a marker file, and it
+#: says where the finding is, the way the real gates do.
+#:
+#: It stands in for the version-catalog gate: the step that always runs, so
+#: the case does not depend on which paths the push touched.
+MARKER_GATE_SCRIPT = 'scripts/build-version-catalog-gate.py'
+MARKER_GATE = """#!/usr/bin/env python3
+import os
+import sys
+
+if os.path.exists('bad.txt'):
+    print('bad.txt:1:1: hardcoded version literal')
+    sys.exit(1)
+sys.exit(0)
+"""
+
+#: A gate that falls over without saying anything.
+#:
+#: The ratchet compares what the gate said, and it has to tell "the gate found
+#: a finding" from "the gate broke": a run that exits nonzero and prints
+#: nothing found nothing at all, so the two trees cannot be compared and the
+#: push stops. It stands in for the version-catalog gate — the step that
+#: always runs — so the case does not depend on which paths the push touched.
+SILENT_GATE_SCRIPT = MARKER_GATE_SCRIPT
+SILENT_GATE = """#!/usr/bin/env python3
+import sys
+
+sys.exit(1)
+"""
 
 SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
@@ -528,6 +573,14 @@ class PrePushHookTest(unittest.TestCase):
         # the file by path, because the package that also holds it cannot be
         # imported by the ambient interpreter the hook runs.
         self._write('scripts/gitenv_loader.py', GITENV_LOADER.read_text(encoding='utf-8'))
+        # And the tool the hook compares two answers with. It is not a gate,
+        # so it is not stubbed: the fixture carries the real file, the way it
+        # carries the verdict. A stubbed ratchet would answer "nothing is new"
+        # about every push, and the tests would prove nothing.
+        self._write(
+            RATCHET_TOOL.relative_to(REPO_ROOT),
+            RATCHET_TOOL.read_text(encoding='utf-8'),
+        )
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
@@ -539,21 +592,17 @@ class PrePushHookTest(unittest.TestCase):
         _git('add', '-A', cwd=self.repo)
         _git('commit', '-q', '-m', message, cwd=self.repo)
 
-    def _push(self, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-        # The remote is added once: a fixture that pushes twice must not fail
-        # on a remote that is already there.
-        subprocess.run(
-            ['git', 'remote', 'add', 'origin', str(self.remote)],
-            cwd=self.repo,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    def _push(self, *extra: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+        # The remote is added once: a case that pushes twice — the first push
+        # to put a commit on the remote, the second to measure a branch
+        # against it — would fail on the second `git remote add`.
+        if 'origin' not in _git('remote', cwd=self.repo).stdout.split():
+            _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
         push_env = _clean_git_env()
         if env:
             push_env.update(env)
         return subprocess.run(
-            ['git', 'push', 'origin', 'main'],
+            ['git', 'push', *extra, 'origin', 'main'],
             cwd=self.repo,
             capture_output=True,
             text=True,
@@ -628,13 +677,16 @@ class PrePushHookTest(unittest.TestCase):
         """The stand-in does not stand in for the step — it stands in for the tool.
 
         The hook runs the architecture check last, against the tree that is
-        being pushed. The fixture's tree does not carry the tool, so the
-        fixture installs one — and a stand-in that made the step disappear
-        would be a step nobody runs any more, so the hook's own answer is
-        checked: the step ran, and it ran against the pushed tree.
+        being pushed. The tool is installed through mise, and the tool a tree
+        has is the one its own declaration names — so the tree pushed here
+        declares easement, the way a tree of this repository does, and the
+        fixture installs a stand-in for it. A stand-in that made the step
+        disappear would be a step nobody runs any more, so the hook's own
+        answer is checked: the step ran, and it ran against the pushed tree.
         """
         self._install_hook()
         self._install_stubs()
+        self._write('mise.toml', '[tools]\neasement = "latest"\n')
         self._commit_source(CLEAN_SOURCE, 'a clean file')
 
         result = self._push()
@@ -1291,6 +1343,62 @@ class PrePushHookTest(unittest.TestCase):
         self.assertIn('detekt', output)
         self.assertIn('FAILED', output)
 
+    def _push_branch(self, branch: str, *extra: str) -> subprocess.CompletedProcess:
+        """Push a branch other than the trunk.
+
+        The remote is added once: a case that pushes twice — the first push
+        to put a commit on the remote, the second to measure a branch
+        against it — would fail on the second `git remote add`.
+        """
+        if 'origin' not in _git('remote', cwd=self.repo).stdout.split():
+            _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        return subprocess.run(
+            ['git', 'push', *extra, '-u', 'origin', branch],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=_clean_git_env(),
+        )
+
+    def test_a_push_without_a_base_is_judged_in_full(self):
+        """No base: the push is judged in full, and a finding blocks it.
+
+        The branch has no common ancestor with the trunk, so no base can be
+        resolved for it. The hook says so, and the verdict is told so too:
+        every module is judged, and every finding counts as this push's own.
+
+        The finding this push does not bring is still a finding: without a
+        base there is nothing to compare with, and a finding that cannot be
+        attributed cannot be called somebody else's. Measured against the
+        branch's upstream instead — the remote's copy of this branch — the
+        range carries no Kotlin, nothing is judged, and the push goes out
+        green with a violation in the tree.
+        """
+        self._install_hook()
+        self._install_stubs()
+        # A branch of its own: no common ancestor with the trunk, so no
+        # base can be resolved for it, whatever the trunk looks like.
+        _git('checkout', '--orphan', 'feature', cwd=self.repo)
+        self._write('shared/src/main/kotlin/Example.kt', SOURCE)
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a branch of its own', cwd=self.repo)
+        # The branch goes to the remote first, with an upstream of its own.
+        first = self._push_branch('feature', '--no-verify')
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        # This push carries no Kotlin: the violation the branch already
+        # holds is in the tree, but not in what this push changes.
+        self._write('README.md', 'a note\n')
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a note', cwd=self.repo)
+
+        result = self._push_branch('feature')
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, 'the push went out with a finding in it:\n' + output)
+        self.assertIn('no base could be resolved', output)
+        self.assertIn('detekt', output)
+        self.assertIn('FAILED', output)
+
     def test_a_push_that_moves_no_kotlin_is_not_a_clean_verdict(self):
         """Nothing was judged, so nothing was found — the summary must not claim clean."""
         self._install_hook()
@@ -1498,6 +1606,105 @@ class PrePushHookTest(unittest.TestCase):
             'environment of the hook:\n' + output,
         )
         self.assertEqual(0, result.returncode, output)
+
+    # ── the ratchet ──────────────────────────────────────────────────────
+
+    def test_a_finding_the_base_tree_has_as_well_does_not_block_the_push(self):
+        """The repository's own findings are the repository's CI run to report.
+
+        The hook judges the tree that is being pushed, and the trunk's trees
+        are not green: a finding the branch did not bring is the trunk's
+        finding, and a hook that blocks on it blocks every push, forever, on
+        somebody else's debt.
+
+        So the gate is run again in the base tree — the commit the branch
+        forked from — and what the base has as well is not this push's.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write(MARKER_GATE_SCRIPT, MARKER_GATE)
+        self._write('bad.txt', 'a finding the trunk already carries\n')
+        self._commit_source(CLEAN_SOURCE, 'a clean file with a pre-existing finding')
+        # The remote holds this commit, so the next push is measured against
+        # it — that commit is the base of the branch that follows.
+        first = self._push('--no-verify')
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        self._commit_source(CLEAN_SOURCE + '\n// a change of its own\n', 'a change')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('PRE-EXISTING', output)
+
+    def test_a_finding_the_push_brings_blocks_the_push(self):
+        """What the base does not have, the push brought.
+
+        The ratchet is not a way of waving a finding through: a finding that
+        is only in the tree the push carries is this push's, and the push
+        stops.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write(MARKER_GATE_SCRIPT, MARKER_GATE)
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        first = self._push('--no-verify')
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        self._write('bad.txt', 'a finding this push brings\n')
+        self._commit_source(CLEAN_SOURCE + '\n// a change of its own\n', 'a change')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('version-catalog gate: FAILED', output)
+        self.assertIn('what this push adds:', output)
+
+    def test_a_gate_that_broke_without_saying_anything_blocks_the_push(self):
+        """A gate that fell over is not a gate that found nothing.
+
+        The ratchet compares what the gate said. A run that exits nonzero
+        without printing anything said nothing — it broke — and two broken
+        runs used to compare as equal (both outputs empty), so the push was
+        accepted on the strength of a gate that validated neither tree.
+
+        The comparison cannot be made, and a comparison that could not be
+        made stops the push.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write(SILENT_GATE_SCRIPT, SILENT_GATE)
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        first = self._push('--no-verify')
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        self._commit_source(CLEAN_SOURCE + '\n// a change of its own\n', 'a change')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('version-catalog gate: FAILED', output)
+        self.assertNotIn('PRE-EXISTING', output)
+
+    def test_easement_is_skipped_when_the_tree_does_not_declare_it(self):
+        """The tree's own declaration decides whether it has this gate.
+
+        The tool is installed through mise, and mise resolves a shim from the
+        tree's own mise.toml — so a tree that does not declare easement has
+        no easement, and a push of such a tree is not blocked by a tool it
+        does not have. It used to be decided by whether the binary could be
+        found, and the answer depended on the machine: the same tree passed
+        on one machine and failed on another.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('easement: SKIPPED', output)
 
 
     # ── the formatting gate ───────────────────────────────────────────────

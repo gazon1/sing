@@ -1,8 +1,11 @@
 package com.singularity.todo.test.helpers
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onFirst
@@ -236,6 +239,38 @@ fun DesktopComposeUiTest.scrollToTag(tag: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.clickContentDescriptionScrolled(desc: String) {
     awaitContentDescription(desc).performScrollTo().performClick()
+}
+
+/**
+ * Clicks a point [offsetDp] from the centre of the node with content description
+ * [desc], horizontally.
+ *
+ * The pointer lands on whatever is under that point, not on the node the lookup
+ * found: a tap in the band around a glyph is what a finger does when it misses the
+ * glyph, and whether the control answers is the question this asks. A negative
+ * [offsetDp] is to the left of the centre.
+ *
+ * @param desc The content description of the node to click in.
+ * @param offsetDp How far from the centre of the node to click, in dp.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clickContentDescriptionAtOffset(
+    desc: String,
+    offsetDp: Float,
+) {
+    val interaction = awaitContentDescription(desc)
+    val node = interaction.fetchSemanticsNode()
+    // The tree reports the bounds twice — in pixels and in dp — and the ratio of the
+    // two is the density the window runs at.
+    val bounds = interaction.getUnclippedBoundsInRoot()
+    val widthDp = (bounds.right - bounds.left).value
+    val pxPerDp = if (widthDp > 0f) node.size.width / widthDp else 1f
+    val offsetPx = offsetDp * pxPerDp
+    interaction.performTouchInput {
+        // The position is in the node's own coordinates, whose origin is its top
+        // left corner.
+        click(Offset(node.size.width / 2f + offsetPx, node.size.height / 2f))
+    }
 }
 
 /**

@@ -25,6 +25,12 @@ installer's business, not ours, and a finder that came first would win over
 `sys.path` without anybody noticing. The entry points therefore do not trust
 it, and they share this module so that the trust has one owner.
 
+The older form of an editable install is worse than a finder: its
+`easy-install.pth` puts the checkout at the **front of `sys.path`**, in front
+of `PYTHONPATH`, so nothing on `PYTHONPATH` wins over it unless it comes
+first. That is why `bind_local_package` puts this checkout's `scripts/src`
+first rather than merely onto the path.
+
 **This module is loaded by path, not imported.** It cannot be imported: the
 runner has to work when the package is missing — that is the case it refuses —
 and it cannot live inside the package, because the package is what may be
@@ -76,16 +82,24 @@ def bind_local_package(root: pathlib.Path | str) -> pathlib.Path:
        resolves the package by itself, and by "itself" means "by whatever is
        installed".
 
+    "First" is the whole of it. A path that is *on* `sys.path` but not first
+    loses: the legacy `easy-install.pth` of an editable install puts its
+    checkout at the front of `sys.path`, in front of `PYTHONPATH`, and a
+    binding that only adds a path that is already there binds nothing. So the
+    source is put first, and put there again if something else moved it.
+
     @param root the repository root.
     @return the directory the packages are bound to.
     """
     source = (pathlib.Path(root) / "scripts" / "src").resolve()
     sys.meta_path = [finder for finder in sys.meta_path if not is_editable_finder(finder)]
-    if str(source) not in sys.path:
-        sys.path.insert(0, str(source))
-    existing = [part for part in os.environ.get("PYTHONPATH", "").split(os.pathsep) if part]
-    if str(source) not in existing:
-        os.environ["PYTHONPATH"] = os.pathsep.join([str(source), *existing])
+    while str(source) in sys.path:
+        sys.path.remove(str(source))
+    sys.path.insert(0, str(source))
+    existing = [
+        part for part in os.environ.get("PYTHONPATH", "").split(os.pathsep) if part and part != str(source)
+    ]
+    os.environ["PYTHONPATH"] = os.pathsep.join([str(source), *existing])
     return source
 
 
@@ -130,3 +144,20 @@ def foreign_packages(root: pathlib.Path | str) -> list[str]:
         if origin is None or source not in origin.parents:
             foreign.append(name)
     return foreign
+
+
+def provided_packages(root: pathlib.Path | str) -> list[str]:
+    """The packages the checkout that holds `root` carries on disk.
+
+    A package the checkout does not have cannot be bound to it, and a package
+    that does not resolve at all is not evidence of a foreign install — it is
+    a package this tree has never heard of. The two are told apart here, so
+    that a caller can ask "does the package that answers `import sgate` come
+    from this checkout?" without being answered "no" about packages that are
+    not in the picture at all.
+
+    @param root the repository root.
+    @return the names of the packages this checkout carries.
+    """
+    source = (pathlib.Path(root) / "scripts" / "src").resolve()
+    return [name for name in PACKAGES if (source / name).is_dir()]

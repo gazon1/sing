@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -187,7 +187,7 @@ private fun MonthHeader(
                     .testTag(TestTags.MultiDatePicker.PREV_MONTH)
                     .mapTestTagsAsResourceIds(),
         ) {
-            Icon(Icons.Default.ChevronLeft, contentDescription = "Предыдущий месяц")
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий месяц")
         }
         Text(
             text = formatRussianMonthYear(monthAnchor),
@@ -201,7 +201,7 @@ private fun MonthHeader(
                     .testTag(TestTags.MultiDatePicker.NEXT_MONTH)
                     .mapTestTagsAsResourceIds(),
         ) {
-            Icon(Icons.Default.ChevronRight, contentDescription = "Следующий месяц")
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
         }
     }
 }
