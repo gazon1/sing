@@ -17,6 +17,15 @@ object SeedLinkKeys {
     const val NOTE = "note"
     const val LINK_TO = "linkTo"
     const val PROJECT = "project"
+
+    /**
+     * How many projects to seed at once.
+     *
+     * A profile with a hundred projects is a fixture — the menu's folded
+     * section exists for it — and a hundred deep links are not a way to make
+     * one.
+     */
+    const val PROJECTS = "projects"
     const val PROFILE = "profile"
     const val SESSION = "session"
     const val RESET = "reset"
@@ -42,6 +51,7 @@ object SeedLinkKeys {
             TASK to Kind.Seed,
             NOTE to Kind.Seed,
             PROJECT to Kind.Seed,
+            PROJECTS to Kind.Seed,
             PROFILE to Kind.Seed,
             DESC to Kind.Modifier,
             DUE to Kind.Modifier,

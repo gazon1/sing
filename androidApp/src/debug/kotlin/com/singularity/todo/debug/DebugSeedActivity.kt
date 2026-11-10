@@ -62,6 +62,11 @@ import kotlin.time.Instant
  *   updated in place, so a seed that names an id that is already there renames
  *   it: a rename is a seed that owns the row and gives it another name.
  * - `project=<name>`         — seeds a project (one project with that name)
+ * - `projects=<count>`       — seeds that many projects at once, named
+ *   `Bulk 001`, `Bulk 002`, … A profile with a hundred projects is a fixture —
+ *   the menu's folded Projects section exists for it — and a hundred deep
+ *   links are not a way to make one. The names share a prefix, so
+ *   `cleanup=Bulk` sweeps them again.
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
  * - `updatedAt=now|-22d|<ISO instant>` — stamps the task's created/updated
@@ -258,6 +263,20 @@ class DebugSeedActivity :
                         id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
                     ),
                 )
+            }
+
+            // A profile with a hundred projects is a fixture — the menu's folded
+            // section exists for it — and a hundred deep links are not a way to
+            // make one. The names share a prefix, so `cleanup=Bulk` sweeps them.
+            params.containsKey(SeedLinkKeys.PROJECTS) -> {
+                val count = params[SeedLinkKeys.PROJECTS]!!.toIntOrNull() ?: 0
+                val written =
+                    writer.writeProjects(
+                        count = count,
+                        prefix = "Bulk",
+                        stamp = Clock.System.now(),
+                    )
+                android.util.Log.i("DebugSeedActivity", "$count projects were seeded: ${written.size}")
             }
 
             // Profile creation and switch are handled by switchToProfileIfRequested.
