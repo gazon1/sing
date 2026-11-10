@@ -2,16 +2,15 @@
 
 package com.singularity.todo.feature.agenda
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
@@ -54,10 +53,11 @@ import kotlin.test.assertTrue
  * agenda shows — Today, Upcoming and a project's tasks — at a phone's width,
  * where the button and the last row are close enough to collide.
  *
- * The button here is the shell's own: it is placed the way Material3's
- * `Scaffold` places it (16 dp above the bottom edge, at the end of the row)
- * and its height is measured, so the test measures the same footprint the
- * shell publishes.
+ * The button here is the shell's own: the test renders Material3's `Scaffold`
+ * with the button in the FAB slot, the way the desktop shell does, so the
+ * button is placed by the framework (16 dp above the bottom edge) and its
+ * height is measured — the test measures the same footprint the shell
+ * publishes.
  */
 @Tag("fast")
 class AgendaFabClearanceTest {
@@ -75,11 +75,12 @@ class AgendaFabClearanceTest {
     fun `the list keeps no blank space when no button is shown`() =
         runIsolatedComposeTest(width = PHONE_WIDTH, height = PHONE_HEIGHT) {
             setContent {
-                Box(Modifier.fillMaxSize()) {
+                Scaffold { padding ->
                     AgendaContent(
                         state = agendaState(AgendaPresets.Today),
                         title = "Today",
                         onIntent = {},
+                        modifier = Modifier.padding(padding),
                     )
                 }
             }
@@ -110,15 +111,12 @@ class AgendaFabClearanceTest {
         setContent {
             val footprint = remember { FabFootprint() }
             CompositionLocalProvider(LocalFabBottomSpace provides footprint.bottomSpace()) {
-                Box(Modifier.fillMaxSize()) {
-                    AgendaContent(
-                        state = agendaState(preset),
-                        title = title,
-                        onIntent = {},
-                    )
-                    // The shell's button, in the shell's place: 16 dp above the
-                    // bottom edge, at the end of the row.
-                    Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+                // The shell's own layout: Material3's `Scaffold` places the
+                // button (16 dp above the bottom edge) and lifts the content by
+                // the window insets. The test measures that geometry, not a
+                // hand-placed copy of it.
+                Scaffold(
+                    floatingActionButton = {
                         FloatingActionButton(
                             onClick = {},
                             modifier =
@@ -128,7 +126,15 @@ class AgendaFabClearanceTest {
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "Add task")
                         }
-                    }
+                    },
+                    floatingActionButtonPosition = FabPosition.End,
+                ) { padding ->
+                    AgendaContent(
+                        state = agendaState(preset),
+                        title = title,
+                        onIntent = {},
+                        modifier = Modifier.padding(padding),
+                    )
                 }
             }
         }
