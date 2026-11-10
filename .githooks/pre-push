@@ -527,13 +527,21 @@ for i in "${!PUSH_REFS[@]}"; do
     # A branch the remote does not have yet is compared with the trunk it
     # forked from: the trunk is already on the remote, so what is left is what
     # the branch delivers.
+    #
+    # `core.quotePath=false` keeps a path with non-ASCII letters readable: the
+    # default escapes it (`"f/Caf\303\251.kt"`), and the escaped form matches
+    # no pattern the gates use — the file is in the push and no gate sees it.
     PROMISE_TOUCHED=""
     if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
-        PROMISE_TOUCHED="$(git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || true)"
+        PROMISE_TOUCHED="$(git -c core.quotePath=false diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || true)"
     elif [ -n "$base_commit" ]; then
-        PROMISE_TOUCHED="$(git diff --name-only "$base_commit" "$local_sha" 2>/dev/null || true)"
-    else
-        PROMISE_TOUCHED="$(promise_touched_files "$local_sha" --not --remotes)"
+        PROMISE_TOUCHED="$(git -c core.quotePath=false diff --name-only "$base_commit" "$local_sha" 2>/dev/null || true)"
+    fi
+    if [ -z "$PROMISE_TOUCHED" ]; then
+        # No tree to compare with: the whole history of the pushed commit is
+        # what the push can carry. A gate that judges too much only costs
+        # time, while a gate that judges too little lets a defect through.
+        PROMISE_TOUCHED="$(promise_touched_files "$local_sha")"
     fi
     # Touched Markdown files (newline-delimited), for gates that check only the
     # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
@@ -800,6 +808,20 @@ EOF
                     esac
                     base_step_argv=()
                     for step_arg in $step_args; do
+                        if [ "$step_arg" = "@TOUCHED_KT@" ]; then
+                            # The base tree is asked about the same sources the
+                            # pushed tree was asked about: the comparison is
+                            # between two answers about the same files, and a
+                            # placeholder would make the base answer about
+                            # nothing at all.
+                            while IFS= read -r base_touched_kt; do
+                                [ -n "$base_touched_kt" ] || continue
+                                base_step_argv+=("$base_touched_kt")
+                            done <<EOF
+$PROMISE_TOUCHED_KT
+EOF
+                            continue
+                        fi
                         step_arg="${step_arg//@TREE@/$base_tree}"
                         step_arg="${step_arg//@BASE@/$base_commit}"
                         step_arg="${step_arg//@TOUCHED_MD@/$PROMISE_TOUCHED_MD_FILE}"

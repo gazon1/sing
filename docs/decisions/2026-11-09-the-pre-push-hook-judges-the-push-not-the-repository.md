@@ -83,7 +83,12 @@ shrink, never grow (`2026-10-01-ci-quality-ratchet.md`,
 - **The files a push carries** are the files that differ between the remote's
   tip and the pushed commit (`git diff --name-only`), not the files a commit
   touched (`git log --name-only`). The diff is what the push *delivers*; the
-  log is empty for a merge.
+  log is empty for a merge. The diff is read with `core.quotePath=false`:
+  the default escapes a path with non-ASCII letters (`f/Caf\303\251.kt`), and
+  the escaped form matches no pattern a gate uses — the file is in the push and
+  no gate sees it. When there is no tree to compare with, the push is judged as
+  carrying the whole history of the pushed commit: a gate that judges too much
+  only costs time, while a gate that judges too little lets a defect through.
 - **A gate that fails is run again in the base tree**, in a throwaway
   worktree, and the two answers are compared. What the base does not have is
   the push's own and stops the push; what the base has as well is the

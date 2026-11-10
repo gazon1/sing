@@ -677,13 +677,16 @@ class PrePushHookTest(unittest.TestCase):
         """The stand-in does not stand in for the step — it stands in for the tool.
 
         The hook runs the architecture check last, against the tree that is
-        being pushed. The fixture's tree does not carry the tool, so the
-        fixture installs one — and a stand-in that made the step disappear
-        would be a step nobody runs any more, so the hook's own answer is
-        checked: the step ran, and it ran against the pushed tree.
+        being pushed. The tool is installed through mise, and the tool a tree
+        has is the one its own declaration names — so the tree pushed here
+        declares easement, the way a tree of this repository does, and the
+        fixture installs a stand-in for it. A stand-in that made the step
+        disappear would be a step nobody runs any more, so the hook's own
+        answer is checked: the step ran, and it ran against the pushed tree.
         """
         self._install_hook()
         self._install_stubs()
+        self._write('mise.toml', '[tools]\neasement = "latest"\n')
         self._commit_source(CLEAN_SOURCE, 'a clean file')
 
         result = self._push()
