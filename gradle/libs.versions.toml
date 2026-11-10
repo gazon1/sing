@@ -24,7 +24,7 @@ composeMultiplatform = "1.12.2"
 # Material3 — alpha; stable channel should be used when available
 # 1.12.0-alpha03 is the release that pairs with composeMultiplatform 1.12.2.
 # 1.13.0-beta01 dropped ExposedDropdownMenu; requires compileSdk 37.1.
-material3 = "1.13.0-beta01"
+material3 = "1.13.0-beta02"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
