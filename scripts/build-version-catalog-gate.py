@@ -74,7 +74,14 @@ ROOT_PLUGINS_RE = re.compile(
 # the property behind, and the two then disagree — that is the mismatch that
 # red-lined main. The catalog is the single source of truth, so the property is
 # not a second source, it is a duplicate one: it must not exist.
-GRADLE_PROPS_FORBIDDEN_KEYS = {
+#
+# The rule is the PREFIX, not a list of keys: a list would only catch the three
+# versions that were there when the rule was written, and the next one to be
+# added would slip through. Every `version.*` property is a version the catalog
+# owns, and the ones this repository still uses are named here so that the
+# message can say which catalog entry the property duplicates.
+GRADLE_PROPS_FORBIDDEN_PREFIX = "version."
+GRADLE_PROPS_CATALOG_KEYS = {
     "version.kotlin": "kotlin",
     "version.kotlinSerialization": "kotlin-serialization",
     "version.kotlinxCollectionsImmutable": "kotlinxCollectionsImmutable",
@@ -195,12 +202,13 @@ def _gradle_properties_duplication(workspace: Path):
         if not m:
             continue
         key = m.group("key")
-        catalog_key = GRADLE_PROPS_FORBIDDEN_KEYS.get(key)
-        if catalog_key is None:
+        if not key.startswith(GRADLE_PROPS_FORBIDDEN_PREFIX):
             continue
+        catalog_key = GRADLE_PROPS_CATALOG_KEYS.get(key)
+        catalog = f"libs.versions.toml {catalog_key}" if catalog_key else "libs.versions.toml"
         out.append((
             props,
-            f"{key}={m.group('value')} duplicates libs.versions.toml {catalog_key} — "
+            f"{key}={m.group('value')} duplicates {catalog} — "
             "the catalog is the single source of truth; delete the property",
         ))
     return out
@@ -274,14 +282,18 @@ def main() -> int:
             )
         return 0
 
-    print(f"Found {len(violations)} hardcoded version literal(s) in {len(gradle_files)} files:")
+    print(f"Found {len(violations)} version problem(s) in {len(gradle_files)} scanned files:")
     for path, lit in violations:
         try:
             rel = path.relative_to(workspace)
         except ValueError:
             rel = path
         print(f"  {rel}: {lit}")
-    print("\nFix: add the library to gradle/libs.versions.toml and reference via libs.*")
+    print(
+        "\nFix: add the library to gradle/libs.versions.toml and reference it via "
+        "libs.*, delete the version property from gradle.properties, and — if the "
+        "message is about detekt and Kotlin — make the two versions agree."
+    )
     return 1
 
 

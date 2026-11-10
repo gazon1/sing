@@ -19,11 +19,14 @@ The tree is temporary: the gate takes the workspace as an argument, so it is
 pointed at a tempdir and nothing is written into the repository.
 """
 
+import contextlib
 import importlib.util
+import io
 import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
 
@@ -55,7 +58,8 @@ class CatalogTree(unittest.TestCase):
         self.write_catalog(CATALOG)
         self.write_properties(PROPERTIES)
         # The gate scans *.gradle.kts and needs enough of them to clear its
-        # own positive control; five is the minimum it accepts.
+        # own positive control: five is the minimum it accepts, and six are
+        # created so the scan is not exactly at the boundary.
         for i in range(6):
             (self.root / f"module{i}").mkdir()
             (self.root / f"module{i}" / "build.gradle.kts").write_text(
@@ -97,6 +101,48 @@ class DuplicatedVersionProperty(CatalogTree):
     def test_an_unrelated_property_is_not_a_violation(self):
         self.write_properties(PROPERTIES + "org.gradle.caching=true\n")
         self.assertEqual(self.violations(), [])
+
+    def test_a_version_property_the_rule_has_never_seen_is_a_violation(self):
+        """The rule is the prefix, not a list of the three versions that were there."""
+        self.write_properties(PROPERTIES + "version.somethingNew=1.2.3\n")
+        violations = self.violations()
+        self.assertEqual(len(violations), 1)
+        self.assertIn("version.somethingNew", violations[0][1])
+
+    def test_a_property_that_only_looks_like_a_version_is_not_a_violation(self):
+        """`versionCode` is the Android version, and the catalog does not own it."""
+        self.write_properties(PROPERTIES + "versionCode=42\n")
+        self.assertEqual(self.violations(), [])
+
+
+class MainEntryPoint(CatalogTree):
+    """The gate's own entry point — the checks have to be wired into it.
+
+    A check that is written but not called is a check that passes: the tests
+    above call the checks directly, so only this one proves that `main()`
+    reaches them.
+    """
+
+    def run_main(self):
+        argv = ["build-version-catalog-gate.py", "--quiet", str(self.root)]
+        out = io.StringIO()
+        with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(out):
+            code = gate.main()
+        return code, out.getvalue()
+
+    def test_a_clean_tree_passes(self):
+        code, _ = self.run_main()
+        self.assertEqual(code, 0)
+
+    def test_a_duplicated_property_fails_the_gate(self):
+        self.write_properties(PROPERTIES + "version.kotlin=2.4.10\n")
+        code, _ = self.run_main()
+        self.assertEqual(code, 1)
+
+    def test_a_kotlin_bump_detekt_cannot_take_fails_the_gate(self):
+        self.write_catalog(CATALOG.replace('kotlin = "2.4.10"', 'kotlin = "2.4.21"'))
+        code, _ = self.run_main()
+        self.assertEqual(code, 1)
 
 
 class DetektKotlinCompatibility(CatalogTree):
