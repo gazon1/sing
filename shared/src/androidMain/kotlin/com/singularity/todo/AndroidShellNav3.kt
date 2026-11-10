@@ -29,13 +29,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ClearStaleSlotsOnNavigation
+import com.singularity.todo.core.ui.components.FabFootprint
+import com.singularity.todo.core.ui.components.LocalFabBottomSpace
 import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.core.ui.components.ShellBarTitle
@@ -113,6 +117,12 @@ fun androidShellNav3Root(
 
     val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
 
+    // The button floats over the content, and Material3's Scaffold keeps no room
+    // for it. Its footprint is published so a list can keep its last row clear
+    // of the button (#2743).
+    val fabFootprint = remember { FabFootprint() }
+    val fabBottomSpace = if (fabAction != null) fabFootprint.bottomSpace() else 0.dp
+
     val screenActions = remember { ScreenActionsHolder() }
 
     NavigationSuiteScaffold(
@@ -162,7 +172,10 @@ fun androidShellNav3Root(
                     onClick = action.onClick,
                     icon = { Icon(Icons.Default.Add, contentDescription = action.label) },
                     text = { Text(action.label) },
-                    modifier = Modifier.testTag(TestTags.TASKS_FAB),
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.TASKS_FAB)
+                            .onSizeChanged { fabFootprint.onMeasured(it.height) },
                 )
             },
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
@@ -179,7 +192,11 @@ fun androidShellNav3Root(
                 // it when it leaves, and the holder keeps a newer screen's title.
                 screenActions.ClearStaleSlotsOnNavigation(state.topLevelRoute)
 
-                CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
+                CompositionLocalProvider(
+                    LocalNav3State provides state,
+                    LocalScreenActions provides screenActions,
+                    LocalFabBottomSpace provides fabBottomSpace,
+                ) {
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = {

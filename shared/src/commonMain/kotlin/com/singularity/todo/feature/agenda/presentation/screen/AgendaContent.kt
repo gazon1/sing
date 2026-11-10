@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.LocalFabBottomSpace
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.menu.onSecondaryClick
@@ -360,6 +361,11 @@ private fun AgendaList(
     listState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
+    // The shell's floating action button floats over the list, and Material3's
+    // Scaffold keeps no room for it. The shell publishes the space the button
+    // takes, and the list keeps its last row clear of it (#2743). The space is
+    // zero when no button is on screen, so nothing is reserved for one.
+    val fabBottomSpace = LocalFabBottomSpace.current
     LazyColumn(
         state = listState,
         modifier =
@@ -367,7 +373,7 @@ private fun AgendaList(
                 .fillMaxSize()
                 .platformVerticalScrollbar(listState)
                 .widthIn(max = 640.dp),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp + fabBottomSpace),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
