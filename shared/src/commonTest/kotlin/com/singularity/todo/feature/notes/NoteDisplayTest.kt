@@ -91,11 +91,32 @@ class NoteDisplayTest {
     @Test
     fun markdownOnlyBodyIsReadableWithoutRawSyntax() {
         val n = note(bodyMarkdown = "# Heading\n\n**Bold** text")
-        val title = n.displayTitle()
-        assertTrue(title == "Heading" || title.contains("Bold"), "title=$title")
+        assertEquals("Heading", n.displayTitle())
         val snippet = note(title = "Explicit", bodyMarkdown = "# Heading\n\n**Bold** text").displaySnippet()
         assertFalse(snippet.contains("**"))
         assertFalse(snippet.contains("# "))
+    }
+
+    @Test
+    fun namedEntitiesOutsideTheCommonSetAreDecoded() {
+        val n = note(bodyHtml = "<p>Caf&eacute; cr&egrave;me</p>")
+        assertEquals("Caf\u00E9 cr\u00E8me", n.displayTitle())
+        assertFalse(n.displayTitle().contains("&eacute;"))
+    }
+
+    @Test
+    fun quotedAttributeWithGreaterThanDoesNotLeakMarkup() {
+        val n = note(bodyHtml = """<p>See <a title="A > B" href="x">Link</a> now</p>""")
+        assertEquals("See Link now", n.displayTitle())
+        assertFalse(n.displayTitle().contains("href"))
+    }
+
+    @Test
+    fun scriptAndStyleContentIsNotShown() {
+        val n = note(bodyHtml = "<style>p{color:red}</style><script>alert('x')</script><p>Hello</p>")
+        assertEquals("Hello", n.displayTitle())
+        assertFalse(n.displayTitle().contains("color"))
+        assertFalse(n.displayTitle().contains("alert"))
     }
 
     @Test
@@ -126,5 +147,13 @@ class NoteDisplayTest {
         val title = derived.displayTitle()
         assertTrue(title.endsWith("…"))
         assertEquals("Second", derived.displaySnippet())
+    }
+
+    @Test
+    fun longSingleBlockSnippetShowsWhatTheTitleCouldNot() {
+        val long = "a".repeat(200)
+        val derived = note(bodyHtml = "<p>$long</p>")
+        assertEquals("a".repeat(80) + "…", derived.displayTitle())
+        assertEquals("a".repeat(120), derived.displaySnippet())
     }
 }

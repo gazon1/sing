@@ -34,7 +34,7 @@ feature/notes/
 ├── Ids.kt                      # NoteId, Note, NoteColor, LinkResult, LinkKind
 ├── LinkResult.kt               # Generic link picker result (LinkRef sealed interface)
 ├── OutgoingLinksExtractor.kt   # extractOutgoingLinks(html): List<LinkRef> via HTML regex
-├── NoteFormatters.kt           # extractPreviewText, formatNoteAiResult
+├── NoteFormatters.kt           # formatNoteAiResult
 ├── NotesUiEvent.kt             # Per-feature sealed UiEvent
 ├── NotesDiModule.kt            # DI: 3 VMs + 2 repositories
 └── components/
@@ -362,6 +362,6 @@ For the editable `RichTextEditor`: `EditorSession.insertLink(url, text)` inserts
 | `InternalLinkPickerSheet.kt` | Generic merged Notes+Tasks picker |
 | `LinkResult.kt` | `LinkResult` data class + `LinkKind` enum |
 | `OutgoingLinksExtractor.kt` | `extractOutgoingLinks(html)` + `LinkRef` sealed interface |
-| `NoteFormatters.kt` | `extractPreviewText`, `formatNoteAiResult` |
+| `NoteFormatters.kt` | `formatNoteAiResult` |
 | `Ids.kt` | NoteId, Note, NoteColor |
 | `NotesDiModule.kt` | DI: 3 VMs + NotesRepository + InternalLinkRepository |

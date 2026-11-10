@@ -346,7 +346,7 @@ AND outgoing_links LIKE '%note://' || :noteId || '%'
 LIMIT 20
 ```
 
-**Preview snippet:** `extractPreviewText(linkingNote.bodyMarkdown, 80)` strips markdown for clean display.
+**Preview snippet:** `Note.displaySnippet(maxChars = 80)` derives readable text from the body.
 
 ## 8. NotePreview — Read-Only View (PR #1)
 

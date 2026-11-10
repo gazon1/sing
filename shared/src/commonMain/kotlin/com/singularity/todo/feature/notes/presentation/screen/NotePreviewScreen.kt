@@ -46,6 +46,7 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -261,7 +262,7 @@ fun NotePreviewScreenContent(
                 is NotePreviewState.Loaded -> {
                     val note = state.note
                     val untitled = stringResource(Res.string.untitled_note)
-                    val heroTitle = note.displayTitle(untitled)
+                    val heroTitle = remember(note, untitled) { note.displayTitle(untitled) }
                     Column(
                         modifier =
                             Modifier
@@ -397,8 +398,8 @@ private fun BacklinksSheet(
                     val untitled = stringResource(Res.string.untitled_note)
                     LazyColumn {
                         items(backlinks, key = { it.id.value }) { note ->
-                            val backlinkTitle = note.displayTitle(untitled)
-                            val snippet = note.displaySnippet(maxChars = 80)
+                            val backlinkTitle = remember(note, untitled) { note.displayTitle(untitled) }
+                            val snippet = remember(note, backlinkTitle) { note.displaySnippet(maxChars = 80) }
                             ListItem(
                                 headlineContent = {
                                     Text(
