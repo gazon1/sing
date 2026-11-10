@@ -1,5 +1,18 @@
 name: Dependabot auto-merge
 
+# WHY THE CHECK-RUN INSTEAD OF `.mergeable_state`
+#
+# This repository has no branch protection (see
+# docs/decisions/2026-10-07-branch-protection-is-unavailable.md), so
+# `.mergeable_state` is not a statement about the checks: it is `clean` when
+# nothing is required and `unstable` when a check fails, and the old version of
+# this workflow accepted both. A dependabot pull request whose CI gate was red
+# was therefore merged, and main went red with it — the Kotlin bump that
+# red-lined main is the recorded instance.
+#
+# The `CI gate` check-run on the pull request's head commit is the one thing
+# that is actually green or not, and it is checked here by name.
+
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
@@ -82,7 +95,7 @@ jobs:
           echo "mergeable: $(tr '\n' ' ' < "$RUNNER_TEMP/mergeable.txt")"
           echo "count=$(wc -l < "$RUNNER_TEMP/mergeable.txt")" >> "$GITHUB_OUTPUT"
 
-      - name: The required checks are green
+      - name: The pull request's own CI gate is green
         id: checks
         if: steps.bump.outputs.count != '0'
         env:
@@ -96,15 +109,33 @@ jobs:
               [ -n "$number" ] || continue
               state="$(gh api "repos/${{ github.repository }}/pulls/${number}" --jq '.mergeable_state // "unknown"')"
               case "$state" in
-                clean|unstable)
-                  echo "#${number}: branch protection satisfied ('$state')"
+                dirty)
+                  echo "::error::#${number} has conflicts - cannot be merged"
+                  continue
                   ;;
                 blocked|unknown|behind)
-                  echo "#${number}: '$state' - waiting"
+                  echo "#${number}: mergeable_state is '$state' - waiting"
                   waiting=1
+                  continue
+                  ;;
+              esac
+              # `mergeable_state` says nothing about the checks on a repository
+              # without branch protection — it is `unstable` while a check is
+              # failing, and `clean` when nobody configured the check as
+              # required. The CI gate check-run on the head commit is the thing
+              # that actually has to be green.
+              head="$(gh api "repos/${{ github.repository }}/pulls/${number}" --jq '.head.sha')"
+              conclusion="$(gh api "repos/${{ github.repository }}/commits/${head}/check-runs?per_page=100" \
+                --jq '[.check_runs[] | select(.name == "CI gate")]
+                      | if length == 0 then "missing"
+                        else (.[0].conclusion // "pending") end')"
+              case "$conclusion" in
+                success)
+                  echo "#${number}: the CI gate check-run is green"
                   ;;
                 *)
-                  echo "::error::#${number} is '$state' - cannot be merged"
+                  echo "#${number}: the CI gate check-run is '$conclusion' - waiting"
+                  waiting=1
                   ;;
               esac
             done < "$RUNNER_TEMP/mergeable.txt"
@@ -112,7 +143,7 @@ jobs:
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::checks did not become green in time"
+              echo "::error::the CI gate check-run did not become green in time"
               exit 1
             fi
             sleep 20
