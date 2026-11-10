@@ -552,13 +552,16 @@ jobs:
   # attempt 1's artifacts, so the broad pattern would feed the converter two
   # executions of the same flow: a duplicate finding, and — because a pass never
   # replaces a failure — the old failure presented as this attempt's result.
-  # Pinning the attempt can leave the set incomplete after a partial re-run;
-  # that is the contract's answer, not a merge across attempts.
+  # Pinning the attempt converts only the re-run shards (an incomplete set in the
+  # manifest), or produces no second-attempt conversion at all when this job
+  # itself succeeded first. Both are the contract's answers: shards are never
+  # merged across attempts.
   maestro-allure:
     needs: [plan, e2e]
-    # The same guard as the gate above: a skipped plan means there was no run,
-    # and a cancelled workflow has no complete artifact set to convert.
-    if: ${{ always() && !cancelled() && needs.plan.result == 'success' && needs.e2e.result != 'skipped' }}
+    # `always()` without `!cancelled()`: the contract converts a cancelled run
+    # too (`task_outcome=cancelled`, `complete_shards=false`, not publishable) —
+    # a cancelled run's reports are still the record of what it reached.
+    if: ${{ always() && needs.plan.result == 'success' && needs.e2e.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -592,9 +595,12 @@ jobs:
         env:
           SUITE: ${{ needs.plan.outputs.suite }}
         run: |
+          # The job's status is not the run's verdict: an ancillary step
+          # (traceability, an upload) can fail while every flow passed, and the
+          # evidence index reports the flows' own outcome. `auto` reads
+          # passed/failed from the results, exactly as that index does.
           case "${{ needs.e2e.result }}" in
-            success) outcome=passed ;;
-            failure) outcome=failed ;;
+            success|failure) outcome=auto ;;
             cancelled) outcome=cancelled ;;
             *) outcome=unknown ;;
           esac

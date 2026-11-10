@@ -110,7 +110,9 @@ Consequences of the table:
   downloaded `e2e-apk`). A run without them records `null` for both and is not
   publishable.
 - A shard whose `environment.json` carries no `commit` is incomplete: the run
-  cannot be tied to a checkout, so it converts but is not publishable.
+  cannot be tied to a checkout, so it converts but is not publishable. The
+  runner writes the literal `unknown` when it cannot read the checkout, and
+  that is treated as no commit, not as a disagreement.
 - **Retries are not representable as Allure retries.** The runner deletes the
   previous attempt's JUnit before retrying, so the XML is the terminal attempt;
   `run-summary.json` is the only record that a retry happened. It is therefore a
@@ -175,7 +177,11 @@ being read as a pass.
 ### 6. Partial runs, duplicates and failure semantics
 
 - A cancelled or failed shard is still converted; the manifest records
-  `task_outcome`, `complete_shards=false`, `publishable=false`.
+  `task_outcome`, `complete_shards=false`, `publishable=false`. `task_outcome`
+  is the run's verdict read from its results (`--task-outcome auto`), never the
+  status of the job that carried them: an ancillary step can fail while every
+  flow passed, and the shard evidence index already reports the flows' own
+  outcome. Explicit values remain for cancelled, timed-out and unknown runs.
 - **A pass never replaces a failure.** If two records share a testcase identity:
   a failing/broken record wins over a passing one; equal outcomes keep the first
   in the order the reports were read. Losing a failure in aggregation is the
@@ -283,8 +289,10 @@ defect is to let whichever record was read second decide whether the run failed.
 - The XML shape the contract depends on is pinned by fixtures; a Maestro upgrade
   that changes it fails the fixture-shape test instead of silently reporting
   passes.
-- `maestro_version` and `apk_sha256` are missing from today's artifacts; #2772
-  adds them, and until then converted runs are not publishable.
+- `maestro_version` and `apk_sha256` are not recorded by the runner; the
+  workflow passes them (`MAESTRO_VERSION`, the hash of the downloaded
+  `e2e-apk`). A conversion without them records `null` for both and is not
+  publishable.
 - Per-shard `environment.json`/`run-summary.json` collision in the existing
   `merge-multiple: true` download is worked around by reading per-shard
   directories; the existing gate is not changed.

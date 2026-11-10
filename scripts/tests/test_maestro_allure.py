@@ -548,6 +548,70 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertEqual(first["historyId"], second["historyId"])
             self.assertNotEqual(first["uuid"], second["uuid"])
 
+    def test_the_runners_unknown_commit_is_incomplete_not_a_disagreement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            # `_provenance.git_sha` writes this literal when git cannot read the
+            # checkout: absent, not a different commit.
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "unknown"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"),
+                           "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
+                           "--commit", "abc123def456" + "0" * 28,
+                           "--maestro-version", "2.10.0", "--apk-sha256", "f" * 64,
+                           "--task-outcome", "passed", "--out", str(out)])
+            self.assertEqual(code, 0)
+            data = manifest(out)
+            self.assertTrue(any(f["kind"] == "environment.json incomplete" for f in data["findings"]))
+            self.assertFalse(data["publishable"])
+            self.assertEqual(list(results(out)), [flow])
+
+    def test_auto_outcome_reads_the_results_not_the_job(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            base = ["--results", str(shard), "--scope", "full", "--root", str(root),
+                    "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
+                    "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
+                    "--maestro-version", "2.10.0", "--apk-sha256", "f" * 64,
+                    "--task-outcome", "auto"]
+            passing = root / "passing"
+            self.assertEqual(run(base + ["--out", str(passing)])[0], 0)
+            self.assertEqual(manifest(passing)["task_outcome"], "passed")
+
+            write_report(shard, flow, "a", status="ERROR", failure="it broke")
+            failing = root / "failing"
+            self.assertEqual(run(base + ["--out", str(failing)])[0], 0)
+            self.assertEqual(manifest(failing)["task_outcome"], "failed")
+
+    def test_an_empty_binary_hash_is_recorded_as_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
+                           "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
+                           "--maestro-version", "2.10.0", "--apk-sha256", "",
+                           "--task-outcome", "passed", "--out", str(out)])
+            self.assertEqual(code, 0)
+            data = manifest(out)
+            self.assertIsNone(data["identity"]["apk_sha256"])
+            self.assertFalse(data["publishable"])
+
     def test_a_missing_run_summary_blocks_publication(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -567,6 +631,28 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertTrue(data["complete_shards"])
             self.assertFalse(data["publishable"])
             self.assertTrue(any(f["kind"] == "run-summary.json missing" for f in data["findings"]))
+
+
+class SameCommitTest(unittest.TestCase):
+    """The cross-check sees git abbreviations, and only those, as the same commit."""
+
+    def test_abbreviations_of_one_commit_agree(self) -> None:
+        full = "abc123def456" + "0" * 28
+        self.assertTrue(mod.same_commit(full, "abc123def456"))
+        self.assertTrue(mod.same_commit("abc123def456", full))
+        self.assertTrue(mod.same_commit(full, full))
+
+    def test_no_other_pair_is_an_abbreviation(self) -> None:
+        # `git rev-parse --short` prints at least seven characters, so a shorter
+        # prefix is a different string; values of different types differ even
+        # when they print alike; and two equal-length SHAs never share a prefix.
+        self.assertFalse(mod.same_commit("abc", "abc123def456"))
+        self.assertFalse(mod.same_commit("123", 123))
+        self.assertFalse(mod.same_commit("unknown", "abc123def456"))
+        self.assertFalse(mod.same_commit("abc123def456", "def456abc123"))
+
+    def test_the_outcome_of_no_results_is_unknown(self) -> None:
+        self.assertEqual(mod.derived_outcome({}), "unknown")
 
 
 class RobustnessTest(unittest.TestCase):
