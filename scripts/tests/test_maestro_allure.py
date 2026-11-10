@@ -593,7 +593,7 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertEqual(run(base + ["--out", str(failing)])[0], 0)
             self.assertEqual(manifest(failing)["task_outcome"], "failed")
 
-    def test_an_empty_binary_hash_is_recorded_as_absent(self) -> None:
+    def test_empty_binary_facts_are_recorded_as_absent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             flow = "Maestro/flows/a.yaml"
@@ -605,12 +605,35 @@ class RetryAndIdentityTest(unittest.TestCase):
             code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
                            "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
                            "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
-                           "--maestro-version", "2.10.0", "--apk-sha256", "",
+                           "--maestro-version", "", "--apk-sha256", "",
                            "--task-outcome", "passed", "--out", str(out)])
             self.assertEqual(code, 0)
             data = manifest(out)
+            self.assertIsNone(data["identity"]["maestro_version"])
             self.assertIsNone(data["identity"]["apk_sha256"])
             self.assertFalse(data["publishable"])
+
+    def test_shard_commits_are_compared_pairwise(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            shards = [
+                write_shard(root, f"s{n}", {"shard": n, "shards": 3, "commit": commit})
+                for n, commit in enumerate(("abcdef0", "abcdef01", "abcdef02"), start=1)
+            ]
+            (root / "catalogue.txt").write_text("")
+            args = ["--scope", "full", "--root", str(root),
+                    "--catalogue", str(root / "catalogue.txt"), "--out", str(root / "out")]
+            for shard in shards:
+                args = ["--results", str(shard)] + args
+            # The first abbreviation agrees with each of the others; only the
+            # pairwise check sees that the other two are different commits.
+            code, err = run(args)
+            self.assertEqual(code, 1)
+            self.assertIn("identity disagreement", err)
+
+    def test_the_auto_outcome_of_nothing_is_unknown(self) -> None:
+        self.assertEqual(mod.derived_outcome({}, []), "unknown")
+        self.assertEqual(mod.derived_outcome({}, ["Maestro/flows/a.yaml"]), "failed")
 
     def test_auto_outcome_fails_a_run_that_stopped_early(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -724,11 +747,6 @@ class SameCommitTest(unittest.TestCase):
         self.assertTrue(mod.same_commit("abcdef0", "abcdef01"))
         self.assertTrue(mod.same_commit("abcdef0", "abcdef02"))
         self.assertFalse(mod.same_commit("abcdef01", "abcdef02"))
-
-    def test_the_outcome_of_no_results_is_unknown(self) -> None:
-        self.assertEqual(mod.derived_outcome({}, []), "unknown")
-        # Nothing produced, but flows the scope expected: the run did not pass.
-        self.assertEqual(mod.derived_outcome({}, ["Maestro/flows/a.yaml"]), "failed")
 
 
 class RobustnessTest(unittest.TestCase):

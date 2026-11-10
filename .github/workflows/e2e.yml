@@ -558,9 +558,10 @@ jobs:
   # merged across attempts.
   maestro-allure:
     needs: [plan, e2e]
-    # `always()` without `!cancelled()`: the contract converts a cancelled run
-    # too (`task_outcome=cancelled`, `complete_shards=false`, not publishable) —
-    # a cancelled run's reports are still the record of what it reached.
+    # `always()` without `!cancelled()`: a whole-run cancel normally never starts
+    # this queued job, but cancelling one matrix leg leaves the run live, and its
+    # reports are the record of what it reached. An empty set is then "nothing to
+    # convert", not a failure.
     if: ${{ always() && needs.plan.result == 'success' && needs.e2e.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -616,18 +617,19 @@ jobs:
             find apk -maxdepth 1 -name '*.apk' >&2
             exit 1
           fi
-          apk_sha=$(sha256sum apk/*.apk 2>/dev/null | cut -d' ' -f1)
+          apk_sha=$(sha256sum apk/*.apk 2>/dev/null | cut -d' ' -f1) || true
           shards=()
           for directory in build/maestro-shards/*/; do
             [ -d "$directory" ] || continue
             shards+=(--results "$directory")
           done
           if [ "${#shards[@]}" -eq 0 ]; then
-            # A cancelled run may legitimately have uploaded nothing, and its
-            # conversion is then nothing rather than a red job. Any other run
-            # with no reports is an anomaly worth a failure.
-            if [ "${{ needs.e2e.result }}" = "cancelled" ]; then
-              echo "cancelled before any shard uploaded a report — nothing to convert" >&2
+            # Nothing to convert is a state for a cancelled run and for a re-run
+            # of this job alone, which has no reports under this attempt. A
+            # failed run with no reports at all is an anomaly worth a failure;
+            # a success run with none is caught by the results gate.
+            if [ "${{ needs.e2e.result }}" != "failure" ]; then
+              echo "nothing to convert for attempt ${{ github.run_attempt }}" >&2
               exit 0
             fi
             echo "no shard reports for attempt ${{ github.run_attempt }} — the conversion has no input" >&2

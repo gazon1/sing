@@ -603,6 +603,10 @@ def manifest_for(
         and identity_known
         and complete
         and meta["task_outcome"] in ("passed", "failed")
+        # A run that measured less than its scope must not enter a history as a
+        # smaller suite: the report cannot show what never ran.
+        and not missing
+        and not not_measured
         and not any(finding["kind"] in BLOCKING_FINDINGS for finding in findings)
     )
     return {

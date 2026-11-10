@@ -195,7 +195,8 @@ being read as a pass.
   between shards, an output path that is not a directory this tool wrote, or a
   `--now` that is not an instant.
 - `publishable=true` requires: at least one result, every identity field
-  known, shard set complete, `task_outcome` in `{passed, failed}`, and no
+  known, shard set complete, every flow of the scope measured (nothing in
+  `missing[]` or `not_measured[]`), `task_outcome` in `{passed, failed}`, and no
   finding that removes a fact the report is built from — a missing or
   unreadable `environment.json`/`run-summary.json`, a report that cannot be
   read or holds no testcase, an unreadable or absent flow file, a testcase
