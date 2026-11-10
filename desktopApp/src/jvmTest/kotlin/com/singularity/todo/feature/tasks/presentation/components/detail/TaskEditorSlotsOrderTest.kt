@@ -6,12 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
+import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfTag
 import org.junit.jupiter.api.Tag
@@ -58,10 +58,7 @@ class TaskEditorSlotsOrderTest {
         runIsolatedComposeTest(width = 360, height = 1400) {
             setContent { editor(withOffer = false, withChild = true) }
 
-            assertTrue(
-                onAllNodesWithTag(TestTags.FIRST_RUN_SECTION).fetchSemanticsNodes().isEmpty(),
-                "an editor that was given no offer drew one",
-            )
+            assertTagNotExists(TestTags.FIRST_RUN_SECTION)
 
             val pin = unclippedBoundsOfTag(TestTags.TASK_EDITOR_PIN_ROW)
             val child = unclippedBoundsOfTag(CHILD_TAG)
@@ -76,14 +73,8 @@ class TaskEditorSlotsOrderTest {
         runIsolatedComposeTest(width = 360, height = 1400) {
             setContent { editor(withOffer = false, withChild = false) }
 
-            assertTrue(
-                onAllNodesWithTag(TestTags.FIRST_RUN_SECTION).fetchSemanticsNodes().isEmpty(),
-                "an editor that was given no offer drew one",
-            )
-            assertTrue(
-                onAllNodesWithTag(CHILD_TAG).fetchSemanticsNodes().isEmpty(),
-                "an editor that was given no child sections drew one",
-            )
+            assertTagNotExists(TestTags.FIRST_RUN_SECTION)
+            assertTagNotExists(CHILD_TAG)
 
             // The rows keep their own order: the priority is still above the due date.
             val priority = unclippedBoundsOfTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
