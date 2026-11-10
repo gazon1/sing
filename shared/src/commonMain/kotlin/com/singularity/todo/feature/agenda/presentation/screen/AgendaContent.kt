@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.CallMerge
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
@@ -48,6 +54,7 @@ import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
 import com.singularity.todo.core.ui.onboarding.spotlightAnchor
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
@@ -326,10 +333,12 @@ fun AgendaContent(
                                     sections = state.sections,
                                     isSelectionMode = isSelectionMode,
                                     selectedTaskIds = selectedTaskIds,
+                                    collapsedSectionIds = state.collapsedSectionIds,
                                     horizonNote = horizonNote,
                                     onIntent = onIntent,
                                     onOpenContextMenu = ::openContextMenu,
                                     listState = listState,
+                                    isTodayAgenda = state.isTodayAgenda,
                                     modifier = Modifier,
                                 )
                             }
@@ -354,10 +363,12 @@ private fun AgendaList(
     sections: ImmutableList<RenderedSection>,
     isSelectionMode: Boolean,
     selectedTaskIds: ImmutableSet<TaskId>,
+    collapsedSectionIds: ImmutableSet<String>,
     horizonNote: String?,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     listState: LazyListState,
+    isTodayAgenda: Boolean,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -372,6 +383,9 @@ private fun AgendaList(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         for (section in sections) {
+            val isOverdueSection = section.id == AgendaPresets.OVERDUE_SECTION_ID
+            val collapsed = section.id in collapsedSectionIds
+            val showOverdueControls = isOverdueSection && isTodayAgenda
             // Keyed by the section's id, not its display name: the working day's
             // morning and afternoon blocks are both called "Work", and two headers
             // with one key take the list down with "Key ... was already used".
@@ -379,59 +393,33 @@ private fun AgendaList(
                 AgendaSectionHeader(
                     name = section.name,
                     badge = section.badge,
+                    collapsed = collapsed,
+                    showOverdueControls = showOverdueControls,
+                    onToggle = { onIntent(AgendaIntent.ToggleSection(section.id)) },
+                    onViewAll = { onIntent(AgendaIntent.OpenOverdue) },
                     onAddClick = { onIntent(AgendaIntent.CreateInSection(section.id)) },
                 )
             }
 
-            items(
-                items = section.tasks,
-                // Scoped to the section on purpose — and by its id, for the same
-                // reason as the header: two sections can share a display name.
-                // Presets are supposed to be mutually exclusive via `Section.discard`,
-                // but a task that matches two buckets would otherwise repeat this id
-                // and take the whole list down with "Key ... was already used" — a
-                // crash, not a wrong-looking row.
-                key = { "${section.id}/${it.task.id.value}" },
-            ) { rowItem ->
-                val task = rowItem.task
-                val isSelected = task.id in selectedTaskIds
-                val taskUi =
-                    remember(task, rowItem, isSelected) {
-                        rowItem.toTaskUi(isSelected)
-                    }
-                val rightClickModifier =
-                    if (!isSelectionMode) {
-                        Modifier.onSecondaryClick { offset ->
-                            onOpenContextMenu(taskUi, offset)
-                        }
-                    } else {
-                        Modifier
-                    }
-                SwipeableTaskRow(
-                    onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
-                    secondaryClickModifier = rightClickModifier,
-                    isSelectionMode = isSelectionMode,
-                    content = {
-                        TaskRowFlat(
-                            task = taskUi,
-                            onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
-                            onClick = {
-                                if (isSelectionMode) {
-                                    onIntent(AgendaIntent.ToggleSelection(task.id))
-                                } else {
-                                    onIntent(AgendaIntent.TaskClicked(task.id))
-                                }
-                            },
-                            onLongClick =
-                                if (!isSelectionMode) {
-                                    { onOpenContextMenu(taskUi, DpOffset.Zero) }
-                                } else {
-                                    null
-                                },
-                            showDivider = true,
-                        )
-                    },
-                )
+            if (!collapsed) {
+                items(
+                    items = section.tasks,
+                    // Scoped to the section on purpose — and by its id, for the same
+                    // reason as the header: two sections can share a display name.
+                    // Presets are supposed to be mutually exclusive via `Section.discard`,
+                    // but a task that matches two buckets would otherwise repeat this id
+                    // and take the whole list down with "Key ... was already used" — a
+                    // crash, not a wrong-looking row.
+                    key = { "${section.id}/${it.task.id.value}" },
+                ) { rowItem ->
+                    AgendaTaskRow(
+                        rowItem = rowItem,
+                        isSelectionMode = isSelectionMode,
+                        selectedTaskIds = selectedTaskIds,
+                        onIntent = onIntent,
+                        onOpenContextMenu = onOpenContextMenu,
+                    )
+                }
             }
         }
 
@@ -443,6 +431,59 @@ private fun AgendaList(
             }
         }
     }
+}
+
+/**
+ * One task row of an agenda section: swipe to delete, the secondary-click menu,
+ * selection, and the completion checkbox.
+ */
+@Composable
+private fun AgendaTaskRow(
+    rowItem: AgendaRowItem,
+    isSelectionMode: Boolean,
+    selectedTaskIds: ImmutableSet<TaskId>,
+    onIntent: (AgendaIntent) -> Unit,
+    onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
+) {
+    val task = rowItem.task
+    val isSelected = task.id in selectedTaskIds
+    val taskUi =
+        remember(task, rowItem, isSelected) {
+            rowItem.toTaskUi(isSelected)
+        }
+    val rightClickModifier =
+        if (!isSelectionMode) {
+            Modifier.onSecondaryClick { offset ->
+                onOpenContextMenu(taskUi, offset)
+            }
+        } else {
+            Modifier
+        }
+    SwipeableTaskRow(
+        onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
+        secondaryClickModifier = rightClickModifier,
+        isSelectionMode = isSelectionMode,
+        content = {
+            TaskRowFlat(
+                task = taskUi,
+                onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+                onClick = {
+                    if (isSelectionMode) {
+                        onIntent(AgendaIntent.ToggleSelection(task.id))
+                    } else {
+                        onIntent(AgendaIntent.TaskClicked(task.id))
+                    }
+                },
+                onLongClick =
+                    if (!isSelectionMode) {
+                        { onOpenContextMenu(taskUi, DpOffset.Zero) }
+                    } else {
+                        null
+                    },
+                showDivider = true,
+            )
+        },
+    )
 }
 
 /**
@@ -481,6 +522,10 @@ private fun AgendaHorizonFootnote(
 private fun AgendaSectionHeader(
     name: String,
     badge: Int?,
+    collapsed: Boolean,
+    showOverdueControls: Boolean,
+    onToggle: () -> Unit,
+    onViewAll: () -> Unit,
     onAddClick: (() -> Unit)?,
 ) {
     Column(
@@ -489,26 +534,53 @@ private fun AgendaSectionHeader(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        androidx.compose.foundation.layout.Row(
+        Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val label = if (badge != null && badge > 0) "$name  ·  $badge" else name
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                // Tag on the leaf Text so it survives in the accessibility tree.
-                modifier = Modifier.testTag(TestTags.agendaSection(name)),
-            )
-            if (onAddClick != null) {
-                IconButton(onClick = onAddClick) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Create in $name",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showOverdueControls) {
+                    IconButton(
+                        onClick = onToggle,
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.agendaSectionToggle(name))
+                                .semantics { stateDescription = if (collapsed) "Collapsed" else "Expanded" },
+                    ) {
+                        Icon(
+                            imageVector = if (collapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+                            contentDescription = if (collapsed) "Expand $name" else "Collapse $name",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                val label = if (badge != null && badge > 0) "$name  ·  $badge" else name
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    // Tag on the leaf Text so it survives in the accessibility tree.
+                    modifier = Modifier.testTag(TestTags.agendaSection(name)),
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showOverdueControls) {
+                    TextButton(
+                        onClick = onViewAll,
+                        modifier = Modifier.testTag(TestTags.agendaSectionViewAll(name)),
+                    ) {
+                        Text("View all")
+                    }
+                }
+                if (onAddClick != null) {
+                    IconButton(onClick = onAddClick) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Create in $name",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
         }

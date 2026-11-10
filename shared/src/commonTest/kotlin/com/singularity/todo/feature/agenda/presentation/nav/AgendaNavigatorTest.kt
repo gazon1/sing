@@ -62,4 +62,20 @@ class AgendaNavigatorTest {
         val start = (opened as AppDestination.TasksGraph).start as AppDestination.TasksStartRoute.Detail
         assertNull(start.sourceViewId, "a tab is not a saved view, so there is nothing to point at")
     }
+
+    @Test
+    fun `openOverdue opens the full overdue destination in the outer graph`() {
+        val stack = NavBackStack<AgendaStartRoute>(AgendaStartRoute.Today)
+        var opened: AppDestination? = null
+        val navigator = AgendaNavigator(stack) { opened = it }
+
+        navigator.openOverdue()
+
+        assertEquals(AppDestination.AgendaGraph(AgendaStartRoute.Overdue), opened)
+        assertEquals(
+            AgendaStartRoute.Today,
+            stack.lastOrNull(),
+            "Overdue belongs to the outer graph, so back returns here",
+        )
+    }
 }

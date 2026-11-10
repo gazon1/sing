@@ -224,6 +224,10 @@ private fun handleAgendaEvent(
             navigator.openCreateWithDates(event.draftKey)
         }
 
+        is AgendaUiEvent.NavigateToOverdue -> {
+            navigator.openOverdue()
+        }
+
         is AgendaUiEvent.ShowError -> {
             scope.launch {
                 snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short)

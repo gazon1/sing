@@ -54,6 +54,20 @@ class SeedWriterTest {
         }
 
     @Test
+    fun `createTasks writes every row in one pass`() =
+        runTest {
+            val ids =
+                writer.createTasks(
+                    (1..3).map { TaskSeed(title = "Bulk$it", stamp = stamp) },
+                )
+
+            assertEquals(3, ids.size)
+            assertEquals(1, liveTasks("Bulk1").size)
+            assertEquals(1, liveTasks("Bulk2").size)
+            assertEquals(1, liveTasks("Bulk3").size)
+        }
+
+    @Test
     fun `the second seed rewrites the row instead of adding one`() =
         runTest {
             val first =

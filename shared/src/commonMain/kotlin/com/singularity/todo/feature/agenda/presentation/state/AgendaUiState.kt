@@ -24,6 +24,10 @@ import kotlinx.datetime.LocalDate
  * @param pendingBlockedBulkClose A selection in which some tasks have open prerequisites,
  *        waiting for the user to confirm closing the selection anyway. Null when no
  *        confirmation is pending.
+ * @param collapsedSectionIds Section ids currently collapsed in the list. Large overdue
+ *        sections on Today default to collapsed so today's work stays reachable.
+ * @param isTodayAgenda True when the screen is the Today tab; only there are the
+ *        overdue section's collapse controls offered.
  *
  * ## Why there is no `@Immutable` here
  *
@@ -48,6 +52,8 @@ sealed interface AgendaUiState {
         val selectedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
         val pendingBlockedClose: BlockedCloseRequest? = null,
         val pendingBlockedBulkClose: BlockedBulkCloseRequest? = null,
+        val collapsedSectionIds: ImmutableSet<String> = persistentSetOf(),
+        val isTodayAgenda: Boolean = false,
     ) : AgendaUiState
 
     data class Error(val message: String) : AgendaUiState

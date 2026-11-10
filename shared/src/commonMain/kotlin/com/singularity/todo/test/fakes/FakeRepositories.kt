@@ -1066,6 +1066,11 @@ open class FakeTaskRepository(
         }
     }
 
+    override suspend fun createAll(items: List<Task>): Result<List<Task>> =
+        runCatchingCancellable {
+            items.map { create(it).getOrThrow() }
+        }
+
     /**
      * Runs after the task was created and before the call returns.
      *

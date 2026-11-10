@@ -14,6 +14,7 @@ object SeedLinkKeys {
     const val UPDATED_AT = "updatedAt"
     const val BLOCKED_BY = "blockedBy"
     const val ID = "id"
+    const val COUNT = "count"
     const val NOTE = "note"
     const val LINK_TO = "linkTo"
     const val PROJECT = "project"
@@ -48,6 +49,7 @@ object SeedLinkKeys {
             UPDATED_AT to Kind.Modifier,
             BLOCKED_BY to Kind.Modifier,
             ID to Kind.Modifier,
+            COUNT to Kind.Modifier,
             LINK_TO to Kind.Modifier,
             SESSION to Kind.Session,
             RESET to Kind.Delete,

@@ -24,6 +24,9 @@ sealed interface AgendaUiEvent : MviEvent {
      */
     data class ShowError(val message: String) : AgendaUiEvent
 
+    /** Navigate to the dedicated full Overdue agenda. */
+    data object NavigateToOverdue : AgendaUiEvent
+
     /**
      * Navigate to the task create screen with pre-fill from [sectionId].
      * The prefill draft was already written to [com.singularity.todo.core.draft.DraftStore]

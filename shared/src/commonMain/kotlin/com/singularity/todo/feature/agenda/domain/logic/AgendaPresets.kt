@@ -23,6 +23,9 @@ import kotlinx.datetime.LocalDate
  * subclasses are annotated with `@SerialName`. In MR1 all filtering happens in-process.
  */
 object AgendaPresets {
+    /** The overdue bucket's section id, shared by the presets and the screen. */
+    const val OVERDUE_SECTION_ID = "overdue"
+
     /**
      * All active tasks, grouped by relative date bucket — the full agenda.
      *
@@ -49,7 +52,7 @@ object AgendaPresets {
     val All: AgendaDefinition =
         agenda("All") {
             section(
-                "overdue",
+                OVERDUE_SECTION_ID,
                 "Overdue",
                 Selector.DateBucket(RelativeBucket.Overdue),
                 order = -1,
@@ -187,7 +190,7 @@ object AgendaPresets {
     val Today: AgendaDefinition =
         agenda("Today") {
             section(
-                "overdue",
+                OVERDUE_SECTION_ID,
                 "Overdue",
                 Selector.DateBucket(RelativeBucket.Overdue),
                 order = 0,
@@ -388,7 +391,7 @@ object AgendaPresets {
     fun byOverdue(): AgendaDefinition =
         agenda("Overdue") {
             section(
-                "overdue",
+                OVERDUE_SECTION_ID,
                 "Overdue",
                 Selector.DateBucket(RelativeBucket.Overdue),
                 order = 0,

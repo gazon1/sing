@@ -1,0 +1,68 @@
+# Agenda: Today stays usable when the overdue section is very large.
+#
+# Seeds >1,000 overdue tasks (debug count) plus one task for today. The Today tab
+# must keep today's section reachable without scrolling through overdue history:
+# the overdue section is auto-collapsed with an accurate count and an explicit
+# expand affordance, and the full Overdue destination contains all overdue tasks.
+#
+# прогнан на устройстве: да (2026-11-10)
+appId: com.singularity.todo
+name: agenda-large-overdue
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue&due=-1d&count=1001&id=bigoverdue"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=TodayReachable&due=today&id=todayreachable"
+
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+    timeout: 8000
+
+# Today is reachable immediately (overdue history collapsed, not a scroll wall).
+- assertVisible:
+    id: agenda_section_today
+- assertVisible:
+    id: task_item_todayreachable
+
+# Overdue header shows full count while collapsed and exposes expand/view-all.
+- assertVisible:
+    text: ".*Overdue.*1001.*"
+- assertVisible:
+    id: agenda_section_toggle_overdue
+- assertVisible:
+    id: agenda_section_view_all_overdue
+
+# Full Overdue destination contains all overdue tasks (count badge/header).
+- tapOn:
+    id: agenda_section_view_all_overdue
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+    timeout: 8000
+- assertVisible:
+    text: ".*Overdue.*1001.*"
+
+# Return and verify expand/collapse restores access in place.
+- back
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 8000
+- tapOn:
+    id: agenda_section_toggle_overdue
+- extendedWaitUntil:
+    visible:
+      id: task_item_bigoverdue_1
+    timeout: 8000

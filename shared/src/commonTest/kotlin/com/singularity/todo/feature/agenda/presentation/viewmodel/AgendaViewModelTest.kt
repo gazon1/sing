@@ -45,6 +45,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -1329,5 +1330,116 @@ class AgendaViewModelTest {
             )
             assertSame(failure, reporter.reports.last().first, "the reporter gets the original throwable")
             assertEquals("agenda.load_failed", reporter.reports.last().second)
+        }
+
+    // ─── Large overdue section on Today ─────────────────────────────────────
+
+    private fun overdueTask(
+        id: String,
+        daysAgo: Int = 1,
+    ) = Task(
+        id = TaskId(id),
+        title = "Overdue $id",
+        dueDate = LocalDate(2026, 9, 16).minus(daysAgo, kotlinx.datetime.DateTimeUnit.DAY),
+        createdAt = Clock.System.now(),
+        updatedAt = Clock.System.now(),
+        userId = UserId("test-user"),
+    )
+
+    @Test
+    fun `large overdue section is collapsed by default on Today`() =
+        runTest {
+            fakeRepo.seed(*(1..1001).map { overdueTask("o$it", daysAgo = (it % 30) + 1) }.toTypedArray())
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(clock = FakeClock(now)),
+                        definition = AgendaPresets.Today,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val overdue = state.sections.firstOrNull { it.id == "overdue" }
+            assertNotNull(overdue, "overdue section must be present")
+            assertEquals(1001, overdue.badge ?: overdue.tasks.size)
+            assertTrue("overdue" in state.collapsedSectionIds, "large overdue must start collapsed on Today")
+        }
+
+    @Test
+    fun `small overdue section is not collapsed by default on Today`() =
+        runTest {
+            fakeRepo.seed(overdueTask("o1"), overdueTask("o2", daysAgo = 2))
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(clock = FakeClock(now)),
+                        definition = AgendaPresets.Today,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertTrue(state.sections.any { it.id == "overdue" })
+            assertFalse("overdue" in state.collapsedSectionIds, "small overdue should remain expanded")
+        }
+
+    @Test
+    fun `toggle overdue section updates state and survives task updates`() =
+        runTest {
+            fakeRepo.seed(*(1..1001).map { overdueTask("o$it", daysAgo = (it % 30) + 1) }.toTypedArray())
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(clock = FakeClock(now)),
+                        definition = AgendaPresets.Today,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            val initial = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertTrue("overdue" in initial.collapsedSectionIds)
+
+            vm.onIntent(AgendaIntent.ToggleSection("overdue"))
+            runCurrent()
+            val expanded = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertFalse("overdue" in expanded.collapsedSectionIds, "manual toggle must expand")
+
+            // New emission (task list change) must keep manual choice.
+            fakeRepo.seed(
+                *(1..1001).map { overdueTask("o$it", daysAgo = (it % 30) + 1) }.toTypedArray(),
+                task("t-today", "Today task").copy(dueDate = LocalDate(2026, 9, 16)),
+            )
+            runCurrent()
+            val afterUpdate = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertFalse("overdue" in afterUpdate.collapsedSectionIds, "manual expand must persist across updates")
+
+            vm.onIntent(AgendaIntent.ToggleSection("overdue"))
+            runCurrent()
+            val collapsedAgain = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertTrue("overdue" in collapsedAgain.collapsedSectionIds)
+        }
+
+    @Test
+    fun `OpenOverdue emits NavigateToOverdue event`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
+
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                vm.onIntent(AgendaIntent.OpenOverdue)
+                runCurrent()
+                assertTrue(
+                    events.any { it is AgendaUiEvent.NavigateToOverdue },
+                    "expected NavigateToOverdue, got $events",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
 }

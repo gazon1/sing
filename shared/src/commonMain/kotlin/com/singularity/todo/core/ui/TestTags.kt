@@ -566,6 +566,12 @@ object TestTags {
     /** Agenda section header, e.g. "Today", "No Date". */
     fun agendaSection(name: String) = "agenda_section_${slug(name)}"
 
+    /** Expand/collapse affordance of an agenda section header. */
+    fun agendaSectionToggle(name: String) = "agenda_section_toggle_${slug(name)}"
+
+    /** "View all" action of an agenda section header (e.g. full overdue list). */
+    fun agendaSectionViewAll(name: String) = "agenda_section_view_all_${slug(name)}"
+
     // ─── Plans timeline ───────────────────────────────────────────────────
 
     /** The screen itself — the root of the timeline. */

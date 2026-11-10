@@ -15,6 +15,7 @@ import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
+import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
@@ -213,6 +214,9 @@ class AgendaViewModel(
      */
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
+    /** Section ids the user explicitly set: value is collapsed state they chose. */
+    private val manualSectionCollapse = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
     /**
      * The request to re-run the collection in [init] after a failure or a retry.
      *
@@ -283,6 +287,7 @@ class AgendaViewModel(
                                             .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
                                             .toImmutableList(),
                                     today = today,
+                                    isTodayAgenda = definition.title == AgendaPresets.Today.title,
                                     greeting = "",
                                 )
                             }.combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
@@ -299,9 +304,22 @@ class AgendaViewModel(
                     // elsewhere — must not stay selected: the id would otherwise
                     // ride along into a later bulk delete.
                     val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
+                    val manual = manualSectionCollapse.value
+                    val sectionIds = fresh.sections.map { it.id }.toSet()
+                    val autoOverdueCollapsed = shouldAutoCollapseOverdue(fresh)
+                    val collapsed =
+                        fresh.sections
+                            .filter { section ->
+                                manual[section.id]
+                                    ?: (section.id == AgendaPresets.OVERDUE_SECTION_ID && autoOverdueCollapsed)
+                            }.map { it.id }
+                            .toSet()
+                            .intersect(sectionIds)
+                            .toImmutableSet()
                     fresh.copy(
                         isSelectionMode = kept.isNotEmpty(),
                         selectedTaskIds = kept,
+                        collapsedSectionIds = collapsed,
                     )
                 }
             }
@@ -310,6 +328,30 @@ class AgendaViewModel(
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
         sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }
+
+    private fun shouldAutoCollapseOverdue(loaded: AgendaUiState.Loaded): Boolean {
+        if (!loaded.isTodayAgenda) return false
+        val overdue = loaded.sections.firstOrNull { it.id == AgendaPresets.OVERDUE_SECTION_ID } ?: return false
+        val count = overdue.badge ?: overdue.tasks.size
+        return count >= LARGE_OVERDUE_THRESHOLD
+    }
+
+    private fun toggleSection(sectionId: String) {
+        val loaded = currentState as? AgendaUiState.Loaded ?: return
+        if (loaded.sections.none { it.id == sectionId }) return
+        val nowCollapsed = sectionId !in loaded.collapsedSectionIds
+        manualSectionCollapse.value = manualSectionCollapse.value + (sectionId to nowCollapsed)
+        updateState { current ->
+            val state = current as? AgendaUiState.Loaded ?: return@updateState current
+            val collapsed =
+                if (nowCollapsed) {
+                    state.collapsedSectionIds + sectionId
+                } else {
+                    state.collapsedSectionIds - sectionId
+                }
+            state.copy(collapsedSectionIds = collapsed.toImmutableSet())
+        }
+    }
 
     /** Title derived from the definition, for the Slot API. */
     val title: String get() = definition.title
@@ -455,6 +497,18 @@ class AgendaViewModel(
             is AgendaIntent.Retry -> {
                 setState(AgendaUiState.Loading)
                 reloadTrigger.reload()
+            }
+
+            is AgendaIntent.ToggleSection -> {
+                with(intent) {
+                    toggleSection(sectionId)
+                }
+            }
+
+            is AgendaIntent.OpenOverdue -> {
+                with(intent) {
+                    scope.launch { emit(AgendaUiEvent.NavigateToOverdue) }
+                }
             }
         }
     }
@@ -904,6 +958,13 @@ class AgendaViewModel(
     companion object {
         /** 5-second undo window, matching the snackbar duration. */
         const val UNDO_WINDOW_MS = 5_000L
+
+        /**
+         * At least this many overdue tasks auto-collapse the section on the Today tab,
+         * so today's work stays reachable without scrolling through history. Sized to
+         * the rows a phone viewport can hold above "Today".
+         */
+        const val LARGE_OVERDUE_THRESHOLD = 20
 
         // Machine-shaped grouping keys — these leave the device.
         private const val AGENDA_LOAD_FAILED = "agenda.load_failed"

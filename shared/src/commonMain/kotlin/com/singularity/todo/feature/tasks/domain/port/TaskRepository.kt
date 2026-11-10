@@ -34,6 +34,15 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 
     suspend fun create(item: Task): Result<Task>
 
+    /**
+     * Creates [items] in one write transaction.
+     *
+     * For a bulk fixture: one commit means observers see one change instead of one
+     * per row, which is what keeps seeding thousands of rows from re-querying the
+     * whole table thousands of times.
+     */
+    suspend fun createAll(items: List<Task>): Result<List<Task>>
+
     suspend fun update(item: Task): Result<Task>
 
     suspend fun delete(id: TaskId): Result<Unit>
