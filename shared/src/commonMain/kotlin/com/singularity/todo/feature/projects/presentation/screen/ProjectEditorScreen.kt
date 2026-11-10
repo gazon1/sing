@@ -273,7 +273,12 @@ private fun EditorTopBar(
     onSave: () -> Unit,
 ) {
     TopAppBar(
-        title = { Text(if (isEditMode) "Edit Project" else "New Project") },
+        title = {
+            Text(
+                if (isEditMode) "Edit Project" else "New Project",
+                modifier = Modifier.testTag(TestTags.SHELL_BAR_TITLE),
+            )
+        },
         navigationIcon = {
             IconButton(
                 onClick = onBack,
@@ -298,6 +303,11 @@ private fun EditorTopBar(
                 }
             }
         },
+        // On Android the shell owns the only bar: this one publishes its title
+        // and its back arrow to the shell. The arrow is the editor's own, so it
+        // pops the nested projects graph — and it keeps the unsaved-changes
+        // guard, which the shell's arrow does not know about.
+        overrideShell = true,
     )
 }
 

@@ -26,6 +26,13 @@ tags:
     visible:
       id: project_editor_name_input
     timeout: 5000
+# The editor publishes its own title as well: it is the screen on screen, and
+# the shell's own name for it is the name of the graph it sits in.
+- extendedWaitUntil:
+    visible:
+      id: shell_bar_title
+      text: "New Project"
+    timeout: 8000
 - tapOn:
     id: project_editor_name_input
 - inputText: "Project Alpha"
@@ -46,3 +53,31 @@ tags:
     id: project_detail_tasks_header
 - assertVisible:
     id: project_detail_empty
+# The shell bar carries the project's own name: the detail screen publishes its
+# title, so the bar is not left with the destination's generic title. The tag is
+# the stable handle, because the name itself also appears in the detail body.
+- extendedWaitUntil:
+    visible:
+      id: shell_bar_title
+      text: "Project Alpha"
+    timeout: 8000
+# The bar's back arrow pops the nested graph's inner stack, so the project list
+# comes back instead of the app leaving the graph. The bar's title says so: the
+# list publishes its own name, the detail published the project's. The title,
+# not a project card, because the list is long and the card need not be on
+# screen after the pop.
+- tapOn:
+    id: top_bar_back_button
+- extendedWaitUntil:
+    visible:
+      id: shell_bar_title
+      text: "Projects"
+    timeout: 8000
+# The shell's own arrow is back. While the detail was on screen the bar drew the
+# detail's arrow; the shell's arrow comes back only where the shell is in charge
+# of the stack again. This is what tells the two "Projects" apart — the title
+# alone cannot, because the shell's own name for that screen is "Projects" too.
+- extendedWaitUntil:
+    visible:
+      id: shell_back_button
+    timeout: 8000

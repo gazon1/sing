@@ -84,7 +84,12 @@ fun ProjectsScreen() {
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text("Projects") })
+                // On Android the shell owns the only bar, so this one publishes its
+                // title to the shell rather than drawing a second bar.
+                TopAppBar(
+                    title = { Text("Projects", modifier = Modifier.testTag(TestTags.SHELL_BAR_TITLE)) },
+                    overrideShell = true,
+                )
                 ProjectSearchAndSortRow(
                     querySource = searchQuerySource,
                     sortOrder = sortOrder,

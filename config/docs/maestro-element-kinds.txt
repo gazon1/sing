@@ -145,6 +145,8 @@ settings_tab_backup tab
 settings_tab_dropdown tab
 settings_tab_interface tab
 settings_tab_notifications tab
+shell_back_button button
+shell_bar_title text
 snackbar_action button
 snackbar_message text
 statistics_tab_health tab
