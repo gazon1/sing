@@ -2,7 +2,7 @@
 title: "The agenda row grows with its content: density, metadata order, and priority as a shape"
 date: 2026-11-10
 status: accepted
-tags: ["tasks", "ui", "accessibility"]
+tags: [tasks, ui, accessibility]
 supersedes: 2026-10-22-a-series-shows-itself-where-it-appears
 ---
 
@@ -91,7 +91,8 @@ whose only mark is conveyed elsewhere must not hang a separator on empty space.
 The series marker in the row is drawn **compact**: the icon alone, without the
 word "series · 5 dates". The count does not disappear with the word — it stays
 in the icon's description, so a screen reader still hears how many dates the
-series has. `SeriesMarker` grew no new parameter for this: its existing
+series has, and the task detail screen's series card still shows it to a
+sighted user. `SeriesMarker` grew no new parameter for this: its existing
 `compact` flag already meant "the icon alone", and the only change is that the
 label it speaks keeps the count when the count is known.
 
@@ -143,11 +144,11 @@ width is not shortened, it is gone — no name, no colour dot, and a separator
 that now hangs on nothing. The order of the row can decide *who* gives way, but
 it cannot create width that the fixed consumers have already taken. Measured on
 the laid-out row: the date (95 dp), the 4 dp gap after it, the three marks
-(51 dp), the series marker with its word (102 dp) and the separator (12 dp) came
-to 264 dp — the whole column of a 360 dp phone, to the dp. Something had to
-shrink that is not a fact the row is read for, and the series marker's word is
-the one that says the least: the icon already says "this is a series", and the
-count survives in the description.
+(51 dp), the series marker with its word (102 dp) and the separator (12 dp — two
+4 dp spacers and the dot's own glyph) came to 264 dp — the whole column of a
+360 dp phone, to the dp. Something had to shrink that is not a fact the row is
+read for, and the series marker's word is the one that says the least: the icon
+already says "this is a series", and the count survives in the description.
 
 ## Consequences
 
@@ -168,14 +169,13 @@ count survives in the description.
   dates" is gone from the task row — 102 dp that the date and the project now
   have — while the count stays in the marker's description for a screen reader.
   The calendar's chip already drew the icon alone and is unchanged.
-- **The count of the series' dates is no longer on the screen.** A sighted user
-  sees the icon and knows the row is one date of a series; how many dates the
-  work has is in the marker's description, so it is spoken but not shown. The
-  issue asks for exactly this — compact repeat/series indicators on the same
-  line, with the accessible descriptions kept — and the row was the only place
-  that could have shown the count: the calendar's chip already drew the icon
-  alone. The count is still visible where it is about a change: the toast that
-  says how many dates a deletion took.
+- **The count of the series' dates is no longer on the task row.** The row shows
+  the icon, and how many dates the work has is in the marker's description —
+  spoken, but not shown on the row. The issue asks for exactly this — compact
+  repeat/series indicators on the same line, with the accessible descriptions
+  kept. The count is not lost from the app: the task detail screen's series card
+  still reads "Series · 5 dates", and the toast that deletes a series says how
+  many dates went away.
 - The priority chip (archive, project detail, search) is a coloured dot with a
   readable word. The agenda row itself is unchanged in this respect: it already
   drew the priority once, as a non-clickable star, and it still does.
