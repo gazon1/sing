@@ -113,7 +113,15 @@ shrink, never grow (`2026-10-01-ci-quality-ratchet.md`,
   used only when it actually runs. A tree that does not have the tool is not
   blocked by it, and the outcome does not depend on the machine.
 - **No base, no ratchet.** When the comparison cannot be made, the finding
-  counts as the push's own. The ratchet is a way of not blocking on somebody
+  counts as the push's own. "Cannot be made" covers both cases: there is no
+  base at all, and there is a base the diff cannot be computed against —
+  unrelated histories, a shallow clone. In both cases there is no way to tell
+  the push's findings from the repository's, and a finding that cannot be
+  attributed cannot be called somebody else's. The verdict counts every
+  finding as the push's own, which is the direction that stops the push. The
+  opposite direction — every finding counted as inherited, so the push is
+  green — is the failure mode this clause exists to prevent.
+  The ratchet is a way of not blocking on somebody
   else's debt, not a way of skipping a gate.
 - **A run that failed without reporting anything said nothing.** The exit code
   of each run is part of what is compared, not only the text it printed. A

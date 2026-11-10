@@ -28,9 +28,16 @@ not touch is the repository's — the branch did not put it there, and the
 branch is not the place to fix it. The repository's findings are the
 repository's CI run to report.
 
+When there is nothing to compare with — no base, or a diff that cannot be
+computed — there is no way to tell the two apart, and every finding counts as
+the push's own. The ratchet is a way of not blocking on somebody else's debt,
+not a way of skipping a gate.
+
 Two signals make the verdict red, and both are needed:
 
-  - the run's exit code — detekt's verdict on the findings it reported;
+  - a finding of the push's own — what detekt reported about the files the
+    pushed range carries, and about every file when there is no range to
+    compare with;
   - the content digest before and after the run — the evidence that the run
     changed the tree it was judging. The verdict runs detekt read-only, so
     this is a safety net rather than the usual case: it catches any task in
@@ -301,6 +308,11 @@ def classify_findings(
     it can change what every file looks like to detekt, so every finding
     counts as the change's own. The same goes for the editorconfig, which
     ktlint reads from inside detekt.
+
+    ``wide`` is also true when there is nothing to compare with — no base, or
+    a diff that could not be computed. Then every finding counts as the
+    change's own, because a finding that cannot be attributed cannot be
+    called somebody else's.
     """
     changed_set = set(changed)
     own: list[tuple[str, str]] = []
@@ -534,14 +546,22 @@ def judge(
 
     # The files this change carries. They say which findings are the change's
     # own: a finding in a file the change does not touch is the repository's.
+    #
+    # The comparison needs a base to compare with. Without one — no base at
+    # all, or a diff that cannot be computed — there is no way to tell the two
+    # apart, and a finding that cannot be attributed is a finding the push
+    # might have brought. It counts as the push's own: the ratchet is a way of
+    # not blocking on somebody else's debt, not a way of skipping a gate.
     changed: list[str] = []
-    wide = False
+    comparable = base is not None
+    rules_moved = False
     if base:
         try:
             changed = changed_paths(tree, base, sha)
         except VerdictUnavailable:
-            changed = []
-        wide = any(path.startswith(VERDICT_WIDE_PATHS) for path in changed)
+            comparable = False
+        rules_moved = any(path.startswith(VERDICT_WIDE_PATHS) for path in changed)
+    wide = rules_moved or not comparable
 
     before = kotlin_digest(tree) if tasks else ""
 

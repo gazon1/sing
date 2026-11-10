@@ -103,6 +103,24 @@ esac
 """
 
 
+#: A stand-in for detekt that reports ONE finding, in the file the test
+#: names, in the format detekt prints it — and exits 1.
+#:
+#: The format matters: the verdict reads the findings out of the log with a
+#: pattern that matches what detekt really prints. A stand-in that prints
+#: something else produces a run that failed without naming a finding, which
+#: is a different case — and the case that hid the defect below.
+FAKE_DETEKT_FINDING = """#!/usr/bin/env bash
+echo "TooManyFunctions - [Class 'Example' has 19 functions] at $PWD/{target}:3:1" >&2
+for task in "$@"; do
+  case "$task" in
+    :*:detekt) echo "> Task $task FAILED" ;;
+  esac
+done
+exit 1
+"""
+
+
 class VerdictTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-verdict-'))
@@ -407,6 +425,133 @@ class ModuleSelectionTest(unittest.TestCase):
         self.assertFalse(report['mutated'], 'nothing ran, so nothing changed')
         self.assertTrue(report['clean'], 'a change that needs no detekt run is not a violation')
         self.assertEqual(0, result.returncode)
+
+
+class FindingOwnershipTest(unittest.TestCase):
+    """Who owns a finding: the push that carried it, or the repository.
+
+    The verdict splits the findings detekt reports into the ones the push
+    brought and the ones the repository already had. The properties:
+
+      - a finding in a file the pushed range carries is the push's own, and
+        the verdict is red;
+      - a finding in a file the range does not carry is the repository's, and
+        the verdict is green — the repository's CI run is where it is
+        reported;
+      - without a base there is nothing to compare with, so every finding is
+        the push's own: the ratchet is a way of not blocking on somebody
+        else's debt, not a way of skipping a gate;
+      - a comparison that could not be made — a diff that cannot be computed —
+        counts every finding as the push's own too;
+      - a change in the rules or in the build counts every finding as the
+        push's own, because it can change what every file looks like.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-ownership-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.repo = self.tmp / 'repo'
+        self.repo.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True, env=_clean_git_env())
+        # The base: a repository that already holds a file the push never touches.
+        self.base = self._commit({
+            'README.md': 'base\n',
+            'shared/src/main/kotlin/Other.kt': SOURCE,
+        })
+        # The push: a range that carries one new file.
+        self.sha = self._commit({
+            'shared/src/main/kotlin/Example.kt': SOURCE,
+        })
+
+    def _commit(self, files: dict[str, str]) -> str:
+        for name, content in files.items():
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', 'a change'], cwd=self.repo, check=True, env=_clean_git_env())
+        return subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
+        ).stdout.strip()
+
+    def _gradle(self, target: str) -> str:
+        path = self.tmp / 'detekt'
+        path.write_text(FAKE_DETEKT_FINDING.format(target=target), encoding='utf-8')
+        path.chmod(0o755)
+        return str(path)
+
+    def _judge(self, target: str, base: str | None, sha: str | None = None) -> dict:
+        return mod.judge(
+            self.repo,
+            sha or self.sha,
+            None,
+            self._gradle(target),
+            (":shared:detekt",),
+            self.tmp / 'logs',
+            base,
+        )
+
+    def test_a_finding_in_a_file_the_range_carries_is_the_push_s_own(self):
+        report = self._judge('shared/src/main/kotlin/Example.kt', self.base)
+        self.assertFalse(report['clean'], 'the push brought this finding')
+        self.assertEqual(
+            ['shared/src/main/kotlin/Example.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+        self.assertEqual([], report['inherited_findings'])
+
+    def test_a_finding_in_a_file_the_range_does_not_carry_is_the_repository_s(self):
+        report = self._judge('shared/src/main/kotlin/Other.kt', self.base)
+        self.assertTrue(report['clean'], "the repository's finding is CI's to report")
+        self.assertEqual([], report['own_findings'])
+        self.assertEqual(
+            ['shared/src/main/kotlin/Other.kt'],
+            [finding['path'] for finding in report['inherited_findings']],
+        )
+
+    def test_without_a_base_every_finding_is_the_push_s_own(self):
+        """No base, no comparison — the safe direction is red, not green."""
+        report = self._judge('shared/src/main/kotlin/Other.kt', None)
+        self.assertFalse(report['clean'])
+        self.assertEqual(
+            ['shared/src/main/kotlin/Other.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+        self.assertEqual([], report['inherited_findings'])
+
+    def test_a_comparison_that_could_not_be_made_counts_every_finding_as_the_push_s_own(self):
+        """A base from an unrelated history: the diff cannot be computed."""
+        other = self.tmp / 'other'
+        other.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=other, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=other, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=other, check=True, env=_clean_git_env())
+        (other / 'a.txt').write_text('a\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=other, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', 'another history'], cwd=other, check=True, env=_clean_git_env())
+        alien = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=other, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
+        ).stdout.strip()
+
+        report = self._judge('shared/src/main/kotlin/Other.kt', alien)
+        self.assertFalse(report['clean'], 'a comparison that could not be made is red')
+        self.assertEqual(
+            ['shared/src/main/kotlin/Other.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+
+    def test_a_change_in_the_rules_counts_every_finding_as_the_push_s_own(self):
+        sha = self._commit({'config/detekt/detekt.yml': 'complexity:\n'})
+        report = self._judge('shared/src/main/kotlin/Other.kt', self.base, sha=sha)
+        self.assertFalse(report['clean'], 'the rules moved, so every finding counts')
+        self.assertEqual(
+            ['shared/src/main/kotlin/Other.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
 
 
 class GitEnvironmentTest(unittest.TestCase):
