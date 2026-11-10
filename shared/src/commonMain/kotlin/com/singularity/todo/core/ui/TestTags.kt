@@ -258,6 +258,17 @@ object TestTags {
     const val TASK_CONTEXT_MENU_PIN = "task_action_pin"
     const val TASK_CONTEXT_MENU_ARCHIVE = "task_action_archive"
 
+    /**
+     * Trailing icon buttons of a task card — the pointer-layout presentation only.
+     * A touch layout draws neither, and offers the same actions from the menu below.
+     */
+    const val TASK_CARD_PIN_BUTTON = "task_card_pin_button"
+    const val TASK_CARD_DELETE_BUTTON = "task_card_delete_button"
+
+    /** Rows of the touch layout's long-press menu on a task card. */
+    const val TASK_CARD_ACTION_PIN = "task_card_action_pin"
+    const val TASK_CARD_ACTION_DELETE = "task_card_action_delete"
+
     /** Dynamic tag of the form `task_item_<slug>`. */
     fun taskItem(title: String) = "task_item_${slug(title)}"
 

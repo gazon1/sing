@@ -1,0 +1,58 @@
+# Search: a result row's pin lives behind a long press on Android.
+#
+# Issue #2739 removed the trailing pin icon (and the redundant AI-labelled
+# navigation duplicate) from touch result rows. This flow reaches pin from the
+# long-press menu; the row itself is a query snapshot and keeps the state it was
+# found with (#2810).
+# прогнан на устройстве: да (2026-11-10) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: search-task-card-actions
+tags:
+  - search
+---
+# Seed a task to search for. `due=today` so it is visible on the Today tab too.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=UniqueSearchableTask2026&due=today"
+- runFlow: ../../helpers/open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_quick_search
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+- tapOn:
+    id: search_input
+- inputText: "UniqueSearchableTask2026"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: task_item_uniquesearchabletask2026
+    timeout: 8000
+
+# The touch row draws no trailing action buttons: pin is the only action the
+# result card has, and it is not a button any more.
+- assertNotVisible:
+    id: task_card_pin_button
+
+# The long press is the touch route to the same action.
+- longPressOn:
+    id: task_item_uniquesearchabletask2026
+- extendedWaitUntil:
+    visible:
+      id: task_card_action_pin
+    timeout: 8000
+- tapOn:
+    id: task_card_action_pin
+# The menu closes when the row runs the action. The row's own state does not
+# change until the query runs again — a search result is an answer to a query,
+# not a live view of the task store (#2810).
+- extendedWaitUntil:
+    notVisible:
+      id: task_card_action_pin
+    timeout: 8000

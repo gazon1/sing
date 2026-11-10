@@ -159,6 +159,8 @@ subtask_checkbox_${RUN_ID}_child_task_one item
 subtask_item_${RUN_ID}_child_task_one item
 subtasks_section item
 sync_interval_row item
+task_card_action_delete item
+task_card_action_pin item
 task_checkbox_buy_milk item
 task_checklist_section item
 task_context_menu_sheet dialog
