@@ -49,6 +49,38 @@ class NoteBodyTest {
         assertEquals("", body.plainText)
     }
 
+    // ─── readableBlocks ───────────────────────────────────────────────────────
+
+    @Test
+    fun `readableBlocks keeps block boundaries`() {
+        val body = NoteBody("<h2>Trip plan</h2><p>Pack passport</p><ul><li>Buy milk</li><li>Bread</li></ul>")
+        assertEquals(listOf("Trip plan", "Pack passport", "Buy milk", "Bread"), body.readableBlocks)
+    }
+
+    @Test
+    fun `readableBlocks decodes named and numeric entities`() {
+        val body = NoteBody("<p>Caf&eacute; &amp; cr&egrave;me &#8212; today</p>")
+        assertEquals("Caf\u00E9 & cr\u00E8me \u2014 today", body.readableBlocks.single())
+    }
+
+    @Test
+    fun `readableBlocks ignores comments, script and style content`() {
+        val body = NoteBody("<!-- note --><style>p{color:red}</style><script>alert('x')</script><p>Hello</p>")
+        assertEquals(listOf("Hello"), body.readableBlocks)
+    }
+
+    @Test
+    fun `readableBlocks keeps a quoted greater-than inside an attribute`() {
+        val body = NoteBody("""<p>See <a title="A > B" href="x">Link</a> now</p>""")
+        assertEquals("See Link now", body.readableBlocks.single())
+    }
+
+    @Test
+    fun `readableBlocks empty for sentinel and formatting-only bodies`() {
+        assertTrue(NoteBody("<p><br></p>").readableBlocks.isEmpty())
+        assertTrue(NoteBody("<p><strong> </strong></p>").readableBlocks.isEmpty())
+    }
+
     // ─── wordCount ────────────────────────────────────────────────────────────
 
     @Test

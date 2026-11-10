@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,7 +25,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.notes.extractPreviewText
+import com.singularity.todo.feature.notes.displaySnippet
+import com.singularity.todo.feature.notes.displayTitle
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.untitled_note
 
 /**
  * Internal card content — title, pin icon, preview, word count.
@@ -40,6 +45,9 @@ internal fun NoteCardContent(
     isSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val untitled = stringResource(Res.string.untitled_note)
+    val displayTitle = remember(note, untitled) { note.displayTitle(untitled) }
+    val previewText = remember(note, displayTitle) { note.displaySnippet() }
     val noteColor = note.color
     val containerColor =
         when {
@@ -75,7 +83,7 @@ internal fun NoteCardContent(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = note.title.ifBlank { "Untitled" },
+                        text = displayTitle,
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -93,7 +101,6 @@ internal fun NoteCardContent(
                         )
                     }
                 }
-                val previewText = extractPreviewText(note.bodyMarkdown)
                 if (previewText.isNotBlank()) {
                     Text(
                         text = previewText,
@@ -183,10 +190,13 @@ internal fun RowScope.DefaultNoteCardBody(
     note: Note,
     isSelected: Boolean,
 ) {
+    val untitled = stringResource(Res.string.untitled_note)
+    val displayTitle = remember(note, untitled) { note.displayTitle(untitled) }
+    val previewText = remember(note, displayTitle) { note.displaySnippet() }
     Column(modifier = Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = note.title.ifBlank { "Untitled" },
+                text = displayTitle,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -204,7 +214,6 @@ internal fun RowScope.DefaultNoteCardBody(
                 )
             }
         }
-        val previewText = extractPreviewText(note.bodyMarkdown)
         if (previewText.isNotBlank()) {
             Text(
                 text = previewText,

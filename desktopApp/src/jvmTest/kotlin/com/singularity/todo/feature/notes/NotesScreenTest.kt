@@ -8,6 +8,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
 import com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard
 import com.singularity.todo.test.helpers.assertTagExists
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -170,5 +171,36 @@ class NotesScreenTest {
 
             assertTagExists(TestTags.noteItem("n1"))
             assertTagExists(TestTags.noteItemByTitle("Meeting Notes"))
+        }
+
+    @Test
+    fun imported_html_only_body_note_shows_derived_title_and_snippet() =
+        runIsolatedComposeTest {
+            val note =
+                Note(
+                    id = NoteId("n-imported"),
+                    userId = testUserId,
+                    title = "",
+                    bodyMarkdown = null,
+                    bodyHtml = "<h2>Trip plan</h2><p>Pack passport</p>",
+                    createdAt = epoch,
+                    updatedAt = epoch,
+                )
+
+            setContent {
+                SwipeableNoteCard(
+                    note = note,
+                    isSelected = false,
+                    isSelectionMode = false,
+                    navigator = PreviewNotesNavigator(),
+                    onLongClick = {},
+                    onDelete = {},
+                    onTogglePin = {},
+                    onToggleSelection = {},
+                )
+            }
+
+            assertTextDisplayed("Trip plan")
+            assertTextDisplayed("Pack passport")
         }
 }
