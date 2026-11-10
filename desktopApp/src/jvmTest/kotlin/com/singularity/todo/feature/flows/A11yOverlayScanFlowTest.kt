@@ -73,8 +73,8 @@ class A11yOverlayScanFlowTest {
             tasks(koin).given(due = today)
             tasks(koin).open("Buy milk")
             awaitTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-            // The row is below the fold on a 1024x768 window: a click that lands
-            // outside the window opens no sheet at all.
+            // A click on a row that is off the screen lands outside the window and
+            // opens no sheet at all, so the row is scrolled into view first.
             clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
             awaitTag(TestTags.PRIORITY_OPTION_NONE)
 

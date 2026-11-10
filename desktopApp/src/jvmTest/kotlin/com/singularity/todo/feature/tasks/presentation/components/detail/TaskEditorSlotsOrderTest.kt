@@ -3,19 +3,28 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
+import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagNotExists
+import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfTag
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -85,10 +94,80 @@ class TaskEditorSlotsOrderTest {
             )
         }
 
+    /**
+     * #2010: the dependencies card joins the attribute group after the due date instead
+     * of leading it. The rows a person fills in must not move when a relation exists.
+     */
+    @Test
+    fun `the dependencies card does not push the priority and the due date down`() =
+        runIsolatedComposeTest(width = 360, height = 1400) {
+            val withDependencies = mutableStateOf(false)
+            setContent {
+                editor(
+                    withOffer = false,
+                    withChild = false,
+                    availableTasks =
+                        if (withDependencies.value) {
+                            persistentListOf(testTask(id = TaskId("t2"), title = "Other task"))
+                        } else {
+                            persistentListOf()
+                        },
+                )
+            }
+
+            val priorityWithout = unclippedBoundsOfTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            val dueWithout = unclippedBoundsOfTag(TestTags.TASK_EDITOR_DUE_ROW)
+
+            runOnIdle { withDependencies.value = true }
+            awaitTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW)
+
+            val priorityWith = unclippedBoundsOfTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            val dueWith = unclippedBoundsOfTag(TestTags.TASK_EDITOR_DUE_ROW)
+            val dependencies = unclippedBoundsOfTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW)
+
+            assertEquals(
+                priorityWithout.top,
+                priorityWith.top,
+                "the dependencies card moved the priority row from " +
+                    "${priorityWithout.top} to ${priorityWith.top}",
+            )
+            assertEquals(
+                dueWithout.top,
+                dueWith.top,
+                "the dependencies card moved the due date from " +
+                    "${dueWithout.top} to ${dueWith.top}",
+            )
+            assertTrue(
+                priorityWith.bottom <= dueWith.top,
+                "the priority row ($priorityWith) must come above the due date ($dueWith)",
+            )
+            assertTrue(
+                dependencies.top >= dueWith.bottom,
+                "the dependencies card (${dependencies.top}) must come after the due date " +
+                    "(${dueWith.top}..${dueWith.bottom}), not lead the attribute group",
+            )
+        }
+
+    @Test
+    fun `the dependencies card opens the picker`() =
+        runIsolatedComposeTest(width = 360, height = 1400) {
+            setContent {
+                editor(
+                    withOffer = false,
+                    withChild = false,
+                    availableTasks = persistentListOf(testTask(id = TaskId("t2"), title = "Other task")),
+                )
+            }
+
+            awaitTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW).performClick()
+            awaitTag(TestTags.dependencyItem("t2"))
+        }
+
     @Composable
     private fun editor(
         withOffer: Boolean,
         withChild: Boolean,
+        availableTasks: ImmutableList<Task> = persistentListOf(),
     ) {
         val offer: (@Composable () -> Unit)? =
             if (withOffer) {
@@ -104,7 +183,7 @@ class TaskEditorSlotsOrderTest {
             }
 
         TaskEditorContent(
-            model = TaskEditorModel(),
+            model = TaskEditorModel(availableTasks = availableTasks),
             titleSource = OwnedText(text = "", revision = 0),
             descriptionSource = OwnedText(text = "", revision = 0),
             onTitleChange = {},

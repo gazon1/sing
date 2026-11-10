@@ -186,8 +186,18 @@ fun runDesktopAppTest(
      * no-op, exactly like the production default, so every other flow is unaffected.
      */
     onCloseRequest: () -> Unit = {},
+    /**
+     * The width of the test window, in pixels.
+     *
+     * The default is the project's usual 1024. A claim about a phone is measured at a
+     * phone width: "the due date is visible without scrolling" is a statement about a
+     * 360 dp screen, and a 1024-wide window cannot make it.
+     */
+    width: Int = 1024,
+    /** The height of the test window, in pixels. A 1080x2400 phone is 360x800 dp. */
+    height: Int = 768,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
-) = runDesktopComposeUiTest {
+) = runDesktopComposeUiTest(width = width, height = height) {
     // Before the composition exists: `composeResources` resolves on the JVM from
     // the default locale, so a `ru` host would render Russian and fail every
     // assertion written against the base strings. See [useEnglishTestLocale].
