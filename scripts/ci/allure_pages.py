@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Allure Pages publication state: manifest, latest selection, and validation.
+"""Allure Pages publication: history bootstrap, manifest, monotonic latest, and validation.
 
-The publication job uses this helper to decide whether an incoming run may update
-GitHub Pages state and to apply that decision without regressing a newer/latest
-publication. Ordering is by (run_number, run_attempt); idempotency is by
-(run_id, run_attempt), per docs/decisions/allure-publication-latest-history-and-retention.md
-and #2764.
+Implements the publication contract for #2756/#2764/#2766/#2767/#2769:
+- merged Pages input validation
+- gh-pages history bootstrap from tarball content/outcome (testable without network)
+- per-population (fast/full) namespaces with isolated manifest/history/latest state
+- ordering by (run_number, run_attempt), idempotency by (run_id, run_attempt)
+- monotonic latest/root-landing updates, manifest/index validation
+- bounded per-population report retention without removing latest/required history
+- publish-tree invariants before deploy
 
-This module is dependency-light and testable without GitHub/network access.
+Dependency-light and usable from CI workflow steps and local tests.
 """
 
 from __future__ import annotations
@@ -15,13 +18,19 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import sys
+import tarfile
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_POPULATIONS = ("fast", "full")
+REPORTS_PER_POPULATION = 20
+NUMERIC_REPORT_RE = re.compile(r"^\d+$")
 
 
 class PublishError(Exception):
@@ -38,6 +47,10 @@ class Publication:
     population: str
     report_path: str
 
+    def __post_init__(self) -> None:
+        # Normalize/validate so unknown or missing populations cannot be recorded.
+        object.__setattr__(self, "population", _population(self.population))
+
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "Publication":
         return cls(
@@ -46,7 +59,7 @@ class Publication:
             run_attempt=_positive_int(args.run_attempt, "run-attempt"),
             event=_non_empty(args.event, "event"),
             sha=_non_empty(args.sha, "sha"),
-            population=_non_empty(args.population, "population"),
+            population=_population(args.population),
             report_path=_non_empty(args.report_path, "report-path"),
         )
 
@@ -80,7 +93,7 @@ class Publication:
                 run_attempt=_positive_int(data.get("run_attempt"), f"{label}.run_attempt"),
                 event=_non_empty(data.get("event"), f"{label}.event"),
                 sha=_non_empty(data.get("sha"), f"{label}.sha"),
-                population=_non_empty(data.get("population"), f"{label}.population"),
+                population=_population(data.get("population")),
                 report_path=_non_empty(data.get("report_path"), f"{label}.report_path"),
             )
         except PublishError:
@@ -107,13 +120,22 @@ def _non_empty(value: Any, name: str) -> str:
     return value
 
 
-def _manifest_path(site_dir: Path) -> Path:
-    return site_dir / "allure-manifest.json"
+def _population(value: Any) -> str:
+    population = _non_empty(value, "population")
+    if population not in SUPPORTED_POPULATIONS:
+        raise PublishError(
+            f"invalid population: expected one of {list(SUPPORTED_POPULATIONS)}, got {population!r}"
+        )
+    return population
 
 
-def load_manifest(path: Path) -> dict[str, Any]:
+def manifest_path(population_dir: Path) -> Path:
+    return population_dir / "allure-manifest.json"
+
+
+def load_manifest(path: Path, population: str | None = None) -> dict[str, Any]:
     if not path.exists():
-        return {"schema_version": SCHEMA_VERSION, "latest": None, "publications": {}}
+        return {"schema_version": SCHEMA_VERSION, "population": population, "latest": None, "publications": {}}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -121,7 +143,7 @@ def load_manifest(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise PublishError("malformed publication manifest: expected object")
     version = data.get("schema_version")
-    if version != SCHEMA_VERSION:
+    if version not in (1, SCHEMA_VERSION):
         raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
     publications = data.get("publications")
     latest = data.get("latest", None)
@@ -129,6 +151,11 @@ def load_manifest(path: Path) -> dict[str, Any]:
         raise PublishError("malformed publication manifest: publications must be an object")
     if latest is not None and not isinstance(latest, dict):
         raise PublishError("malformed publication manifest: latest must be an object or null")
+
+    manifest_population = data.get("population", population)
+    if manifest_population is not None:
+        manifest_population = _population(manifest_population)
+
     normalized: dict[str, Any] = {}
     for key, value in publications.items():
         pub = Publication.from_dict(value, f"publications[{key!r}]")
@@ -136,14 +163,27 @@ def load_manifest(path: Path) -> dict[str, Any]:
             raise PublishError(
                 f"malformed publication manifest: identity key {key!r} does not match {pub.identity!r}"
             )
+        if manifest_population and pub.population != manifest_population:
+            raise PublishError(
+                f"malformed publication manifest: publication {key!r} population {pub.population!r} "
+                f"does not match manifest population {manifest_population!r}"
+            )
         normalized[key] = pub.to_dict()
+
     latest_norm = None
     if latest is not None:
         latest_pub = Publication.from_dict(latest, "latest")
         if latest_pub.identity not in normalized:
             raise PublishError("malformed publication manifest: latest is not present in publications")
+        if manifest_population and latest_pub.population != manifest_population:
+            raise PublishError("malformed publication manifest: latest population mismatch")
         latest_norm = normalized[latest_pub.identity]
-    return {"schema_version": SCHEMA_VERSION, "latest": latest_norm, "publications": normalized}
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "population": manifest_population,
+        "latest": latest_norm,
+        "publications": normalized,
+    }
 
 
 def save_manifest(path: Path, manifest: dict[str, Any]) -> None:
@@ -160,12 +200,15 @@ def save_manifest(path: Path, manifest: dict[str, Any]) -> None:
 
 
 def decide(manifest: dict[str, Any], incoming: Publication) -> tuple[str, str]:
+    manifest_population = manifest.get("population")
+    if manifest_population and incoming.population != manifest_population:
+        raise PublishError(
+            f"incoming population {incoming.population!r} does not match manifest population {manifest_population!r}"
+        )
     publications = manifest["publications"]
     existing = publications.get(incoming.identity)
     latest = manifest.get("latest")
-    latest_key = None
-    if latest is not None:
-        latest_key = Publication.from_dict(latest, "latest").order_key
+    latest_key = Publication.from_dict(latest, "latest").order_key if latest is not None else None
 
     if existing is not None:
         existing_pub = Publication.from_dict(existing, "existing publication")
@@ -184,7 +227,19 @@ def decide(manifest: dict[str, Any], incoming: Publication) -> tuple[str, str]:
     return "publish", "incoming publication wins latest selection"
 
 
-def write_root_index(site_dir: Path, report_path: str) -> None:
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+def write_population_index(population_dir: Path, report_path: str) -> None:
     target = f"{report_path}/index.html"
     html = (
         '<!DOCTYPE html><meta charset="utf-8">'
@@ -192,28 +247,48 @@ def write_root_index(site_dir: Path, report_path: str) -> None:
         '<meta http-equiv="Pragma" content="no-cache">'
         '<meta http-equiv="Expires" content="0">\n'
     )
-    (site_dir / "index.html").write_text(html, encoding="utf-8")
+    _atomic_write_text(population_dir / "index.html", html)
 
 
-def validate_manifest_state(site_dir: Path, manifest: dict[str, Any]) -> None:
-    latest = manifest.get("latest")
-    if latest is None:
-        raise PublishError("publication manifest has no latest entry")
-    latest_pub = Publication.from_dict(latest, "latest")
-    report_dir = site_dir / latest_pub.report_path
-    if not report_dir.is_dir():
-        raise PublishError(f"manifest latest points to missing report: {latest_pub.report_path}")
-    if not (report_dir / "index.html").is_file():
-        raise PublishError(f"manifest latest report is missing index.html: {latest_pub.report_path}")
-    root_index = site_dir / "index.html"
-    if not root_index.is_file():
-        raise PublishError("generated root index.html is missing")
-    content = root_index.read_text(encoding="utf-8")
-    expected = f"URL={latest_pub.report_path}/index.html"
-    if expected not in content:
-        raise PublishError(
-            f"root index.html does not point to manifest latest report: expected {expected!r}"
-        )
+def build_root_index(populations: Iterable[str]) -> str:
+    items = [f'<li><a href="{pop}/index.html">{pop} latest report</a></li>' for pop in populations]
+    items_html = "".join(items)
+    return (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        "<title>Allure reports</title></head><body>"
+        "<h1>Allure reports</h1><p>Population-specific latest reports:</p>"
+        f"<ul>{items_html}</ul></body></html>\n"
+    )
+
+
+def write_root_index(site_dir: Path, populations: Iterable[str] = SUPPORTED_POPULATIONS) -> None:
+    _atomic_write_text(site_dir / "index.html", build_root_index(populations))
+
+
+def ensure_population_namespace(gh_pages_dir: Path, population: str) -> Path:
+    """Ensure gh-pages/<population> exists with isolated history state.
+
+    Mixed root last-history is never seeded into population namespaces (ADR #2761/#2766),
+    so post-migration trends start from a clean baseline per population.
+    """
+    _population(population)
+    pop_dir = gh_pages_dir / population
+    pop_dir.mkdir(parents=True, exist_ok=True)
+    (pop_dir / "last-history").mkdir(parents=True, exist_ok=True)
+    return pop_dir
+
+
+def prepare_namespace(gh_pages_dir: Path, population: str) -> dict[str, Any]:
+    gh_pages_dir.mkdir(parents=True, exist_ok=True)
+    pop_dir = ensure_population_namespace(gh_pages_dir, population)
+    mpath = manifest_path(pop_dir)
+    manifest = load_manifest(mpath, population)
+    if manifest.get("population") is None:
+        manifest["population"] = population
+        save_manifest(mpath, manifest)
+    fresh = manifest.get("latest") is None and not manifest.get("publications")
+    return {"population": population, "path": str(pop_dir), "clean_history": fresh}
 
 
 def validate_pages_input(results_dir: Path) -> None:
@@ -227,42 +302,242 @@ def validate_pages_input(results_dir: Path) -> None:
         )
 
 
-def apply_publication(site_dir: Path, manifest_path: Path, incoming: Publication) -> dict[str, Any]:
-    manifest = load_manifest(manifest_path)
+def _numeric_report_name(name: str) -> int | None:
+    return int(name) if NUMERIC_REPORT_RE.match(name) else None
+
+
+def validate_population_state(population_dir: Path, population: str, manifest: dict[str, Any] | None = None) -> Publication:
+    if manifest is None:
+        manifest = load_manifest(manifest_path(population_dir), population)
+    latest = manifest.get("latest")
+    if latest is None:
+        raise PublishError(f"publication manifest for {population} has no latest entry")
+    latest_pub = Publication.from_dict(latest, "latest")
+    if latest_pub.population != population:
+        raise PublishError(f"manifest latest population mismatch for {population}")
+    report_dir = population_dir / latest_pub.report_path
+    if not report_dir.is_dir():
+        raise PublishError(f"manifest latest points to missing report: {population}/{latest_pub.report_path}")
+    if not (report_dir / "index.html").is_file():
+        raise PublishError(
+            f"manifest latest report is missing index.html: {population}/{latest_pub.report_path}"
+        )
+    pop_index = population_dir / "index.html"
+    if not pop_index.is_file():
+        raise PublishError(f"population index.html is missing: {population}")
+    content = pop_index.read_text(encoding="utf-8")
+    expected = f"URL={latest_pub.report_path}/index.html"
+    if expected not in content:
+        raise PublishError(
+            f"population index.html does not point to latest report: {population} expected {expected!r}"
+        )
+    if not (population_dir / "last-history").is_dir():
+        raise PublishError(f"required history directory missing: {population}/last-history")
+    return latest_pub
+
+
+def validate_publish_tree(site_dir: Path, populations: Iterable[str] = SUPPORTED_POPULATIONS) -> None:
+    if not site_dir.exists() or not site_dir.is_dir():
+        raise PublishError(f"publish tree does not exist: {site_dir}")
+    for git_dir in site_dir.rglob(".git"):
+        raise PublishError(f"publish tree contains git metadata: {git_dir.relative_to(site_dir)}")
+    for archive in list(site_dir.rglob("*.tar.gz")) + list(site_dir.rglob("*.tgz")):
+        raise PublishError(f"publish tree contains temporary archive: {archive.relative_to(site_dir)}")
+    root_index = site_dir / "index.html"
+    if not root_index.is_file():
+        raise PublishError("publish tree missing root index.html")
+    root_content = root_index.read_text(encoding="utf-8")
+    for pop in populations:
+        pop_dir = site_dir / pop
+        if not pop_dir.is_dir():
+            raise PublishError(f"publish tree missing population directory: {pop}")
+        if f"{pop}/index.html" not in root_content:
+            raise PublishError(f"root index.html does not link to population {pop}")
+        mpath = manifest_path(pop_dir)
+        if not mpath.is_file():
+            raise PublishError(f"publish tree missing manifest for population {pop}")
+        manifest = load_manifest(mpath, pop)
+        validate_population_state(pop_dir, pop, manifest)
+    # if CNAME exists, it must be a non-empty file (domain config preserved)
+    cname = site_dir / "CNAME"
+    if cname.exists() and (not cname.is_file() or not cname.read_text(encoding="utf-8").strip()):
+        raise PublishError("publish tree contains invalid CNAME")
+
+
+def prune_population(population_dir: Path, population: str, keep: int = REPORTS_PER_POPULATION) -> dict[str, Any]:
+    keep = _positive_int(keep, "keep-reports")
+    mpath = manifest_path(population_dir)
+    manifest = load_manifest(mpath, population)
+    publications = manifest.get("publications", {})
+    latest = manifest.get("latest")
+    if latest is None:
+        return {"removed": [], "kept": 0}
+
+    latest_path = latest["report_path"]
+    latest_identity = latest["run_id"], latest["run_attempt"]
+
+    numeric_dirs = [child for child in population_dir.iterdir() if child.is_dir() and _numeric_report_name(child.name) is not None]
+    ordered = sorted(numeric_dirs, key=lambda p: (_numeric_report_name(p.name) or 0, p.name))
+    keep_paths = {p.name for p in ordered[-keep:]} if keep < len(ordered) else {p.name for p in ordered}
+    keep_paths.add(latest_path)
+
+    removed: list[str] = []
+    for p in ordered:
+        if p.name in keep_paths or p.name == latest_path or p.name == "last-history":
+            continue
+        shutil.rmtree(p)
+        removed.append(p.name)
+
+    if removed:
+        removed_set = set(removed)
+        new_publications = {}
+        for ident, pub_dict in publications.items():
+            if pub_dict["report_path"] in removed_set and (pub_dict["run_id"], pub_dict["run_attempt"]) != latest_identity:
+                continue
+            new_publications[ident] = pub_dict
+        manifest["publications"] = new_publications
+        save_manifest(mpath, manifest)
+    return {"removed": removed, "kept": max(len(ordered) - len(removed), 0)}
+
+
+def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int = REPORTS_PER_POPULATION) -> dict[str, Any]:
+    population_dir = site_dir / incoming.population
+    mpath = manifest_path(population_dir)
+    if not population_dir.is_dir():
+        raise PublishError(f"population namespace does not exist: {incoming.population}")
+    manifest = load_manifest(mpath, incoming.population)
+    if manifest.get("population") is None:
+        manifest["population"] = incoming.population
     action, reason = decide(manifest, incoming)
     publications = dict(manifest["publications"])
 
     if action == "publish":
-        report_dir = site_dir / incoming.report_path
+        report_dir = population_dir / incoming.report_path
         if not report_dir.is_dir():
-            raise PublishError(f"latest report target does not exist: {incoming.report_path}")
+            raise PublishError(f"latest report target does not exist: {incoming.population}/{incoming.report_path}")
         if not (report_dir / "index.html").is_file():
-            raise PublishError(f"latest report target is missing index.html: {incoming.report_path}")
+            raise PublishError(
+                f"latest report target is missing index.html: {incoming.population}/{incoming.report_path}"
+            )
         publications[incoming.identity] = incoming.to_dict()
         manifest = {
             "schema_version": SCHEMA_VERSION,
+            "population": incoming.population,
             "latest": incoming.to_dict(),
             "publications": publications,
         }
-        write_root_index(site_dir, incoming.report_path)
-        save_manifest(manifest_path, manifest)
-        validate_manifest_state(site_dir, manifest)
-        return {"action": action, "reason": reason, "manifest": manifest}
+        write_population_index(population_dir, incoming.report_path)
+        save_manifest(mpath, manifest)
+        prune_result = prune_population(population_dir, incoming.population, keep_reports)
+        manifest = load_manifest(mpath, incoming.population)
+        validate_population_state(population_dir, incoming.population, manifest)
+        present = [p for p in SUPPORTED_POPULATIONS if (site_dir / p / "allure-manifest.json").is_file()]
+        if incoming.population not in present and (site_dir / incoming.population / "allure-manifest.json").is_file():
+            present.append(incoming.population)
+        if present:
+            write_root_index(site_dir, present)
+        return {"action": action, "reason": reason, "pruned": prune_result["removed"]}
 
-    # skip-stale / skip-duplicate: never regress manifest/latest or root landing.
     latest = manifest.get("latest")
     if latest is None:
-        # First publication state is missing/corrupt for this context; cannot safely
-        # restore a previous latest, but we also must not promote this incoming run.
         raise PublishError(
             f"{action}: {reason}, but no existing latest publication is recorded to preserve"
         )
     latest_pub = Publication.from_dict(latest, "latest")
-    # Ensure root index points to recorded latest even if upstream tooling overwrote it.
-    write_root_index(site_dir, latest_pub.report_path)
-    # Manifest remains unchanged (idempotent for duplicates; stale runs do not become latest).
-    validate_manifest_state(site_dir, manifest)
-    return {"action": action, "reason": reason, "manifest": manifest}
+    # never regress: keep recorded latest/index consistent without promoting incoming run
+    write_population_index(population_dir, latest_pub.report_path)
+    present = [p for p in SUPPORTED_POPULATIONS if (site_dir / p / "allure-manifest.json").is_file()]
+    if present:
+        write_root_index(site_dir, present)
+    validate_population_state(population_dir, incoming.population, manifest)
+    return {"action": action, "reason": reason, "pruned": []}
+
+
+def _cleanup_dir(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def bootstrap_history_from_tarball(
+    gh_pages_dir: Path,
+    tarball_path: Path | None,
+    http_status: str | int | None,
+) -> dict[str, Any]:
+    """Extract gh-pages tarball into gh_pages_dir or initialize clean state.
+
+    - 200 + valid tarball: extract (strip top-level dir), preserving branch contents.
+    - 404: explicit first-publication case, clean empty state.
+    - other failures/malformed/missing tarball: cleanup any partial extraction and
+      leave clean empty state, returning a failure status (caller fails publication).
+    """
+    status = str(http_status) if http_status is not None else "missing"
+
+    if status == "404":
+        _cleanup_dir(gh_pages_dir)
+        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+        return {"status": "missing-branch", "http_status": 404, "extracted": False}
+
+    if status != "200":
+        _cleanup_dir(gh_pages_dir)
+        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+        return {"status": "download-failed", "http_status": status, "extracted": False}
+
+    if tarball_path is None or not Path(tarball_path).exists():
+        _cleanup_dir(gh_pages_dir)
+        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+        return {"status": "missing-tarball", "http_status": 200, "extracted": False}
+
+    _cleanup_dir(gh_pages_dir)
+    try:
+        with tarfile.open(tarball_path, "r:gz") as tar:
+            members = tar.getmembers()
+            if not members:
+                raise PublishError("empty tarball")
+            top_levels = {m.name.split("/", 1)[0] for m in members if m.name}
+            if len(top_levels) != 1:
+                raise PublishError("unexpected tarball layout")
+            prefix = next(iter(top_levels)) + "/"
+            resolved_root = gh_pages_dir.resolve()
+            for member in members:
+                if not member.name.startswith(prefix):
+                    continue
+                rel = member.name[len(prefix):]
+                if not rel:
+                    continue
+                target = (gh_pages_dir / rel).resolve()
+                if target != resolved_root and resolved_root not in target.parents:
+                    raise PublishError("tarball contains unsafe path")
+            for member in members:
+                if not member.name.startswith(prefix):
+                    continue
+                rel = member.name[len(prefix):]
+                if not rel:
+                    continue
+                member.name = rel
+                tar.extract(member, gh_pages_dir)
+    except Exception as exc:
+        _cleanup_dir(gh_pages_dir)
+        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+        return {"status": "malformed-tarball", "http_status": 200, "extracted": False, "error": str(exc)}
+
+    (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+    return {"status": "ok", "http_status": 200, "extracted": True}
+
+
+def tree_stats(path: Path) -> dict[str, int]:
+    files = 0
+    size = 0
+    if not path.exists():
+        return {"files": 0, "bytes": 0}
+    for p in path.rglob("*"):
+        try:
+            if p.is_file() and not p.is_symlink():
+                files += 1
+                size += p.stat().st_size
+        except OSError:
+            pass
+    return {"files": files, "bytes": size}
 
 
 def cmd_validate_input(args: argparse.Namespace) -> int:
@@ -271,29 +546,79 @@ def cmd_validate_input(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bootstrap_history(args: argparse.Namespace) -> int:
+    tarball = Path(args.tarball) if args.tarball else None
+    result = bootstrap_history_from_tarball(Path(args.gh_pages_dir), tarball, args.http_status)
+    print(json.dumps(result, sort_keys=True))
+    return 0 if result["status"] in {"ok", "missing-branch"} else 1
+
+
+def cmd_prepare_namespace(args: argparse.Namespace) -> int:
+    result = prepare_namespace(Path(args.gh_pages_dir), _population(args.population))
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
 def cmd_decide(args: argparse.Namespace) -> int:
     incoming = Publication.from_args(args)
     if args.results_dir:
         validate_pages_input(Path(args.results_dir))
-    manifest = load_manifest(_manifest_path(Path(args.site_dir)))
+    population_dir = Path(args.site_dir) / incoming.population
+    mpath = manifest_path(population_dir)
+    manifest = load_manifest(mpath, incoming.population)
+    if manifest.get("population") is None:
+        manifest["population"] = incoming.population
     action, reason = decide(manifest, incoming)
-    print(json.dumps({"action": action, "reason": reason, "identity": incoming.identity}, sort_keys=True))
+    print(json.dumps({"action": action, "reason": reason, "identity": incoming.identity, "population": incoming.population}, sort_keys=True))
     return 0
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
     incoming = Publication.from_args(args)
     site_dir = Path(args.site_dir)
-    result = apply_publication(site_dir, _manifest_path(site_dir), incoming)
-    print(json.dumps({"action": result["action"], "reason": result["reason"]}, sort_keys=True))
+    keep = _positive_int(args.keep_reports, "keep-reports")
+    result = apply_publication(site_dir, incoming, keep)
+    print(json.dumps({"action": result["action"], "reason": result["reason"], "pruned": result.get("pruned", [])}, sort_keys=True))
     return 0
 
 
 def cmd_validate_state(args: argparse.Namespace) -> int:
     site_dir = Path(args.site_dir)
-    manifest = load_manifest(_manifest_path(site_dir))
-    validate_manifest_state(site_dir, manifest)
+    populations = args.population if args.population else list(SUPPORTED_POPULATIONS)
+    validated = []
+    for pop in populations:
+        pop = _population(pop)
+        pop_dir = site_dir / pop
+        if not pop_dir.is_dir():
+            raise PublishError(f"publish tree missing population directory: {pop}")
+        validate_population_state(pop_dir, pop)
+        validated.append(pop)
+    # full publish-tree invariants when all validated populations requested together
+    validate_publish_tree(site_dir, validated)
     print(f"publication state OK: {site_dir}")
+    return 0
+
+
+def cmd_prune(args: argparse.Namespace) -> int:
+    population = _population(args.population)
+    population_dir = Path(args.site_dir) / population
+    if not population_dir.is_dir():
+        raise PublishError(f"population namespace does not exist: {population}")
+    result = prune_population(population_dir, population, _positive_int(args.keep_reports, "keep-reports"))
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_measure(args: argparse.Namespace) -> int:
+    stats = tree_stats(Path(args.path))
+    print(json.dumps(stats, sort_keys=True))
+    return 0
+
+
+def cmd_write_root_index(args: argparse.Namespace) -> int:
+    populations = [_population(p) for p in (args.population or list(SUPPORTED_POPULATIONS))]
+    write_root_index(Path(args.site_dir), populations)
+    print(f"root index written: {Path(args.site_dir) / 'index.html'}")
     return 0
 
 
@@ -310,24 +635,52 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument("--population", required=True)
         cmd.add_argument("--report-path", required=True)
 
-    p_validate_input = sub.add_parser("validate-input", help="validate merged Allure Pages input artifact")
-    p_validate_input.add_argument("--results-dir", required=True)
-    p_validate_input.set_defaults(func=cmd_validate_input)
+    p_vi = sub.add_parser("validate-input", help="validate merged Allure Pages input artifact")
+    p_vi.add_argument("--results-dir", required=True)
+    p_vi.set_defaults(func=cmd_validate_input)
 
-    p_decide = sub.add_parser("decide", help="decide whether incoming publication may become latest")
+    p_bh = sub.add_parser("bootstrap-history", help="extract gh-pages tarball or initialize clean history state")
+    p_bh.add_argument("--gh-pages-dir", required=True)
+    p_bh.add_argument("--tarball")
+    p_bh.add_argument("--http-status")
+    p_bh.set_defaults(func=cmd_bootstrap_history)
+
+    p_pn = sub.add_parser("prepare-namespace", help="prepare per-population namespace with isolated history")
+    p_pn.add_argument("--gh-pages-dir", required=True)
+    p_pn.add_argument("--population", required=True)
+    p_pn.set_defaults(func=cmd_prepare_namespace)
+
+    p_decide = sub.add_parser("decide", help="decide whether incoming publication may become latest for its population")
     p_decide.add_argument("--site-dir", required=True)
     p_decide.add_argument("--results-dir")
     add_publication_args(p_decide)
     p_decide.set_defaults(func=cmd_decide)
 
-    p_apply = sub.add_parser("apply", help="apply monotonic/idempotent publication state")
+    p_apply = sub.add_parser("apply", help="apply monotonic/idempotent publication state for a population")
     p_apply.add_argument("--site-dir", required=True)
+    p_apply.add_argument("--keep-reports", default=str(REPORTS_PER_POPULATION))
     add_publication_args(p_apply)
     p_apply.set_defaults(func=cmd_apply)
 
-    p_validate_state = sub.add_parser("validate-state", help="validate manifest and latest/index consistency")
-    p_validate_state.add_argument("--site-dir", required=True)
-    p_validate_state.set_defaults(func=cmd_validate_state)
+    p_validate = sub.add_parser("validate-state", help="validate publish tree, manifests and latest/index consistency")
+    p_validate.add_argument("--site-dir", required=True)
+    p_validate.add_argument("--population", action="append")
+    p_validate.set_defaults(func=cmd_validate_state)
+
+    p_prune = sub.add_parser("prune", help="prune old per-population reports while keeping latest/required history")
+    p_prune.add_argument("--site-dir", required=True)
+    p_prune.add_argument("--population", required=True)
+    p_prune.add_argument("--keep-reports", default=str(REPORTS_PER_POPULATION))
+    p_prune.set_defaults(func=cmd_prune)
+
+    p_measure = sub.add_parser("measure", help="report file count and byte size of a directory tree")
+    p_measure.add_argument("--path", required=True)
+    p_measure.set_defaults(func=cmd_measure)
+
+    p_root = sub.add_parser("write-root-index", help="write root navigation index linking populations")
+    p_root.add_argument("--site-dir", required=True)
+    p_root.add_argument("--population", action="append")
+    p_root.set_defaults(func=cmd_write_root_index)
 
     return parser
 
