@@ -77,6 +77,7 @@ BLOCKING_FINDINGS = frozenset(
         "empty report",
         "flow unreadable",
         "flow file missing",
+        "unknown flow",
         "duplicate conflict",
     }
 )
@@ -335,19 +336,22 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | No
 def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     """Whether every shard agrees about the run. Disagreement is fatal."""
     findings: list[dict] = []
-    commits = {shard["environment"].get("commit") for shard in shards if shard["environment"].get("commit")}
+    raw_commits = [shard["environment"].get("commit") for shard in shards if shard["environment"].get("commit")]
+    # Compare by canonical JSON: a list or an object is not hashable, and 123 and
+    # "123" are different commits even though they print alike.
+    commits = {json.dumps(value, sort_keys=True) for value in raw_commits}
     if len(commits) > 1:
         findings.append(
             {
                 "kind": "identity disagreement",
-                "detail": f"shards carry different commits: {sorted(str(c) for c in commits)}",
+                "detail": f"shards carry different commits: {sorted(str(c) for c in raw_commits)}",
             }
         )
-    if meta["commit"] and commits and commits != {meta["commit"]}:
+    if meta["commit"] and commits and commits != {json.dumps(meta["commit"], sort_keys=True)}:
         findings.append(
             {
                 "kind": "identity disagreement",
-                "detail": f"the workflow says {meta['commit']}, the shards say {sorted(str(c) for c in commits)}",
+                "detail": f"the workflow says {meta['commit']}, the shards say {sorted(str(c) for c in raw_commits)}",
             }
         )
     return (not findings), findings
@@ -397,7 +401,12 @@ def manifest_for(
     )
     observed, expected_shards, complete, shard_findings = shard_set(shards)
     findings = list(findings) + shard_findings
-    identity_known = all(meta[key] for key in ("run_id", "run_number", "run_attempt", "commit"))
+    identity_known = all(
+        meta[key]
+        for key in (
+            "run_id", "run_number", "run_attempt", "commit", "maestro_version", "apk_sha256"
+        )
+    )
     publishable = bool(
         results
         and identity_known
@@ -548,7 +557,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     out = pathlib.Path(args.out)
-    if out.exists() and not out.is_dir():
+    if (out.exists() or out.is_symlink()) and not out.is_dir():
         print(f"maestro-allure: {out} is not a directory", file=sys.stderr)
         return 1
     if out.is_dir() and not is_ours(out):
@@ -559,8 +568,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    try:
+        now_ms = timestamp_ms(args.now)
+    except ValueError as exc:
+        print(f"maestro-allure: --now is not an ISO8601 instant: {exc}", file=sys.stderr)
+        return 1
+
     expected_flows = scope_flows(meta["scope"], catalogue, root, findings)
-    conversion = convert(shards, root, meta, timestamp_ms(args.now))
+    conversion = convert(shards, root, meta, now_ms)
     findings = findings + conversion["findings"]
     manifest = manifest_for(shards, conversion, meta, expected_flows, findings)
 

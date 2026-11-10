@@ -149,10 +149,15 @@ class IdentityTest(unittest.TestCase):
                 xml.replace(str(root), "/somewhere/else")
             )
             code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
-                             "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+                             "--catalogue", str(root / "catalogue.txt"),
+                             "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
+                             "--commit", "abc", "--maestro-version", "2.10.0",
+                             "--apk-sha256", "f" * 64, "--task-outcome", "passed",
+                             "--out", str(out)])
             self.assertEqual(code, 0)
             self.assertEqual(results(out), {})
             self.assertIn("unknown flow", err)
+            self.assertFalse(manifest(out)["publishable"])
 
 
 class StatusTest(unittest.TestCase):
@@ -406,6 +411,67 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertTrue(data["publishable"])
             self.assertEqual(json.loads((out / "executor.json").read_text())["type"], "github")
 
+    def test_missing_binary_identity_blocks_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                 "--catalogue", str(root / "catalogue.txt"),
+                 "--run-id", "42", "--run-number", "7", "--run-attempt", "1",
+                 "--commit", "abc", "--task-outcome", "passed", "--out", str(out)])
+            data = manifest(out)
+            self.assertTrue(data["complete_shards"])
+            self.assertIsNone(data["identity"]["maestro_version"])
+            self.assertFalse(data["publishable"])
+
+    def test_unhashable_commit_is_a_disagreement_not_a_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            one = write_shard(root, "s1", {"shard": 1, "shards": 2, "commit": ["abc"]})
+            two = write_shard(root, "s2", {"shard": 2, "shards": 2, "commit": "abc"})
+            write_report(one, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, err = run(["--results", str(one), "--results", str(two), "--scope", "full",
+                             "--root", str(root), "--catalogue", str(root / "catalogue.txt"),
+                             "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertIn("identity disagreement", err)
+
+    def test_dangling_symlink_out_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            os.symlink(root / "missing-target", out)
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertIn("is not a directory", err)
+
+    def test_malformed_now_is_an_error_not_a_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            shard = write_shard(root, "s1")
+            (root / "catalogue.txt").write_text("")
+            out = root / "out"
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(root / "catalogue.txt"),
+                             "--now", "yesterday", "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertIn("--now is not an ISO8601 instant", err)
+
     def test_a_missing_run_summary_blocks_publication(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -452,10 +518,15 @@ class RobustnessTest(unittest.TestCase):
             (root / "catalogue.txt").write_text("")
             out = root / "out"
             code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
-                             "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+                             "--catalogue", str(root / "catalogue.txt"),
+                             "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
+                             "--commit", "abc", "--maestro-version", "2.10.0",
+                             "--apk-sha256", "f" * 64, "--task-outcome", "passed",
+                             "--out", str(out)])
             self.assertEqual(code, 0)
             self.assertEqual(results(out), {})
             self.assertIn("unknown flow", err)
+            self.assertFalse(manifest(out)["publishable"])
 
     def test_unreadable_flow_file_is_a_finding(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

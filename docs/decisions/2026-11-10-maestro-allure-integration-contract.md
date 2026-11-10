@@ -171,14 +171,16 @@ being read as a pass.
   contract forbids.
 - Findings (missing/empty/malformed XML, absent flow, duplicate, missing
   evidence) are warnings: the converter exits 0. It exits 1 only for its own
-  errors: unreadable inputs, no results directory, or an identity disagreement
-  between shards.
+  errors: unreadable inputs, no results directory, an identity disagreement
+  between shards, an output path that is not a directory this tool wrote, or a
+  `--now` that is not an instant.
 - `publishable=true` requires: at least one result, every identity field
   known, shard set complete, `task_outcome` in `{passed, failed}`, and no
   finding that removes a fact the report is built from — a missing or
   unreadable `environment.json`/`run-summary.json`, a report that cannot be
-  read or holds no testcase, an unreadable or absent flow file, an identity
-  disagreement, or a duplicate status conflict. A shard set that cannot be
+  read or holds no testcase, an unreadable or absent flow file, a testcase
+  whose flow cannot be identified, an identity disagreement, or a duplicate
+  status conflict. A shard set that cannot be
   established (no total, or two totals) is a finding, so a manifest that is
   not publishable says why.
 - The converter is not a gate: it runs with neither `|| true` nor
