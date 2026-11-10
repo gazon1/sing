@@ -103,10 +103,11 @@ import kotlin.time.Instant
  * ## The order of the screen
  *
  * Top to bottom: the hero (the title and the description), the offers — the first-run
- * banner and the stack of pending AI proposals — the task's own sections (the tags, the
- * checklist items, the subtasks, the attachments, the backlinks, the series card, the
- * timer, the logbook), and then the attribute rows (the priority, the estimate, the due
- * date, the project, the tags).
+ * banner and the stack of pending AI proposals — the attribute rows (the priority, the
+ * estimate, the due date, the start date, the project, the tags, the recurrence, the
+ * pin, the dependencies card and the workflow state), and then the task's own sections
+ * (the tags, the checklist items, the subtasks, the attachments, the backlinks, the
+ * series card, the timer, the logbook).
  *
  * The offers have a place of their own: they sit above the attribute rows for every
  * task, and where they sit does not depend on which sections the task happens to carry.

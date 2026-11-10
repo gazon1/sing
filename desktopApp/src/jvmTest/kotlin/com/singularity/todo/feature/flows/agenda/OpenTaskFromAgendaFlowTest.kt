@@ -108,8 +108,8 @@ class OpenTaskFromAgendaFlowTest {
 
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
             // The due date row shows the date in the screen's locale, not the ISO date
-            // it used to print (#1700). The attribute rows sit
-            // below the fold on a 1024x768 window, so scroll before asserting display.
+            // it used to print (#1700). "Displayed" is a claim about the screen, not the
+            // tree, so the row is scrolled into view before the claim is made.
             scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
             assertTextDisplayed("Wed, 16 Sep 2026")
