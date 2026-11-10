@@ -51,6 +51,10 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
  * visible and tappable (#2752). The space comes from the shell
  * ([LocalFabBottomSpace]), so it is zero on a route without a button.
  *
+ * The same host is also used inside a `Popup` (`NotificationHost`): a popup is
+ * its own window, drawn above the button, so it never needed the clearance —
+ * but it consumes the same value, and the lift it gets there is cosmetic.
+ *
  * ## Countdown variant
  *
  * When [countdownProgress] is not null, a [LinearProgressIndicator] is shown

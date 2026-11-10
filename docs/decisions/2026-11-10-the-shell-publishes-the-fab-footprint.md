@@ -128,6 +128,10 @@ this one measured run, not on a test that fails when the geometry drifts.
 - A new contract between the shell and the features: `LocalFabBottomSpace` in
   `core/ui`. A list that floats under the FAB consumes it; a snackbar host
   consumes it; anything that does not is unaffected (the value is `0`).
+- Both snackbar hosts consume it: the agenda's own host and the one inside
+  `NotificationHost`'s `Popup`. A popup is its own window, drawn above the
+  button, so it never needed the clearance — the lift it gets there is
+  cosmetic, not a fix.
 - `FabSpacing` (16 dp) is duplicated here because Material3 keeps its own
   private. A change there is invisible to us — the value is small and the test
   asserts the outcome (the row is above the button), not the constant.

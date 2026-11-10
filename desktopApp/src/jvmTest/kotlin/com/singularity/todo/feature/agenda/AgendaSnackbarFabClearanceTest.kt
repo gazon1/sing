@@ -71,9 +71,17 @@ class AgendaSnackbarFabClearanceTest {
             val root = mainRootBounds()
             // Nothing is on screen to make room for: the snackbar sits on the
             // bottom edge, as it did before the button was ever measured.
+            //
+            // The bound is the button's own size, not Material3's snackbar
+            // metrics: the gap between the action and the bottom edge is
+            // whatever Material3 leaves around its action inside the container,
+            // and that container's height is Material3's to change. What is
+            // under test is that no *button-sized* space was reserved — a
+            // clearance hard-coded to any real button would leave more than
+            // this here.
             val gap = root.bottom - action.bottom
             assertTrue(
-                gap >= 0.dp && gap <= 4.dp,
+                gap >= 0.dp && gap < BUTTON_SIZE,
                 "the snackbar kept $gap below it with no button on screen",
             )
         }
@@ -126,3 +134,9 @@ class AgendaSnackbarFabClearanceTest {
 private const val PHONE_WIDTH = 360
 
 private const val PHONE_HEIGHT = 640
+
+/**
+ * Material3's medium floating action button — the smallest button the shell
+ * draws, and the bound for "space was reserved for a button".
+ */
+private val BUTTON_SIZE = 56.dp
