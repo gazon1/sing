@@ -63,18 +63,34 @@ is a real directory whose entries are symlinks into the real `~/.gradle`; a
 Gradle version's cache directory is real too, its own entries are symlinks, and
 its `cc-keystore/` is a private directory of its own.
 
+A Gradle version's directory is recognised by its **name**, not by the keystore
+inside it. The keystore cannot be the marker: a version whose configuration
+cache has not run yet has no `cc-keystore/`, and a directory recognised by the
+absence of a keystore would be linked whole — so the keystore would be created
+inside the shared home, and the next worktree would fail against it exactly the
+way the old layout failed.
+
+The shared home owns the cache content and the local directory is a view of it.
+What a build wrote locally before the shared home had that Gradle version is
+moved into the shared home and linked back, so the caches stay shared for a
+version the shared home has not seen yet. The move is skipped when the two are
+on different filesystems — a gigabyte copied in a git hook is a hook that
+hangs — and the content stays local.
+
 `git worktree add` runs the `post-checkout` hook, with the previous HEAD set to
 the null SHA — that is the only hook Git fires for a new worktree, and it is
 verified here rather than assumed. The hook calls
 `scripts/setup-gradle-home.sh`, which `gw` also calls, so there is one
-implementation and no second recipe to keep in sync. The setup creates a
-directory and at most three symlinks: it never starts Gradle, never touches the
-network and never runs `--stop`, and a failure is reported without blocking the
-checkout. A plain `git clone` fires the same hook, so clones are covered too.
+implementation and no second recipe to keep in sync. The setup creates
+directories and symlinks inside the private home: it never starts Gradle, never
+touches the network and never runs `--stop`, and a failure is reported without
+blocking the checkout. A plain `git clone` fires the same hook, so clones are
+covered too.
 
 For people who would rather not prefix their Gradle invocations, `.envrc` exports
-the same variable for `direnv`; the symlinks are then the manual step, and the
-file says so.
+the same variable for `direnv` and calls the same setup script — the symlinks are
+not a second recipe to keep in sync, and a hand-made one that links `caches/`
+one level deep would share the keystore again.
 
 If `GRADLE_USER_HOME` is already set, `gw` leaves it alone. That is the opt-out,
 and it is also what lets a script hand a different home to a specific build.

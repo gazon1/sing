@@ -51,7 +51,7 @@ All worktrees **share the same `.git`** directory with the main checkout. This m
 
 ### Gradle caches are shared
 
-`~/.gradle/caches` is shared by default — this is fine and desirable. No special setup needed.
+`~/.gradle/caches` is shared by default — this is fine and desirable. No special setup needed. The one exception is the configuration-cache keystore inside a Gradle version's cache directory: it is worktree-private, because Gradle opens it under a lock and two worktrees that share one keystore break each other's build. `./gw` lays that out for you.
 
 ### IDE integration
 
