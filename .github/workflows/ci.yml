@@ -1478,7 +1478,7 @@ jobs:
       # downloads this artifact and must not rerun tests. Existing
       # `allure-results-*` and `allure-report-*` artifacts stay unchanged.
       - name: Upload merged Allure results for Pages
-        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: allure-pages-input-${{ github.run_id }}-${{ github.run_attempt }}
@@ -1864,7 +1864,7 @@ jobs:
         if: ${{ always() }}
         run: rm -f history.tar.gz
 
-      - name: Measure history tree (before)
+      - name: Measure history tree (before, advisory)
         if: ${{ always() }}
         run: |
           python3 scripts/ci/allure_pages.py measure --path gh-pages || true
