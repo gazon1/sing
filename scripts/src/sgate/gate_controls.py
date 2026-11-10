@@ -951,6 +951,17 @@ SCRIPT_GATES = [
             "caps the hit area and the target stays small however the chain is read"
         ),
     ),
+        # the profiles are the vocabulary every test run reports itself in: a profile that declares a task nobody runs reports every run as incomplete, and a task that runs and is declared in no profile is evidence the report ignores
+        ScriptGate(
+            name="test-profiles",
+            # No `--check` here either: this script's `--check` is the Click
+            # house style, "report without failing". The control has to see the
+            # gate FAIL, so it runs the gate the way the shell registry runs it.
+            cmd=[sys.executable, "scripts/check-test-profiles.py"],
+            why=(
+                'the profiles are the vocabulary every test run reports itself in: a profile that declares a task nobody runs reports every run as incomplete, and a task that runs and is declared in no profile is evidence the report ignores'
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)

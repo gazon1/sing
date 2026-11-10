@@ -187,7 +187,7 @@ def _default_device_deps() -> DeviceDeps:
             wait_for_app_resumed=wait_for_app_resumed,
             cleanup_run_fixtures=cleanup_run_fixtures,
             capture_artifacts=capture_artifacts,
-            git_sha=lambda: _git_sha(deps),
+            git_sha=lambda d: _git_sha(d),
             app_installed=app_installed,
             device_api_level=device_api_level,
         )

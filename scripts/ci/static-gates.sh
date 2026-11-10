@@ -865,6 +865,8 @@ gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_inpu
 gate blocking "maestro smoke suite matches the doc" sgate maestro_smoke_suite_matches_the_doc
 # A touch target is 48 dp, and the order of the modifier chain decides whether a fixed size caps the hit area or only shapes the picture: the expansion has to come before the size.
 gate blocking "touch targets meet minimum" python3 scripts/check-touch-targets.py
+# The profiles file names what a run is, and this compares the name with the tasks the repository actually runs.
+gate blocking "the test profiles agree with the repository" sgate the_test_profiles_agree_with_the_repository
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

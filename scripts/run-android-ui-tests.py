@@ -15,6 +15,7 @@ command the runner already knows how to run.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shlex
@@ -40,6 +41,49 @@ DIAGNOSTICS_DEVICE_PATH = "/data/local/tmp/singularity-diagnostics"
 
 #: Where the pulled bundle lands on the host. The workflow uploads this path.
 DIAGNOSTICS_HOST_PATH = ROOT / "androidApp" / "build" / "diagnostics"
+
+#: Where the run's environment is written down.
+#:
+#: The device, the API level, the APK and the commit are facts the run knows
+#: and the log does not keep: the log scrolls away, and an artifact that says
+#: "the instrumented suite failed" without saying on what is a fact about a
+#: machine nobody remembers. The file is written as soon as the facts are
+#: known — before the tests run — so a run that dies mid-flight still leaves
+#: the environment behind.
+ENVIRONMENT_PATH = ROOT / "build" / "android-ui-results" / "environment.json"
+
+
+def write_environment(facts: dict[str, str]) -> None:
+    """Write down the environment the run happened in.
+
+    A failure on an emulator and a failure on a phone are two different
+    things, and a report that does not say which one it is describes
+    nothing. The facts are written as they are learned, so the file is
+    complete for the part of the run that happened — a run that dies before
+    the APK is built still records the device it died on.
+    """
+    try:
+        ENVIRONMENT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ENVIRONMENT_PATH.write_text(
+            json.dumps(facts, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+    except OSError as exc:
+        print(f"{YELLOW}Could not write the run's environment: {exc}{_col('0', '')}", flush=True)
+
+
+def apk_facts(apk: Path, version: str, installed_sha: str) -> dict[str, str]:
+    """The three facts about the APK, each named after what it is.
+
+    A file name is not a hash and a version is not a commit: one field that
+    means different things in two producers is a field every consumer has to
+    guess about. The Maestro runner writes the same three names, and the
+    evidence manifest copies both runs' metadata side by side.
+    """
+    return {
+        "apk_filename": apk.name,
+        "app_version": version,
+        "apk_commit_sha": installed_sha,
+    }
 
 
 # ── APK provenance ─────────────────────────────────────────────────────────────
@@ -146,6 +190,15 @@ def device_alive(serial: str) -> bool:
 
 def device_model(serial: str) -> str:
     return (adb("-s", serial, "shell", "getprop", "ro.product.model") or "").strip()
+
+def device_api_level(serial: str) -> str:
+    """The device's API level, as the device reports it.
+
+    Read from the device rather than assumed from the AVD name: the runner
+    creates the AVD from a pinned system image, and the image is a promise
+    about what was downloaded, not about what answered the adb call.
+    """
+    return (adb("-s", serial, "shell", "getprop", "ro.build.version.sdk") or "").strip()
 
 def ensure_device(serial: str | None) -> str | None:
     """Return serial of a ready device, starting the AVD if needed.
@@ -328,6 +381,18 @@ def main(argv: list[str] | None = None) -> int:
     model = device_model(device)
     print(f"{GREEN}Device: {device} ({model}){_col('0', '')}", flush=True)
 
+    # The environment is written down before anything can fail, and it is
+    # written down again when the APK is known. A run that dies in the build
+    # still leaves the device it died on behind.
+    environment: dict[str, str] = {
+        "kind": "emulator" if device.startswith("emulator-") else "device",
+        "device": model,
+        "serial": device,
+        "api": device_api_level(device),
+        "commit": git_sha(),
+    }
+    write_environment(environment)
+
     # ── 2. Wake + unlock ────────────────────────────────────────────────────
     adb("-s", device, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
     adb("-s", device, "shell", "input", "keyevent", "KEYCODE_MENU")  # unlock
@@ -362,6 +427,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{RED}  apk:      {version}{_col('0', '')}", flush=True)
         return EXIT_FAIL
     print(f"APK provenance OK: {apk.name} ({version})", flush=True)
+
+    # The three names say what they are: a file name is not a hash, and a
+    # version is not a commit. The Maestro runner writes the same fields,
+    # and the evidence manifest copies both runs' metadata side by side.
+    environment.update(apk_facts(apk, version, installed_sha))
+    write_environment(environment)
 
     # ── 4. Clear logcat ───────────────────────────────────────────────────
     # The build above can take minutes, and the emulator can die during it. Ask

@@ -203,7 +203,11 @@ jobs:
       SHARD: ${{ matrix.shard }}
       SHARDS: ${{ strategy.job-total }}
     steps:
+      # The id is what lets the steps below say "the checkout succeeded" —
+      # they run after a cancellation, and a runner with no checkout has no
+      # reports to index.
       - uses: actions/checkout@v7
+        id: checkout
 
       # KVM has to be enabled on *this* runner, not on the runner that produced
       # the AVD. The setup job enables it for itself; that enabling does not
@@ -329,6 +333,10 @@ jobs:
       # The whole lifecycle (boot + APK install + Maestro run) lives in
       # run_maestro_e2e.py so the emulator stays up for the full duration.
       - name: Run Maestro E2E
+        # The id is what the evidence index reads the outcome from: the
+        # job's own status is the status of the WHOLE job, and a job that
+        # failed at the upload step would report the flows as failed.
+        id: maestro
         env:
           EMULATOR_EXTRA_FLAGS: -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio -prop persist.sys.locale=ru-RU
           EMULATOR_TIMEOUT: 600
@@ -361,6 +369,46 @@ jobs:
             --partial \
             --commit "${{ github.sha }}" \
             --out-dir build/traceability
+
+      # The index of what this shard produced.
+      #
+      # A flow's JUnit result, its screenshots and its logcat live together
+      # under the flow's own name, and this step is what says so: a failing
+      # flow points at the directory that holds its picture of the screen and
+      # at the report that says what it asserted.
+      #
+      # The environment file the runner wrote (`environment.json`) says which
+      # shard this was, on what device, with which APK, at which commit. A
+      # suite runs as several shards, and "the flows of shard 2 failed" is not
+      # a fact about the suite — it is a fact about one piece of it, and a
+      # reader who cannot tell the pieces apart is looking at a part and
+      # calling it the whole.
+      - name: Index the evidence of this shard
+        # `always()` and not `!cancelled()`: the evidence of a cancelled
+        # shard is part of what a reader needs, and the reporter has a
+        # `cancelled` outcome for precisely that. The guard is the checkout:
+        # a runner with no checkout has no reports to index.
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        run: |
+          case "${{ steps.maestro.outcome }}" in
+            success) outcome=passed ;;
+            failure) outcome=failed ;;
+            cancelled) outcome=cancelled ;;
+            skipped) outcome=not_run ;;
+            *) outcome=unknown ;;
+          esac
+          python3 scripts/test-evidence.py \
+            --root . \
+            --profile e2e \
+            --task-outcome "$outcome" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --metadata "run_attempt=${{ github.run_attempt }}" \
+            --metadata "shard=${{ matrix.shard }}/${{ strategy.job-total }}" \
+            --metadata "suite=${{ needs.plan.outputs.suite }}" \
+            --metadata-file build/maestro-results/environment.json \
+            --summary \
+            --out-dir build/maestro-results/evidence
 
       # The shard plan compares the shards by TIME when the flows have been
       # measured, and by COUNT when they have not. The measurements exist in
@@ -401,19 +449,32 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit results
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/maestro-results/
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload traceability result matrix
-        if: ${{ !cancelled() }}
+      # The index and the manifest of this shard's evidence. The name carries
+      # the suite, the shard, the run id AND the attempt: two shards of the
+      # same suite in the same run are two artifacts, not one written twice,
+      # and a re-run of the workflow keeps the first attempt's evidence.
+      - name: Upload the evidence index
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: traceability-matrix-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-evidence-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/maestro-results/evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload traceability result matrix
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: traceability-matrix-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/traceability/
           if-no-files-found: warn
           retention-days: 14
@@ -424,7 +485,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: maestro-failures-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-failures-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ~/.maestro/tests/**
           if-no-files-found: ignore
           retention-days: 7

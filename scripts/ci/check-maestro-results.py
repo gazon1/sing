@@ -251,7 +251,7 @@ class RunEnvironment:
     api: int | None
     device: str
     serial: str
-    apk: str
+    apk_commit_sha: str
     raw: dict[str, object]
 
 
@@ -410,7 +410,7 @@ def read_environment(path: pathlib.Path) -> tuple[RunEnvironment | None, list[Fi
             api=int(api) if isinstance(api, int) else None,
             device=str(raw.get("device") or ""),
             serial=str(raw.get("serial") or ""),
-            apk=str(raw.get("apk") or ""),
+            apk_commit_sha=str(raw.get("apk_commit_sha") or ""),
             raw=dict(raw),
         ),
         [],
@@ -855,7 +855,7 @@ def build_payload(
                     "api": run.api,
                     "device": run.device,
                     "serial": run.serial,
-                    "apk": run.apk,
+                    "apk_commit_sha": run.apk_commit_sha,
                 }
                 if run is not None
                 else None

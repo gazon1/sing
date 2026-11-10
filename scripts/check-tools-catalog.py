@@ -82,6 +82,11 @@ EXTRA_TOOLS = [
         "scripts/prune-merged-branches.py",
         "Plans the deletion of local branches whose pull request is merged; deletes them only with --yes.",
     ),
+    (
+        "scripts/test-evidence.py",
+        "Indexes the evidence a test run produced: what failed, where each failure's "
+        "diagnostics are, and what is missing. Writes an index and a manifest.",
+    ),
 ]
 
 

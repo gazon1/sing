@@ -137,7 +137,9 @@ def _flaky_failure_count(directory: pathlib.Path) -> dict[str, int]:
 
     The file glob stays local because it differs from the reader's: this counts
     recursively over every `*.xml` under the run directory, while the reader's
-    `iter_result_files` selects `TEST-*.xml` at the top level only.
+    `iter_result_files` selects the XML files of ONE directory — the top level
+    only, and by any name (Gradle names its reports after the test class,
+    Maestro after the flow).
     """
     counts: dict[str, int] = {}
     if not directory.is_dir():

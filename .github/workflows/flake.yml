@@ -101,7 +101,8 @@ jobs:
       matrix:
         attempt: ${{ fromJSON(needs.plan.outputs.attempts) }}
     steps:
-      - uses: actions/checkout@v7
+      - id: checkout
+        uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup-jvm-gradle
         with:
@@ -150,8 +151,13 @@ jobs:
       # Uploaded unconditionally and under a per-attempt name: a result set that
       # exists solely when something broke cannot answer "which tests flaked on
       # attempt 3".
+      #
+      # `always()`, and not `!cancelled()`: a cancelled attempt is still an
+      # attempt, and its reports say which tests had already run when the job
+      # was called off. The guard is the checkout — without a tree there is
+      # nothing to upload.
       - name: Upload JUnit results (attempt ${{ matrix.attempt }})
-        if: ${{ !cancelled() }}
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: flake-junit-attempt-${{ matrix.attempt }}

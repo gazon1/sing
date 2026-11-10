@@ -118,10 +118,17 @@ def iter_result_files(directory: Path) -> list[Path]:
     A missing directory yields an empty list rather than raising — the caller
     decides whether "no results" is fatal, because for a target that produced
     zero testcases it is, and for a target that was never claimed it is not.
+
+    The glob is ``*.xml``, not ``TEST-*.xml``. Gradle names its reports after
+    the test class, but Maestro names its reports after the FLOW — the file is
+    ``build/maestro-results/<flow>.xml`` — and a glob that only knows Gradle's
+    naming sees none of them. The Maestro results therefore reached the
+    traceability matrix as ZERO testcases: the matrix was empty and looked
+    like a suite that ran nothing, and no error said otherwise.
     """
     if not directory.is_dir():
         return []
-    return sorted(directory.glob("TEST-*.xml"))
+    return sorted(directory.glob("*.xml"))
 
 
 def _classify(case: ET.Element) -> tuple[str, ET.Element | None]:
