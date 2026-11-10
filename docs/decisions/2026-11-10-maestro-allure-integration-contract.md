@@ -104,12 +104,20 @@ Consequences of the table:
   #2772) and **cross-checks** them against every shard's `environment.json`;
   any disagreement is a hard failure (exit 1, nothing written).
 - `maestro_version` and `apk_sha256` are not recorded today; #2772 adds them.
-  Until then the manifest says `unknown` and the run is not publishable.
+  Until then the manifest records `null` for both and the run is not
+  publishable.
+- A shard whose `environment.json` carries no `commit` is incomplete: the run
+  cannot be tied to a checkout, so it converts but is not publishable.
 - **Retries are not representable as Allure retries.** The runner deletes the
   previous attempt's JUnit before retrying, so the XML is the terminal attempt;
   `run-summary.json` is the only record that a retry happened. It is therefore a
-  **required input**, and each flow named in its `retried` list gets
-  `retried=true`. No shard-wide label, no synthetic attempts.
+  **required input** with four arrays of flow stems (`passed`, `failed`,
+  `not_measured`, `retried`); a field that is not an array of stems is a
+  blocking finding, not an empty list.
+- A summary names a flow by its **stem**, and a stem is not an identity. Each
+  stem is resolved through the flow catalogue; a stem that matches no flow, or
+  more than one, is a blocking finding and no flow is labelled. No shard-wide
+  label, no synthetic attempts, no guessing.
 - A shard set merges only when every identity field agrees, and is publishable
   only when the observed shard numbers equal `shards`. Shards are never merged
   across attempts, commits or scopes.
@@ -132,7 +140,8 @@ being read as a pass.
 | `<failure>`                     | `failed`; `statusDetails.message` = first line of the real text, `statusDetails.trace` = the whole real text. **No fabricated stack trace** |
 | `<error>`                       | `broken`                                                     |
 | `<skipped>`                     | `skipped`                                                    |
-| `time`                          | duration; `stop` = report mtime, `start = stop - time`       |
+| `timestamp` + `time`            | `stop` = the testcase's `timestamp`, `start = stop - time`; report mtime is the fallback when the attribute is absent. A downloaded artifact's mtime is extraction time, not execution time |
+| unsupported JUnit outcome       | no result; a blocking finding. Allure statuses are never invented |
 | report without a testcase       | no result; a manifest finding                                |
 | unreadable XML                  | no result; a manifest finding                                |
 | flow of the scope with no report| no invented testcase; `missing[]` in the manifest            |
@@ -166,9 +175,10 @@ being read as a pass.
   `task_outcome`, `complete_shards=false`, `publishable=false`.
 - **A pass never replaces a failure.** If two records share a testcase identity:
   a failing/broken record wins over a passing one; equal outcomes keep the first
-  in the order the reports were read; either case is a finding, and a status conflict sets
-  `publishable=false`. Losing a failure in aggregation is the one outcome the
-  contract forbids.
+  in the order the reports were read. Losing a failure in aggregation is the
+  one outcome the contract forbids. **Any** duplicate identity is a blocking
+  finding — an aggregation that had to choose is a diagnostic, not valid
+  evidence — and a status conflict is reported separately.
 - Findings (missing/empty/malformed XML, absent flow, duplicate, missing
   evidence) are warnings: the converter exits 0. It exits 1 only for its own
   errors: unreadable inputs, no results directory, an identity disagreement
@@ -179,10 +189,14 @@ being read as a pass.
   finding that removes a fact the report is built from — a missing or
   unreadable `environment.json`/`run-summary.json`, a report that cannot be
   read or holds no testcase, an unreadable or absent flow file, a testcase
-  whose flow cannot be identified, an identity disagreement, or a duplicate
-  status conflict. A shard set that cannot be
-  established (no total, or two totals) is a finding, so a manifest that is
-  not publishable says why.
+  whose flow cannot be identified, an unsupported JUnit outcome, an incomplete
+  `environment.json`, an invalid summary, an unresolvable summary stem, an
+  identity disagreement, or any duplicate testcase identity. A shard set that
+  cannot be established — no total, two totals, or a total below one — is a
+  finding, so a manifest that is not publishable says why.
+- **Exit 0 means converted, never publishable.** Only
+  `manifest.publishable == true` permits publication; #2772 wires the publisher
+  to that field, not to the exit code.
 - The converter is not a gate: it runs with neither `|| true` nor
   `continue-on-error`, it cannot change the Maestro verdict, and a converter
   failure is a failure of its own job.

@@ -24,10 +24,13 @@ Usage:
         [--now ISO8601]
 
 Exit codes:
-    0 — the results were written; findings (missing flows, duplicates, missing
-        evidence) are warnings, carried in the manifest
+    0 — the results were written. Exit 0 does NOT mean the run may be published:
+        findings (missing flows, duplicates, missing evidence, incomplete
+        identity) are carried in the manifest, and only
+        `manifest.publishable == true` permits publication.
     1 — the converter could not do its job: a results directory or the
-        catalogue is unreadable, or the shards disagree about the run
+        catalogue is unreadable, the shards disagree about the run, or the
+        output path is not a directory this tool wrote.
 """
 from __future__ import annotations
 
@@ -78,9 +81,18 @@ BLOCKING_FINDINGS = frozenset(
         "flow unreadable",
         "flow file missing",
         "unknown flow",
+        "duplicate testcase",
         "duplicate conflict",
+        "unsupported status",
+        "run-summary.json invalid",
+        "summary flow ambiguous",
+        "summary flow unknown",
+        "environment.json incomplete",
     }
 )
+
+#: The fields `run-summary.json` must carry, all as lists of flow stems.
+SUMMARY_FIELDS = ("passed", "failed", "not_measured", "retried")
 
 
 def flow_identity(
@@ -127,9 +139,62 @@ def flow_tags(path: pathlib.Path, findings: list[dict]) -> list[str]:
         return []
 
 
-def as_list(value: object) -> list:
-    """A JSON field that should be a list, or [] when the artifact said otherwise."""
-    return value if isinstance(value, list) else []
+def summary_flows(shards: list[dict], findings: list[dict]) -> tuple[set[str], set[str]]:
+    """The retried and not-measured flow stems, validated once.
+
+    `run-summary.json` is required because it is the only record of retries and
+    of flows that were never measured. A field that is not a list of strings is
+    not "empty" — the fact is unavailable, and the run must not be published as
+    if it had said "none".
+    """
+    retried: set[str] = set()
+    not_measured: set[str] = set()
+    for shard in shards:
+        summary = shard["summary"]
+        if not summary:
+            continue  # read_shard already recorded why there is nothing to read
+        invalid = [
+            field
+            for field in SUMMARY_FIELDS
+            if not isinstance(summary.get(field), list)
+            or any(not isinstance(item, str) for item in summary[field])
+        ]
+        if invalid:
+            findings.append(
+                {
+                    "kind": "run-summary.json invalid",
+                    "detail": f"shard {shard['label']}: {', '.join(invalid)} not a list of flow stems",
+                }
+            )
+            continue
+        retried.update(summary["retried"])
+        not_measured.update(summary["not_measured"])
+    return retried, not_measured
+
+
+def resolve_stems(stems: set[str], catalogue: list[str], findings: list[dict], field: str) -> set[str]:
+    """The flows a summary's stems name, refusing to guess when a stem is shared.
+
+    The summary records a flow by its file stem, and two flows can share one.
+    The testcase identity is the path, so the stem is resolved through the
+    catalogue and only an unambiguous match is accepted.
+    """
+    by_stem: dict[str, list[str]] = {}
+    for flow in catalogue:
+        by_stem.setdefault(flow_stem(flow), []).append(flow)
+    resolved: set[str] = set()
+    for stem in sorted(stems):
+        matches = by_stem.get(stem, [])
+        if len(matches) == 1:
+            resolved.add(matches[0])
+            continue
+        findings.append(
+            {
+                "kind": "summary flow ambiguous" if matches else "summary flow unknown",
+                "detail": f"{field}: {stem!r} matches {len(matches)} catalogue flow(s)",
+            }
+        )
+    return resolved
 
 
 def duration_ms(case: TestCaseResult) -> int:
@@ -146,11 +211,28 @@ def duration_ms(case: TestCaseResult) -> int:
 
 
 def report_stop(report: pathlib.Path) -> int:
-    """When the report was written — the end of its flow, unless the run said otherwise."""
+    """When the report was written — the fallback when it carries no timestamp."""
     try:
         return int(report.stat().st_mtime * 1000)
     except OSError:
         return 0
+
+
+def case_stop(case: TestCaseResult, report: pathlib.Path, now_ms: int | None) -> int:
+    """When the testcase ran. A downloaded artifact's mtime is when it was extracted.
+
+    Maestro writes `<testcase timestamp>`; the shared reader now carries it. An
+    mtime can be rewritten by upload, download and extraction, so it is the
+    fallback, not the source.
+    """
+    if now_ms is not None:
+        return now_ms
+    if case.timestamp:
+        try:
+            return timestamp_ms(case.timestamp) or report_stop(report)
+        except ValueError:
+            pass
+    return report_stop(report)
 
 
 def read_catalogue(path: pathlib.Path) -> list[str]:
@@ -165,7 +247,14 @@ def read_catalogue(path: pathlib.Path) -> list[str]:
 def scope_flows(
     scope: str, catalogue: list[str], root: pathlib.Path, findings: list[dict]
 ) -> list[str]:
-    """The flows of the catalogue this scope runs: the tag selection the runner makes."""
+    """The flows of the catalogue this scope runs: the tag selection the runner makes.
+
+    shortcut: this mirrors `emulator.maestro._flow.smoke_flows` (the `smoke` tag
+    over the tree) over the catalogue instead of over the tree, so it can report
+    `missing` flows the runner never selected. `check-maestro-flow-catalogue`
+    keeps the two lists equal; when #2772 wires the converter, pass the plan
+    job's selected list instead of re-deriving it.
+    """
     if scope == FULL:
         return list(catalogue)
     selected = []
@@ -207,6 +296,19 @@ def identifiers(flow: str, run_id: str | None, run_attempt: int | None) -> tuple
     return test_case_id, history_id, str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
 
 
+def status_of(case: TestCaseResult, flow: str, findings: list[dict]) -> str | None:
+    """The Allure status, or None when the JUnit outcome is not one this contract maps."""
+    status = STATUS.get(case.status)
+    if status is None:
+        findings.append(
+            {
+                "kind": "unsupported status",
+                "detail": f"{flow}: {case.status!r} has no Allure mapping; the testcase is not reported",
+            }
+        )
+    return status
+
+
 def result_for(
     case: TestCaseResult,
     flow: str,
@@ -217,10 +319,10 @@ def result_for(
     stop_ms: int,
     run_id: str | None,
     run_attempt: int | None,
+    status: str,
 ) -> dict:
     """One Allure 2 result. The failure text is the run's own, never a fabrication."""
     test_case_id, history_id, result_uuid = identifiers(flow, run_id, run_attempt)
-    status = STATUS.get(case.status, "unknown")
     details: dict[str, str] = {}
     if status in FAILING:
         message = case.message or next(
@@ -248,7 +350,7 @@ def result_for(
 
 def read_shard(directory: pathlib.Path, findings: list[dict]) -> dict:
     """One shard's artifacts. A malformed file is a finding, never an exception."""
-    shard: dict = {"environment": {}, "summary": {}, "cases": []}
+    shard: dict = {"label": directory.name, "environment": {}, "summary": {}, "cases": []}
     for name, key in (("environment.json", "environment"), ("run-summary.json", "summary")):
         path = directory / name
         if not path.is_file():
@@ -275,14 +377,12 @@ def read_shard(directory: pathlib.Path, findings: list[dict]) -> dict:
     return shard
 
 
-def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | None) -> dict:
+def convert(
+    shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | None, retried: set[str]
+) -> dict:
     """Results by flow identity, with the duplicate rule that never loses a failure."""
     results: dict[str, dict] = {}
     findings: list[dict] = []
-    retried = {
-        stem for shard in shards for stem in as_list(shard["summary"].get("retried"))
-        if isinstance(stem, str)
-    }
     catalogue = meta["catalogue"]
     first_report: dict[str, pathlib.Path] = {}
 
@@ -290,13 +390,15 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | No
         shard_no = shard["environment"].get("shard")
         shard_no = shard_no if isinstance(shard_no, int) and not isinstance(shard_no, bool) else None
         for xml, cases in shard["cases"]:
-            stop_ms = now_ms if now_ms is not None else report_stop(xml)
             for case in cases:
                 flow = flow_identity(case, xml, root, catalogue)
                 if flow is None:
                     findings.append(
                         {"kind": "unknown flow", "detail": f"{xml}: {case.file or case.name} is not a flow of this checkout"}
                     )
+                    continue
+                status = status_of(case, flow, findings)
+                if status is None:
                     continue
                 flow_file = root / flow
                 if flow_file.is_file():
@@ -305,8 +407,8 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | No
                     tags = []
                     findings.append({"kind": "flow file missing", "detail": flow})
                 result = result_for(
-                    case, flow, tags, meta["scope"], shard_no,
-                    flow_stem(flow) in retried, stop_ms, meta["run_id"], meta["run_attempt"],
+                    case, flow, tags, meta["scope"], shard_no, flow in retried,
+                    case_stop(case, xml, now_ms), meta["run_id"], meta["run_attempt"], status,
                 )
                 existing = results.get(result["testCaseId"])
                 if existing is None:
@@ -334,7 +436,12 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | No
 
 
 def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
-    """Whether every shard agrees about the run. Disagreement is fatal."""
+    """Whether every shard agrees about the run, and whether each one says what it is.
+
+    Disagreement is fatal: the shards are not the same run. A missing `commit`
+    is not fatal — the conversion can still describe the run — but it is a fact
+    the ADR requires a cross-check for, so the run is not publishable.
+    """
     findings: list[dict] = []
     raw_commits = [shard["environment"].get("commit") for shard in shards if shard["environment"].get("commit")]
     # Compare by canonical JSON: a list or an object is not hashable, and 123 and
@@ -354,7 +461,16 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
                 "detail": f"the workflow says {meta['commit']}, the shards say {sorted(str(c) for c in raw_commits)}",
             }
         )
-    return (not findings), findings
+    fatal = bool(findings)
+    for shard in shards:
+        if not shard["environment"].get("commit"):
+            findings.append(
+                {
+                    "kind": "environment.json incomplete",
+                    "detail": f"shard {shard['label']} has no commit; the run cannot be tied to a checkout",
+                }
+            )
+    return fatal, findings
 
 
 def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dict]]:
@@ -395,7 +511,12 @@ def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dic
 
 
 def manifest_for(
-    shards: list[dict], conversion: dict, meta: dict, expected_flows: list[str], findings: list[dict]
+    shards: list[dict],
+    conversion: dict,
+    meta: dict,
+    expected_flows: list[str],
+    not_measured: list[str],
+    findings: list[dict],
 ) -> dict:
     results = conversion["results"]
     counts: dict[str, int] = {}
@@ -403,12 +524,6 @@ def manifest_for(
         counts[result["status"]] = counts.get(result["status"], 0) + 1
     produced = set(results)
     missing = [flow for flow in expected_flows if "maestro:" + flow not in produced]
-    not_measured = sorted(
-        {
-            stem for shard in shards for stem in as_list(shard["summary"].get("not_measured"))
-            if isinstance(stem, str)
-        }
-    )
     observed, expected_shards, complete, shard_findings = shard_set(shards)
     findings = list(findings) + shard_findings
     identity_known = all(
@@ -476,14 +591,21 @@ def is_ours(out: pathlib.Path) -> bool:
     makes an interrupted conversion recoverable: its files are recognisably ours
     even when the manifest was never written.
     """
-    for path in out.glob("*-result.json"):
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            if not str(payload.get("testCaseId", "")).startswith("maestro:"):
+    if (out / MANIFEST_NAME).is_file():
+        return True
+    results = list(out.glob("*-result.json"))
+    if results:
+        for path in results:
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                if not str(payload.get("testCaseId", "")).startswith("maestro:"):
+                    return False
+            except (OSError, ValueError, AttributeError):
                 return False
-        except (OSError, ValueError, AttributeError):
-            return False
-    return True
+        return True
+    # No results and no manifest: our own interrupted run never gets here, and a
+    # directory holding another producer's executor.json is not ours to clean.
+    return not (out / "executor.json").exists()
 
 
 def clean(out: pathlib.Path) -> None:
@@ -560,8 +682,9 @@ def main(argv: list[str] | None = None) -> int:
         "apk_sha256": args.apk_sha256,
         "task_outcome": args.task_outcome,
     }
-    agreed, identity_findings = shard_identity(shards, meta)
-    if not agreed:
+    fatal, identity_findings = shard_identity(shards, meta)
+    findings += identity_findings
+    if fatal:
         for finding in identity_findings:
             print(f"maestro-allure: {finding['kind']}: {finding['detail']}", file=sys.stderr)
         return 1
@@ -587,10 +710,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"maestro-allure: --now is not an ISO8601 instant: {exc}", file=sys.stderr)
         return 1
 
+    retried_stems, unmeasured_stems = summary_flows(shards, findings)
+    retried = resolve_stems(retried_stems, catalogue, findings, "retried")
+    not_measured = sorted(resolve_stems(unmeasured_stems, catalogue, findings, "not_measured"))
+
     expected_flows = scope_flows(meta["scope"], catalogue, root, findings)
-    conversion = convert(shards, root, meta, now_ms)
+    conversion = convert(shards, root, meta, now_ms, retried)
     findings = findings + conversion["findings"]
-    manifest = manifest_for(shards, conversion, meta, expected_flows, findings)
+    manifest = manifest_for(shards, conversion, meta, expected_flows, not_measured, findings)
 
     try:
         clean(out)

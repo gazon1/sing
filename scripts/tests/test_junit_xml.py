@@ -175,6 +175,13 @@ class MessageAndTimeTest(unittest.TestCase):
         self.assertEqual(result.classname, "")
         self.assertEqual(result.name, "")
         self.assertEqual(result.file, "")
+        self.assertEqual(result.timestamp, "")
+
+    def test_testcase_timestamp_is_carried_raw(self):
+        """Maestro writes when the flow started; a downloaded file cannot say that."""
+        path = _write(self.dir, '<testsuite><testcase classname="C" name="a()" '
+                                'timestamp="2026-11-10T09:10:56"/></testsuite>')
+        self.assertEqual(parse_junit_file(path)[0].timestamp, "2026-11-10T09:10:56")
 
 
 class MalformedInputTest(unittest.TestCase):
