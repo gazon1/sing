@@ -8,6 +8,7 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.TimeZone
@@ -94,6 +95,12 @@ class TaskTime01ScenarioTest {
             // The time-tracking section renders in Idle (no entries yet) and shows
             // a Start chip. Click it — the write succeeds under the harness session,
             // and the slot swaps the chip to Stop.
+            //
+            // The section is drawn after the attribute rows, so on a desktop window it
+            // is past the fold: it is composed, but not displayed. The probe answers
+            // "is the surface reachable", and reaching it is a scroll away — so the
+            // scroll is part of reaching it.
+            scrollToTag(TestTags.TimeTracking.START)
             assertTagDisplayed(TestTags.TimeTracking.START)
             awaitTag(TestTags.TimeTracking.START).performClick()
 
