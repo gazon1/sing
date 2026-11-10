@@ -214,6 +214,9 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "menu_project_node_roadmap",
     "menu_project_node_childless",
     "menu_project_node_latecomer",
+    # The bulk fixture — a profile with a hundred projects. The seed writes
+    # them with the ids "bulk-001"…, and the flow addresses the first of them.
+    "menu_project_node_bulk_001",
     "menu_project_expander_roadmap",
     "menu_project_expander_childless",
     # plansSection("overdue") — the overdue section's id is a constant of the

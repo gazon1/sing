@@ -41,6 +41,8 @@ tags:
     id: project_card_roadmap
 # The project is not lost — it is in the menu, as a tree.
 - runFlow: ../../helpers/open-app-menu.yaml
+# The section is folded by default, so the tree is unfolded before it is used.
+- runFlow: ../../helpers/expand-projects-section.yaml
 - scrollUntilVisible:
     element:
       id: menu_project_node_roadmap

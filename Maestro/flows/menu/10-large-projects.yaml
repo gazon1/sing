@@ -1,0 +1,58 @@
+# The menu: a profile with a hundred projects.
+#
+# The tree of a hundred projects is longer than the screen, and the entries the
+# user opened the menu for are above it. So the Projects section starts folded:
+# the destinations are on the screen without a scroll through projects, and the
+# tree is drawn only when the user asks for it.
+#
+# The way into the full list is above the tree as well — the tree is a way into
+# the projects, not the only way.
+#
+# The seed writes the projects in one deep link, because a hundred of them
+# tapped one by one is not a way to make a fixture.
+appId: com.singularity.todo
+name: menu-large-projects
+tags:
+  - menu
+  - scenario:MENU-07
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "projects=120"
+- runFlow: ../../helpers/open-app-menu.yaml
+# The destinations are on the screen: the projects are not between the user and
+# them.
+- assertVisible:
+    id: menu_settings
+# The way into the full list is there, folded or not.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
+- assertVisible:
+    id: menu_all_projects
+# The section is folded: the button offers to unfold it, and there is no
+# button that folds it away — that button is only there when the section is
+# unfolded.
+- scrollUntilVisible:
+    element:
+      id: menu_projects_header
+    direction: UP
+    timeout: 8000
+- assertVisible:
+    id: menu_projects_expand
+- assertNotVisible:
+    id: menu_projects_collapse
+# Unfolding is the user's decision, and then the tree is there.
+- tapOn:
+    id: menu_projects_expand
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_bulk_001
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: menu_project_node_bulk_001

@@ -27,6 +27,8 @@ tags:
     env:
       QUERY: "project=Roadmap&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
+# The section is folded by default, so the tree is unfolded before it is used.
+- runFlow: ../../helpers/expand-projects-section.yaml
 # The tree is drawn, so the profile's projects are in it.
 - scrollUntilVisible:
     element:
@@ -45,6 +47,8 @@ tags:
     env:
       QUERY: "project=Renamed&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
+# The tree is unfolded again if the menu came back folded.
+- runFlow: ../../helpers/expand-projects-section.yaml
 # The creation is in the tree.
 - scrollUntilVisible:
     element:
