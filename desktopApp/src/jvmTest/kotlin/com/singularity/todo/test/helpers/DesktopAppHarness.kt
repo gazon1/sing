@@ -288,6 +288,10 @@ fun runDesktopAppTest(
                 if (attemptIndex < maxAttempts - 1) {
                     // Continue to next attempt
                 } else {
+                    // This is the attempt the report will show, so its bundle is the
+                    // one Allure carries. Earlier attempts stay on disk only: a retry
+                    // that passed must not leave a failure attachment behind.
+                    runCatching { bundle.attachToAllure() }
                     throw t
                 }
             }
