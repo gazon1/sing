@@ -32,6 +32,8 @@
       ":import-cli:detekt"
     ],
     "partiality": "The hook judges the modules the change can affect. CI judges every module the build declares that has a detekt verdict — the list is read from the build (`changed-modules.py --detekt-tasks`), not written out by hand, so a module added to the build is judged by CI on the next run. A violation in a module the change does not reach is CI's to find — so the local verdict is partial, and it says so instead of reading as full.",
+    "ownership": "A finding in a file the push carries is the push's own; a finding in a file it does not touch is the repository's. A change in the rules, the custom rules, the editorconfig or the build files makes every finding count, because it can change what every file looks like to detekt. The paths are read the way the repository reads them everywhere else — unescaped (`core.quotePath=false`) and NUL-separated — so a path with non-ASCII letters is the path the tree names.",
+    "base": "the trunk merge-base, never the branch's upstream: the upstream is the remote's copy of this branch, so everything the branch carries is above it, and measuring against it clears the findings the branch brought. A push with no base says so (`--no-base`), and then every module is judged and every finding counts as the push's own.",
     "judged_by_ci_outside_the_module_graph": {
       ":pro:detekt": "the source-available pro catalogue — a separate build that only exists with -PwithPro, so the module graph does not know it and the hook does not judge it. CI runs it in the pro job."
     }

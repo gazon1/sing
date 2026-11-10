@@ -1331,7 +1331,6 @@ for i in "${!PUSH_REFS[@]}"; do
     # every finding in the repository as the change's own. The base is the
     # merge-base with the trunk, and what it measures is the branch.
     base="${REF_BASES[$i]:-}"
-    local_branch="${local_ref#refs/heads/}"
 
     new_temp_root
     verdict_rc=0
@@ -1343,7 +1342,6 @@ for i in "${!PUSH_REFS[@]}"; do
                 --repo "$REPO_ROOT" \
                 --fallback-tree "$fallback" \
                 --base "$base" \
-                --branch "$local_branch" \
                 --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
         else
             verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
@@ -1351,23 +1349,28 @@ for i in "${!PUSH_REFS[@]}"; do
                 --repo "$REPO_ROOT" \
                 --fallback-tree "$fallback" \
                 --base "$base" \
-                --branch "$local_branch" \
                 --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
         fi
     else
+        # No base could be resolved. The verdict is told so explicitly, rather
+        # than being left to find a base of its own: the branch's upstream is
+        # not the trunk, and measuring against it calls the branch's own
+        # earlier work "the repository's" — a finding the branch brought would
+        # be cleared. `--no-base` says what this hook's own message says:
+        # every finding counts as this push's own.
         if [ -n "$HEAVY_WRAPPER" ]; then
             verdict_out="$($HEAVY_WRAPPER python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
                 --sha "$local_sha" \
                 --repo "$REPO_ROOT" \
                 --fallback-tree "$fallback" \
-                --branch "$local_branch" \
+                --no-base \
                 --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
         else
             verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
                 --sha "$local_sha" \
                 --repo "$REPO_ROOT" \
                 --fallback-tree "$fallback" \
-                --branch "$local_branch" \
+                --no-base \
                 --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
         fi
     fi

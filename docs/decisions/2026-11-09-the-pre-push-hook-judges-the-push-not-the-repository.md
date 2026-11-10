@@ -103,11 +103,29 @@ shrink, never grow (`2026-10-01-ci-quality-ratchet.md`,
   the base tree; an id that fails there as well is pre-existing.
 - **The detekt verdict is compared by ownership.** A finding in a file the
   push carries is the push's own; a finding in a file it does not touch is the
-  repository's. A change in the rules, the custom rules, the build or the
-  editorconfig makes every finding count, because it can change what every
-  file looks like to detekt. The verdict's base is the trunk merge-base, not
-  the branch's upstream: a merge push used to be measured against the whole
-  trunk it merged, and every finding in the repository was the merge's own.
+  repository's. A change in the rules, the custom rules, the editorconfig or
+  **the build files** makes every finding count, because it can change what
+  every file looks like to detekt — and each module's own build file holds its
+  own `detekt { }` block, so `build.gradle.kts`, `settings.gradle.kts` and
+  `gradle.properties` are as wide as the rules directory. The list of the wide
+  paths is the build's own notion of the build (`scripts/changed-modules.py`,
+  `BUILD_AREAS`), read the same way.
+- **The paths are read the way the repository reads them everywhere else**:
+  `core.quotePath=false` and the `-z` format, so a path with non-ASCII letters
+  comes out as the tree names it (`Café.kt`) and not as git quotes it
+  (`Caf\303\251.kt`). The escaped form matches nothing — the finding in that
+  file is not recognised as the push's own, and the module does not claim the
+  file, so the change is judged as if it carried no Kotlin at all. The hook's
+  own diff, the module graph and the verdict have to give the same answer to
+  "which files does this push carry", so there is one way of reading them.
+- **The verdict's base is the trunk merge-base, not the branch's upstream.** A
+  merge push used to be measured against the whole trunk it merged, and every
+  finding in the repository was the merge's own. The upstream is the remote's
+  copy of *this* branch: everything the branch already carries is above it, so
+  measuring against it calls the branch's own earlier work "the repository's"
+  and clears the findings the branch brought. A push that has no base says so —
+  the verdict takes `--no-base`, not a branch name — so the hook's own message
+  ("every finding counts as this push's own") and the verdict's answer agree.
 - **A tree's own declaration decides whether it has a tool.** `easement` runs
   only when the pushed tree's `mise.toml` declares it; the `heavy` wrapper is
   used only when it actually runs. A tree that does not have the tool is not
@@ -185,12 +203,18 @@ judges nothing about the tree, it only compares two answers — and
   anything is neither a finding nor a pass, and the ratchet does not read it
   as either: the comparison cannot be made, so the push stops and the hook
   says that the comparison could not be made.
+- **A push the repository cannot place on the trunk is judged in full.** With
+  no base there is nothing to compare with, so every module is judged and every
+  finding counts as the push's own: the push is stopped by whatever the tree
+  carries. That is the price of a push the repository cannot place, and it is
+  the direction that stops the push.
 
 ## Links
 
 - `scripts/pre-push-ratchet.py` — the comparison (outputs, and test ids)
 - `.githooks/pre-push` — the hook: the base, the base tree, the ratchet
 - `scripts/pre-push-verdict.py` — the detekt verdict and the ownership rule
+- `scripts/measure-verdict-cost.py` — the tool that prices the verdict; it measures the base the push names, never a branch name
 - `config/hooks/pre-push.json` — the record of the contract
 - `scripts/tests/test_pre_push_ratchet.py` — the tool's own tests
 - `scripts/tests/test_pre_push_hook.py` — the hook's own tests, through a push

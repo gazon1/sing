@@ -480,7 +480,7 @@ def measure_verdict(
     gradle_cmd: str,
     tasks: tuple[str, ...] | None,
     base: str | None,
-    branch: str | None,
+    no_base: bool,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """The whole verdict, end to end, and the report it produced."""
     command = [
@@ -498,8 +498,12 @@ def measure_verdict(
         command += ["--tasks", " ".join(tasks)]
     if base:
         command += ["--base", base]
-    if branch:
-        command += ["--branch", branch]
+    if no_base:
+        # The verdict has no option to name a branch: its base is the trunk,
+        # and the branch's upstream is the remote's copy of this branch — a
+        # base that clears the findings the branch brought. A measurement of
+        # a push that has no base says so, the way the hook says so.
+        command += ["--no-base"]
     started = time.monotonic()
     try:
         result = subprocess.run(
@@ -768,7 +772,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--base", default=None, help="the ref the pushed range starts at"
     )
     parser.add_argument(
-        "--branch", default=None, help="the branch being pushed"
+        "--no-base", action="store_true",
+        help="measure the verdict as a push with no base is judged",
     )
     parser.add_argument(
         "--phases",
@@ -839,7 +844,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.gradle_cmd,
                     tasks or None,
                     args.base,
-                    args.branch,
+                    args.no_base,
                 )
                 measured.append(entry)
 

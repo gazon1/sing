@@ -33,6 +33,14 @@ computed — there is no way to tell the two apart, and every finding counts as
 the push's own. The ratchet is a way of not blocking on somebody else's debt,
 not a way of skipping a gate.
 
+The base is the trunk, and only the trunk: the trunk merge-base the caller
+names, or the trunk's remote-tracking ref when it names none. The branch's own
+upstream is **not** a base — it is the remote's copy of this branch, so
+everything the branch already carries is above it, and measuring against it
+calls the branch's own earlier work "the repository's" and clears the findings
+the branch brought. A caller that knows there is no base says so with
+``--no-base``, instead of leaving the script to find a base of its own.
+
 Two signals make the verdict red, and both are needed:
 
   - a finding of the push's own — what detekt reported about the files the
@@ -65,6 +73,7 @@ CI judges every module, the hook judges the affected ones. The registry
 Usage:
     python3 scripts/pre-push-verdict.py --sha <sha> [--repo .] [--fallback-tree PATH]
     python3 scripts/pre-push-verdict.py --sha <sha> --json
+    python3 scripts/pre-push-verdict.py --sha <sha> --no-base   # nothing to compare with
 
 Exit codes:
     0 — the pushed tree carries no finding of its own
@@ -141,13 +150,41 @@ DEFAULT_TASKS = (":shared:detekt", ":desktopApp:detekt")
 #: Paths whose change can change the verdict of EVERY module: the rules, the
 #: custom rules, the build that decides the source sets, and the editorconfig
 #: that ktlint reads from inside detekt.
-VERDICT_WIDE_PATHS = (
+VERDICT_WIDE_PREFIXES = (
     'config/detekt/',
     'detekt-rules/',
     'build-logic/',
     'gradle/',
     '.editorconfig',
 )
+
+#: The build files themselves — the root ones and every module's own.
+#:
+#: Each module's build file holds its own `detekt { }` block — the config it
+#: reads, the source sets it scans, the baseline it compares against — so a
+#: change there can change what detekt reports for a file the push does not
+#: carry. That is why a build file counts as wide even though it is not a
+#: directory. The list is the build's own notion of the build
+#: (`scripts/changed-modules.py`, `BUILD_AREAS`), read the same way.
+VERDICT_WIDE_FILES = (
+    'build.gradle.kts',
+    'settings.gradle.kts',
+    'gradle.properties',
+    'gradlew',
+    'gradlew.bat',
+)
+
+
+def is_wide_path(path: str) -> bool:
+    """Does a change to this path change what every file looks like to detekt?
+
+    The directories that hold the rules and the build logic, and the build
+    files themselves — the root ones and every module's own, because each
+    module's build file holds its own detekt block.
+    """
+    if path.startswith(VERDICT_WIDE_PREFIXES):
+        return True
+    return path.rsplit('/', 1)[-1] in VERDICT_WIDE_FILES
 
 #: Where the change is measured against when the push does not name a base.
 #: The trunk's remote-tracking ref: a branch that does not exist on the remote
@@ -186,42 +223,68 @@ def load_module_graph():
 
 
 def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
-    """The paths the pushed range touches, in the tree that is judged."""
+    """The paths the pushed range touches, in the tree that is judged.
+
+    The paths are read the way the repository reads them everywhere else:
+    `core.quotePath=false` and the `-z` format. Git's default escapes a path
+    with non-ASCII letters (`Caf\\303\\251.kt`) and quotes a path with a
+    space, a quote or a backslash — and the escaped path matches nothing:
+    the finding in that file is not recognised as the push's own, and the
+    module does not claim the file, so the change is judged as if it carried
+    no Kotlin at all. `scripts/changed-modules.py` reads the paths the same
+    way, and the two answers have to agree.
+    """
     result = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...{sha}"],
+        [
+            "git",
+            "-c",
+            "core.quotePath=false",
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            f"{base}...{sha}",
+        ],
         cwd=tree,
         env=tree_env(),
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
     if result.returncode != 0:
         raise VerdictUnavailable(
             f"could not compare {base}...{sha[:8]} in {tree}: {result.stderr.strip()}",
         )
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return [path for path in result.stdout.split("\0") if path]
 
 
-def default_base(tree: pathlib.Path, branch: str | None = None) -> str | None:
+def default_base(tree: pathlib.Path) -> str | None:
     """The ref the change is measured against when the push does not name one.
 
-    Three sources, in the order they are worth more:
+    The trunk's remote-tracking ref (`origin/main`), and nothing else.
 
-      1. the branch's own upstream — the branch it is a branch of. A branch
-         that targets a release line is measured against that line, not
-         against the trunk: measuring it against `main` would call every
-         change to the release line a change to the trunk, and judge the
-         modules the release line does not even have;
-      2. the trunk's remote-tracking ref (`origin/main`) — a branch that does
-         not exist on the remote yet is still a change *against the trunk*,
-         and measuring it against nothing would judge the whole repository —
-         every module, for a one-line change;
-      3. nothing — and then every module is judged, the safe direction.
+    The branch's own upstream is **not** a base for this verdict. The verdict
+    answers "does this push carry a finding of its own", and the base of that
+    question is the trunk: a finding the trunk already had is the trunk's
+    debt, and a finding the branch brought is the branch's own. The upstream
+    is the remote's copy of this branch — everything the branch already
+    carries is above it, so measuring against it calls the branch's own
+    earlier work "the repository's" and lets it through. ADR
+    2026-11-09-the-pre-push-hook-judges-the-push-not-the-repository.md says
+    the same: the verdict's base is the trunk merge-base, not the branch's
+    upstream. A release line is named through `SGATE_BASE_REF`, which the
+    hook resolves to its merge-base before it calls this script.
+
+    So there are two answers:
+
+      1. the trunk's remote-tracking ref — a branch that does not exist on the
+         remote yet is still a change *against the trunk*, and measuring it
+         against nothing would judge the whole repository — every module, for
+         a one-line change;
+      2. nothing — and then every module is judged and every finding counts as
+         the push's own, the safe direction.
     """
-    if branch:
-        upstream = _rev_parse(tree, f'{branch}@{{upstream}}')
-        if upstream:
-            return upstream
     return DEFAULT_BASE if _rev_parse(tree, DEFAULT_BASE) else None
 
 
@@ -348,7 +411,7 @@ def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> t
         return every, "the pushed range has no known base — every module is judged"
 
     paths = changed_paths(tree, base, sha)
-    wide = [path for path in paths if path.startswith(VERDICT_WIDE_PATHS)]
+    wide = [path for path in paths if is_wide_path(path)]
     if wide:
         return every, f"{wide[0]} changed — the rules or the build moved, so every module is judged"
 
@@ -560,7 +623,7 @@ def judge(
             changed = changed_paths(tree, base, sha)
         except VerdictUnavailable:
             comparable = False
-        rules_moved = any(path.startswith(VERDICT_WIDE_PATHS) for path in changed)
+        rules_moved = any(is_wide_path(path) for path in changed)
     wide = rules_moved or not comparable
 
     before = kotlin_digest(tree) if tasks else ""
@@ -635,9 +698,9 @@ def main(argv: list[str] | None = None) -> int:
         help="the ref the pushed range starts at; the change is measured against it",
     )
     parser.add_argument(
-        "--branch",
-        default=None,
-        help="the branch being pushed — its upstream is the base when the push does not name one",
+        "--no-base",
+        action="store_true",
+        help="there is no base to compare with — every finding counts as the push's own",
     )
     parser.add_argument("--log-dir", default=None, help="where the detekt logs are written")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
@@ -647,7 +710,14 @@ def main(argv: list[str] | None = None) -> int:
     fallback = pathlib.Path(args.fallback_tree).resolve() if args.fallback_tree else None
     log_dir = pathlib.Path(args.log_dir) if args.log_dir else pathlib.Path("/tmp/pre-push-verdict")
     tasks = tuple(t for t in args.tasks.split()) if args.tasks else None
-    base = args.base or default_base(repo, args.branch)
+    if args.no_base and args.base:
+        parser.error("--base and --no-base say two different things")
+    if args.no_base:
+        # The caller knows there is no base. Saying so is the safe direction:
+        # every finding counts as the push's own.
+        base = None
+    else:
+        base = args.base or default_base(repo)
 
     try:
         report = judge(repo, args.sha, fallback, args.gradle_cmd, tasks, log_dir, base)

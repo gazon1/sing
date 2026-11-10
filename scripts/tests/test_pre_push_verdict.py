@@ -360,8 +360,14 @@ class ModuleSelectionTest(unittest.TestCase):
         )
         self.assertEqual('origin/main', mod.default_base(self.repo))
 
-    def test_a_branch_with_an_upstream_is_measured_against_it(self):
-        """A branch that targets a release line is measured against that line."""
+    def test_a_branch_with_an_upstream_is_still_measured_against_the_trunk(self):
+        """The upstream is the remote's copy of this branch, not the trunk.
+
+        Measuring against it calls the branch's own earlier work "the
+        repository's" — everything the branch already carries is above the
+        upstream, so the finding the branch brought is cleared. The trunk is
+        the base.
+        """
         subprocess.run(
             ['git', 'remote', 'add', 'origin', 'https://example.com/sing.git'], cwd=self.repo, check=True,
         )
@@ -378,14 +384,29 @@ class ModuleSelectionTest(unittest.TestCase):
             ['git', 'config', 'branch.release.merge', 'refs/heads/release'], cwd=self.repo, check=True,
         )
         subprocess.run(['git', 'branch', 'release'], cwd=self.repo, check=True)
-        self.assertEqual(self.base, mod.default_base(self.repo, 'release'))
+        self.assertEqual('origin/main', mod.default_base(self.repo))
 
-    def test_a_branch_without_an_upstream_falls_back_to_the_trunk(self):
+    def test_an_upstream_is_not_a_base_when_the_trunk_is_unknown(self):
+        """No trunk, no base — the upstream does not stand in for it.
+
+        Without a base every finding counts as the push's own, which is the
+        safe direction; the upstream would measure the branch against its own
+        remote copy and clear the findings the branch brought.
+        """
         subprocess.run(
-            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+            ['git', 'remote', 'add', 'origin', 'https://example.com/sing.git'], cwd=self.repo, check=True,
         )
-        subprocess.run(['git', 'branch', 'feature'], cwd=self.repo, check=True)
-        self.assertEqual('origin/main', mod.default_base(self.repo, 'feature'))
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/release', self.base], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'config', 'branch.release.remote', 'origin'], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'config', 'branch.release.merge', 'refs/heads/release'], cwd=self.repo, check=True,
+        )
+        subprocess.run(['git', 'branch', 'release'], cwd=self.repo, check=True)
+        self.assertIsNone(mod.default_base(self.repo))
 
     def test_a_checkout_that_does_not_know_the_trunk_has_no_default_base(self):
         self.assertIsNone(mod.default_base(self.repo))
@@ -552,6 +573,210 @@ class FindingOwnershipTest(unittest.TestCase):
             ['shared/src/main/kotlin/Other.kt'],
             [finding['path'] for finding in report['own_findings']],
         )
+
+    def test_a_change_in_a_build_file_counts_every_finding_as_the_push_s_own(self):
+        """A module's own build file holds its own detekt block."""
+        sha = self._commit({'shared/build.gradle.kts': 'plugins { }\n'})
+        report = self._judge('shared/src/main/kotlin/Other.kt', self.base, sha=sha)
+        self.assertFalse(report['clean'], 'the build moved, so every finding counts')
+        self.assertEqual(
+            ['shared/src/main/kotlin/Other.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+
+    def test_a_change_in_the_root_build_file_counts_every_finding_as_the_push_s_own(self):
+        sha = self._commit({'build.gradle.kts': 'plugins { }\n'})
+        report = self._judge('shared/src/main/kotlin/Other.kt', self.base, sha=sha)
+        self.assertFalse(report['clean'], 'the build moved, so every finding counts')
+
+    def test_a_change_in_the_build_file_judges_every_module(self):
+        """The wide change reaches the modules too, not only the findings."""
+        sha = self._commit({'build.gradle.kts': 'plugins { }\n'})
+        tasks, reason = mod.detekt_tasks_for_change(self.repo, self.base, sha)
+        self.assertEqual(_every_detekt_task(), set(tasks))
+        self.assertIn('build.gradle.kts', reason)
+
+    def test_a_path_with_non_ascii_letters_is_the_push_s_own_finding(self):
+        """Git escapes a path with non-ASCII letters unless it is told not to.
+
+        The escaped path (`Caf\\303\\251.kt`) matches nothing, so the finding
+        is called the repository's and the verdict is green — and the module
+        does not claim the file, so nothing is judged at all.
+        """
+        sha = self._commit({'shared/src/main/kotlin/Café.kt': SOURCE})
+        report = self._judge('shared/src/main/kotlin/Café.kt', self.base, sha=sha)
+        self.assertFalse(report['clean'], 'the push brought this finding')
+        self.assertEqual(
+            ['shared/src/main/kotlin/Café.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+
+    def test_the_changed_paths_are_read_the_way_the_tree_names_them(self):
+        """The paths come out of git as the tree names them, not as git quotes them."""
+        sha = self._commit({'shared/src/main/kotlin/Café.kt': SOURCE})
+        paths = mod.changed_paths(self.repo, self.base, sha)
+        self.assertIn('shared/src/main/kotlin/Café.kt', paths)
+        self.assertNotIn('shared/src/main/kotlin/Caf\\303\\251.kt', paths)
+
+
+class BaseResolutionTest(unittest.TestCase):
+    """What the verdict measures the push against.
+
+    The base is the trunk. Not the branch's upstream: the upstream is the
+    remote's copy of this branch, so everything the branch already carries is
+    above it, and measuring against it calls the branch's own earlier work
+    "the repository's" — the finding the branch brought is cleared.
+
+    The properties:
+
+      - the default base is the trunk's remote-tracking ref, even when the
+        branch has an upstream that points somewhere else;
+      - an upstream is not a base at all: with no trunk there is no base, and
+        every finding counts as the push's own;
+      - the caller that knows there is no base says so — `--no-base` — so the
+        verdict and the hook's message agree;
+      - a base and a no-base at once is a contradiction the command refuses.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-base-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.repo = self.tmp / 'repo'
+        self.repo.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True, env=_clean_git_env())
+        # The trunk: a repository that already holds a file the branch never touches.
+        self.base = self._commit({
+            'README.md': 'base\n',
+            'shared/src/main/kotlin/Other.kt': SOURCE,
+        })
+        # The branch: a range that carries one new file.
+        self.sha = self._commit({
+            'shared/src/main/kotlin/Example.kt': SOURCE,
+        })
+        # The remote's copy of this branch — the upstream.
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/feature', self.sha], cwd=self.repo, check=True,
+            env=_clean_git_env(),
+        )
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+            env=_clean_git_env(),
+        )
+        subprocess.run(
+            ['git', 'config', 'branch.feature.remote', 'origin'], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'config', 'branch.feature.merge', 'refs/heads/feature'], cwd=self.repo, check=True,
+        )
+        subprocess.run(['git', 'branch', 'feature'], cwd=self.repo, check=True)
+
+    def _commit(self, files: dict[str, str]) -> str:
+        for name, content in files.items():
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', 'a change'], cwd=self.repo, check=True, env=_clean_git_env())
+        return subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
+        ).stdout.strip()
+
+    def _gradle(self, target: str) -> str:
+        path = self.tmp / 'detekt'
+        path.write_text(FAKE_DETEKT_FINDING.format(target=target), encoding='utf-8')
+        path.chmod(0o755)
+        return str(path)
+
+    def _run(self, target: str, *extra: str) -> tuple[int, dict]:
+        result = subprocess.run(
+            [
+                sys.executable, str(MODULE_PATH),
+                '--sha', self.sha,
+                '--repo', str(self.repo),
+                '--gradle-cmd', self._gradle(target),
+                '--tasks', ':shared:detekt',
+                '--log-dir', str(self.tmp / 'logs'),
+                '--json',
+                *extra,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode not in (0, 1):
+            return result.returncode, {}
+        return result.returncode, json.loads(result.stdout)
+
+    def test_the_push_is_measured_against_the_trunk_not_the_upstream(self):
+        """The finding the branch brought is the branch's own.
+
+        Measured against the upstream — the remote's copy of this branch —
+        the range is empty, the finding looks inherited and the verdict is
+        green. Measured against the trunk, it is the push's own.
+        """
+        rc, report = self._run('shared/src/main/kotlin/Example.kt')
+        self.assertEqual(1, rc, report)
+        self.assertFalse(report['clean'], report)
+        self.assertEqual(
+            ['shared/src/main/kotlin/Example.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+
+    def test_a_push_that_has_no_base_is_told_so_explicitly(self):
+        """No base: every finding counts as the push's own — red, not green."""
+        rc, report = self._run('shared/src/main/kotlin/Other.kt', '--no-base')
+        self.assertEqual(1, rc, report)
+        self.assertFalse(report['clean'], report)
+        self.assertEqual(
+            ['shared/src/main/kotlin/Other.kt'],
+            [finding['path'] for finding in report['own_findings']],
+        )
+        self.assertEqual([], report['inherited_findings'])
+
+    def test_the_command_refuses_a_base_and_a_no_base_at_once(self):
+        result = subprocess.run(
+            [
+                sys.executable, str(MODULE_PATH),
+                '--sha', self.sha,
+                '--repo', str(self.repo),
+                '--base', self.base,
+                '--no-base',
+                '--json',
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('--no-base', result.stderr)
+
+    def test_the_command_has_no_branch_option(self):
+        """The upstream is not a base, so there is no option to name one.
+
+        The option the verdict used to take is how the upstream became the
+        base: the caller named the branch, and the script measured the
+        branch against the remote's copy of itself — so everything the branch
+        carried was "the repository's" and the finding the branch brought
+        was cleared. The option is gone, so the mistake cannot be made
+        again by a caller that means well.
+        """
+        result = subprocess.run(
+            [
+                sys.executable, str(MODULE_PATH),
+                '--sha', self.sha,
+                '--repo', str(self.repo),
+                '--branch', 'feature',
+                '--json',
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('--branch', result.stderr)
 
 
 class GitEnvironmentTest(unittest.TestCase):

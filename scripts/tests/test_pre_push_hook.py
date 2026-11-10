@@ -1343,6 +1343,62 @@ class PrePushHookTest(unittest.TestCase):
         self.assertIn('detekt', output)
         self.assertIn('FAILED', output)
 
+    def _push_branch(self, branch: str, *extra: str) -> subprocess.CompletedProcess:
+        """Push a branch other than the trunk.
+
+        The remote is added once: a case that pushes twice — the first push
+        to put a commit on the remote, the second to measure a branch
+        against it — would fail on the second `git remote add`.
+        """
+        if 'origin' not in _git('remote', cwd=self.repo).stdout.split():
+            _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        return subprocess.run(
+            ['git', 'push', *extra, '-u', 'origin', branch],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=_clean_git_env(),
+        )
+
+    def test_a_push_without_a_base_is_judged_in_full(self):
+        """No base: the push is judged in full, and a finding blocks it.
+
+        The branch has no common ancestor with the trunk, so no base can be
+        resolved for it. The hook says so, and the verdict is told so too:
+        every module is judged, and every finding counts as this push's own.
+
+        The finding this push does not bring is still a finding: without a
+        base there is nothing to compare with, and a finding that cannot be
+        attributed cannot be called somebody else's. Measured against the
+        branch's upstream instead — the remote's copy of this branch — the
+        range carries no Kotlin, nothing is judged, and the push goes out
+        green with a violation in the tree.
+        """
+        self._install_hook()
+        self._install_stubs()
+        # A branch of its own: no common ancestor with the trunk, so no
+        # base can be resolved for it, whatever the trunk looks like.
+        _git('checkout', '--orphan', 'feature', cwd=self.repo)
+        self._write('shared/src/main/kotlin/Example.kt', SOURCE)
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a branch of its own', cwd=self.repo)
+        # The branch goes to the remote first, with an upstream of its own.
+        first = self._push_branch('feature', '--no-verify')
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        # This push carries no Kotlin: the violation the branch already
+        # holds is in the tree, but not in what this push changes.
+        self._write('README.md', 'a note\n')
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a note', cwd=self.repo)
+
+        result = self._push_branch('feature')
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, 'the push went out with a finding in it:\n' + output)
+        self.assertIn('no base could be resolved', output)
+        self.assertIn('detekt', output)
+        self.assertIn('FAILED', output)
+
     def test_a_push_that_moves_no_kotlin_is_not_a_clean_verdict(self):
         """Nothing was judged, so nothing was found — the summary must not claim clean."""
         self._install_hook()
