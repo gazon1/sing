@@ -572,7 +572,11 @@ jobs:
           with-yaml-lint: 'false'
           with-action-lint: 'false'
 
+      # No artifacts is a state, not a failure: a cancelled run may have uploaded
+      # none, and a re-run of this job alone has no reports under this attempt.
+      # The step below says what happened; the download just does not abort.
       - name: Collect the shards' reports
+        continue-on-error: true
         uses: actions/download-artifact@v7
         with:
           pattern: maestro-junit-${{ needs.plan.outputs.suite }}-*-${{ github.run_id }}-${{ github.run_attempt }}
@@ -615,8 +619,20 @@ jobs:
           apk_sha=$(sha256sum apk/*.apk 2>/dev/null | cut -d' ' -f1)
           shards=()
           for directory in build/maestro-shards/*/; do
+            [ -d "$directory" ] || continue
             shards+=(--results "$directory")
           done
+          if [ "${#shards[@]}" -eq 0 ]; then
+            # A cancelled run may legitimately have uploaded nothing, and its
+            # conversion is then nothing rather than a red job. Any other run
+            # with no reports is an anomaly worth a failure.
+            if [ "${{ needs.e2e.result }}" = "cancelled" ]; then
+              echo "cancelled before any shard uploaded a report — nothing to convert" >&2
+              exit 0
+            fi
+            echo "no shard reports for attempt ${{ github.run_attempt }} — the conversion has no input" >&2
+            exit 1
+          fi
           python3 scripts/maestro-allure.py "${shards[@]}" \
             --scope "$SUITE" \
             --out build/maestro-allure-results \

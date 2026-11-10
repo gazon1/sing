@@ -15,8 +15,9 @@ reader (`scanners.maestro_flow`); there is no second parser.
 Run-level facts (`--run-id`, `--run-attempt`, `--commit`, …) come from the
 workflow, never from `environment.json`, and are cross-checked against it: an
 identity that disagrees is a hard failure, not a merge. `--task-outcome auto`
-reads the verdict from the converted results, so a job that failed at an
-ancillary step does not describe a passing run as failed.
+reads the verdict from the results and the flows the run did not measure, so a
+job that failed at an ancillary step does not describe a passing run as failed,
+and a run that stopped early is not described as passing.
 
 Usage:
     python3 scripts/maestro-allure.py --results DIR [--results DIR ...]
@@ -70,9 +71,9 @@ FULL = "full"
 STATUS = {"passed": "passed", "failed": "failed", "error": "broken", "skipped": "skipped"}
 FAILING = ("failed", "broken")
 
-#: `git rev-parse --short` prints at least seven characters, and the runner's
-#: `_provenance.git_sha` writes this literal when it cannot read the checkout.
-GIT_ABBREVIATION_MIN = 7
+#: `git rev-parse --short` prints at least seven characters (the lower bound in
+#: this pattern), and the runner's `_provenance.git_sha` writes this literal
+#: when it cannot read the checkout.
 GIT_SHA_RE = re.compile(r"[0-9a-f]{7,40}")
 UNKNOWN_COMMIT = "unknown"
 
@@ -463,8 +464,7 @@ def same_commit(left: object, right: object) -> bool:
             return True
         shorter, longer = sorted((left, right), key=len)
         return (
-            len(shorter) >= GIT_ABBREVIATION_MIN
-            and GIT_SHA_RE.fullmatch(shorter) is not None
+            GIT_SHA_RE.fullmatch(shorter) is not None
             and GIT_SHA_RE.fullmatch(longer) is not None
             and longer.startswith(shorter)
         )
@@ -479,7 +479,7 @@ def recorded_commit(shard: dict) -> object | None:
     the check below reports as unpublishable rather than fatal.
     """
     value = shard["environment"].get("commit")
-    return None if value in (None, "", UNKNOWN_COMMIT) else value
+    return None if not value or value == UNKNOWN_COMMIT else value
 
 
 def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
@@ -491,8 +491,9 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     """
     findings: list[dict] = []
     raw_commits = [commit for commit in map(recorded_commit, shards) if commit]
-    # Every pair, not every value against the first: two abbreviations of one
-    # commit agree with a shared longer prefix while disagreeing with each other.
+    # Every pair, not every value against the first: prefix equality is not
+    # transitive — `abcdef0` agrees with both `abcdef01` and `abcdef02`, which
+    # disagree with each other — so anchoring on one shard can miss a split.
     if any(not same_commit(one, other) for one, other in itertools.combinations(raw_commits, 2)):
         findings.append(
             {
@@ -558,17 +559,21 @@ def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dic
     return observed, expected, complete, findings
 
 
-def derived_outcome(results: dict[str, dict]) -> str:
-    """The run's verdict from its own results, not from the job that carried them.
+def derived_outcome(results: dict[str, dict], unmeasured: list[str]) -> str:
+    """The run's verdict from what it measured, not from the job that carried it.
 
     A job can fail at an ancillary step — the traceability export, an upload —
     while every flow passed, and the shard's evidence index reports the flows'
-    own outcome (`steps.maestro.outcome`). Reading the results keeps the two
-    artifacts of one run from disagreeing about what happened.
+    own outcome (`steps.maestro.outcome`). A clean set of results is not a pass
+    either: a run that stopped early has fewer results, not failing ones, and
+    the flows its scope expected and no report covers are the fact that says so
+    (the gate and the index both fail the run for them).
     """
-    if not results:
-        return "unknown"
-    return "failed" if any(result["status"] in FAILING for result in results.values()) else "passed"
+    if any(result["status"] in FAILING for result in results.values()):
+        return "failed"
+    if unmeasured:
+        return "failed"
+    return "passed" if results else "unknown"
 
 
 def manifest_for(
@@ -779,7 +784,11 @@ def main(argv: list[str] | None = None) -> int:
     expected_flows = scope_flows(meta["scope"], catalogue, root, findings)
     conversion = convert(shards, root, meta, now_ms, retried)
     if meta["task_outcome"] == AUTO:
-        meta["task_outcome"] = derived_outcome(conversion["results"])
+        produced = {result["fullName"] for result in conversion["results"].values()}
+        meta["task_outcome"] = derived_outcome(
+            conversion["results"],
+            [flow for flow in expected_flows if flow not in produced] + not_measured,
+        )
     findings = findings + conversion["findings"]
     manifest = manifest_for(shards, conversion, meta, expected_flows, not_measured, findings)
 

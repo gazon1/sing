@@ -178,10 +178,11 @@ being read as a pass.
 
 - A cancelled or failed shard is still converted; the manifest records
   `task_outcome`, `complete_shards=false`, `publishable=false`. `task_outcome`
-  is the run's verdict read from its results (`--task-outcome auto`), never the
-  status of the job that carried them: an ancillary step can fail while every
-  flow passed, and the shard evidence index already reports the flows' own
-  outcome. Explicit values remain for cancelled, timed-out and unknown runs.
+  is the run's verdict read from what it measured (`--task-outcome auto`), never
+  the status of the job that carried them: an ancillary step can fail while
+  every flow passed, and a clean result set is not a pass — a flow the scope
+  expected and no report covers, or one the summary calls unmeasured, makes it
+  `failed`. Explicit values remain for cancelled, timed-out and unknown runs.
 - **A pass never replaces a failure.** If two records share a testcase identity:
   a failing/broken record wins over a passing one; equal outcomes keep the first
   in the order the reports were read. Losing a failure in aggregation is the

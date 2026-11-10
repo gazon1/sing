@@ -612,6 +612,72 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertIsNone(data["identity"]["apk_sha256"])
             self.assertFalse(data["publishable"])
 
+    def test_auto_outcome_fails_a_run_that_stopped_early(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            measured, unmeasured = "Maestro/flows/a.yaml", "Maestro/flows/b.yaml"
+            write_flow(root, measured, "a", [])
+            write_flow(root, unmeasured, "b", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            write_report(shard, measured, "a")
+            (root / "catalogue.txt").write_text(f"{measured}\n{unmeasured}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
+                           "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
+                           "--maestro-version", "2.10.0", "--apk-sha256", "f" * 64,
+                           "--task-outcome", "auto", "--out", str(out)])
+            self.assertEqual(code, 0)
+            data = manifest(out)
+            self.assertEqual(data["missing"], [unmeasured])
+            # A clean set of results is not a pass: the flow the scope expected
+            # and no report covers is the run failing to measure it.
+            self.assertEqual(data["task_outcome"], "failed")
+
+    def test_auto_outcome_fails_a_flow_the_summary_calls_unmeasured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            first, second = "Maestro/flows/a.yaml", "Maestro/flows/b.yaml"
+            for flow in (first, second):
+                write_flow(root, flow, pathlib.PurePosixPath(flow).stem, [])
+            shard = write_shard(
+                root, "s1", {"shard": 1, "shards": 1, "commit": "abc"},
+                summary={"passed": ["a"], "failed": [], "not_measured": ["b"], "retried": []},
+            )
+            # Both have a report; only the summary says the second went unmeasured.
+            write_report(shard, first, "a")
+            write_report(shard, second, "b")
+            (root / "catalogue.txt").write_text(f"{first}\n{second}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
+                           "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
+                           "--maestro-version", "2.10.0", "--apk-sha256", "f" * 64,
+                           "--task-outcome", "auto", "--out", str(out)])
+            self.assertEqual(code, 0)
+            self.assertEqual(manifest(out)["not_measured"], [second])
+            self.assertEqual(manifest(out)["task_outcome"], "failed")
+
+    def test_a_falsy_commit_is_incomplete_not_known(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": 0})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"),
+                           "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
+                           "--commit", "abc", "--maestro-version", "2.10.0",
+                           "--apk-sha256", "f" * 64, "--task-outcome", "passed",
+                           "--out", str(out)])
+            self.assertEqual(code, 0)
+            data = manifest(out)
+            self.assertTrue(any(f["kind"] == "environment.json incomplete" for f in data["findings"]))
+            self.assertFalse(data["publishable"])
+
     def test_a_missing_run_summary_blocks_publication(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -651,8 +717,18 @@ class SameCommitTest(unittest.TestCase):
         self.assertFalse(mod.same_commit("unknown", "abc123def456"))
         self.assertFalse(mod.same_commit("abc123def456", "def456abc123"))
 
+    def test_prefixes_of_one_commit_can_disagree_with_each_other(self) -> None:
+        # Seven- and eight-character abbreviations are both legal, so the first
+        # agrees with each of the others while those two disagree with each
+        # other — which is why the shard check compares every pair.
+        self.assertTrue(mod.same_commit("abcdef0", "abcdef01"))
+        self.assertTrue(mod.same_commit("abcdef0", "abcdef02"))
+        self.assertFalse(mod.same_commit("abcdef01", "abcdef02"))
+
     def test_the_outcome_of_no_results_is_unknown(self) -> None:
-        self.assertEqual(mod.derived_outcome({}), "unknown")
+        self.assertEqual(mod.derived_outcome({}, []), "unknown")
+        # Nothing produced, but flows the scope expected: the run did not pass.
+        self.assertEqual(mod.derived_outcome({}, ["Maestro/flows/a.yaml"]), "failed")
 
 
 class RobustnessTest(unittest.TestCase):
