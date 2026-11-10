@@ -378,6 +378,28 @@ fun DesktopComposeUiTest.assertTagSelected(tag: String) =
 fun DesktopComposeUiTest.unclippedBoundsOfTag(tag: String): DpRect = awaitTag(tag).getUnclippedBoundsInRoot()
 
 /**
+ * The unclipped bounds of the node with content description [desc], in root
+ * coordinates.
+ *
+ * The counterpart of [unclippedBoundsOfTag] for a control that is named by what it
+ * says rather than by a test tag.
+ *
+ * @param desc The content description of the node.
+ * @param useUnmergedTree True to read the node that carries the description itself,
+ *        rather than the ancestor that merged it up. A clickable that merges its
+ *        glyph's description is one node in the merged tree and two in the unmerged
+ *        one — the control and the glyph — and the two have different bounds: the
+ *        control's target and the glyph that is painted inside it.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfContentDescription(
+    desc: String,
+    useUnmergedTree: Boolean = false,
+): DpRect =
+    onNodeWithContentDescription(desc, useUnmergedTree = useUnmergedTree)
+        .getUnclippedBoundsInRoot()
+
+/**
  * One-shot assertion that no node with [text] exists. Same rule as
  * [assertTagNotExists]: only for nodes that were never there.
  */

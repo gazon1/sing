@@ -79,6 +79,26 @@ from typing import Iterator, NamedTuple
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 
+#: How a path that is not valid UTF-8 is read.
+#:
+#: A filename is a byte string, and git will store a filename whose bytes are
+#: not valid UTF-8. Reading such a path strictly raises, and the reader that
+#: raises takes the whole module graph with it. `surrogateescape` maps the
+#: undecodable bytes to lone surrogates and back again, so the path survives
+#: the round trip and can still be compared with the path git reports. The
+#: output is read as bytes and decoded here for exactly this reason: a
+#: text-mode subprocess also rewrites a carriage return in a filename into a
+#: newline, which changes the path rather than merely failing to read it.
+PATH_DECODE = 'surrogateescape'
+
+
+def decode_path(raw: bytes) -> str:
+    """A path, as the bytes git wrote it.
+
+    @param raw the bytes of one path.
+    """
+    return raw.decode('utf-8', PATH_DECODE)
+
 #: The build file that declares the modules. It is the definition of what the
 #: build contains, so it is the definition of what the graph knows.
 SETTINGS: pathlib.Path = ROOT / 'settings.gradle.kts'
@@ -648,17 +668,21 @@ def changed_paths(base: str) -> list[str]:
     committed = subprocess.run(
         ['git', '-c', 'core.quotePath=false', 'diff', '--name-only', '-z',
          '--no-renames', f'{base}...HEAD'],
-        cwd=ROOT, capture_output=True, text=True, check=False,
+        cwd=ROOT, capture_output=True, check=False,
     )
     if committed.returncode == 0:
-        paths.extend(part for part in committed.stdout.split('\0') if part)
+        paths.extend(
+            decode_path(part)
+            for part in committed.stdout.split(b'\0')
+            if part
+        )
     working = subprocess.run(
         ['git', '-c', 'core.quotePath=false', 'status', '--porcelain', '-z',
          '--untracked-files=all'],
-        cwd=ROOT, capture_output=True, text=True, check=False,
+        cwd=ROOT, capture_output=True, check=False,
     )
     if working.returncode == 0:
-        paths.extend(porcelain_paths(working.stdout))
+        paths.extend(porcelain_paths(working.stdout.decode('utf-8', PATH_DECODE)))
     seen: set[str] = set()
     ordered: list[str] = []
     for path in paths:

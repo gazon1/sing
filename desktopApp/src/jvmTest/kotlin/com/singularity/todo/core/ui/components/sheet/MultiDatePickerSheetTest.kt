@@ -137,6 +137,31 @@ class MultiDatePickerSheetTest {
         }
 
     @Test
+    fun `the month arrows page the grid forward and back`() =
+        runIsolatedComposeTest(width = 420, height = 1600) {
+            setContent {
+                MultiDatePickerSheet(
+                    initialDates = persistentSetOf(),
+                    onConfirm = {},
+                    onDismiss = {},
+                    today = today,
+                    maxDates = TaskSeriesPlanner.MAX_DATES,
+                )
+            }
+
+            assertTextDisplayed("Октябрь 2026")
+
+            clickTag(TestTags.MultiDatePicker.NEXT_MONTH)
+            assertTextDisplayed("Ноябрь 2026")
+
+            clickTag(TestTags.MultiDatePicker.NEXT_MONTH)
+            assertTextDisplayed("Декабрь 2026")
+
+            clickTag(TestTags.MultiDatePicker.PREV_MONTH)
+            assertTextDisplayed("Ноябрь 2026")
+        }
+
+    @Test
     fun `disabled days cannot be selected`() =
         runIsolatedComposeTest(width = 420, height = 1600) {
             setContent {

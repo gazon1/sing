@@ -236,6 +236,11 @@ def collect_errors(
 
     hook_section = registry.get('hook_scripts', {}) if isinstance(registry.get('hook_scripts'), dict) else {}
     delegate = hook_section.get('verdict_delegate', '')
+    # The tool the hook compares two answers with. It is not a gate: it judges
+    # nothing about the tree, it only says whether what the push carries is
+    # something the base did not have. The hook may name it for the same
+    # reason it may name the delegate.
+    ratchet = hook_section.get('ratchet_tool', '')
 
     if declared is None:
         declared = set()
@@ -262,6 +267,8 @@ def collect_errors(
     # The canon the environment helper reads its answer from: the hook names
     # it in the message it prints when the answer cannot be read.
     allowed.add(canon or '')
+    # And the tool the hook compares two answers with.
+    allowed.add(ratchet or '')
     # And this gate: the hook names it in the message it prints when the
     # declaration cannot be read.
     allowed.add(GATE_SELF)
@@ -298,6 +305,13 @@ def collect_errors(
 
     if delegate and delegate not in hook_scripts:
         errors.append(f'the hook does not delegate the detekt decision to {delegate}')
+
+    if ratchet and ratchet not in hook_scripts:
+        errors.append(
+            f'the hook does not compare with {ratchet} — a gate that fails on the tree the push '
+            'carries has to be compared with the base, or every push is blocked by the '
+            "repository's own findings",
+        )
 
     detekt = registry.get('detekt', {}) if isinstance(registry.get('detekt'), dict) else {}
     recorded = set(detekt.get('judged_by_ci', []))
