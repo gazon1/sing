@@ -177,7 +177,7 @@ being read as a pass.
   known, shard set complete, `task_outcome` in `{passed, failed}`, and no
   finding that removes a fact the report is built from — a missing or
   unreadable `environment.json`/`run-summary.json`, a report that cannot be
-  read or holds no testcase, an unreadable flow file, an identity
+  read or holds no testcase, an unreadable or absent flow file, an identity
   disagreement, or a duplicate status conflict. A shard set that cannot be
   established (no total, or two totals) is a finding, so a manifest that is
   not publishable says why.
@@ -272,7 +272,10 @@ defect is to let whichever record was read second decide whether the run failed.
   files without a Maestro testcase id, so a mistyped `--out` cannot delete the
   JVM results that publication needs; its own interrupted output stays
   recognisable and recoverable. The directory is cleaned only after the
-  conversion succeeds, so a crash leaves the previous run intact.
+  conversion succeeds, so a crash leaves the previous run intact. A result file
+  damaged before atomic writes (unparseable) is treated as foreign evidence and
+  needs one manual deletion; the guard prefers that to deleting somebody else's
+  results.
 - **Rollback**: delete the converter, its tests, the fixtures and (when they
   exist) the workflow steps. The JUnit XML, the evidence and the gate are
   untouched, so removing the report costs the report and nothing else.

@@ -534,19 +534,84 @@ class RobustnessTest(unittest.TestCase):
     def test_zero_results_are_not_publishable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            # A clean shard that wrote no report at all: no findings, one missing
+            # flow, zero results. Only the "at least one result" rule stops it.
             shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
-            (shard / "empty.xml").write_text(
-                '<?xml version="1.0"?><testsuites><testsuite name="T"/></testsuites>'
-            )
-            (root / "catalogue.txt").write_text("")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
             out = root / "out"
             code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
                            "--catalogue", str(root / "catalogue.txt"),
                            "--run-id", "1", "--run-number", "1", "--run-attempt", "1",
                            "--commit", "abc", "--task-outcome", "passed", "--out", str(out)])
             self.assertEqual(code, 0)
+            data = manifest(out)
             self.assertEqual(results(out), {})
-            self.assertFalse(manifest(out)["publishable"])
+            self.assertEqual(data["missing"], [flow])
+            self.assertEqual(data["findings"], [])
+            self.assertFalse(data["publishable"])
+
+    def test_zero_shard_count_is_not_publishable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 0, "commit": "abc"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                 "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
+                 "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
+                 "--task-outcome", "passed", "--out", str(out)])
+            data = manifest(out)
+            self.assertTrue(any(f["kind"] == "shard count invalid" for f in data["findings"]))
+            self.assertFalse(data["complete_shards"])
+            self.assertFalse(data["publishable"])
+
+    def test_malformed_summary_fields_do_not_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", summary={
+                "passed": [], "failed": [], "not_measured": 5, "retried": 5,
+            })
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            self.assertEqual(code, 0)
+            self.assertEqual(list(results(out)), [flow])
+
+    def test_out_naming_a_file_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            out.write_text("not a directory")
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertIn("is not a directory", err)
+
+    def test_non_utf8_catalogue_is_an_error_not_a_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            shard = write_shard(root, "s1")
+            catalogue = root / "catalogue.txt"
+            catalogue.write_bytes(b"\xff\xfe\x00bad")
+            out = root / "out"
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(catalogue), "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertIn("cannot read the catalogue", err)
 
 
 class FixtureShapeTest(unittest.TestCase):

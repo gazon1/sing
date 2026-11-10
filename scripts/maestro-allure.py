@@ -126,6 +126,11 @@ def flow_tags(path: pathlib.Path, findings: list[dict]) -> list[str]:
         return []
 
 
+def as_list(value: object) -> list:
+    """A JSON field that should be a list, or [] when the artifact said otherwise."""
+    return value if isinstance(value, list) else []
+
+
 def duration_ms(case: TestCaseResult) -> int:
     """A testcase's duration, or 0 when the reader accepted a non-finite value.
 
@@ -273,7 +278,10 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | No
     """Results by flow identity, with the duplicate rule that never loses a failure."""
     results: dict[str, dict] = {}
     findings: list[dict] = []
-    retried = {stem for shard in shards for stem in shard["summary"].get("retried", [])}
+    retried = {
+        stem for shard in shards for stem in as_list(shard["summary"].get("retried"))
+        if isinstance(stem, str)
+    }
     catalogue = meta["catalogue"]
     first_report: dict[str, pathlib.Path] = {}
 
@@ -329,12 +337,17 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     findings: list[dict] = []
     commits = {shard["environment"].get("commit") for shard in shards if shard["environment"].get("commit")}
     if len(commits) > 1:
-        findings.append({"kind": "identity disagreement", "detail": f"shards carry different commits: {sorted(commits)}"})
+        findings.append(
+            {
+                "kind": "identity disagreement",
+                "detail": f"shards carry different commits: {sorted(str(c) for c in commits)}",
+            }
+        )
     if meta["commit"] and commits and commits != {meta["commit"]}:
         findings.append(
             {
                 "kind": "identity disagreement",
-                "detail": f"the workflow says {meta['commit']}, the shards say {sorted(commits)}",
+                "detail": f"the workflow says {meta['commit']}, the shards say {sorted(str(c) for c in commits)}",
             }
         )
     return (not findings), findings
@@ -354,6 +367,11 @@ def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dic
     expected = next(iter(counts)) if len(counts) == 1 else None
     if expected is None and not counts:
         findings.append({"kind": "shard count unknown", "detail": "no shard count in environment.json"})
+    if expected is not None and expected < 1:
+        findings.append(
+            {"kind": "shard count invalid", "detail": f"environment.json says shards={expected}"}
+        )
+        expected = None
     complete = expected is not None and observed == list(range(1, expected + 1))
     if expected is not None and not complete:
         findings.append(
@@ -371,7 +389,12 @@ def manifest_for(
         counts[result["status"]] = counts.get(result["status"], 0) + 1
     produced = set(results)
     missing = [flow for flow in expected_flows if "maestro:" + flow not in produced]
-    not_measured = sorted({stem for shard in shards for stem in shard["summary"].get("not_measured", [])})
+    not_measured = sorted(
+        {
+            stem for shard in shards for stem in as_list(shard["summary"].get("not_measured"))
+            if isinstance(stem, str)
+        }
+    )
     observed, expected_shards, complete, shard_findings = shard_set(shards)
     findings = list(findings) + shard_findings
     identity_known = all(meta[key] for key in ("run_id", "run_number", "run_attempt", "commit"))
@@ -447,7 +470,9 @@ def is_ours(out: pathlib.Path) -> bool:
 def clean(out: pathlib.Path) -> None:
     """Drop a previous conversion. Call only after is_ours(out) said yes."""
     out.mkdir(parents=True, exist_ok=True)
-    for path in list(out.glob("*-result.json")) + [out / "executor.json", out / MANIFEST_NAME]:
+    for path in (
+        list(out.glob("*-result.json")) + list(out.glob("*.tmp")) + [out / "executor.json", out / MANIFEST_NAME]
+    ):
         if path.is_file():
             path.unlink()
 
@@ -493,7 +518,7 @@ def main(argv: list[str] | None = None) -> int:
     root = pathlib.Path(args.root).resolve()
     try:
         catalogue = read_catalogue(pathlib.Path(args.catalogue))
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         print(f"maestro-allure: cannot read the catalogue: {exc}", file=sys.stderr)
         return 1
 
@@ -523,6 +548,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     out = pathlib.Path(args.out)
+    if out.exists() and not out.is_dir():
+        print(f"maestro-allure: {out} is not a directory", file=sys.stderr)
+        return 1
     if out.is_dir() and not is_ours(out):
         print(
             f"maestro-allure: {out} holds Allure results this tool did not write; "
