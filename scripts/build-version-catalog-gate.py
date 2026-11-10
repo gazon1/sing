@@ -26,6 +26,13 @@ B2 extension (2026-10-08): also checks gradle.properties version keys against th
 catalog, and checks plugin literals in root build.gradle.kts plugins {} against the
 catalog — the two remaining places where version literals can silently drift.
 
+2026-11-10: gradle.properties no longer holds any version — the catalog owns them
+and the build reads them through VersionCatalogsExtension. The check became a
+duplication check (the property must not exist), and a detekt↔Kotlin compatibility
+table was added: detekt refuses to run against any Kotlin it was not compiled
+with, so a bump the table does not cover is rejected here with a legible message
+instead of failing deep inside the detekt task.
+
 Pattern: mirror scripts/find-unwired-surfaces.py — --quiet for CI, positive
 control that the scan covered ≥MIN_SCAN files (vacuous green is worse than red).
 """
@@ -62,12 +69,26 @@ ROOT_PLUGINS_CATALOG_KEYS = {
 ROOT_PLUGINS_RE = re.compile(
     r'id\("(?P<id>[\w.\-]+)"\)\s+version\s+"(?P<version>[^"]+)"'
 )
-# B2: gradle.properties version keys that mirror the catalog.
-# Key = property name (prefixed "version."), value = catalog version key.
-GRADLE_PROPS_CATALOG_KEYS = {
+# B2: gradle.properties version keys that the version catalog owns.
+# They used to live in BOTH places. A dependabot bump moves the catalog and leaves
+# the property behind, and the two then disagree — that is the mismatch that
+# red-lined main. The catalog is the single source of truth, so the property is
+# not a second source, it is a duplicate one: it must not exist.
+GRADLE_PROPS_FORBIDDEN_KEYS = {
     "version.kotlin": "kotlin",
     "version.kotlinSerialization": "kotlin-serialization",
     "version.kotlinxCollectionsImmutable": "kotlinxCollectionsImmutable",
+}
+# The Kotlin version each detekt build was compiled with. detekt refuses to run
+# against any other one ("detekt was compiled with Kotlin X but is currently
+# running with Y"), so a Kotlin bump that this table does not cover cannot be
+# merged as it stands.
+#
+# A detekt version that is missing here fails the gate on purpose: bumping detekt
+# is a decision that has to name the Kotlin it was built with, not a silent
+# consequence of a version range.
+DETEKT_KOTLIN_COMPATIBILITY = {
+    "2.0.0-alpha.6": "2.4.10",
 }
 GRADLE_PROPS_VERSION_RE = re.compile(
     r"^(?P<key>[^#\s][^\s=]*)\s*=\s*[\"\']?(?P<value>[\w.\-]+)[\"\']?"
@@ -158,14 +179,11 @@ def _root_plugins_drift(workspace: Path):
     return out
 
 
-def _gradle_properties_drift(workspace: Path):
-    """B2: gradle.properties version.* keys must equal their catalog entries."""
+def _gradle_properties_duplication(workspace: Path):
+    """The version catalog owns these versions; gradle.properties must not repeat them."""
     props = workspace / "gradle.properties"
     if not props.is_file():
         return []
-    versions = _catalog_versions(workspace)
-    if not versions:
-        return [("gradle.properties", "no catalog versions to compare against")]
 
     content = props.read_text(encoding="utf-8")
     out: list[tuple[Path, str]] = []
@@ -177,18 +195,43 @@ def _gradle_properties_drift(workspace: Path):
         if not m:
             continue
         key = m.group("key")
-        catalog_key = GRADLE_PROPS_CATALOG_KEYS.get(key)
+        catalog_key = GRADLE_PROPS_FORBIDDEN_KEYS.get(key)
         if catalog_key is None:
             continue
-        expected = versions.get(catalog_key)
-        if expected is None:
-            out.append((props, f"{key}: no `{catalog_key}` entry in the catalog"))
-        elif expected != m.group("value"):
-            out.append((
-                props,
-                f"{key}={m.group('value')} != libs.versions.toml {catalog_key}=\"{expected}\"",
-            ))
+        out.append((
+            props,
+            f"{key}={m.group('value')} duplicates libs.versions.toml {catalog_key} — "
+            "the catalog is the single source of truth; delete the property",
+        ))
     return out
+
+
+def _detekt_kotlin_compatibility(workspace: Path):
+    """The catalog's Kotlin version must be one the catalog's detekt was built with."""
+    versions = _catalog_versions(workspace)
+    if not versions:
+        return [("gradle/libs.versions.toml", "no catalog versions to compare against")]
+
+    detekt = versions.get("detekt")
+    kotlin = versions.get("kotlin")
+    if detekt is None or kotlin is None:
+        return []
+
+    expected = DETEKT_KOTLIN_COMPATIBILITY.get(detekt)
+    if expected is None:
+        return [(
+            workspace / "gradle" / "libs.versions.toml",
+            f"detekt {detekt} is not in DETEKT_KOTLIN_COMPATIBILITY — find the Kotlin "
+            "version it was compiled with and add the entry",
+        )]
+    if expected != kotlin:
+        return [(
+            workspace / "gradle" / "libs.versions.toml",
+            f"kotlin = \"{kotlin}\", but detekt {detekt} was compiled with Kotlin "
+            f"{expected} and refuses any other version — bump detekt to a build "
+            f"compiled with {kotlin} first, or keep Kotlin at {expected}",
+        )]
+    return []
 
 
 def main() -> int:
@@ -220,11 +263,15 @@ def main() -> int:
 
     violations.extend(_settings_plugin_drift(workspace))
     violations.extend(_root_plugins_drift(workspace))
-    violations.extend(_gradle_properties_drift(workspace))
+    violations.extend(_gradle_properties_duplication(workspace))
+    violations.extend(_detekt_kotlin_compatibility(workspace))
 
     if not violations:
         if not quiet:
-            print(f"OK: scanned {len(gradle_files)} files, 0 hardcoded version literals.")
+            print(
+                f"OK: scanned {len(gradle_files)} files, 0 hardcoded version literals, "
+                "no duplicated version properties, detekt and Kotlin agree."
+            )
         return 0
 
     print(f"Found {len(violations)} hardcoded version literal(s) in {len(gradle_files)} files:")

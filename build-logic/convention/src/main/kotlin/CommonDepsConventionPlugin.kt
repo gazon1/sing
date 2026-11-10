@@ -2,10 +2,15 @@ package convention
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.VersionCatalogsExtension
 
 /**
  * Centralises version-pinning and [org.gradle.api.artifacts.ResolutionStrategy] for all
  * Kotlin and kotlinx libraries across the whole build.
+ *
+ * The versions come from the version catalog, the single source of truth. They are
+ * read through [VersionCatalogsExtension] rather than the `libs.versions.*` accessors,
+ * because the `kotlin-serialization` version key shadows `libs.versions.kotlin`.
  *
  * ## Migration (not yet applied — Gradle 9 included-build classpath complexity)
  *
@@ -19,9 +24,11 @@ import org.gradle.api.Project
  */
 class CommonDepsConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
-        val kotlinVersion: String = target.property("version.kotlin") as String
-        val serializationVersion: String = target.property("version.kotlinSerialization") as String
-        val collectionsImmutableVersion: String = target.property("version.kotlinxCollectionsImmutable") as String
+        val versionCatalog = target.extensions.getByType<VersionCatalogsExtension>().named("libs")
+        val kotlinVersion: String = versionCatalog.findVersion("kotlin").get().requiredVersion
+        val serializationVersion: String = versionCatalog.findVersion("kotlin-serialization").get().requiredVersion
+        val collectionsImmutableVersion: String =
+            versionCatalog.findVersion("kotlinxCollectionsImmutable").get().requiredVersion
 
         target.allprojects {
             configurations.all {
