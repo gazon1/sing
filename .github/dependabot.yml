@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # detekt 2.0.0-alpha.6 is compiled with Kotlin 2.4.10. When the Kotlin plugin
+      # moves ahead of it, every detekt task fails: "detekt was compiled with Kotlin
+      # 2.4.10 but is currently running with <newer>". No newer detekt exists yet.
+      # Drop this ignore when detekt ships a build compiled with a newer Kotlin.
+      - dependency-name: "org.jetbrains.kotlin*"
+        versions:
+          - ">= 2.4.11"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
