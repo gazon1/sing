@@ -100,10 +100,26 @@ Covered by the regression test
 so the button is placed by the framework and the test compares the last row
 against the button's real bounds.
 
-Not covered: the Android runtime. The extended button and the navigation
-suite's insets are not exercised by an automated test — there is no Compose UI
-harness in the Android host tests — so the Android path rests on the formula
-above rather than on a measured run.
+The Android runtime was measured, by hand, on an AVD (`Medium_Phone`, API 36,
+420 dpi) with the agenda holding 21 tasks, scrolled to its end. The bounds come
+from the UI tree (`uiautomator dump`), not from a screenshot:
+
+| Layout | Button | Content's bottom edge | Last row's bottom |
+|---|---|---|---|
+| phone, bottom navigation | top 1938, bottom 2085 | 2127 (the navigation bar's top) | 1917 |
+| tablet, navigation rail | top 1492, bottom 1576 | 1504 | 1384 |
+
+Both rows clear the button: 21 px (8 dp) on the phone, 108 px (72 dp — the
+button's own height plus `FabSpacing`) on the tablet. And the button's bottom
+sits exactly 42 px (16 dp = `FabSpacing`) above the content's bottom edge on the
+phone, which is the formula above: the navigation suite has already shortened
+the content by the navigation bar's height, so the bottom inset is not counted
+twice.
+
+Not covered: an automated Android test. The extended button and the navigation
+suite's insets are not exercised by a test — there is no Compose UI harness in
+the Android host tests — so the Android path rests on the formula above and on
+this one measured run, not on a test that fails when the geometry drifts.
 
 ## Consequences
 

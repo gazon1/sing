@@ -56,7 +56,16 @@ class FabFootprint {
     }
 
     private companion object {
-        /** The gap Material3's `Scaffold` leaves below a floating action button. */
+        /**
+         * The gap Material3's `Scaffold` leaves below a floating action button.
+         *
+         * Mirrors Material3's own `private val FabSpacing get() = 16.dp` in the
+         * `Scaffold` source (material3 1.13.0-beta02, the Compose Multiplatform
+         * mirror of `androidx.compose.material3`): the same file places the
+         * button with `fabOffsetFromBottom = fabHeight + FabSpacing +
+         * contentWindowInsets.bottom`, so this is the gap between the content's
+         * bottom edge and the top of the button.
+         */
         val FabSpacing = 16.dp
     }
 }
