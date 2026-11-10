@@ -1,0 +1,7 @@
+{
+  "kind": "emulator",
+  "api": 36,
+  "device": "sdk_gphone64_x86_64",
+  "serial": "emulator-0000",
+  "apk": "deadbeef"
+}

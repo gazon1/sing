@@ -98,6 +98,11 @@ class TestCaseResult:
     #: in the element body, and a reporter that reads only the attribute
     #: prints a summary where the evidence is.
     stacktrace: str = field(default="")
+    #: ``<testcase timestamp=…>`` as written. Maestro sets it to the instant the
+    #: flow started; Gradle omits it. Carried raw — parsing a timestamp is a
+    #: caller's concern, and a reporter that needs "when did this run" cannot
+    #: answer it from a file's mtime once the artifact has been downloaded.
+    timestamp: str = field(default="")
 
     @property
     def failed_like(self) -> bool:
@@ -208,6 +213,7 @@ def _results_from_root(root: ET.Element) -> list[TestCaseResult]:
                     file=case.get("file") or "",
                     flaky_attempts=len(case.findall("flakyFailure")),
                     stacktrace=stacktrace,
+                    timestamp=case.get("timestamp") or "",
                 )
             )
     return results

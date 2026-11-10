@@ -1,0 +1,10 @@
+{
+  "passed": [
+    "01-change-sync-interval"
+  ],
+  "failed": [
+    "01-open-tab"
+  ],
+  "not_measured": [],
+  "retried": []
+}

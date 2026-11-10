@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="singularity-api36" tests="1" failures="1" time="18.131" timestamp="2026-11-10T09:10:24">
+    <testcase id="pomodoro-open-tab" name="pomodoro-open-tab" classname="pomodoro-open-tab" file="Maestro/flows/pomodoro/01-open-tab.yaml" time="18.109" timestamp="2026-11-10T09:10:24" status="ERROR">
+      <properties>
+        <property name="tags" value="smoke, pomodoro"/>
+      </properties>
+      <failure>No visible element found: id: menu_pomodoro</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
