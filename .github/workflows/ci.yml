@@ -1895,6 +1895,11 @@ jobs:
           action=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["action"])' "$decision")
           echo "action=$action" >> "$GITHUB_OUTPUT"
 
+      - name: Mark build start
+        if: steps.decide.outputs.action == 'publish'
+        id: build-start
+        run: echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
+
       - name: Build Allure report for Pages
         if: steps.decide.outputs.action == 'publish'
         id: build-report
@@ -1906,8 +1911,16 @@ jobs:
           subfolder: ${{ env.TEST_POPULATION }}
           report_name: Allure report (${{ env.TEST_POPULATION }})
 
+      - name: Record build duration
+        if: steps.decide.outputs.action == 'publish'
+        id: build-end
+        env:
+          T0: ${{ steps.build-start.outputs.ts }}
+        run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
+
       - name: Apply publication state (monotonic/idempotent)
         if: steps.decide.outputs.action == 'publish'
+        id: apply-state
         env:
           RUN_ID: ${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
@@ -1915,6 +1928,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           SHA: ${{ github.sha }}
         run: |
+          t0=$(date +%s%N)
           python3 scripts/ci/allure_pages.py apply \
             --site-dir allure-history \
             --keep-reports 20 \
@@ -1925,6 +1939,15 @@ jobs:
             --sha "$SHA" \
             --population "$TEST_POPULATION" \
             --report-path "$RUN_NUMBER"
+          t1=$(date +%s%N)
+          echo "ns=$((t1-t0))" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve custom domain CNAME
+        if: steps.decide.outputs.action == 'publish'
+        run: |
+          if [ -f gh-pages/CNAME ]; then
+            cp gh-pages/CNAME allure-history/CNAME
+          fi
 
       - name: Validate publication state before deploy
         if: steps.decide.outputs.action == 'publish'
@@ -1935,13 +1958,26 @@ jobs:
         run: |
           python3 scripts/ci/allure_pages.py measure --path allure-history
 
+      - name: Mark deploy start
+        if: steps.decide.outputs.action == 'publish'
+        id: deploy-start
+        run: echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
+
       - name: Publish Allure report to GitHub Pages
         if: steps.decide.outputs.action == 'publish'
+        id: deploy-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: allure-history
+
+      - name: Record deploy duration
+        if: steps.decide.outputs.action == 'publish'
+        id: deploy-end
+        env:
+          T0: ${{ steps.deploy-start.outputs.ts }}
+        run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
 
       - name: Reconcile publication state (no regression)
         if: steps.decide.outputs.action != 'publish'
@@ -1964,6 +2000,9 @@ jobs:
           ACTION: ${{ steps.decide.outputs.action || 'unknown' }}
           TAR_BYTES: ${{ steps.fetch-history.outputs.history_tarball_bytes || '0' }}
           FETCH_NS: ${{ steps.fetch-history.outputs.history_fetch_ns || '0' }}
+          BUILD_NS: ${{ steps.build-end.outputs.ns || '0' }}
+          APPLY_NS: ${{ steps.apply-state.outputs.ns || '0' }}
+          DEPLOY_NS: ${{ steps.deploy-end.outputs.ns || '0' }}
         run: |
           before=$(python3 scripts/ci/allure_pages.py measure --path gh-pages 2>/dev/null || echo '{"bytes":0,"files":0}')
           after=$(python3 scripts/ci/allure_pages.py measure --path allure-history 2>/dev/null || echo '{"bytes":0,"files":0}')
@@ -1974,6 +2013,9 @@ jobs:
             echo "- decision: ${ACTION}"
             echo "- history tarball bytes: ${TAR_BYTES}"
             echo "- history fetch ns: ${FETCH_NS}"
+            echo "- report build ns: ${BUILD_NS}"
+            echo "- apply/validate state ns: ${APPLY_NS}"
+            echo "- deploy ns: ${DEPLOY_NS}"
             echo "- gh-pages (before build/apply): ${before}"
             echo "- publish tree (after, if built): ${after}"
           } >> "$GITHUB_STEP_SUMMARY"
