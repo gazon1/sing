@@ -1,0 +1,43 @@
+# Tasks: swiping a task row away deletes it and offers an Undo snackbar, and Undo
+# brings the row back.
+#
+# Covers: agenda list -> swipe the row to the left -> the Undo snackbar appears
+# clear of the floating action button -> Undo tap -> the row is back in the list.
+#
+# The swipe is addressed to the row, not to a pixel: the gesture is the thing
+# under test, and a pixel would be a claim about one screen.
+#
+# Uses the "Buy milk" task from seed-task helper (slug: `buy_milk`).
+#
+# прогнан на устройстве: да (2026-11-10) — realme RMX3938, 0O65321F32204DD5
+# (360 dp) и эмулятор sdk_gphone64_x86_64
+appId: com.singularity.todo
+name: tasks-swipe-delete-undo
+tags:
+  - tasks
+  - smoke
+  - regression
+---
+- runFlow: ../../helpers/seed-task.yaml
+# Swipe the row away: the delete fires once the swipe passes the threshold.
+# The gesture is addressed to the row (`from`), so the flow does not name a
+# pixel on one particular screen.
+- swipe:
+    direction: LEFT
+    duration: 500
+    from:
+      id: task_item_buy_milk
+# The undo offer arrives in a snackbar. Its action is addressed by id, never by
+# the label: the device runs in Russian, so the button reads "Отменить" and a
+# `text:` selector could never pass.
+- extendedWaitUntil:
+    visible:
+      id: snackbar_action
+    timeout: 8000
+# Undo puts the task back where it was.
+- tapOn:
+    id: snackbar_action
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
