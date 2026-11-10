@@ -46,6 +46,10 @@ tags:
     id: menu_projects_expand
 - assertNotVisible:
     id: menu_projects_collapse
+# The tree is not rendered inline while the section is folded: the hundred
+# projects do not sit between the user and the destinations.
+- assertNotVisible:
+    id: menu_project_node_bulk_001
 # Unfolding is the user's decision, and then the tree is there.
 - tapOn:
     id: menu_projects_expand
