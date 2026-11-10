@@ -1785,10 +1785,11 @@ jobs:
   # GitHub Pages publication runs independently from the Gradle runner. It
   # consumes the merged Allure results uploaded by `tests`, never reruns tests,
   # and serializes writers so a late/older publication cannot regress "latest".
+  # fast/full use separate namespaces and histories (subfolder per population).
   publish-allure:
     name: Publish Allure Pages
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     needs: [changes, tests]
     if: >-
       ${{
@@ -1827,32 +1828,49 @@ jobs:
       - name: Validate Pages input artifact
         run: python3 scripts/ci/allure_pages.py validate-input --results-dir build/allure-results-merged
 
-      # Advisory: a fresh trunk may have no gh-pages branch yet, so the
-      # download can fail there. A missing history is a report without a trend
-      # line, not a broken build. Publication failures after this point remain
-      # visible.
-      - name: Load Allure report history (advisory)
-        continue-on-error: true
+      - name: Fetch Allure history branch
+        id: fetch-history
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p gh-pages/last-history
+          set -euo pipefail
+          mkdir -p gh-pages
+          t0=$(date +%s%N)
           http=$(curl -sSL --retry 3 -o history.tar.gz \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -w '%{http_code}' \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/tarball/gh-pages") || http="failed"
-          if [ "$http" = "200" ] && tar -xzf history.tar.gz -C gh-pages --strip-components=1; then
-            echo "Allure history loaded from gh-pages"
-          else
-            if [ "$http" = "404" ]; then
-              echo "::notice::no Allure history — the gh-pages branch does not exist yet"
-            else
-              echo "::notice::the Allure history download failed (HTTP $http) — the report publishes without a trend"
-            fi
-            rm -rf -- "$GITHUB_WORKSPACE/gh-pages"
-            mkdir -p gh-pages/last-history
+          t1=$(date +%s%N)
+          bytes=0
+          if [ -f history.tar.gz ]; then bytes=$(wc -c < history.tar.gz); fi
+          {
+            echo "http_status=$http"
+            echo "history_tarball_bytes=$bytes"
+            echo "history_fetch_ns=$((t1-t0))"
+          } >> "$GITHUB_OUTPUT"
+          echo "history fetch: http=$http bytes=$bytes"
+          if [ "$http" = "404" ]; then
+            echo "::notice::no Allure history — the gh-pages branch does not exist yet (first publication)"
           fi
-          rm -f history.tar.gz
+
+      - name: Bootstrap Allure history state
+        run: |
+          python3 scripts/ci/allure_pages.py bootstrap-history \
+            --gh-pages-dir gh-pages \
+            --tarball history.tar.gz \
+            --http-status "${{ steps.fetch-history.outputs.http_status }}"
+
+      - name: Remove history tarball
+        if: ${{ always() }}
+        run: rm -f history.tar.gz
+
+      - name: Measure history tree (before)
+        if: ${{ always() }}
+        run: |
+          python3 scripts/ci/allure_pages.py measure --path gh-pages || true
+
+      - name: Prepare population namespace
+        run: python3 scripts/ci/allure_pages.py prepare-namespace --gh-pages-dir gh-pages --population "$TEST_POPULATION"
 
       - name: Decide publication state
         id: decide
@@ -1866,7 +1884,6 @@ jobs:
           set -euo pipefail
           decision=$(python3 scripts/ci/allure_pages.py decide \
             --site-dir gh-pages \
-            --results-dir build/allure-results-merged \
             --run-id "$RUN_ID" \
             --run-number "$RUN_NUMBER" \
             --run-attempt "$RUN_ATTEMPT" \
@@ -1880,11 +1897,14 @@ jobs:
 
       - name: Build Allure report for Pages
         if: steps.decide.outputs.action == 'publish'
+        id: build-report
         uses: simple-elf/allure-report-action@v1.15
         with:
           gh_pages: gh-pages
           allure_history: allure-history
           allure_results: build/allure-results-merged
+          subfolder: ${{ env.TEST_POPULATION }}
+          report_name: Allure report (${{ env.TEST_POPULATION }})
 
       - name: Apply publication state (monotonic/idempotent)
         if: steps.decide.outputs.action == 'publish'
@@ -1897,6 +1917,7 @@ jobs:
         run: |
           python3 scripts/ci/allure_pages.py apply \
             --site-dir allure-history \
+            --keep-reports 20 \
             --run-id "$RUN_ID" \
             --run-number "$RUN_NUMBER" \
             --run-attempt "$RUN_ATTEMPT" \
@@ -1909,6 +1930,11 @@ jobs:
         if: steps.decide.outputs.action == 'publish'
         run: python3 scripts/ci/allure_pages.py validate-state --site-dir allure-history
 
+      - name: Measure publish tree (after)
+        if: steps.decide.outputs.action == 'publish'
+        run: |
+          python3 scripts/ci/allure_pages.py measure --path allure-history
+
       - name: Publish Allure report to GitHub Pages
         if: steps.decide.outputs.action == 'publish'
         uses: peaceiris/actions-gh-pages@v4
@@ -1917,9 +1943,41 @@ jobs:
           publish_branch: gh-pages
           publish_dir: allure-history
 
-      - name: Publication skipped (no regression)
+      - name: Reconcile publication state (no regression)
         if: steps.decide.outputs.action != 'publish'
-        run: echo "Allure Pages publication skipped - ${{ steps.decide.outputs.action }}"
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVENT_NAME: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          # Keep recorded latest/index consistent; never deploy a stale/duplicate.
+          python3 scripts/ci/allure_pages.py reconcile \
+            --site-dir gh-pages \
+            --population "$TEST_POPULATION" || true
+          echo "Allure Pages publication skipped - ${{ steps.decide.outputs.action }}"
+
+      - name: Record publication measurements
+        if: ${{ always() }}
+        env:
+          ACTION: ${{ steps.decide.outputs.action || 'unknown' }}
+          TAR_BYTES: ${{ steps.fetch-history.outputs.history_tarball_bytes || '0' }}
+          FETCH_NS: ${{ steps.fetch-history.outputs.history_fetch_ns || '0' }}
+        run: |
+          before=$(python3 scripts/ci/allure_pages.py measure --path gh-pages 2>/dev/null || echo '{"bytes":0,"files":0}')
+          after=$(python3 scripts/ci/allure_pages.py measure --path allure-history 2>/dev/null || echo '{"bytes":0,"files":0}')
+          {
+            echo "## Allure Pages publication"
+            echo ""
+            echo "- population: ${TEST_POPULATION}"
+            echo "- decision: ${ACTION}"
+            echo "- history tarball bytes: ${TAR_BYTES}"
+            echo "- history fetch ns: ${FETCH_NS}"
+            echo "- gh-pages (before build/apply): ${before}"
+            echo "- publish tree (after, if built): ${after}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
 
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.

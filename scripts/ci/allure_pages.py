@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Allure Pages publication: history bootstrap, manifest, monotonic latest, and validation.
 
-Implements the publication contract for #2756/#2764/#2766/#2767/#2769:
+Covers #2756/#2764/#2766/#2767/#2769:
 - merged Pages input validation
 - gh-pages history bootstrap from tarball content/outcome (testable without network)
 - per-population (fast/full) namespaces with isolated manifest/history/latest state
 - ordering by (run_number, run_attempt), idempotency by (run_id, run_attempt)
-- monotonic latest/root-landing updates, manifest/index validation
+- monotonic latest/landing updates, manifest/index validation
 - bounded per-population report retention without removing latest/required history
 - publish-tree invariants before deploy
 
@@ -16,6 +16,7 @@ Dependency-light and usable from CI workflow steps and local tests.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -48,7 +49,6 @@ class Publication:
     report_path: str
 
     def __post_init__(self) -> None:
-        # Normalize/validate so unknown or missing populations cannot be recorded.
         object.__setattr__(self, "population", _population(self.population))
 
     @classmethod
@@ -135,7 +135,8 @@ def manifest_path(population_dir: Path) -> Path:
 
 def load_manifest(path: Path, population: str | None = None) -> dict[str, Any]:
     if not path.exists():
-        return {"schema_version": SCHEMA_VERSION, "population": population, "latest": None, "publications": {}}
+        pop = _population(population) if population is not None else None
+        return {"schema_version": SCHEMA_VERSION, "population": pop, "latest": None, "publications": {}}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -252,25 +253,31 @@ def write_population_index(population_dir: Path, report_path: str) -> None:
 
 def build_root_index(populations: Iterable[str]) -> str:
     items = [f'<li><a href="{pop}/index.html">{pop} latest report</a></li>' for pop in populations]
-    items_html = "".join(items)
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         "<title>Allure reports</title></head><body>"
         "<h1>Allure reports</h1><p>Population-specific latest reports:</p>"
-        f"<ul>{items_html}</ul></body></html>\n"
+        f"<ul>{''.join(items)}</ul></body></html>\n"
     )
 
 
-def write_root_index(site_dir: Path, populations: Iterable[str] = SUPPORTED_POPULATIONS) -> None:
-    _atomic_write_text(site_dir / "index.html", build_root_index(populations))
+def present_populations(site_dir: Path) -> list[str]:
+    present = [p for p in SUPPORTED_POPULATIONS if manifest_path(site_dir / p).is_file()]
+    return present
+
+
+def write_root_index(site_dir: Path, populations: Iterable[str] | None = None) -> None:
+    pops = list(populations) if populations is not None else present_populations(site_dir)
+    if not pops:
+        pops = list(SUPPORTED_POPULATIONS)
+    _atomic_write_text(site_dir / "index.html", build_root_index(pops))
 
 
 def ensure_population_namespace(gh_pages_dir: Path, population: str) -> Path:
     """Ensure gh-pages/<population> exists with isolated history state.
 
-    Mixed root last-history is never seeded into population namespaces (ADR #2761/#2766),
-    so post-migration trends start from a clean baseline per population.
+    Mixed root last-history is never seeded into population namespaces (ADR #2761/#2766).
     """
     _population(population)
     pop_dir = gh_pages_dir / population
@@ -300,10 +307,6 @@ def validate_pages_input(results_dir: Path) -> None:
         raise PublishError(
             f"malformed Pages input artifact: no *-result.json files in {results_dir}"
         )
-
-
-def _numeric_report_name(name: str) -> int | None:
-    return int(name) if NUMERIC_REPORT_RE.match(name) else None
 
 
 def validate_population_state(population_dir: Path, population: str, manifest: dict[str, Any] | None = None) -> Publication:
@@ -336,18 +339,26 @@ def validate_population_state(population_dir: Path, population: str, manifest: d
     return latest_pub
 
 
-def validate_publish_tree(site_dir: Path, populations: Iterable[str] = SUPPORTED_POPULATIONS) -> None:
+def validate_publish_tree(site_dir: Path, populations: Iterable[str] | None = None) -> None:
     if not site_dir.exists() or not site_dir.is_dir():
         raise PublishError(f"publish tree does not exist: {site_dir}")
     for git_dir in site_dir.rglob(".git"):
         raise PublishError(f"publish tree contains git metadata: {git_dir.relative_to(site_dir)}")
+    for archive in list(site_dir.rglob("*.tar.gz")) + list(site_dir.rglob("*.tgz")) + list(site_dir.rglob("*.zip")):
+        # keep zip out? temp archives - tar/tgz explicitly required; be conservative for tarballs
+        pass
     for archive in list(site_dir.rglob("*.tar.gz")) + list(site_dir.rglob("*.tgz")):
         raise PublishError(f"publish tree contains temporary archive: {archive.relative_to(site_dir)}")
     root_index = site_dir / "index.html"
     if not root_index.is_file():
         raise PublishError("publish tree missing root index.html")
+
+    pops = list(populations) if populations is not None else present_populations(site_dir)
+    if not pops:
+        raise PublishError("publish tree has no published populations")
     root_content = root_index.read_text(encoding="utf-8")
-    for pop in populations:
+    for pop in pops:
+        pop = _population(pop)
         pop_dir = site_dir / pop
         if not pop_dir.is_dir():
             raise PublishError(f"publish tree missing population directory: {pop}")
@@ -358,7 +369,7 @@ def validate_publish_tree(site_dir: Path, populations: Iterable[str] = SUPPORTED
             raise PublishError(f"publish tree missing manifest for population {pop}")
         manifest = load_manifest(mpath, pop)
         validate_population_state(pop_dir, pop, manifest)
-    # if CNAME exists, it must be a non-empty file (domain config preserved)
+
     cname = site_dir / "CNAME"
     if cname.exists() and (not cname.is_file() or not cname.read_text(encoding="utf-8").strip()):
         raise PublishError("publish tree contains invalid CNAME")
@@ -374,10 +385,14 @@ def prune_population(population_dir: Path, population: str, keep: int = REPORTS_
         return {"removed": [], "kept": 0}
 
     latest_path = latest["report_path"]
-    latest_identity = latest["run_id"], latest["run_attempt"]
+    latest_identity = (latest["run_id"], latest["run_attempt"])
 
-    numeric_dirs = [child for child in population_dir.iterdir() if child.is_dir() and _numeric_report_name(child.name) is not None]
-    ordered = sorted(numeric_dirs, key=lambda p: (_numeric_report_name(p.name) or 0, p.name))
+    numeric_dirs = [
+        child
+        for child in population_dir.iterdir()
+        if child.is_dir() and NUMERIC_REPORT_RE.match(child.name)
+    ]
+    ordered = sorted(numeric_dirs, key=lambda p: (int(p.name), p.name))
     keep_paths = {p.name for p in ordered[-keep:]} if keep < len(ordered) else {p.name for p in ordered}
     keep_paths.add(latest_path)
 
@@ -398,6 +413,20 @@ def prune_population(population_dir: Path, population: str, keep: int = REPORTS_
         manifest["publications"] = new_publications
         save_manifest(mpath, manifest)
     return {"removed": removed, "kept": max(len(ordered) - len(removed), 0)}
+
+
+def reconcile_population(site_dir: Path, population: str) -> None:
+    """Ensure population/root indexes reflect recorded latest without promoting new runs."""
+    population_dir = site_dir / population
+    manifest = load_manifest(manifest_path(population_dir), population)
+    latest = manifest.get("latest")
+    if latest is None:
+        return
+    latest_pub = Publication.from_dict(latest, "latest")
+    write_population_index(population_dir, latest_pub.report_path)
+    pops = present_populations(site_dir)
+    if pops:
+        write_root_index(site_dir, pops)
 
 
 def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int = REPORTS_PER_POPULATION) -> dict[str, Any]:
@@ -431,11 +460,12 @@ def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int =
         prune_result = prune_population(population_dir, incoming.population, keep_reports)
         manifest = load_manifest(mpath, incoming.population)
         validate_population_state(population_dir, incoming.population, manifest)
-        present = [p for p in SUPPORTED_POPULATIONS if (site_dir / p / "allure-manifest.json").is_file()]
-        if incoming.population not in present and (site_dir / incoming.population / "allure-manifest.json").is_file():
-            present.append(incoming.population)
-        if present:
-            write_root_index(site_dir, present)
+        pops = present_populations(site_dir)
+        if incoming.population not in pops:
+            pops.append(incoming.population)
+            pops = [p for p in SUPPORTED_POPULATIONS if p in pops]
+        if pops:
+            write_root_index(site_dir, pops)
         return {"action": action, "reason": reason, "pruned": prune_result["removed"]}
 
     latest = manifest.get("latest")
@@ -443,12 +473,7 @@ def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int =
         raise PublishError(
             f"{action}: {reason}, but no existing latest publication is recorded to preserve"
         )
-    latest_pub = Publication.from_dict(latest, "latest")
-    # never regress: keep recorded latest/index consistent without promoting incoming run
-    write_population_index(population_dir, latest_pub.report_path)
-    present = [p for p in SUPPORTED_POPULATIONS if (site_dir / p / "allure-manifest.json").is_file()]
-    if present:
-        write_root_index(site_dir, present)
+    reconcile_population(site_dir, incoming.population)
     validate_population_state(population_dir, incoming.population, manifest)
     return {"action": action, "reason": reason, "pruned": []}
 
@@ -468,8 +493,8 @@ def bootstrap_history_from_tarball(
 
     - 200 + valid tarball: extract (strip top-level dir), preserving branch contents.
     - 404: explicit first-publication case, clean empty state.
-    - other failures/malformed/missing tarball: cleanup any partial extraction and
-      leave clean empty state, returning a failure status (caller fails publication).
+    - other failures/malformed/missing tarball: cleanup partial extraction and leave
+      clean empty state, returning failure status (caller must not publish over site).
     """
     status = str(http_status) if http_status is not None else "missing"
 
@@ -582,19 +607,19 @@ def cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    population = _population(args.population)
+    reconcile_population(Path(args.site_dir), population)
+    print(f"reconciled: {population}")
+    return 0
+
+
 def cmd_validate_state(args: argparse.Namespace) -> int:
     site_dir = Path(args.site_dir)
-    populations = args.population if args.population else list(SUPPORTED_POPULATIONS)
-    validated = []
-    for pop in populations:
-        pop = _population(pop)
-        pop_dir = site_dir / pop
-        if not pop_dir.is_dir():
-            raise PublishError(f"publish tree missing population directory: {pop}")
-        validate_population_state(pop_dir, pop)
-        validated.append(pop)
-    # full publish-tree invariants when all validated populations requested together
-    validate_publish_tree(site_dir, validated)
+    populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
+    if not populations:
+        raise PublishError("no published populations found to validate")
+    validate_publish_tree(site_dir, populations)
     print(f"publication state OK: {site_dir}")
     return 0
 
@@ -616,9 +641,10 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
 
 def cmd_write_root_index(args: argparse.Namespace) -> int:
-    populations = [_population(p) for p in (args.population or list(SUPPORTED_POPULATIONS))]
-    write_root_index(Path(args.site_dir), populations)
-    print(f"root index written: {Path(args.site_dir) / 'index.html'}")
+    site_dir = Path(args.site_dir)
+    populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
+    write_root_index(site_dir, populations or list(SUPPORTED_POPULATIONS))
+    print(f"root index written: {site_dir / 'index.html'}")
     return 0
 
 
@@ -661,6 +687,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_apply.add_argument("--keep-reports", default=str(REPORTS_PER_POPULATION))
     add_publication_args(p_apply)
     p_apply.set_defaults(func=cmd_apply)
+
+    p_reconcile = sub.add_parser("reconcile", help="reconcile indexes to recorded latest for a population")
+    p_reconcile.add_argument("--site-dir", required=True)
+    p_reconcile.add_argument("--population", required=True)
+    p_reconcile.set_defaults(func=cmd_reconcile)
 
     p_validate = sub.add_parser("validate-state", help="validate publish tree, manifests and latest/index consistency")
     p_validate.add_argument("--site-dir", required=True)
