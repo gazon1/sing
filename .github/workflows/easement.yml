@@ -14,7 +14,7 @@ jobs:
           fetch-depth: 0
       # easement indexes Python through `scip-python`; without it the check exits 2
       # before reading a single file, which is what made the job red on every PR.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Install the Python indexer easement delegates to
