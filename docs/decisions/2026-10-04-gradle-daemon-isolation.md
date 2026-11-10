@@ -37,8 +37,9 @@ graph and a toolchain JDK per worktree costs gigabytes and minutes, and buys no
 isolation: those files are not rewritten concurrently in a way that corrupts
 them — Gradle's file locking exists for exactly that sharing.
 
-So the user home is private, and three entries inside it are symlinks back to the
-real `~/.gradle`.
+So the user home is private, and what inside it can be shared is shared: `wrapper`
+and `jdks` are symlinks back to the real `~/.gradle`, and `caches/` is a real
+directory whose contents are shared one level down.
 
 **One entry inside `caches/` cannot be shared, and sharing it breaks the build.**
 Gradle 9 keeps the configuration cache keystore in `caches/<version>/cc-keystore/`
