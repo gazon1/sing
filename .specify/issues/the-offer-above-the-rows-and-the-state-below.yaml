@@ -1,0 +1,29 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: the-offer-above-the-rows-and-the-state-below
+date: '2026-11-10'
+title: the-offer-above-the-rows-and-the-state-below
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261110'
+  slug: the-editor-slots-keep-their-names
+  title: The editor's supplied-content slots keep their names; the state slot moves below the attribute rows
+  status: accepted
+  notes: Why the slots were not renamed — the defect was a placement, and a rename puts a decision into a name.
+tags:
+- tasks
+- task-detail
+- ui-placement
+documents:
+  proposal: openspec/changes/the-offer-above-the-rows-and-the-state-below/proposal.md
+  adr: docs/decisions/2026-11-10-the-editor-slots-keep-their-names.md
+  tasks: openspec/changes/the-offer-above-the-rows-and-the-state-below/tasks.md
+specs_dir: openspec/changes/the-offer-above-the-rows-and-the-state-below/specs
+is_stub: false
+openspec_path: openspec/changes/the-offer-above-the-rows-and-the-state-below

@@ -160,7 +160,11 @@ data class TaskEditorCallbacks(
     val bannerSections: (@Composable () -> Unit)? = null,
     /**
      * Sections the editor does not know about — the checklist, the tags, the logbook —
-     * rendered under the fields. Null means the editor shows nothing else.
+     * rendered after the attribute rows. Null means the editor shows nothing else.
+     *
+     * After the rows, not under the title: the due date, the priority and the project
+     * are what a person fills in, and content drawn above them pushes those fields
+     * below the fold.
      */
     val extraSections: (@Composable () -> Unit)? = null,
     /** Bottom bar content — null means no bottom bar */
