@@ -118,6 +118,9 @@ shrink, never grow (`2026-10-01-ci-quality-ratchet.md`,
   file, so the change is judged as if it carried no Kotlin at all. The hook's
   own diff, the module graph and the verdict have to give the same answer to
   "which files does this push carry", so there is one way of reading them.
+  The bytes git writes are decoded as bytes, because a filename is a byte
+  string and not always a text — see
+  `2026-11-10-a-filename-is-a-byte-string-not-a-text.md`.
 - **The verdict's base is the trunk merge-base, not the branch's upstream.** A
   merge push used to be measured against the whole trunk it merged, and every
   finding in the repository was the merge's own. The upstream is the remote's

@@ -499,8 +499,10 @@ class FindingOwnershipTest(unittest.TestCase):
         ).stdout.strip()
 
     def _gradle(self, target: str) -> str:
+        # The script is written as bytes: a target whose name is not valid
+        # UTF-8 has to reach the fake detekt exactly as git would write it.
         path = self.tmp / 'detekt'
-        path.write_text(FAKE_DETEKT_FINDING.format(target=target), encoding='utf-8')
+        path.write_bytes(FAKE_DETEKT_FINDING.format(target=target).encode('utf-8', 'surrogateescape'))
         path.chmod(0o755)
         return str(path)
 
@@ -532,6 +534,32 @@ class FindingOwnershipTest(unittest.TestCase):
             ['shared/src/main/kotlin/Other.kt'],
             [finding['path'] for finding in report['inherited_findings']],
         )
+
+    def test_a_finding_in_a_file_whose_name_is_not_valid_utf8_is_the_push_s_own(self):
+        """The finding's path and the carried path have to be the same path.
+
+        A finding read with a different decoder than the changed-path reader
+        is a finding in *another* file: it is called inherited, the push is
+        waved through, and the finding is nobody's.
+        """
+        name = 'shared/src/main/kotlin/caf\udce9.kt'
+        target = os.path.join(bytes(self.repo), name.encode('utf-8', 'surrogateescape'))
+        with open(target, 'wb') as handle:
+            handle.write(SOURCE.encode('utf-8'))
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(
+            ['git', 'commit', '-q', '-m', 'a change'], cwd=self.repo, check=True, env=_clean_git_env(),
+        )
+        sha = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
+        ).stdout.strip()
+
+        report = self._judge(name, self.base, sha)
+
+        self.assertFalse(report['clean'], 'the push brought this finding')
+        self.assertEqual([name], [finding['path'] for finding in report['own_findings']])
+        self.assertEqual([], report['inherited_findings'])
 
     def test_without_a_base_every_finding_is_the_push_s_own(self):
         """No base, no comparison — the safe direction is red, not green."""
@@ -828,6 +856,93 @@ class GitEnvironmentTest(unittest.TestCase):
         with unittest.mock.patch.dict(os.environ, hook_env):
             top = mod.git(tree, 'rev-parse', '--show-toplevel').strip()
         self.assertEqual(str(tree.resolve()), top)
+
+
+class PathDecodingTest(unittest.TestCase):
+    """A filename is a byte string, and a byte string is not always UTF-8.
+
+    Reading such a path strictly raises `UnicodeDecodeError`, and the reader
+    that raises takes the whole verdict with it: the push is stopped by a
+    message about a filename nobody can read, and the message says detekt
+    reported findings — which is not what happened.
+
+    The paths are read as bytes and decoded with `surrogateescape`, so the
+    path survives the round trip and still equals the path git reports.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-path-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.repo = self.tmp / 'repo'
+        self.repo.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(
+            ['git', '-c', 'user.email=verdict@example.com', '-c', 'user.name=Verdict',
+             'commit', '-q', '--allow-empty', '-m', 'base'],
+            cwd=self.repo, check=True, env=_clean_git_env(),
+        )
+        self.base = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True,
+            check=True, env=_clean_git_env(),
+        ).stdout.strip()
+
+    def _commit(self, name: str) -> str:
+        """A file with a name given in bytes, committed, and the sha it is at."""
+        (self.repo / 'shared').mkdir(exist_ok=True)
+        target = os.path.join(bytes(self.repo / 'shared'), name)
+        with open(target, 'wb') as handle:
+            handle.write(b'val a = 1\n')
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(
+            ['git', '-c', 'user.email=verdict@example.com', '-c', 'user.name=Verdict',
+             'commit', '-q', '-m', 'a file'],
+            cwd=self.repo, check=True, env=_clean_git_env(),
+        )
+        return subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True,
+            check=True, env=_clean_git_env(),
+        ).stdout.strip()
+
+    def test_a_path_that_is_not_valid_utf8_is_read_rather_than_raised_on(self):
+        """The bytes of a filename git accepts are the bytes it reports."""
+        sha = self._commit(b'caf\xe9.kt')
+
+        paths = mod.changed_paths(self.repo, self.base, sha)
+
+        self.assertIn('shared/caf\udce9.kt', paths)
+
+    def test_a_path_that_is_not_valid_utf8_survives_the_round_trip(self):
+        """The path that is read is the path git wrote — byte for byte."""
+        sha = self._commit(b'caf\xe9.kt')
+
+        paths = mod.changed_paths(self.repo, self.base, sha)
+
+        written = {path.encode('utf-8', 'surrogateescape') for path in paths}
+        self.assertIn(b'shared/caf\xe9.kt', written)
+
+    def test_a_carriage_return_in_a_filename_is_not_turned_into_a_newline(self):
+        """A text-mode subprocess rewrites it; a byte-mode one does not.
+
+        The path is not merely unreadable — it is *different* from the path
+        git reports, so the change would be judged as carrying no Kotlin.
+        """
+        sha = self._commit(b'cr\rX.kt')
+
+        paths = mod.changed_paths(self.repo, self.base, sha)
+
+        self.assertIn('shared/cr\rX.kt', paths)
+        self.assertNotIn('shared/cr\nX.kt', paths)
+
+    def test_the_reader_does_not_raise_on_a_path_that_is_not_valid_utf8(self):
+        """The whole point: the verdict survives the filename."""
+        sha = self._commit(b'caf\xe9.kt')
+
+        try:
+            paths = mod.changed_paths(self.repo, self.base, sha)
+        except UnicodeDecodeError as exc:  # pragma: no cover - the defect
+            self.fail(f'reading a path raised instead of reading it: {exc}')
+
+        self.assertTrue(any('caf' in path for path in paths))
 
 
 if __name__ == '__main__':

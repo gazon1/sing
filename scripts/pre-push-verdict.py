@@ -121,6 +121,45 @@ if _SCRIPTS_DIR not in sys.path:
 from gitenv_loader import load_gitenv  # noqa: E402
 
 
+#: How a path that is not valid UTF-8 is read.
+#:
+#: A filename is a byte string, and git will store a filename whose bytes are
+#: not valid UTF-8. Reading such a path strictly raises `UnicodeDecodeError`,
+#: and the reader that raises takes the whole verdict with it: a push is
+#: stopped by a message about a filename nobody can read, and the message
+#: says detekt reported findings — which is not what happened.
+#:
+#: `surrogateescape` maps the undecodable bytes to lone surrogates and back
+#: again, so the path survives the round trip, still equals the path git
+#: reports, and can still be compared with it. The paths are read as bytes
+#: and decoded here for exactly this reason: a text-mode subprocess also
+#: rewrites a carriage return in a filename into a newline, which changes the
+#: path rather than merely failing to read it.
+PATH_DECODE = "surrogateescape"
+
+
+def decode_path(raw: bytes) -> str:
+    """A path, as the bytes git wrote it.
+
+    @param raw the bytes of one path.
+    """
+    return raw.decode("utf-8", PATH_DECODE)
+
+
+def display_path(path: str) -> str:
+    """A path, as it can be printed.
+
+    A path whose bytes are not valid UTF-8 holds lone surrogates, and the
+    terminal cannot encode them. The undecodable bytes are shown as `?`: the
+    path is a report, and a report nobody can print is a report nobody reads.
+    The comparison that decides the verdict is done on the exact bytes, not on
+    this.
+
+    @param path the path as it was read.
+    """
+    return path.encode("utf-8", "replace").decode("utf-8")
+
+
 #: The paths that can change a detekt verdict:
 #:   - the Kotlin sources detekt analyses;
 #:   - the build scripts that decide which source sets are scanned;
@@ -233,6 +272,10 @@ def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
     module does not claim the file, so the change is judged as if it carried
     no Kotlin at all. `scripts/changed-modules.py` reads the paths the same
     way, and the two answers have to agree.
+
+    The output is read as bytes and decoded with `surrogateescape`, so a
+    filename whose bytes are not valid UTF-8 is read rather than raised on —
+    see `PATH_DECODE`.
     """
     result = subprocess.run(
         [
@@ -248,15 +291,14 @@ def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
         cwd=tree,
         env=tree_env(),
         capture_output=True,
-        text=True,
-        encoding="utf-8",
         check=False,
     )
     if result.returncode != 0:
         raise VerdictUnavailable(
-            f"could not compare {base}...{sha[:8]} in {tree}: {result.stderr.strip()}",
+            f"could not compare {base}...{sha[:8]} in {tree}: "
+            f"{result.stderr.decode('utf-8', 'replace').strip()}",
         )
-    return [path for path in result.stdout.split("\0") if path]
+    return [decode_path(part) for part in result.stdout.split(b"\0") if part]
 
 
 def default_base(tree: pathlib.Path) -> str | None:
@@ -324,6 +366,22 @@ _FINDING_RE = re.compile(
 )
 
 
+def read_log(log: pathlib.Path) -> str:
+    """The text of a detekt log.
+
+    The log is read as bytes and decoded with `surrogateescape` — see
+    `PATH_DECODE`. The log names the files detekt found things in, and a path
+    in the log has to be *the same path* the changed-path reader produced: a
+    finding in a file whose name is not valid UTF-8 has to be recognisable as
+    that file's finding, or it is called inherited, the push is waved
+    through, and the finding is nobody's.
+    """
+    try:
+        return log.read_bytes().decode("utf-8", PATH_DECODE)
+    except OSError:
+        return ""
+
+
 def findings_in(log: pathlib.Path) -> list[tuple[str, str]]:
     """The findings detekt reported: the file they are in, and their rule.
 
@@ -332,10 +390,7 @@ def findings_in(log: pathlib.Path) -> list[tuple[str, str]]:
     is where it is reported. A finding in a file this change carries is the
     change's own.
     """
-    try:
-        text = log.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return []
+    text = read_log(log)
     found: list[tuple[str, str]] = []
     for match in _FINDING_RE.finditer(text):
         found.append((match.group("path"), match.group("rule")))
@@ -440,20 +495,26 @@ def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> t
 
 
 def git(repo: pathlib.Path, *args: str, check: bool = True) -> str:
-    """Run a git command in `repo` and return its stdout."""
+    """Run a git command in `repo` and return its stdout.
+
+    The output is decoded with `surrogateescape` — see `PATH_DECODE`. A
+    command that lists paths (`git status --porcelain`) reports a filename
+    that is not valid UTF-8 as it is, and reading it strictly would take the
+    verdict down over a byte in a name.
+    """
     result = subprocess.run(
         ["git", *args],
         cwd=repo,
         env=tree_env(),
         capture_output=True,
-        text=True,
         check=False,
     )
     if check and result.returncode != 0:
         raise VerdictUnavailable(
-            f"git {' '.join(args)} failed in {repo}: {result.stderr.strip() or result.returncode}",
+            f"git {' '.join(args)} failed in {repo}: "
+            f"{result.stderr.decode('utf-8', 'replace').strip() or result.returncode}",
         )
-    return result.stdout
+    return result.stdout.decode("utf-8", PATH_DECODE)
 
 
 def worktree_holds_sha(repo: pathlib.Path, sha: str) -> bool:
@@ -489,7 +550,6 @@ def kotlin_digest(tree: pathlib.Path) -> str:
         cwd=tree,
         env=tree_env(),
         capture_output=True,
-        text=True,
         check=False,
     )
     untracked = subprocess.run(
@@ -497,24 +557,29 @@ def kotlin_digest(tree: pathlib.Path) -> str:
         cwd=tree,
         env=tree_env(),
         capture_output=True,
-        text=True,
         check=False,
     )
-    paths = [p for p in (listing.stdout + untracked.stdout).splitlines() if p]
+    paths = [
+        decode_path(part)
+        for part in (listing.stdout + untracked.stdout).splitlines()
+        if part
+    ]
     if not paths:
         return "empty"
     hashed = subprocess.run(
         ["git", "hash-object", "--stdin-paths"],
         cwd=tree,
-        input="\n".join(paths),
+        input="\n".join(paths).encode("utf-8", PATH_DECODE),
         capture_output=True,
-        text=True,
         check=False,
         env=tree_env(),
     )
     if hashed.returncode != 0:
-        raise VerdictUnavailable(f"could not hash the Kotlin files in {tree}: {hashed.stderr.strip()}")
-    return hashed.stdout.strip()
+        raise VerdictUnavailable(
+            f"could not hash the Kotlin files in {tree}: "
+            f"{hashed.stderr.decode('utf-8', 'replace').strip()}"
+        )
+    return hashed.stdout.decode("utf-8", PATH_DECODE).strip()
 
 
 def run_tasks(
@@ -570,10 +635,7 @@ _FAILED_TASK = re.compile(r"^> Task (\S+) FAILED", re.MULTILINE)
 
 def failed_tasks_in(log: pathlib.Path) -> list[str]:
     """The tasks the log says failed, in the order the log reports them."""
-    try:
-        text = log.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return []
+    text = read_log(log)
     seen: list[str] = []
     for match in _FAILED_TASK.finditer(text):
         task = match.group(1)
@@ -723,13 +785,16 @@ def main(argv: list[str] | None = None) -> int:
         report = judge(repo, args.sha, fallback, args.gradle_cmd, tasks, log_dir, base)
     except VerdictUnavailable as exc:
         if args.json:
-            print(json.dumps({"clean": False, "unavailable": str(exc)}, ensure_ascii=False))
+            print(json.dumps({"clean": False, "unavailable": str(exc)}, ensure_ascii=True))
         else:
             print(f"pre-push: the detekt verdict could not be taken — {exc}", file=sys.stderr)
         return 2
 
     if args.json:
-        print(json.dumps(report, ensure_ascii=False))
+        # `ensure_ascii=True`, so a path whose bytes are not valid UTF-8 is
+        # escaped rather than raised on when the report is written out. The
+        # path survives exactly — it is the same string, escaped.
+        print(json.dumps(report, ensure_ascii=True))
         return 0 if report["clean"] else 1
 
     print(f"   detekt verdict taken on {report['tree_label']}")
@@ -748,7 +813,7 @@ def main(argv: list[str] | None = None) -> int:
     for task in report["failed_tasks"]:
         print(f"   detekt {task}: FAILED — see {report['log_dir']}")
     for finding in report["own_findings"]:
-        print(f"   detekt finding: {finding['path']} — {finding['rule']}")
+        print(f"   detekt finding: {display_path(finding['path'])} — {finding['rule']}")
     if report["inherited_findings"]:
         print(
             f"   {len(report['inherited_findings'])} finding(s) are in files this change does "
@@ -761,11 +826,13 @@ def main(argv: list[str] | None = None) -> int:
             ["git", "--no-pager", "diff"],
             cwd=report["tree"],
             capture_output=True,
-            text=True,
             check=False,
             env=tree_env(),
         )
-        print(diff.stdout)
+        # The diff is shown, not read: a path that is not valid UTF-8 is
+        # replaced rather than raised on, because a report that cannot be
+        # printed is a report nobody sees.
+        print(diff.stdout.decode("utf-8", "replace"))
     if report["clean"]:
         if report["inherited_findings"]:
             print("   the pushed tree carries no finding of its own")

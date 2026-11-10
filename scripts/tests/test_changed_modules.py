@@ -20,6 +20,7 @@ not know is a module nothing runs, and nothing says so.
 """
 
 import importlib.util
+import os
 import pathlib
 import shutil
 import subprocess
@@ -720,6 +721,51 @@ class ThePathsComeOutOfGitTest(unittest.TestCase):
         )
 
         self.assertEqual('shared', owner)
+
+    def test_a_path_that_is_not_valid_utf8_is_read_rather_than_raised_on(self):
+        """A filename is a byte string, and a byte string is not always UTF-8.
+
+        Reading such a path strictly raises, and the reader that raises takes
+        the whole module graph with it. The paths are read as bytes and
+        decoded with `surrogateescape`, so the path survives the round trip.
+        """
+        (self.tmp / 'shared').mkdir()
+        with open(os.path.join(bytes(self.tmp / 'shared'), b'caf\xe9.kt'), 'wb') as handle:
+            handle.write(b'val a = 1\n')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/caf\udce9.kt', paths)
+
+    def test_a_path_that_is_not_valid_utf8_is_owned_by_its_module(self):
+        """The path that is read is the path the module graph can match."""
+        (self.tmp / 'shared').mkdir()
+        with open(os.path.join(bytes(self.tmp / 'shared'), b'caf\xe9.kt'), 'wb') as handle:
+            handle.write(b'val a = 1\n')
+
+        paths = changed.changed_paths('origin/main')
+        owner = next(
+            (module for prefix, module in changed.PATH_MODULES.items()
+             if any(path.startswith(prefix) for path in paths)),
+            None,
+        )
+
+        self.assertEqual('shared', owner)
+
+    def test_a_carriage_return_in_a_filename_is_not_turned_into_a_newline(self):
+        """A text-mode subprocess rewrites it; a byte-mode one does not.
+
+        The path is not merely unreadable — it is *different* from the path
+        git reports, so the change would be judged as carrying no Kotlin.
+        """
+        (self.tmp / 'shared').mkdir()
+        with open(os.path.join(bytes(self.tmp / 'shared'), b'cr\rX.kt'), 'wb') as handle:
+            handle.write(b'val a = 1\n')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/cr\rX.kt', paths)
+        self.assertNotIn('shared/cr\nX.kt', paths)
 
 
 if __name__ == '__main__':
