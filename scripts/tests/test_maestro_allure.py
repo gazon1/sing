@@ -508,6 +508,46 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("--now is not an ISO8601 instant", err)
 
+    def test_an_abbreviated_commit_is_the_same_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            full = "abc123def456" + "0" * 28
+            # The runner records `git rev-parse --short=12`, the workflow the full SHA.
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc123def456"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"),
+                           "--run-id", "42", "--run-number", "7", "--run-attempt", "1",
+                           "--commit", full, "--maestro-version", "2.10.0",
+                           "--apk-sha256", "f" * 64, "--task-outcome", "passed",
+                           "--out", str(out)])
+            self.assertEqual(code, 0)
+            data = manifest(out)
+            self.assertEqual(data["identity"]["commit_sha"], full)
+            self.assertTrue(data["publishable"])
+
+    def test_a_second_attempt_keeps_the_history_and_gets_a_new_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            base = ["--results", str(shard), "--scope", "full", "--root", str(root),
+                    "--catalogue", str(root / "catalogue.txt"), "--run-id", "42",
+                    "--run-number", "7", "--run-attempt"]
+            first_out, second_out = root / "one", root / "two"
+            self.assertEqual(run(base + ["1", "--out", str(first_out)])[0], 0)
+            self.assertEqual(run(base + ["2", "--out", str(second_out)])[0], 0)
+            first, second = results(first_out)[flow], results(second_out)[flow]
+            self.assertEqual(first["historyId"], second["historyId"])
+            self.assertNotEqual(first["uuid"], second["uuid"])
+
     def test_a_missing_run_summary_blocks_publication(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

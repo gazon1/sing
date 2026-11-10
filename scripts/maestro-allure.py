@@ -252,8 +252,8 @@ def scope_flows(
     shortcut: this mirrors `emulator.maestro._flow.smoke_flows` (the `smoke` tag
     over the tree) over the catalogue instead of over the tree, so it can report
     `missing` flows the runner never selected. `check-maestro-flow-catalogue`
-    keeps the two lists equal; when #2772 wires the converter, pass the plan
-    job's selected list instead of re-deriving it.
+    keeps the two lists equal. The plan job publishes only the suite and the
+    shard count, so there is no selected list to pass instead of this one.
     """
     if scope == FULL:
         return list(catalogue)
@@ -435,6 +435,19 @@ def convert(
     return {"results": results, "findings": findings}
 
 
+def same_commit(left: object, right: object) -> bool:
+    """Whether two recorded commits are the same one.
+
+    The runner records `git rev-parse --short=12` and the workflow carries the
+    full `github.sha`: an abbreviation of the same commit is not a disagreement.
+    Anything that is not a string is not a commit, and two of those agree only
+    verbatim — `123` and `"123"` are different values even though they print alike.
+    """
+    if isinstance(left, str) and isinstance(right, str):
+        return left == right or left.startswith(right) or right.startswith(left)
+    return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
+
+
 def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     """Whether every shard agrees about the run, and whether each one says what it is.
 
@@ -444,17 +457,17 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     """
     findings: list[dict] = []
     raw_commits = [shard["environment"].get("commit") for shard in shards if shard["environment"].get("commit")]
-    # Compare by canonical JSON: a list or an object is not hashable, and 123 and
-    # "123" are different commits even though they print alike.
-    commits = {json.dumps(value, sort_keys=True) for value in raw_commits}
-    if len(commits) > 1:
+    reported = raw_commits[0] if raw_commits else None
+    if any(not same_commit(reported, value) for value in raw_commits):
         findings.append(
             {
                 "kind": "identity disagreement",
                 "detail": f"shards carry different commits: {sorted(str(c) for c in raw_commits)}",
             }
         )
-    if meta["commit"] and commits and commits != {json.dumps(meta["commit"], sort_keys=True)}:
+    if meta["commit"] and raw_commits and any(
+        not same_commit(meta["commit"], value) for value in raw_commits
+    ):
         findings.append(
             {
                 "kind": "identity disagreement",
