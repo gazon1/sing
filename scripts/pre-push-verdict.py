@@ -160,6 +160,23 @@ def display_path(path: str) -> str:
     return path.encode("utf-8", "replace").decode("utf-8")
 
 
+def lossy_path(path: str) -> str:
+    """A path, as a JVM reads it.
+
+    A JVM decodes a filename with the platform charset and replaces every byte
+    it cannot decode with U+FFFD — so the detekt log names a file whose name
+    is not valid UTF-8 by a name that is not the file's name. The change's own
+    files are named by their bytes; the log names them by the JVM's rendering
+    of those bytes, and the two names have to be recognised as one file. A
+    finding that cannot be recognised as the change's own is called inherited,
+    and the push is waved through on the strength of a finding the log cannot
+    name.
+
+    @param path the path as the changed-path reader produced it.
+    """
+    return path.encode("utf-8", PATH_DECODE).decode("utf-8", "replace")
+
+
 #: The paths that can change a detekt verdict:
 #:   - the Kotlin sources detekt analyses;
 #:   - the build scripts that decide which source sets are scanned;
@@ -431,13 +448,20 @@ def classify_findings(
     a diff that could not be computed. Then every finding counts as the
     change's own, because a finding that cannot be attributed cannot be
     called somebody else's.
+
+    A file is also recognised by the name the log gives it: detekt runs on a
+    JVM, and a JVM replaces every byte of a filename it cannot decode with
+    U+FFFD — so the log names a file whose name is not valid UTF-8 by a name
+    that is not the file's name (see `lossy_path`). Both names are the same
+    file, and a finding in it is the change's own.
     """
     changed_set = set(changed)
+    lossy_set = {lossy_path(path) for path in changed}
     own: list[tuple[str, str]] = []
     inherited: list[tuple[str, str]] = []
     for path, rule in findings:
         relative = relative_to(tree, path)
-        if wide or relative in changed_set:
+        if wide or relative in changed_set or relative in lossy_set:
             own.append((relative, rule))
         else:
             inherited.append((relative, rule))
@@ -739,7 +763,24 @@ def judge(
     }
 
 
+def tolerant_stdio() -> None:
+    """Let the report be printed even when a path in it cannot be encoded.
+
+    A path whose bytes are not valid UTF-8 holds lone surrogates, and the
+    terminal cannot encode them: printing the report raises, the report is
+    lost, and the caller reads the exit code as "detekt reported findings" —
+    an accusation about a file nobody can name. The report replaces what
+    cannot be encoded, the way `display_path` does.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    tolerant_stdio()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sha", required=True, help="the commit being pushed")
     parser.add_argument("--repo", default=".", help="the repository root")

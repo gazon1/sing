@@ -498,20 +498,31 @@ class FindingOwnershipTest(unittest.TestCase):
             env=_clean_git_env(),
         ).stdout.strip()
 
-    def _gradle(self, target: str) -> str:
+    def _gradle(self, target: str, as_a_jvm_names_it: bool = False) -> str:
         # The script is written as bytes: a target whose name is not valid
         # UTF-8 has to reach the fake detekt exactly as git would write it.
+        if as_a_jvm_names_it:
+            # A JVM decodes a filename with the platform charset and replaces
+            # every byte it cannot decode with U+FFFD — so the log holds the
+            # JVM's rendering of the name, not the name.
+            target = target.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace')
         path = self.tmp / 'detekt'
         path.write_bytes(FAKE_DETEKT_FINDING.format(target=target).encode('utf-8', 'surrogateescape'))
         path.chmod(0o755)
         return str(path)
 
-    def _judge(self, target: str, base: str | None, sha: str | None = None) -> dict:
+    def _judge(
+        self,
+        target: str,
+        base: str | None,
+        sha: str | None = None,
+        as_a_jvm_names_it: bool = False,
+    ) -> dict:
         return mod.judge(
             self.repo,
             sha or self.sha,
             None,
-            self._gradle(target),
+            self._gradle(target, as_a_jvm_names_it),
             (":shared:detekt",),
             self.tmp / 'logs',
             base,
@@ -560,6 +571,79 @@ class FindingOwnershipTest(unittest.TestCase):
         self.assertFalse(report['clean'], 'the push brought this finding')
         self.assertEqual([name], [finding['path'] for finding in report['own_findings']])
         self.assertEqual([], report['inherited_findings'])
+
+    def test_a_finding_in_a_file_a_jvm_names_differently_is_the_push_s_own(self):
+        """The log names the file the way a JVM names it, and it is the same file.
+
+        A JVM decodes a filename with the platform charset and replaces every
+        byte it cannot decode with U+FFFD, so the detekt log holds `caf?.kt`
+        where the file on disk is `caf?.kt` — two names for one file. The
+        finding belongs to the change that carries the file; read as another
+        file's finding it is called inherited, and the push is waved through
+        on the strength of a finding the log cannot name.
+        """
+        name = 'shared/src/main/kotlin/caf\udce9.kt'
+        target = os.path.join(bytes(self.repo), name.encode('utf-8', 'surrogateescape'))
+        with open(target, 'wb') as handle:
+            handle.write(SOURCE.encode('utf-8'))
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(
+            ['git', 'commit', '-q', '-m', 'a change'], cwd=self.repo, check=True, env=_clean_git_env(),
+        )
+        sha = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
+        ).stdout.strip()
+
+        report = self._judge(name, self.base, sha, as_a_jvm_names_it=True)
+
+        jvm_name = name.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace')
+        self.assertFalse(report['clean'], 'the push brought this finding')
+        self.assertEqual([jvm_name], [finding['path'] for finding in report['own_findings']])
+        self.assertEqual([], report['inherited_findings'])
+
+    def test_the_report_is_printed_even_when_a_path_cannot_be_encoded(self):
+        """A path the terminal cannot encode must not take the report with it.
+
+        Printing the report raises, the report is lost, and the caller reads
+        the exit code as "detekt reported findings" — an accusation about a
+        file nobody can name. The report replaces what cannot be encoded.
+        """
+        name = 'gradle/caf\udce9.toml'
+        target = os.path.join(bytes(self.repo), name.encode('utf-8', 'surrogateescape'))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, 'wb') as handle:
+            handle.write(b'x')
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(
+            ['git', 'commit', '-q', '-m', 'a change'], cwd=self.repo, check=True, env=_clean_git_env(),
+        )
+        sha = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
+        ).stdout.strip()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(MODULE_PATH),
+                '--sha',
+                sha,
+                '--repo',
+                str(self.repo),
+                '--gradle-cmd',
+                self._gradle('shared/src/main/kotlin/Example.kt'),
+                '--base',
+                self.base,
+            ],
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+        stderr = result.stderr.decode('utf-8', 'replace')
+        stdout = result.stdout.decode('utf-8', 'replace')
+        self.assertNotIn('UnicodeEncodeError', stderr, stderr[-500:])
+        self.assertIn('gradle/caf?.toml changed', stdout)
 
     def test_without_a_base_every_finding_is_the_push_s_own(self):
         """No base, no comparison — the safe direction is red, not green."""
