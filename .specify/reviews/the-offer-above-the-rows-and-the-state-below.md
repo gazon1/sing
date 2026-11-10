@@ -3,7 +3,7 @@ change: the-offer-above-the-rows-and-the-state-below
 verdict: pass
 date: 2026-11-10
 pr: 2399
-reviewed: 7f83bda475cd839ddd26580ae7a6dbe166a7d386
+reviewed: 2c8ecb9c91cf6a3ad3a7ad35206cdc13f55bbeb2
 documents: sha256:1421431e2c2ecd3005355993af16a970b021d5cae754c80355777536aae19d42
 ---
 
@@ -112,3 +112,27 @@ request 2399 originally carried is recorded in
 `docs/decisions/2026-11-10-the-editor-slots-keep-their-names.md`, with the
 reason — a rename puts a decision into a name, and while that rename was in
 flight the live skill documentation kept naming a slot that no longer existed.
+
+## The re-review at the merged head
+
+The branch merged `origin/main` after the first review. The merge brought a
+failure that has nothing to do with the placement: dependabot's Kotlin bump
+raised `gradle/libs.versions.toml` to 2.4.21 and left `gradle.properties` at
+2.4.10, and the "version catalog has no literals" gate reads both files, so
+`main` itself is red on that gate and every pull request that merges it is
+red with it.
+
+The obvious repair — raise the property to match the catalog — does not build.
+The root `build.gradle.kts` forces every `org.jetbrains.kotlin` artifact onto
+the property's version, so raising it also raises the compiler detekt runs on,
+and detekt 2.0.0-alpha.6 was compiled against Kotlin 2.4.10 and refuses to
+run against a different one. 2.0.0-alpha.6 is the newest detekt release on
+Maven Central, so there is no detekt to bump to. The tree therefore goes back
+to where the two files agree, at 2.4.10, and the bump lands when detekt can
+take it.
+
+The re-review ran at that head (`2c8ecb9c9`) and returned **pass** again:
+the catalog and the property agree, the version-catalog gate passes on the
+head and still fails on an exported `origin/main` tree, the detekt compiler
+resolves to 2.4.10 and both detekt modules pass, the placement is byte for
+byte the one reviewed above, and the fast and slow populations are green.
