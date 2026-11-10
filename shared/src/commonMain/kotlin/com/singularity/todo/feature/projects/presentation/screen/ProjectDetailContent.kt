@@ -48,7 +48,11 @@ fun ProjectDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val nav = LocalProjectsNavigator.current
-    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
+    // The state is kept as a State, not as a value: the bar hands its title to
+    // the shell, which draws it in the shell's own composition, and the shell
+    // has to read the state itself. A value read here would be read once, and
+    // the shell would draw the name the project had when the bar published.
+    val state = viewModel.stateFlow.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val clock: Clock = viewModel.clock
     val sheets = rememberOverlayState<ActiveSheet>()
@@ -85,7 +89,7 @@ fun ProjectDetailContent(
         }
     }
 
-    val contentState = state
+    val contentState = state.value
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -105,7 +109,7 @@ fun ProjectDetailContent(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        when (val s = state) {
+        when (val s = contentState) {
             ProjectDetailUiState.Loading -> {
                 LoadingIndicator(Modifier.padding(padding))
             }

@@ -456,6 +456,7 @@ non-alphanumeric characters with `_`.
 | `RESULT_DIALOG` | `result_dialog` | |
 | `RESULT_DIALOG_CONFIRM` | `result_dialog_confirm` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |
+| `SHELL_BAR_TITLE` | `shell_bar_title` | |
 | `SHELL_SEARCH_BUTTON` | `shell_search_button` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
 | `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |

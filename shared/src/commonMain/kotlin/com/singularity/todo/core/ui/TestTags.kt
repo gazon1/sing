@@ -121,6 +121,26 @@ object TestTags {
     const val SHELL_SEARCH_BUTTON = "shell_search_button"
 
     /**
+     * The title the shell bar shows.
+     *
+     * The shell's own destination name when no screen owns the bar, and the
+     * screen's own title when one does — a screen that publishes its title puts
+     * the tag on the text it published, because the shell draws that text
+     * inside its own bar.
+     *
+     * Only the screens that publish a title this way carry the tag. The
+     * calendar publishes its month under [CALENDAR_MONTH_TITLE] and the
+     * settings screen publishes an untagged title, so on those two screens the
+     * tag is absent: a flow that wants the bar's title there has to match the
+     * text.
+     *
+     * A tag rather than the text itself: the project's name is on the detail
+     * screen twice (in the bar and in the hero), and a flow that asserted on
+     * the words alone could not say which one it saw.
+     */
+    const val SHELL_BAR_TITLE = "shell_bar_title"
+
+    /**
      * The desktop shell's drawer sheet.
      *
      * The sheet is the thing that slides in, so it is the thing to ask about

@@ -150,7 +150,11 @@ fun androidShellNav3Root(
             topBar = {
                 ShellTopBar(
                     screenActions = screenActions,
-                    destinationTitle = current.title,
+                    // The deepest route of the active stack, when it is a destination:
+                    // the shell's own name for the screen on screen. A nested graph
+                    // keeps its own stack, which the outer state cannot see — that is
+                    // what the screens inside it publish their title for.
+                    destinationTitle = (topMostRoute as? AppDestination)?.title ?: current.title,
                     isSearch = current == AppDestination.Search,
                     navigator = navigator,
                     onMenu = { menuVisible = true },
