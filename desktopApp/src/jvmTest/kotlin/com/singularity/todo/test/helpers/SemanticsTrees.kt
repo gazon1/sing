@@ -5,8 +5,10 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.printToString
+import androidx.compose.ui.unit.DpRect
 
 /**
  * The scene's semantics roots, in tree order.
@@ -93,6 +95,19 @@ fun DesktopComposeUiTest.countNodesWithTagInMainRoot(tag: String): Int =
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.rootSizes(): List<Int> = semanticsRoots().map { it.countNodes() }
+
+/**
+ * The bounds of the app's main window, in root coordinates.
+ *
+ * The first root is the app's own window (see [semanticsRoots]), and its
+ * bounds are the edges a layout ends at — "the last row ends 8 dp above the
+ * bottom of the screen" is a statement about them. The bounds are in dp, like
+ * every other bound the helpers hand out, so they compare with
+ * `unclippedBoundsOfTag` without a conversion.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.mainRootBounds(): DpRect =
+    onAllNodes(isRoot(), useUnmergedTree = true)[0].getUnclippedBoundsInRoot()
 
 /** This node and every node below it. */
 private fun SemanticsNode.countNodes(): Int = 1 + children.sumOf { it.countNodes() }

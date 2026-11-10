@@ -1,0 +1,95 @@
+---
+title: "The shell publishes the FAB's footprint"
+date: 2026-11-10
+status: accepted
+tags: [ui, shell, layout]
+---
+
+## Context
+
+The FAB lives at chrome level (ADR `2026-09-07-fab-chrome-level.md`): the shell
+decides whether there is a button, and draws it over the content.
+
+Material3's `Scaffold` keeps no room for a floating action button. The content
+is laid out behind it, and the button's offset from the bottom
+(`fabHeight + FabSpacing + contentWindowInsets.bottom`) is known only to the
+`Scaffold`. So the last row of a list ends *under* the button: on a phone the
+agenda's last task row was covered, and the row could not be scrolled out from
+under it (#2743).
+
+Three things make "reserve a fixed 72 dp" the wrong answer:
+
+- the button's height is not fixed — the desktop shell draws a medium button
+  (56 dp), the Android shell an extended one;
+- the button is not always there — `FabActionResolver` returns `null` for
+  routes without an action, and a list that reserves room for an absent button
+  keeps a band of blank space;
+- the button's visibility is not a feature's business — it is the shell's
+  (single source of truth).
+
+## Idea
+
+1. Each list reserves a hard-coded height for the button.
+2. The shell passes the button's height down to the lists it draws.
+3. The shell publishes the space the button takes, and a list that wants
+   clearance adds that space to its own bottom content padding.
+
+## Decision
+
+We did (3).
+
+`core/ui/components/FabBottomSpace.kt` holds the contract:
+
+- `FabFootprint` — the shell measures the button (`onSizeChanged`) and reports
+  its height;
+- `LocalFabBottomSpace` — a `CompositionLocal` the shell provides with the
+  space the button takes above the bottom edge of the content: the measured
+  height plus Material3's `FabSpacing` (16 dp, private there), and `0` when no
+  button is on screen.
+
+Both shells publish it (`AndroidShellNav3`, `DesktopShellNav3`); `AgendaList`
+adds it to its bottom content padding.
+
+## Rationale
+
+(1) duplicates a constant that belongs to the chrome, in every list that needs
+it, and it is wrong twice over: too small for the Android button, and pure
+blank space on a route without a button.
+
+(2) puts the shell's knowledge into the shell's own parameters, and the
+lists that need the space are not the shell's children — the shell draws a
+`NavDisplay`, and every screen below it would need the height threaded
+through its own parameters.
+
+(3) keeps the source of truth where the button is: the shell measures the
+button it actually drew. Measuring beats assuming, because the assumption
+drifts the moment the button changes shape. And a `CompositionLocal` matches
+how the shell already hands a screen its title bar (`LocalScreenActions`).
+
+The system navigation bar is not part of the reserved space: on a phone the
+bottom panel already lifts the content above itself and consumes the bottom
+insets, so adding them again would reserve the gap twice.
+
+## Consequences
+
+- A new contract between the shell and the features: `LocalFabBottomSpace` in
+  `core/ui`. A list that floats under the FAB consumes it; a list that does not
+  is unaffected (the value is `0`).
+- `FabSpacing` (16 dp) is duplicated here because Material3 keeps its own
+  private. A change there is invisible to us — the value is small and the test
+  asserts the outcome (the row is above the button), not the constant.
+- The agenda lists reserve the space. The other lists that float under the FAB
+  (projects, tags) are a separate task (#2213).
+- The footprint is `0` until the button has been laid out, so a list that is
+  drawn before the button has a size keeps no space — the button is not on
+  screen yet either.
+
+## Links
+
+- Issue: https://github.com/gazon1/sing/issues/2743
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/FabBottomSpace.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaContent.kt`
+- `shared/src/androidMain/kotlin/com/singularity/todo/AndroidShellNav3.kt`
+- `shared/src/jvmMain/kotlin/com/singularity/todo/shell/DesktopShellNav3.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaFabClearanceTest.kt`
+- ADR: `docs/decisions/2026-09-07-fab-chrome-level.md`
