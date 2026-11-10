@@ -265,9 +265,17 @@ class TaskRowDensityTest {
                 dates[0].getUnclippedBoundsInRoot().widthDp(),
                 "the due date's width in a crowded row",
             )
+            val crowded = projects[0].getUnclippedBoundsInRoot().widthDp()
+            // The floor, not the exact number: how wide a text measures depends on
+            // the font the platform measures it with, so the width the ADR quotes
+            // (73 dp on the machine it was measured on) cannot be an assertion.
+            // What can be asserted is that the name is still a name — a sliver of
+            // a project is a missing project in slow motion, and this is what
+            // catches that.
             assertTrue(
-                projects[0].getUnclippedBoundsInRoot().widthDp() > 0.dp,
-                "the project name was squeezed out of the crowded row",
+                crowded >= MIN_CROWDED_PROJECT,
+                "the project name was squeezed to $crowded in the crowded row — " +
+                    "the floor is $MIN_CROWDED_PROJECT",
             )
             assertTrue(
                 projects[0].getUnclippedBoundsInRoot().widthDp() <
@@ -450,6 +458,18 @@ class TaskRowDensityTest {
 
         /** A one-line row: the 48 dp target plus 12 dp above and below. */
         val MAX_ONE_LINE_ROW = 72.dp
+
+        /**
+         * The least width the project's name may keep in a crowded row.
+         *
+         * Measured on the machine the ADR was written on: 73 dp in the 264 dp
+         * column of a 360 dp phone, and 33 dp in the 224 dp column of a 320 dp
+         * one. The floor sits well below both, because the exact width of a text
+         * depends on the font the platform measures it with — what the floor
+         * catches is the failure that matters: a project squeezed to a sliver is
+         * a missing project in slow motion.
+         */
+        val MIN_CROWDED_PROJECT = 24.dp
 
         val LINE_HEIGHT = 22.dp
 
