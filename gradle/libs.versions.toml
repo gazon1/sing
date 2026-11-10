@@ -78,7 +78,7 @@ nav3-ui = "1.2.0"
 nav3-lifecycle-vm = "2.11.0"
 
 # Supabase
-supabase = "3.8.0"
+supabase = "3.9.0"
 
 # KMPAuth — the Google sign-in. A personal project (mirzemehdi/KMPAuth), Apache-2.0.
 # It is used for the account sign-in only; the token exchange is this project's.
