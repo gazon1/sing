@@ -19,7 +19,9 @@
 - [x] desktopApp/ Keep the time-tracking guard honest after the move: the section now sits below
       the fold, so it scrolls to it before asserting it is displayed, rather than weakening the
       assertion to "is composed".
-- [ ] desktopApp/ Pin the upper half of the order — a proposal drawn above the attribute rows —
-      with a test that seeds a proposal. Left open on purpose: it needs a proposal-seeded
-      detail screen, which is its own piece of work, and the brief for this change leaves the
-      proposal placement test out of scope.
+- [x] desktopApp/ Pin the upper half of the order — a proposal drawn above the attribute rows —
+      with a test that seeds a proposal (`TaskDetailOfferSlotTest`, "a pending proposal is drawn
+      above the attribute rows"). Left open on purpose when this change was written: it needs a
+      proposal-seeded detail screen, which is its own piece of work, and the brief for this
+      change leaves the proposal placement test out of scope. Closed by the follow-up change
+      that also made the empty offer slot draw nothing.

@@ -179,6 +179,18 @@ fun runDesktopAppTest(
     overrides: Module = module {},
     checkA11y: Boolean = false,
     /**
+     * The width of the test window in pixels. The default is the project's usual
+     * 1024. A narrower window is the narrowest phone a person holds — 360 dp is
+     * the width of the smallest common Android screen — and a layout that only
+     * works at 1024 is a layout no phone can show.
+     */
+    width: Int = 1024,
+    /**
+     * The height of the test window in pixels. The default is the project's usual
+     * 768; 640 is a phone's height and puts the rows below the fold.
+     */
+    height: Int = 768,
+    /**
      * What the shell's back-at-root does in this mount.
      *
      * The harness has no window, so nothing is closed for real — a flow that wants to
