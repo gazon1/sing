@@ -59,9 +59,14 @@ tags:
     timeout: 5000
 
 # ── SubtasksSection: add a subtask ───────────────────────────────
-- extendedWaitUntil:
-    visible:
+# The subtasks are part of the task's own content, so they are drawn after the
+# attribute rows — below the fold on a phone. Scroll the section into view
+# instead of waiting for it to be on screen: a wait that names a position says
+# nothing about whether the section exists.
+- scrollUntilVisible:
+    element:
       id: subtasks_section
+    direction: DOWN
     timeout: 8000
 - tapOn:
     id: subtask_add_input
