@@ -48,6 +48,8 @@ import org.koin.core.parameter.parametersOf
  * Navigation events are handled via [LocalAgendaNavigator] provided by the nav graph.
  *
  * @param definition The [AgendaDefinition] to evaluate and display.
+ * @param isTodayTab True only for the Today tab; it alone gets the overdue section's
+ *        auto-collapse and expand/collapse controls.
  * @param modifier Compose modifier for the screen container.
  * @param contextMenuHost Slot for the task context menu: JVM right-click popup or
  *        Android long-press bottom sheet. Provided by the platform-specific
@@ -57,6 +59,7 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun AgendaScreen(
     definition: AgendaDefinition,
+    isTodayTab: Boolean = false,
     modifier: Modifier = Modifier,
     contextMenuHost: @Composable (
         taskUi: TaskUi,
@@ -73,7 +76,7 @@ fun AgendaScreen(
 ) {
     val vm: AgendaViewModel =
         koinViewModel {
-            parametersOf(definition)
+            parametersOf(definition, isTodayTab)
         }
     val state by vm.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by vm.pendingDelete.collectAsStateWithLifecycle()

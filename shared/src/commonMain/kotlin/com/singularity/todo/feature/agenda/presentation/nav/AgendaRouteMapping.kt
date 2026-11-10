@@ -208,6 +208,7 @@ private fun TodayAgendaContent(
     if (workDefinition != null) {
         AgendaScreen(
             definition = workDefinition!!,
+            isTodayTab = true,
             contextMenuHost = contextMenuHost,
         )
     }

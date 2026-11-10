@@ -27,6 +27,12 @@ object AgendaPresets {
     const val OVERDUE_SECTION_ID = "overdue"
 
     /**
+     * At least this many overdue tasks auto-collapse the section on the Today tab,
+     * and only a section this large (or one already collapsed) offers the controls.
+     */
+    const val LARGE_OVERDUE_THRESHOLD = 20
+
+    /**
      * All active tasks, grouped by relative date bucket — the full agenda.
      *
      * Sections are ordered narrowest-bucket-first and each one `discard`s what it

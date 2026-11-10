@@ -145,7 +145,7 @@ class AgendaOverdueSectionUiTest {
         }
 
     @Test
-    fun `small overdue section on Today stays expanded without extra controls when state is expanded`() =
+    fun `small overdue section on Today stays expanded without controls`() =
         runIsolatedComposeTest {
             val overdue = overdueSection(2)
             setContent {
@@ -165,8 +165,8 @@ class AgendaOverdueSectionUiTest {
             onNodeWithTag(
                 TestTags.agendaSection("Overdue"),
             ).assertIsDisplayed().assertTextContains("2", substring = true)
-            onNodeWithTag(TestTags.agendaSectionToggle("Overdue")).assertIsDisplayed()
-            onNodeWithTag(TestTags.agendaSectionViewAll("Overdue")).assertIsDisplayed()
+            onNodeWithTag(TestTags.agendaSectionToggle("Overdue")).assertDoesNotExist()
+            onNodeWithTag(TestTags.agendaSectionViewAll("Overdue")).assertDoesNotExist()
             onNodeWithTag(TestTags.taskItem("Overdue 1")).assertIsDisplayed()
         }
 }

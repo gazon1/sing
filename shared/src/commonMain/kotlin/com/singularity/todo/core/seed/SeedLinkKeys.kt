@@ -63,3 +63,23 @@ object SeedLinkKeys {
     /** The keys in [keys] that this vocabulary does not know, in input order. */
     fun unknown(keys: Iterable<String>): List<String> = keys.filterNot { it in all }
 }
+
+/**
+ * The `count=` fixture size: one task per seed unless the link asks for more.
+ *
+ * Bounded so a malformed debug link cannot ask the device to write an unbounded
+ * number of rows. Absent means one; anything outside `1..MAX` is invalid, and the
+ * seed refuses it rather than silently coercing.
+ */
+object SeedCount {
+    /** The largest fixture a single debug link may seed. */
+    const val MAX = 10_000
+
+    /** The count a `count=` value means, or null when the value is not valid. */
+    fun parse(raw: String?): Int? =
+        if (raw == null) {
+            1
+        } else {
+            raw.toIntOrNull()?.takeIf { it in 1..MAX }
+        }
+}

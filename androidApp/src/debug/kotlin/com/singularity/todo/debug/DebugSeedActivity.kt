@@ -7,6 +7,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
+import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.seed.SeedLinkKeys
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
@@ -280,7 +281,15 @@ class DebugSeedActivity :
         writer: SeedWriter,
     ) {
         val baseTitle = params[SeedLinkKeys.TASK]!!
-        val count = params[SeedLinkKeys.COUNT]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val count =
+            SeedCount.parse(params[SeedLinkKeys.COUNT])
+                ?: run {
+                    android.util.Log.e(
+                        "DebugSeedActivity",
+                        "Invalid count='${params[SeedLinkKeys.COUNT]}'; expected 1..${SeedCount.MAX}",
+                    )
+                    return
+                }
         // A task stamped "now" is never stagnant: the health window is 21 days
         // without movement, and a flow cannot reach that bucket by seeding a
         // fresh task. `updatedAt=-22d` puts both timestamps in the past, which

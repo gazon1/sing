@@ -78,6 +78,7 @@ import kotlin.concurrent.atomics.incrementAndFetch
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
+    private val isTodayTab: Boolean = false,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AgendaUiState, AgendaIntent, AgendaUiEvent>(
@@ -287,7 +288,7 @@ class AgendaViewModel(
                                             .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
                                             .toImmutableList(),
                                     today = today,
-                                    isTodayAgenda = definition.title == AgendaPresets.Today.title,
+                                    isTodayAgenda = isTodayTab,
                                     greeting = "",
                                 )
                             }.combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
@@ -333,7 +334,7 @@ class AgendaViewModel(
         if (!loaded.isTodayAgenda) return false
         val overdue = loaded.sections.firstOrNull { it.id == AgendaPresets.OVERDUE_SECTION_ID } ?: return false
         val count = overdue.badge ?: overdue.tasks.size
-        return count >= LARGE_OVERDUE_THRESHOLD
+        return count >= AgendaPresets.LARGE_OVERDUE_THRESHOLD
     }
 
     private fun toggleSection(sectionId: String) {
@@ -958,13 +959,6 @@ class AgendaViewModel(
     companion object {
         /** 5-second undo window, matching the snackbar duration. */
         const val UNDO_WINDOW_MS = 5_000L
-
-        /**
-         * At least this many overdue tasks auto-collapse the section on the Today tab,
-         * so today's work stays reachable without scrolling through history. Sized to
-         * the rows a phone viewport can hold above "Today".
-         */
-        const val LARGE_OVERDUE_THRESHOLD = 20
 
         // Machine-shaped grouping keys — these leave the device.
         private const val AGENDA_LOAD_FAILED = "agenda.load_failed"

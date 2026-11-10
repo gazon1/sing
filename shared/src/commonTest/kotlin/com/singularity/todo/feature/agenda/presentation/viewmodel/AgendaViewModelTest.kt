@@ -1355,6 +1355,7 @@ class AgendaViewModelTest {
                     AgendaViewModel(
                         deps = agendaDeps(clock = FakeClock(now)),
                         definition = AgendaPresets.Today,
+                        isTodayTab = true,
                         scope = scope,
                     )
                 }
@@ -1376,6 +1377,7 @@ class AgendaViewModelTest {
                     AgendaViewModel(
                         deps = agendaDeps(clock = FakeClock(now)),
                         definition = AgendaPresets.Today,
+                        isTodayTab = true,
                         scope = scope,
                     )
                 }
@@ -1395,6 +1397,7 @@ class AgendaViewModelTest {
                     AgendaViewModel(
                         deps = agendaDeps(clock = FakeClock(now)),
                         definition = AgendaPresets.Today,
+                        isTodayTab = true,
                         scope = scope,
                     )
                 }
@@ -1421,6 +1424,26 @@ class AgendaViewModelTest {
             runCurrent()
             val collapsedAgain = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
             assertTrue("overdue" in collapsedAgain.collapsedSectionIds)
+        }
+
+    @Test
+    fun `an agenda titled Today is not the Today tab`() =
+        runTest {
+            fakeRepo.seed(*(1..1001).map { overdueTask("o$it", daysAgo = (it % 30) + 1) }.toTypedArray())
+            val lookalike = AgendaPresets.byOverdue().copy(title = AgendaPresets.Today.title)
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(clock = FakeClock(now)),
+                        definition = lookalike,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertFalse(state.isTodayAgenda, "the title alone must not make a screen the Today tab")
+            assertFalse("overdue" in state.collapsedSectionIds, "a lookalike title gets no auto-collapse")
         }
 
     @Test

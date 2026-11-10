@@ -385,7 +385,13 @@ private fun AgendaList(
         for (section in sections) {
             val isOverdueSection = section.id == AgendaPresets.OVERDUE_SECTION_ID
             val collapsed = section.id in collapsedSectionIds
-            val showOverdueControls = isOverdueSection && isTodayAgenda
+            val overdueCount = section.badge ?: section.tasks.size
+            // Keep the controls on a section that is already collapsed even if it
+            // shrank below the threshold: hiding them would leave no way to expand it.
+            val showOverdueControls =
+                isOverdueSection &&
+                    isTodayAgenda &&
+                    (collapsed || overdueCount >= AgendaPresets.LARGE_OVERDUE_THRESHOLD)
             // Keyed by the section's id, not its display name: the working day's
             // morning and afternoon blocks are both called "Work", and two headers
             // with one key take the list down with "Key ... was already used".
