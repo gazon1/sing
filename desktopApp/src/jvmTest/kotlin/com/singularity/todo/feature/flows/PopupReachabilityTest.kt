@@ -1,9 +1,6 @@
 package com.singularity.todo.feature.flows
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -126,7 +123,7 @@ class PopupReachabilityTest {
 
             // The overflow lives on the list card; the card itself opens the Results view.
             clickText("⋮")
-            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
             awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON)
 
             val beforeDialog = mainTreeSize()

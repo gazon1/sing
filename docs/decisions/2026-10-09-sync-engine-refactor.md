@@ -1,8 +1,8 @@
 ---
 title: "SyncEngine refactor: split into three collaborators, reshape contracts, fix four defects"
 date: 2026-10-09
-status: open
-status-was: proposed
+status: accepted
+status-was: open
 tags: [sync, architecture, cleanup]
 ---
 
@@ -301,6 +301,33 @@ confirms a patch but the local outbox no longer holds it, the summary increments
 - Public contracts (`SyncOutcome`, `SyncEngineStatus`) gain `Completed` and
   `Running(phase)` — no behaviour change for consumers.
 - `NoConnection` and `lastPush`/`lastPull` remain follow-up items.
+
+## Resolution
+
+Resolved 2026-11-09: the refactor landed and the four defects are fixed.
+
+Verified in the tree:
+
+- the collaborators exist and carry the work — `HandlerRegistry` (41 lines),
+  `PushPhase` (578), `PullPhase` (330), `SyncEngine` as the façade;
+- D1 — a superseded patch is counted as `superseded`, not as `failed`
+  (`PushPhase.kt`: `PushCounts.superseded`, the `patch == null` branch);
+- D2 — `deferOrDeadLetter` takes the scope from the plan instead of re-reading
+  `scopeProvider.current` (`PushPhase.kt`);
+- D3 — `PushPlan` is a sealed family with `Ready` and `Skipped` (`PushPhase.kt`);
+- D4 — every DAO call inside `enqueue` runs under `phases.localStorage(...)`
+  (`OutboxService.kt`);
+- the contracts are sealed — `PhaseResult` (`SyncPhaseReporter.kt`) and
+  `SyncOutcome` (`SyncEngine.kt`);
+- the detekt rule of this record exists — `NoCoroutineLaunchInInit`;
+- the two follow-up items of the Consequences are in place too: `NoConnection`
+  is a `SyncEngineStatus`, and `lastPush`/`lastPull` are exposed as
+  `StateFlow`s.
+
+Where the landed code differs from the record: the sizes. The record estimated
+`SyncEngine` at ~200 lines and `PushPhase` at ~350; the measured code is ~314
+lines of `SyncEngine` and 578 lines of `PushPhase`. The split happened; the
+estimates did not hold. The numbers above are the measured ones.
 
 ## Links
 

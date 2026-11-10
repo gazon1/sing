@@ -1,17 +1,15 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onAllNodesWithText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagEnabled
 import com.singularity.todo.test.helpers.assertTagNotEnabled
+import com.singularity.todo.test.helpers.assertTagNotExists
+import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
-import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -26,7 +24,7 @@ class TaskSaveBarTest {
 
             assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
             assertTagDisplayed(TestTags.TASK_EDITOR_SAVING)
-            assertEquals(0, onAllNodesWithText("Сохранить").fetchSemanticsNodes().size)
+            assertTextNotExists("Сохранить")
         }
 
     @Test
@@ -37,7 +35,7 @@ class TaskSaveBarTest {
             }
 
             assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
-            onAllNodesWithTag(TestTags.TASK_EDITOR_SAVING).assertCountEquals(0)
+            assertTagNotExists(TestTags.TASK_EDITOR_SAVING)
         }
 
     @Test
@@ -48,7 +46,7 @@ class TaskSaveBarTest {
             }
 
             assertTagDisplayed(TestTags.TASK_EDITOR_SAVING)
-            assertEquals(0, onAllNodesWithText("Сохранить").fetchSemanticsNodes().size)
+            assertTextNotExists("Сохранить")
         }
 
     @Test
@@ -58,6 +56,6 @@ class TaskSaveBarTest {
                 TaskSaveBar(isEnabled = false, isLoading = false, onSaveClick = {})
             }
 
-            onAllNodesWithTag(TestTags.TASK_EDITOR_SAVING).assertCountEquals(0)
+            assertTagNotExists(TestTags.TASK_EDITOR_SAVING)
         }
 }

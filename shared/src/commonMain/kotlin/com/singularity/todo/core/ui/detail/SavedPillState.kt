@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.singularity.todo.core.platform.TimeConstants
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -40,7 +41,7 @@ import kotlin.time.Duration
  *
  * `visible` is Compose snapshot state read from composition, so which thread writes it
  * matters. [pulse] therefore never touches `visible` itself: it hands the event to a
- * conflated channel, and the single collector started in `init` is the only writer,
+ * conflated channel, and the single collector this holder starts is the only writer,
  * running on [scope]'s dispatcher. Two consequences, both wanted:
  *
  *  * [pulse] is callable from anywhere — an event collector, a UI handler, a background
@@ -85,10 +86,18 @@ class SavedPillState(
      */
     private val pulses = Channel<Unit>(Channel.CONFLATED)
 
-    init {
+    /**
+     * The single writer of [visible]: one window at a time, restarted by each pulse.
+     *
+     * A field initializer rather than an `init` block, and the difference is the
+     * point: the collector is launched once the object is fully built, so it can
+     * never observe a half-constructed holder.
+     *
+     * `collectLatest`, not a plain receive loop: a pulse arriving mid-window cancels
+     * the window in flight and starts a fresh one, which is the whole point.
+     */
+    private val pulseWindow: Job =
         scope.launch {
-            // collectLatest, not a plain receive loop: a pulse arriving mid-window cancels
-            // the window in flight and starts a fresh one, which is the whole point.
             pulses
                 .receiveAsFlow()
                 .collectLatest {
@@ -97,7 +106,6 @@ class SavedPillState(
                     visible = false
                 }
         }
-    }
 
     /**
      * A write landed: raise the pill and restart its window.
@@ -107,6 +115,9 @@ class SavedPillState(
      * belonging to the later one.
      */
     fun pulse() {
+        // The window is only alive while the collector is: a pulse offered to a
+        // cancelled scope would wait in the channel for a reader that never comes.
+        if (!pulseWindow.isActive) return
         pulses.trySend(Unit)
     }
 }

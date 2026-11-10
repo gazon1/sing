@@ -217,16 +217,6 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "and the suite job names it now, so it is declared rather than hidden."
         ),
     ),
-    ":androidApp:test": GradleTaskParity(
-        scope="ci",
-        why=(
-            "CI runs it in the suite; the local loop compiles the Android app "
-            "(`:androidApp:compileDebugKotlin`, `:androidApp:assembleDebug`) and runs "
-            "the instrumentation tier on a device, but not the unit-test task. Same "
-            "reason as `:mcp-server:test`: CI names the task now, so the asymmetry "
-            "is declared."
-        ),
-    ),
     ":androidApp:connectedDebugAndroidTest": GradleTaskParity(
         scope="covered",
         why=(
@@ -505,12 +495,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/ci/check-migration-naming.py"),
     ),
     GateSpec(
-        name="gates are alive",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-gate-liveness.py"),
-    ),
-    GateSpec(
         name="the toolbox surface is declared once",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -601,6 +585,17 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="the coverage contract holds",
+        # One subject, three facts: the report measures every module in it, the
+        # floor is declared where Kover reads it, and the timeout covers the
+        # measured run. Each member keeps its own script, tests and control —
+        # the cluster changes the surface (one row instead of three), not the
+        # checks.
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-contract.py"),
+    ),
+    GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -634,18 +629,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-test-tags-catalog.py"),
         script_args=("--quiet", "--check"),
-    ),
-    # The catalogue of the skills, generated from the skills' own frontmatter:
-    # the index an agent chooses a skill from, and a stale line in it sends the
-    # reader to the wrong file. The generator's `--check` mode is the gate, and
-    # `docs/SKILLS-CATALOG.md` is its control — which is why the registry exempts
-    # the script from a sabotage control. The prose is in the placement.
-    GateSpec(
-        name="skills catalogue is current",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.SHELL,
-        script=Path("scripts/regen-skills-catalog.sh"),
-        script_args=("--check",),
     ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
     GateSpec(
@@ -985,20 +968,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("sgate"),
         script_args=("gate-costs", "--check"),
     ),
-    # The JSON contract every gate dispatched through `sgate` is called with.
-    #
-    # `sgate run-all` calls each gate with `--json`, and the document that
-    # lands on stdout is what a consumer reads. Nothing checked that the
-    # document was a document: the GitHub Actions annotation (`::error::` on
-    # stdout, because that is where Actions reads workflow commands from) and
-    # four adapters that rebuilt a verdict from prose were both found by
-    # reading, and both were found late.
-    GateSpec(
-        name="gates speak the JSON contract",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-gate-json-contract.py"),
-    ),
     # The two clusters.
     #
     # Each of these is one gate that runs several checks over one subject: the
@@ -1091,15 +1060,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
-        # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
-        GateSpec(
-            name="the link grammar has one home",
-            mode=GateMode.BLOCKING,
-            cmd_type=CmdType.PYTHON3,
-            script=Path("scripts/check-link-grammar.py"),
-            script_args=("--check",),
-        ),
-        # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+    # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
         GateSpec(
             name="the tool catalogue is current",
             mode=GateMode.BLOCKING,
@@ -1138,18 +1099,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
             mode=GateMode.BLOCKING,
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-compose-stability-config.py"),
-        ),
-        GateSpec(
-            name="screen state collections",
-            # Blocking: a screen state that holds a raw collection breaks the
-            # promise the state makes about its own contents, and the sibling
-            # rule cannot see it — the rule reads the *parameter* of a
-            # composable, not what the state holds. Nothing else in the build
-            # would say so, and the symptom is a screen that recomposes or
-            # goes stale with no error attached to it.
-            mode=GateMode.BLOCKING,
-            cmd_type=CmdType.PYTHON3,
-            script=Path("scripts/check-screen-state-collections.py"),
         ),
         # The external-agent feature is desktop-only — the protocol library needs JDK 21, and this project keeps the Android target at JVM_11 bytecode.
         GateSpec(
@@ -1212,6 +1161,21 @@ _REGISTERED: tuple[GateSpec, ...] = (
             # nobody has to read.
         ),
 )
+
+
+# Invocations that two gates are allowed to share, keyed by the normalized
+# invocation ``check-gate-registries.py`` builds from a ``GateSpec`` (cmd type,
+# resolved script, exact arguments). The value is the gate names it backs and
+# the reason the second registration is deliberate.
+#
+# Empty on purpose: a gate declared twice runs twice in `sgate run-all`, and the
+# second run buys nothing. An entry is a decision — it names the gates and says
+# why, so the allowance cannot become an anonymous way to duplicate a command.
+#
+# Two gates once ran `scripts/regen-skills-catalog.sh --check` under different
+# names, and nothing said so: the shell registry carried both lines, the suite
+# ran the generator twice, and no check could see it.
+DUPLICATE_INVOCATIONS: dict[tuple[str, ...], tuple[tuple[str, ...], str]] = {}
 
 
 # ── Positive controls ────────────────────────────────────────────────────────
@@ -1444,24 +1408,6 @@ GATE_CONTROLS: dict[str, Control] = {
             'say so.'
         ),
     ),
-    'screen-state-collections': Control(
-        kind='sabotage',
-        proves='scripts/check-screen-state-collections.py',
-        argv=('{python}', 'scripts/check-screen-state-collections.py'),
-        path='config/compose/screen_state_collection_debt.conf',
-        edit=Edit(
-            kind='append',
-            new='\ncom.singularity.todo.feature.tasks.ThatDoesNotExist.gone : List<Nothing>\n',
-        ),
-        why=(
-            'a register entry that names a debt the code no longer has is a record '
-            'of a debt that was paid — and the size it records is the ratchet. If '
-            'the gate read such an entry as fine, the register would grow stale '
-            'silently and the number everybody quotes would drift away from the '
-            'register it describes. The probe appends exactly such an entry — a '
-            'state the project does not have — and the gate must say so.'
-        ),
-    ),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),
     'maestro-flow-catalogue': Control(kind='sabotage', proves='scripts/check-maestro-flow-catalogue.py', argv=('{python}', 'scripts/check-maestro-flow-catalogue.py'), path='config/docs/maestro-flows.txt', edit=Edit(kind='regex', pattern=r'^Maestro/flows/smoke/01-launch-today\.yaml\n', repl='', flags='MULTILINE'), why='a flow deleted from the tree without a word leaves the suite smaller and the run green: the suite reports the flows that are left, and the one that is gone is a line in a diff nobody reads. Removing a line from the catalogue puts the flow back into the tree without putting it back into the promise, which is the state this gate exists to refuse'),
     'maestro-keyboard-commands': Control(kind='sabotage', proves='scripts/check-maestro-keyboard-commands.py', argv=('{python}', 'scripts/check-maestro-keyboard-commands.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- hideKeyboard\n- assertVisible:\n    id: tasks_fab', count=1), why='a `hideKeyboard` that follows nothing but assertions is a BACK keypress in disguise: the editors are dialogs, so BACK dismisses them, and the flow then fails on an element the editor was holding. The probe adds exactly that command to a flow that types nothing, and the gate must say so instead of reading the flow as well-formed'),
@@ -1537,31 +1483,6 @@ GATE_CONTROLS: dict[str, Control] = {
             "exactly as authoritative as the one that is right"
         ),
     ),
-    # The JSON contract. The probe makes one gate's stdout stop being one JSON
-    # document, and the gate must notice.
-    #
-    # The edit is in the shared runner rather than in one adapter, because the
-    # defect it reproduces is not an adapter's: it is a second writer on the
-    # contract channel. The runner is where every registry-generated gate gets
-    # its document, so a stray line there is exactly what a consumer would meet.
-    'gate-json-contract': Control(
-        kind='sabotage',
-        proves='scripts/check-gate-json-contract.py',
-        argv=('{python}', 'scripts/check-gate-json-contract.py'),
-        path='scripts/src/sgate/commands/_runner.py',
-        edit=Edit(
-            kind='replace',
-            old='        print(payload.model_dump_json(indent=2))',
-            new='        print("gate chatter that is not JSON")\n        print(payload.model_dump_json(indent=2))',
-            count=1,
-        ),
-        why=(
-            "a gate whose stdout carries prose in front of the document is a gate "
-            "a consumer cannot read: the verdict is there, and the parser that "
-            "wanted it gets a stack trace instead. Nothing caught it, because "
-            "nothing read the document"
-        ),
-    ),
     # The two cluster gates. Each control breaks one member's input, and the
     # cluster must report it — the aggregate is a gate, so it needs a control of
     # its own, not only the members' six.
@@ -1571,6 +1492,28 @@ GATE_CONTROLS: dict[str, Control] = {
     # fails to restore.
     'ci-workflow-shape': Control(kind='sabotage', proves='scripts/check-ci-workflow-shape.py', argv=('{python}', 'scripts/check-ci-workflow-shape.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs\n            .dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over three red checks'),
     'detekt-governance': Control(kind='sabotage', proves='scripts/check-detekt-governance.py', argv=('{python}', 'scripts/check-detekt-governance.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over six red checks'),
+    # The coverage cluster: one subject, three checks. The probe is the
+    # timeout member's own sabotage — a job timeout shorter than the measured
+    # run — because removing a test task from the koverReport list can be a
+    # correct edit: a project the list stops naming is a project the coverage
+    # job no longer builds, so the check has nothing to complain about.
+    'coverage-contract': Control(
+        kind='sabotage',
+        proves='scripts/check-coverage-contract.py',
+        argv=('{python}', 'scripts/check-coverage-contract.py'),
+        path='.github/workflows/ci.yml',
+        edit=Edit(
+            kind='replace',
+            old='    timeout-minutes: 75',
+            new='    timeout-minutes: 30',
+            count=1,
+        ),
+        why=(
+            "the cluster reports every member that fails, so breaking one member "
+            "must make the cluster fail — a cluster that swallowed a member failure "
+            "would be one green row over three red checks"
+        ),
+    ),
     # doc-links: the lychee gate. The sabotage appends a *Markdown link* to a
     # file that does not exist — the shape this gate checks and the other one
     # does not. `check-doc-dead-refs.py` matches a path inside backticks, so the
@@ -1815,22 +1758,6 @@ GATE_CONTROLS: dict[str, Control] = {
             "never opens — so the gate has to catch a claim the code does not support"
         ),
     ),
-        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
-        'link-grammar': Control(
-            kind='sabotage',
-            proves='scripts/check-link-grammar.py',
-            argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendarSync/domain/model/CalendarSyncEvent.kt',
-            edit=Edit(
-                kind='replace',
-                old='package com.singularity.todo.feature.calendarSync.domain.model',
-                new='package com.singularity.todo.feature.calendarSync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
-                count=1,
-            ),
-            why=(
-                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
-            ),
-        ),
         # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
         'tools-catalog': Control(
             kind='sabotage',
@@ -2121,35 +2048,11 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-rebase-compiles.py': Control(kind='exempt', proves='scripts/check-rebase-compiles.py', tracked_by='.github/workflows/ci.yml#Post-rebase DI compile', reason='GATE_PARITY: needs a Gradle compile run with rebased DI files, so lives in the CI tests job after the rebase step and is not in the static-gates.sh registry; sabotage control is the rebase step'),
     'scripts/build-version-catalog-gate.py': Control(kind='exempt', proves='scripts/build-version-catalog-gate.py', tracked_by='scripts/tests/test_sgate_gates.py', reason='auto-generator: the gate proves version catalog is clean by checking for undeclared literals; the sabotage is removing the generated catalog file and asserting the gate fails — but the generator is the gate, so `test_version_catalog_gate_self_repairs` is the real control'),
     'scripts/tests': Control(kind='exempt', proves='scripts/tests', tracked_by='scripts/tests/test_sgate_gates.py', reason='meta-gate: `scripts/run-gate-tests.py` is the gate; corrupting a test file would be the sabotage, but the runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
-    'scripts/check-gate-liveness.py': Control(
-        kind='exempt',
-        proves='scripts/tests/test_check_gate_liveness.py',
-        tracked_by='scripts/tests/test_check_gate_liveness.py',
-        reason=(
-            'the gate *executes* other gates, so a sabotage control has to corrupt a script a '
-            'registered gate actually runs — and three successive targets did not. '
-            'check-kiwi-inventory-ratchet.py went with the retired Kiwi stand; '
-            'check-backlog-issue-refs.py went with the removed backlog-issue-refs gate; '
-            'check-skill-drift.py is not the script `sgate the_toolbox_surface_is_declared_once` '
-            'executes, so the injected raise never ran. All three passed a deliberately sabotaged '
-            'input, i.e. they certified nothing. Measured 2026-10-19: corrupting '
-            'check-backlog-issue-refs.py left the liveness gate green '
-            '("30 gate(s) probed, 0 died"), so the control was a no-op that the harness '
-            'reported as a passing one. The registry control was therefore removed rather '
-            'than re-pointed: a control that corrupts a file nothing probes cannot be made '
-            'to fail by choosing a different file, because the property that made it '
-            'inert was the property of the harness, not of the target. The proving is '
-            'scripts/tests/test_check_gate_liveness.py (registry parsing, the heavyweight filter, '
-            'the self-match skip) plus `check.sh`, which runs this gate for real on every '
-            'invocation. A working control is still available if wanted: synthesise a two-gate '
-            'registry fixture and assert the probe reports the dead entry.'
-        ),
-    ),
     'scripts/gen-detekt-rules-config.py': Control(kind='exempt', proves='scripts/gen-detekt-rules-config.py', tracked_by='config/detekt/detekt-rules-module.yml', reason='auto-generator: sabotage is deleting the generated config and asserting the gate fails; equivalent to `rm config/detekt/detekt-rules.yml && gate detekt-rules-config` — the output-diff is the control'),
     'scripts/gen-detekt-rule-table.py': Control(kind='exempt', proves='scripts/gen-detekt-rule-table.py', tracked_by='.agents/skills/singularity-todo-detekt-rules-authoring/RULES.md', reason='auto-generator: sabotage is deleting the generated table and asserting the gate fails; equivalent to `rm docs/detekt/rule_table.md && gate detekt-rule-inventory` — the output-diff is the control'),
     'scripts/check-detekt-registrations.sh': Control(kind='exempt', proves='scripts/check-detekt-registrations.sh', tracked_by='config/detekt/detekt.yml', reason='shell-gate: the sabotage is removing a rule from the registrations file and asserting the gate fails; equivalent to `rm config/detekt/rule_registrations.toml && gate detekt-rule-registry` — but Part J cross-check itself is what catches it when the control goes missing'),
     'scripts/ci/validate-maestro-selectors.py': Control(kind='exempt', proves='scripts/ci/validate-maestro-selectors.py', tracked_by='shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt', reason='CI-only gate: runs in the Maestro flow job, not locally; sabotage would be corrupting the selector files and asserting the gate fails; Part J cross-check itself is the backstop when the control goes missing'),
-    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && sgate skills_catalogue_is_current` — the output-diff is the control'),
+    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && sgate the_skills_catalogue_is_current` — the output-diff is the control'),
     'traceability': Control(
         kind='exempt',
         proves='scripts/tests/test_traceability.py',

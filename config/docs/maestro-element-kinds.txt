@@ -118,7 +118,10 @@ project_card_roadmap item
 project_detail_quick_add field
 project_editor_name_input field
 recurrence_option_daily dialog
-result_dialog dialog
+# The shared error dialog is where the server's answer is presented, so the
+# wait is for the answer and not for the dialog: every flow that waits for it
+# waits for a round-trip to finish first.
+result_dialog network
 saved_agenda_card_${RUN_ID}_copy_source item
 saved_agenda_card_${RUN_ID}_journey_renamed item
 saved_agenda_card_${RUN_ID}_journey_view item

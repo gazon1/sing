@@ -33,14 +33,14 @@ def main():
 @main.command("gates")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON to stdout")
 def cmd_gates(json_output: bool):
-    """List all registered gates from static-gates.sh.
+    """List all registered gates from the gate registry.
 
     Exit codes:
       0 = clean (always succeeds)
     """
     gates = sgate.gates.load_gates()
     if not gates:
-        click.echo("No gates found in static-gates.sh")
+        click.echo("No gates found in sgate.commands._registry.GATES")
         return
 
     if json_output:

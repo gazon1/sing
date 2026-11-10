@@ -24,6 +24,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 WRAPPERS = [
     ("scripts/check-ci-workflow-shape.py", "test_task_external_inputs_declared"),
     ("scripts/check-detekt-governance.py", "detekt_rules_config_is_current"),
+    ("scripts/check-coverage-contract.py", "coverage_timeout"),
 ]
 
 

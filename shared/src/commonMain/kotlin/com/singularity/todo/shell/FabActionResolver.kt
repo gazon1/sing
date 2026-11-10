@@ -13,21 +13,6 @@ import com.singularity.todo.feature.nav.AppDestination
 data class FabAction(val label: String, val onClick: () -> Unit)
 
 /**
- * The "Add task" action every agenda list of tasks carries: it opens the task
- * editor with no due date.
- *
- * Only the Today tab prefills a date — a task dated today belongs to the Today
- * tab, and one dated tomorrow is the user's call.
- */
-private fun addTaskAction(navigate: (AppDestination) -> Unit): FabAction =
-    FabAction(
-        label = "Add task",
-        onClick = {
-            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
-        },
-    )
-
-/**
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.
  *
  * Covers modern [AppDestination.AgendaGraph] and [AppDestination.ProjectsGraph] routes.
@@ -37,22 +22,24 @@ private fun addTaskAction(navigate: (AppDestination) -> Unit): FabAction =
  *
  * ## FAB prefill behaviour
  *
- * Every agenda route that lists tasks offers an "Add task" action: the tabs
- * (**Today**, **Inbox**, **Upcoming**), the Blocked, Stagnant and Overdue views,
- * the drill-downs into one project or one or more tags, and a saved view's
- * results. The saved views' own screens — listing views, editing one and
- * creating one — are not task lists and carry no action.
- *
- * `DestinationKind.tabs` is the source of truth for which destinations are tabs,
- * and `FabActionResolverTest` walks it, so a new agenda tab that resolves to no
- * action fails the suite instead of shipping without a button (#1959). The same
- * test walks every `AgendaStartRoute`, so a new agenda route of any kind has to
- * be classified before it can ship (#2057).
+ * Every agenda screen that lists tasks offers an "Add task" action: **Today**,
+ * **Inbox**, **Upcoming**, the Blocked, Stagnant and Overdue views, and the
+ * project and tag drill-downs.
  *
  * When navigating from the **Today** tab, the task creation screen is pre-filled with
  * `dueDate = Today` so the user can change it without having to set it from scratch.
- * When navigating from any other task list, no due date is pre-filled: a task
+ * When navigating from **Inbox** or **Upcoming**, no due date is pre-filled: a task
  * dated today belongs to the Today tab, and one dated tomorrow is the user's call.
+ *
+ * The project drill-down seeds the new task with that project, and the single-tag
+ * and multi-tag drill-downs with that tag or tags, so the created task belongs to
+ * the list it was created from.
+ *
+ * The saved-view screens are not task lists, and none of them carries a shell
+ * action: the list, the results, the editor and the creator resolve to `null`.
+ * The results screen is the contested one — it does show tasks, but it shows
+ * the tasks a *view* selects, and [fabActionForAgendaStart] says why the button does
+ * not belong there (#1952, #1958).
  *
  * @param today the date to pre-fill, supplied by the caller. Required rather than
  *   read here (#91): the shell knows the date it is rendering, and a resolver that
@@ -68,59 +55,7 @@ internal fun fabActionForNav3(
     when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
-            when (current.start) {
-                AgendaStartRoute.Today -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
-                        },
-                    )
-                }
-
-                // Every route the agenda graph can start on is named here rather
-                // than folded into a catch-all, so a new [AgendaStartRoute] makes
-                // this `when` non-exhaustive: the compiler refuses the build until
-                // the route is classified, and a task-listing route can no longer
-                // fall through to `null` silently — the shape the Upcoming tab
-                // shipped in (#1959).
-                //
-                // A route that lists tasks carries the action, wherever the user
-                // stands on it: the drill-downs into one project or one or more
-                // tags, and a saved view's results, are task lists like any other
-                // (#2057). The created task is not bound to the project or the tags
-                // being viewed — the button says "add a task", not "add a task
-                // here" — and it carries no due date, exactly as on the Inbox tab.
-                AgendaStartRoute.Inbox,
-                AgendaStartRoute.Upcoming,
-                AgendaStartRoute.Blocked,
-                AgendaStartRoute.Stagnant,
-                AgendaStartRoute.Overdue,
-                -> {
-                    addTaskAction(navigate)
-                }
-
-                is AgendaStartRoute.Project,
-                is AgendaStartRoute.Tag,
-                is AgendaStartRoute.Tags,
-                is AgendaStartRoute.SavedAgendaResults,
-                -> {
-                    addTaskAction(navigate)
-                }
-
-                // The screens that manage saved views are not task lists: listing
-                // views, editing one and creating one carry no action. A saved
-                // view's *results* are a list of tasks and are classified above.
-                AgendaStartRoute.SavedAgendaList,
-                AgendaStartRoute.SavedAgendaCreate,
-                -> {
-                    null
-                }
-
-                is AgendaStartRoute.SavedAgendaEdit -> {
-                    null
-                }
-            }
+            fabActionForAgendaStart(current.start, today, navigate)
         }
 
         is AppDestination.ProjectsGraph -> {
@@ -144,6 +79,113 @@ internal fun fabActionForNav3(
 
         // NotesNavGraph has its own note creation button — no shell FAB needed here.
         else -> {
+            null
+        }
+    }
+
+/**
+ * The action for an agenda route, or `null` for a route that is not a task list.
+ *
+ * Every member of [AgendaStartRoute] is classified: no `else`, so a route added to
+ * the hierarchy does not compile until someone decides whether the screen it opens
+ * lists tasks (#1959).
+ *
+ * ## The saved-view routes carry no action
+ *
+ * Saved-view management is not a task list: listing views, viewing, editing and
+ * creating a view all keep no button.
+ *
+ * `SavedAgendaResults` is classified here too, and that is a resolved contradiction
+ * rather than an oversight (#1952 and #1958 versus #2057). #2057 puts "the route
+ * showing a saved view's results" among the task-listing routes and asks for an
+ * "Add task" action there. #1952 — the brief this change was opened against — asks
+ * the opposite, in so many words: "the saved-view agenda routes still draw no
+ * button, and a test says so". #1958 says the same thing twice, once as "the
+ * saved-views list, the saved-view editor and the saved-view results keep no shell
+ * button" and once in its out-of-scope line, which leaves "the saved-views screens
+ * and their own create button" alone. Two briefs to one is why this branch stays
+ * `null`: the results screen is a saved view applied to the agenda, and the view
+ * owns the way a task is added to it. A button here would create a task that
+ * satisfies no part of the view's own query — it would appear in the list only if
+ * it happened to match, which is not what the button promises.
+ *
+ * If #2057 is meant to win, move `SavedAgendaResults` into the "Add task" branch
+ * below *and* flip it in `FabActionResolverTest.expectedAddTask` — the resolver and
+ * that classification are the same decision and move together, or the suite fails.
+ */
+private fun fabActionForAgendaStart(
+    start: AgendaStartRoute,
+    today: kotlinx.datetime.LocalDate,
+    navigate: (AppDestination) -> Unit,
+): FabAction? =
+    when (start) {
+        AgendaStartRoute.Today -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
+                },
+            )
+        }
+
+        AgendaStartRoute.Inbox,
+        AgendaStartRoute.Upcoming,
+        AgendaStartRoute.Blocked,
+        AgendaStartRoute.Stagnant,
+        AgendaStartRoute.Overdue,
+        -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
+                },
+            )
+        }
+
+        is AgendaStartRoute.Project -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(
+                        AppDestination.TasksGraph(
+                            AppDestination.TasksStartRoute.Create(projectId = start.projectId),
+                        ),
+                    )
+                },
+            )
+        }
+
+        is AgendaStartRoute.Tag -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(
+                        AppDestination.TasksGraph(
+                            AppDestination.TasksStartRoute.Create(tagIds = setOf(start.tagId)),
+                        ),
+                    )
+                },
+            )
+        }
+
+        is AgendaStartRoute.Tags -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(
+                        AppDestination.TasksGraph(
+                            AppDestination.TasksStartRoute.Create(tagIds = start.tagIds),
+                        ),
+                    )
+                },
+            )
+        }
+
+        AgendaStartRoute.SavedAgendaList,
+        is AgendaStartRoute.SavedAgendaResults,
+        is AgendaStartRoute.SavedAgendaEdit,
+        AgendaStartRoute.SavedAgendaCreate,
+        -> {
             null
         }
     }

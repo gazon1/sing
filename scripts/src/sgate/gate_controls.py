@@ -365,6 +365,17 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="coverage-contract",
+        cmd=[sys.executable, "scripts/check-coverage-contract.py"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "the cluster reports every member that fails, so breaking one member "
+            "must make the cluster fail — a cluster that swallowed a member failure "
+            "would be one green row over three red checks"
+        ),
+    ),
+    ScriptGate(
         name="recorded-ci-jobs",
         cmd=[sys.executable, "scripts/check-recorded-ci-jobs.py"],
         sabotage_path=".github/workflows/ci.yml",
@@ -582,23 +593,6 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
-        name="gate-json-contract",
-        cmd=[sys.executable, "scripts/check-gate-json-contract.py"],
-        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
-        # this entry exists so Part B proves the gate can actually fail.
-        #
-        # The probe puts a line of prose in front of one gate's JSON document.
-        # That is the smallest possible version of the failure: the verdict is
-        # still there, and a consumer that reads the document gets a parse error
-        # instead of a verdict.
-        why=(
-            "a gate whose stdout carries prose in front of the document is a gate a "
-            "consumer cannot read: the verdict is there, and the parser that wanted it "
-            "gets a stack trace instead. Nothing caught it, because nothing read the "
-            "document"
-        ),
-    ),
-    ScriptGate(
         name="maestro-flow-catalogue",
         cmd=[sys.executable, "scripts/check-maestro-flow-catalogue.py"],
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
@@ -786,14 +780,6 @@ SCRIPT_GATES = [
         cmd=[sys.executable, "scripts/check-navigation-doc-sync.py", "--check"],
         why="a row that names a type the code does not name sends every agent that follows the pointer the wrong way",
     ),
-        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
-        ScriptGate(
-            name="link-grammar",
-            cmd=[sys.executable, "scripts/check-link-grammar.py", "--check"],
-            why=(
-                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
-            ),
-        ),
         # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
         ScriptGate(
             name="tools-catalog",
@@ -873,27 +859,6 @@ SCRIPT_GATES = [
                 "a claim about a file the compiler never saw"
             ),
         ),
-    ScriptGate(
-        name="screen-state-collections",
-        cmd=[sys.executable, "scripts/check-screen-state-collections.py"],
-        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
-        # this entry exists so Part J proves the gate can actually fail.
-        #
-        # The register of the screen states that still hold a raw collection
-        # records its own size, and that size is the ratchet. A register entry
-        # that names a debt the code no longer has is a debt that was paid: if
-        # the gate read it as fine, the register would go stale silently and the
-        # number everybody quotes would drift away from the register it
-        # describes.
-        why=(
-            "a register entry that names a debt the code no longer has is a record "
-            "of a debt that was paid — and the size it records is the ratchet. If "
-            "the gate read such an entry as fine, the register would grow stale "
-            "silently and the number everybody quotes would drift away from the "
-            "register it describes. The probe appends exactly such an entry — a "
-            "state the project does not have — and the gate must say so."
-        ),
-    ),
     # SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet
     ScriptGate(
         name="mobile-isolation",

@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.nav
 
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
@@ -207,6 +209,16 @@ class NavStackSeedTest {
             TasksRoute.Create(null, "work"),
             AppDestination.TasksStartRoute.Create(draftKey = "work").toTasksRoute(null),
             "The section a saved view was showing must reach the new-task screen.",
+        )
+        assertEquals(
+            TasksRoute.Create(null, null, ProjectId("p1")),
+            AppDestination.TasksStartRoute.Create(projectId = ProjectId("p1")).toTasksRoute(null),
+            "The project whose agenda opened the editor must reach the new-task screen.",
+        )
+        assertEquals(
+            TasksRoute.Create(null, null, tagIds = setOf(TagId("t1"))),
+            AppDestination.TasksStartRoute.Create(tagIds = setOf(TagId("t1"))).toTasksRoute(null),
+            "The tags whose agenda opened the editor must reach the new-task screen.",
         )
         assertEquals(
             TasksRoute.Detail(TaskId("t1")),

@@ -95,12 +95,6 @@
         710
       ]
     },
-    "gates speak the JSON contract": {
-      "medianMs": 35978,
-      "samples": [
-        35978
-      ]
-    },
     "git hooks path is per-worktree": {
       "medianMs": 674,
       "samples": [
@@ -277,12 +271,6 @@
       "medianMs": 1730,
       "samples": [
         1730
-      ]
-    },
-    "gate liveness": {
-      "medianMs": 70788,
-      "samples": [
-        70788
       ]
     },
     "gate script tests": {

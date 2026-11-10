@@ -1,5 +1,8 @@
 package com.singularity.todo.core.ui.onboarding
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 
 /**
@@ -16,14 +19,21 @@ import androidx.compose.ui.geometry.Rect
  *   worse than a tour one step shorter.
  * - **The tour starts only once at least one target is measured.** Starting on the first
  *   frame would aim the hole at a rectangle that does not exist yet.
+ *
+ * The answers are snapshot state, not plain fields: the composable republishes them
+ * through a `snapshotFlow`, and a `snapshotFlow` only re-emits when the snapshot state
+ * it read changes. A plain field is invisible to it, so the published state lagged the
+ * decision by one registry change — and in a composition that lays out once, the
+ * overlay never appeared at all. See ADR
+ * `2026-11-09-the-spotlight-tour-publishes-its-step.md`.
  */
 class SpotlightTourStateMachine(private val steps: List<SpotlightStep>) {
     /** Index of the step being shown, or null when the tour is not running. */
-    var index: Int? = null
+    var index: Int? by mutableStateOf(null)
         private set
 
     /** True once at least one target has been measured and the scrim may be drawn. */
-    var ready: Boolean = false
+    var ready: Boolean by mutableStateOf(false)
         private set
 
     /**

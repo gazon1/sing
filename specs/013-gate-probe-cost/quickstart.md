@@ -14,7 +14,7 @@ Confirm the two gates that dominate the cost:
 
 ```bash
 /usr/bin/time -f '%e s' timeout 60 python3 scripts/check-adr-immutable.py
-/usr/bin/time -f '%e s' timeout 60 ./scripts/normalize-adr-frontmatter.sh
+/usr/bin/time -f '%e s' timeout 60 python3 scripts/normalize-adr-frontmatter.py
 ```
 
 Expected **before** the fix: both exceed 60 s and are killed (`rc=124`). Exit code 124 is the signal, not the timeout itself.

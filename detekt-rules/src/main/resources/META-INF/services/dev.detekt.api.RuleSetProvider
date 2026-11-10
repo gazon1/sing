@@ -27,3 +27,4 @@ com.singularity.todo.detekt.NoUnstableCollectionParamProvider
 com.singularity.todo.detekt.NoMutableCollectionCastProvider
 com.singularity.todo.detekt.NoFalseImmutableProvider
 com.singularity.todo.detekt.NoCollectionMaterializationInComposableProvider
+com.singularity.todo.detekt.LinkGrammarRulesProvider

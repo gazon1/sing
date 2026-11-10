@@ -69,6 +69,7 @@ import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
+import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
@@ -225,31 +226,8 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
             }
         }
 
-    /**
-     * In-memory onboarding record.
-     *
-     * Kept as a plain flow rather than a fake of the DataStore-backed class, because the
-     * behaviour worth testing is the state machine's, not DataStore's — and the real
-     * class cannot be built without a store.
-     */
-    override val onboarding: OnboardingSettingsRepository =
-        object : OnboardingSettingsRepository {
-            private val seen = MutableStateFlow(0)
-            private val replayRequests =
-                MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-
-            override val seenSpotlightVersion: Flow<Int> = seen
-            override val spotlightReplayRequests: Flow<Unit> = replayRequests.asSharedFlow()
-
-            override suspend fun markSpotlightSeen(version: Int) {
-                if (version > seen.value) seen.value = version
-            }
-
-            override suspend fun resetSpotlight() {
-                seen.value = 0
-                replayRequests.tryEmit(Unit)
-            }
-        }
+    /** See [FakeOnboardingSettingsRepository]. */
+    override val onboarding: OnboardingSettingsRepository = FakeOnboardingSettingsRepository()
 
     override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
         object : DefaultAgendaViewSettingsRepository {
@@ -353,6 +331,36 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
         version: Int,
     ) {
         _repairVersions.value = _repairVersions.value + (profileScope to version)
+    }
+}
+
+/**
+ * Standalone in-memory [OnboardingSettingsRepository].
+ *
+ * Kept as a plain flow rather than a fake of the DataStore-backed class, because the
+ * behaviour worth testing is the state machine's, not DataStore's — and the real
+ * class cannot be built without a store.
+ *
+ * @param initialSeenVersion the tour version the record starts at. `0` means the
+ *   user has not finished any tour; a harness that mounts the whole app and does
+ *   not test the tour passes [SpotlightContent.VERSION] so the first-run overlay
+ *   does not cover the screen the test is about.
+ */
+class FakeOnboardingSettingsRepository(initialSeenVersion: Int = 0) : OnboardingSettingsRepository {
+    private val seen = MutableStateFlow(initialSeenVersion)
+    private val replayRequests =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    override val seenSpotlightVersion: Flow<Int> = seen
+    override val spotlightReplayRequests: Flow<Unit> = replayRequests.asSharedFlow()
+
+    override suspend fun markSpotlightSeen(version: Int) {
+        if (version > seen.value) seen.value = version
+    }
+
+    override suspend fun resetSpotlight() {
+        seen.value = 0
+        replayRequests.tryEmit(Unit)
     }
 }
 

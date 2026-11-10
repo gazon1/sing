@@ -84,22 +84,23 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
      *
      * ## The `test/fakes/` directory
      *
-     * Added 2026-10-05. `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/`
-     * holds this repository's test doubles, and the KMP source-set convention keeps
-     * them in `commonMain` so `commonTest` can reach them. `FakeRepositories.kt` calls
-     * `Clock.System.now()` 20 times to stamp entity timestamps.
+     * `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/` holds this
+     * repository's test doubles, and the KMP source-set convention keeps them in
+     * `commonMain` so `commonTest` can reach them. They are **not** exempt.
      *
-     * That was previously handled with `@file:Suppress("NoDirectClockSystem")` on the
-     * file, which is the wrong instrument twice over: it silences every future call in
-     * the file, not the 20 that exist, and it is invisible to review because the
-     * exemption lives in the source rather than in the rule. A directory in the
-     * allow-list states the same decision in the place where the rule is defined, so
-     * it is read once and applies to every fake rather than to one file.
+     * They were, once: the directory was allow-listed on 2026-10-05, because
+     * `FakeRepositories.kt` called `Clock.System.now()` twenty times to stamp entity
+     * timestamps, and a per-file `@file:Suppress` was the wrong instrument — it
+     * silenced every future call in the file, not the twenty that existed, and it
+     * was invisible to review because the exemption lived in the source rather than
+     * in the rule.
      *
-     * The honest cost: a *new* fake can now call the system clock without the rule
-     * saying so. That is the trade — one directory whose contents are all fakes, in
-     * exchange for not maintaining a per-file list. It is also the placement rule that
-     * #191 asks for, stated where it can be enforced.
+     * The exemption went away for the same reason it was wrong: the twenty reads now
+     * take an injected `Clock` that defaults to `FakeClock`, so nothing under the
+     * directory reads the wall clock, and an allowance that matches nothing is
+     * indistinguishable from a working check. `NoDirectClockSystemWhitelistTest`
+     * asserts both halves of that — the path is not allowed, and no file under it
+     * reads the system clock — so the door cannot reopen unnoticed.
      *
      */
     internal fun isAllowedPath(path: String): Boolean {

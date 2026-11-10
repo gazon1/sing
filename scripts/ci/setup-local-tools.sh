@@ -41,7 +41,7 @@ else
 fi
 
 echo "==> installing the gate suite (editable)"
-VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src"
+VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src" -r "$ROOT/scripts/documentation/requirements.txt"
 
 for tool in actionlint shellcheck yamllint lychee ktlint rumdl; do
     ln -sfn "$(command -v "$tool")" "$VENV/bin/$tool"

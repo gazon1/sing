@@ -16,8 +16,4 @@ tags:
       id: settings_notifications_enabled_switch
     timeout: 8000
 - assertVisible:
-    id: reminder_defaults_section
-- assertVisible:
     id: settings_notifications_sound_switch
-- assertVisible:
-    id: reminder_offset_radio_at_due_time

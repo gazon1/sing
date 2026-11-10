@@ -2,8 +2,8 @@
 title: "Detekt rules to make the slow path unreachable, not just documented"
 date: 2026-10-05
 tags: [quality-tools, detekt, performance, testing]
-status: open
-status-was: proposed
+status: deferred
+status-was: open
 ---
 
 ## Context
@@ -75,6 +75,12 @@ guesses wrong is worse than no rule, because it teaches agents to suppress it.
   the measured numbers to justify it are in the perf ADR.
 - `:detekt-rules` is itself subject to detekt, so a new rule must be clean code
   — the module's own gate covers that.
+- **Deferred 2026-11-09.** None of the three rules has been written: a search of
+  `:detekt-rules` for `NoPerTaskBlockingInLoop`,
+  `PolymorphicSealedSerializationContext` and `FakeSeedUserMismatch` finds no
+  such rule. The decision — *which* rules to write, and in what order — stands;
+  the writing does not. Revisit when the slow path is next paid for: rule (1)
+  comes back the first time `TaskComputed.isBlocked` is called per task again.
 
 ## Links
 

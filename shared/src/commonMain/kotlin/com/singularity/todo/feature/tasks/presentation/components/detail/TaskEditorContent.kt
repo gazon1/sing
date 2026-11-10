@@ -8,7 +8,9 @@
 // suppression that outlives its justification.
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,6 +39,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -141,6 +146,8 @@ private fun TaskEditorContent(
     startTime: LocalTime? = null,
     startDateCallbacks: DateRowCallbacks? = null,
     project: ProjectId? = null,
+    projectName: String? = null,
+    projectColor: Int? = null,
     projectCallbacks: RowCallbacks<ProjectId?>? = null,
     tags: ImmutableList<TagId> = persistentListOf(),
     tagsCallbacks: RowCallbacks<List<TagId>>? = null,
@@ -345,10 +352,39 @@ private fun TaskEditorContent(
 
             // Project row
             projectCallbacks?.let { cb ->
+                val projectLabel =
+                    when {
+                        project == null -> "No project"
+                        !projectName.isNullOrBlank() -> projectName
+                        else -> "Project unavailable"
+                    }
                 TaskAttributeCard(
-                    icon = Icons.Filled.Folder,
-                    label = project?.value ?: "No project",
+                    icon = if (project != null) null else Icons.Filled.Folder,
+                    label = projectLabel,
                     isActive = project != null,
+                    leadingContent =
+                        if (project != null) {
+                            {
+                                if (projectColor != null) {
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .size(14.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(projectColor)),
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Folder,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(TaskSpacing.iconSize),
+                                    )
+                                }
+                            }
+                        } else {
+                            null
+                        },
                     onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
                     trailingContent =
                         if (cb.onClear != null && project != null) {
@@ -586,6 +622,8 @@ private fun TaskEditorScaffold(
         startTime = model.startTime,
         startDateCallbacks = callbacks.startDate,
         project = model.project,
+        projectName = model.projectName,
+        projectColor = model.projectColor,
         projectCallbacks = callbacks.project,
         tags = model.tags,
         tagsCallbacks = callbacks.tags,

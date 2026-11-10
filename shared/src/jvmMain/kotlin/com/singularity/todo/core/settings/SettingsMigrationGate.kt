@@ -15,11 +15,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * are actually used; building the module is then free of side effects.
  *
  * [isStarted] is read by the tests that hold both halves of that property.
+ *
+ * Public, because the platform module binds it and the desktop test module has to
+ * bind the same type: the production/test parity check compares the registrations of
+ * the two graphs, and a type the production graph binds and the test graph does not is
+ * exactly what that check exists to catch. A class that only the module that binds it
+ * can name makes that mirror impossible to write.
  */
-internal class SettingsMigrationGate(
-    private val migration: SettingsDataStoreMigration,
-    private val scope: CoroutineScope,
-) {
+class SettingsMigrationGate(private val migration: SettingsDataStoreMigration, private val scope: CoroutineScope) {
     private val started = AtomicBoolean(false)
 
     val isStarted: Boolean get() = started.get()

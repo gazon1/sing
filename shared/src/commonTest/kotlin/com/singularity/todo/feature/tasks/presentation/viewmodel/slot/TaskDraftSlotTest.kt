@@ -254,7 +254,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 

@@ -3,6 +3,7 @@ title: "Retire NoDirectClockSystemRule"
 date: 2026-10-10
 status: open
 status-was: proposed
+review-by: 2026-12-10
 ---
 
 # Context

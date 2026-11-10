@@ -4,6 +4,9 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.sync.BatchPushRequest
 import com.singularity.todo.core.sync.DeltaPatch
 import com.singularity.todo.core.sync.DocType
+import com.singularity.todo.core.sync.FieldChange
+import com.singularity.todo.core.sync.FieldOp
+import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -11,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.helpers.TwoInstanceHarness
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -147,12 +151,19 @@ class TwoInstanceHarnessTest {
                     "instance B's graph must resolve the shared server's client",
                 )
 
+                // A patch is a set of field operations under a clock: the server
+                // owns the row's identity and counts, and it merges what a
+                // patch names field by field. A patch without a clock and
+                // without an operation is refused — there is nothing to order
+                // and nothing to write.
                 val patch =
                     DeltaPatch(
                         patchId = "patch-1",
                         entityId = "task-1",
                         entityType = DocType.Task,
                         baseVersion = 0L,
+                        hlc = Hlc.of(1_000L, 0, "device-a"),
+                        ops = listOf(FieldChange("title", FieldOp.SET, JsonPrimitive("Written on A"))),
                     )
                 val response =
                     harness.instanceA.koin.get<SyncApiClient>().batchPush(

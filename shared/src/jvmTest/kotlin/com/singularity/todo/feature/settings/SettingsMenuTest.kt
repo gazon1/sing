@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.settings
 
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -24,18 +25,27 @@ import kotlin.test.assertTrue
  * scrolled: that needs a device, and `Maestro/helpers/settings-tab.yaml` is the
  * helper every flow uses to open a tab by name.
  */
+@Tag("fast")
 class SettingsMenuTest {
     @Test
-    fun `every tab is a row of the menu, exactly once and in the declared order`() {
+    fun `every tab is a row of the menu, exactly once`() {
         val tabRows = SETTINGS_MENU_ROWS.filterIsInstance<SettingsMenuRow.Tab>().map { it.tab }
 
-        // Equality with `entries` is the whole reachability claim: no tab is
-        // missing (unreachable on a phone), none appears twice (two rows that
-        // answer to one tab), and the order is the one the enum declares.
+        // The set is the reachability claim: no tab is missing (unreachable on
+        // a phone) and none is invented. The count is the "exactly once" claim:
+        // a tab that appears twice is two rows answering to one tab.
+        //
+        // The order is not the enum's: the menu is a list of groups, and the
+        // groups say which tab comes first — see `SETTINGS_GROUPS`.
         assertEquals(
-            SettingsTab.entries,
-            tabRows,
-            "the menu must offer every settings tab once, in tab order",
+            SettingsTab.entries.toSet(),
+            tabRows.toSet(),
+            "the menu must offer every settings tab, and no tab that does not exist",
+        )
+        assertEquals(
+            SettingsTab.entries.size,
+            tabRows.size,
+            "the menu must offer every settings tab once",
         )
     }
 

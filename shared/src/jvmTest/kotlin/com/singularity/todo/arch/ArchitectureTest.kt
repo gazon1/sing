@@ -287,7 +287,6 @@ class ArchitectureTest {
                 // Sync outbox rows are internal machinery keyed by patchId/entityId.
                 "SyncOutboxDao.delete",
                 "SyncOutboxDao.markFailed",
-                "SyncOutboxDao.deleteByEntity",
                 "SyncOutboxDao.clearAll",
                 // The dead-letter shelf is the same transport queue by another name: a
                 // patch that exceeded its retry budget is moved there verbatim, and the

@@ -9,6 +9,7 @@ import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
+import com.singularity.todo.test.helpers.clickSettingsTab
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.connectedCredential
@@ -72,7 +73,7 @@ class CalendarSyncNowScenarioTest {
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")
-            clickTag(TestTags.settingsTab("Calendar"))
+            clickSettingsTab("Calendar")
             clickTag(TestTags.CalendarSync.providerSegment("Google Calendar"))
 
             // Below the fold on a 1024x768 window: the Google panel stacks account,

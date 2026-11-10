@@ -291,6 +291,7 @@ def _load_local_module(name: str):
 
 _controls = _load_local_module("gate_controls")
 reachability = _load_local_module("gate_reachability")
+control_scope = _load_local_module("control_scope")
 
 FIXTURE_GATES = _controls.FIXTURE_GATES
 SCRIPT_GATES = _controls.SCRIPT_GATES
@@ -992,6 +993,37 @@ def check_escape_hatches() -> list[str]:
     return errors
 
 
+def _gate_files(gate) -> set[str]:
+    """The files that belong to a gate: the script it runs and the target its control edits."""
+    files: set[str] = set()
+    sabotage_path = getattr(gate, "sabotage_path", "")
+    if sabotage_path:
+        files.add(sabotage_path)
+    control = _load_registry().GATE_CONTROLS.get(gate.name)
+    if control is not None and control.proves:
+        files.add(control.proves)
+    for token in gate.cmd:
+        token = str(token)
+        if token.startswith("scripts/"):
+            files.add(token)
+    return files
+
+
+def _control_scope() -> dict[str, str] | None:
+    """The gates whose controls this change can have broken, or None to prove them all.
+
+    None means the scope could not be read: no base ref to measure against, no
+    merge-base, or a change with no files in it. A scope nobody can read is not
+    a scope, and a control phase that proves nothing because it could not
+    decide what to prove is the defect the phase exists to catch.
+    """
+    changed = control_scope.changed_files()
+    if changed is None:
+        return None
+    gates = [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES, *FIXTURE_GATES]
+    return control_scope.affected_gates(changed, {gate.name: _gate_files(gate) for gate in gates})
+
+
 def check_can_fail(include_fast: bool = True) -> list[str]:
     """Part B — every registered script gate can fail.
 
@@ -1007,11 +1039,23 @@ def check_can_fail(include_fast: bool = True) -> list[str]:
         "        interrupted run is repaired by the next one, but a tree that changes\n"
         "        under the sabotage is a tree the sabotage proves nothing about."
     )
+    # The scope is read before anything is sabotaged: the sabotage dirties the
+    # tree, and a scope computed after it would blame the gate that was just
+    # sabotaged.
+    scope = _control_scope()
+    if scope is None:
+        print("  note: the scope of this change could not be read — every control runs.")
+    else:
+        total = len(SCRIPT_GATES) + len(SABOTAGE_ONLY_GATES) + len(FIXTURE_GATES)
+        print(f"  note: {len(scope)} of {total} controls are in scope for this change.")
     errors += check_escape_hatches()
     # `SCRIPT_GATES + SABOTAGE_ONLY_GATES` is the sabotage registry;
     # `FIXTURE_GATES` is the same property proved a different way. Both are
     # checked here so the two kinds cannot drift apart in *when* they run.
     for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES]:
+        if scope is not None and gate.name not in scope:
+            print(f"  skip  {gate.name}: this change does not touch it")
+            continue
         target = ROOT / gate.sabotage_path
         exists = target.is_dir() if gate.target_is_dir else target.is_file()
         if not exists:
@@ -1083,11 +1127,11 @@ def check_can_fail(include_fast: bool = True) -> list[str]:
         else:
             print(f"  ok  {gate.name}: fails on sabotage ({gate.sabotage_path})")
 
-    errors += check_fixture_gates()
+    errors += check_fixture_gates(scope)
     return errors
 
 
-def check_fixture_gates() -> list[str]:
+def check_fixture_gates(scope: dict[str, str] | None = None) -> list[str]:
     """Prove a gate that reads a synthesised input can fail on it.
 
     The clean-tree run comes first for the same reason as the sabotage path: a
@@ -1096,6 +1140,9 @@ def check_fixture_gates() -> list[str]:
     """
     errors: list[str] = []
     for gate in FIXTURE_GATES:
+        if scope is not None and gate.name not in scope:
+            print(f"  skip  {gate.name}: this change does not touch it")
+            continue
         if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
             print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
                   f"to include it (hk.pkl does)")
@@ -2325,10 +2372,9 @@ _REACH_SURFACES = (
 #: up running another, and it is invisible to a scanner that only reads surfaces.
 #: The path must be in *command position* — preceded by an interpreter, a shell, or
 #: `./`. Bare prose in a docstring does not count, and that distinction is the whole
-#: reason this is narrower than "any mention": `check-gate-liveness.py` writes
-#: "check-backlog-issue-refs.py went with the removed backlog-issue-refs gate" in its
-#: exemption text, and matching that would keep a retired gate reachable by accident
-#: while appearing to check.
+#: reason this is narrower than "any mention": `check-release-tags.py` writes
+#: "check-backlog-issue-refs.py" in its own prose, and matching that would keep a
+#: retired gate reachable by accident while appearing to check.
 _GATE_TO_GATE_CALL = re.compile(
     r"(?:python3\s+|bash\s+|sh\s+|\./)(scripts/check[-_][\w.-]+\.(?:py|sh))"
 )

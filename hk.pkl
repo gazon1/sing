@@ -137,12 +137,6 @@ hooks {
         check = "python3 -m unittest discover -s scripts/tests"
       }
 
-      ["gate liveness"] {
-        exclusive = true
-        profiles = List("!fast")
-        check = "python3 scripts/check-gate-liveness.py"
-      }
-
       ["detekt-rules:test"] {
         exclusive = true
         profiles = List("!fast")

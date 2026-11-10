@@ -7,7 +7,6 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.singularity.todo.core.ui.TestTags
@@ -93,7 +92,14 @@ fun DesktopComposeUiTest.openDrawer() =
         // node that satisfies ContentDescription = 'Menu'", which blames the input
         // injection and the drawer and never mentions timing — measured on
         // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
-        awaitContentDescription(DesktopShell.HAMBURGER).performClick()
+        //
+        // And await it being ON SCREEN, not merely composed: a node that exists
+        // before the first layout pass has zero bounds, and the click is dispatched
+        // to the window's origin — on this shell that is the menu bar, so the drawer
+        // never opens and the wait below times out on a test that never clicked the
+        // button. Measured on `PlansGranularityRestoredScenarioTest` in CI
+        // (run 42720173415), where the retry hit it a second time as well.
+        awaitContentDescriptionDisplayed(DesktopShell.HAMBURGER).performClick()
         waitUntil(
             conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
             timeoutMillis = TIMEOUT_MS,
@@ -118,13 +124,13 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) =
     }
 
 /**
- * Pops the shell's navigation stack by clicking its back button.
+ * Leaves the screen that is on top, the way a user leaves it.
  *
- * The shell's leading top-bar control is a hamburger or a back arrow depending on
- * `canGoBack` — its contentDescription is [DesktopShell.HAMBURGER] or
- * [DesktopShell.BACK] respectively. So after pushing a screen (a task editor, a
- * project detail) the drawer cannot be opened from that control until the push is
- * popped, and [openDrawer] would fail to find the hamburger.
+ * The screen's own back arrow is the control that means "leave this screen": it pops
+ * the screen inside its own graph. The shell's arrow (`TestTags.SHELL_BACK_BUTTON`)
+ * pops the stack of the top-level route instead, which for a nested destination — the
+ * notes editor lives in the notes graph — takes the whole graph with it, so a flow
+ * that came from the notes list would find the agenda instead of the list.
  *
  * Saving a task or a note does **not** pop: the editor stays open with its save
  * button still on screen, so a flow has to leave explicitly before it can change
@@ -133,7 +139,7 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) =
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.goBack() =
     step("goBack") {
-        onNodeWithContentDescription(DesktopShell.BACK).performClick()
+        clickScreenBack()
         waitUntil(
             conditionDescription = "shell returns to a drawer-openable tab",
             timeoutMillis = TIMEOUT_MS,

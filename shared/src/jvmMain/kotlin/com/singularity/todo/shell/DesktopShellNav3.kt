@@ -1,11 +1,13 @@
 package com.singularity.todo.shell
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
@@ -14,6 +16,7 @@ import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -29,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -51,6 +55,7 @@ import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.LocalNav3State
+import com.singularity.todo.feature.nav.MENU_BUTTON_TITLE
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
@@ -109,6 +114,9 @@ fun DesktopShellNav3Root(
     val fabCurrent: AppDestination =
         topMostRoute as? AppDestination
             ?: current
+
+    // Whether the shell's leading control is a back arrow or the drawer's button.
+    val canGoBack: Boolean = navigator.canGoBack()
 
     // A back that has nothing left to pop leaves the app, as it does on Android, where the
     // same `goBack()` result finishes the activity. The window is the host's, so the shell
@@ -355,7 +363,43 @@ fun DesktopShellNav3Root(
                 },
                 floatingActionButtonPosition = FabPosition.End,
                 topBar = {
-                    ComposeTopMenuBar(entries = menuEntries)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // The drawer is still the shell's navigation surface on desktop,
+                        // and the button that opens it is the only way into it: the
+                        // commit that dropped the duplicate desktop bar (`cbcab84b5`)
+                        // removed the whole `TopAppBar` with the hamburger in its
+                        // `navigationIcon`, and the drawer became unreachable. The
+                        // menu bar that replaced the bar does not open the drawer,
+                        // so the button lives beside it rather than in a bar of its own.
+                        //
+                        // It stays reachable while a screen is pushed: the drawer is
+                        // the app's navigation surface, and a task editor that hides
+                        // it would leave the menu bar as the only way out. The back
+                        // arrow is a second control next to it, not a replacement —
+                        // the same pairing the Android shell has, where the menu item
+                        // lives in the bottom bar and the arrow in the top one.
+                        IconButton(
+                            onClick = { scope.launch { drawerState.open() } },
+                            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+                        ) {
+                            Icon(Icons.Default.Menu, contentDescription = MENU_BUTTON_TITLE)
+                        }
+                        // The shell's own back arrow. It appears when there is
+                        // something to pop, so a pushed screen can be left without
+                        // reaching for the screen's own arrow.
+                        if (canGoBack) {
+                            IconButton(
+                                onClick = { scope.launch { navigator.goBack() } },
+                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                )
+                            }
+                        }
+                        ComposeTopMenuBar(entries = menuEntries)
+                    }
                 },
             ) { padding ->
                 CompositionLocalProvider(LocalNav3State provides state) {

@@ -124,6 +124,33 @@ class BuildPatchDiffTest {
         }
 
     @Test
+    fun `a patch names no field the server owns`() =
+        runTest {
+            val patch =
+                builder(FakeSyncShadowDao())
+                    .build(
+                        entity(
+                            "title" to "Buy milk",
+                            "id" to "entity-1",
+                            "userId" to "owner-1",
+                            "hlc" to "1:0:device-a",
+                            "serverVersion" to "3",
+                        ),
+                        scope,
+                        NOW,
+                    )
+
+            assertEquals(
+                setOf("title"),
+                patch.ops.map { it.field }.toSet(),
+                "the server owns the row's key, its owner, its clock and its version. It " +
+                    "applies the allowlist to the patch before it writes a single field, so " +
+                    "a patch that names one of them is refused whole and nothing lands — " +
+                    "the client is the side that knows which fields those are",
+            )
+        }
+
+    @Test
     fun `a field cleared to null becomes an unset`() =
         runTest {
             val shadowDao = FakeSyncShadowDao()

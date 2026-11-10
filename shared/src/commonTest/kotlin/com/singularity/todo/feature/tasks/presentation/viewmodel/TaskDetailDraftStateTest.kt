@@ -1,9 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import com.singularity.todo.core.text.Revisioned
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
-
-import com.singularity.todo.core.text.Revisioned
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -68,6 +68,13 @@ object Mapper {
 
     fun charCount(s: String): Int = s.length
 
+    /**
+     * Legacy completion for export v2: `checked == 1` means done. `state` is not a
+     * completion gate (`checked==1,state==1` is the dominant completed form) and
+     * `complete` is uninformative in observed exports. See docs/research/2727.
+     */
+    fun isLegacyCompleted(task: LegacyTask): Boolean = task.checked == 1
+
     fun map(
         legacy: LegacyBackup,
         markCompleted: Boolean,
@@ -101,7 +108,7 @@ object Mapper {
                 timeEntries = mapTimeEntries(data.timeStatistics, tasksById),
             )
 
-        val completedCandidates = tasks.count { it.checked == 1 && it.state == 0 }
+        val completedCandidates = tasks.count(::isLegacyCompleted)
         return MapperResult(payload = payload, skipped = skippedCounts(data, completedCandidates))
     }
 }
@@ -177,7 +184,7 @@ private fun mapTasks(
     val mapped = mutableListOf<TaskDto>()
     tasks.forEachIndexed { idx, tk ->
         val updatedAt = tk.modificatedDate.takeIf { it > 0 } ?: now()
-        val completedAt = if (markCompleted && tk.checked == 1 && tk.state == 0) updatedAt else null
+        val completedAt = if (markCompleted && Mapper.isLegacyCompleted(tk)) updatedAt else null
         val dueDate = tk.start?.takeIf { it.isNotBlank() }?.substringBefore('T')
         mapped.add(
             TaskDto(

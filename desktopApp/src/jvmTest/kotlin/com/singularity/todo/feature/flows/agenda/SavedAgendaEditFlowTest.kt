@@ -1,9 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -14,7 +11,6 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
@@ -125,13 +121,14 @@ class SavedAgendaEditFlowTest {
             awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
             assertTagDisplayed(TestTags.savedAgendaCard("editable_view"))
 
-            // Open overflow menu (⋮) on the card — text-only, no testTag.
-            // The desktop AWT menu bar also renders a plain "Edit" label (no click
-            // action), so menu items are matched by text AND click action.
+            // Open overflow menu (⋮) on the card. The menu items are selected by
+            // their tags: the desktop menu bar carries its own "Edit" entry, and a
+            // text matcher cannot tell the two apart — the menu bar's label is
+            // clickable, so "text + click action" matched the wrong one.
             clickText("⋮")
-            assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
-            assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
-            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT)
+            awaitTag(TestTags.SAVED_AGENDA_MENU_DELETE)
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
 
             // Edit mode: name input is shown pre-filled
             assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
@@ -149,7 +146,7 @@ class SavedAgendaEditFlowTest {
 
             // Open menu → Edit
             clickText("⋮")
-            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
 
             awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextClearance()
             awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextInput("New Name")
@@ -186,7 +183,7 @@ class SavedAgendaEditFlowTest {
 
             // Open menu → Edit
             clickText("⋮")
-            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
 
             assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
 

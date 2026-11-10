@@ -3,10 +3,8 @@ package com.singularity.todo.feature.flows.agenda
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -97,7 +95,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
         assertTextDisplayed("Configurable")
         clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+        awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
         assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
     }
 
@@ -184,7 +182,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
             // And it survives the round trip: reopen and the section is still there.
             assertTextDisplayed("Configurable")
             clickText("⋮")
-            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
             // The section row renders the description twice — as the section name
             // and as the row subtitle — so match the first, not "exactly one".
             assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
@@ -223,7 +221,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
             // Reopen: the selector round-tripped through the stored JSON.
             assertTextDisplayed("Configurable")
             clickText("⋮")
-            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
             assertNodeDisplayed(hasText("In progress"), "In progress row after reopen")
         }
 }

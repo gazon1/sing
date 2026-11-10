@@ -1,5 +1,6 @@
 package com.singularity.todo.importer
 
+import com.singularity.todo.core.links.InternalLinkSchemes
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -319,8 +320,8 @@ private fun isSafeHref(href: String): Boolean =
     href.startsWith("http://") ||
         href.startsWith("https://") ||
         href.startsWith("mailto:") ||
-        href.startsWith("note://") ||
-        href.startsWith("task://")
+        href.startsWith(InternalLinkSchemes.NOTE_PREFIX) ||
+        href.startsWith(InternalLinkSchemes.TASK_PREFIX)
 
 private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 

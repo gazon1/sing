@@ -148,5 +148,41 @@ class TestRealCorpus(unittest.TestCase):
             self.assertNotIn(p.stem, {d.stem for d in CFG.decisions()})
 
 
+class TestSupersedesSlugs(unittest.TestCase):
+    """One decision can replace several, so the value is a list.
+
+    The list form is what the corpus really contains — a decision that replaces
+    two older ones writes `supersedes: [a, b]`. Every consumer of the field used
+    to read it as a single slug, so the list was read as the first target with a
+    comma attached, and the second target was silently not replaced: the digest
+    kept the Consequences bullets of a decision that no longer stands.
+    """
+
+    def test_a_single_slug_is_one_target(self):
+        self.assertEqual(['2026-10-18-greeting'], adr_corpus.supersedes_slugs('2026-10-18-greeting'))
+
+    def test_a_list_is_every_target(self):
+        self.assertEqual(
+            ['2026-10-18-a', '2026-10-18-b'],
+            adr_corpus.supersedes_slugs('[2026-10-18-a, 2026-10-18-b]'),
+        )
+
+    def test_quotes_and_the_md_suffix_are_stripped(self):
+        self.assertEqual(
+            ['2026-10-18-a', '2026-10-18-b'],
+            adr_corpus.supersedes_slugs('["2026-10-18-a.md", \'2026-10-18-b\']'),
+        )
+
+    def test_an_empty_value_names_nothing(self):
+        self.assertEqual([], adr_corpus.supersedes_slugs(''))
+        self.assertEqual([], adr_corpus.supersedes_slugs('[]'))
+
+    def test_a_repeated_target_is_named_once(self):
+        self.assertEqual(
+            ['2026-10-18-a'],
+            adr_corpus.supersedes_slugs('[2026-10-18-a, 2026-10-18-a]'),
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -62,8 +62,10 @@ class SetDueDateFlowTest {
             // until scrolled into view, and assertIsDisplayed fails on a zero-size node.
             scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
-            // The row renders the ISO date, not the placeholder.
-            assertTextDisplayed(today.toString())
+            // The row renders the due date in the screen's locale, not the ISO date
+            // it used to print (#1700): weekday, day, month, year. The desktop suite
+            // pins the locale to English, so that is the label it reads.
+            assertTextDisplayed("Wed, 16 Sep 2026")
             assertTextNotExists("Add date")
         }
 

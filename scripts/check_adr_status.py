@@ -45,7 +45,10 @@ CORPUS = adr_corpus.load(ROOT)
 
 STATUS_RE = re.compile(r'(?m)^status:\s*(\S+)')
 SUPERSEDED_BY_RE = re.compile(r'(?m)^superseded[_-]by:\s*(\S+)')
-SUPERSEDES_RE = re.compile(r'(?m)^supersedes:\s*(\S+)')
+#: The whole value, not the first word of it: the value may be a list of the
+#: decisions a decision replaces — `supersedes: [a, b]` — and a capture that
+#: stopped at the first space checked `[a,` and left the second target out.
+SUPERSEDES_RE = re.compile(r'(?m)^supersedes:\s*(.+)$')
 DATED_STEM_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})-')
 
 
@@ -118,15 +121,19 @@ def check(path: pathlib.Path, *, location: str, slugs: set[str], stale_days: int
     # one the digest acts on: refresh-decisions-digest.py drops the Consequences
     # bullets of any slug named here, so a typo does not merely fail to link — it
     # silently removes a real decision's guidance from the generated summary.
+    #
+    # A decision may replace more than one, so the value is a list — and every
+    # target is checked: a list read as one slug checks the first target with a
+    # comma attached and leaves the rest unchecked.
     newer = SUPERSEDES_RE.search(fm)
     if newer:
-        older = newer.group(1).strip('[]"\'').removesuffix('.md')
-        if older not in slugs:
-            errors.append(f'{rel}: `supersedes` points at {older}, which does not exist — '
-                          f"the digest drops the target's Consequences bullets when it "
-                          f'cannot resolve this')
-        elif older == path.stem:
-            errors.append(f'{rel}: `supersedes` points at itself')
+        for older in adr_corpus.supersedes_slugs(newer.group(1)):
+            if older not in slugs:
+                errors.append(f'{rel}: `supersedes` points at {older}, which does not exist — '
+                              f"the digest drops the target's Consequences bullets when it "
+                              f'cannot resolve this')
+            elif older == path.stem:
+                errors.append(f'{rel}: `supersedes` points at itself')
 
     # ── rule 1: staleness. Only decisions are dated, so only decisions can age.
     #

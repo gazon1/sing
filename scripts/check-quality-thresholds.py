@@ -46,6 +46,7 @@ import os
 import pathlib
 import re
 import sys
+import urllib.request
 import zipfile
 
 import click
@@ -70,6 +71,13 @@ SECTION = "## The thresholds this repository uses"
 
 #: The entry the pinned detekt ships its own defaults under, inside detekt-core.
 DEFAULT_CONFIG_ENTRY = "default-detekt-config.yml"
+
+#: Where the pinned jar is fetched from when no Gradle home has it.
+MAVEN_CENTRAL = "https://repo1.maven.org/maven2"
+
+#: Where that jar is kept, so a second run reads it from disk instead of
+#: fetching it again.
+DETEKT_CORE_CACHE = pathlib.Path.home() / ".cache" / "ropefish" / "detekt-core"
 
 #: Top-level blocks of a detekt config that are not rule sets.
 NON_RULE_SECTIONS = {"config", "processors", "console-reports"}
@@ -320,10 +328,17 @@ def _gradle_homes() -> list[pathlib.Path]:
 
 
 def shipped_default_config(version: str) -> str | None:
-    """`default-detekt-config.yml` from the pinned `detekt-core` jar, if present.
+    """`default-detekt-config.yml` from the pinned `detekt-core` jar.
 
     `DETEKT_CORE_JAR` names the jar directly, which is how a host whose Gradle
     cache lives somewhere unusual runs the gate without changing the script.
+
+    A Gradle home is the first place to look, but it is not the only one that
+    counts: the Static gates CI job resolves no detekt artifact of its own —
+    the detekt Gradle plugin's own classpath does not pull `detekt-core` — so
+    a gate that can only read a Gradle cache never passes there. The jar is a
+    public Maven artifact of the version the catalog pins, so the gate fetches
+    what it needs instead of asking the job to have run something else first.
     """
     explicit = os.environ.get("DETEKT_CORE_JAR")
     if explicit:
@@ -338,7 +353,43 @@ def shipped_default_config(version: str) -> str | None:
             text = _default_config_from(jar)
             if text is not None:
                 return text
+
+    jar = _fetch_detekt_core(version)
+    if jar is not None:
+        return _default_config_from(jar)
     return None
+
+
+def _fetch_detekt_core(version: str) -> pathlib.Path | None:
+    """Download the pinned `detekt-core` jar into a private cache.
+
+    The jar is fetched over HTTPS from Maven Central, keyed by the version the
+    catalog pins, and a download that does not contain the shipped default
+    config is not kept — a truncated jar would otherwise be cached and read as
+    truth on every later run.
+    """
+    jar = DETEKT_CORE_CACHE / version / f"detekt-core-{version}.jar"
+    if jar.is_file():
+        return jar
+
+    url = f"{MAVEN_CENTRAL}/dev/detekt/detekt-core/{version}/detekt-core-{version}.jar"
+    try:
+        with urllib.request.urlopen(url, timeout=60) as response:
+            payload = response.read()
+    except (OSError, ValueError):
+        return None
+
+    partial = jar.with_name(jar.name + ".part")
+    try:
+        jar.parent.mkdir(parents=True, exist_ok=True)
+        partial.write_bytes(payload)
+        if _default_config_from(partial) is None:
+            partial.unlink(missing_ok=True)
+            return None
+        partial.replace(jar)
+    except OSError:
+        return None
+    return jar
 
 
 def _default_config_from(jar: pathlib.Path) -> str | None:
@@ -365,9 +416,10 @@ def check_tree() -> tuple[list[str], str | None]:
     if defaults is None:
         return [], (
             f"the default configuration of detekt {version} was not found in a "
-            f"Gradle home — run a detekt task once (`./gw detekt`) to populate the "
-            f"cache, or set DETEKT_CORE_JAR to the detekt-core jar. The default "
-            f"column cannot be checked against a version nobody has resolved."
+            f"Gradle home and could not be fetched from {MAVEN_CENTRAL} — run a "
+            f"detekt task once (`./gw detekt`) to populate the cache, or set "
+            f"DETEKT_CORE_JAR to the detekt-core jar. The default column cannot "
+            f"be checked against a version nobody has resolved."
         )
 
     return (

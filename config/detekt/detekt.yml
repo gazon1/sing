@@ -607,3 +607,12 @@ no-false-immutable:
 no-collection-materialization-in-composable:
   NoCollectionMaterializationInComposable:
     active: true
+
+# Added 2026-11-09. A link grammar has one home: `TaskLinkSpec` for a deep link,
+# `core/links/InternalLinks.kt` for an internal one. A string literal that names
+# a scheme anywhere else is a second copy of the format, and the copy that is
+# not updated is a link that opens nothing. The rule reads production source
+# sets only: the tests spell the schemes on purpose.
+link-grammar:
+  NoHandWrittenLinkScheme:
+    active: true

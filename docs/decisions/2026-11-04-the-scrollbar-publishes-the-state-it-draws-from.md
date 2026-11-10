@@ -1,3 +1,10 @@
+---
+title: "The scrollbar publishes the state it draws from"
+date: 2026-11-04
+status: accepted
+tags: [ui, desktop, compose]
+---
+
 # The scrollbar publishes the state it draws from
 
 ## Idea

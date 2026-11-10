@@ -1,9 +1,9 @@
 ---
 title: SyncEngineState.phases exposed as internal val [#257](https://github.com/gazon1/sing/issues/257)
 date: 2026-10-10
-status: open
+status: deferred
 deciders: mavis
-status-was: proposed
+status-was: open
 gh: https://github.com/gazon1/sing/issues/257
 ---
 

@@ -50,7 +50,18 @@ internal class SyncPatchBuilder(
         // on it drops the fields the first patch carried. A new entity has no
         // confirmed state, so the base is empty and the patch carries every field.
         val base = decode(shadow?.confirmedJson ?: EMPTY_STATE)
-        val ops = diff(base, state)
+        // The model goes on the wire whole, so the diff of a fresh entity names
+        // every field of it — including the four the server owns: the row's `id`,
+        // its `userId`, the `hlc` the patch carries beside its operations, and
+        // the `serverVersion` the server counts itself.
+        //
+        // A patch that names one of them is refused **in full**: the server applies
+        // the allowlist to the patch before it writes a single field, so one
+        // server-owned field means the whole patch is rejected with
+        // `field_not_writable` and nothing lands. The fields are dropped here,
+        // where the patch is built: the client is the side that knows which fields
+        // the server owns.
+        val ops = diff(base, state).filter { it.field !in SyncContract.SERVER_OWNED }
 
         val patch =
             DeltaPatch(

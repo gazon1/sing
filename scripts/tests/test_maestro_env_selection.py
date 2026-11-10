@@ -70,7 +70,11 @@ class EnvironmentSelectsTheRunTest(unittest.TestCase):
 
     def test_flow_env_selects_a_directory(self):
         out = _dry_run({"FLOW": "Maestro/flows/tasks"})
-        self.assertIn("Total discovered: 22", out)
+        # The runner discovers recursively, so the number of flows in the tree
+        # is read from the tree: a hardcoded number fails when a flow is added,
+        # which says nothing about the selection this test is about.
+        expected = len(list((REPO_ROOT / "Maestro/flows/tasks").rglob("*.yaml")))
+        self.assertIn(f"Total discovered: {expected}", out)
 
     def test_tags_env_selects_by_tag(self):
         out = _dry_run({"TAGS": "agenda"})

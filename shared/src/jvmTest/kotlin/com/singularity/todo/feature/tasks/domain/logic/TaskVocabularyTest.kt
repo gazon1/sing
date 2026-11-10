@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -10,6 +7,8 @@ import com.singularity.todo.feature.agenda.domain.model.heldBuckets
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag

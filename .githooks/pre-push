@@ -302,6 +302,34 @@ keep_suite_log() {
     echo "   the whole log is at $kept"
 }
 
+# promise_touched_files <git-log range…> — the files those commits carry.
+#
+# `git log --name-only` shows what each commit changed, and it says nothing
+# about a MERGE commit: the diff of a merge is computed against its parents,
+# and the plain log does not show it. A file that a merge introduced —
+# a file born in the resolution of a merge — is therefore invisible to it,
+# and a gate that judges only what the plain log names does not judge that
+# file at all. `--diff-merges=first-parent` shows every merge against the
+# mainline it builds on, which is exactly what such a push carries.
+#
+# Git older than 2.31 does not know the option; `--cc` (the combined diff)
+# is the old way of seeing what a merge introduced, and it is the fallback.
+#
+# `core.quotePath=false` keeps a path with non-ASCII letters readable: the
+# default escapes them (`"f/Caf\303\251.kt"`), and the escaped form matches
+# no pattern the gates use — the file is in the push and no gate sees it.
+promise_touched_files() {
+    local touched=""
+    if touched="$(git -c core.quotePath=false log --diff-merges=first-parent \
+        --name-only --pretty=format: "$@" 2>/dev/null)"; then
+        printf '%s\n' "$touched" | sed '/^$/d' | sort -u
+        return 0
+    fi
+    git -c core.quotePath=false log --cc --name-only --pretty=format: "$@" 2>/dev/null \
+        | sed '/^$/d' | sort -u || true
+    return 0
+}
+
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
 # Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
@@ -309,6 +337,13 @@ keep_suite_log() {
 # runs it — and they are pointed at the pushed tree.
 
 GATES_FAILED=0
+
+# The exit code that says "no test ran". `unittest` answers with it, and
+# `scripts/run-gate-tests.py` carries the same number as its own
+# `NO_TESTS_RAN`. It is the absence of a measurement, not a failure of the
+# tree: a module that holds no test cases cannot fail, and a push must not
+# be blocked by one.
+NO_TESTS_RAN=5
 
 echo "=== Pre-push — structural gates (against the pushed tree) ==="
 
@@ -384,11 +419,26 @@ for i in "${!PUSH_REFS[@]}"; do
     # The files the pushed commits touch. `git log --name-only` rather than
     # `git diff`: the range is the pushed commits, and a file that a commit
     # touched is a file this push carries.
-    PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+    #
+    # An empty range means the commits are already on some remote — a branch
+    # pushed under another name, or a mirror — and `git log --not --remotes`
+    # drops every commit a remote already has, while the push still carries
+    # them to the ref it names. Then the history of the pushed commit is the
+    # answer: a gate that judges too much only costs time, while a gate that
+    # judges too little lets a defect through.
+    PROMISE_TOUCHED="$(promise_touched_files "${PROMISE_RANGE[@]}")"
+    if [ -z "$PROMISE_TOUCHED" ]; then
+        PROMISE_TOUCHED="$(promise_touched_files "$local_sha")"
+    fi
     # Touched Markdown files (newline-delimited), for gates that check only the
     # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
     PROMISE_TOUCHED_MD="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.md$' | sed '/^$/d' || true)"
     PROMISE_TOUCHED_MD_FILE=""
+    # Touched Kotlin sources (newline-delimited), for the formatting gate: the
+    # gate judges the files this push carries, not the whole tree. A formatting
+    # defect in a file the push does not touch is CI's to find — a push is not
+    # blocked by a defect it does not carry.
+    PROMISE_TOUCHED_KT="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.kts?$' | sed '/^$/d' || true)"
 
     # promise_touched <pattern> — did this push touch a path matching pattern?
     #
@@ -512,14 +562,26 @@ for i in "${!PUSH_REFS[@]}"; do
                         ;;
                     if-touched:*)
                         step_touched=0
+                        step_pattern_list=""
                         IFS=',' read -r -a step_patterns <<< "${step_condition#if-touched:}"
                         for step_pattern in "${step_patterns[@]}"; do
+                            if [ -z "$step_pattern_list" ]; then
+                                step_pattern_list="$step_pattern"
+                            else
+                                step_pattern_list="$step_pattern_list, $step_pattern"
+                            fi
                             if promise_touched "$step_pattern"; then
                                 step_touched=1
                                 break
                             fi
                         done
                         if [ "$step_touched" = "0" ]; then
+                            # A gate that did not run says so. A step that is
+                            # skipped without a word is a step the reader
+                            # cannot tell apart from a step that was never
+                            # reached — and the difference is the whole
+                            # answer of a scoped gate.
+                            step_note="the push touches no file matching $step_pattern_list"
                             step_skip=1
                         fi
                         ;;
@@ -550,6 +612,20 @@ for i in "${!PUSH_REFS[@]}"; do
             fi
             step_argv=()
             for step_arg in $step_args; do
+                if [ "$step_arg" = "@TOUCHED_KT@" ]; then
+                    # The Kotlin sources the push touches travel as one
+                    # argument per file: the formatting script takes the files
+                    # it has to check positionally, and an EMPTY list would
+                    # mean "every source of the tree" to it — which is why the
+                    # step only runs when the push touches a Kotlin source.
+                    while IFS= read -r step_touched_kt; do
+                        [ -n "$step_touched_kt" ] || continue
+                        step_argv+=("$step_touched_kt")
+                    done <<EOF
+$PROMISE_TOUCHED_KT
+EOF
+                    continue
+                fi
                 step_arg="${step_arg//@TREE@/$tree}"
                 step_arg="${step_arg//@BASE@/${remote_sha:-$ZERO_SHA}}"
                 step_arg="${step_arg//@TOUCHED_MD@/$PROMISE_TOUCHED_MD_FILE}"
@@ -625,6 +701,13 @@ EOF
     # They run against the tree being pushed, like every other gate here: the
     # CI job that runs them runs the pushed tree's copies.
     #
+    # The scope is the tests the push touches. A push that carries two test
+    # modules is judged by those two modules, and a failure in a module it
+    # does not carry is upstream's debt: it is red in CI, where the whole
+    # suite runs, and it is not this push's to carry. The same partiality the
+    # formatting gate has, and for the same reason — a gate that judges
+    # everything is a gate that a broken base can refuse to let through.
+    #
     # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR)
     # for the hook it runs. A test that creates a repository of its own
     # inherits those, and `git init` then reinitialises THIS repository
@@ -658,39 +741,142 @@ EOF
     # hook failed on the *log*, not on the suite.
     suite_log="$(mktemp "${TMPDIR:-/tmp}/pre-push-gate-suite-XXXXXX.log")"
     suite_log_kept="$REPO_ROOT/build/diagnostics/pre-push-gate-suite-$(date +%Y%m%d-%H%M%S)-$i.log"
+    # The modules of the suite this push touches: the test files the push
+    # carries, named the way the suite names its modules. The scope is the
+    # same scope the formatting gate has — the change reaches these tests and
+    # not the others, and a failure in a module the push does not touch is
+    # upstream's debt, not this push's.
+    #
+    # Two things decide the scope besides the file names.
+    #
+    # The TREE decides what exists. A module this push deletes, or renames
+    # away, is not in the tree any more — and a name the tree does not hold
+    # is a name the runner turns into a failed test: the push would be
+    # blocked by a module that is not there.
+    #
+    # The IMPORTERS decide the scope of a helper. A file under scripts/tests/
+    # that is not a test module is a helper of the suite, and the modules
+    # that import it are reached by a change to it: the helper is not a test,
+    # but the tests it carries are.
+    suite_modules=""
+    suite_module_args=()
+    suite_unittest_args=()
+    suite_candidates=""
+    suite_helpers=""
+    while IFS= read -r suite_path; do
+        [ -n "$suite_path" ] || continue
+        suite_name="${suite_path##*/}"
+        suite_name="${suite_name%.py}"
+        case "$suite_name" in
+            test_*)
+                if [ -f "$tree/scripts/tests/$suite_name.py" ]; then
+                    suite_candidates="$suite_candidates $suite_name"
+                fi
+                ;;
+            *)
+                suite_helpers="$suite_helpers $suite_name"
+                ;;
+        esac
+    done <<EOF
+$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '^scripts/tests/[^/]+\.py$' || true)
+EOF
+    # The importers of a helper are reached by a change to it — and the
+    # importers of an importer are reached too. A helper that imports
+    # another helper is not a test module, but the test module it serves
+    # is two steps away from the change, and the change reaches it just
+    # the same: the walk follows the chain until it runs out of names.
+    #
+    # A chain that ends in a test module is a test the push has to answer
+    # for. A chain that ends in nothing is a change the suite cannot
+    # measure, and the step says so instead of guessing.
+    suite_seen_helpers=""
+    while [ -n "$suite_helpers" ]; do
+        suite_next_helpers=""
+        for suite_helper in $suite_helpers; do
+            case " $suite_seen_helpers " in
+                *" $suite_helper "*) continue ;;
+            esac
+            suite_seen_helpers="$suite_seen_helpers $suite_helper"
+            while IFS= read -r suite_importer; do
+                [ -n "$suite_importer" ] || continue
+                suite_importer_name="${suite_importer##*/}"
+                suite_importer_name="${suite_importer_name%.py}"
+                case "$suite_importer_name" in
+                    # A test module of the suite: the change reaches it, and
+                    # it is judged.
+                    test_*) suite_candidates="$suite_candidates $suite_importer_name" ;;
+                    # A helper that imports a helper: the walk goes on.
+                    *) suite_next_helpers="$suite_next_helpers $suite_importer_name" ;;
+                esac
+            done <<EOF
+$(grep -rlE "(from|import)[[:space:]]+${suite_helper}([[:space:]]|\.|$)" \
+    "$tree/scripts/tests" 2>/dev/null || true)
+EOF
+        done
+        suite_helpers="$suite_next_helpers"
+    done
+    for suite_module in $(printf '%s\n' $suite_candidates | sort -u); do
+        [ -n "$suite_module" ] || continue
+        suite_modules="$suite_modules $suite_module"
+        suite_module_args+=(--module "$suite_module")
+        suite_unittest_args+=("scripts.tests.$suite_module")
+    done
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
+    elif [ "${#suite_module_args[@]}" -eq 0 ]; then
+        # The push reaches no test of the suite: nothing of it can be broken
+        # by what this push carries. The suite as a whole is CI's answer.
+        echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"
     elif [ ! -f "$tree/scripts/run-gate-tests.py" ]; then
         # A tree that predates the runner has no runner. The plain `unittest`
-        # runs the same tests — and a push of an old branch is not blocked by
+        # runs the same modules — and a push of an old branch is not blocked by
         # a file that branch does not have.
-        if (cd "$tree" && without_hook_git_env \
+        suite_rc=0
+        (cd "$tree" && without_hook_git_env \
             GATE_SUITE_INSIDE_HOOK=1 \
             PYTHONPATH="$tree/scripts/src" \
-            python3 -m unittest discover -s scripts/tests >"$suite_log" 2>&1); then
-            echo "   gate suite tests: OK (the tree has no runner — plain unittest)"
+            python3 -m unittest "${suite_unittest_args[@]}") >"$suite_log" 2>&1 || suite_rc=$?
+        if [ "$suite_rc" -eq 0 ]; then
+            echo "   gate suite tests: OK (${suite_modules# }) — the tree has no runner, plain unittest"
+            rm -f "$suite_log"
+        elif [ "$suite_rc" -eq "$NO_TESTS_RAN" ]; then
+            # No test ran: the modules the push touches hold no test cases.
+            # That is the absence of a measurement, not a failure of the
+            # tree — a module without tests cannot fail.
+            echo "   gate suite tests: SKIPPED (the modules the push touches hold no test cases)"
             rm -f "$suite_log"
         else
-            echo "   gate suite tests: FAILED"
+            echo "   gate suite tests: FAILED (${suite_modules# })"
             GATES_FAILED=1
             report_failed_tests "$suite_log"
             keep_suite_log "$suite_log" "$suite_log_kept"
             echo ""
             echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
         fi
-    elif (cd "$tree" && without_hook_git_env \
-        GATE_SUITE_INSIDE_HOOK=1 \
-        PYTHONPATH="$tree/scripts/src" \
-        python3 "$tree/scripts/run-gate-tests.py" >"$suite_log" 2>&1); then
-        echo "   gate suite tests: OK"
-        rm -f "$suite_log"
     else
-        echo "   gate suite tests: FAILED"
-        GATES_FAILED=1
-        report_failed_tests "$suite_log"
-        echo ""
-        echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
-        keep_suite_log "$suite_log" "$suite_log_kept"
+        suite_rc=0
+        (cd "$tree" && without_hook_git_env \
+            GATE_SUITE_INSIDE_HOOK=1 \
+            PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}") >"$suite_log" 2>&1 || suite_rc=$?
+        if [ "$suite_rc" -eq 0 ]; then
+            echo "   gate suite tests: OK (${suite_modules# })"
+            rm -f "$suite_log"
+        elif [ "$suite_rc" -eq "$NO_TESTS_RAN" ]; then
+            # The runner answers with NO_TESTS_RAN when the modules it was
+            # given hold no test cases at all. The absence of a measurement
+            # is not a failure the push caused, and a push must not be
+            # blocked by it.
+            echo "   gate suite tests: SKIPPED (the modules the push touches hold no test cases)"
+            rm -f "$suite_log"
+        else
+            echo "   gate suite tests: FAILED (${suite_modules# })"
+            GATES_FAILED=1
+            report_failed_tests "$suite_log"
+            echo ""
+            echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
+            keep_suite_log "$suite_log" "$suite_log_kept"
+        fi
     fi
 
     # ── easement: architecture boundary check (against the pushed tree) ──

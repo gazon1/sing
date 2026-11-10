@@ -424,10 +424,14 @@ class PrPathRunsTheWholeSuite(unittest.TestCase):
             ":shared:testAndroidHostTest",
             ":desktopApp:test",
             ":mcp-server:test",
-            ":androidApp:test",
             ":detekt-rules:test",
         ):
             self.assertIn(task, suite_run)
+
+        # `:androidApp:test` is NOT named, and that is the point: the module has
+        # no JVM unit-test source set, so the task is NO-SOURCE and runs zero
+        # tests. A named task that runs nothing reads like a suite that exists.
+        self.assertNotIn(":androidApp:test", suite_run)
 
         # The ADR modules run in their own invocation and the ADR job owns
         # them: naming them here would put a module in two jobs' worth of

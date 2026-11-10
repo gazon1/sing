@@ -104,7 +104,7 @@ internal class PullEventHandler(
                             }
                             return ApplyOutcome.Skipped("the event payload is not a document")
                         }
-                applyRemote(obj)
+                applyRemote(writer.documentFromRow(event.entityId, obj))
                 log.d { "Pull event [${event.eventType}][lsn=${event.serverLsn}]: applied" }
                 ApplyOutcome.Applied
             }

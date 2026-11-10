@@ -22,7 +22,10 @@ code still matches the record, in both directions:
   - the detekt modules the record says CI judges are the ones CI judges;
   - those modules are the ones the module graph knows about;
   - the partiality is stated: the hook judges what the change reaches, CI
-    judges everything.
+    judges everything;
+  - the same for the formatting gate: the hook judges the Kotlin sources the
+    push touches, CI judges every source of the tree, and the step that runs
+    is the scoped one.
 
 The decision this gate enforces is recorded in
 `docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`.
@@ -57,6 +60,7 @@ from sgate.commands._registry import (  # noqa: E402
     PRE_PUSH_ENVIRONMENT_CANON,
 )
 from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.pre_push import PRE_PUSH_STEPS  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -82,11 +86,28 @@ HOOK_SCRIPT_RE = re.compile(
 #: cannot be read, and a gate that named itself would be a gate about nothing.
 GATE_SELF = 'scripts/check-hook-gates.py'
 
+#: The formatting gate. The hook judges the Kotlin sources the push touches and
+#: CI judges every source of the tree, so the record has to say so and the step
+#: has to be the scoped one.
+KTLINT_SCRIPT = 'scripts/ktlint-lint.py'
+
 #: A detekt task named in the CI workflow.
 CI_DETEKT_RE = re.compile(r':([\w-]+):detekt')
 
 #: A detekt task named in the hook — a list written into the hook is drift.
 HOOK_DETEKT_RE = re.compile(r':[\w-]+:detekt')
+
+#: The scope of the gate-suite step has to come from the variable the hook
+#: fills with the files the push carries. The NAME of the variable alone is a
+#: string, and a string sits on a line that computes something else just as
+#: happily as on the line that computes the scope.
+SCOPE_FROM_THE_PUSH = re.compile(r'"\$PROMISE_TOUCHED"')
+
+#: The tree decides what exists: a module the push deletes is not in the tree
+#: any more. That has to be a real existence test against the tree's test
+#: directory — a line that merely MENTIONS the directory is a sentence about
+#: the tree, not a question asked of it.
+TREE_EXISTENCE = re.compile(r'-\s*f\s+"?\$tree/scripts/tests/')
 
 
 def load_module_graph():
@@ -398,6 +419,97 @@ def collect_errors(
         errors.append(
             'the record does not state the partiality — the hook judges what the change reaches '
             'and CI judges everything, so the difference has to be written down',
+        )
+
+    # The formatting gate is partial too, and in the same way.
+    #
+    # The hook judges the Kotlin sources the push touches; CI judges every
+    # source of the tree. A formatting defect in a file the push does not
+    # touch is CI's to find — a push blocked by such a defect is a push that
+    # cannot happen. The record says so, and the step has to be the scoped
+    # one: a claim nothing checks is a claim that decays.
+    ktlint = registry.get('ktlint', {}) if isinstance(registry.get('ktlint'), dict) else {}
+    hook_code = code_lines(hook_path.read_text(encoding='utf-8')) if hook_path.is_file() else []
+    ktlint_partiality = ktlint.get('partiality', '')
+    if not ktlint_partiality or 'CI' not in ktlint_partiality:
+        errors.append(
+            'the record does not state the partiality of the formatting gate — the hook judges '
+            'the Kotlin sources the push touches and CI judges every source of the tree, so '
+            'the difference has to be written down',
+        )
+    ktlint_step = next((step for step in PRE_PUSH_STEPS if step.script == KTLINT_SCRIPT), None)
+    if ktlint_step is None:
+        errors.append(
+            f'the hook does not run {KTLINT_SCRIPT} — the record says the hook judges the '
+            f'formatting of the sources the push touches',
+        )
+    elif 'if-touched:' not in ktlint_step.when:
+        errors.append(
+            f'the formatting gate judges every Kotlin source of the tree — it has to be scoped '
+            f'to the sources the push touches, or a formatting defect in a file the push does '
+            f'not carry blocks a push that has nothing to do with it',
+        )
+    elif '@TOUCHED_KT@' not in ktlint_step.args:
+        # The condition says WHEN the gate runs; the arguments say WHAT it
+        # judges. A gate that runs only for the sources the push touches and
+        # is handed the whole tree judges every source of the tree — and the
+        # condition hides it, because the step runs.
+        errors.append(
+            f'the formatting gate is not given the sources the push touches — it has to be '
+            f'handed them (@TOUCHED_KT@), or it judges the whole tree while the record says '
+            f'it judges the sources the push carries',
+        )
+    elif not any('@TOUCHED_KT@' in line for line in hook_code):
+        errors.append(
+            f'the hook does not expand @TOUCHED_KT@ — the sources the push touches have to '
+            f'reach the formatting gate as its arguments, or the gate judges nothing at all',
+        )
+
+    # The gate suite is partial too, in the same way.
+    #
+    # The hook judges the test modules the push touches; CI judges the whole
+    # suite. A failure in a module the push does not carry is upstream's debt
+    # — it is red in CI, and it is not this push's to carry. The record says
+    # so, and the step has to be the scoped one: a claim nothing checks is a
+    # claim that decays.
+    gate_suite = registry.get('gate_suite', {}) if isinstance(registry.get('gate_suite'), dict) else {}
+    gate_suite_partiality = gate_suite.get('partiality', '')
+    if not gate_suite_partiality or 'CI' not in gate_suite_partiality:
+        errors.append(
+            'the record does not state the partiality of the gate suite — the hook judges '
+            'the test modules the push touches and CI judges the whole suite, so the '
+            'difference has to be written down',
+        )
+    hook_code = code_lines(hook_path.read_text(encoding='utf-8')) if hook_path.is_file() else []
+    if not any('run-gate-tests.py' in line for line in hook_code):
+        errors.append(
+            'the hook does not run the gate suite — the record says the hook judges the '
+            'test modules the push touches',
+        )
+    elif not any('--module' in line for line in hook_code):
+        errors.append(
+            'the gate suite step runs the whole suite — it has to be scoped to the test '
+            'modules the push touches, or a failure in a module the push does not carry '
+            'blocks a push that has nothing to do with it',
+        )
+    elif not any(
+        SCOPE_FROM_THE_PUSH.search(line) and 'scripts/tests/' in line for line in hook_code
+    ):
+        errors.append(
+            'the gate suite step does not derive its scope from what the push touches — '
+            'the modules it judges have to be the ones the push carries, and the push '
+            'says which those are',
+        )
+    elif not any(TREE_EXISTENCE.search(line) for line in hook_code):
+        errors.append(
+            'the gate suite step does not ask the tree what exists — a module the push '
+            'deletes or renames away is not in the tree any more, and a name the tree '
+            'does not hold is a name the runner turns into a failed test',
+        )
+    if not any('touches no test of the gate suite' in line for line in hook_code):
+        errors.append(
+            'the gate suite step has no scope and no skip — the hook has to say which '
+            'modules it judges and skip the step when the push touches none of them',
         )
 
     facts = {

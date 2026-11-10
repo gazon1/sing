@@ -37,6 +37,7 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
@@ -115,8 +116,8 @@ internal fun NoteEditorScreen(
     val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
 
     // Leaving with text the editor has not stored yet asks first. `isDirty` stands
-    // until the autosave has written the text (NoteEditor clears it in onAutosaved),
-    // so the guard asks only while a back press would really drop keystrokes.
+    // until the text has been written (NoteEditor clears it in onAutosaved and in
+    // onSaved), so the guard asks only while a back press would really drop keystrokes.
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     val onBack: () -> Unit = {
         viewModel.onIntent(NotesEditorIntent.Close)
@@ -177,6 +178,27 @@ internal fun NoteEditorScreen(
     // The proposals carry their own failures, on their own bus. They are merged into
     // the editor's notification stream rather than hosted separately: two hosts over
     // one editor would show two snackbars in the same place.
+    EditorNotifications(
+        viewModel = viewModel,
+        proposalsViewModel = proposalsViewModel,
+        onNavigateBack = { navigator.back() },
+    )
+}
+
+/**
+ * The editor's notifications, with the proposals' own failures merged into the same
+ * stream.
+ *
+ * Two hosts over one editor would show two snackbars in the same place, so the
+ * proposals' failures travel in the editor's stream rather than being hosted
+ * separately.
+ */
+@Composable
+private fun EditorNotifications(
+    viewModel: NoteEditor,
+    proposalsViewModel: NoteProposalsViewModel,
+    onNavigateBack: () -> Unit,
+) {
     val notifications =
         remember(viewModel.events, proposalsViewModel.events) {
             merge(
@@ -191,7 +213,7 @@ internal fun NoteEditorScreen(
 
     NotificationHost(
         events = notifications,
-        onNavigateBack = { navigator.back() },
+        onNavigateBack = onNavigateBack,
         modifier = Modifier.testTag(TestTags.NOTE_EDITOR_NOTIFICATION_HOST),
     )
 }
@@ -275,7 +297,7 @@ fun NoteEditorScreenContent(
                         // A save in flight shows progress inside the button that
                         // started it, as the task and project editors do.
                         if (editorState.isSaving) {
-                            com.singularity.todo.core.ui.components.ButtonSpinner()
+                            ButtonSpinner()
                         } else {
                             Icon(Icons.Filled.Check, contentDescription = "Save")
                         }

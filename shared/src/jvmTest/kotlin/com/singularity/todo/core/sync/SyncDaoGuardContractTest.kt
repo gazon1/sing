@@ -3,22 +3,18 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -92,6 +88,8 @@ import kotlin.test.fail
  * tables before the default can address a row. The shelf's `insert` requires an owner
  * in Kotlin, exactly as the outbox's does.
  */
+@Tag("slow")
+@Tag("slow:data")
 abstract class SyncDaoGuardContractTest {
     /** The shelf under test. */
     protected abstract val deadLetterDao: SyncDeadLetterDao
@@ -100,28 +98,30 @@ abstract class SyncDaoGuardContractTest {
     protected abstract val shadowDao: SyncShadowDao
 
     @Test
-    fun `the shelf's owner erase takes only that owner's rows`() = runTest {
-        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
-        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
+    fun `the shelf's owner erase takes only that owner's rows`() =
+        runTest {
+            deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+            deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
 
-        val removed = deadLetterDao.deleteForOwner(OWNER_A)
+            val removed = deadLetterDao.deleteForOwner(OWNER_A)
 
-        assertEquals(1, removed, "the erase reports how many rows it took")
-        assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
-        assertEquals(1, deadLetterDao.countForOwner(OWNER_B), "another account's shelved work survives")
-        assertEquals(1, deadLetterDao.getAll().size, "and the shelf holds only what is left")
-    }
+            assertEquals(1, removed, "the erase reports how many rows it took")
+            assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
+            assertEquals(1, deadLetterDao.countForOwner(OWNER_B), "another account's shelved work survives")
+            assertEquals(1, deadLetterDao.getAll().size, "and the shelf holds only what is left")
+        }
 
     @Test
-    fun `the shelf's count is the owner's own`() = runTest {
-        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
-        deadLetterDao.insert(shelfRow("patch-b", OWNER_A))
-        deadLetterDao.insert(shelfRow("patch-c", OWNER_B))
+    fun `the shelf's count is the owner's own`() =
+        runTest {
+            deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+            deadLetterDao.insert(shelfRow("patch-b", OWNER_A))
+            deadLetterDao.insert(shelfRow("patch-c", OWNER_B))
 
-        assertEquals(2, deadLetterDao.countForOwner(OWNER_A))
-        assertEquals(1, deadLetterDao.countForOwner(OWNER_B))
-        assertEquals(0, deadLetterDao.countForOwner("owner-c"))
-    }
+            assertEquals(2, deadLetterDao.countForOwner(OWNER_A))
+            assertEquals(1, deadLetterDao.countForOwner(OWNER_B))
+            assertEquals(0, deadLetterDao.countForOwner("owner-c"))
+        }
 
     /**
      * A flow taken from the shelf before the shelf changed reports the change.
@@ -133,134 +133,139 @@ abstract class SyncDaoGuardContractTest {
      * whatever the caller happens to ask next.
      */
     @Test
-    fun `the shelf reports a patch shelved after the flow was taken`() = runTest {
-        val shelf = deadLetterDao.watch()
-        val count = deadLetterDao.watchCount()
+    fun `the shelf reports a patch shelved after the flow was taken`() =
+        runTest {
+            val shelf = deadLetterDao.watch()
+            val count = deadLetterDao.watchCount()
 
-        assertTrue(shelf.first().isEmpty(), "the shelf starts empty")
-        assertEquals(0, count.first())
+            assertTrue(shelf.first().isEmpty(), "the shelf starts empty")
+            assertEquals(0, count.first())
 
-        val shelved = CompletableDeferred<Int>()
-        val counted = CompletableDeferred<Int>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            shelf.collect { rows -> if (rows.isNotEmpty()) shelved.complete(rows.size) }
+            val shelved = CompletableDeferred<Int>()
+            val counted = CompletableDeferred<Int>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                shelf.collect { rows -> if (rows.isNotEmpty()) shelved.complete(rows.size) }
+            }
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                count.collect { total -> if (total > 0) counted.complete(total) }
+            }
+
+            deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+
+            assertEquals(
+                1,
+                awaitEmission(shelved, "the shelved row"),
+                "a flow taken before the row was shelved must report it without being re-collected",
+            )
+            assertEquals(
+                1,
+                awaitEmission(counted, "the shelf's count"),
+                "the count taken before the row was shelved must report it too",
+            )
+
+            assertEquals(1, shelf.first().size, "and re-collecting reports it as well")
+            assertEquals(1, count.first())
         }
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            count.collect { total -> if (total > 0) counted.complete(total) }
+
+    @Test
+    fun `the shadow's owner erase takes every profile of that owner`() =
+        runTest {
+            shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
+            shadowDao.upsert(shadowRow(OWNER_A, PROFILE_TWO, "entity-2"))
+            shadowDao.upsert(shadowRow(OWNER_B, PROFILE_ONE, "entity-3"))
+
+            assertEquals(2, shadowDao.countForOwner(OWNER_A))
+            assertEquals(
+                2,
+                shadowDao.deleteForOwner(OWNER_A),
+                "the erase takes both of the owner's profiles, and reports both rows",
+            )
+
+            assertEquals(0, shadowDao.countForOwner(OWNER_A))
+            assertNotNull(
+                shadowDao.get(OWNER_B, PROFILE_ONE, TASK, "entity-3"),
+                "another account's shadow survives",
+            )
         }
 
-        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+    @Test
+    fun `the shadow's scope clear leaves the owner's other profiles alone`() =
+        runTest {
+            shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
+            shadowDao.upsert(shadowRow(OWNER_A, PROFILE_TWO, "entity-2"))
 
-        assertEquals(
-            1,
-            awaitEmission(shelved, "the shelved row"),
-            "a flow taken before the row was shelved must report it without being re-collected",
-        )
-        assertEquals(
-            1,
-            awaitEmission(counted, "the shelf's count"),
-            "the count taken before the row was shelved must report it too",
-        )
+            shadowDao.clearScope(OWNER_A, PROFILE_ONE)
 
-        assertEquals(1, shelf.first().size, "and re-collecting reports it as well")
-        assertEquals(1, count.first())
-    }
+            assertNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertNotNull(
+                shadowDao.get(OWNER_A, PROFILE_TWO, TASK, "entity-2"),
+                "the owner's other profile keeps its shadow",
+            )
+        }
 
     @Test
-    fun `the shadow's owner erase takes every profile of that owner`() = runTest {
-        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
-        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_TWO, "entity-2"))
-        shadowDao.upsert(shadowRow(OWNER_B, PROFILE_ONE, "entity-3"))
+    fun `the shadow promotes only the patch that still owns the marker`() =
+        runTest {
+            shadowDao.upsert(
+                shadowRow(
+                    OWNER_A,
+                    PROFILE_ONE,
+                    "entity-1",
+                    confirmedJson = """{"title":"old"}""",
+                    inFlightJson = """{"title":"new"}""",
+                    inFlightPatchId = "patch-new",
+                    serverVersion = 7,
+                ),
+            )
 
-        assertEquals(2, shadowDao.countForOwner(OWNER_A))
-        assertEquals(
-            2,
-            shadowDao.deleteForOwner(OWNER_A),
-            "the erase takes both of the owner's profiles, and reports both rows",
-        )
+            val stale = shadowDao.confirm(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-old", """{"title":"stale"}""")
+            assertEquals(0, stale, "a response for a superseded patch promotes nothing")
 
-        assertEquals(0, shadowDao.countForOwner(OWNER_A))
-        assertNotNull(
-            shadowDao.get(OWNER_B, PROFILE_ONE, TASK, "entity-3"),
-            "another account's shadow survives",
-        )
-    }
+            val unchanged = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals(
+                """{"title":"old"}""",
+                unchanged.confirmedJson,
+                "the confirmed state stays where the server left it",
+            )
+            assertEquals("patch-new", unchanged.inFlightPatchId, "the queued patch keeps its marker")
 
-    @Test
-    fun `the shadow's scope clear leaves the owner's other profiles alone`() = runTest {
-        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
-        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_TWO, "entity-2"))
+            val current =
+                shadowDao.confirm(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"confirmed"}""")
+            assertEquals(1, current, "the patch that owns the marker is promoted")
 
-        shadowDao.clearScope(OWNER_A, PROFILE_ONE)
-
-        assertNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertNotNull(
-            shadowDao.get(OWNER_A, PROFILE_TWO, TASK, "entity-2"),
-            "the owner's other profile keeps its shadow",
-        )
-    }
-
-    @Test
-    fun `the shadow promotes only the patch that still owns the marker`() = runTest {
-        shadowDao.upsert(
-            shadowRow(
-                OWNER_A,
-                PROFILE_ONE,
-                "entity-1",
-                confirmedJson = """{"title":"old"}""",
-                inFlightJson = """{"title":"new"}""",
-                inFlightPatchId = "patch-new",
-                serverVersion = 7,
-            ),
-        )
-
-        val stale = shadowDao.confirm(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-old", """{"title":"stale"}""")
-        assertEquals(0, stale, "a response for a superseded patch promotes nothing")
-
-        val unchanged = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals(
-            """{"title":"old"}""",
-            unchanged.confirmedJson,
-            "the confirmed state stays where the server left it",
-        )
-        assertEquals("patch-new", unchanged.inFlightPatchId, "the queued patch keeps its marker")
-
-        val current =
-            shadowDao.confirm(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"confirmed"}""")
-        assertEquals(1, current, "the patch that owns the marker is promoted")
-
-        val promoted = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals("""{"title":"confirmed"}""", promoted.confirmedJson)
-        assertNull(promoted.inFlightPatchId)
-        assertNull(promoted.inFlightJson)
-        assertEquals(
-            7L,
-            promoted.serverVersion,
-            "a response with no version must not reset the one the client had",
-        )
-    }
+            val promoted = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals("""{"title":"confirmed"}""", promoted.confirmedJson)
+            assertNull(promoted.inFlightPatchId)
+            assertNull(promoted.inFlightJson)
+            assertEquals(
+                7L,
+                promoted.serverVersion,
+                "a response with no version must not reset the one the client had",
+            )
+        }
 
     @Test
-    fun `updating the confirmed state leaves the queued patch's marker alone`() = runTest {
-        shadowDao.upsert(
-            shadowRow(
-                OWNER_A,
-                PROFILE_ONE,
-                "entity-1",
-                confirmedJson = """{"title":"old"}""",
-                inFlightJson = """{"title":"new"}""",
-                inFlightPatchId = "patch-new",
-            ),
-        )
+    fun `updating the confirmed state leaves the queued patch's marker alone`() =
+        runTest {
+            shadowDao.upsert(
+                shadowRow(
+                    OWNER_A,
+                    PROFILE_ONE,
+                    "entity-1",
+                    confirmedJson = """{"title":"old"}""",
+                    inFlightJson = """{"title":"new"}""",
+                    inFlightPatchId = "patch-new",
+                ),
+            )
 
-        val changed = shadowDao.updateConfirmed(OWNER_A, PROFILE_ONE, TASK, "entity-1", """{"title":"pulled"}""")
+            val changed = shadowDao.updateConfirmed(OWNER_A, PROFILE_ONE, TASK, "entity-1", """{"title":"pulled"}""")
 
-        assertEquals(1, changed)
-        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals("""{"title":"pulled"}""", row.confirmedJson)
-        assertEquals("patch-new", row.inFlightPatchId, "the pull must not clobber the queued patch's base")
-        assertEquals("""{"title":"new"}""", row.inFlightJson)
-    }
+            assertEquals(1, changed)
+            val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals("""{"title":"pulled"}""", row.confirmedJson)
+            assertEquals("patch-new", row.inFlightPatchId, "the pull must not clobber the queued patch's base")
+            assertEquals("""{"title":"new"}""", row.inFlightJson)
+        }
 
     /**
      * The patch-id delete is the shelf's patch-id-keyed operation.
@@ -269,15 +274,16 @@ abstract class SyncDaoGuardContractTest {
      * other shelved work included.
      */
     @Test
-    fun `the shelf's patch-id delete takes that patch and nothing else`() = runTest {
-        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
-        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
+    fun `the shelf's patch-id delete takes that patch and nothing else`() =
+        runTest {
+            deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+            deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
 
-        assertEquals(1, deadLetterDao.delete("patch-a"))
-        assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
-        assertEquals(1, deadLetterDao.countForOwner(OWNER_B), "another account's shelved work survives")
-        assertEquals(0, deadLetterDao.delete("no-such-patch"), "a missing patch is not an error")
-    }
+            assertEquals(1, deadLetterDao.delete("patch-a"))
+            assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
+            assertEquals(1, deadLetterDao.countForOwner(OWNER_B), "another account's shelved work survives")
+            assertEquals(0, deadLetterDao.delete("no-such-patch"), "a missing patch is not an error")
+        }
 
     /**
      * The global drain empties the shelf for every account.
@@ -286,16 +292,17 @@ abstract class SyncDaoGuardContractTest {
      * and must not call this; account switches use [SyncDeadLetterDao.deleteForOwner].
      */
     @Test
-    fun `the shelf's global drain empties every account`() = runTest {
-        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
-        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
+    fun `the shelf's global drain empties every account`() =
+        runTest {
+            deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+            deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
 
-        deadLetterDao.clearAll()
+            deadLetterDao.clearAll()
 
-        assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
-        assertEquals(0, deadLetterDao.countForOwner(OWNER_B))
-        assertTrue(deadLetterDao.getAll().isEmpty())
-    }
+            assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
+            assertEquals(0, deadLetterDao.countForOwner(OWNER_B))
+            assertTrue(deadLetterDao.getAll().isEmpty())
+        }
 
     /**
      * A shadow row belongs to one account's one profile.
@@ -305,18 +312,19 @@ abstract class SyncDaoGuardContractTest {
      * alone would hand the row to both, and would let the rest of this file pass.
      */
     @Test
-    fun `the shadow's row belongs to one account's one profile`() = runTest {
-        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
+    fun `the shadow's row belongs to one account's one profile`() =
+        runTest {
+            shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
 
-        assertNull(
-            shadowDao.get(OWNER_B, PROFILE_ONE, TASK, "entity-1"),
-            "another account must not see the row",
-        )
-        assertNull(
-            shadowDao.get(OWNER_A, PROFILE_TWO, TASK, "entity-1"),
-            "another profile of the same account must not see it either",
-        )
-    }
+            assertNull(
+                shadowDao.get(OWNER_B, PROFILE_ONE, TASK, "entity-1"),
+                "another account must not see the row",
+            )
+            assertNull(
+                shadowDao.get(OWNER_A, PROFILE_TWO, TASK, "entity-1"),
+                "another profile of the same account must not see it either",
+            )
+        }
 
     /**
      * A write for one account does not land on another's row.
@@ -326,15 +334,16 @@ abstract class SyncDaoGuardContractTest {
      * hide the guard behind the return value.
      */
     @Test
-    fun `the shadow's confirmed update does not reach another account's row`() = runTest {
-        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1", confirmedJson = """{"title":"old"}"""))
+    fun `the shadow's confirmed update does not reach another account's row`() =
+        runTest {
+            shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1", confirmedJson = """{"title":"old"}"""))
 
-        val changed = shadowDao.updateConfirmed(OWNER_B, PROFILE_ONE, TASK, "entity-1", """{"title":"theirs"}""")
+            val changed = shadowDao.updateConfirmed(OWNER_B, PROFILE_ONE, TASK, "entity-1", """{"title":"theirs"}""")
 
-        assertEquals(0, changed, "there is no row of that account to update")
-        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals("""{"title":"old"}""", row.confirmedJson, "the owner's row is untouched")
-    }
+            assertEquals(0, changed, "there is no row of that account to update")
+            val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals("""{"title":"old"}""", row.confirmedJson, "the owner's row is untouched")
+        }
 
     /**
      * A promotion for one account does not promote another's row.
@@ -344,77 +353,80 @@ abstract class SyncDaoGuardContractTest {
      * promotes nothing.
      */
     @Test
-    fun `the shadow's promotion does not reach another account's row`() = runTest {
-        shadowDao.upsert(
-            shadowRow(
-                OWNER_A,
-                PROFILE_ONE,
-                "entity-1",
-                confirmedJson = """{"title":"old"}""",
-                inFlightJson = """{"title":"new"}""",
-                inFlightPatchId = "patch-new",
-            ),
-        )
+    fun `the shadow's promotion does not reach another account's row`() =
+        runTest {
+            shadowDao.upsert(
+                shadowRow(
+                    OWNER_A,
+                    PROFILE_ONE,
+                    "entity-1",
+                    confirmedJson = """{"title":"old"}""",
+                    inFlightJson = """{"title":"new"}""",
+                    inFlightPatchId = "patch-new",
+                ),
+            )
 
-        val promoted =
-            shadowDao.confirm(OWNER_B, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"theirs"}""")
+            val promoted =
+                shadowDao.confirm(OWNER_B, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"theirs"}""")
 
-        assertEquals(0, promoted, "another account's response promotes nothing")
-        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals("""{"title":"old"}""", row.confirmedJson)
-        assertEquals("patch-new", row.inFlightPatchId, "the owner's queued patch keeps its marker")
-    }
+            assertEquals(0, promoted, "another account's response promotes nothing")
+            val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals("""{"title":"old"}""", row.confirmedJson)
+            assertEquals("patch-new", row.inFlightPatchId, "the owner's queued patch keeps its marker")
+        }
 
     /**
      * Releasing the marker that still owns the row clears it.
      */
     @Test
-    fun `releasing the marker that still owns the row clears it`() = runTest {
-        shadowDao.upsert(
-            shadowRow(
-                OWNER_A,
-                PROFILE_ONE,
-                "entity-1",
-                confirmedJson = """{"title":"old"}""",
-                inFlightJson = """{"title":"new"}""",
-                inFlightPatchId = "patch-new",
-                serverVersion = 7,
-            ),
-        )
+    fun `releasing the marker that still owns the row clears it`() =
+        runTest {
+            shadowDao.upsert(
+                shadowRow(
+                    OWNER_A,
+                    PROFILE_ONE,
+                    "entity-1",
+                    confirmedJson = """{"title":"old"}""",
+                    inFlightJson = """{"title":"new"}""",
+                    inFlightPatchId = "patch-new",
+                    serverVersion = 7,
+                ),
+            )
 
-        val released = shadowDao.release(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new")
+            val released = shadowDao.release(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new")
 
-        assertEquals(1, released)
-        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertNull(row.inFlightPatchId)
-        assertNull(row.inFlightJson)
-        assertEquals("""{"title":"old"}""", row.confirmedJson)
-        assertEquals(7L, row.serverVersion)
-    }
+            assertEquals(1, released)
+            val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertNull(row.inFlightPatchId)
+            assertNull(row.inFlightJson)
+            assertEquals("""{"title":"old"}""", row.confirmedJson)
+            assertEquals(7L, row.serverVersion)
+        }
 
     /**
      * A stale release (same owner, wrong patch id) must not clear the current marker.
      */
     @Test
-    fun `a stale release does not clear the current marker`() = runTest {
-        shadowDao.upsert(
-            shadowRow(
-                OWNER_A,
-                PROFILE_ONE,
-                "entity-1",
-                confirmedJson = """{"title":"old"}""",
-                inFlightJson = """{"title":"new"}""",
-                inFlightPatchId = "patch-new",
-            ),
-        )
+    fun `a stale release does not clear the current marker`() =
+        runTest {
+            shadowDao.upsert(
+                shadowRow(
+                    OWNER_A,
+                    PROFILE_ONE,
+                    "entity-1",
+                    confirmedJson = """{"title":"old"}""",
+                    inFlightJson = """{"title":"new"}""",
+                    inFlightPatchId = "patch-new",
+                ),
+            )
 
-        val released = shadowDao.release(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-old")
+            val released = shadowDao.release(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-old")
 
-        assertEquals(0, released)
-        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals("patch-new", row.inFlightPatchId)
-        assertEquals("""{"title":"new"}""", row.inFlightJson)
-    }
+            assertEquals(0, released)
+            val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals("patch-new", row.inFlightPatchId)
+            assertEquals("""{"title":"new"}""", row.inFlightJson)
+        }
 
     /**
      * A release for one account does not clear another's marker.
@@ -424,25 +436,26 @@ abstract class SyncDaoGuardContractTest {
      * fields that account's queued patch carried.
      */
     @Test
-    fun `the shadow's release does not reach another account's row`() = runTest {
-        shadowDao.upsert(
-            shadowRow(
-                OWNER_A,
-                PROFILE_ONE,
-                "entity-1",
-                confirmedJson = """{"title":"old"}""",
-                inFlightJson = """{"title":"new"}""",
-                inFlightPatchId = "patch-new",
-            ),
-        )
+    fun `the shadow's release does not reach another account's row`() =
+        runTest {
+            shadowDao.upsert(
+                shadowRow(
+                    OWNER_A,
+                    PROFILE_ONE,
+                    "entity-1",
+                    confirmedJson = """{"title":"old"}""",
+                    inFlightJson = """{"title":"new"}""",
+                    inFlightPatchId = "patch-new",
+                ),
+            )
 
-        val released = shadowDao.release(OWNER_B, PROFILE_ONE, TASK, "entity-1", "patch-new")
+            val released = shadowDao.release(OWNER_B, PROFILE_ONE, TASK, "entity-1", "patch-new")
 
-        assertEquals(0, released)
-        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
-        assertEquals("patch-new", row.inFlightPatchId)
-        assertEquals("""{"title":"new"}""", row.inFlightJson)
-    }
+            assertEquals(0, released)
+            val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+            assertEquals("patch-new", row.inFlightPatchId)
+            assertEquals("""{"title":"new"}""", row.inFlightJson)
+        }
 
     /**
      * Waits for [deferred] in real time, and says what never arrived.
@@ -455,10 +468,9 @@ abstract class SyncDaoGuardContractTest {
         deferred: CompletableDeferred<T>,
         what: String,
     ): T =
-        try {
-            withContext(Dispatchers.Default) { withTimeout(FLOW_TIMEOUT_MS) { deferred.await() } }
-        } catch (timeout: TimeoutCancellationException) {
-            fail("$what never arrived on a flow taken before the change: $timeout")
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(FLOW_TIMEOUT_MS) { deferred.await() }
+                ?: fail("$what never arrived on a flow taken before the change")
         }
 
     /** A shelved patch, as the shelf holds it. */
@@ -522,16 +534,9 @@ abstract class SyncDaoGuardContractTest {
  */
 @Tag("slow")
 class RoomSyncDaoGuardContractTest : SyncDaoGuardContractTest() {
-    private val tempDirLazy = lazy { Files.createTempDirectory("singularity-sync-guards-").toFile() }
-    private val tempDir: File by tempDirLazy
+    private val fixture = DatabaseTestFixture.onDisk()
 
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "sync-guards.db").absolutePath,
-        )
-    }
-    private val db: AppDatabase by dbLazy
+    private val db: AppDatabase by lazy { fixture.database("sync-guards") }
 
     override val deadLetterDao: SyncDeadLetterDao get() = db.syncDeadLetterDao()
 
@@ -539,8 +544,7 @@ class RoomSyncDaoGuardContractTest : SyncDaoGuardContractTest() {
 
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        fixture.close()
     }
 }
 

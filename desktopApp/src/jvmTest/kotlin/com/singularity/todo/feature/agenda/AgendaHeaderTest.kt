@@ -5,9 +5,9 @@ package com.singularity.todo.feature.agenda
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaContent
+import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.collections.immutable.persistentListOf
@@ -32,7 +32,14 @@ class AgendaHeaderTest {
             val intents = mutableListOf<AgendaIntent>()
             setContent {
                 AgendaContent(
-                    state = AgendaUiState.Error(message = "Failed to load agenda"),
+                    // The greeting belongs to the loaded agenda: it is the line under
+                    // the title, and an agenda that failed to load has no greeting to
+                    // say — it has an error and a retry.
+                    state =
+                        AgendaUiState.Loaded(
+                            sections = persistentListOf(),
+                            today = LocalDate(2026, 10, 14),
+                        ),
                     title = "Today",
                     greeting = "Good morning",
                     onIntent = { intents += it },

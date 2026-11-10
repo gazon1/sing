@@ -33,6 +33,8 @@ import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.ArchiveCrypto
 import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.settings.SettingsDataStoreMigration
+import com.singularity.todo.core.settings.SettingsMigrationGate
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
@@ -85,8 +87,22 @@ import java.util.concurrent.atomic.AtomicInteger
  * gets an inert implementation. `PreferenceDataStoreFactory` is the one thing that
  * genuinely needs a file, so each test gets a uniquely named one under a
  * single JVM-wide temp directory removed at exit, never mid-run.
+ *
+ * ## Why a list of modules
+ *
+ * The mirror is split in three — the data layer, the settings storage, and the
+ * OS-touching ports — because one module function carrying all of it sat exactly on
+ * detekt's `LongMethod` limit, so the next definition pushed it over. A list of
+ * modules at the root scope is also the shape the production graph uses
+ * (`domainModule()` returns a list, and `includes()` is avoided on purpose: it
+ * creates a child scope whose bindings siblings cannot see).
  */
-fun testPlatformModule(): Module =
+fun testPlatformModule(): List<Module> = listOf(testDataLayerModule(), testSettingsModule(), testOsPortModule())
+
+/**
+ * The in-memory data layer: the database, the unit of work and every DAO.
+ */
+private fun testDataLayerModule(): Module =
     module {
         // ─── Data layer ────────────────────────────────────────────────────────
         single<AppDatabase> { FakeAppDatabase() }
@@ -155,10 +171,34 @@ fun testPlatformModule(): Module =
         // frame: an endless redraw that reads as a hang rather than as a missing binding.
         // `FakeAppDatabase` already implements the DAO.
         single { get<AppDatabase>().annotationDao() }
+    }
 
+/**
+ * The settings storage — the DataStore files the settings repositories read — and
+ * the one-shot migration gate that production binds beside them.
+ */
+private fun testSettingsModule(): Module =
+    module {
         // ─── Settings storage ───────────────────────────────────────────────────
         // The three named bindings mirror platformModule(); domainModule()'s
         // appearance and settings repositories resolve the primary one.
+        //
+        // The one-shot migration gate comes with them: platformModule() binds it, and
+        // the parity check compares the two graphs' registrations, so a type the
+        // production graph binds and this one lacks is reported as missing. The gate
+        // is never started here — the test stores are empty, so there is nothing to
+        // migrate — but it is bound, so the mirror is complete.
+        single {
+            SettingsMigrationGate(
+                migration =
+                    SettingsDataStoreMigration(
+                        legacyDataStore = get(named("settings")),
+                        userSettingsDataStore = get(named("user_settings")),
+                        stateDataStore = get(named("state")),
+                    ),
+                scope = get<CoroutineScope>(),
+            )
+        }
         single(qualifier = named("user_settings")) { testDataStore("user_settings") }
         single(qualifier = named("state")) { testDataStore("state") }
         single(qualifier = named("settings")) { testDataStore("settings_legacy") }
@@ -168,34 +208,6 @@ fun testPlatformModule(): Module =
         // Google sync runs on desktop, and the coordinator resolves its settings from here.
         // Without it, a graph that resolves the coordinator throws instead of skipping a pass.
         single(qualifier = named("calendar_sync")) { testDataStore("calendar_sync") }
-
-        // ─── Ports that would otherwise touch the OS ────────────────────────────
-        // coreModule() binds the real SupabaseAuthRepository, whose session never
-        // resolves without a network call, so ProfileAwareCurrentUser yields no
-        // user id and every user-scoped write fails its ownership check.
-        // FakeAuthRepository reports Session.Anonymous, which AuthGuard treats as
-        // signed in and which gives the write path a user to scope to.
-        single<AuthRepository> { FakeAuthRepository() }
-        single<RemoteConfigPort> { FakeRemoteConfigPort() }
-        single<SecureStoragePort> { InMemorySecureStorage() }
-        single<FileSystem> { InMemoryFileSystem() }
-        single<FileRevealer> { FakeFileRevealer() }
-        single<FileOpener> { FakeFileOpener() }
-        single<FileSourceFactory> { InertFileSourceFactory() }
-        single<SharePort> { InertSharePort() }
-        single<BackupCodec> { UnusedBackupCodec() }
-        // The archive's cryptography. The real one, not a fake: the archive's format is
-        // shared between the platforms, and a test that opened a differently-sealed
-        // archive would be testing a format nobody ships.
-        single<ArchiveCrypto> { JvmArchiveCrypto() }
-        // The directories, qualified the way the production platform modules qualify
-        // them. An unqualified `String` in the graph is a trap: Koin resolves a `String`
-        // parameter *by type*, so a directory that belongs to something else gets used
-        // for it without a word. That is how the attachments ended up in the log
-        // directory.
-        single<String>(BackupDirQualifier) { tempRoot().resolve("backups").absolutePath }
-        single<String>(LogDirQualifier) { tempRoot().resolve("logs").absolutePath }
-        single<String>(AttachmentDirQualifier) { tempRoot().resolve("attachments").absolutePath }
 
         // ─── Settings screen (SettingsViewModel) ────────────────────────────────
         //
@@ -223,6 +235,41 @@ fun testPlatformModule(): Module =
         // Settings → Account is the only caller, and a test that presses it wants the failure
         // mode, not a window opening on a CI box with no display.
         single<FileSharePort> { InertFileSharePort() }
+    }
+
+/**
+ * Every port the production platform module binds that would touch the OS, the
+ * network, or a daemon — inert, real-but-harmless, or reused as production classes.
+ */
+private fun testOsPortModule(): Module =
+    module {
+        // ─── Ports that would otherwise touch the OS ────────────────────────────
+        // coreModule() binds the real SupabaseAuthRepository, whose session never
+        // resolves without a network call, so ProfileAwareCurrentUser yields no
+        // user id and every user-scoped write fails its ownership check.
+        // FakeAuthRepository reports Session.Anonymous, which AuthGuard treats as
+        // signed in and which gives the write path a user to scope to.
+        single<AuthRepository> { FakeAuthRepository() }
+        single<RemoteConfigPort> { FakeRemoteConfigPort() }
+        single<SecureStoragePort> { InMemorySecureStorage() }
+        single<FileSystem> { InMemoryFileSystem() }
+        single<FileRevealer> { FakeFileRevealer() }
+        single<FileOpener> { FakeFileOpener() }
+        single<FileSourceFactory> { InertFileSourceFactory() }
+        single<SharePort> { InertSharePort() }
+        single<BackupCodec> { UnusedBackupCodec() }
+        // The archive's cryptography. The real one, not a fake: the archive's format is
+        // shared between the platforms, and a test that opened a differently-sealed
+        // archive would be testing a format nobody ships.
+        single<ArchiveCrypto> { JvmArchiveCrypto() }
+        // The directories, qualified the way the production platform modules qualify
+        // them. An unqualified `String` in the graph is a trap: Koin resolves a `String`
+        // parameter *by type*, so a directory that belongs to something else gets used
+        // for it without a word. That is how the attachments ended up in the log
+        // directory.
+        single<String>(BackupDirQualifier) { tempRoot().resolve("backups").absolutePath }
+        single<String>(LogDirQualifier) { tempRoot().resolve("logs").absolutePath }
+        single<String>(AttachmentDirQualifier) { tempRoot().resolve("attachments").absolutePath }
 
         // ─── The Google sign-in ──────────────────────────────────────────────────────
         //

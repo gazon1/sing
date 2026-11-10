@@ -6,6 +6,7 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
+import com.singularity.todo.test.helpers.clickSettingsTab
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -49,7 +50,7 @@ class CalendarSyncProviderScenarioTest {
         runDesktopAppTest {
             openDrawer()
             clickContentDescriptionScrolled("Settings")
-            clickTag(TestTags.settingsTab("Calendar"))
+            clickSettingsTab("Calendar")
 
             // The system half is what the screen opens on, and on desktop that is the
             // branch that must *say* it cannot work rather than render controls over

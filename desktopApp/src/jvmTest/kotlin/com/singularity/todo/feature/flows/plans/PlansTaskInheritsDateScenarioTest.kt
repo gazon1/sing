@@ -50,7 +50,9 @@ class PlansTaskInheritsDateScenarioTest {
             // The section's add control opens the editor with the section's date.
             clickTagScrolled(TestTags.plansSectionAdd("day:2026-09-16"))
             assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
-            // The due date is prefilled with the section's date — the day itself.
-            assertTextDisplayed("2026-09-16")
+            // The due date is prefilled with the section's date — the day itself,
+            // written in the screen's locale rather than the ISO date it used to
+            // print (#1700).
+            assertTextDisplayed("Wed, 16 Sep 2026")
         }
 }

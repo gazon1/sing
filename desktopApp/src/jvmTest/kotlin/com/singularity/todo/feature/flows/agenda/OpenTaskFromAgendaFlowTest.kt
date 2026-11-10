@@ -107,11 +107,12 @@ class OpenTaskFromAgendaFlowTest {
             awaitTag(TestTags.taskItem("Dated task")).performClick()
 
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-            // Due date row shows ISO date, not the placeholder. The attribute rows sit
+            // The due date row shows the date in the screen's locale, not the ISO date
+            // it used to print (#1700). The attribute rows sit
             // below the fold on a 1024x768 window, so scroll before asserting display.
             scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
-            assertTextDisplayed(today.toString())
+            assertTextDisplayed("Wed, 16 Sep 2026")
             assertTextNotExists("Add date")
         }
 

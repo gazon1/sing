@@ -310,6 +310,14 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                         pushUiState()
                         clearAutosave()
                         onSaved()
+                        // And again after onSaved: a subclass may adjust the draft
+                        // there — NoteEditor clears its own dirty flag, because an
+                        // explicit save stores the text — and the checkpoint taken
+                        // above no longer matches the draft then. Without the second
+                        // one the saved draft would read as dirty, and the editor
+                        // would ask to discard text it had just written.
+                        draftState.checkpoint()
+                        pushUiState()
                     }
                 }
             } catch (e: CancellationException) {

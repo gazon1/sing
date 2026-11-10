@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.contextmenu
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
@@ -10,6 +7,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test

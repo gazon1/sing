@@ -9,7 +9,7 @@ Measured before this gate existed: blanking the shell registry left
 checked nothing.
 
 The drift between the two was real: nine names disagreed while every check
-agreed. So the properties asserted here are the five shapes of drift the gate
+agreed. So the properties asserted here are the six shapes of drift the gate
 claims to catch, each planted on a synthetic pair of registries:
 
   * a gate line in the shell file with no registry entry — CI runs it,
@@ -21,7 +21,9 @@ claims to catch, each planted on a synthetic pair of registries:
   * the same gate spelled as two different commands — one surface runs one
     command, the other another, and the gate has two verdicts;
   * a name in `NOT_RUN_IN_STATIC` that is not a registered gate any more — a
-    declaration that outlived its gate.
+    declaration that outlived its gate;
+  * the same normalized invocation registered twice under two names — the suite
+    runs it twice, and the second run buys nothing.
 
 Plus the directions that must *not* fire (a shell line that dispatches
 through the registry, a bash gate that names the function the registry calls, a
@@ -82,13 +84,15 @@ def _bash_spec_for(name, bash_func, mode="blocking"):
 
 
 @contextlib.contextmanager
-def _registries(shell_gates, registry, not_run=None):
+def _registries(shell_gates, registry, not_run=None, duplicates=None):
     """Replace both registries with synthetic ones for the duration of a block.
 
     The three places the gate reads them are the shell registry loader, the
     `GATES` list and the `NOT_RUN_IN_STATIC` map — plus `sgate.gates`' own
     copy of `GATES`, which `load_gates()` reads through a module-level binding
-    and would otherwise keep returning the real registry.
+    and would otherwise keep returning the real registry. The duplicate
+    allowance is patched too, so a test can grant one without editing the
+    registry.
     """
     import sgate.commands._registry as registry_module
     import sgate.commands.run_all as run_all
@@ -102,6 +106,9 @@ def _registries(shell_gates, registry, not_run=None):
     with (
         unittest.mock.patch.object(registry_module, "GATES", tuple(registry)),
         unittest.mock.patch.object(registry_module, "NOT_RUN_IN_STATIC", dict(not_run or {})),
+        unittest.mock.patch.object(
+            registry_module, "DUPLICATE_INVOCATIONS", dict(duplicates or {})
+        ),
         unittest.mock.patch.object(run_all, "_load_static_gates", loader),
         unittest.mock.patch.object(gates, "_REGISTRY_GATES", tuple(registry)),
     ):
@@ -229,6 +236,123 @@ class DriftTest(unittest.TestCase):
         )
         joined = " ".join(violations)
         self.assertIn("Python gate registry", joined)
+
+
+class DuplicateInvocationTest(unittest.TestCase):
+    """One invocation, one gate — unless the registry records a decision.
+
+    Two gates ran ``scripts/regen-skills-catalog.sh --check`` under two names and
+    nothing saw it: every existing check compared the two registries with each
+    other, and both entries agreed with themselves. The suite ran the generator
+    twice, and the second run bought nothing.
+    """
+
+    COVERED = COVERED_SCRIPT
+    OTHER = "scripts/check-touch-targets.py"
+
+    @staticmethod
+    def _python_spec(name, *args, script=COVERED_SCRIPT):
+        return GateSpec(
+            name=name,
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=pathlib.Path(script),
+            script_args=tuple(args),
+        )
+
+    @staticmethod
+    def _shell_spec(name, script):
+        return GateSpec(
+            name=name,
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.SHELL,
+            script=pathlib.Path(script),
+        )
+
+    def _findings(self, shell_gates, registry, duplicates=None):
+        with _registries(shell_gates, registry, duplicates=duplicates):
+            violations, warnings, _summary = registries.evaluate(strict=True)
+        return " ".join(violations + warnings)
+
+    def test_one_executable_with_different_scripts_is_allowed(self):
+        """``bash`` runs two scripts: two checks, not a duplicate."""
+        shell = [
+            ("blocking", "alpha", f"bash {self.COVERED}"),
+            ("blocking", "beta", f"bash {self.OTHER}"),
+        ]
+        registry = [
+            self._shell_spec("alpha", self.COVERED),
+            self._shell_spec("beta", self.OTHER),
+        ]
+        self.assertNotIn("one gate declared twice", self._findings(shell, registry))
+
+    def test_one_script_with_different_arguments_is_allowed(self):
+        """The same script with different flags is a different question."""
+        shell = [
+            ("blocking", "alpha", f"python3 {self.COVERED} --one"),
+            ("blocking", "beta", f"python3 {self.COVERED} --two"),
+        ]
+        registry = [
+            self._python_spec("alpha", "--one"),
+            self._python_spec("beta", "--two"),
+        ]
+        self.assertNotIn("one gate declared twice", self._findings(shell, registry))
+
+    def test_one_invocation_under_two_names_is_reported(self):
+        """The whole failure: two declarations, one command, two runs."""
+        shell = [
+            ("blocking", "alpha", f"python3 {self.COVERED}"),
+            ("blocking", "beta", f"python3 {self.COVERED}"),
+        ]
+        registry = [
+            self._python_spec("alpha"),
+            self._python_spec("beta"),
+        ]
+        joined = self._findings(shell, registry)
+        self.assertIn("'alpha', 'beta' all run", joined)
+        self.assertIn("one gate declared twice", joined)
+
+    def test_a_declared_duplicate_with_names_and_a_reason_is_allowed(self):
+        """An allowance is a decision: it names the gates and says why."""
+        spec = self._python_spec("alpha")
+        invocation = registries._normalized_invocation(spec)
+        shell = [
+            ("blocking", "alpha", f"python3 {self.COVERED}"),
+            ("blocking", "beta", f"python3 {self.COVERED}"),
+        ]
+        registry = [spec, self._python_spec("beta")]
+        duplicates = {invocation: (("alpha", "beta"), "both names are public API")}
+        self.assertNotIn(
+            "one gate declared twice", self._findings(shell, registry, duplicates)
+        )
+
+    def test_an_allowance_that_names_the_wrong_gates_is_reported(self):
+        spec = self._python_spec("alpha")
+        invocation = registries._normalized_invocation(spec)
+        shell = [
+            ("blocking", "alpha", f"python3 {self.COVERED}"),
+            ("blocking", "beta", f"python3 {self.COVERED}"),
+        ]
+        registry = [spec, self._python_spec("beta")]
+        duplicates = {invocation: (("alpha", "gamma"), "stale names")}
+        self.assertIn(
+            "the allowance names gates that no longer share it",
+            self._findings(shell, registry, duplicates),
+        )
+
+    def test_an_allowance_without_a_reason_is_reported(self):
+        spec = self._python_spec("alpha")
+        invocation = registries._normalized_invocation(spec)
+        shell = [
+            ("blocking", "alpha", f"python3 {self.COVERED}"),
+            ("blocking", "beta", f"python3 {self.COVERED}"),
+        ]
+        registry = [spec, self._python_spec("beta")]
+        duplicates = {invocation: (("alpha", "beta"), "   ")}
+        self.assertIn(
+            "with no reason",
+            self._findings(shell, registry, duplicates),
+        )
 
 
 class NoFalsePositiveTest(unittest.TestCase):

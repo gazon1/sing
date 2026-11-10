@@ -83,6 +83,13 @@ class TestTagsWiringTest {
             "CALENDAR_WEEKDAY_MON" to
                 "used only in Maestro/flows/calendar/01-month-view.yaml, not in production UI",
             "CALENDAR_WEEKDAY_SUN" to "same as CALENDAR_WEEKDAY_MON",
+            // The Calendar left the menu for the bottom bar, so nothing draws this
+            // entry — and that is the point of the tag: the menu flow asserts that
+            // the entry is *absent*, and an id the validator has never heard of
+            // cannot be asserted to be missing.
+            "MENU_CALENDAR" to
+                "the Calendar's menu entry, which left for the tab bar; " +
+                "Maestro/flows/menu/02-calendar-entry.yaml asserts its absence",
         )
 
     @Test

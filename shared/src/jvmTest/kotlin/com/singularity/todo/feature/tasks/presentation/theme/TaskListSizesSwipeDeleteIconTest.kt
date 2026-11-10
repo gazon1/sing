@@ -1,9 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
+import androidx.compose.ui.unit.dp
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
-
-import androidx.compose.ui.unit.dp
 import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test

@@ -55,11 +55,10 @@ party.
 that only covers credentials leaves task titles, note bodies and search queries in
 a file a user attaches to a public bug report.
 
-**Test coverage:** redaction tests to be added alongside the inventory in
+**Test coverage:** redaction tests to be added alongside the inventory tracked by
+the change #log-messages-user-content-sweep.
 
-# log-messages-user-content-sweep
-
-## Scenario: Shared log carries no user content
+#### Scenario: Shared log carries no user content
 
 - A task and a note with recognisable titles are created
 - The log is captured and prepared for sharing

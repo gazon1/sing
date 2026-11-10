@@ -72,6 +72,18 @@ def _extract_docstring(path: Path) -> tuple[str | None, dict[int, str], str | No
     return purpose, exit_codes, adr_link
 
 
+def _cell(text: str) -> str:
+    """Make one Markdown table cell out of arbitrary prose.
+
+    A gate's purpose comes from a docstring, and a docstring's first paragraph
+    may wrap across lines. A raw newline inside a table cell ends the row, so
+    the row after it reads as a row with three cells and the table no longer
+    parses. Collapsing the whitespace keeps one gate on one line, and a pipe
+    in the prose is escaped so it cannot end a cell either.
+    """
+    return " ".join(text.split()).replace("|", "\\|")
+
+
 def _generate_table(commands_dir: Path) -> str:
     """Generate the gate-registry.md table content.
 
@@ -120,8 +132,8 @@ def _generate_table(commands_dir: Path) -> str:
 
         script_str = spec.script.as_posix() if spec.script else "—"
         lines.append(
-            f"| {spec.name} | {spec.mode.value} | `{script_str}` | {purpose_str} | "
-            f"{ec_str} | {adr_str} |"
+            f"| {_cell(spec.name)} | {spec.mode.value} | `{_cell(script_str)}` | "
+            f"{_cell(purpose_str)} | {_cell(ec_str)} | {_cell(adr_str)} |"
         )
 
     return "\n".join(lines)

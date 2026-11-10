@@ -428,7 +428,7 @@ class _Decision:
     title: str
     tags: tuple[str, ...]
     status: str
-    supersedes: str
+    supersedes: tuple[str, ...]
     superseded_by: str
     bullets: tuple[str, ...]
 
@@ -480,10 +480,10 @@ def _read_decision(slug: str, text: str) -> _Decision:
         tag = raw_tag.strip().strip('"\'').lower()
         if tag and tag not in tags:
             tags.append(tag)
-    supersedes = ''
-    if fm.get('supersedes'):
-        # Strip brackets: `[slug]` was being stored verbatim and never resolved.
-        supersedes = fm['supersedes'].strip('[]').removesuffix('.md')
+    # A decision may replace more than one: the value is then a list. Every
+    # target is named here, or the Consequences of a decision that no longer
+    # stands stay in the digest.
+    supersedes = tuple(adr_corpus.supersedes_slugs(fm.get('supersedes', '')))
     # The other side of the same edge: the replaced decision names what replaced
     # it. The corpus writes it in two spellings — `superseded-by:` and
     # `superseded_by:` — and the supersede process (`2026-09-26-adr-supersede-process`)
@@ -526,8 +526,8 @@ def read_corpus_texts(texts: dict[Path, str]) -> Corpus:
         titles[decision.slug] = decision.title
         tags_of[decision.slug] = list(decision.tags)
         statuses[decision.slug] = decision.status
-        if decision.supersedes:
-            superseded[decision.supersedes] = decision.slug
+        for replaced in decision.supersedes:
+            superseded[replaced] = decision.slug
         # A decision that says of itself that it was replaced has said it, in one
         # of the three ways a decision can say that: its own status, the name of
         # the decision that replaced it, or the `supersedes:` of that decision.

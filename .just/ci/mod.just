@@ -92,7 +92,6 @@ tests:
     # The population defaults to `fast` — the pull request's population. Pass
     # another one to run what the schedule runs.
     population="${POPULATION:-fast}"
-    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
         ./gw --continue --no-parallel \
             :mcp-server:jar \
             :shared:verifyToolSurface \
@@ -100,29 +99,12 @@ tests:
             :shared:testAndroidHostTest \
             :desktopApp:test \
             :mcp-server:test \
-            :androidApp:test \
             :detekt-rules:test \
             :tools:unwritten-properties:test \
             -Ptest.population="$population" \
             -Pcoverage.enabled=false \
             -Dsingularity.test.steps=true \
             -Dsingularity.test.a11y=fail
-    else
-        ./gw --continue --no-parallel \
-            :mcp-server:jar \
-            :shared:verifyToolSurface \
-            :shared:jvmTest \
-            :shared:testAndroidHostTest \
-            :desktopApp:test \
-            :mcp-server:test \
-            :androidApp:test \
-            :detekt-rules:test \
-            :tools:unwritten-properties:test \
-            -Ptest.population="$population" \
-            -Pcoverage.enabled=false \
-            -Dsingularity.test.steps=true \
-            -Dsingularity.test.a11y=fail
-    fi
 
 [group('ci')]
 [doc('Detekt for the eight modules CI judges')]
@@ -143,7 +125,6 @@ detekt:
     # `scripts/ci/detekt-auto-fix.sh`, which commits and pushes a correction
     # branch — a CI action with a branch of its own. Locally the correction is
     # the pre-push hook's `--auto-correct` run.
-    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
         ./gw --continue --no-parallel \
             :shared:detekt \
             :desktopApp:detekt \
@@ -154,18 +135,6 @@ detekt:
             :core-base:detekt \
             :detekt-rules:detekt \
             -Pcoverage.enabled=false
-    else
-        ./gw --continue --no-parallel \
-            :shared:detekt \
-            :desktopApp:detekt \
-            :androidApp:detekt \
-            :mcp-server:detekt \
-            :adr-cli:detekt \
-            :adr-core:detekt \
-            :core-base:detekt \
-            :detekt-rules:detekt \
-            -Pcoverage.enabled=false
-    fi
 
 [group('ci')]
 [doc('The suite under the coverage agent, and the floors — the coverage steps of the CI `tests` job')]

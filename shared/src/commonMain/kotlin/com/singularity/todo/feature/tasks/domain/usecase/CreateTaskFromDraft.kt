@@ -87,29 +87,16 @@ class CreateTaskFromDraftUseCase(
         // non-deterministic between machines even with a fixed clock.
         val today: LocalDate = todayAt(clock, timeZone.current())
 
-        fun resolveDate(option: DueDateOption): LocalDate? =
-            when (option) {
-                is DueDateOption.Custom -> option.date
-                DueDateOption.Today -> today
-                DueDateOption.Tomorrow -> today.plus(1, DateTimeUnit.DAY)
-                DueDateOption.None -> null
-            }
-
         // The primary date keeps its relative form until this moment: a draft
         // restored the next morning still says "today", not "yesterday". The extra
         // dates are concrete, because there is no relative form for a day the user
         // picked in a grid.
-        val primaryDate = resolveDate(draft.dueDate)
-        val dates = (listOfNotNull(primaryDate) + draft.extraDueDates).distinct().sorted()
-
-        if (dates.size > TaskSeriesPlanner.MAX_DATES) {
-            return Either.Left(
-                AppError.Validation(
-                    message = "A series may hold at most ${TaskSeriesPlanner.MAX_DATES} dates",
-                    code = "task.series.too_many_dates",
-                ),
-            )
-        }
+        val primaryDate = resolveDate(draft.dueDate, today)
+        val dates =
+            when (val resolved = resolveSeriesDates(primaryDate, draft.extraDueDates)) {
+                is Either.Left -> return Either.Left(resolved.error)
+                is Either.Right -> resolved.value
+            }
 
         val validated: Either<AppError.Validation, CreateTaskInput> =
             TaskDomain.createInput(
@@ -122,9 +109,9 @@ class CreateTaskFromDraftUseCase(
                 tagIds = draft.tagIds.map { TagId.fromString(it) },
                 dueDate = primaryDate,
                 dueTime = draft.dueTime,
-                startDate = resolveDate(draft.startDate),
+                startDate = resolveDate(draft.startDate, today),
                 startTime = draft.startTime,
-                endDate = resolveDate(draft.endDate),
+                endDate = resolveDate(draft.endDate, today),
                 endTime = draft.endTime,
                 accentColor = draft.accentColor,
                 emoji = draft.emoji,
@@ -281,6 +268,48 @@ class CreateTaskFromDraftUseCase(
             attachmentRepository.addUrlAttachment(taskId, draftAtt.url, draftAtt.title)
         }
     }
+
+    /**
+     * The dates a series is planned from: the primary date and the extra ones,
+     * deduplicated and ordered.
+     *
+     * The cap is checked here, because a draft that carries more dates than a
+     * series may hold is a validation failure — and it is the one failure that
+     * can be known before the domain validates the rest of the draft.
+     */
+    private fun resolveSeriesDates(
+        primaryDate: LocalDate?,
+        extraDueDates: List<LocalDate>,
+    ): Either<AppError.Validation, List<LocalDate>> {
+        val dates = (listOfNotNull(primaryDate) + extraDueDates).distinct().sorted()
+        if (dates.size > TaskSeriesPlanner.MAX_DATES) {
+            return Either.Left(
+                AppError.Validation(
+                    message = "A series may hold at most ${TaskSeriesPlanner.MAX_DATES} dates",
+                    code = "task.series.too_many_dates",
+                ),
+            )
+        }
+        return Either.Right(dates)
+    }
+
+    /**
+     * The editor's relative due-date options become concrete dates here.
+     *
+     * `today` is passed in rather than resolved inside, because the caller
+     * resolves it once for the whole draft: the primary date and the extra dates
+     * must agree on what "today" is.
+     */
+    private fun resolveDate(
+        option: DueDateOption,
+        today: LocalDate,
+    ): LocalDate? =
+        when (option) {
+            is DueDateOption.Custom -> option.date
+            DueDateOption.Today -> today
+            DueDateOption.Tomorrow -> today.plus(1, DateTimeUnit.DAY)
+            DueDateOption.None -> null
+        }
 
     /**
      * The cause travels with the error. `AppError.Unknown`'s own KDoc says every

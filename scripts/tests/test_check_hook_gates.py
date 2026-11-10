@@ -15,6 +15,9 @@ agreement and expects the gate to say so:
   - a hook that does not read the declaration;
   - a detekt module named in the hook itself;
   - a record that does not state the partiality;
+  - a record that does not state the partiality of the formatting gate, and a
+    formatting step that judges the whole tree instead of the sources the push
+    touches;
   - a delegate the hook does not call.
 """
 
@@ -22,6 +25,7 @@ import importlib.util
 import json
 import pathlib
 import tempfile
+import types
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -105,6 +109,22 @@ class HookGatesTest(unittest.TestCase):
                 'judged_by_ci_outside_the_module_graph': {},
                 'partiality': 'The hook judges what the change reaches; CI judges everything.',
             },
+            'ktlint': {
+                'judged_by_the_hook': 'the Kotlin sources the push touches',
+                'judged_by_ci': 'every Kotlin source of the tree',
+                'partiality': (
+                    'The hook judges the sources the push touches; CI judges every '
+                    'source of the tree.'
+                ),
+            },
+            'gate_suite': {
+                'judged_by_the_hook': 'the test modules of the gate suite the push touches',
+                'judged_by_ci': 'every module of the gate suite',
+                'partiality': (
+                    'The hook judges the test modules the push touches; CI judges every '
+                    'module of the suite.'
+                ),
+            },
         }
 
     @staticmethod
@@ -123,9 +143,17 @@ class HookGatesTest(unittest.TestCase):
             'python3 "$REPO_ROOT/'
             + DECLARATION
             + '" --verify-decided "$decided_labels"\n'
-            'python3 "$tree/scripts/run-gate-tests.py"\n'
+            'suite_scope="$(printf \'%s\\n\' "$PROMISE_TOUCHED" | grep -E \'^scripts/tests/[^/]+\\.py$\')"\n'
+            'if [ -f "$tree/scripts/tests/$suite_module.py" ]; then\n'
+            '    suite_module_args+=(--module "$suite_module")\n'
+            'fi\n'
+            'python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}"\n'
+            'echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"\n'
             'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n'
             'python3 "$REPO_ROOT/scripts/pre-push-verdict.py" --sha "$sha"\n'
+            'if [ "$step_arg" = "@TOUCHED_KT@" ]; then\n'
+            '    step_argv+=("$step_touched_kt")\n'
+            'fi\n'
         )
 
     @staticmethod
@@ -272,6 +300,255 @@ class HookGatesTest(unittest.TestCase):
         self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
         errors = self._errors()
         self.assertTrue(any('partiality' in err for err in errors), errors)
+
+    def test_a_record_without_the_partiality_of_the_formatting_gate_is_an_error(self):
+        """The formatting gate is partial too, and the record has to say so."""
+        registry = self._registry()
+        registry['ktlint']['partiality'] = ''
+        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('formatting gate' in err for err in errors),
+            errors,
+        )
+
+    def test_a_record_without_the_partiality_of_the_gate_suite_is_an_error(self):
+        """The gate suite is partial too, and the record has to say so."""
+        registry = self._registry()
+        registry['gate_suite']['partiality'] = ''
+        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('partiality of the gate suite' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_judges_the_whole_suite_is_an_error(self):
+        """The claim and the check are the same change.
+
+        The record says the hook judges the test modules the push touches —
+        and the step that runs has to be the scoped one. A record that claims
+        a narrowing the code does not have is a claim nothing checks.
+        """
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'python3 "$tree/scripts/run-gate-tests.py"\n'
+            'echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            any('gate suite step runs the whole suite' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_step_without_a_skip_is_an_error(self):
+        """A scope nobody can see is a scope nobody can rely on.
+
+        The step has to say that it judges nothing when the push touches no
+        test of the suite — otherwise "SKIPPED" and "OK" look the same to the
+        reader, and a step that judged nothing reads as a step that judged
+        everything.
+        """
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'suite_module_args+=(--module "$suite_module")\n'
+            'python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            any('no scope and no skip' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_does_not_derive_its_scope_from_the_push_is_an_error(self):
+        """The scope of the step is what the push carries.
+
+        The record says the hook judges the test modules the push touches —
+        so the step has to read what the push touched. A step that takes its
+        scope from anywhere else judges something else, and the record no
+        longer says what the hook does.
+        """
+        hook = self._hook().replace(
+            'suite_scope="$(printf \'%s\\n\' "$PROMISE_TOUCHED" | grep -E \'^scripts/tests/[^/]+\\.py$\')"',
+            'suite_scope="$(printf \'%s\\n\' "$EVERY_MODULE" | grep -E \'^scripts/tests/[^/]+\\.py$\')"',
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('does not derive its scope from what the push touches' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_does_not_ask_the_tree_what_exists_is_an_error(self):
+        """The tree is what the push carries, and the tree says what exists.
+
+        A module the push deletes or renames away is not in the tree any
+        more, and a name the tree does not hold is a name the runner turns
+        into a failed test — so a step that does not ask the tree blocks
+        pushes by modules that are not there.
+        """
+        hook = self._hook().replace(
+            'if [ -f "$tree/scripts/tests/$suite_module.py" ]; then',
+            'if [ -n "$suite_module" ]; then',
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('does not ask the tree what exists' in err for err in errors),
+            errors,
+        )
+
+    def _errors_of_the_real_hook(self, hook: str) -> list[str]:
+        """The errors of a copy of the REAL hook, mutated as the caller mutated it.
+
+        The fixture's hook names the tree's test directory once, so a search
+        for that name catches a mutation there. The real hook names it more
+        than once — and a check that any of those lines satisfies cannot tell
+        a hook that ASKS the tree from a hook that mentions it. So the
+        mutation is measured on the real hook, where the other mentions are.
+        """
+        path = self.tmp / 'pre-push-under-test'
+        path.write_text(hook, encoding='utf-8')
+        declared, tree_rules, machinery = mod.declared_hook_scripts()
+        errors, _ = mod.collect_errors(
+            mod.REGISTRY,
+            path,
+            mod.CI_WORKFLOW,
+            mod.load_module_graph(),
+            declared,
+            tree_rules,
+            mod.CI_DETEKT_SCRIPT,
+            machinery,
+            mod.PRE_PUSH_DECLARATION,
+            mod.PRE_PUSH_ENVIRONMENT,
+            mod.PRE_PUSH_ENVIRONMENT_CANON,
+        )
+        return errors
+
+    def test_a_real_hook_that_stops_asking_the_tree_what_exists_is_an_error(self):
+        """The existence check has to be a question, not a mention.
+
+        Replacing the question with a constant leaves the hook mentioning
+        the tree's test directory in two other places — and a check that
+        reads those as the question passes a hook that judges modules the
+        tree does not hold.
+        """
+        hook = mod.HOOK.read_text(encoding='utf-8')
+        mutated = hook.replace(
+            'if [ -f "$tree/scripts/tests/$suite_name.py" ]; then',
+            'if [ -n "$suite_name" ]; then',
+        )
+        self.assertNotEqual(hook, mutated, 'the premise: the real hook asks the tree')
+
+        errors = self._errors_of_the_real_hook(mutated)
+
+        self.assertTrue(
+            any('does not ask the tree what exists' in err for err in errors),
+            errors,
+        )
+
+    def test_a_real_hook_whose_scope_is_computed_from_a_name_is_an_error(self):
+        """The scope has to come from the variable, not from its name.
+
+        A line that writes the variable's NAME computes nothing: the scope
+        comes from whatever the line reads, and a name on a line is a
+        sentence about the scope.
+        """
+        hook = mod.HOOK.read_text(encoding='utf-8')
+        mutated = hook.replace('"$PROMISE_TOUCHED"', 'PROMISE_TOUCHED')
+        self.assertNotEqual(hook, mutated, 'the premise: the real hook reads the variable')
+
+        errors = self._errors_of_the_real_hook(mutated)
+
+        self.assertTrue(
+            any('does not derive its scope from what the push touches' in err for err in errors),
+            errors,
+        )
+
+    def test_a_formatting_gate_that_is_not_given_the_touched_sources_is_an_error(self):
+        """The condition says WHEN the gate runs; the arguments say WHAT it judges.
+
+        A gate that runs only for the sources the push touches and is handed
+        the whole tree judges every source of the tree — and the condition
+        hides it, because the step runs.
+        """
+        original = mod.PRE_PUSH_STEPS
+        self.addCleanup(setattr, mod, 'PRE_PUSH_STEPS', original)
+        mod.PRE_PUSH_STEPS = tuple(
+            step for step in original if step.script != 'scripts/ktlint-lint.py'
+        ) + (types.SimpleNamespace(
+            script='scripts/ktlint-lint.py',
+            when='if-script;if-touched:\\.kts?$',
+            args=('--root', '@TREE@'),
+        ),)
+
+        errors = self._errors()
+
+        self.assertTrue(
+            any('not given the sources the push touches' in err for err in errors),
+            errors,
+        )
+
+    def test_a_hook_that_does_not_expand_the_touched_sources_is_an_error(self):
+        """The sources have to reach the gate, not only decide that it runs."""
+        hook = self._hook().replace(
+            'if [ "$step_arg" = "@TOUCHED_KT@" ]; then',
+            'if [ "$step_arg" = "@SOMETHING_ELSE@" ]; then',
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('does not expand @TOUCHED_KT@' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_is_not_run_at_all_is_an_error(self):
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            any('does not run the gate suite' in err for err in errors),
+            errors,
+        )
+
+    def test_a_formatting_gate_that_judges_the_whole_tree_is_an_error(self):
+        """The claim and the check are the same change.
+
+        The record says the hook judges the sources the push touches — and the
+        step that runs has to be the scoped one. A record that claims a
+        narrowing the code does not have is a claim nothing checks.
+        """
+        original = mod.PRE_PUSH_STEPS
+        self.addCleanup(setattr, mod, 'PRE_PUSH_STEPS', original)
+        mod.PRE_PUSH_STEPS = tuple(
+            step for step in original if step.script != 'scripts/ktlint-lint.py'
+        ) + (types.SimpleNamespace(script='scripts/ktlint-lint.py', when='if-script'),)
+
+        errors = self._errors()
+
+        self.assertTrue(
+            any('formatting gate judges every Kotlin source' in err for err in errors),
+            errors,
+        )
+
+    def test_a_formatting_gate_that_is_not_run_at_all_is_an_error(self):
+        original = mod.PRE_PUSH_STEPS
+        self.addCleanup(setattr, mod, 'PRE_PUSH_STEPS', original)
+        mod.PRE_PUSH_STEPS = tuple(
+            step for step in original if step.script != 'scripts/ktlint-lint.py'
+        )
+
+        errors = self._errors()
+
+        self.assertTrue(
+            any('does not run scripts/ktlint-lint.py' in err for err in errors),
+            errors,
+        )
 
     def test_a_delegate_the_hook_does_not_call_is_an_error(self):
         self.hook_path.write_text(

@@ -3,8 +3,7 @@ description: >-
   Install the gate suite's Python package (editable from scripts/src/) into a
   venv, and make the external binaries (actionlint, shellcheck, yamllint, lychee,
   ktlint, rumdl, ...) available through mise (see mise.toml). The versions are
-  pinned in mise.toml and config/toolchain-versions.env so local and CI runs
-  agree.
+  pinned in mise.toml, so local and CI runs agree.
 
 inputs:
   python-version:
@@ -44,9 +43,14 @@ outputs:
 runs:
   using: composite
   steps:
+    # No `version:` here. mise-action interpolates the input into the release
+    # URL (`releases/download/v<version>/`), so the literal string "latest"
+    # became `vlatest` and 404'd. With the input omitted the action resolves
+    # the real latest release itself (https://mise.jdx.dev/VERSION) and the
+    # download URL is one that exists. The gate-tool pins live in mise.toml;
+    # mise itself is not pinned, same as the other mise-action call in ci.yml.
     - uses: jdx/mise-action@v2
       with:
-        version: latest
         install: true
         cache: true
 
@@ -63,7 +67,7 @@ runs:
         VENV="$HOME/ci-venv"
         uv venv "$VENV"
         # shellcheck disable=SC2086
-        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ ${{ inputs.extra-packages }}
+        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ -r scripts/documentation/requirements.txt ${{ inputs.extra-packages }}
         echo "bin=$VENV/bin" >> "$GITHUB_OUTPUT"
         echo "$VENV/bin" >> "$GITHUB_PATH"
         # mise shims must be on PATH for later steps too.

@@ -112,7 +112,7 @@ carries the follow-up marking and not the blocked one.
 - [x] T029 [P] [US1] Create the shared renderer `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskMarkingsRow.kt` — a static label, following the `SubtaskChip` precedent in `TaskCard.kt:182-202` (a plain `Text` on a `secondaryContainer` background, not an `AssistChip`), in the display order `InProgress → NextUp → Blocked → FollowUp → Overdue → NoDate → Pinned → Recurring → Completed`, stating the number of markings it did not show rather than dropping one
 - [x] T030 [US1] Render the markings from `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowContent.kt`, replacing the three ad-hoc booleans in `TaskMetaRow.kt` with the set
 - [x] T031 [US1] Compute the marking set where the row model is built — `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaContent.kt:404` — and add the set to the `remember` key at `:403` so a change of marking re-reads the row
-- [x] T032 [US1] Retire `AgendaBadge` and `computeAgendaBadge` in the `AgendaBadgePolicy` file and `domain/model/AgendaUiState.kt`, replacing them with the shared policy, and fold the duplicated rules in `SelectorBadge` into it
+- [x] T032 [US1] Retire `AgendaBadge` and `computeAgendaBadge` in the `AgendaBadgePolicy` file and `presentation/state/AgendaUiState.kt`, replacing them with the shared policy, and fold the duplicated rules in `SelectorBadge` into it
 
 ### The follow-up relation — it has to be creatable and visible first
 

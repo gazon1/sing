@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.flows.tasks.TaskStateScenarioSupport.CLOCK
@@ -17,6 +15,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitText
+import com.singularity.todo.test.helpers.clickScreenBack
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import kotlinx.coroutines.withTimeout
@@ -50,9 +49,10 @@ class TaskStateSurvivesScenarioTest {
             clickTag(TestTags.WORKFLOW_STATE_OPTION_IN_PROGRESS)
             awaitText("In progress")
 
-            // Leave the screen, then come back to the same task. The task
-            // editor's back arrow carries a content description, not a tag.
-            onAllNodesWithContentDescription("Назад").onFirst().performClick()
+            // Leave the screen, then come back to the same task. The screen's own
+            // back arrow is the control that leaves the editor; the shell draws one
+            // too, and the two are told apart by the tag.
+            clickScreenBack()
             awaitTag(TestTags.taskItem(TITLE)).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 

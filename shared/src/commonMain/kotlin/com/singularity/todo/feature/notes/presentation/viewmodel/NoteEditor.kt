@@ -238,8 +238,12 @@ internal class NoteEditor(
     override fun validate(draft: Editing): String? = null
 
     override suspend fun onSaved() {
-        // Explicit save: draft is no longer "new" — subsequent saves go through update.
-        updateDraft { it.copy(isNew = false) }
+        // Explicit save: the text is stored, so the draft is no longer dirty and no
+        // longer "new" — subsequent saves go through update. The dirty flag has to
+        // go here too: only the autosave used to clear it (onAutosaved), so a
+        // back press right after an explicit Save still asked "Discard changes?"
+        // about text that was already on disk.
+        updateDraft { it.copy(isDirty = false, isNew = false) }
         emit(NotesUiEvent.SavedPulse)
     }
 

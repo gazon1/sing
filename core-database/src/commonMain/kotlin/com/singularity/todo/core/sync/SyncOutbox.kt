@@ -89,10 +89,22 @@ interface SyncOutboxDao {
         profileId: String,
     ): List<SyncOutboxEntity>
 
-    /** Claims rows for pushing: sets claim_token where it is still null. */
-    @Query("UPDATE sync_outbox SET claim_token = :token WHERE patch_id IN (:ids) AND claim_token IS NULL")
+    /**
+     * Claims rows for pushing: sets claim_token where it is still null.
+     *
+     * Scoped by owner, like every other read of this queue. The ids come from
+     * [getPending], which is owner-scoped, so the scope is redundant for an honest
+     * caller — and that is the point: the write itself can no longer reach another
+     * account's row, whatever the caller passed in. A patch id is a uuid, so the
+     * collision is improbable; "improbable" is not a scope.
+     */
+    @Query(
+        "UPDATE sync_outbox SET claim_token = :token " +
+            "WHERE patch_id IN (:ids) AND owner_id = :ownerId AND claim_token IS NULL",
+    )
     suspend fun claim(
         ids: List<String>,
+        ownerId: String,
         token: String,
     )
 
@@ -101,10 +113,19 @@ interface SyncOutboxDao {
      * but only where the claim is still the one this cycle took. A row whose claim was
      * taken over by another cycle (after this one deferred it via markFailed) is left
      * untouched, so this cycle's release cannot strip another cycle's claim.
+     *
+     * The owner is the one the claim was taken under, not the one that is active when
+     * the release runs: the account can change under a cycle, and a release that
+     * followed the current scope would find no rows to give back — leaving the user's
+     * edits claimed for good.
      */
-    @Query("UPDATE sync_outbox SET claim_token = NULL WHERE patch_id IN (:ids) AND claim_token = :token")
+    @Query(
+        "UPDATE sync_outbox SET claim_token = NULL " +
+            "WHERE patch_id IN (:ids) AND owner_id = :ownerId AND claim_token = :token",
+    )
     suspend fun release(
         ids: List<String>,
+        ownerId: String,
         token: String,
     )
 

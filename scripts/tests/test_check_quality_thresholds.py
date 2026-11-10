@@ -17,9 +17,14 @@ only prove one of them.
 """
 
 import importlib.util
+import io
 import pathlib
+import shutil
 import sys
+import tempfile
 import unittest
+import unittest.mock
+import zipfile
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
 
@@ -208,6 +213,107 @@ class VersionTest(unittest.TestCase):
 
     def test_a_catalog_without_detekt_is_not_guessed(self):
         self.assertIsNone(thresholds.detekt_version("[versions]\nother = \"1\"\n"))
+
+
+class FetchDetektCoreTest(unittest.TestCase):
+    """The gate resolves the pinned jar itself when no Gradle home has it.
+
+    The Static gates CI job restores the Gradle home but not the dependency
+    cache, and the detekt Gradle plugin's own classpath does not pull
+    `detekt-core` — so a gate that can only read a Gradle cache never passes
+    there. These tests pin the resolution: the URL follows the pinned version,
+    a jar already on disk is reused, and a failed fetch is not a crash.
+    """
+
+    def setUp(self):
+        self._cache = thresholds.DETEKT_CORE_CACHE
+        self._saved_cache = thresholds.DETEKT_CORE_CACHE
+        thresholds.DETEKT_CORE_CACHE = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        thresholds.DETEKT_CORE_CACHE = self._saved_cache
+        shutil.rmtree(thresholds.DETEKT_CORE_CACHE, ignore_errors=True)
+
+    def _jar_bytes(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(thresholds.DEFAULT_CONFIG_ENTRY, DEFAULTS)
+        return buffer.getvalue()
+
+    def test_the_url_follows_the_pinned_version(self):
+        seen = {}
+
+        def fake_urlopen(url, timeout=None):
+            seen["url"] = url
+            raise OSError("offline")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", fake_urlopen):
+            self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+        self.assertEqual(
+            "https://repo1.maven.org/maven2/dev/detekt/detekt-core/"
+            "2.0.0-alpha.6/detekt-core-2.0.0-alpha.6.jar",
+            seen["url"],
+        )
+
+    def test_a_jar_on_disk_is_reused_without_fetching(self):
+        jar = thresholds.DETEKT_CORE_CACHE / "2.0.0-alpha.6" / "detekt-core-2.0.0-alpha.6.jar"
+        jar.parent.mkdir(parents=True, exist_ok=True)
+        jar.write_bytes(self._jar_bytes())
+
+        def never(url, timeout=None):
+            raise AssertionError("the jar was already on disk")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", never):
+            self.assertEqual(jar, thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+
+    def test_a_fetched_jar_is_cached_and_carries_the_default_config(self):
+        payload = self._jar_bytes()
+
+        class FakeResponse:
+            def read(self):
+                return payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        with unittest.mock.patch.object(
+            thresholds.urllib.request, "urlopen", lambda url, timeout=None: FakeResponse()
+        ):
+            jar = thresholds._fetch_detekt_core("2.0.0-alpha.6")
+
+        self.assertIsNotNone(jar)
+        self.assertTrue(jar.is_file())
+        self.assertIn(DEFAULTS, thresholds._default_config_from(jar))
+
+    def test_a_fetch_that_is_not_a_jar_is_not_kept(self):
+        class FakeResponse:
+            def read(self):
+                return b"not a jar"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        with unittest.mock.patch.object(
+            thresholds.urllib.request, "urlopen", lambda url, timeout=None: FakeResponse()
+        ):
+            self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+
+        leftovers = list(thresholds.DETEKT_CORE_CACHE.rglob("*"))
+        self.assertEqual([], [p for p in leftovers if p.is_file()])
+
+    def test_a_failed_fetch_is_not_a_crash(self):
+        def boom(url, timeout=None):
+            raise OSError("offline")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", boom):
+            self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
 
 
 if __name__ == "__main__":

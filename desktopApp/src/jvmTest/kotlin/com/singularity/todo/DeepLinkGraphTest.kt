@@ -39,7 +39,7 @@ class DeepLinkGraphTest {
                 modules(
                     listOf(coreLoggingModule()) +
                         domainModule() +
-                        listOf(testPlatformModule()),
+                        testPlatformModule(),
                 )
             }
         try {
