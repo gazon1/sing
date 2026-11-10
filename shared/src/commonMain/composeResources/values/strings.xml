@@ -10,6 +10,7 @@
     <string name="add_date">Add date</string>
     <string name="good_evening">Good evening</string>
     <string name="error">Error</string>
+    <string name="untitled_note">Untitled</string>
     <string name="task_description_placeholder">Add a description...</string>
     <string name="save_task">Save</string>
     <string name="priority">Priority</string>

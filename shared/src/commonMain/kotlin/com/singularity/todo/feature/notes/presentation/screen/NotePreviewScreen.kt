@@ -72,7 +72,8 @@ import com.singularity.todo.core.ui.text.rememberAppUriHandler
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.extractPreviewText
+import com.singularity.todo.feature.notes.displaySnippet
+import com.singularity.todo.feature.notes.displayTitle
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
@@ -82,7 +83,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.debounce
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.untitled_note
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
@@ -256,6 +260,8 @@ fun NotePreviewScreenContent(
 
                 is NotePreviewState.Loaded -> {
                     val note = state.note
+                    val untitled = stringResource(Res.string.untitled_note)
+                    val heroTitle = note.displayTitle(untitled)
                     Column(
                         modifier =
                             Modifier
@@ -265,7 +271,7 @@ fun NotePreviewScreenContent(
                     ) {
                         // Hero: title
                         Text(
-                            text = note.title.ifBlank { "Untitled" },
+                            text = heroTitle,
                             style = MaterialTheme.typography.headlineMedium,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
@@ -388,18 +394,20 @@ private fun BacklinksSheet(
                 }
 
                 else -> {
+                    val untitled = stringResource(Res.string.untitled_note)
                     LazyColumn {
                         items(backlinks, key = { it.id.value }) { note ->
+                            val backlinkTitle = note.displayTitle(untitled)
+                            val snippet = note.displaySnippet(maxChars = 80)
                             ListItem(
                                 headlineContent = {
                                     Text(
-                                        text = note.title.ifBlank { "(Untitled)" },
+                                        text = backlinkTitle,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 },
                                 supportingContent = {
-                                    val snippet = extractPreviewText(note.bodyMarkdown, 80)
                                     if (snippet.isNotBlank()) {
                                         Text(
                                             text = snippet,
