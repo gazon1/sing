@@ -1370,16 +1370,38 @@ jobs:
       # Publish a live Allure report to GitHub Pages (Allure 2 via simple-elf).
       # Only on main: PR runs keep uploading the artifact above instead.
       #
-      # Advisory: the gh-pages branch does not exist until the first publish,
-      # so the checkout can fail on a trunk that has never published. A missing
-      # history is a report without a trend line, not a broken build.
+      # The history comes as a tarball, not as a clone. A clone carries a .git
+      # directory into the published tree; the publish step then copies that
+      # .git over its own and commits to the clone's branch instead of gh-pages.
+      # The tarball carries the same files and no repository metadata.
+      #
+      # Advisory: a fresh trunk may have no gh-pages branch yet, so the
+      # download can fail there. A missing history is a report without a trend
+      # line, not a broken build.
       - name: Load Allure report history (advisory)
         if: github.ref == 'refs/heads/main' && !cancelled()
         continue-on-error: true
-        uses: actions/checkout@v7
-        with:
-          ref: gh-pages
-          path: gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          mkdir -p gh-pages/last-history
+          http=$(curl -sSL --retry 3 -o history.tar.gz \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -w '%{http_code}' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/tarball/gh-pages") || http="failed"
+          if [ "$http" = "200" ] && tar -xzf history.tar.gz -C gh-pages --strip-components=1; then
+            echo "Allure history loaded from gh-pages"
+          else
+            if [ "$http" = "404" ]; then
+              echo "::notice::no Allure history — the gh-pages branch does not exist yet"
+            else
+              echo "::notice::the Allure history download failed (HTTP $http) — the report publishes without a trend"
+            fi
+            rm -rf -- "$GITHUB_WORKSPACE/gh-pages"
+            mkdir -p gh-pages/last-history
+          fi
+          rm -f history.tar.gz
 
       - name: Build Allure report for Pages
         if: github.ref == 'refs/heads/main' && !cancelled()
