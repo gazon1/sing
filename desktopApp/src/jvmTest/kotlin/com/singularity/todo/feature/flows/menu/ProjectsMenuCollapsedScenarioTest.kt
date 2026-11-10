@@ -4,9 +4,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.flows.menu.ProjectsMenuScenarioSupport.CLOCK
 import com.singularity.todo.feature.flows.menu.ProjectsMenuScenarioSupport.seedProjects
+import com.singularity.todo.test.helpers.assertContentDescriptionReachable
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
-import com.singularity.todo.test.helpers.awaitContentDescription
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -51,7 +51,7 @@ class ProjectsMenuCollapsedScenarioTest {
             expandProjectsSection()
             scrollToTag(TestTags.menuProjectNode("bulk-001"))
             assertTagDisplayed(TestTags.menuProjectNode("bulk-001"))
-            awaitContentDescription("Collapse projects")
+            assertContentDescriptionReachable("Collapse projects")
 
             // Folding it again takes the tree off the screen.
             foldProjectsSection()
