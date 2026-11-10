@@ -43,6 +43,14 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
  * Everything else about the snackbar is Material3's own — this only re-frames
  * the action slot so a modifier can reach it.
  *
+ * ## The button the shell floats over the content
+ *
+ * The shell's floating action button is drawn over the screens, and a screen's
+ * snackbar is drawn at the bottom of that screen — under the button. The host
+ * keeps the space the button takes clear at the bottom, so the action stays
+ * visible and tappable (#2752). The space comes from the shell
+ * ([LocalFabBottomSpace]), so it is zero on a route without a button.
+ *
  * ## Countdown variant
  *
  * When [countdownProgress] is not null, a [LinearProgressIndicator] is shown
@@ -55,9 +63,15 @@ fun TaggedSnackbarHost(
     modifier: Modifier = Modifier,
     countdownProgress: Float? = null,
 ) {
+    // The shell's button floats over the content, and a snackbar is content:
+    // without this the action lands under the button, and a tap on it opens the
+    // button instead of the action (#2752). The shell publishes the space its
+    // button takes; the host keeps that much clear at the bottom. Zero when no
+    // button is on screen.
+    val fabBottomSpace = LocalFabBottomSpace.current
     SnackbarHost(
         hostState = hostState,
-        modifier = modifier,
+        modifier = modifier.padding(bottom = fabBottomSpace),
     ) { data ->
         TaggedSnackbar(data, countdownProgress)
     }

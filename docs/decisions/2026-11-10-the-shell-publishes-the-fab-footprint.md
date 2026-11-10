@@ -50,7 +50,9 @@ We did (3).
   button is on screen.
 
 Both shells publish it (`AndroidShellNav3`, `DesktopShellNav3`); `AgendaList`
-adds it to its bottom content padding.
+adds it to its bottom content padding, and `TaggedSnackbarHost` keeps it clear
+at the bottom of the snackbar (#2752 — a snackbar is content, so it is drawn
+under the button, and the Undo action ended up under the button's hit target).
 
 ## Rationale
 
@@ -124,8 +126,8 @@ this one measured run, not on a test that fails when the geometry drifts.
 ## Consequences
 
 - A new contract between the shell and the features: `LocalFabBottomSpace` in
-  `core/ui`. A list that floats under the FAB consumes it; a list that does not
-  is unaffected (the value is `0`).
+  `core/ui`. A list that floats under the FAB consumes it; a snackbar host
+  consumes it; anything that does not is unaffected (the value is `0`).
 - `FabSpacing` (16 dp) is duplicated here because Material3 keeps its own
   private. A change there is invisible to us — the value is small and the test
   asserts the outcome (the row is above the button), not the constant.
@@ -138,9 +140,12 @@ this one measured run, not on a test that fails when the geometry drifts.
 ## Links
 
 - Issue: https://github.com/gazon1/sing/issues/2743
+- Issue: https://github.com/gazon1/sing/issues/2752
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/FabBottomSpace.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TaggedSnackbarHost.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaContent.kt`
 - `shared/src/androidMain/kotlin/com/singularity/todo/AndroidShellNav3.kt`
 - `shared/src/jvmMain/kotlin/com/singularity/todo/shell/DesktopShellNav3.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaFabClearanceTest.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaSnackbarFabClearanceTest.kt`
 - ADR: `docs/decisions/2026-09-07-fab-chrome-level.md`

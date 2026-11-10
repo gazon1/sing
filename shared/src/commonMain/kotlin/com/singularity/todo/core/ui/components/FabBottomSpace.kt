@@ -19,7 +19,8 @@ import androidx.compose.ui.unit.dp
  * the button. The shell owns the button (ADR
  * `docs/decisions/2026-09-07-fab-chrome-level.md`), so the shell measures it
  * and publishes the space it takes here, and a list adds that space to its own
- * bottom content padding.
+ * bottom content padding. A snackbar host keeps the same space clear at the
+ * bottom, so the snackbar's action is not under the button either (#2752).
  *
  * Zero when no button is on screen: a list must not keep blank space for a
  * button that is not there.
