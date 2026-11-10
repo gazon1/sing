@@ -41,12 +41,15 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.FabFootprint
+import com.singularity.todo.core.ui.components.LocalFabBottomSpace
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
@@ -114,6 +117,16 @@ fun DesktopShellNav3Root(
     val fabCurrent: AppDestination =
         topMostRoute as? AppDestination
             ?: current
+
+    // One `today` for the shell, as on Android (#91): the prefill and the tab it
+    // was tapped from must not disagree across a midnight.
+    val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
+
+    // The button floats over the content, and Material3's Scaffold keeps no room
+    // for it. Its footprint is published so a list can keep its last row clear
+    // of the button (#2743).
+    val fabFootprint = remember { FabFootprint() }
+    val fabBottomSpace = if (fabAction != null) fabFootprint.bottomSpace() else 0.dp
 
     // Whether the shell's leading control is a back arrow or the drawer's button.
     val canGoBack: Boolean = navigator.canGoBack()
@@ -355,11 +368,12 @@ fun DesktopShellNav3Root(
                         handleDesktopShortcut(event, navigator)
                     },
                 floatingActionButton = {
-                    // One `today` for the shell, as on Android (#91): the prefill and
-                    // the tab it was tapped from must not disagree across a midnight.
-                    val action = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
+                    val action = fabAction
                     if (action != null) {
-                        FloatingActionButton(onClick = action.onClick) {
+                        FloatingActionButton(
+                            onClick = action.onClick,
+                            modifier = Modifier.onSizeChanged { fabFootprint.onMeasured(it.height) },
+                        ) {
                             Icon(Icons.Default.Add, contentDescription = action.label)
                         }
                     }
@@ -405,7 +419,10 @@ fun DesktopShellNav3Root(
                     }
                 },
             ) { padding ->
-                CompositionLocalProvider(LocalNav3State provides state) {
+                CompositionLocalProvider(
+                    LocalNav3State provides state,
+                    LocalFabBottomSpace provides fabBottomSpace,
+                ) {
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = shellCallbacks.goBack,
