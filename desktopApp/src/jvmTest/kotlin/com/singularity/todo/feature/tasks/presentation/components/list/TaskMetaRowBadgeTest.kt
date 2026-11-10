@@ -170,4 +170,40 @@ class TaskMetaRowBadgeTest {
                 "the date ends at ${date.right}, the project starts at ${project.left}",
             )
         }
+
+    // ─── The separator ────────────────────────────────────────────────────────
+
+    @Test
+    fun `a project with nothing before it draws no separator`() =
+        runIsolatedComposeTest {
+            // The separator hangs between the project and what came before it. A mark
+            // that is conveyed elsewhere — "no date" is drawn by the row, not by the
+            // marks — puts nothing on screen, so a separator would hang on empty space.
+            setContent {
+                TaskMetaRow(
+                    dueLabel = null,
+                    project = "Семья",
+                    markings = persistentSetOf(TaskMarking.NoDate),
+                    projectColor = 0xFF6A4C93.toInt(),
+                )
+            }
+
+            assertTextNotExists("·")
+            assertTextDisplayed("Семья")
+        }
+
+    @Test
+    fun `a project behind a date is separated from it`() =
+        runIsolatedComposeTest {
+            setContent {
+                TaskMetaRow(
+                    dueLabel = "Пн, 15 июн 2026",
+                    project = "Семья",
+                    markings = persistentSetOf(),
+                    projectColor = 0xFF6A4C93.toInt(),
+                )
+            }
+
+            assertTextDisplayed("·")
+        }
 }
