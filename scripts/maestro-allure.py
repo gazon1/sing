@@ -288,7 +288,7 @@ def convert(shards: list[dict], root: pathlib.Path, meta: dict, now_ms: int | No
 
     for shard in shards:
         shard_no = shard["environment"].get("shard")
-        shard_no = shard_no if isinstance(shard_no, int) else None
+        shard_no = shard_no if isinstance(shard_no, int) and not isinstance(shard_no, bool) else None
         for xml, cases in shard["cases"]:
             stop_ms = now_ms if now_ms is not None else report_stop(xml)
             for case in cases:
@@ -361,9 +361,19 @@ def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dic
     """The shard numbers observed, the count expected, completeness, and why not."""
     findings: list[dict] = []
     observed = sorted(
-        {shard["environment"]["shard"] for shard in shards if isinstance(shard["environment"].get("shard"), int)}
+        {
+            shard["environment"]["shard"]
+            for shard in shards
+            if isinstance(shard["environment"].get("shard"), int)
+            and not isinstance(shard["environment"]["shard"], bool)
+        }
     )
-    counts = {shard["environment"].get("shards") for shard in shards if isinstance(shard["environment"].get("shards"), int)}
+    counts = {
+        shard["environment"]["shards"]
+        for shard in shards
+        if isinstance(shard["environment"].get("shards"), int)
+        and not isinstance(shard["environment"]["shards"], bool)
+    }
     if len(counts) > 1:
         findings.append(
             {"kind": "shard count disagreement", "detail": f"shards report different totals: {sorted(counts)}"}
@@ -568,6 +578,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    if args.now is not None and not args.now.strip():
+        print("maestro-allure: --now is empty; omit it or pass an ISO8601 instant", file=sys.stderr)
+        return 1
     try:
         now_ms = timestamp_ms(args.now)
     except ValueError as exc:
@@ -579,11 +592,15 @@ def main(argv: list[str] | None = None) -> int:
     findings = findings + conversion["findings"]
     manifest = manifest_for(shards, conversion, meta, expected_flows, findings)
 
-    clean(out)
-    for result in conversion["results"].values():
-        write_json(out / f"{result['uuid']}-result.json", result)
-    write_json(out / "executor.json", executor_for(meta))
-    write_json(out / MANIFEST_NAME, manifest)
+    try:
+        clean(out)
+        for result in conversion["results"].values():
+            write_json(out / f"{result['uuid']}-result.json", result)
+        write_json(out / "executor.json", executor_for(meta))
+        write_json(out / MANIFEST_NAME, manifest)
+    except OSError as exc:
+        print(f"maestro-allure: cannot write the results to {out}: {exc}", file=sys.stderr)
+        return 1
 
     for finding in manifest["findings"]:
         print(f"maestro-allure: {finding['kind']}: {finding['detail']}", file=sys.stderr)

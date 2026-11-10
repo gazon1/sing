@@ -460,6 +460,38 @@ class RetryAndIdentityTest(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("is not a directory", err)
 
+    def test_boolean_shard_fields_are_not_shard_numbers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/a.yaml"
+            write_flow(root, flow, "a", [])
+            shard = write_shard(root, "s1", {"shard": True, "shards": True, "commit": "abc"})
+            write_report(shard, flow, "a")
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            out = root / "out"
+            run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                 "--catalogue", str(root / "catalogue.txt"), "--run-id", "1",
+                 "--run-number", "1", "--run-attempt", "1", "--commit", "abc",
+                 "--maestro-version", "2.10.0", "--apk-sha256", "f" * 64,
+                 "--task-outcome", "passed", "--out", str(out)])
+            data = manifest(out)
+            self.assertEqual(data["shards"], [])
+            self.assertIsNone(data["shards_expected"])
+            self.assertFalse(data["complete_shards"])
+            self.assertFalse(data["publishable"])
+
+    def test_empty_now_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            shard = write_shard(root, "s1")
+            (root / "catalogue.txt").write_text("")
+            out = root / "out"
+            code, err = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                             "--catalogue", str(root / "catalogue.txt"),
+                             "--now", "", "--out", str(out)])
+            self.assertEqual(code, 1)
+            self.assertIn("--now is empty", err)
+
     def test_malformed_now_is_an_error_not_a_traceback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

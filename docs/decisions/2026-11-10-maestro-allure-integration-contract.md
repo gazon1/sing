@@ -166,7 +166,7 @@ being read as a pass.
   `task_outcome`, `complete_shards=false`, `publishable=false`.
 - **A pass never replaces a failure.** If two records share a testcase identity:
   a failing/broken record wins over a passing one; equal outcomes keep the first
-  in sorted order; either case is a finding, and a status conflict sets
+  in the order the reports were read; either case is a finding, and a status conflict sets
   `publishable=false`. Losing a failure in aggregation is the one outcome the
   contract forbids.
 - Findings (missing/empty/malformed XML, absent flow, duplicate, missing
