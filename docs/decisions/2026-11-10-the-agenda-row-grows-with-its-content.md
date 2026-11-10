@@ -3,6 +3,7 @@ title: "The agenda row grows with its content: density, metadata order, and prio
 date: 2026-11-10
 status: accepted
 tags: ["tasks", "ui", "accessibility"]
+supersedes: 2026-10-22-a-series-shows-itself-where-it-appears
 ---
 
 # The agenda row grows with its content: density, metadata order, and priority as a shape
@@ -41,11 +42,12 @@ priority's word is painted in.
 A later manual inspection of the row — rendered in both themes at 320 dp and
 411 dp and read off the pixels and the semantics tree — found the defect the
 issue only half describes. With a date, three marks, a series and a project, the
-meta row consumed the whole text column of a 360 dp phone (264 px), and the
+meta row consumed the whole text column of a 360 dp phone (264 dp), and the
 project — the one field allowed to give way — got **zero** width instead of an
 ellipsis: its name and its colour dot were not drawn at all, and the separator
-before it hung on empty space. The widest consumer was the series marker's word,
-"series · 5 dates" (102 px), which is context, not a fact the row is read for.
+before it hung on empty space. The widest consumer was the series marker: its
+14 dp icon and the word "series · 5 dates" (84 dp), 102 dp in all, which is
+context, not a fact the row is read for.
 
 ## Idea
 
@@ -93,6 +95,14 @@ series has. `SeriesMarker` grew no new parameter for this: its existing
 `compact` flag already meant "the icon alone", and the only change is that the
 label it speaks keeps the count when the count is known.
 
+This supersedes one clause of
+[2026-10-22-a-series-shows-itself-where-it-appears](2026-10-22-a-series-shows-itself-where-it-appears.md):
+the one that said the day's list carries the icon **and the count**, because a
+row has room. The row has room for the date and the project, and the count in
+the marker's word was what took the project's width away. The rest of that
+decision stands — the undo of a series still carries the ids that went away, and
+the statistics still count a series as one work.
+
 `PriorityChip` keeps the priority hue as a 13 dp dot and paints the word in
 `MaterialTheme.colorScheme.onSurfaceVariant`. The agenda row itself was not
 changed here: it already draws the priority once, as a non-clickable
@@ -131,11 +141,13 @@ priority hue fails on the rendered result.
 **An ellipsis is not the same as a zero.** A project that is measured to zero
 width is not shortened, it is gone — no name, no colour dot, and a separator
 that now hangs on nothing. The order of the row can decide *who* gives way, but
-it cannot create width that the fixed consumers have already taken: the date
-(95 px), three marks (65 px) and the series word (102 px) filled a 264 px
-column on their own. Something had to shrink that is not a fact the row is read
-for, and the series marker's word is the one that says the least: the icon
-already says "this is a series", and the count survives in the description.
+it cannot create width that the fixed consumers have already taken. Measured on
+the laid-out row: the date (95 dp), the 4 dp gap after it, the three marks
+(51 dp), the series marker with its word (102 dp) and the separator (12 dp) came
+to 264 dp — the whole column of a 360 dp phone, to the dp. Something had to
+shrink that is not a fact the row is read for, and the series marker's word is
+the one that says the least: the icon already says "this is a series", and the
+count survives in the description.
 
 ## Consequences
 
@@ -144,15 +156,26 @@ already says "this is a series", and the count survives in the description.
 - The due date is never truncated: it is measured first and the project gives
   up the width. A long project name ellipsises, as before.
 - **The row no longer erases the project.** With a date, three marks and a
-  series, the project keeps 33 dp on a 320 dp phone and 73 dp on a 360 dp one,
-  ellipsised, where before it was measured to zero and vanished together with
-  its colour dot.
-  `TaskRowDensityTest` asserts the project's width in a crowded row against a
-  roomy one, so a row that erases the project again fails the test.
+  series, the project's name keeps 33 dp in the 224 dp column of a 320 dp phone
+  and 73 dp in the 264 dp column of a 360 dp one, ellipsised, where before it
+  was measured to zero and vanished together with its colour dot. Those are
+  measurements of the laid-out row on the machine this was written on; the width
+  of a text depends on the platform's font, so the test pins the **floor** and
+  not the number: a crowded row that squeezes the name below 24 dp — a sliver,
+  which is a missing project in slow motion — fails
+  `TaskRowDensityTest`.
 - **The series marker in the row is an icon.** The visible word "series · 5
-  dates" is gone from the task row — 102 px that the date and the project now
+  dates" is gone from the task row — 102 dp that the date and the project now
   have — while the count stays in the marker's description for a screen reader.
   The calendar's chip already drew the icon alone and is unchanged.
+- **The count of the series' dates is no longer on the screen.** A sighted user
+  sees the icon and knows the row is one date of a series; how many dates the
+  work has is in the marker's description, so it is spoken but not shown. The
+  issue asks for exactly this — compact repeat/series indicators on the same
+  line, with the accessible descriptions kept — and the row was the only place
+  that could have shown the count: the calendar's chip already drew the icon
+  alone. The count is still visible where it is about a change: the toast that
+  says how many dates a deletion took.
 - The priority chip (archive, project detail, search) is a coloured dot with a
   readable word. The agenda row itself is unchanged in this respect: it already
   drew the priority once, as a non-clickable star, and it still does.
@@ -178,4 +201,7 @@ already says "this is a series", and the count survives in the description.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityChip.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowDensityTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityChipContrastTest.kt`
+- [2026-10-22-a-series-shows-itself-where-it-appears.md](2026-10-22-a-series-shows-itself-where-it-appears.md) —
+  the mark of a series, the undo of a series and the statistics count; the clause
+  that put the count in the day's list is superseded here.
 - Issue #2738
