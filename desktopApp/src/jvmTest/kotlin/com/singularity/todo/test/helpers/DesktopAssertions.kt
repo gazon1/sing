@@ -401,6 +401,25 @@ fun DesktopComposeUiTest.assertContentDescriptionDisplayed(desc: String) {
 }
 
 /**
+ * Waits until a node with contentDescription [desc] is *displayed*, and returns it.
+ *
+ * The handle [awaitContentDescription] returns is not enough for a click: a node
+ * that is composed but not laid out yet has zero bounds, and a click on it is
+ * dispatched to the window's origin — a no-op that leaves the app unchanged, so
+ * the failure lands on whatever the test waits for next and never mentions the
+ * click. Waiting for the display makes the click land where the button is.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitContentDescriptionDisplayed(desc: String): SemanticsNodeInteraction =
+    step("awaitContentDescriptionDisplayed", desc) {
+        awaitDisplayed(
+            matcher = hasContentDescription(desc),
+            description = "node with contentDescription '$desc' is displayed",
+        )
+        onNodeWithContentDescription(desc)
+    }
+
+/**
  * [assertContentDescriptionDisplayed] for a node that may sit below the fold of a
  * scrollable container: scrolls it into view first, then asserts.
  *

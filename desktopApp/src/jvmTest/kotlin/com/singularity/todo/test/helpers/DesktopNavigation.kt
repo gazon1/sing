@@ -92,7 +92,14 @@ fun DesktopComposeUiTest.openDrawer() =
         // node that satisfies ContentDescription = 'Menu'", which blames the input
         // injection and the drawer and never mentions timing — measured on
         // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
-        awaitContentDescription(DesktopShell.HAMBURGER).performClick()
+        //
+        // And await it being ON SCREEN, not merely composed: a node that exists
+        // before the first layout pass has zero bounds, and the click is dispatched
+        // to the window's origin — on this shell that is the menu bar, so the drawer
+        // never opens and the wait below times out on a test that never clicked the
+        // button. Measured on `PlansGranularityRestoredScenarioTest` in CI
+        // (run 42720173415), where the retry hit it a second time as well.
+        awaitContentDescriptionDisplayed(DesktopShell.HAMBURGER).performClick()
         waitUntil(
             conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
             timeoutMillis = TIMEOUT_MS,
