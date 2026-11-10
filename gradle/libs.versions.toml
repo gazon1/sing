@@ -31,7 +31,7 @@ coroutines = "1.11.0"
 datetime = "0.8.0"
 
 # Database / SQLDelight
-postgrestKt = "3.8.0"
+postgrestKt = "3.9.0"
 room = "3.0.3"
 sqlite = "2.7.0"
 sqliteJdbc = "3.47.0.0"
