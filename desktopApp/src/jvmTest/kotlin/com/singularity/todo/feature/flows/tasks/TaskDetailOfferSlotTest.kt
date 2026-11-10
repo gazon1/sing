@@ -83,11 +83,17 @@ class TaskDetailOfferSlotTest {
             // And no gap where the offer would have been. An empty offer column is still
             // a child of the editor's column, so its spacing puts one extra gap between
             // the description and the first row below it of every task in the app.
+            //
+            // One spacing step is the whole of it: the editor's column spaces its
+            // children by `md`, and the description's own vertical padding (`sm`)
+            // sits outside its semantics node, so the measured gap is the two of
+            // them. A second spacing step is the defect, and it is bigger than
+            // this bound by a whole step.
             val description = unclippedBoundsOfContentDescription(DESCRIPTION)
             val firstRow = firstRowBelowTheOfferSlot()
             val gap = firstRow.top - description.bottom
             assertTrue(
-                gap < TaskSpacing.md + TaskSpacing.md,
+                gap <= TaskSpacing.md + TaskSpacing.sm,
                 "the empty offer slot left a gap of $gap between the description " +
                     "($description) and the first row below it ($firstRow)",
             )
