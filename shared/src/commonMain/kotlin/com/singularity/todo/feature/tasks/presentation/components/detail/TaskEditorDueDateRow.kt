@@ -131,7 +131,7 @@ fun TaskEditorDueDateRow(
  * would hide the fact that there are others.
  */
 @Composable
-private fun dueDateRowLabel(
+internal fun dueDateRowLabel(
     date: LocalDate?,
     time: LocalTime?,
     dates: ImmutableList<LocalDate>,

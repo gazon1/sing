@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -18,6 +19,10 @@ import androidx.compose.ui.unit.dp
  * @param selected Whether the chip is in a selected/active state.
  * @param onClick Called when the user taps the chip. Pass `null` for a read-only label.
  * @param modifier Modifier for the chip.
+ * @param maxLines How many lines the label may occupy. Unlimited by default, which is
+ *   the old behaviour. A finite value truncates with an ellipsis instead of growing the
+ *   chip — a chip taller than its neighbours drags the whole row down, and a chip wider
+ *   than the screen pushes the next control off it.
  */
 @Composable
 fun DetailMetaChip(
@@ -25,6 +30,7 @@ fun DetailMetaChip(
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
 ) {
     // `onClick ?: {}` is deliberate, and the API is built around it: `onClick` is
     // nullable precisely so a caller can render a read-only label, and the chip is
@@ -38,6 +44,8 @@ fun DetailMetaChip(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
         },

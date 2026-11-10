@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertTouchHeightIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -24,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import kotlin.test.assertEquals
 
@@ -376,6 +378,27 @@ fun DesktopComposeUiTest.assertTagSelected(tag: String) =
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.unclippedBoundsOfTag(tag: String): DpRect = awaitTag(tag).getUnclippedBoundsInRoot()
+
+/**
+ * Asserts the *touch* height of the node with [tag] is exactly the app's [floor].
+ *
+ * Not the same question as its layout bounds (#2736). A chip can be drawn at 32 dp and
+ * still be tappable across the 48 dp floor: `Modifier.touchTarget()` reserves the larger
+ * box, and Compose expands a small clickable's pointer area to the platform minimum. The
+ * layout rect a screenshot or `getUnclippedBoundsInRoot` reports is the small one, so a
+ * test asserting 48 dp on those bounds measures the wrong thing.
+ *
+ * Height, not width: for a chip the height is the dimension compactness shrinks, and the
+ * label makes the width larger than the floor on its own. The Compose test API has no
+ * "touch bounds at least", but the reserved height is the floor exactly.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertTouchTargetHeight(
+    tag: String,
+    floor: Dp,
+) {
+    awaitTag(tag).assertTouchHeightIsEqualTo(floor)
+}
 
 /**
  * The unclipped bounds of the node with content description [desc], in root

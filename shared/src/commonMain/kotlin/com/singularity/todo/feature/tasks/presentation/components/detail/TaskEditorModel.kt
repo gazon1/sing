@@ -75,6 +75,14 @@ data class TaskEditorModel(
     val projectName: String? = null,
     val projectColor: Int? = null,
     val tags: ImmutableList<TagId> = persistentListOf(),
+    /**
+     * The display names of [tags], in the same order.
+     *
+     * Derived, not owned: the chip strip shows the names the tag picker already knows
+     * (#2736). Empty when the caller has ids but no names — the strip then falls back
+     * to a count, so a draft does not need a second lookup just to render.
+     */
+    val tagNames: ImmutableList<String> = persistentListOf(),
     val checklist: ImmutableList<ChecklistItem> = persistentListOf(),
     val attachments: ImmutableList<Attachment> = persistentListOf(),
     val recurrence: RecurrenceSpec? = null,

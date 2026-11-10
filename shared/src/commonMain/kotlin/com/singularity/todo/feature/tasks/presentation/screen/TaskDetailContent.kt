@@ -348,6 +348,7 @@ fun TaskDetailContent(
                                     projectName = ui.project?.name,
                                     projectColor = ui.project?.color,
                                     tags = remember(ui.tags) { ui.tags.map { it.id }.toImmutableList() },
+                                    tagNames = remember(ui.tags) { ui.tags.map { it.name }.toImmutableList() },
                                     recurrence = ui.task.recurrence,
                                     isPinned = ui.task.isPinned,
                                     estimateMinutes = ui.task.estimateMinutes,

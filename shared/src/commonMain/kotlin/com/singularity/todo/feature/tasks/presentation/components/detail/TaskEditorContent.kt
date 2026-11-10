@@ -154,6 +154,7 @@ private fun TaskEditorContent(
     projectColor: Int? = null,
     projectCallbacks: RowCallbacks<ProjectId?>? = null,
     tags: ImmutableList<TagId> = persistentListOf(),
+    tagNames: ImmutableList<String> = persistentListOf(),
     tagsCallbacks: RowCallbacks<List<TagId>>? = null,
     recurrence: RecurrenceSpec? = null,
     recurrenceCallbacks: RowCallbacks<RecurrenceSpec?>? = null,
@@ -184,6 +185,15 @@ private fun TaskEditorContent(
     snackbarHost: (@Composable () -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
     savedVisible: Boolean = false,
+    /**
+     * PROTOTYPE (#2736): draw the four primary attributes as one wrapping chip strip
+     * instead of four full rows.
+     *
+     * Default off. The comparison in `TaskAttributeStripPrototypeTest` decides whether it
+     * becomes the editor's layout; the rows and the strip take the same values, the same
+     * sheet-opening callbacks and the same test tags, so nothing else changes.
+     */
+    compactAttributes: Boolean = false,
 ) {
     Scaffold(
         topBar = {
@@ -286,12 +296,36 @@ private fun TaskEditorContent(
                 )
             }
 
-            // Priority row
-            TaskEditorPriorityRow(
-                priority = priority,
-                onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
-                onPriorityClear = onPriorityClear,
-            )
+            // Priority row — or, in the prototype presentation, the whole strip.
+            //
+            // The strip takes the four attributes' place at the first of them, so the
+            // rows around it (estimate, dependencies, start date, recurrence, pin) keep
+            // their order and the offers above stay above.
+            if (compactAttributes) {
+                TaskAttributeChipStrip(
+                    priority = priority,
+                    dueDate = dueDate,
+                    dueTime = dueTime,
+                    dueDates = dueDates,
+                    showDueDate = showDueDate,
+                    project = project,
+                    projectName = projectName,
+                    tagNames = tagNames,
+                    tagCount = tags.size,
+                    onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
+                    onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
+                    onProjectClick =
+                        projectCallbacks?.let { it.onClick ?: { sheets.show(TaskEditorSheet.Project) } },
+                    onTagsClick =
+                        tagsCallbacks?.let { it.onClick ?: { sheets.show(TaskEditorSheet.Tags) } },
+                )
+            } else {
+                TaskEditorPriorityRow(
+                    priority = priority,
+                    onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
+                    onPriorityClear = onPriorityClear,
+                )
+            }
 
             // Estimate row
             estimateCallbacks?.let { cb ->
@@ -302,8 +336,8 @@ private fun TaskEditorContent(
                 )
             }
 
-            // Due date row
-            if (showDueDate) {
+            // Due date row — the strip carries it in the prototype presentation.
+            if (!compactAttributes && showDueDate) {
                 TaskEditorDueDateRow(
                     dueDate = dueDate,
                     dueTime = dueTime,
@@ -356,75 +390,70 @@ private fun TaskEditorContent(
                 )
             }
 
-            // Project row
-            projectCallbacks?.let { cb ->
-                val projectLabel =
-                    when {
-                        project == null -> "No project"
-                        !projectName.isNullOrBlank() -> projectName
-                        else -> "Project unavailable"
-                    }
-                TaskAttributeCard(
-                    icon = if (project != null) null else Icons.Filled.Folder,
-                    label = projectLabel,
-                    isActive = project != null,
-                    leadingContent =
-                        if (project != null) {
-                            {
-                                if (projectColor != null) {
-                                    Box(
+            // Project and tags rows — the strip carries both in the prototype presentation.
+            if (!compactAttributes) {
+                projectCallbacks?.let { cb ->
+                    TaskAttributeCard(
+                        icon = if (project != null) null else Icons.Filled.Folder,
+                        label = projectChipLabel(project, projectName),
+                        isActive = project != null,
+                        leadingContent =
+                            if (project != null) {
+                                {
+                                    if (projectColor != null) {
+                                        Box(
+                                            modifier =
+                                                Modifier
+                                                    .size(14.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(projectColor)),
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Filled.Folder,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(TaskSpacing.iconSize),
+                                        )
+                                    }
+                                }
+                            } else {
+                                null
+                            },
+                        onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
+                        trailingContent =
+                            if (cb.onClear != null && project != null) {
+                                {
+                                    IconButton(
+                                        onClick = cb.onClear,
                                         modifier =
                                             Modifier
-                                                .size(14.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(projectColor)),
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Filled.Folder,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(TaskSpacing.iconSize),
-                                    )
+                                                .touchTarget()
+                                                .size(24.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Clear project",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
                                 }
-                            }
-                        } else {
-                            null
-                        },
-                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
-                    trailingContent =
-                        if (cb.onClear != null && project != null) {
-                            {
-                                IconButton(
-                                    onClick = cb.onClear,
-                                    modifier =
-                                        Modifier
-                                            .touchTarget()
-                                            .size(24.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Clear project",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_PROJECT_ROW),
-                )
-            }
-            // Tags row
-            tagsCallbacks?.let { cb ->
-                TaskAttributeCard(
-                    icon = Icons.AutoMirrored.Filled.Label,
-                    label = if (tags.isEmpty()) "Add tags" else "${tags.size} tag${if (tags.size > 1) "s" else ""}",
-                    isActive = tags.isNotEmpty(),
-                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Tags) },
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_TAGS_ROW),
-                )
+                            } else {
+                                null
+                            },
+                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_PROJECT_ROW),
+                    )
+                }
+                tagsCallbacks?.let { cb ->
+                    TaskAttributeCard(
+                        icon = Icons.AutoMirrored.Filled.Label,
+                        label = if (tags.isEmpty()) "Add tags" else "${tags.size} tag${if (tags.size > 1) "s" else ""}",
+                        isActive = tags.isNotEmpty(),
+                        onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Tags) },
+                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_TAGS_ROW),
+                    )
+                }
             }
 
             // Recurrence row
@@ -524,6 +553,7 @@ fun TaskEditorContent(
     titleError: String? = null,
     snackbarHost: (@Composable () -> Unit)? = null,
     savedVisible: Boolean = false,
+    compactAttributes: Boolean = false,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -537,6 +567,7 @@ fun TaskEditorContent(
         titleError = titleError,
         snackbarHost = snackbarHost,
         savedVisible = savedVisible,
+        compactAttributes = compactAttributes,
     )
 }
 
@@ -616,6 +647,7 @@ private fun TaskEditorScaffold(
     titleError: String? = null,
     snackbarHost: (@Composable () -> Unit)? = null,
     savedVisible: Boolean = false,
+    compactAttributes: Boolean = false,
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
@@ -641,6 +673,7 @@ private fun TaskEditorScaffold(
         projectColor = model.projectColor,
         projectCallbacks = callbacks.project,
         tags = model.tags,
+        tagNames = model.tagNames,
         tagsCallbacks = callbacks.tags,
         recurrence = model.recurrence,
         recurrenceCallbacks = callbacks.recurrence,
@@ -667,6 +700,7 @@ private fun TaskEditorScaffold(
         snackbarHost = snackbarHost,
         sheets = sheets,
         savedVisible = savedVisible,
+        compactAttributes = compactAttributes,
     )
 
     TaskEditorSheetsHost(

@@ -98,7 +98,7 @@ fun TaskEditorPriorityRow(
     }
 }
 
-private val TaskPriority.label: String
+internal val TaskPriority.label: String
     get() =
         when (this) {
             TaskPriority.None -> "No priority"
