@@ -48,7 +48,7 @@ the section is in should not have to infer it from the tree's length, and a flow
 unfolds a section which is already unfolded taps a button that is not on the screen.
 
 **The way into the full list is above the tree.** "All projects" is a
-`NavigationDrawerItem` of the section's heading, drawn before the tree. The tree is a
+`NavigationDrawerItem` drawn above the tree, next to the section's heading. The tree is a
 way into the projects, not the only way, and the route to the list is reachable whether
 the tree is folded or not. Both surfaces draw the one `ProjectsMenuSection`, so the
 Android sheet and the Desktop drawer offer the same route.
