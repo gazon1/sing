@@ -5,10 +5,21 @@ description: >
   minor 1), so an Android compile fails on a missing platform before it can
   judge anything about the change.
 
+  The platform is cached, because installing it is the single most expensive
+  step of a run: sdkmanager spent 626 s of a 1435 s job fetching remote
+  manifests and downloading the package, on the critical path of every pull
+  request. Only the trunk writes the cache; pull requests restore it read-only,
+  so a pull request cannot evict or poison the copy the trunk depends on.
+
 runs:
   using: composite
   steps:
-    - name: Install platforms;android-37.1
+    # The SDK root is a runner-image detail, not a repository fact, so it is
+    # read from the environment rather than spelled here. It is passed to the
+    # cache steps as an output because a `with:` block cannot read a shell
+    # variable.
+    - name: Locate the Android SDK
+      id: sdk
       shell: bash
       run: |
         sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -16,10 +27,38 @@ runs:
           echo "::error::no Android SDK found (ANDROID_SDK_ROOT and ANDROID_HOME are unset)"
           exit 1
         fi
-        sdkmanager="$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1 || true)"
+        echo "root=$sdk_root" >> "$GITHUB_OUTPUT"
+
+    # The key names the platform version, not the commit: the package is
+    # content-addressed by its version, so a new `compileSdk` invalidates the
+    # cache and nothing else does. Bump it together with `compileSdk` in
+    # androidApp/build.gradle.kts.
+    - name: Restore the Android platform
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.sdk.outputs.root }}/platforms/android-37.1
+        key: android-platform-37.1
+
+    - name: Install platforms;android-37.1
+      shell: bash
+      env:
+        SDK_ROOT: ${{ steps.sdk.outputs.root }}
+      run: |
+        if [ -d "$SDK_ROOT/platforms/android-37.1" ]; then
+          echo "platforms;android-37.1 is already installed — the cache answered"
+          exit 0
+        fi
+        sdkmanager="$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1 || true)"
         if [ -z "$sdkmanager" ]; then
-          echo "::error::no sdkmanager under $sdk_root/cmdline-tools"
+          echo "::error::no sdkmanager under $SDK_ROOT/cmdline-tools"
           exit 1
         fi
         yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
         "$sdkmanager" "platforms;android-37.1"
+
+    - name: Save the Android platform
+      if: github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.sdk.outputs.root }}/platforms/android-37.1
+        key: android-platform-37.1
