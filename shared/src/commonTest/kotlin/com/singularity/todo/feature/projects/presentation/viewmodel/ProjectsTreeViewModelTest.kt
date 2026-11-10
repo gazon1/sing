@@ -132,6 +132,58 @@ class ProjectsTreeViewModelTest {
         }
 
     /**
+     * The section starts folded.
+     *
+     * A profile with a hundred projects draws a tree longer than the screen,
+     * and the tree sits below the entries the user opened the menu for — so the
+     * tree is folded away until the user unfolds it.
+     */
+    @Test
+    fun `the projects section starts folded`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"))
+            val h = newHarness(repo)
+            advanceUntilIdle()
+
+            assertEquals(
+                false,
+                (h.vm.stateFlow.value as ProjectsTreeUiState.Loaded).sectionExpanded,
+                "the projects section must start folded",
+            )
+            h.close()
+        }
+
+    /**
+     * Unfolding the section is the user's decision, and a tree that arrives
+     * later does not fold it again.
+     */
+    @Test
+    fun `unfolding the section survives the tree changing`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"))
+            val h = newHarness(repo)
+            advanceUntilIdle()
+
+            h.vm.onIntent(ProjectsTreeIntent.ToggleSection)
+            advanceUntilIdle()
+            assertEquals(
+                true,
+                (h.vm.stateFlow.value as ProjectsTreeUiState.Loaded).sectionExpanded,
+            )
+
+            repo.add(project("other", "Other"))
+            advanceUntilIdle()
+            assertEquals(
+                true,
+                (h.vm.stateFlow.value as ProjectsTreeUiState.Loaded).sectionExpanded,
+                "a project created elsewhere must not fold the section the user unfolded",
+            )
+            h.close()
+        }
+
+    /**
      * The reporter receives the throwable the repository threw.
      *
      * The observation fails inside a channel hop, and a channel carries a *copy*

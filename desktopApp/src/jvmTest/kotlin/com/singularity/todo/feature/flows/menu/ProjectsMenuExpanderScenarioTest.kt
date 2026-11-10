@@ -39,6 +39,7 @@ class ProjectsMenuExpanderScenarioTest {
             seedProject(koin, "robot-closed", "Closed", closed = true)
 
             openDrawer()
+            expandProjectsSection()
 
             // The tree sits at the end of the drawer, below the fold.
             scrollToTag(TestTags.menuProjectNode("robot-childless"))
