@@ -6,6 +6,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +17,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -152,10 +154,17 @@ fun NotificationHost(
             popupPositionProvider = BottomCenterAnchorPositionProvider(),
             properties = PopupProperties(focusable = false),
         ) {
-            TaggedSnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.mapTestTagsAsResourceIds(),
-            )
+            // The popup is its own window, drawn above the shell's button — so it
+            // never needed the button's clearance, and the host's own clearance
+            // would only lift the toast off the bottom edge of the screen
+            // (#2752). Zero here keeps the toast where it was before the
+            // snackbar host learned about the button.
+            CompositionLocalProvider(LocalFabBottomSpace provides 0.dp) {
+                TaggedSnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.mapTestTagsAsResourceIds(),
+                )
+            }
         }
     }
 

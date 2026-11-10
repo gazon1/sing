@@ -102,6 +102,13 @@ Covered by the regression test
 so the button is placed by the framework and the test compares the last row
 against the button's real bounds.
 
+The snackbar's half of the contract is covered by
+`desktopApp/.../AgendaSnackbarFabClearanceTest.kt`, and the popup's half — the
+host inside `NotificationHost`, which asks for zero — by
+`desktopApp/.../NotificationPopupFabClearanceTest.kt`. The latter publishes a
+large clearance and asserts that the toast does not move: without the zero, the
+toast floats 76 dp above the bottom edge of its own window.
+
 The Android runtime was measured, by hand, on an AVD (`Medium_Phone`, API 36,
 420 dpi) with the agenda holding 21 tasks, scrolled to its end. The bounds come
 from the UI tree (`uiautomator dump`), not from a screenshot:
@@ -128,10 +135,10 @@ this one measured run, not on a test that fails when the geometry drifts.
 - A new contract between the shell and the features: `LocalFabBottomSpace` in
   `core/ui`. A list that floats under the FAB consumes it; a snackbar host
   consumes it; anything that does not is unaffected (the value is `0`).
-- Both snackbar hosts consume it: the agenda's own host and the one inside
-  `NotificationHost`'s `Popup`. A popup is its own window, drawn above the
-  button, so it never needed the clearance — the lift it gets there is
-  cosmetic, not a fix.
+- Both snackbar hosts live under this contract, but only one of them uses the
+  value: the agenda's own host, and the one inside `NotificationHost`'s `Popup`
+  — a popup is its own window, drawn above the button, so it never needed the
+  clearance and asks for zero.
 - `FabSpacing` (16 dp) is duplicated here because Material3 keeps its own
   private. A change there is invisible to us — the value is small and the test
   asserts the outcome (the row is above the button), not the constant.
@@ -152,4 +159,5 @@ this one measured run, not on a test that fails when the geometry drifts.
 - `shared/src/jvmMain/kotlin/com/singularity/todo/shell/DesktopShellNav3.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaFabClearanceTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaSnackbarFabClearanceTest.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/core/ui/components/NotificationPopupFabClearanceTest.kt`
 - ADR: `docs/decisions/2026-09-07-fab-chrome-level.md`

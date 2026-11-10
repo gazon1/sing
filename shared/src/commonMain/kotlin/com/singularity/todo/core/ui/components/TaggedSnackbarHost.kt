@@ -53,7 +53,8 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
  *
  * The same host is also used inside a `Popup` (`NotificationHost`): a popup is
  * its own window, drawn above the button, so it never needed the clearance —
- * but it consumes the same value, and the lift it gets there is cosmetic.
+ * and it asks for none (`LocalFabBottomSpace` is zero there), so the toast
+ * stays where it was.
  *
  * ## Countdown variant
  *
