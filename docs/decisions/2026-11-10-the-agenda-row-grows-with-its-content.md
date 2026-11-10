@@ -12,14 +12,22 @@ tags: ["tasks", "ui", "accessibility"]
 The 2026-11-09 comparison of the agenda screen against Todoist, Things and
 Apple Reminders found three things in the task row (#2738):
 
-- a one-line row spent 83 dp of screen height, while the reference rows spend
-  about 60;
+- a one-line row spent 80 dp of screen height — the checkbox's 48 dp touch
+  target plus 16 dp of padding above and 16 dp below — while the reference rows
+  spend about 60;
 - the due date was pushed out of the row by the repeat mark and the project
   badge standing next to it — the field the row is read for was the field that
   lost;
-- the priority was drawn twice, and the word beside the marker ("Medium") was
-  painted in the priority's own colour. Medium is amber, and amber on a light
-  surface measures about 1.5:1 — the word was unreadable.
+- the word beside the priority marker ("Medium") was painted in the priority's
+  own colour. Medium is amber, and amber on a light surface measures about
+  1.5:1 — the word was unreadable.
+
+The comparison reported the priority as drawn twice and the marker as a clickable
+24 dp star. In this tree the agenda row already draws the priority once, as a
+non-clickable 16 dp `PriorityIndicator` star, and the amber word belongs to
+`PriorityChip` — the archive, project-detail and search card, not the agenda row.
+The two surfaces are treated as one row here because the issue does: the row's
+density, its metadata order and its priority signalling are one component.
 
 The row is the busiest surface in the app: it is drawn once per task, in a
 list that scrolls for hundreds of rows, on a 360 dp phone. Its density is not a
@@ -101,7 +109,7 @@ priority hue fails on the rendered result.
 
 ## Consequences
 
-- A one-line agenda row is 72 dp tall instead of 83 dp, and a three-line title
+- A one-line agenda row is 72 dp tall instead of 80 dp, and a three-line title
   is fully readable instead of being cut at two.
 - The due date is never truncated: it is measured first and the project gives
   up the width. A long project name ellipsises, as before.
