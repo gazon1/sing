@@ -102,12 +102,17 @@ Consequences of the table:
 
 - The converter takes the run-level facts as inputs (from the workflow, in
   #2772) and **cross-checks** them against every shard's `environment.json`;
-  any disagreement is a hard failure (exit 1, nothing written).
-- `maestro_version` and `apk_sha256` are not recorded today; #2772 adds them.
-  Until then the manifest records `null` for both and the run is not
+  any disagreement is a hard failure (exit 1, nothing written). The runner
+  records `git rev-parse --short=12`, so this check compares git abbreviations:
+  an abbreviated SHA is the same commit, not a disagreement.
+- `maestro_version` and `apk_sha256` are not recorded by the runner; the
+  workflow passes them to the converter (`MAESTRO_VERSION`, and the hash of the
+  downloaded `e2e-apk`). A run without them records `null` for both and is not
   publishable.
 - A shard whose `environment.json` carries no `commit` is incomplete: the run
-  cannot be tied to a checkout, so it converts but is not publishable.
+  cannot be tied to a checkout, so it converts but is not publishable. The
+  runner writes the literal `unknown` when it cannot read the checkout, and
+  that is treated as no commit, not as a disagreement.
 - **Retries are not representable as Allure retries.** The runner deletes the
   previous attempt's JUnit before retrying, so the XML is the terminal attempt;
   `run-summary.json` is the only record that a retry happened. It is therefore a
@@ -172,7 +177,12 @@ being read as a pass.
 ### 6. Partial runs, duplicates and failure semantics
 
 - A cancelled or failed shard is still converted; the manifest records
-  `task_outcome`, `complete_shards=false`, `publishable=false`.
+  `task_outcome`, `complete_shards=false`, `publishable=false`. `task_outcome`
+  is the run's verdict read from what it measured (`--task-outcome auto`), never
+  the status of the job that carried them: an ancillary step can fail while
+  every flow passed, and a clean result set is not a pass — a flow the scope
+  expected and no report covers, or one the summary calls unmeasured, makes it
+  `failed`. Explicit values remain for cancelled, timed-out and unknown runs.
 - **A pass never replaces a failure.** If two records share a testcase identity:
   a failing/broken record wins over a passing one; equal outcomes keep the first
   in the order the reports were read. Losing a failure in aggregation is the
@@ -185,7 +195,8 @@ being read as a pass.
   between shards, an output path that is not a directory this tool wrote, or a
   `--now` that is not an instant.
 - `publishable=true` requires: at least one result, every identity field
-  known, shard set complete, `task_outcome` in `{passed, failed}`, and no
+  known, shard set complete, every flow of the scope measured (nothing in
+  `missing[]` or `not_measured[]`), `task_outcome` in `{passed, failed}`, and no
   finding that removes a fact the report is built from — a missing or
   unreadable `environment.json`/`run-summary.json`, a report that cannot be
   read or holds no testcase, an unreadable or absent flow file, a testcase
@@ -228,7 +239,10 @@ fixtures — not a change to this contract.
 1. Fixtures (done, `scripts/tests/fixtures/maestro-allure/`).
 2. Local converter proof of concept on those fixtures (done, see Links).
 3. Shadow conversion in `e2e.yml` — produce and upload results, publish nothing;
-   compare counts, statuses and evidence with the gate and the index (#2772).
+   compare counts, statuses and evidence with the gate and the index (#2772:
+   producing and uploading are done — the `maestro-allure` job writes
+   `maestro-allure-results-<scope>-<run_id>-<run_attempt>`, and nothing reads
+   it; the comparison is not done).
 4. Publish the `maestro-smoke` namespace; then enable `maestro-full` (#2772).
 5. Attach screenshots and logcat tails (#2773).
 
@@ -277,8 +291,10 @@ defect is to let whichever record was read second decide whether the run failed.
 - The XML shape the contract depends on is pinned by fixtures; a Maestro upgrade
   that changes it fails the fixture-shape test instead of silently reporting
   passes.
-- `maestro_version` and `apk_sha256` are missing from today's artifacts; #2772
-  adds them, and until then converted runs are not publishable.
+- `maestro_version` and `apk_sha256` are not recorded by the runner; the
+  workflow passes them (`MAESTRO_VERSION`, the hash of the downloaded
+  `e2e-apk`). A conversion without them records `null` for both and is not
+  publishable.
 - Per-shard `environment.json`/`run-summary.json` collision in the existing
   `merge-multiple: true` download is worked around by reading per-shard
   directories; the existing gate is not changed.

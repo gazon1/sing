@@ -14,7 +14,10 @@ reader (`scanners.maestro_flow`); there is no second parser.
 
 Run-level facts (`--run-id`, `--run-attempt`, `--commit`, …) come from the
 workflow, never from `environment.json`, and are cross-checked against it: an
-identity that disagrees is a hard failure, not a merge.
+identity that disagrees is a hard failure, not a merge. `--task-outcome auto`
+reads the verdict from the results and the flows the run did not measure, so a
+job that failed at an ancillary step does not describe a passing run as failed,
+and a run that stopped early is not described as passing.
 
 Usage:
     python3 scripts/maestro-allure.py --results DIR [--results DIR ...]
@@ -37,9 +40,11 @@ from __future__ import annotations
 import argparse
 import datetime
 import hashlib
+import itertools
 import json
 import os
 import pathlib
+import re
 import sys
 import uuid
 import xml.etree.ElementTree as ET
@@ -65,6 +70,15 @@ FULL = "full"
 # different meaning: the JUnit error element, not an assertion.
 STATUS = {"passed": "passed", "failed": "failed", "error": "broken", "skipped": "skipped"}
 FAILING = ("failed", "broken")
+
+#: `git rev-parse --short` prints at least seven characters (the lower bound in
+#: this pattern), and the runner's `_provenance.git_sha` writes this literal
+#: when it cannot read the checkout.
+GIT_SHA_RE = re.compile(r"[0-9a-f]{7,40}")
+UNKNOWN_COMMIT = "unknown"
+
+#: `--task-outcome auto`: the run's verdict is read from its own results.
+AUTO = "auto"
 
 #: Findings that remove a fact the report is built from. They are warnings for
 #: the conversion — the results are still written — but a run carrying one is
@@ -252,8 +266,8 @@ def scope_flows(
     shortcut: this mirrors `emulator.maestro._flow.smoke_flows` (the `smoke` tag
     over the tree) over the catalogue instead of over the tree, so it can report
     `missing` flows the runner never selected. `check-maestro-flow-catalogue`
-    keeps the two lists equal; when #2772 wires the converter, pass the plan
-    job's selected list instead of re-deriving it.
+    keeps the two lists equal. The plan job publishes only the suite and the
+    shard count, so there is no selected list to pass instead of this one.
     """
     if scope == FULL:
         return list(catalogue)
@@ -435,6 +449,39 @@ def convert(
     return {"results": results, "findings": findings}
 
 
+def same_commit(left: object, right: object) -> bool:
+    """Whether two recorded commits are the same one.
+
+    The runner records `git rev-parse --short=12` and the workflow carries the
+    full `github.sha`: an abbreviation of the same commit is not a disagreement.
+    Only a real abbreviation counts — `git rev-parse` never prints fewer than
+    seven characters, so a three-character prefix is a different string, not a
+    commit — and anything that is not a string is not a commit at all, so `123`
+    and `"123"` stay different values.
+    """
+    if isinstance(left, str) and isinstance(right, str):
+        if left == right:
+            return True
+        shorter, longer = sorted((left, right), key=len)
+        return (
+            GIT_SHA_RE.fullmatch(shorter) is not None
+            and GIT_SHA_RE.fullmatch(longer) is not None
+            and longer.startswith(shorter)
+        )
+    return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
+
+
+def recorded_commit(shard: dict) -> object | None:
+    """What a shard says the commit was, or None when it says it could not tell.
+
+    `_provenance.git_sha` writes the literal `unknown` when git is not there.
+    That is neither a commit nor a disagreement: the shard is incomplete, which
+    the check below reports as unpublishable rather than fatal.
+    """
+    value = shard["environment"].get("commit")
+    return None if not value or value == UNKNOWN_COMMIT else value
+
+
 def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     """Whether every shard agrees about the run, and whether each one says what it is.
 
@@ -443,18 +490,20 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
     the ADR requires a cross-check for, so the run is not publishable.
     """
     findings: list[dict] = []
-    raw_commits = [shard["environment"].get("commit") for shard in shards if shard["environment"].get("commit")]
-    # Compare by canonical JSON: a list or an object is not hashable, and 123 and
-    # "123" are different commits even though they print alike.
-    commits = {json.dumps(value, sort_keys=True) for value in raw_commits}
-    if len(commits) > 1:
+    raw_commits = [commit for commit in map(recorded_commit, shards) if commit]
+    # Every pair, not every value against the first: prefix equality is not
+    # transitive — `abcdef0` agrees with both `abcdef01` and `abcdef02`, which
+    # disagree with each other — so anchoring on one shard can miss a split.
+    if any(not same_commit(one, other) for one, other in itertools.combinations(raw_commits, 2)):
         findings.append(
             {
                 "kind": "identity disagreement",
                 "detail": f"shards carry different commits: {sorted(str(c) for c in raw_commits)}",
             }
         )
-    if meta["commit"] and commits and commits != {json.dumps(meta["commit"], sort_keys=True)}:
+    if meta["commit"] and raw_commits and any(
+        not same_commit(meta["commit"], value) for value in raw_commits
+    ):
         findings.append(
             {
                 "kind": "identity disagreement",
@@ -463,7 +512,7 @@ def shard_identity(shards: list[dict], meta: dict) -> tuple[bool, list[dict]]:
         )
     fatal = bool(findings)
     for shard in shards:
-        if not shard["environment"].get("commit"):
+        if recorded_commit(shard) is None:
             findings.append(
                 {
                     "kind": "environment.json incomplete",
@@ -510,6 +559,23 @@ def shard_set(shards: list[dict]) -> tuple[list[int], int | None, bool, list[dic
     return observed, expected, complete, findings
 
 
+def derived_outcome(results: dict[str, dict], unmeasured: list[str]) -> str:
+    """The run's verdict from what it measured, not from the job that carried it.
+
+    A job can fail at an ancillary step — the traceability export, an upload —
+    while every flow passed, and the shard's evidence index reports the flows'
+    own outcome (`steps.maestro.outcome`). A clean set of results is not a pass
+    either: a run that stopped early has fewer results, not failing ones, and
+    the flows its scope expected and no report covers are the fact that says so
+    (the gate and the index both fail the run for them).
+    """
+    if any(result["status"] in FAILING for result in results.values()):
+        return "failed"
+    if unmeasured:
+        return "failed"
+    return "passed" if results else "unknown"
+
+
 def manifest_for(
     shards: list[dict],
     conversion: dict,
@@ -537,6 +603,10 @@ def manifest_for(
         and identity_known
         and complete
         and meta["task_outcome"] in ("passed", "failed")
+        # A run that measured less than its scope must not enter a history as a
+        # smaller suite: the report cannot show what never ran.
+        and not missing
+        and not not_measured
         and not any(finding["kind"] in BLOCKING_FINDINGS for finding in findings)
     )
     return {
@@ -651,7 +721,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--task-outcome",
         default="unknown",
-        choices=("passed", "failed", "skipped", "cancelled", "timed_out", "unknown"),
+        choices=(AUTO, "passed", "failed", "skipped", "cancelled", "timed_out", "unknown"),
+        help="The run's verdict. `auto` reads it from the results.",
     )
     parser.add_argument("--now", help="Pin start/stop to this ISO8601 instant (deterministic output).")
     args = parser.parse_args(argv)
@@ -678,8 +749,8 @@ def main(argv: list[str] | None = None) -> int:
         "run_number": args.run_number,
         "run_attempt": args.run_attempt,
         "commit": args.commit,
-        "maestro_version": args.maestro_version,
-        "apk_sha256": args.apk_sha256,
+        "maestro_version": args.maestro_version or None,
+        "apk_sha256": args.apk_sha256 or None,
         "task_outcome": args.task_outcome,
     }
     fatal, identity_findings = shard_identity(shards, meta)
@@ -716,6 +787,12 @@ def main(argv: list[str] | None = None) -> int:
 
     expected_flows = scope_flows(meta["scope"], catalogue, root, findings)
     conversion = convert(shards, root, meta, now_ms, retried)
+    if meta["task_outcome"] == AUTO:
+        produced = {result["fullName"] for result in conversion["results"].values()}
+        meta["task_outcome"] = derived_outcome(
+            conversion["results"],
+            [flow for flow in expected_flows if flow not in produced] + not_measured,
+        )
     findings = findings + conversion["findings"]
     manifest = manifest_for(shards, conversion, meta, expected_flows, not_measured, findings)
 

@@ -536,11 +536,137 @@ jobs:
       - name: Maestro results gate
         run: python3 scripts/ci/check-maestro-results.py --scope "${{ needs.plan.outputs.suite }}"
 
+  # Translates the shards' JUnit reports into Allure results for the same run:
+  # the shadow phase of the rollout in
+  # docs/decisions/2026-11-10-maestro-allure-integration-contract.md. The results
+  # are produced and uploaded, nothing is published, and they are never merged
+  # with the JVM tier's own results.
+  #
+  # One directory per artifact, not one merged directory: `environment.json` and
+  # `run-summary.json` are per shard, and the merged download above lets them
+  # overwrite each other. A shard that produced nothing is absent from the
+  # download, which the converter reports as an incomplete shard set rather than
+  # as a run that passed.
+  #
+  # The download is pinned to THIS attempt. A re-run of the failed jobs keeps
+  # attempt 1's artifacts, so the broad pattern would feed the converter two
+  # executions of the same flow: a duplicate finding, and — because a pass never
+  # replaces a failure — the old failure presented as this attempt's result.
+  # Pinning the attempt converts only the re-run shards (an incomplete set in the
+  # manifest), or produces no second-attempt conversion at all when this job
+  # itself succeeded first. Both are the contract's answers: shards are never
+  # merged across attempts.
+  maestro-allure:
+    needs: [plan, e2e]
+    # `always()` without `!cancelled()`: a whole-run cancel normally never starts
+    # this queued job, but cancelling one matrix leg leaves the run live, and its
+    # reports are the record of what it reached. An empty set is then "nothing to
+    # convert", not a failure.
+    if: ${{ always() && needs.plan.result == 'success' && needs.e2e.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-python-tools
+        with:
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+
+      # Advisory: no artifacts is a state, not a failure — a cancelled run may
+      # have uploaded none, and a re-run of this job alone has no reports under
+      # this attempt. The step below decides what that means.
+      - name: Collect the shards' reports (advisory)
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          pattern: maestro-junit-${{ needs.plan.outputs.suite }}-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/maestro-shards
+
+      # Advisory: the APK is hashed, not assumed. `apk_sha256` is one of the
+      # identity fields the converter requires before a run may be published,
+      # and this is the same artifact every shard installed. It is kept ONE day
+      # and the reports fourteen, so this download can be legitimately absent
+      # when only the conversion is re-run later; a converter run without the
+      # hash still describes the run and is not publishable.
+      - name: Download the APK (advisory)
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: e2e-apk
+          path: apk
+
+      - name: Convert to Allure results
+        env:
+          SUITE: ${{ needs.plan.outputs.suite }}
+        run: |
+          # The job's status is not the run's verdict: an ancillary step
+          # (traceability, an upload) can fail while every flow passed, and the
+          # evidence index reports the flows' own outcome. `auto` reads
+          # passed/failed from the results, exactly as that index does.
+          case "${{ needs.e2e.result }}" in
+            success|failure) outcome=auto ;;
+            cancelled) outcome=cancelled ;;
+            *) outcome=unknown ;;
+          esac
+          # Two APKs would make the hash a two-line string, which the converter
+          # accepts as "known" identity and records as fact.
+          apk_count=$(find apk -maxdepth 1 -name '*.apk' 2>/dev/null | wc -l || true)
+          if [ "$apk_count" -gt 1 ]; then
+            echo "expected at most one APK, found $apk_count:" >&2
+            find apk -maxdepth 1 -name '*.apk' >&2
+            exit 1
+          fi
+          apk_sha=$(sha256sum apk/*.apk 2>/dev/null | cut -d' ' -f1) || true
+          shards=()
+          for directory in build/maestro-shards/*/; do
+            [ -d "$directory" ] || continue
+            shards+=(--results "$directory")
+          done
+          if [ "${#shards[@]}" -eq 0 ]; then
+            # Nothing to convert is a state for a cancelled run and for a re-run
+            # of this job alone, which has no reports under this attempt. A
+            # first-attempt failure with no reports is an anomaly worth a
+            # failure; a success run with none is caught by the results gate.
+            if [ "${{ needs.e2e.result }}" != "failure" ] || [ "${{ github.run_attempt }}" != "1" ]; then
+              echo "nothing to convert for attempt ${{ github.run_attempt }}" >&2
+              exit 0
+            fi
+            echo "no shard reports for attempt ${{ github.run_attempt }} — the conversion has no input" >&2
+            exit 1
+          fi
+          python3 scripts/maestro-allure.py "${shards[@]}" \
+            --scope "$SUITE" \
+            --out build/maestro-allure-results \
+            --run-id "${{ github.run_id }}" \
+            --run-number "${{ github.run_number }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --commit "${{ github.sha }}" \
+            --maestro-version "$MAESTRO_VERSION" \
+            --apk-sha256 "$apk_sha" \
+            --task-outcome "$outcome"
+
+      # Outlives the JUnit artifacts it is derived from (30 days against 14): once
+      # the reports that fed it expire, this is the surviving evidence. The name
+      # carries the attempt, so a re-run cannot overwrite the first attempt's
+      # conversion. `always()` and `warn`: a conversion that died wrote no report,
+      # and the absence is the finding, not a second failure of the upload.
+      - name: Upload the Allure results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-allure-results-${{ needs.plan.outputs.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/maestro-allure-results/
+          if-no-files-found: warn
+          retention-days: 30
+
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.
   nightly-alert:
     if: ${{ failure() && github.event_name == 'schedule' }}
-    needs: e2e
+    # `maestro-allure` too: a conversion that only fails is a red cron nobody
+    # reads, which is the case this job exists for.
+    needs: [e2e, maestro-allure]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
