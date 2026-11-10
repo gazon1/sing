@@ -30,12 +30,17 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
 /**
- * Вторая строка карточки задачи: [метки] дата · проект.
+ * Вторая строка карточки задачи: дата, отметки, проект.
  *
  * Состав собирается динамически: если нет даты — показываем только проект
  * (или ничего), без висящего разделителя в пустоту. Каждый блок ограничен
  * по ширине с `TextOverflow.Ellipsis`, чтобы длинный проект ломал верстку
  * только своего участка, а не всей строки.
+ *
+ * **Порядок — это иерархия.** Дата идёт первой, проект — последним и единственным,
+ * кто отдаёт ширину: строка меряет своих детей по очереди, поэтому дата
+ * получает свою ширину раньше, чем отметки и проект заберут что-то у неё.
+ * Длинное название проекта ужимается многоточием, дата — нет.
  *
  * The marks are a set now, not three booleans: the row that had one slot for
  * "is this special" could show a blocked task or an overdue one, not both.
@@ -60,18 +65,17 @@ fun TaskMetaRow(
     if (!hasSomethingToShow) return
 
     val isOverdue = TaskMarking.Overdue in markings
+    // The marks the row says another way draw nothing, so they cannot be what
+    // separates the project from what came before it.
+    val hasVisibleMark = markings.any { it !in ConveyedElsewhere }
+    // What stands between the project and the left edge of the row: without it
+    // the separator would hang on empty space.
+    val somethingBeforeProject = dueLabel != null || hasVisibleMark || seriesDates != null
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier,
     ) {
-        TaskMarkingsRow(markings = markings)
-
-        if (seriesDates != null) {
-            SeriesMarker(isSeries = true, dates = seriesDates)
-            Spacer(Modifier.width(TaskListSpacing.Xs))
-        }
-
         dueLabel?.let {
             Text(
                 text = it,
@@ -83,11 +87,28 @@ fun TaskMetaRow(
             )
         }
 
-        if (dueLabel != null && project != null) {
+        if (dueLabel != null && (hasVisibleMark || seriesDates != null)) {
+            Spacer(Modifier.width(TaskListSpacing.Xs))
+        }
+
+        TaskMarkingsRow(markings = markings)
+
+        if (seriesDates != null) {
+            SeriesMarker(isSeries = true, dates = seriesDates)
+        }
+
+        if (project != null && somethingBeforeProject) {
             MetaSeparator()
         }
+
         project?.let { name ->
-            ProjectBadge(name = name, color = projectColor)
+            // The project is last and the only child that gives up width: it is
+            // the one field that may be cut short when the row runs out of room.
+            ProjectBadge(
+                name = name,
+                color = projectColor,
+                modifier = Modifier.weight(1f, fill = false),
+            )
         }
     }
 }
@@ -103,8 +124,12 @@ fun TaskMetaRow(
 private fun ProjectBadge(
     name: String,
     color: Int?,
+    modifier: Modifier = Modifier,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
         if (color != null) {
             Box(
                 modifier =

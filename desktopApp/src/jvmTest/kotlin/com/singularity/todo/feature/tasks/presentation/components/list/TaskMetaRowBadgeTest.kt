@@ -11,9 +11,11 @@ import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.unclippedBoundsOfText
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * The mark a list row carries: that the task repeats, and which project it is.
@@ -143,6 +145,29 @@ class TaskMetaRowBadgeTest {
             assertNodeDisplayed(
                 hasText("Очень длинное название", substring = true),
                 "the project name is shown, truncated",
+            )
+        }
+
+    @Test
+    fun `the date comes before the project`() =
+        runIsolatedComposeTest {
+            // The order is the hierarchy: the date is the fact the row is read for, so
+            // it is measured first and the marks and the project take what is left.
+            setContent {
+                TaskMetaRow(
+                    dueLabel = "Пн, 15 июн 2026",
+                    project = "Семья",
+                    markings = persistentSetOf(),
+                    projectColor = 0xFF6A4C93.toInt(),
+                )
+            }
+
+            val date = unclippedBoundsOfText("Пн, 15 июн 2026")
+            val project = unclippedBoundsOfText("Семья")
+
+            assertTrue(
+                date.right <= project.left,
+                "the date ends at ${date.right}, the project starts at ${project.left}",
             )
         }
 }

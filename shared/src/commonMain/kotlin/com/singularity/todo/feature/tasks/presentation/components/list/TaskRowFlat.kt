@@ -71,14 +71,9 @@ fun TaskRowFlat(
         }
 
     Column(
-        // TestTags.taskItem lives here, not only on TaskCard: the agenda renders this flat
-        // variant, so a tag on the card alone left every agenda row unaddressable by UI
-        // automation. The tag is applied outside the indent padding so the same title
-        // always yields the same tag regardless of nesting depth.
         modifier =
             modifier
                 .fillMaxWidth()
-                .testTag(TestTags.taskItem(task.title))
                 .then(indentPadding),
     ) {
         TaskRowContent(
@@ -86,13 +81,23 @@ fun TaskRowFlat(
             onToggleCompleted = onToggleCompleted,
             modifier =
                 Modifier
+                    // TestTags.taskItem lives here, not only on TaskCard: the agenda renders this flat
+                    // variant, so a tag on the card alone left every agenda row unaddressable by UI
+                    // automation. The tag is applied outside the indent padding so the same title
+                    // always yields the same tag regardless of nesting depth, and it covers the row
+                    // alone — the divider below it separates two rows and is not part of either,
+                    // so a height measured on the tagged node is the row's own height.
+                    .testTag(TestTags.taskItem(task.title))
                     .combinedClickable(
                         interactionSource = interactionSource,
                         indication = null,
                         onClick = onClick,
                         onLongClick = onLongClick,
                     ).then(secondaryClickModifier)
-                    .padding(vertical = TaskListSpacing.Md + TaskListSpacing.Xs, horizontal = TaskListSpacing.Lg),
+                    // 12 dp above and below: with the checkbox's 48 dp target this puts a
+                    // one-line row at 72 dp. The row still grows with its content — the
+                    // padding is a minimum, not a height.
+                    .padding(vertical = TaskListSpacing.Md, horizontal = TaskListSpacing.Lg),
         )
 
         if (showDivider) {

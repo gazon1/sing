@@ -64,8 +64,12 @@ internal const val MAX_VISIBLE_MARKINGS = 3
  * marking says it in words, for a screen reader, and the acceptance scenario
  * asks for the blocked and the overdue markings to be on the row at the same
  * time — which a single "special" icon could not express.
+ *
+ * The set is internal because [TaskMetaRow] needs to know whether a mark is
+ * actually drawn: a row whose only marking is conveyed elsewhere draws no mark
+ * at all, and must not hang a separator on an empty space.
  */
-private val ConveyedElsewhere =
+internal val ConveyedElsewhere =
     setOf(
         TaskMarking.Completed,
         TaskMarking.NoDate,
