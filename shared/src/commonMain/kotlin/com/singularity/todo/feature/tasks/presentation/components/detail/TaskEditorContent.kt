@@ -117,10 +117,11 @@ import kotlin.time.Instant
  *   the pending AI proposals. Drawn directly under the title and the description, above the
  *   attribute rows, for every task: an offer's place is the editor's decision, not a side
  *   effect of which other sections the caller passes.
- * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags,
- *   timestamps, etc.). Drawn after the attribute rows — the due date, the priority and the project
- *   are what a person fills in, and child content drawn above them pushes those fields below the
- *   fold. Null — nothing is drawn.
+ * @param extraSections Optional composable for the task's own state — the tags, the recurrence,
+ *   the checklist, the subtasks, the attachments, the backlinks, the series card, the timer and the
+ *   logbook. Drawn after the attribute rows — the due date, the priority and the project are what a
+ *   person fills in, and child content drawn above them pushes those fields below the fold.
+ *   Null — nothing is drawn.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
@@ -228,33 +229,6 @@ private fun TaskEditorContent(
             // at the top of the screen, not wherever the list of sections happens to end.
             bannerSections?.invoke()
 
-            // Dependencies card
-            //
-            // Shown when there is something to pick from, not when something is
-            // already picked: a card that appears only after the first relation is
-            // added has no first click. The label says which edge means what, because
-            // "blocks" and "follows up" are different answers about the same two
-            // tasks.
-            if (availableTasks.isNotEmpty()) {
-                val relations = blockedBy + followsUp
-                val relationTitles =
-                    relations.mapNotNull { depId ->
-                        availableTasks.find { it.id == depId }?.title?.ifBlank { null }
-                    }
-                TaskAttributeCard(
-                    icon = Icons.Filled.Block,
-                    label =
-                        when {
-                            relations.isEmpty() -> "Add dependencies"
-                            relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
-                            else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
-                        },
-                    isActive = relations.isNotEmpty(),
-                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
-                )
-            }
-
             // Checklist row
             //
             // The row is drawn when the caller gives the editor a checklist to edit —
@@ -337,6 +311,38 @@ private fun TaskEditorContent(
                     onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
                     labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
+                )
+            }
+
+            // Dependencies card
+            //
+            // Its place is with the attribute rows, after the due date: a card that led
+            // the group pushed the due date and the priority one row further down on a
+            // task that had relations, so a task's attributes sat lower because of
+            // something else on the task (#2010).
+            //
+            // Shown when there is something to pick from, not when something is
+            // already picked: a card that appears only after the first relation is
+            // added has no first click. The label says which edge means what, because
+            // "blocks" and "follows up" are different answers about the same two
+            // tasks.
+            if (availableTasks.isNotEmpty()) {
+                val relations = blockedBy + followsUp
+                val relationTitles =
+                    relations.mapNotNull { depId ->
+                        availableTasks.find { it.id == depId }?.title?.ifBlank { null }
+                    }
+                TaskAttributeCard(
+                    icon = Icons.Filled.Block,
+                    label =
+                        when {
+                            relations.isEmpty() -> "Add dependencies"
+                            relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
+                            else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
+                        },
+                    isActive = relations.isNotEmpty(),
+                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
                 )
             }
 
