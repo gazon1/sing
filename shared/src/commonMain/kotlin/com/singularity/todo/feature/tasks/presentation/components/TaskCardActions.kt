@@ -7,6 +7,11 @@ import androidx.compose.runtime.Stable
  * card conditionally renders only the buttons the caller wires up — the
  * canonical Kotlin/Compose Slot API pattern.
  *
+ * The same callbacks are the card's whole action policy: on a touch layout the
+ * card draws no trailing buttons and offers [onPin] and [onDelete] from a long
+ * press (and as accessibility custom actions) instead. [onAiClick] is not part
+ * of that touch menu — a card-level AI row has no action of its own to run.
+ *
  * Pass `TaskCardActions()` for read-only cards (e.g. archived tasks in
  * [com.singularity.todo.feature.archive.ArchiveScreen], where restore is a
  * separate flow rather than a per-card action).

@@ -98,6 +98,7 @@ Maestro/flows/profile/01-create-profile.yaml
 Maestro/flows/profile/02-isolation.yaml
 Maestro/flows/projects/01-open-detail.yaml
 Maestro/flows/projects/02-add-task.yaml
+Maestro/flows/projects/03-task-card-actions.yaml
 Maestro/flows/search/02-cyrillic.yaml
 Maestro/flows/search/03-clear.yaml
 Maestro/flows/search/04-filter-description.yaml
@@ -106,6 +107,7 @@ Maestro/flows/search/06-no-results.yaml
 Maestro/flows/search/07-saved-search.yaml
 Maestro/flows/search/08-word-prefix.yaml
 Maestro/flows/search/09-contains-mode.yaml
+Maestro/flows/search/10-task-card-actions.yaml
 Maestro/flows/settings/01-theme-toggle.yaml
 Maestro/flows/settings/02-notifications.yaml
 Maestro/flows/settings/03-cycle-tabs.yaml

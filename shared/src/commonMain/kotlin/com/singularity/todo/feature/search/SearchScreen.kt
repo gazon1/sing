@@ -356,7 +356,6 @@ private fun SearchResultsList(
                     actions =
                         TaskCardActions(
                             onPin = { onPin(hit.record.id) },
-                            onAiClick = { navigator.openTask(hit.record.id) },
                         ),
                 )
             }

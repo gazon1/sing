@@ -120,6 +120,10 @@ non-alphanumeric characters with `_`.
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
 | `TASKS_FAB` | `tasks_fab` | |
 | `TASKS_LIST` | `tasks_list` | |
+| `TASK_CARD_ACTION_DELETE` | `task_card_action_delete` | |
+| `TASK_CARD_ACTION_PIN` | `task_card_action_pin` | |
+| `TASK_CARD_DELETE_BUTTON` | `task_card_delete_button` | |
+| `TASK_CARD_PIN_BUTTON` | `task_card_pin_button` | |
 | `TASK_CHECKLIST_SECTION` | `task_checklist_section` | |
 | `TASK_CONTEXT_MENU_ARCHIVE` | `task_action_archive` | |
 | `TASK_CONTEXT_MENU_COMPLETE` | `task_action_mark_as_completed` | |
