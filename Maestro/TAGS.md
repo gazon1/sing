@@ -502,6 +502,8 @@ use the expanded string directly).
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
 | `agendaSection("Today")` | `"Today"` | `agenda_section_today` | Agenda section headers |
 | `agendaSectionTemplate("By tag")` | `"By tag"` | `agenda_section_template_by_tag` | Section *types* in the add-section sheet |
+| `agendaSectionToggle("Overdue")` | `"Overdue"` | `agenda_section_toggle_overdue` | The expand/collapse affordance of an agenda section header |
+| `agendaSectionViewAll("Overdue")` | `"Overdue"` | `agenda_section_view_all_overdue` | The "View all" action of an agenda section header |
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `plansSection("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_day_2026_09_16` | Timeline section headers |

@@ -2,10 +2,6 @@
 
 package com.singularity.todo.feature.agenda
 
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
@@ -14,6 +10,10 @@ import com.singularity.todo.feature.agenda.presentation.screen.AgendaContent
 import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.testTask
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagNotExists
+import com.singularity.todo.test.helpers.assertTagTextEquals
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -83,17 +83,13 @@ class AgendaOverdueSectionUiTest {
                 )
             }
 
-            onNodeWithTag(
-                TestTags.agendaSection("Overdue"),
-            ).assertIsDisplayed().assertTextContains("1500", substring = true)
-            onNodeWithTag(TestTags.agendaSectionToggle("Overdue")).assertIsDisplayed()
-            onNodeWithTag(TestTags.agendaSectionViewAll("Overdue")).assertIsDisplayed()
-            onNodeWithTag(TestTags.agendaSection("Today")).assertIsDisplayed()
-            onNodeWithTag(TestTags.taskItem("Do today")).assertIsDisplayed()
-            assertTrue(
-                runCatching { onNodeWithTag(TestTags.taskItem("Overdue 1")).assertIsDisplayed() }.isFailure,
-                "collapsed overdue rows must not be shown",
-            )
+            assertTagDisplayed(TestTags.agendaSection("Overdue"))
+            assertTagTextEquals(TestTags.agendaSection("Overdue"), "Overdue  ·  1500")
+            assertTagDisplayed(TestTags.agendaSectionToggle("Overdue"))
+            assertTagDisplayed(TestTags.agendaSectionViewAll("Overdue"))
+            assertTagDisplayed(TestTags.agendaSection("Today"))
+            assertTagDisplayed(TestTags.taskItem("Do today"))
+            assertTagNotExists(TestTags.taskItem("Overdue 1"))
         }
 
     @Test
@@ -114,8 +110,8 @@ class AgendaOverdueSectionUiTest {
                 )
             }
 
-            onNodeWithTag(TestTags.taskItem("Overdue 1")).assertIsDisplayed()
-            onNodeWithTag(TestTags.taskItem("Overdue 2")).assertIsDisplayed()
+            assertTagDisplayed(TestTags.taskItem("Overdue 1"))
+            assertTagDisplayed(TestTags.taskItem("Overdue 2"))
         }
 
     @Test
@@ -137,8 +133,8 @@ class AgendaOverdueSectionUiTest {
                 )
             }
 
-            onNodeWithTag(TestTags.agendaSectionToggle("Overdue")).performClick()
-            onNodeWithTag(TestTags.agendaSectionViewAll("Overdue")).performClick()
+            clickTag(TestTags.agendaSectionToggle("Overdue"))
+            clickTag(TestTags.agendaSectionViewAll("Overdue"))
 
             assertTrue(intents.any { it == AgendaIntent.ToggleSection("overdue") })
             assertTrue(intents.any { it == AgendaIntent.OpenOverdue })
@@ -162,11 +158,10 @@ class AgendaOverdueSectionUiTest {
                 )
             }
 
-            onNodeWithTag(
-                TestTags.agendaSection("Overdue"),
-            ).assertIsDisplayed().assertTextContains("2", substring = true)
-            onNodeWithTag(TestTags.agendaSectionToggle("Overdue")).assertDoesNotExist()
-            onNodeWithTag(TestTags.agendaSectionViewAll("Overdue")).assertDoesNotExist()
-            onNodeWithTag(TestTags.taskItem("Overdue 1")).assertIsDisplayed()
+            assertTagDisplayed(TestTags.agendaSection("Overdue"))
+            assertTagTextEquals(TestTags.agendaSection("Overdue"), "Overdue  ·  2")
+            assertTagNotExists(TestTags.agendaSectionToggle("Overdue"))
+            assertTagNotExists(TestTags.agendaSectionViewAll("Overdue"))
+            assertTagDisplayed(TestTags.taskItem("Overdue 1"))
         }
 }
