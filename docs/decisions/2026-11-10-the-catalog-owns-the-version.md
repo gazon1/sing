@@ -86,13 +86,21 @@ was compiled with. Two rules follow:
 
 The old `gradle.properties` ↔ catalog comparison becomes a duplication check: the
 property must not exist at all. Two places holding the same value are still two
-places, and the values are exactly what drift.
+places, and the values are exactly what drift. The rule is the `version.` prefix
+and not a list of the three keys that were there: a list catches only the
+versions the rule was written against, and the next one to be added would slip
+through. `versionCode` is not a version the catalog owns, and the prefix leaves it
+alone.
 
 **The auto-merge waits for the check-run.** `.github/workflows/dependabot-auto-merge.yml`
 reads the `CI gate` check-run on the head commit instead of `.mergeable_state`.
 `mergeable_state` still has a job — it says whether the pull request is
 mergeable at all (`dirty`, `behind`, `unknown`) — but it no longer stands in
-for the checks.
+for the checks. The read needs the `checks` permission, which is a scope of its
+own: naming any permission in a workflow's `permissions:` block turns every
+unnamed one to `none`, so the workflow asks for `checks: read` explicitly.
+Without it the API answers 403 and the step aborts — the merge would never
+happen, which is the opposite of what the check is for.
 
 # Rationale
 
@@ -133,7 +141,7 @@ queue would close that gap, and that is a larger change than this one.
 - The versions are read from the catalog in two places (the root build script
   and the unwired convention plugin). A third would be a third copy.
 - `gradle.properties` no longer contains a version. The gate fails if one comes
-  back.
+  back — any key under the `version.` prefix, not the three it knows by name.
 - A dependabot pull request with a failing `CI gate` is no longer merged. It
   waits — the workflow polls for 30 minutes and then fails the job rather than
   merging something red.
