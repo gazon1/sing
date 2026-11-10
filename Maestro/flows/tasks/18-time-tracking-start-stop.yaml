@@ -24,9 +24,15 @@ tags:
 # The time tracking section shows the START chip on a signed-in session.
 # (Anonymous/dev sessions show time_tracking_error instead; the section is
 # still present, just in an error state — the STOP path is inaccessible.)
-- extendedWaitUntil:
-    visible:
+#
+# The section is part of the task's own content, so it is drawn after the
+# attribute rows — below the fold on a phone. Scroll it into view instead of
+# waiting for it to be on screen: a wait that names a position says nothing
+# about whether the section exists.
+- scrollUntilVisible:
+    element:
       id: time_tracking_start
+    direction: DOWN
     timeout: 8000
 
 # Tap Start. The chip swaps to STOP and the elapsed timer renders.

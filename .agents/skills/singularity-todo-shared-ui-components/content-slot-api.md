@@ -145,7 +145,7 @@ Kotlin matters more than visual separation.
 - `SettingsSection.kt` — `SettingsRow` with `trailing: @Composable RowScope.() -> Unit`
 - `TaskCard.kt` — `body` + `trailing` slots with `RowScope`
 - `BackTopAppBar.kt` — `actions` + `content` slots
-- `TaskEditorContent.kt` — canonical slot API: `extraSections`, `bottomBar`, `menuItems`, `titleLeading` slots; `TaskEditorAttribute` with `key: Any` for recomposition stability; `TaskEditorMenuItem` as declarative list
+- `TaskEditorContent.kt` — canonical slot API: `bannerSections` (the offer, under the description), `extraSections` (the task's state, after the attribute rows), `bottomBar`, `menuItems`, `titleLeading` slots; `TaskEditorAttribute` with `key: Any` for recomposition stability; `TaskEditorMenuItem` as declarative list
 
 See also:
 

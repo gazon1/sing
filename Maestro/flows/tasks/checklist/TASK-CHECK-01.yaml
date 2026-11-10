@@ -74,9 +74,15 @@ tags:
 # It renders whether or not there are items: it is the only place a checklist
 # item can be added from the task screen, so a section that hid itself would
 # leave no way to add the first one.
-- extendedWaitUntil:
-    visible:
+#
+# The section is part of the task's own content, so it is drawn after the
+# attribute rows — below the fold on a phone. Scroll it into view instead of
+# waiting for it to be on screen: a wait that names a position says nothing
+# about whether the section exists.
+- scrollUntilVisible:
+    element:
       id: task_checklist_section
+    direction: DOWN
     timeout: 8000
 
 # ── Add an item inline ───────────────────────────────────────────

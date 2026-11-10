@@ -583,9 +583,11 @@ fun TaskDetailContent(
                                             }
                                         }
                                     },
-                                    // The child sections: the task's own content, listed under
-                                    // the fields. Where they sit is the editor's business, and
-                                    // the offers above do not travel with them.
+                                    // The child sections: the task's own content, drawn after
+                                    // the attribute rows so the due date, the priority and the
+                                    // project stay on the first screen. Where they sit is the
+                                    // editor's business, and the offers above do not travel
+                                    // with them.
                                     extraSections = {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),

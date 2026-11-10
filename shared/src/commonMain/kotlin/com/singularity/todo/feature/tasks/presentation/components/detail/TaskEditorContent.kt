@@ -80,11 +80,11 @@ import kotlin.time.Instant
  * [TaskCreateEditorContent].
  *
  * The order of the screen, top to bottom: the hero (the title and the description),
- * the offers ([bannerSections]), the view-mode child sections ([extraSections]), and
- * then the attribute rows (priority, estimate, due date, project, tags, …).
+ * the offers ([bannerSections]), the attribute rows (priority, estimate, due date,
+ * project, tags, …), and the view-mode child sections ([extraSections]).
  *
- * The offers keep their place whatever the child sections are, and the attribute rows
- * keep theirs.
+ * The offers keep their place above the rows and the child sections keep theirs below
+ * them, whatever the caller passes in either slot.
  *
  * @param titleState The title's field state, bridged by the caller.
  * @param isCompleted Whether the task is completed (affects checkbox appearance).
@@ -117,7 +117,10 @@ import kotlin.time.Instant
  *   the pending AI proposals. Drawn directly under the title and the description, above the
  *   attribute rows, for every task: an offer's place is the editor's decision, not a side
  *   effect of which other sections the caller passes.
- * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
+ * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags,
+ *   timestamps, etc.). Drawn after the attribute rows — the due date, the priority and the project
+ *   are what a person fills in, and child content drawn above them pushes those fields below the
+ *   fold. Null — nothing is drawn.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
@@ -224,9 +227,6 @@ private fun TaskEditorContent(
             // in the extra-sections slot. An offer a person is meant to act on belongs
             // at the top of the screen, not wherever the list of sections happens to end.
             bannerSections?.invoke()
-
-            // View-mode extra sections
-            extraSections?.invoke()
 
             // Dependencies card
             //
@@ -445,6 +445,15 @@ private fun TaskEditorContent(
                             .testTag(TestTags.TASK_EDITOR_PIN_ROW),
                 )
             }
+
+            // The child's own content: the checklist, the tags, the subtasks, the
+            // logbook, the time tracking — everything the caller supplies that shows
+            // the task's state.
+            //
+            // It is drawn after the attribute rows, not before them: the due date, the
+            // priority and the project are what a person fills in, and content drawn
+            // above them pushes those fields below the fold.
+            extraSections?.invoke()
 
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
         }

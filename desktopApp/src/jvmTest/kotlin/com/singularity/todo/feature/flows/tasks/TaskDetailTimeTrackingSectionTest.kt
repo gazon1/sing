@@ -9,13 +9,16 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import com.singularity.todo.test.helpers.unclippedBoundsOfTag
 import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -81,6 +84,11 @@ class TaskDetailTimeTrackingSectionTest {
             awaitTag(TestTags.taskItem("Track me")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
+            // The section sits below the attribute rows and the child work now, so on a
+            // desktop window it is past the fold: presence is not display. The guard is
+            // unchanged — the desktop task detail renders time tracking, which is the
+            // #187 regression — and it still fails if the section is dropped.
+            scrollToTag(TestTags.TimeTracking.START)
             assertTagDisplayed(TestTags.TimeTracking.START)
 
             // The click that used to live here has moved to `TaskTimeCarrierTest`, and
@@ -99,6 +107,33 @@ class TaskDetailTimeTrackingSectionTest {
             // worth having — the desktop task detail *renders* time tracking, which
             // is the #187 regression. Whether the control then works is
             // `TASK-TIME-01`'s question, and it now has a carrier to ask it.
+        }
+
+    @Test
+    @DisplayName("the desktop task detail keeps the attribute rows above the task's children")
+    fun the_desktop_task_detail_keeps_the_attribute_rows_above_the_children() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            tasks(koin).given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Ordered")
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Ordered")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The scrolling column lays out every child, including the ones past the
+            // fold, so the two positions can be compared without scrolling either one
+            // into view — which is the point: the child work must not sit above the
+            // rows at all, not merely be reachable.
+            val rows = unclippedBoundsOfTag(TestTags.TASK_EDITOR_DUE_ROW)
+            val children = unclippedBoundsOfTag(TestTags.TASK_CHECKLIST_SECTION)
+
+            assertTrue(
+                rows.bottom <= children.top,
+                "The due-date row ($rows) must sit above the child sections ($children): " +
+                    "the attribute rows are what a person fills in, and they belong on the first screen.",
+            )
         }
 
     private object TestTimeZone : TimeZoneProvider {

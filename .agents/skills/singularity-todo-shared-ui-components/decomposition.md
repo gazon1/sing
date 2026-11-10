@@ -206,7 +206,8 @@ fun TaskEditorContent(
     attributes: List<TaskEditorAttribute>,                   // priority, due date chips
 
     // Slots
-    extraSections: (@Composable () -> Unit)? = null,         // checklist, project, tags, timestamps
+    bannerSections: (@Composable () -> Unit)? = null,         // the offer — under the description, above the rows
+    extraSections: (@Composable () -> Unit)? = null,         // the task's state — after the attribute rows
     bottomBar: (@Composable () -> Unit)? = null,            // save button (create) or null (view)
     menuItems: List<TaskEditorMenuItem> = emptyList(),       // archive/delete dropdown
 
@@ -261,7 +262,8 @@ TaskEditorContent(
 
 **Key design decisions:**
 
-- `extraSections: @Composable () -> Unit?` — single slot for all view-only sections; avoids 7 separate slot parameters
+- `extraSections: @Composable () -> Unit?` — single slot for all view-only sections; avoids 7 separate slot parameters. It is drawn after the attribute rows
+- `bannerSections: @Composable () -> Unit?` — the offer (the first-run banner, the pending proposals); drawn under the description, above the attribute rows. The two slots are separate because the offer and the task's state have different places on the screen
 - `attributes: List<TaskEditorAttribute>` — iteration over stable list; `key: Any` in data class handles recomposition stability for lambda callbacks
 - `menuItems: List<TaskEditorMenuItem>` — declarative list instead of lambda-in-lambda (`dropdownMenu: (closeMenu: () -> Unit) -> Unit`)
 - `bottomBar: @Composable () -> Unit?` — null for view mode (no save bar), set for create mode

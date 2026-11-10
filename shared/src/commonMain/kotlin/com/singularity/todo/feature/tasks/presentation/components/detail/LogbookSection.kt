@@ -48,8 +48,8 @@ import kotlinx.datetime.toLocalDateTime
 /**
  * Task logbook — a chronological feed of notes and time entries attached to the current task.
  *
- * Rendered inside [TaskEditorContent] extraSections. Groups entries by day and displays them
- * in reverse-chronological order.
+ * Rendered inside [TaskEditorContent] extraSections, after the attribute rows. Groups entries by
+ * day and displays them in reverse-chronological order.
  *
  * @param entries The logbook entries to display (already extracted from [TaskLogbookState]).
  * @param onOpenNote Invoked when the user taps a note — opens the note preview.
