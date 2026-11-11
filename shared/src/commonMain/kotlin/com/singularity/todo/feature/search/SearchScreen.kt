@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -35,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,7 +55,6 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.core.search.inColumn
-import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.TopAppBar
@@ -129,6 +130,16 @@ fun SearchScreenContent(
 ) {
     val overlay = rememberOverlayState<SearchDialog>()
 
+    // The field's own state, held here and not inside the input bar: the
+    // no-results state offers a clear-query action, and that action is the
+    // field's clear — the same call the field's trailing button makes. One way
+    // to empty the field, two ways to ask for it.
+    val queryState =
+        rememberBridgedTextFieldState(
+            source = state.querySource,
+            onTextChanged = { onIntent(SearchIntent.OnQueryChange(it)) },
+        )
+
     SearchSheetHosts(
         showFilterSheet = overlay.sheet is SearchDialog.Filter,
         showSaveDialog = overlay.sheet is SearchDialog.Save,
@@ -168,10 +179,7 @@ fun SearchScreenContent(
     ) { padding ->
         RefreshableContent {
             Column(modifier = Modifier.padding(padding)) {
-                SearchInputBar(
-                    querySource = state.querySource,
-                    onQueryChange = { onIntent(SearchIntent.OnQueryChange(it)) },
-                )
+                SearchInputBar(queryState = queryState)
 
                 SearchModeSwitch(
                     mode = state.mode,
@@ -192,9 +200,19 @@ fun SearchScreenContent(
                 SearchOutcome(
                     content = searchContent(state.query.text, state.results, state.isSearching),
                     results = state.results,
+                    activeFilter = state.activeFilter,
                     projectsById = state.projectsById,
                     navigator = navigator,
                     onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
+                    onClearQuery = { queryState.clearText() },
+                    onClearFilters = {
+                        // The structured constraints go, the free text and the mode
+                        // stay — and the filter that goes through the intent is the
+                        // one the search runs.
+                        state.activeFilter?.let { filter ->
+                            onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+                        }
+                    },
                 )
             }
         }
@@ -203,15 +221,7 @@ fun SearchScreenContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchInputBar(
-    querySource: StaticText,
-    onQueryChange: (String) -> Unit,
-) {
-    val queryState =
-        rememberBridgedTextFieldState(
-            source = querySource,
-            onTextChanged = onQueryChange,
-        )
+private fun SearchInputBar(queryState: TextFieldState) {
     // The screen is opened to be typed into: the field asks for the focus once,
     // when it appears. A person who came here to type should not have to tap
     // the field first.
@@ -294,9 +304,12 @@ private fun SearchSheetHosts(
 private fun SearchOutcome(
     content: SearchContent,
     results: SearchResults,
+    activeFilter: SimpleFilter?,
     projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+    onClearQuery: () -> Unit,
+    onClearFilters: () -> Unit,
 ) {
     when (content) {
         SearchContent.IdlePrompt -> {
@@ -319,9 +332,35 @@ private fun SearchOutcome(
         }
 
         SearchContent.NoResults -> {
+            // The reason decides the way out. A query that matched nothing
+            // because of its words has no filter to take away; one that
+            // matched nothing because of its constraints has.
+            val hasStructuredFilters = activeFilter?.hasStructuredConstraints == true
             EmptyState(
                 title = "No results found",
+                subtitle =
+                    if (hasStructuredFilters) {
+                        "Nothing matched with these filters."
+                    } else {
+                        "Nothing matched this search."
+                    },
                 testTag = TestTags.SEARCH_EMPTY_RESULTS,
+                actions = {
+                    if (hasStructuredFilters) {
+                        TextButton(
+                            onClick = onClearFilters,
+                            modifier = Modifier.testTag(TestTags.SEARCH_CLEAR_FILTERS_BUTTON),
+                        ) {
+                            Text("Clear filters")
+                        }
+                    }
+                    TextButton(
+                        onClick = onClearQuery,
+                        modifier = Modifier.testTag(TestTags.SEARCH_CLEAR_QUERY_BUTTON),
+                    ) {
+                        Text("Clear query")
+                    }
+                },
             )
         }
 
