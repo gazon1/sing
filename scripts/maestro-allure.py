@@ -19,6 +19,12 @@ reads the verdict from the results and the flows the run did not measure, so a
 job that failed at an ancillary step does not describe a passing run as failed,
 and a run that stopped early is not described as passing.
 
+A failed flow also carries the evidence the runner already captured: the
+screenshot (≤ 2 MB) and the tail of the device logcat (≤ 256 KB), copied from
+the runner's own evidence directory (`<results>/<stem>/`) into the results. The
+full logcat, the videos and the raw screen tree stay in the GitHub artifact.
+Missing or malformed evidence is a finding, never a hidden failure.
+
 Usage:
     python3 scripts/maestro-allure.py --results DIR [--results DIR ...]
         --scope smoke|full --out DIR [--catalogue FILE]
@@ -79,6 +85,13 @@ UNKNOWN_COMMIT = "unknown"
 
 #: `--task-outcome auto`: the run's verdict is read from its own results.
 AUTO = "auto"
+
+#: Evidence limits from the contract (§5): the screenshot up to 2 MB, the tail
+#: of the logcat up to 256 KB. The full logcat, the videos and the raw screen
+#: tree stay in the GitHub artifact — the report carries the picture of the
+#: failure, not the whole device.
+MAX_SCREENSHOT_BYTES = 2 * 1024 * 1024
+MAX_LOGCAT_BYTES = 256 * 1024
 
 #: Findings that remove a fact the report is built from. They are warnings for
 #: the conversion — the results are still written — but a run carrying one is
@@ -359,7 +372,108 @@ def result_for(
         "labels": labels_for(flow, tags, scope, shard, retried),
         "links": [],
         "steps": [],
+        "attachments": [],
     }
+
+
+def read_evidence(path: pathlib.Path, findings: list[dict]) -> bytes | None:
+    """The bytes of one evidence file, or None when it cannot be read.
+
+    A file the runner wrote but that cannot be read now is a finding, not a
+    conversion error: the failure it belongs to is already in the results.
+    """
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        findings.append({"kind": "evidence unreadable", "detail": f"{path}: {exc}"})
+        return None
+
+
+def write_attachment(
+    out: pathlib.Path, result_uuid: str, extension: str, data: bytes, name: str, kind: str
+) -> dict:
+    """Write one attachment next to the results and describe it for Allure.
+
+    The source is the file name alone: Allure resolves it against the
+    directory of the result file and accepts `^[a-zA-Z0-9._-]{1,100}$`. The
+    name carries the result's uuid, so two flows never share an attachment.
+    """
+    source = f"{result_uuid}-attachment.{extension}"
+    (out / source).write_bytes(data)
+    return {"name": name, "source": source, "type": kind, "size": len(data)}
+
+
+def attach_evidence(result: dict, report: pathlib.Path, out: pathlib.Path, findings: list[dict]) -> list[dict]:
+    """The failure evidence of one flow, copied next to its Allure result.
+
+    The evidence directory is the one the runner wrote — `<results>/<stem>/`,
+    the rule `scripts/test-evidence.py::diagnostics_dirs` already uses. This
+    copies what is there; it never collects anything a second time. Missing,
+    unreadable or oversized evidence is a finding: it never hides the failure
+    and never blocks publication.
+    """
+    stem = flow_stem(result["fullName"])
+    directory = report.parent / stem
+    attachments: list[dict] = []
+    if not directory.is_dir():
+        findings.append(
+            {"kind": "evidence missing", "detail": f"{stem}: no evidence directory {directory}"}
+        )
+        return attachments
+
+    screen = directory / f"{stem}_screen.png"
+    if not screen.is_file():
+        findings.append({"kind": "evidence missing", "detail": f"{screen}: not found"})
+    else:
+        data = read_evidence(screen, findings)
+        if data is not None:
+            if len(data) > MAX_SCREENSHOT_BYTES:
+                findings.append(
+                    {
+                        "kind": "evidence oversized",
+                        "detail": f"{screen}: {len(data)} bytes > {MAX_SCREENSHOT_BYTES}",
+                    }
+                )
+            else:
+                attachments.append(
+                    write_attachment(out, result["uuid"], "png", data, "failure screenshot", "image/png")
+                )
+
+    logcat = directory / f"{stem}_logcat.txt"
+    if not logcat.is_file():
+        findings.append({"kind": "evidence missing", "detail": f"{logcat}: not found"})
+    else:
+        data = read_evidence(logcat, findings)
+        if data is not None:
+            truncated = len(data) > MAX_LOGCAT_BYTES
+            tail = data[-MAX_LOGCAT_BYTES:] if truncated else data
+            text = tail.decode("utf-8", errors="replace")
+            if truncated and "\n" in text:
+                # The cut leaves half a line at the top; a log that starts
+                # mid-line reads as corruption.
+                text = text.split("\n", 1)[1]
+            attachments.append(
+                write_attachment(
+                    out, result["uuid"], "txt", text.encode("utf-8"), "device logcat (tail)", "text/plain"
+                )
+            )
+    return attachments
+
+
+def attach_failures(conversion: dict, out: pathlib.Path, findings: list[dict]) -> None:
+    """Give every failing flow the evidence the runner already captured.
+
+    Only a failed or broken flow gets an attachment: a passing flow has no
+    failure to look at, and the report would only carry weight it does not
+    need.
+    """
+    for test_case_id, result in conversion["results"].items():
+        if result["status"] not in FAILING:
+            continue
+        report = conversion["reports"].get(test_case_id)
+        if report is None:
+            continue
+        result["attachments"] = attach_evidence(result, report, out, findings)
 
 
 def read_shard(directory: pathlib.Path, findings: list[dict]) -> dict:
@@ -399,6 +513,9 @@ def convert(
     findings: list[dict] = []
     catalogue = meta["catalogue"]
     first_report: dict[str, pathlib.Path] = {}
+    # The report each kept result came from: the evidence of a failure lives
+    # next to the report that recorded it.
+    reports: dict[str, pathlib.Path] = {}
 
     for shard in shards:
         shard_no = shard["environment"].get("shard")
@@ -428,6 +545,7 @@ def convert(
                 if existing is None:
                     results[result["testCaseId"]] = result
                     first_report[result["testCaseId"]] = xml
+                    reports[result["testCaseId"]] = xml
                     continue
                 findings.append(
                     {
@@ -446,7 +564,8 @@ def convert(
                 # duplicate is to let whichever file was read second decide.
                 if existing["status"] not in FAILING and result["status"] in FAILING:
                     results[result["testCaseId"]] = result
-    return {"results": results, "findings": findings}
+                    reports[result["testCaseId"]] = xml
+    return {"results": results, "findings": findings, "reports": reports}
 
 
 def same_commit(left: object, right: object) -> bool:
@@ -682,7 +801,10 @@ def clean(out: pathlib.Path) -> None:
     """Drop a previous conversion. Call only after is_ours(out) said yes."""
     out.mkdir(parents=True, exist_ok=True)
     for path in (
-        list(out.glob("*-result.json")) + list(out.glob("*.tmp")) + [out / "executor.json", out / MANIFEST_NAME]
+        list(out.glob("*-result.json"))
+        + list(out.glob("*-attachment.*"))
+        + list(out.glob("*.tmp"))
+        + [out / "executor.json", out / MANIFEST_NAME]
     ):
         if path.is_file():
             path.unlink()
@@ -794,13 +916,14 @@ def main(argv: list[str] | None = None) -> int:
             [flow for flow in expected_flows if flow not in produced] + not_measured,
         )
     findings = findings + conversion["findings"]
-    manifest = manifest_for(shards, conversion, meta, expected_flows, not_measured, findings)
 
     try:
         clean(out)
+        attach_failures(conversion, out, findings)
         for result in conversion["results"].values():
             write_json(out / f"{result['uuid']}-result.json", result)
         write_json(out / "executor.json", executor_for(meta))
+        manifest = manifest_for(shards, conversion, meta, expected_flows, not_measured, findings)
         write_json(out / MANIFEST_NAME, manifest)
     except OSError as exc:
         print(f"maestro-allure: cannot write the results to {out}: {exc}", file=sys.stderr)

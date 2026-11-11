@@ -87,6 +87,17 @@ def write_shard(root: pathlib.Path, name: str, environment: dict | None = None,
     return shard
 
 
+def write_evidence(shard: pathlib.Path, flow: str, screen: bytes = b"\x89PNG\r\n\x1a\n",
+                   logcat: str = "log line\n") -> pathlib.Path:
+    """The evidence directory the runner writes next to the report: `<stem>/`."""
+    stem = pathlib.PurePosixPath(flow).stem
+    directory = shard / stem
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{stem}_screen.png").write_bytes(screen)
+    (directory / f"{stem}_logcat.txt").write_text(logcat, encoding="utf-8")
+    return directory
+
+
 def run(args: list[str]) -> tuple[int, str]:
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
@@ -1101,6 +1112,126 @@ class RobustnessTest(unittest.TestCase):
                              "--catalogue", str(catalogue), "--out", str(out)])
             self.assertEqual(code, 1)
             self.assertIn("cannot read the catalogue", err)
+
+
+class EvidenceTest(unittest.TestCase):
+    """A failed flow carries the evidence the runner already captured."""
+
+    def convert(self, root: pathlib.Path, shard: pathlib.Path, flow: str, out: pathlib.Path) -> str:
+        (root / "catalogue.txt").write_text(f"{flow}\n")
+        code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                       "--catalogue", str(root / "catalogue.txt"), "--out", str(out)])
+        self.assertEqual(code, 0)
+        return code
+
+    def test_a_failed_flow_carries_the_screenshot_and_the_logcat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "tasks-create", status="ERROR", failure="Assertion is false")
+            write_evidence(shard, flow, screen=b"\x89PNG-pixels", logcat="boom\n")
+            out = root / "out"
+            self.convert(root, shard, flow, out)
+            result = results(out)["Maestro/flows/tasks/01-create.yaml"]
+            kinds = {a["type"]: a for a in result["attachments"]}
+            self.assertEqual(sorted(kinds), ["image/png", "text/plain"])
+            for attachment in result["attachments"]:
+                source = out / attachment["source"]
+                self.assertTrue(source.is_file(), attachment["source"])
+                self.assertEqual(source.stat().st_size, attachment["size"])
+            self.assertEqual((out / kinds["image/png"]["source"]).read_bytes(), b"\x89PNG-pixels")
+            self.assertEqual((out / kinds["text/plain"]["source"]).read_text(), "boom\n")
+
+    def test_a_passing_flow_carries_no_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "tasks-create")
+            write_evidence(shard, flow)
+            out = root / "out"
+            self.convert(root, shard, flow, out)
+            self.assertEqual(results(out)["Maestro/flows/tasks/01-create.yaml"]["attachments"], [])
+            self.assertEqual(list(out.glob("*-attachment.*")), [])
+
+    def test_missing_evidence_is_a_finding_and_never_hides_the_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            shard = write_shard(root, "s1", {"shard": 1, "shards": 1, "commit": "abc"})
+            write_report(shard, flow, "tasks-create", status="ERROR", failure="Assertion is false")
+            out = root / "out"
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            code, _ = run(["--results", str(shard), "--scope", "full", "--root", str(root),
+                           "--catalogue", str(root / "catalogue.txt"),
+                           "--run-id", "42", "--run-number", "7", "--run-attempt", "1",
+                           "--commit", "abc", "--maestro-version", "2.10.0",
+                           "--apk-sha256", "f" * 64, "--task-outcome", "failed",
+                           "--out", str(out)])
+            self.assertEqual(code, 0)
+            result = results(out)["Maestro/flows/tasks/01-create.yaml"]
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["statusDetails"]["message"], "Assertion is false")
+            self.assertEqual(result["attachments"], [])
+            data = manifest(out)
+            self.assertTrue(any(f["kind"] == "evidence missing" for f in data["findings"]))
+            # Evidence never blocks publication: the run's own facts do.
+            self.assertTrue(data["publishable"])
+
+    def test_an_oversized_screenshot_is_not_attached(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "tasks-create", status="ERROR", failure="Assertion is false")
+            write_evidence(shard, flow, screen=b"x" * (mod.MAX_SCREENSHOT_BYTES + 1))
+            out = root / "out"
+            self.convert(root, shard, flow, out)
+            result = results(out)["Maestro/flows/tasks/01-create.yaml"]
+            self.assertEqual([a["type"] for a in result["attachments"]], ["text/plain"])
+            self.assertTrue(any(f["kind"] == "evidence oversized" for f in manifest(out)["findings"]))
+
+    def test_the_logcat_is_the_tail_and_is_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "tasks-create", status="ERROR", failure="Assertion is false")
+            write_evidence(shard, flow, logcat="old\n" * 100 + "newest\n")
+            out = root / "out"
+            self.convert(root, shard, flow, out)
+            result = results(out)["Maestro/flows/tasks/01-create.yaml"]
+            tail = next(a for a in result["attachments"] if a["type"] == "text/plain")
+            text = (out / tail["source"]).read_text()
+            self.assertTrue(text.endswith("newest\n"))
+            self.assertLessEqual(tail["size"], mod.MAX_LOGCAT_BYTES)
+
+    def test_the_evidence_of_a_duplicated_flow_is_attached_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            passing = write_shard(root, "s1", {"shard": 1, "shards": 2, "commit": "abc"})
+            failing = write_shard(root, "s2", {"shard": 2, "shards": 2, "commit": "abc"})
+            write_report(passing, flow, "tasks-create")
+            write_report(failing, flow, "tasks-create", status="ERROR", failure="Assertion is false")
+            write_evidence(failing, flow, screen=b"\x89PNG-pixels")
+            out = root / "out"
+            (root / "catalogue.txt").write_text(f"{flow}\n")
+            code, _ = run(["--results", str(passing), "--results", str(failing), "--scope", "full",
+                           "--root", str(root), "--catalogue", str(root / "catalogue.txt"),
+                           "--out", str(out)])
+            self.assertEqual(code, 0)
+            result = results(out)["Maestro/flows/tasks/01-create.yaml"]
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual([a["type"] for a in result["attachments"]], ["image/png", "text/plain"])
+            self.assertEqual(len(list(out.glob("*-attachment.png"))), 1)
 
 
 class FixtureShapeTest(unittest.TestCase):
