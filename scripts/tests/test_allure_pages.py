@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -341,6 +342,39 @@ class AllurePagesTest(unittest.TestCase):
         self.assertIn(result["status"], {"malformed-tarball"})
         self.assertFalse((self.gh / "junk.txt").exists())
         self.assertFalse((self.root / "escape.txt").exists())
+
+    def test_manifest_survives_the_pinned_actions_retention_prune(self):
+        # `simple-elf/allure-report-action` prunes its own `<population>/`
+        # directory with `ls | sort -n | grep -v CNAME | head -n -N | xargs rm`.
+        # A visible non-numeric state file sorts first and is deleted at ~20
+        # reports; the dotfile must be invisible to that listing.
+        pdir = self.pop_dir(self.site, "fast")
+        for n in range(1, 20):
+            self.make_report(self.site, "fast", str(n))
+        ap.save_manifest(
+            ap.manifest_path(pdir),
+            {"schema_version": 2, "population": "fast", "latest": None, "publications": {}},
+        )
+        (pdir / "index.html").write_text("redirect", encoding="utf-8")
+        prune = "rm index.html last-history -rf; ls | sort -n | grep -v CNAME | head -n -19 | xargs -r rm -rf"
+        subprocess.run(["bash", "-c", prune], cwd=pdir, check=True)
+        self.assertTrue(ap.manifest_path(pdir).is_file())
+        self.assertTrue((pdir / "19").is_dir())
+
+    def test_legacy_visible_manifest_is_read_once(self):
+        pdir = self.pop_dir(self.site, "fast")
+        current = pub(run_id=7, run_number=70, population="fast", report_path="70")
+        ap.save_manifest(
+            pdir / "allure-manifest.json",
+            {
+                "schema_version": 2,
+                "population": "fast",
+                "latest": current.to_dict(),
+                "publications": {current.identity: current.to_dict()},
+            },
+        )
+        manifest = ap.load_manifest(ap.manifest_path(pdir), "fast")
+        self.assertEqual(manifest["latest"]["run_number"], 70)
 
     def test_tree_stats_counts_files_and_bytes(self):
         self.make_report(self.site, "fast", "10")
