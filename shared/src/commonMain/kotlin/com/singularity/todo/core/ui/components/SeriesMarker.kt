@@ -1,12 +1,10 @@
 package com.singularity.todo.core.ui.components
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -47,15 +45,11 @@ fun SeriesMarker(
         } else {
             pluralStringResource(Res.plurals.series_label, dates, dates)
         }
-    Row(
-        modifier = modifier.testTag(TestTags.TaskSeries.MARKER),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.EventRepeat,
-            contentDescription = label,
-            tint = mutedTextColor(),
-            modifier = Modifier.size(14.dp),
-        )
-    }
+    // The icon alone: one icon does not need a row around it.
+    Icon(
+        imageVector = Icons.Outlined.EventRepeat,
+        contentDescription = label,
+        tint = mutedTextColor(),
+        modifier = modifier.testTag(TestTags.TaskSeries.MARKER).size(14.dp),
+    )
 }
