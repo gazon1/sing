@@ -23,7 +23,6 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
-import singularity_todo.shared.generated.resources.priority_none
 import singularity_todo.shared.generated.resources.priority_word_high
 import singularity_todo.shared.generated.resources.priority_word_low
 import singularity_todo.shared.generated.resources.priority_word_medium
@@ -55,7 +54,8 @@ fun PriorityChip(
     priority: TaskPriority,
     modifier: Modifier = Modifier,
 ) {
-    if (priority == TaskPriority.None) return
+    // A priority with no word has no chip: the word is what the chip says.
+    val word = priorityWord(priority) ?: return
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.padding(start = 4.dp),
@@ -69,7 +69,7 @@ fun PriorityChip(
         )
         Spacer(Modifier.width(TaskListSpacing.Xs))
         Text(
-            text = priorityWord(priority),
+            text = word,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -81,15 +81,18 @@ fun PriorityChip(
  *
  * Not `priority.name`: the enum's constant is a code identifier, and the app
  * ships a Russian locale where every other priority string is translated.
+ *
+ * `null` for a priority with no word: the chip draws nothing for it, so the
+ * word it would need never reaches the screen.
  */
 @Composable
-private fun priorityWord(priority: TaskPriority): String =
+private fun priorityWord(priority: TaskPriority): String? =
     when (priority) {
         TaskPriority.Low -> stringResource(Res.string.priority_word_low)
         TaskPriority.Medium -> stringResource(Res.string.priority_word_medium)
         TaskPriority.High -> stringResource(Res.string.priority_word_high)
         TaskPriority.Urgent -> stringResource(Res.string.priority_word_urgent)
-        TaskPriority.None -> stringResource(Res.string.priority_none)
+        TaskPriority.None -> null
     }
 
 // ===== Preview =====
