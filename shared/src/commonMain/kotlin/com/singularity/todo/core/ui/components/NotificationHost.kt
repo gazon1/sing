@@ -6,7 +6,6 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,7 +16,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -50,8 +48,9 @@ import kotlinx.coroutines.flow.map
  * (the host was composed before it) and the shell-level FAB (drawn after the
  * whole entry). The toast was laid out and timed correctly but never visible
  * — and its action label sat under the FAB even when it was. Rendering the
- * snackbar in its own [Popup] window, anchored to the host's bounds, puts it
- * above both. Dialog notifications were already separate windows.
+ * snackbar in its own [Popup] — its own semantics root, drawn above the app's
+ * window — anchored to the host's bounds, puts it above both. Dialog
+ * notifications were already separate windows.
  */
 @Composable
 fun <T> NotificationHost(
@@ -154,17 +153,20 @@ fun NotificationHost(
             popupPositionProvider = BottomCenterAnchorPositionProvider(),
             properties = PopupProperties(focusable = false),
         ) {
-            // The popup is its own window, drawn above the shell's button — so it
-            // never needed the button's clearance, and the host's own clearance
-            // would only lift the toast off the bottom edge of the screen
-            // (#2752). Zero here keeps the toast where it was before the
-            // snackbar host learned about the button.
-            CompositionLocalProvider(LocalFabBottomSpace provides 0.dp) {
-                TaggedSnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.mapTestTagsAsResourceIds(),
-                )
-            }
+            // The popup is drawn above the app's window, so the toast covers the
+            // shell's button instead of the other way round — the button is
+            // hidden and untappable while the toast is up, which is the same
+            // defect as the one the agenda's own host had (#2752). The host
+            // therefore keeps the clearance the shell publishes, and the toast
+            // sits above the button.
+            //
+            // On a route without a button the shell publishes `0.dp`, so the
+            // toast stays where it was: the clearance follows the button, not
+            // the host.
+            TaggedSnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.mapTestTagsAsResourceIds(),
+            )
         }
     }
 

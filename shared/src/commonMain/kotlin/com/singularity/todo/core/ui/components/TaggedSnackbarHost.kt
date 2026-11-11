@@ -51,10 +51,13 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
  * visible and tappable (#2752). The space comes from the shell
  * ([LocalFabBottomSpace]), so it is zero on a route without a button.
  *
- * The same host is also used inside a `Popup` (`NotificationHost`): a popup is
- * its own window, drawn above the button, so it never needed the clearance —
- * and it asks for none (`LocalFabBottomSpace` is zero there), so the toast
- * stays where it was.
+ * The same host is also used inside a `Popup` (`NotificationHost`). A popup is
+ * its own semantics root, drawn above the app's window — so the toast covers
+ * the button rather than the other way round: the button is hidden, and
+ * untappable, while the toast is up. The toast takes the same clearance for
+ * that reason. The clearance still follows the button, not the host: on a
+ * route without a button the shell publishes `0.dp`, and the toast sits on
+ * the bottom edge.
  *
  * ## Countdown variant
  *

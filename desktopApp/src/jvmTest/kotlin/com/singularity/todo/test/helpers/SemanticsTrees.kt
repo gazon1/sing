@@ -7,7 +7,9 @@ import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.printToString
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 
 /**
@@ -108,6 +110,35 @@ fun DesktopComposeUiTest.rootSizes(): List<Int> = semanticsRoots().map { it.coun
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.mainRootBounds(): DpRect =
     onAllNodes(isRoot(), useUnmergedTree = true)[0].getUnclippedBoundsInRoot()
+
+/**
+ * The space a node leaves below itself inside the root it lives in.
+ *
+ * A `Popup` is its own semantics root, drawn above the app's window: the root
+ * of a node inside a popup is that popup's root, and its bottom edge is where
+ * the popup's content ends. The space between the node and that edge is what a
+ * bottom padding inside the popup reserved — the clearance a shell's floating
+ * action button asks for.
+ *
+ * Measured on the node's own root, not on the app's window: a toast in a popup
+ * has to be measured against the root it is drawn in, or the answer says
+ * nothing about the popup.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.spaceBelowTagInItsRoot(tag: String): Dp {
+    val roots = onAllNodes(isRoot(), useUnmergedTree = true)
+    val rootNodes = roots.fetchSemanticsNodes()
+    val node =
+        onAllNodesWithTag(tag, useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .firstOrNull() ?: error("no node with testTag '$tag' in the scene")
+    val root = generateSequence(node) { it.parent }.last()
+    val index = rootNodes.indexOfFirst { it.id == root.id }
+    if (index < 0) error("the node's root is not among the scene's roots")
+    val rootBounds = roots[index].getUnclippedBoundsInRoot()
+    val nodeBounds = onAllNodesWithTag(tag, useUnmergedTree = true)[0].getUnclippedBoundsInRoot()
+    return rootBounds.bottom - nodeBounds.bottom
+}
 
 /** This node and every node below it. */
 private fun SemanticsNode.countNodes(): Int = 1 + children.sumOf { it.countNodes() }
