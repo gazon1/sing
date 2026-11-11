@@ -169,6 +169,70 @@ class DetektKotlinCompatibility(CatalogTree):
         self.assertEqual(len(violations), 1)
         self.assertIn("DETEKT_KOTLIN_COMPATIBILITY", violations[0][1])
 
+    def test_a_missing_kotlin_version_is_a_violation(self):
+        """One version without the other is a check that never ran."""
+        self.write_catalog(CATALOG.replace('kotlin = "2.4.10"\n', ""))
+        violations = self.violations()
+        self.assertEqual(len(violations), 1)
+        self.assertIn("kotlin", violations[0][1])
+
+    def test_a_missing_detekt_version_is_a_violation(self):
+        self.write_catalog(CATALOG.replace('detekt = "2.0.0-alpha.6"\n', ""))
+        violations = self.violations()
+        self.assertEqual(len(violations), 1)
+        self.assertIn("detekt", violations[0][1])
+
+
+class CatalogEntryForms(CatalogTree):
+    """The catalog's [versions] table has two legal forms, and both are read.
+
+    `key = "value"` is one of them. The other is the table form
+    `key = { strictly = "value" }` — legal TOML, legal for Gradle, and
+    invisible to a gate that only reads the plain form.
+    """
+
+    def versions(self):
+        return gate._catalog_versions(self.root)
+
+    def test_the_plain_form_is_read(self):
+        self.assertEqual(self.versions()["kotlin"], "2.4.10")
+
+    def test_the_table_form_is_read(self):
+        self.write_catalog(CATALOG.replace('kotlin = "2.4.10"', 'kotlin = { strictly = "2.4.10" }'))
+        self.assertEqual(self.versions()["kotlin"], "2.4.10")
+
+    def test_the_table_form_is_compared_like_the_plain_form(self):
+        """A table form that disagrees with detekt is still a disagreement."""
+        self.write_catalog(CATALOG.replace('kotlin = "2.4.10"', 'kotlin = { strictly = "2.4.21" }'))
+        violations = gate._detekt_kotlin_compatibility(self.root)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("2.4.21", violations[0][1])
+
+    def test_a_require_constraint_is_read(self):
+        self.write_catalog(CATALOG.replace('kotlin = "2.4.10"', 'kotlin = { require = "2.4.10" }'))
+        self.assertEqual(self.versions()["kotlin"], "2.4.10")
+
+    def test_the_strict_constraint_wins_over_a_soft_prefer(self):
+        self.write_catalog(
+            CATALOG.replace(
+                'kotlin = "2.4.10"',
+                'kotlin = { prefer = "2.4.99", strictly = "2.4.10" }',
+            )
+        )
+        self.assertEqual(self.versions()["kotlin"], "2.4.10")
+
+    def test_the_other_sections_are_not_versions(self):
+        """A library entry is a table too — it is not a version of anything."""
+        self.write_catalog(
+            CATALOG
+            + '\n[libraries]\nkotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }\n'
+        )
+        self.assertNotIn("kotlin-stdlib", self.versions())
+
+    def test_a_catalog_without_a_versions_table_has_no_versions(self):
+        self.write_catalog('[libraries]\nkotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }\n')
+        self.assertEqual(self.versions(), {})
+
 
 if __name__ == "__main__":
     unittest.main()

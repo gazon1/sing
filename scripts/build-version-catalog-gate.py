@@ -100,23 +100,57 @@ DETEKT_KOTLIN_COMPATIBILITY = {
 GRADLE_PROPS_VERSION_RE = re.compile(
     r"^(?P<key>[^#\s][^\s=]*)\s*=\s*[\"\']?(?P<value>[\w.\-]+)[\"\']?"
 )
-VERSION_ENTRY_RE = re.compile(r"^(?P<key>\S+)\s*=\s*\"(?P<value>[^\"]+)\"")
-
+VERSION_ENTRY_RE = re.compile(r"^(?P<key>[^\s=]+)\s*=\s*\"(?P<value>[^\"]+)\"", re.MULTILINE)
+# A version may also be written as a table with a constraint:
+#   kotlin = { strictly = "2.4.10" }
+# That form is legal TOML and legal for Gradle, so the gate has to read it —
+# otherwise a catalog written that way looks like it has no versions at all.
+VERSION_TABLE_RE = re.compile(
+    r"^(?P<key>[^\s=]+)\s*=\s*\{(?P<body>[^}]*)\}", re.MULTILINE | re.DOTALL
+)
 
 
 def _catalog_versions(workspace: Path) -> dict[str, str]:
-    """version key -> value, from the [versions] table of the catalog."""
+    """version key -> value, from the [versions] table of the catalog.
+
+    Both legal forms are read: `key = "value"` and the table form
+    `key = { strictly = "value" }`.
+    """
     catalog = workspace / "gradle" / "libs.versions.toml"
     versions: dict[str, str] = {}
     if not catalog.is_file():
         return versions
-    for line in catalog.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line.startswith("[") or "=" not in line:
-            continue
-        m = VERSION_ENTRY_RE.match(line)
-        if m:
-            versions[m.group("key")] = m.group("value")
+
+    text = catalog.read_text(encoding="utf-8")
+    # Only the [versions] table holds versions. The other tables hold
+    # libraries, bundles and plugins, and their entries are tables of their
+    # own — reading them as versions would make the gate compare a plugin id
+    # against a dependency version.
+    match = re.search(r"^\[versions\]\s*$(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+    if not match:
+        return versions
+    section = match.group(1)
+
+    # The table form is taken out first: the lines inside its body would
+    # otherwise be read as plain entries (`strictly = "2.4.10"` -> a version
+    # named `strictly`).
+    def take_table(m: re.Match) -> str:
+        body = m.group("body")
+        # The required version first: `prefer` is a soft wish, and a table that
+        # carries both has to be compared against the strict one.
+        constraint = re.search(r"\b(strictly|require)\s*=\s*\"([^\"]+)\"", body)
+        if constraint:
+            versions[m.group("key")] = constraint.group(2)
+            return ""
+        soft = re.search(r"\bprefer\s*=\s*\"([^\"]+)\"", body)
+        if soft:
+            versions[m.group("key")] = soft.group(1)
+        return ""
+
+    section = VERSION_TABLE_RE.sub(take_table, section)
+
+    for m in VERSION_ENTRY_RE.finditer(section):
+        versions[m.group("key")] = m.group("value")
     return versions
 
 
@@ -220,21 +254,27 @@ def _detekt_kotlin_compatibility(workspace: Path):
     if not versions:
         return [("gradle/libs.versions.toml", "no catalog versions to compare against")]
 
+    catalog = workspace / "gradle" / "libs.versions.toml"
     detekt = versions.get("detekt")
     kotlin = versions.get("kotlin")
-    if detekt is None or kotlin is None:
-        return []
+    # One version without the other is not a comparison — it is a check that
+    # passes because it never ran. A renamed key used to leave the gate green
+    # while detekt and Kotlin were free to disagree.
+    missing = [name for name, value in (("detekt", detekt), ("kotlin", kotlin)) if value is None]
+    if missing:
+        return [(catalog, f"the catalog has no {' and no '.join(missing)} version — "
+                         "the detekt/Kotlin compatibility check would pass vacuously")]
 
     expected = DETEKT_KOTLIN_COMPATIBILITY.get(detekt)
     if expected is None:
         return [(
-            workspace / "gradle" / "libs.versions.toml",
+            catalog,
             f"detekt {detekt} is not in DETEKT_KOTLIN_COMPATIBILITY — find the Kotlin "
             "version it was compiled with and add the entry",
         )]
     if expected != kotlin:
         return [(
-            workspace / "gradle" / "libs.versions.toml",
+            catalog,
             f"kotlin = \"{kotlin}\", but detekt {detekt} was compiled with Kotlin "
             f"{expected} and refuses any other version — bump detekt to a build "
             f"compiled with {kotlin} first, or keep Kotlin at {expected}",
