@@ -33,7 +33,7 @@ from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from git_sandbox import git as _git, sandbox_env  # noqa: E402
+from git_sandbox import foreign_env, git as _git, no_named_base, sandbox_env, tree_env  # noqa: E402
 
 
 class GitSandboxTest(unittest.TestCase):
@@ -190,6 +190,58 @@ class GitSandboxTest(unittest.TestCase):
         message = str(caught.exception)
         self.assertIn('no-such-ref', message, 'the message must name the command')
         self.assertIn('fatal', message, "the message must carry git's own words")
+
+class AnotherTreeTest(unittest.TestCase):
+    """A name that refers to this tree does not travel into another one.
+
+    `SGATE_BASE_REF` names the ref a change is measured against, and it names
+    a ref *in the tree the caller is in*. A fixture's repository is another
+    tree: the name is not there, and — because a named base is exclusive — the
+    fixture is told it has no base at all, and the chain that could have
+    answered is never consulted.
+
+    That is not a theory: in CI the workflow names the base once, for the
+    whole workflow, and the name reached a control's fixture repository. The
+    ratchet measured the fixture's branch against a ref the fixture does not
+    have, found nothing, and passed a deliberately sabotaged input — so the
+    control that was there to prove the gate can fail proved instead that it
+    could not.
+    """
+
+    def test_the_foreign_environment_drops_the_base_name(self):
+        with mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/main'}):
+            env = foreign_env()
+        self.assertNotIn('SGATE_BASE_REF', env)
+
+    def test_the_foreign_environment_drops_the_hook_variables(self):
+        with mock.patch.dict(os.environ, {'GIT_DIR': '/somewhere/.git'}):
+            env = foreign_env()
+        self.assertNotIn('GIT_DIR', env)
+
+    def test_the_foreign_environment_drops_both_kinds_of_name_from_a_given_environment(self):
+        # The caller may hand over an environment of its own — the gate harness
+        # does — and the names that point at a tree are dropped there as well.
+        env = foreign_env({'SGATE_BASE_REF': 'origin/main', 'GIT_DIR': '/somewhere/.git', 'KEPT': 'yes'})
+        self.assertNotIn('SGATE_BASE_REF', env)
+        self.assertNotIn('GIT_DIR', env)
+        self.assertEqual('yes', env.get('KEPT'))
+
+    def test_the_foreign_environment_keeps_everything_else(self):
+        with mock.patch.dict(os.environ, {'SOMETHING_ELSE': 'kept'}):
+            env = foreign_env()
+        self.assertEqual('kept', env.get('SOMETHING_ELSE'))
+
+    def test_this_tree_keeps_its_own_base_name(self):
+        # The other half of the boundary: the tree the name belongs to still
+        # gets it. The name is not banned — it is not carried across.
+        with mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/main'}):
+            self.assertEqual('origin/main', tree_env().get('SGATE_BASE_REF'))
+
+    def test_a_fixture_runs_without_a_base_name_and_the_name_comes_back(self):
+        with mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/main'}):
+            with no_named_base():
+                self.assertNotIn('SGATE_BASE_REF', os.environ)
+            self.assertEqual('origin/main', os.environ.get('SGATE_BASE_REF'))
 
 
 if __name__ == '__main__':

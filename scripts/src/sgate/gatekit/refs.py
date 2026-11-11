@@ -108,7 +108,11 @@ def _controlled_env(env=None) -> dict[str, str]:
     return controlled
 
 #: The environment variable that names the base explicitly.
-BASE_REF_ENV = "SGATE_BASE_REF"
+#:
+#: The owner of the name is `sgate.gatekit.gitenv`: that module owns the
+#: question "which names must not cross into another tree", and this name is
+#: one of them — it names a ref in the tree the caller is in.
+BASE_REF_ENV = _gitenv().BASE_REF_ENV
 
 #: What a tool says when no base ref resolves here.
 #:

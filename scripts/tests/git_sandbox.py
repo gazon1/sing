@@ -22,10 +22,18 @@ with a ceiling that stops git from walking up past the fixture's own
 directory. The assertion below is the second half of the contract: the
 fixture's repository is its own repository, and the test says so when it is
 not.
+
+The base name belongs to the same family. `SGATE_BASE_REF` names the ref a
+change is measured against, and it names a ref *in the tree the caller is in*.
+A fixture builds a repository of its own, so the name the outer tree carries
+says nothing about it — and worse than nothing: a named base is exclusive, so
+the fixture is told it has no base at all and the chain that could have
+answered is never consulted.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
 import subprocess
@@ -34,7 +42,34 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
 
-from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, sandbox_env, tree_env  # noqa: E402,F401
+from sgate.gatekit.gitenv import (  # noqa: E402,F401
+    BASE_REF_ENV,
+    INHERITED_FROM_HOOK,
+    foreign_env,
+    sandbox_env,
+    tree_env,
+)
+
+
+@contextlib.contextmanager
+def no_named_base():
+    """The environment names no base while the fixture runs.
+
+    The name the outer tree carries is about the outer tree. A fixture's
+    repository is its own repository, and a name that is not there is not a
+    base: the fixture would be told it has none, and the chain that could
+    have answered would never be consulted.
+
+    The name is restored afterwards, so a test that names a base of its own is
+    unaffected by the order the tests run in.
+    """
+    previous = os.environ.pop(BASE_REF_ENV, None)
+    try:
+        yield
+    finally:
+        if previous is not None:
+            os.environ[BASE_REF_ENV] = previous
+
 
 
 class GitCommandFailed(subprocess.CalledProcessError):

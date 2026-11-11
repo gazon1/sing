@@ -33,6 +33,8 @@ _spec = importlib.util.spec_from_file_location("gatekit_refs", _MODULE)
 _refs = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_refs)
 
+from git_sandbox import no_named_base  # noqa: E402
+
 resolve_base_ref = _refs.resolve_base_ref
 resolves = _refs.resolves
 BASE_CANDIDATES = _refs.BASE_CANDIDATES
@@ -44,6 +46,10 @@ class RefRepositoryTest(unittest.TestCase):
     """A repository built for the resolver."""
 
     def setUp(self) -> None:
+        # The fixture's repository is its own repository: a base named in the
+        # environment is about the tree the test runs in, and it is not about
+        # this one. The tests that want a named base pass one themselves.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="gatekit-refs-"))
         self.addCleanup(self._remove)
         # The branch is NOT `main`: a local `main` is one of the candidates,

@@ -77,6 +77,7 @@ if _added:
     sys.path.insert(0, _scripts_src)
 
 from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.gitenv import foreign_env  # noqa: E402
 from sgate.gatekit.gradle import blocks, has_block, module_build_files  # noqa: E402
 import yaml  # noqa: E402
 import workflow_gradle as wg  # noqa: E402
@@ -744,7 +745,7 @@ def _gate_env() -> dict[str, str]:
     return env
 
 
-def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
+def run_gate(cmd: list[str], timeout_s: int | None = None, env: dict[str, str] | None = None) -> int:
     """Run one gate to completion, or kill it at the deadline.
 
     The deadline belongs here and not in the caller: every way into a gate
@@ -756,6 +757,11 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
     crash: the harness has to be able to *report* that the control could not
     run, because a control that cannot run proves nothing, and a traceback
     says less than a sentence that names the missing binary.
+
+    *env* is the environment the gate runs in; the checkout's own environment
+    when it is not given. A gate that runs in another tree — a fixture's copy
+    of this repository — is given an environment without the base name, because
+    that name refers to a ref in *this* tree and the fixture does not have it.
     """
     if timeout_s is None:
         timeout_s = GRADLE_GATE_TIMEOUT_S if _is_gradle_gate(cmd) else GATE_TIMEOUT_S
@@ -767,7 +773,7 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
             text=True,
             check=False,
             timeout=timeout_s,
-            env=_gate_env(),
+            env=_gate_env() if env is None else env,
         )
     except subprocess.TimeoutExpired:
         return TIMEOUT_RC
@@ -1196,7 +1202,13 @@ def check_fixture_gates(scope: dict[str, str] | None = None) -> list[str]:
                 errors.append(f"gate '{gate.name}': fixture setup raised {exc!r}")
                 continue
             cmd = [part.replace("{tmp}", tmp) for part in gate.cmd]
-            sabotaged_rc = run_gate(cmd)
+            # The fixture's copy of the repository is another tree. The base
+            # name in the environment refers to a ref in *this* tree, and the
+            # fixture does not have it: a gate that inherits it measures
+            # against a ref that is not there and answers "nothing changed" —
+            # which is how a control ends up proving that the gate it watches
+            # cannot fail.
+            sabotaged_rc = run_gate(cmd, env=foreign_env(_gate_env()))
 
         if sabotaged_rc == TIMEOUT_RC:
             errors.append(

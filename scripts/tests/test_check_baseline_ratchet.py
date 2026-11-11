@@ -34,7 +34,7 @@ _spec = importlib.util.spec_from_file_location('check_baseline_ratchet', SCRIPT)
 ratchet = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ratchet)
 
-from git_sandbox import git as _git, sandbox_env  # noqa: E402
+from git_sandbox import git as _git, no_named_base, sandbox_env  # noqa: E402
 
 
 # A config with one disabled rule, one enabled rule, and a ruleset-level
@@ -193,6 +193,10 @@ class MergeBaseComparisonTest(unittest.TestCase):
     BASELINE_REL = pathlib.Path('config/detekt/baseline-shared.xml')
 
     def setUp(self):
+        # The fixture's repository is its own repository: the base name in the
+        # environment is about the tree the test runs in, and it is not about
+        # this one.
+        self.enterContext(no_named_base())
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.repo = pathlib.Path(self._tmp.name) / 'repo'

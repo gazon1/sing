@@ -44,6 +44,8 @@ spec = importlib.util.spec_from_file_location('checkout_state', MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
+from git_sandbox import no_named_base  # noqa: E402
+
 
 def _git(*args: str, cwd: pathlib.Path) -> str:
     """One git command in a fixture repository."""
@@ -62,6 +64,10 @@ class CheckoutStateTest(unittest.TestCase):
     """The report, on repositories built for it."""
 
     def setUp(self) -> None:
+        # The fixture's repository is its own repository: a base named in the
+        # environment is about the tree the test runs in, and it is not about
+        # this one.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='checkout-state-'))
         self.addCleanup(self._remove)
         _git('init', '--quiet', '-b', 'main', cwd=self.tmp)
