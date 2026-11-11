@@ -31,8 +31,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,11 +43,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchMode
@@ -55,19 +62,25 @@ import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
 import org.koin.compose.koinInject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -81,7 +94,7 @@ private sealed interface PickerSearchState {
 
     data object Loading : PickerSearchState
 
-    data class Results(val tasks: List<Task>) : PickerSearchState
+    data class Results(val tasks: ImmutableList<Task>) : PickerSearchState
 
     data object NoResults : PickerSearchState
 
@@ -152,25 +165,29 @@ fun RelatedTaskPickerSheet(
     searchIndex: SearchTextIndex = koinInject(),
     projectsRepo: ProjectsRepository = koinInject(),
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Expanded)
 
     val queryState = rememberTextFieldState()
     var selectedId by remember { mutableStateOf<TaskId?>(null) }
     var selectedVerb by remember { mutableStateOf(DependencyVerb.BLOCKS) }
     var searchState: PickerSearchState by remember { mutableStateOf(PickerSearchState.Idle) }
-
-    val projects by projectsRepo.observeAllIncludingClosed().collectAsStateWithLifecycle(initialValue = emptyList())
-    val projectsById: ImmutableMap<ProjectId, Project> =
-        remember(projects) { projects.associateBy(Project::id).toImmutableMap() }
+    // The query whose results the selection belongs to. Null until a search lands, so
+    // Add cannot act on a selection made for a query the user has already replaced.
+    var resultsQuery by remember { mutableStateOf<String?>(null) }
+    var projectsById by remember { mutableStateOf<ImmutableMap<ProjectId, Project>>(persistentMapOf()) }
     val excludedIds = remember(existingRelationIds) { existingRelationIds.toSet() }
 
     LaunchedEffect(queryState, excludedIds, taskId) {
+        // `onEach` runs before the debounce: a keystroke clears the selection at once,
+        // not when the next search lands. Otherwise Add can still fire for the old task.
         snapshotFlow { queryState.text.toString() }
-            .debounce(300.milliseconds)
-            .distinctUntilChanged()
-            .collectLatest { raw ->
+            .onEach {
                 selectedId = null
                 selectedVerb = DependencyVerb.BLOCKS
+                resultsQuery = null
+            }.debounce(300.milliseconds)
+            .distinctUntilChanged()
+            .collectLatest { raw ->
                 if (raw.isBlank()) {
                     searchState = PickerSearchState.Idle
                 } else {
@@ -182,9 +199,29 @@ fun RelatedTaskPickerSheet(
                             existingRelationIds = excludedIds,
                             searchIndex = searchIndex,
                         )
+                    resultsQuery = raw.trim()
                 }
             }
     }
+
+    // Only the projects the found tasks belong to, not the whole catalogue.
+    LaunchedEffect(searchState) {
+        val projectIds =
+            (searchState as? PickerSearchState.Results)
+                ?.tasks
+                ?.mapNotNull { it.projectId }
+                ?.distinct()
+                .orEmpty()
+        if (projectIds.isEmpty()) {
+            projectsById = persistentMapOf()
+            return@LaunchedEffect
+        }
+        combine(projectIds.map { projectsRepo.observeProject(it) }) { projects ->
+            projects.filterNotNull().associateBy(Project::id).toImmutableMap()
+        }.collect { projectsById = it }
+    }
+
+    val canAdd = selectedId != null && resultsQuery == queryState.text.toString().trim()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -197,6 +234,7 @@ fun RelatedTaskPickerSheet(
             projectsById = projectsById,
             selectedId = selectedId,
             selectedVerb = selectedVerb,
+            canAdd = canAdd,
             onDismiss = onDismiss,
             onSelect = { id ->
                 selectedId = id
@@ -204,8 +242,10 @@ fun RelatedTaskPickerSheet(
             },
             onVerbChange = { selectedVerb = it },
             onAdd = {
-                val id = selectedId ?: return@RelatedTaskPickerContent
-                onAdd(id, selectedVerb)
+                val id = selectedId
+                if (id != null && resultsQuery == queryState.text.toString().trim()) {
+                    onAdd(id, selectedVerb)
+                }
             },
         )
     }
@@ -223,7 +263,11 @@ private suspend fun runRelatedTaskSearch(
         }.getOrElse { error ->
             return PickerSearchState.Error(error.message ?: "Search failed")
         }
-    return if (tasks.isEmpty()) PickerSearchState.NoResults else PickerSearchState.Results(tasks)
+    return if (tasks.isEmpty()) {
+        PickerSearchState.NoResults
+    } else {
+        PickerSearchState.Results(tasks.toImmutableList())
+    }
 }
 
 @Composable
@@ -233,22 +277,34 @@ private fun RelatedTaskPickerContent(
     projectsById: ImmutableMap<ProjectId, Project>,
     selectedId: TaskId?,
     selectedVerb: DependencyVerb,
+    canAdd: Boolean,
     onDismiss: () -> Unit,
     onSelect: (TaskId) -> Unit,
     onVerbChange: (DependencyVerb) -> Unit,
     onAdd: () -> Unit,
 ) {
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(searchFocus) { searchFocus.requestFocus() }
+
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f)
                 .imePadding()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                        onDismiss()
+                        true
+                    } else {
+                        false
+                    }
+                },
     ) {
         RelatedTaskPickerHeader(onDismiss = onDismiss)
         Spacer(Modifier.height(8.dp))
-        RelatedTaskPickerSearchField(queryState = queryState)
+        RelatedTaskPickerSearchField(queryState = queryState, focusRequester = searchFocus)
         Spacer(Modifier.height(8.dp))
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             PickerResults(
@@ -263,7 +319,7 @@ private fun RelatedTaskPickerContent(
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = onAdd,
-            enabled = selectedId != null,
+            enabled = canAdd,
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag(TestTags.RELATED_TASK_PICKER_ADD),
         ) {
             Text("Add related task")
@@ -286,10 +342,17 @@ private fun RelatedTaskPickerHeader(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun RelatedTaskPickerSearchField(queryState: TextFieldState) {
+private fun RelatedTaskPickerSearchField(
+    queryState: TextFieldState,
+    focusRequester: FocusRequester,
+) {
     OutlinedTextField(
         state = queryState,
-        modifier = Modifier.fillMaxWidth().testTag(TestTags.RELATED_TASK_PICKER_SEARCH),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester)
+                .testTag(TestTags.RELATED_TASK_PICKER_SEARCH),
         placeholder = { Text("Search tasks") },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = {
@@ -354,7 +417,7 @@ private fun BoxScope.PickerResults(
 
 @Composable
 private fun PickerMessage(text: String) {
-    Text(
+    SelectableText(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -365,13 +428,13 @@ private fun PickerMessage(text: String) {
 @Composable
 private fun PickerError(message: String) {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(
+        SelectableText(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
         Spacer(Modifier.height(8.dp))
-        Text(
+        SelectableText(
             text = "Edit or clear the query to try again.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -396,7 +459,7 @@ private fun RelatedTaskCandidateRow(
                 .clickable(onClick = onSelect)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        Text(
+        SelectableText(
             text = task.title.ifBlank { "(Untitled)" },
             style = MaterialTheme.typography.bodyLarge,
             maxLines = 2,

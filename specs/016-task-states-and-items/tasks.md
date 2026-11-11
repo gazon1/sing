@@ -118,7 +118,7 @@ carries the follow-up marking and not the blocked one.
 
 - [x] T033 [US1] Widen the read path so `FOLLOWS_UP` edges are visible — `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskExtras.kt` filters to `BLOCKS` at lines 57, 89 and 134. The ordering projection is `getOrderingEdgeIdsForUser` (`Daos.kt:369`), and the blocking one is `getBlockingEdgeIdsForUser(taskId, userId, verb)` (`Daos.kt:386`) — the two are named apart by the ADR of 2026-10-23
 - [x] T034 [US1] Make the write path verb-aware in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt` — every write currently hard-codes `DependencyVerb.BLOCKS.name` (lines 801, 813); `TaskRepository.setDependency(from, to, verb, enabled)` already exists and has no UI caller
-- [x] T035 [US1] Add a verb control to `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/DependencyPickerSheet.kt` — it is multi-select only today, with no verb control of any kind
+- [x] T035 [US1] Add a verb control to the dependency picker in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/RelatedTaskPickerSheet.kt` — the picker was multi-select only then, with no verb control of any kind
 - [x] T036 [US1] Make the dependency picker reachable with zero dependencies — `TaskEditorContent.kt:194` renders the card only when `blockedBy.isNotEmpty() && availableTasks.isNotEmpty()`, so a task with no dependencies has no way in at all
 - [x] T037 [US1] Add the follow-up marking to the marking set and the follow-up id set to the agenda evaluation, in `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/logic/AgendaEvaluator.kt`
 

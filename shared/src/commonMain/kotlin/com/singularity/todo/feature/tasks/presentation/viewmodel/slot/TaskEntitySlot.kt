@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEntityIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskTagIntent
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,7 +97,7 @@ class TaskEntitySlot(
                 TaskEntityState(
                     project = project,
                     tags = tags.filter { it.id in taskTags },
-                    relatedTasks = related,
+                    relatedTasks = related.toImmutableList(),
                     seriesMembers = series,
                 )
             }.collect { _state.value = it }

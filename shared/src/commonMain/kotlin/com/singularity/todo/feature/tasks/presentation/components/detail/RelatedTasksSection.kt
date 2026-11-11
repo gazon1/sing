@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -119,7 +120,7 @@ private fun RelatedTaskRow(
                     .then(if (item.canOpen) Modifier.clickable(onClick = onOpen) else Modifier)
                     .padding(end = 8.dp),
         ) {
-            Text(
+            SelectableText(
                 text = item.title.ifBlank { "(Untitled)" },
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
@@ -148,7 +149,7 @@ private fun RelatedTaskRow(
                     "$relationLabel · ${item.projectName}"
                 }
             Spacer(Modifier.height(2.dp))
-            Text(
+            SelectableText(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

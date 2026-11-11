@@ -145,7 +145,8 @@ when the answer is "excluded".
 | `feature/statistics/StatisticsScreen.kt` | selectable | the project names; the numbers and the percentages are not |
 | `feature/tags/components/TagsPickerSheet.kt` | selectable | the empty state tells the person what is missing |
 | `feature/tags/presentation/screen/TagGroupsScreen.kt` | selectable | the dialog body says what happens to the tags; the title and the buttons stay labels |
-| `feature/tasks/presentation/components/detail/DependencyPickerSheet.kt` | selectable | the empty state tells the person what is missing |
+| `feature/tasks/presentation/components/detail/RelatedTaskPickerSheet.kt` | selectable | the picker's task titles and its status and error messages |
+| `feature/tasks/presentation/components/detail/RelatedTasksSection.kt` | selectable | the titles and relation labels of the related tasks |
 | `feature/tasks/presentation/components/detail/LinkedBacklinksCard.kt` | selectable | the titles of the notes that link back |
 | `feature/tasks/presentation/components/detail/LogbookSection.kt` | selectable | note titles and time rows — the "add note" button is excluded from the selection |
 | `feature/tasks/presentation/components/ProjectPickerSheet.kt` | selectable | the empty state tells the person what is missing |

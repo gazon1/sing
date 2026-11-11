@@ -30,6 +30,7 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.awaitAnyDisplayed
 import com.singularity.todo.test.helpers.awaitText
@@ -40,6 +41,7 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlin.test.Test
@@ -50,7 +52,7 @@ import org.junit.jupiter.api.Tag as JUnitTag
 
 @OptIn(ExperimentalTestApi::class)
 @JUnitTag("fast")
-class RelatedTaskPickerFlowTest {
+class RelatedTaskPickerSheetTest {
     @Test
     fun `related tasks section shows fallback for unavailable relation and allows remove only when present`() =
         runIsolatedComposeTest {
@@ -208,6 +210,82 @@ class RelatedTaskPickerFlowTest {
             awaitText("Edit or clear the query to try again.")
         }
 
+    @Test
+    fun `a selection from the previous query cannot be added after the query changes`() =
+        runIsolatedComposeTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = TestUsers.DEFAULT
+            val taskRepo =
+                FakeTaskRepository().apply {
+                    add(task("t-cur", "Current", uid, now))
+                    add(task("t-a", "Alpha task", uid, now))
+                    add(task("t-b", "Beta task", uid, now))
+                }
+            val projectRepo = FakeProjectsRepository()
+            val added = mutableListOf<Pair<TaskId, DependencyVerb>>()
+
+            setContent {
+                PickerHarness(
+                    taskId = TaskId("t-cur"),
+                    searchIndex =
+                        FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository()),
+                    projectsRepo = projectRepo,
+                    onAdded = { id, verb -> added += id to verb },
+                )
+            }
+
+            clickTag("open_picker")
+            awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
+            typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Alpha")
+            awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-a"))
+            clickTag(TestTags.relatedTaskCandidate("t-a"))
+
+            // The old result is selected, but the query no longer names it. Add must be
+            // disabled at once — before the next search lands.
+            typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Beta")
+            assertTagNotEnabled(TestTags.RELATED_TASK_PICKER_ADD)
+            clickTag(TestTags.RELATED_TASK_PICKER_ADD)
+            waitForIdle()
+
+            assertTrue(added.isEmpty(), "the selection from the Alpha results must not be added")
+        }
+
+    @Test
+    fun `a superseded search is cancelled and cannot replace the newer results`() =
+        runIsolatedComposeTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = TestUsers.DEFAULT
+            val gate = CompletableDeferred<Unit>()
+            val started = CompletableDeferred<Unit>()
+            val alpha = task("t-a", "Alpha old", uid, now)
+            val beta = task("t-b", "Beta new", uid, now)
+
+            setContent {
+                RelatedTaskPickerSheet(
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = persistentSetOf(),
+                    onAdd = { _, _ -> },
+                    onDismiss = {},
+                    searchIndex = GatedSearchIndex(gate, started, alpha, beta),
+                    projectsRepo = FakeProjectsRepository(),
+                )
+            }
+
+            awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
+            typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Alpha")
+            waitUntil(timeoutMillis = 5_000) { started.isCompleted }
+
+            typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Beta")
+            awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-b"))
+
+            // The first search was cancelled by collectLatest. Releasing its gate must
+            // not let its result arrive after the newer one.
+            gate.complete(Unit)
+            waitForIdle()
+
+            assertTagNotExists(TestTags.relatedTaskCandidate("t-a"))
+        }
+
     @Composable
     private fun PickerHarness(
         taskId: TaskId,
@@ -236,6 +314,44 @@ class RelatedTaskPickerFlowTest {
                 )
             }
         }
+    }
+
+    /**
+     * Answers "Beta" at once and holds "Alpha" until [gate] opens, so a test can observe
+     * whether the superseded search was actually cancelled.
+     */
+    private class GatedSearchIndex(
+        private val gate: CompletableDeferred<Unit>,
+        private val started: CompletableDeferred<Unit>,
+        private val alpha: Task,
+        private val beta: Task,
+    ) : SearchTextIndex {
+        override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> = emptyFlow()
+
+        override fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>> = emptyFlow()
+
+        override fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>> = emptyFlow()
+
+        override fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>> = emptyFlow()
+
+        override suspend fun recentTaskTitles(
+            query: TextMatchQuery,
+            limit: Int,
+        ): List<Task> {
+            val term = query.terms.firstOrNull().orEmpty()
+            return if (alpha.title.startsWith(term, ignoreCase = true)) {
+                started.complete(Unit)
+                gate.await()
+                listOf(alpha)
+            } else {
+                listOf(beta)
+            }
+        }
+
+        override suspend fun recentNoteTitles(
+            query: TextMatchQuery,
+            limit: Int,
+        ): List<Note> = emptyList()
     }
 
     private class ThrowingSearchIndex : SearchTextIndex {

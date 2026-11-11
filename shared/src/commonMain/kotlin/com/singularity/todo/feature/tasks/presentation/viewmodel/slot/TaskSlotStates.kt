@@ -6,6 +6,8 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Instant
 
 // Intent markers live with the intent hierarchy they partition — see TaskSlotIntents.kt.
@@ -21,7 +23,7 @@ import kotlin.time.Instant
 data class TaskEntityState(
     val project: Project? = null,
     val tags: List<Tag> = emptyList(),
-    val relatedTasks: List<Task> = emptyList(),
+    val relatedTasks: ImmutableList<Task> = persistentListOf(),
     /**
      * The members of the series this task belongs to, in date order.
      *

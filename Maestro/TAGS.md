@@ -130,12 +130,9 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_ADD_RELATED_TASK` | `task_detail_add_related_task` | |
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_DETAIL_RELATED_TASKS_SECTION` | `task_detail_related_tasks_section` | |
-| `TASK_DETAIL_ADD_RELATED_TASK` | `task_detail_add_related_task` | |
-| `RELATED_TASK_PICKER_SEARCH` | `related_task_picker_search` | |
-| `RELATED_TASK_PICKER_CLEAR` | `related_task_picker_clear` | |
-| `RELATED_TASK_PICKER_ADD` | `related_task_picker_add` | |
 | `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
@@ -464,6 +461,9 @@ non-alphanumeric characters with `_`.
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
 | `PROPOSALS_EMPTY` | `proposals_empty` | |
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
+| `RELATED_TASK_PICKER_ADD` | `related_task_picker_add` | |
+| `RELATED_TASK_PICKER_CLEAR` | `related_task_picker_clear` | |
+| `RELATED_TASK_PICKER_SEARCH` | `related_task_picker_search` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `RESULT_DIALOG_CONFIRM` | `result_dialog_confirm` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |
@@ -506,6 +506,9 @@ use the expanded string directly).
 | `dependencyItem("Dep task")` | `"Dep task"` | `dependency_item_dep_task` | Rows in the dependency picker |
 | `dependencyVerb("blocks")` | `"blocks"` | `dependency_verb_blocks` | Kind-of-relation chips on one dependency row |
 | `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |
+| `relatedTaskCandidate("01ABC...")` | `"01ABC..."` | `related_task_candidate_01abc` | Candidate rows in the related-task picker |
+| `relatedTaskItem("01ABC...")` | `"01ABC..."` | `related_task_item_01abc` | Rows in the related-tasks section |
+| `relatedTaskRemove("01ABC...")` | `"01ABC..."` | `related_task_remove_01abc` | Remove buttons for related tasks |
 | `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
 | `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |
 | `subtaskItem("Child task one")` | `"Child task one"` | `subtask_item_child_task_one` | Subtask list rows |
