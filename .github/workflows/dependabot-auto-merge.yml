@@ -180,8 +180,15 @@ jobs:
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::the CI gate check-run did not become green in time"
-              exit 1
+              # The deadline is not a verdict on the whole batch: the pull
+              # requests whose CI gate is green are merged, and the ones that
+              # are still waiting are named in the job summary and left for
+              # the next run. One stuck pull request does not hold the others —
+              # each merge is pinned to the head commit that was green, so
+              # nothing unverified is merged to get here.
+              echo "::warning::the CI gate check-run did not become green in time - the green pull requests are merged and the waiting ones are left for the next run"
+              cp "$RUNNER_TEMP/green.txt" "$RUNNER_TEMP/merge-now.txt"
+              exit 0
             fi
             sleep 20
           done

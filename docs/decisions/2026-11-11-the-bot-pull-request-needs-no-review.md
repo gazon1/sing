@@ -81,6 +81,14 @@ excluded used to end successfully and say nothing about why. The summary step
 does not depend on any of them: it reads the files they left, and an absent
 file is an empty list.
 
+**The deadline is not a verdict on the whole batch.** When the poll gives up,
+the pull requests whose CI gate was green are still merged, and the ones that
+are still waiting are named in the job summary and left for the next run. The
+poll step ends successfully, with a warning: it ran out of time, it did not
+fail, and one stuck dependency update does not hold the other updates. The
+merge is pinned to the commit that was green, so the part of the batch that is
+merged is exactly the part that was verified.
+
 # Rationale
 
 **Why the job is skipped rather than the review written on the bot's
@@ -116,6 +124,17 @@ it away — the case that needed it most was a run in which no candidate was a
 patch or a minor bump, so the steps that follow the candidate list never ran
 and the run said nothing. One step at the end reads what the others left.
 
+**Why the green half is merged when the deadline passes.** The batch is a list
+of independent dependency updates, and the deadline is a statement about time,
+not about the changes. Failing the whole batch because one pull request is
+stuck leaves green updates unmerged for no reason a reader could defend, and
+the pull request that is stuck is usually the one nobody is waiting for. The
+alternatives were a batch that is atomic — every candidate green or none merged
+— and a batch that is per pull request; the second one is what the merge
+already is, since the merge loop records a refusal and goes on. Nothing
+unverified is merged to get there: only a pull request whose check-run was
+green is handed to the merge, and the merge names that commit.
+
 # Consequences
 
 - A bot pull request's `CI gate` is decided by the checks alone. A human pull
@@ -129,6 +148,9 @@ and the run said nothing. One step at the end reads what the others left.
   run handles it and ends successfully.
 - A pull request whose head moved between the check and the merge is refused
   and reported; the other pull requests are still merged.
+- A pull request that never turns green no longer holds the rest of the batch:
+  the green ones are merged, the waiting one is named in the job summary and
+  picked up by the next run.
 - The merge is pinned to the commit that was verified. A pull request that was
   updated after it went green waits for the next round.
 

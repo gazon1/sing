@@ -512,18 +512,52 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
 
         checks = self._run_step(_step_script(step_id='checks'))
 
-        # The run gives up on the deadline rather than merging an un-green pull
-        # request, and the summary says which one it was waiting for.
-        self.assertNotEqual(0, checks.returncode, checks.stdout + checks.stderr)
+        # The deadline passes and the pull request is still not green: it is
+        # left waiting, and the summary says which one it was waiting for.
+        self.assertEqual(0, checks.returncode, checks.stdout + checks.stderr)
         waiting = _summary_group(self._run_summary_step(), '### Waiting for a green CI gate')
         self.assertIn('- #9', waiting)
 
-        # Nothing was handed to `gh pr merge`: the merge list was never written.
-        self.assertFalse(
-            (self.runner_temp / 'merge-now.txt').exists(),
+        # Nothing was handed to `gh pr merge`: an un-green pull request is not
+        # merged, and the merge list is empty.
+        self.assertEqual(
+            '',
+            (self.runner_temp / 'merge-now.txt').read_text(encoding='utf-8'),
             'a waiting pull request was put in the merge list',
         )
         self.assertEqual([], self._merge_calls(), 'a waiting pull request was merged')
+
+    def test_one_stuck_pull_request_does_not_hold_the_ones_that_are_green(self):
+        """The green pull requests are merged; the stuck one waits for the next run.
+
+        A dependency update that is stuck does not stop the other updates: the
+        deadline is not a verdict on the whole batch, and each merge is pinned
+        to the head commit whose check-run was green.
+        """
+        self._pull_request('7', 'clean', 'sha-green')
+        self._check_run('sha-green', 'success')
+        self._pull_request('9', 'clean', 'sha-red')
+        self._check_run('sha-red', 'failure')
+        self._candidates('7', '9')
+
+        checks = self._run_step(_step_script(step_id='checks'))
+        self.assertEqual(0, checks.returncode, checks.stdout + checks.stderr)
+        self.assertIn(
+            '::warning::the CI gate check-run did not become green in time',
+            checks.stdout,
+        )
+
+        merge = self._run_step(_step_script(name='Merge it'))
+        self.assertEqual(0, merge.returncode, merge.stdout + merge.stderr)
+
+        self.assertEqual(
+            ['pr merge 7 --squash --delete-branch --match-head-commit sha-green'],
+            self._merge_calls(),
+            'the stuck pull request held the green one, or an un-green one was merged',
+        )
+        summary = self._run_summary_step()
+        self.assertIn('- #7 (sha-green)', _summary_group(summary, '### Merged'))
+        self.assertIn('- #9', _summary_group(summary, '### Waiting for a green CI gate'))
 
     def test_a_run_in_which_every_candidate_is_conflicted_says_so(self):
         """The "Merged" group reads "none" — a run that merged nothing is not silent."""
