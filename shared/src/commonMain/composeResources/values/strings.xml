@@ -26,6 +26,11 @@
     <string name="priority_medium">Medium priority</string>
     <string name="priority_high">High priority</string>
     <string name="priority_urgent">Urgent priority</string>
+    <string name="priority_word_low">Low</string>
+    <string name="priority_word_medium">Medium</string>
+    <string name="priority_word_high">High</string>
+    <string name="priority_word_urgent">Urgent</string>
+    <string name="series_marker">Series</string>
     <string name="series_apply_to_all">Apply to all</string>
     <string name="series_keep_separate">Keep separate</string>
     <string name="series_delete">Delete series</string>

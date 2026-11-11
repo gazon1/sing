@@ -1,16 +1,33 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMarkerRimColor
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.priority_word_high
+import singularity_todo.shared.generated.resources.priority_word_low
+import singularity_todo.shared.generated.resources.priority_word_medium
+import singularity_todo.shared.generated.resources.priority_word_urgent
 
 /**
  * The chip's own priority tint.
@@ -24,21 +41,68 @@ import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
  */
 internal fun priorityChipColor(priority: TaskPriority): Color = priorityMeta(priority).color
 
+/**
+ * The priority, as a shape and a readable word.
+ *
+ * The priority colour is a **shape**, never a text colour: Medium is amber, and
+ * amber on a light surface measures 1.5:1 — text in it is unreadable (F10 of the
+ * 2026-11-09 comparison). So the colour moved into a dot, and the word next to it
+ * is drawn in a theme colour that keeps its contrast in both themes. The word
+ * says which priority it is; the dot says what it looks like.
+ *
+ * The dot wears a rim, because a hue alone is not a shape the eye can find: on a
+ * light surface the amber measures about 1.5:1 against it, which is below the 3:1
+ * a non-text indicator has to keep. The rim is a theme colour and the dot keeps
+ * the size it had — the rim is taken out of the dot, not added to it.
+ */
 @Composable
 fun PriorityChip(
     priority: TaskPriority,
     modifier: Modifier = Modifier,
 ) {
-    if (priority == TaskPriority.None) return
-    val color = priorityChipColor(priority)
-    Box(modifier = modifier.padding(start = 4.dp)) {
+    // A priority with no word has no chip: the word is what the chip says.
+    val word = priorityWord(priority) ?: return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(start = 4.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(TaskListSizes.MetaIcon)
+                    .clip(CircleShape)
+                    .background(priorityMarkerRimColor())
+                    .padding(TaskListSizes.PriorityMarkerRim)
+                    .clip(CircleShape)
+                    .background(priorityChipColor(priority)),
+        )
+        Spacer(Modifier.width(TaskListSpacing.Xs))
         Text(
-            text = priority.name,
+            text = word,
             style = MaterialTheme.typography.labelSmall,
-            color = color,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/**
+ * The chip's word for the priority, in the user's language.
+ *
+ * Not `priority.name`: the enum's constant is a code identifier, and the app
+ * ships a Russian locale where every other priority string is translated.
+ *
+ * `null` for a priority with no word: the chip draws nothing for it, so the
+ * word it would need never reaches the screen.
+ */
+@Composable
+private fun priorityWord(priority: TaskPriority): String? =
+    when (priority) {
+        TaskPriority.Low -> stringResource(Res.string.priority_word_low)
+        TaskPriority.Medium -> stringResource(Res.string.priority_word_medium)
+        TaskPriority.High -> stringResource(Res.string.priority_word_high)
+        TaskPriority.Urgent -> stringResource(Res.string.priority_word_urgent)
+        TaskPriority.None -> null
+    }
 
 // ===== Preview =====
 

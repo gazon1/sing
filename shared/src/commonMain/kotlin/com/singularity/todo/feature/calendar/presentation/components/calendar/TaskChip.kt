@@ -111,7 +111,7 @@ fun TaskChip(
         if (task.isSeries) {
             // The mark of a series: the chip has no room for a word, and the
             // icon says what the row is.
-            SeriesMarker(isSeries = true, compact = true)
+            SeriesMarker(isSeries = true)
             Spacer(Modifier.width(4.dp))
         }
         val decoration =

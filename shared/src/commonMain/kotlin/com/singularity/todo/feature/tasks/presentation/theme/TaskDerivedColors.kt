@@ -53,3 +53,18 @@ fun placeholderTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.c
  */
 @Composable
 fun elevatedSurfaceColor(): Color = MaterialTheme.colorScheme.surfaceContainerHigh
+
+/**
+ * The rim a priority marker wears.
+ *
+ * The priority palette is a hue, not a light: Medium is amber, and amber on a
+ * light surface measures about 1.5:1 — the marker is drawn, but the eye cannot
+ * find it against the row. The rim is what makes the marker perceivable, and
+ * it is drawn in a theme colour rather than in a priority colour: `outline` is
+ * a mid tone in both themes, so it keeps its 3:1 against the surface and stays
+ * visible around a hue that is brighter than it in either theme.
+ *
+ * The priority palette itself is untouched — see `priorityMeta` for the hues.
+ */
+@Composable
+internal fun priorityMarkerRimColor(): Color = MaterialTheme.colorScheme.outline

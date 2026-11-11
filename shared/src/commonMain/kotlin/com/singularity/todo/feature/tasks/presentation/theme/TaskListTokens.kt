@@ -46,6 +46,17 @@ object TaskListSizes {
     val MetaIcon = 13.dp
 
     /**
+     * The rim a priority marker wears.
+     *
+     * The priority colour is a hue, not a light: Medium is amber, and amber on
+     * a light surface measures about 1.5:1 — the shape is drawn, but the eye
+     * cannot pick it out of the row. The rim is what makes the marker
+     * perceivable, and it is taken **out of the marker's own size**: the
+     * marker keeps the footprint it had, so nothing in the row moves.
+     */
+    val PriorityMarkerRim = 1.5.dp
+
+    /**
      * Видимый размер иконки удаления в свайп-строке.
      *
      * Это **видимый** размер, а не размер площади касания, поэтому он не выводится

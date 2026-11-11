@@ -26,6 +26,11 @@
     <string name="priority_medium">Средний приоритет</string>
     <string name="priority_high">Высокий приоритет</string>
     <string name="priority_urgent">Срочный приоритет</string>
+    <string name="priority_word_low">Низкий</string>
+    <string name="priority_word_medium">Средний</string>
+    <string name="priority_word_high">Высокий</string>
+    <string name="priority_word_urgent">Срочный</string>
+    <string name="series_marker">Серия</string>
     <string name="series_apply_to_all">Применить ко всем</string>
     <string name="series_keep_separate">Оставить отдельно</string>
     <string name="series_delete">Удалить серию</string>

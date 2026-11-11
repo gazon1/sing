@@ -25,7 +25,9 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.marking_blocked
@@ -64,12 +66,32 @@ internal const val MAX_VISIBLE_MARKINGS = 3
  * marking says it in words, for a screen reader, and the acceptance scenario
  * asks for the blocked and the overdue markings to be on the row at the same
  * time — which a single "special" icon could not express.
+ *
+ * The set is internal because [TaskMetaRow] needs to know whether a mark is
+ * actually drawn: a row whose only marking is conveyed elsewhere draws no mark
+ * at all, and must not hang a separator on an empty space.
  */
-private val ConveyedElsewhere =
+internal val ConveyedElsewhere =
     setOf(
         TaskMarking.Completed,
         TaskMarking.NoDate,
     )
+
+/**
+ * The marks the row actually draws, in the order it draws them.
+ *
+ * One answer for both questions the row has to ask: which marks are on screen,
+ * and whether anything at all is on screen. The row that draws them and the row
+ * that has to know whether the separator has something to separate must not
+ * answer it differently, or the separator hangs on empty space.
+ *
+ * @param markings the markings that apply to the task.
+ */
+internal fun visibleMarkings(markings: ImmutableSet<TaskMarking>): ImmutableList<TaskMarking> =
+    markings
+        .filter { it !in ConveyedElsewhere }
+        .sortedBy { it.displayOrder }
+        .toImmutableList()
 
 /**
  * The marks on a task row: what is this task marked with?
@@ -83,21 +105,21 @@ private val ConveyedElsewhere =
  * change what they can do, then the rest — so two rows with the same markings
  * look the same.
  *
- * @param markings the markings that apply to the task.
+ * The row draws the marks it is given: which ones those are is one decision,
+ * made once by [visibleMarkings], and the caller passes the answer on. A row
+ * that decides twice can decide twice differently.
+ *
+ * @param markings the marks to draw, already filtered by [visibleMarkings].
  */
 @Composable
 fun TaskMarkingsRow(
-    markings: ImmutableSet<TaskMarking>,
+    markings: ImmutableList<TaskMarking>,
     modifier: Modifier = Modifier,
 ) {
-    val shown =
-        markings
-            .filter { it !in ConveyedElsewhere }
-            .sortedBy { it.displayOrder }
-    if (shown.isEmpty()) return
+    if (markings.isEmpty()) return
 
-    val visible = shown.take(MAX_VISIBLE_MARKINGS)
-    val hidden = shown.size - visible.size
+    val visible = markings.take(MAX_VISIBLE_MARKINGS)
+    val hidden = markings.size - visible.size
 
     Row(modifier = modifier) {
         visible.forEach { marking ->
