@@ -27,6 +27,7 @@ import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
+import com.singularity.todo.feature.tasks.presentation.components.list.visibleMarkings
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -101,7 +102,10 @@ private fun TaskCardView(
                 textDecoration = if (card.done) TextDecoration.LineThrough else null,
             )
             TaskMarkingsRow(
-                markings = if (card.done) persistentSetOf(TaskMarking.Completed) else persistentSetOf(),
+                markings =
+                    visibleMarkings(
+                        if (card.done) persistentSetOf(TaskMarking.Completed) else persistentSetOf(),
+                    ),
             )
             if (dueText != null || projectName != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

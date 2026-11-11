@@ -66,15 +66,18 @@ fun TaskMetaRow(
     // One fact, four sources: the row shows nothing when there is nothing to show.
     // The repeat badge is a marking now, so the marks cover it — but only the
     // ones the row draws: a mark the row says another way leaves an empty line.
+    //
+    // Which marks those are is decided once, here, and the answer is used for
+    // every question the row asks about them.
+    val visible = visibleMarkings(markings)
     val hasSomethingToShow =
-        dueLabel != null || project != null ||
-            visibleMarkings(markings).isNotEmpty() || seriesDates != null
+        dueLabel != null || project != null || visible.isNotEmpty() || seriesDates != null
     if (!hasSomethingToShow) return
 
     val isOverdue = TaskMarking.Overdue in markings
     // The marks the row says another way draw nothing, so they cannot be what
     // separates the project from what came before it.
-    val hasVisibleMark = visibleMarkings(markings).isNotEmpty()
+    val hasVisibleMark = visible.isNotEmpty()
     // What stands between the project and the left edge of the row: without it
     // the separator would hang on empty space.
     val somethingBeforeProject = dueLabel != null || hasVisibleMark || seriesDates != null
@@ -98,7 +101,7 @@ fun TaskMetaRow(
             Spacer(Modifier.width(TaskListSpacing.Xs))
         }
 
-        TaskMarkingsRow(markings = markings)
+        TaskMarkingsRow(markings = visible)
 
         if (seriesDates != null) {
             // The icon alone: the marker's word ("Series · 5 dates") is the

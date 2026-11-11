@@ -42,6 +42,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
+import com.singularity.todo.feature.tasks.presentation.components.list.visibleMarkings
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -133,7 +134,7 @@ internal fun RowScope.DefaultTaskCardBody(
         SubtaskChip()
     }
     PriorityChip(priority = task.priority)
-    TaskMarkingsRow(markings = computedMarkings)
+    TaskMarkingsRow(markings = visibleMarkings(computedMarkings))
 }
 
 /**

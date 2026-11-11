@@ -25,7 +25,9 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.marking_blocked
@@ -85,10 +87,11 @@ internal val ConveyedElsewhere =
  *
  * @param markings the markings that apply to the task.
  */
-internal fun visibleMarkings(markings: ImmutableSet<TaskMarking>): List<TaskMarking> =
+internal fun visibleMarkings(markings: ImmutableSet<TaskMarking>): ImmutableList<TaskMarking> =
     markings
         .filter { it !in ConveyedElsewhere }
         .sortedBy { it.displayOrder }
+        .toImmutableList()
 
 /**
  * The marks on a task row: what is this task marked with?
@@ -102,18 +105,21 @@ internal fun visibleMarkings(markings: ImmutableSet<TaskMarking>): List<TaskMark
  * change what they can do, then the rest — so two rows with the same markings
  * look the same.
  *
- * @param markings the markings that apply to the task.
+ * The row draws the marks it is given: which ones those are is one decision,
+ * made once by [visibleMarkings], and the caller passes the answer on. A row
+ * that decides twice can decide twice differently.
+ *
+ * @param markings the marks to draw, already filtered by [visibleMarkings].
  */
 @Composable
 fun TaskMarkingsRow(
-    markings: ImmutableSet<TaskMarking>,
+    markings: ImmutableList<TaskMarking>,
     modifier: Modifier = Modifier,
 ) {
-    val shown = visibleMarkings(markings)
-    if (shown.isEmpty()) return
+    if (markings.isEmpty()) return
 
-    val visible = shown.take(MAX_VISIBLE_MARKINGS)
-    val hidden = shown.size - visible.size
+    val visible = markings.take(MAX_VISIBLE_MARKINGS)
+    val hidden = markings.size - visible.size
 
     Row(modifier = modifier) {
         visible.forEach { marking ->
