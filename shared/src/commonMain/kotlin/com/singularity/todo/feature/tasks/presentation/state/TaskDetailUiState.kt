@@ -51,12 +51,12 @@ data class TaskDetailUi(
     val reminders: ImmutableList<Reminder> = persistentListOf(),
     /** Direct child tasks (1-level hierarchy only). */
     val subtasks: ImmutableList<Task> = persistentListOf(),
-    /** IDs of tasks this task depends on. Used to populate [DependencyPickerSheet]. */
+    /** IDs of tasks this task depends on (blocking). */
     val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
     /** IDs of the tasks this task follows up on — the ordering graph, not the blocking one. */
     val followsUp: ImmutableSet<TaskId> = persistentSetOf(),
-    /** Tasks available for dependency selection (not trashed, not self). */
-    val availableTasks: ImmutableList<Task> = persistentListOf(),
+    /** Tasks currently related to this task, for display in the related-tasks section. */
+    val relatedTasks: ImmutableList<Task> = persistentListOf(),
     /** Notes that link TO this task via task:// URL scheme. */
     val linkedNotes: ImmutableList<Note> = persistentListOf(),
     /** Tasks that link TO this task via task:// URL scheme. */

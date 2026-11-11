@@ -316,11 +316,33 @@ object TestTags {
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
     /**
-     * Dependencies row in the task editor.
-     *
-     * The row exists even when nothing is selected: that is the only way to add the
-     * first relation, and a card hidden until something is chosen is a card that can
-     * never be chosen for the first time.
+     * Related-tasks section in task detail.
+     */
+    const val TASK_DETAIL_RELATED_TASKS_SECTION = "task_detail_related_tasks_section"
+
+    /** "Add related task" action in task detail related-tasks section. */
+    const val TASK_DETAIL_ADD_RELATED_TASK = "task_detail_add_related_task"
+
+    /** Dynamic tag for one related-task row in task detail. */
+    fun relatedTaskItem(taskId: String) = "related_task_item_${slug(taskId)}"
+
+    /** Dynamic tag for removing one related task in task detail. */
+    fun relatedTaskRemove(taskId: String) = "related_task_remove_${slug(taskId)}"
+
+    /** Search field in the related-task picker. */
+    const val RELATED_TASK_PICKER_SEARCH = "related_task_picker_search"
+
+    /** Clear-query action in the related-task picker. */
+    const val RELATED_TASK_PICKER_CLEAR = "related_task_picker_clear"
+
+    /** Confirm/add action in the related-task picker. */
+    const val RELATED_TASK_PICKER_ADD = "related_task_picker_add"
+
+    /** Dynamic tag for one candidate row in the related-task picker. */
+    fun relatedTaskCandidate(taskId: String) = "related_task_candidate_${slug(taskId)}"
+
+    /**
+     * Legacy dependency-picker row tag kept for compatibility with existing selectors.
      */
     const val TASK_EDITOR_DEPENDENCIES_ROW = "task_editor_dependencies_row"
 
@@ -357,9 +379,6 @@ object TestTags {
 
     /** "Repeats" label text inside the recurrence row of the task editor. */
     const val TASK_EDITOR_RECURRENCE_LABEL = "task_editor_recurrence_label"
-
-    /** "No tasks available" empty text in the dependency picker sheet. */
-    const val DEPENDENCY_PICKER_EMPTY = "dependency_picker_empty"
 
     /** Dynamic tag of one selectable task row in the dependency picker. */
     fun dependencyItem(taskId: String) = "dependency_item_${slug(taskId)}"

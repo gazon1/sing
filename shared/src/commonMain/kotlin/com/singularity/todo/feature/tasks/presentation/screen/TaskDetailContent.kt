@@ -50,6 +50,9 @@ import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import com.singularity.todo.feature.attachments.AttachmentsIntent
 import com.singularity.todo.feature.attachments.AttachmentsUiEvent
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.FirstRun
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
@@ -63,6 +66,8 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.DateRow
 import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.RelatedTaskItemUi
+import com.singularity.todo.feature.tasks.presentation.components.detail.RelatedTasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailAttachmentsSection
@@ -89,6 +94,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import singularity_todo.shared.generated.resources.Res
@@ -105,9 +111,9 @@ import kotlin.time.Instant
  * Top to bottom: the hero (the title and the description), the offers — the first-run
  * banner and the stack of pending AI proposals — the attribute rows (the priority, the
  * estimate, the due date, the start date, the project, the tags, the recurrence, the
- * pin, the dependencies card and the workflow state), and then the task's own sections
- * (the tags, the checklist items, the subtasks, the attachments, the backlinks, the
- * series card, the timer, the logbook).
+ * pin and the workflow state), and then the task's own sections (the related tasks,
+ * tags, checklist items, subtasks, attachments, backlinks, series card, timer and
+ * logbook).
  *
  * The offers have a place of their own: they sit above the attribute rows for every
  * task, and where they sit does not depend on which sections the task happens to carry.
@@ -354,7 +360,7 @@ fun TaskDetailContent(
                                     blockedBy = ui.blockedBy,
                                     followsUp = ui.followsUp,
                                     workflowState = ui.task.workflowState,
-                                    availableTasks = ui.availableTasks,
+                                    relatedTasks = ui.relatedTasks,
                                     // The attachments sheet reads the model's list, and the
                                     // sheet is where an attachment is deleted. The detail
                                     // kept its attachments out of the model — the section
@@ -590,10 +596,69 @@ fun TaskDetailContent(
                                     // editor's business, and the offers above do not travel
                                     // with them.
                                     extraSections = {
+                                        val projectsRepo: ProjectsRepository = koinInject()
+                                        val projects by projectsRepo
+                                            .observeAllIncludingClosed()
+                                            .collectAsStateWithLifecycle(
+                                                initialValue = emptyList(),
+                                            )
+                                        val relatedProjects =
+                                            remember(projects) { projects.associate { it.id to it.name } }
+                                        val relationItems =
+                                            remember(ui.blockedBy, ui.followsUp, ui.relatedTasks, relatedProjects) {
+                                                val byId = ui.relatedTasks.associateBy { it.id }
+
+                                                fun itemFor(
+                                                    id: TaskId,
+                                                    verb: DependencyVerb,
+                                                ): RelatedTaskItemUi {
+                                                    val task = byId[id]
+                                                    return if (task != null) {
+                                                        RelatedTaskItemUi(
+                                                            id = id,
+                                                            title = task.title,
+                                                            verb = verb,
+                                                            projectName = task.projectId?.let { relatedProjects[it] },
+                                                            canOpen = true,
+                                                        )
+                                                    } else {
+                                                        RelatedTaskItemUi(
+                                                            id = id,
+                                                            title = "Unavailable task",
+                                                            verb = verb,
+                                                            projectName = null,
+                                                            canOpen = false,
+                                                        )
+                                                    }
+                                                }
+                                                buildList {
+                                                    ui.blockedBy.forEach { add(itemFor(it, DependencyVerb.BLOCKS)) }
+                                                    ui.followsUp.forEach { add(itemFor(it, DependencyVerb.FOLLOWS_UP)) }
+                                                }.sortedBy { it.title.lowercase() }.toImmutableList()
+                                            }
+                                        val currentRelations =
+                                            remember(ui.blockedBy, ui.followsUp) {
+                                                buildMap {
+                                                    ui.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
+                                                    ui.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
+                                                }
+                                            }
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
                                         ) {
+                                            RelatedTasksSection(
+                                                items = relationItems,
+                                                onAdd = { sheets.show(TaskEditorSheet.Dependencies) },
+                                                onRemove = { id ->
+                                                    coordinator.onIntent(
+                                                        TaskDetailIntent.Domain.SetDependencyRelations(
+                                                            currentRelations - id,
+                                                        ),
+                                                    )
+                                                },
+                                                onOpen = { navigator.openDetail(it) },
+                                            )
                                             TaskDetailTagsSection(
                                                 tags = ui.tags,
                                                 onDeleteTag = {

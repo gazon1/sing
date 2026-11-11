@@ -131,6 +131,11 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
+| `TASK_DETAIL_RELATED_TASKS_SECTION` | `task_detail_related_tasks_section` | |
+| `TASK_DETAIL_ADD_RELATED_TASK` | `task_detail_add_related_task` | |
+| `RELATED_TASK_PICKER_SEARCH` | `related_task_picker_search` | |
+| `RELATED_TASK_PICKER_CLEAR` | `related_task_picker_clear` | |
+| `RELATED_TASK_PICKER_ADD` | `related_task_picker_add` | |
 | `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
@@ -442,7 +447,6 @@ non-alphanumeric characters with `_`.
 | `Calendar.CANCEL_SELECTION` | `calendar_cancel_selection` | |
 | `Calendar.CREATE_ON_SELECTED` | `calendar_create_on_selected` | |
 | `Calendar.SELECTION_BAR` | `calendar_selection_bar` | |
-| `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `DESKTOP_DRAWER` | `desktop_drawer` | |
 | `EDITOR_SHEET_CLOSE` | `editor_sheet_close` | |
 | `LOADING_INDICATOR` | `loading_indicator` | |

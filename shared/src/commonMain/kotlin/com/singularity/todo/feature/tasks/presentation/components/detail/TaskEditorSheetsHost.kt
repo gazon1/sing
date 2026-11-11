@@ -17,7 +17,6 @@ import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerS
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.TimeZone
@@ -221,23 +220,32 @@ fun TaskEditorSheetsHost(
             }
         }
 
-        // ── Dependencies ────────────────────────────────────────────────────
+        // ── Dependencies / related tasks ────────────────────────────────────
         is TaskEditorSheet.Dependencies -> {
-            DependencyPickerSheet(
-                currentDeps =
-                    remember(model.blockedBy, model.followsUp) {
-                        buildMap {
-                            model.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
-                            model.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
-                        }.toImmutableMap()
+            val current =
+                remember(model.blockedBy, model.followsUp) {
+                    buildMap {
+                        model.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
+                        model.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
+                    }.toImmutableMap()
+                }
+            val taskId = model.taskId
+            if (taskId != null) {
+                RelatedTaskPickerSheet(
+                    taskId = taskId,
+                    existingRelationIds =
+                        remember(current) { current.keys.toImmutableSet() },
+                    onAdd = { id, verb ->
+                        callbacks.dependencies?.onChange?.invoke(
+                            (current + (id to verb)).toImmutableMap(),
+                        )
+                        onSheetDismiss()
                     },
-                availableTasks = remember(model.availableTasks) { model.availableTasks.toImmutableList() },
-                onApply = { newDeps ->
-                    callbacks.dependencies?.onChange?.invoke(newDeps)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
+                    onDismiss = onSheetDismiss,
+                )
+            } else {
+                onSheetDismiss()
+            }
         }
 
         // ── Estimate ────────────────────────────────────────────────────────

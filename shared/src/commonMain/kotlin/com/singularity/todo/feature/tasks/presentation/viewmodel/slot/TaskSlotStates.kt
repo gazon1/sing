@@ -13,13 +13,15 @@ import kotlin.time.Instant
 /**
  * Everything the entity slot derives beyond the task row itself.
  *
- * [availableTasks] backs the dependency picker; it excludes the current task and
- * trashed tasks so the picker cannot offer the task as its own dependency.
+ * [relatedTasks] are the tasks this task currently relates to (blocked-by /
+ * follows-up edges), loaded for the compact related-tasks section. Candidates
+ * for adding a relation are searched on demand in the picker instead of loaded
+ * eagerly.
  */
 data class TaskEntityState(
     val project: Project? = null,
     val tags: List<Tag> = emptyList(),
-    val availableTasks: List<Task> = emptyList(),
+    val relatedTasks: List<Task> = emptyList(),
     /**
      * The members of the series this task belongs to, in date order.
      *
