@@ -43,7 +43,8 @@ Gradle 9's classpath isolation for included builds means:
 
 ## Current status
 
-- ✅ 4 convention plugin source files written (documented, compilable)
+- ✅ 4 convention plugin source files written (documented; three compile, the
+  fourth needs AGP + KGP — see below)
 - ✅ README with migration path documented
 - ⏳ `build.gradle.kts` + `settings.gradle.kts` NOT wired (blocks main build)
 
@@ -60,21 +61,28 @@ it is correct:
 ```bash
 # A scratch project with the `kotlin-dsl` plugin is enough for the three
 # sources that need nothing but Gradle's API on the classpath.
-mkdir -p /tmp/convention-check/src/main/kotlin
+#
+# The scratch directory is cleared first, not just created: a leftover file
+# from an earlier run — the KMP source of an older revision of this recipe,
+# say — stays in the directory and fails the compile for a reason that has
+# nothing to do with the change under review.
+SCRATCH="${TMPDIR:-$HOME/.cache}/convention-check"
+rm -rf "$SCRATCH"
+mkdir -p "$SCRATCH/src/main/kotlin"
 cp build-logic/convention/src/main/kotlin/AndroidApplicationConventionPlugin.kt \
    build-logic/convention/src/main/kotlin/CommonDepsConventionPlugin.kt \
    build-logic/convention/src/main/kotlin/JvmApplicationConventionPlugin.kt \
-   /tmp/convention-check/src/main/kotlin/
+   "$SCRATCH/src/main/kotlin/"
 # The `kotlin-dsl` plugin needs a repository for its own stdlib and reflect
 # dependencies — without one the build fails before it reaches the compiler.
-cat > /tmp/convention-check/settings.gradle.kts <<'EOF'
+cat > "$SCRATCH/settings.gradle.kts" <<'EOF'
 dependencyResolutionManagement {
     repositories { mavenCentral() }
 }
 rootProject.name = "convention-check"
 EOF
-printf 'plugins { `kotlin-dsl` }\n' > /tmp/convention-check/build.gradle.kts
-./gradlew --project-dir /tmp/convention-check compileKotlin
+printf 'plugins { `kotlin-dsl` }\n' > "$SCRATCH/build.gradle.kts"
+./gw --project-dir "$SCRATCH" compileKotlin
 ```
 
 `KotlinMultiplatformLibraryConventionPlugin.kt` is not in that list on
@@ -83,7 +91,8 @@ purpose: it imports `com.android.build.api.dsl.MultiplatformExtension` and
 Plugin and the Kotlin Gradle Plugin on the classpath as well. Nothing in this
 repository checks it.
 
-Two things the compile catches, both of which the tree carried for a while:
+Two defects this tree carried for a while, the first of which the compile
+catches:
 
 - `getByType<VersionCatalogsExtension>()` needs `import org.gradle.kotlin.dsl.getByType`.
   The Kotlin DSL script files get that import implicitly; a plain Kotlin source
