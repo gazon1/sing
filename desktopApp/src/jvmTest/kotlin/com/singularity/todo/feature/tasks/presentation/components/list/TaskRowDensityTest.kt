@@ -126,12 +126,20 @@ class TaskRowDensityTest {
             assertDp(reference.heightDp(), rendered.heightDp(), "the row's title height — the title is cut")
             // The row is as tall as its tallest part — the checkbox's 48 dp target
             // or the title, whichever is higher — plus the padding above and below.
-            // Two lines (44 dp) still fit inside the target, so the row stays at 72 dp.
-            assertDp(
-                maxOf(TouchTarget.MinSize, rendered.heightDp()) + TaskListSpacing.Md * 2,
-                unclippedBoundsOfTagInUnmergedTree(TestTags.taskItem(TWO_LINE)).heightDp(),
-                "a two-line row's height",
-            )
+            // Which of the two this is depends on the font, so both branches are
+            // pinned exactly: two lines (44 dp) still fit inside the target and the
+            // row stays at 72 dp, three lines (66 dp) are taller than the target
+            // and the row follows the title.
+            val rowHeight = unclippedBoundsOfTagInUnmergedTree(TestTags.taskItem(TWO_LINE)).heightDp()
+            if (lines == 2) {
+                assertDp(MAX_ONE_LINE_ROW, rowHeight, "a two-line row's height — it must not grow")
+            } else {
+                assertDp(
+                    LINE_HEIGHT * 3 + TaskListSpacing.Md * 2,
+                    rowHeight,
+                    "a three-line row's height — it follows the title",
+                )
+            }
         }
 
     @Test
