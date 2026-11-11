@@ -61,7 +61,9 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -158,7 +160,8 @@ fun RelatedTaskPickerSheet(
     var searchState: PickerSearchState by remember { mutableStateOf(PickerSearchState.Idle) }
 
     val projects by projectsRepo.observeAllIncludingClosed().collectAsStateWithLifecycle(initialValue = emptyList())
-    val projectsById = remember(projects) { projects.associateBy(Project::id) }
+    val projectsById: ImmutableMap<ProjectId, Project> =
+        remember(projects) { projects.associateBy(Project::id).toImmutableMap() }
     val excludedIds = remember(existingRelationIds) { existingRelationIds.toSet() }
 
     LaunchedEffect(queryState, excludedIds, taskId) {
@@ -227,7 +230,7 @@ private suspend fun runRelatedTaskSearch(
 private fun RelatedTaskPickerContent(
     queryState: TextFieldState,
     searchState: PickerSearchState,
-    projectsById: Map<ProjectId, Project>,
+    projectsById: ImmutableMap<ProjectId, Project>,
     selectedId: TaskId?,
     selectedVerb: DependencyVerb,
     onDismiss: () -> Unit,
@@ -307,7 +310,7 @@ private fun RelatedTaskPickerSearchField(queryState: TextFieldState) {
 @Composable
 private fun BoxScope.PickerResults(
     searchState: PickerSearchState,
-    projectsById: Map<ProjectId, Project>,
+    projectsById: ImmutableMap<ProjectId, Project>,
     selectedId: TaskId?,
     selectedVerb: DependencyVerb,
     onSelect: (TaskId) -> Unit,
