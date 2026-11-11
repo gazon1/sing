@@ -16,6 +16,7 @@ import com.singularity.todo.test.helpers.clickTagFirst
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.longClickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.scrollToTag
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -75,6 +76,36 @@ class SearchScreenSheetSmokeTest {
             // come into view by scrolling. A sheet that put them in a header at the
             // top lost them from the tree as soon as the body was scrolled; this one
             // puts them where a scroll reaches them.
+            assertTagDisplayed(TestTags.SearchFilter.APPLY_BUTTON)
+            assertTagDisplayed(TestTags.SearchFilter.CANCEL_BUTTON)
+
+            clickTagFirst(TestTags.SearchFilter.CANCEL_BUTTON)
+            awaitTagGone(TestTags.SearchFilter.APPLY_BUTTON)
+        }
+
+    @Test
+    fun `filter sheet actions are reachable in a short window`() =
+        // The window the issue names: 360 dp wide, and short enough that the
+        // sheet's body cannot show every chip at once. The actions are the last
+        // thing in the scrollable body, so a user who cannot scroll the body
+        // cannot reach Apply or Cancel at all — that is the defect this
+        // exercises.
+        runIsolatedComposeTest(width = 360, height = 768) {
+            setContent {
+                SearchScreenContent(
+                    state = screenState(),
+                    onIntent = {},
+                    navigator = PreviewSearchNavigator(),
+                )
+            }
+
+            clickContentDescription("Filter")
+
+            // Scrolling the body brings the actions into the window. Without a
+            // scrollable ancestor this throws naming the missing ancestor, which
+            // is the failure this test exists to catch.
+            scrollToTag(TestTags.SearchFilter.APPLY_BUTTON)
+
             assertTagDisplayed(TestTags.SearchFilter.APPLY_BUTTON)
             assertTagDisplayed(TestTags.SearchFilter.CANCEL_BUTTON)
 
