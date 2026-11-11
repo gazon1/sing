@@ -31,7 +31,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
  * @param pinned When true, only pinned tasks; null = no filter
  * @param sortOrder Sort criterion (default DUE)
  * @param sortDescending Sort direction
- * @param freeText Additional free-text to append to the query
+ * @param freeTextTerms The free-text terms of the query, one term each.
+ *   A term is one `HasText` condition of the query it came from — a quoted
+ *   phrase is one term however many words it holds, and two bare words are two
+ *   terms. They are kept apart because the rule that matches them is a
+ *   conjunction: joining them into one string would turn "milk bread" into the
+ *   single term "milk bread", which no record carries.
  */
 data class SimpleFilter(
     val states: Set<TaskStatus>? = null,
@@ -46,7 +51,7 @@ data class SimpleFilter(
     val pinned: Boolean? = null,
     val sortOrder: SortOrder = SortOrder.DUE,
     val sortDescending: Boolean = false,
-    val freeText: String? = null,
+    val freeTextTerms: List<String> = emptyList(),
 ) {
     /** True when this filter has no active constraints. */
     val isEmpty: Boolean get() =
@@ -57,7 +62,49 @@ data class SimpleFilter(
             due == DueCondition.NONE &&
             hasDescription == null &&
             pinned == null &&
-            freeText.isNullOrBlank()
+            freeTextTerms.isEmpty()
+
+    /**
+     * True when the filter narrows the search by something other than the free text.
+     *
+     * The free text is what the query says; a state, a priority, a tag, a project,
+     * a due date, a description or a pin is a constraint the filter adds on top of
+     * it. This is the question the no-results state asks before it offers to take
+     * the constraints away: a query that matched nothing because of its words has
+     * nothing to take away, and one that matched nothing because of its
+     * constraints has.
+     *
+     * The sort is not a constraint: it orders the answer and does not narrow it.
+     */
+    val hasStructuredConstraints: Boolean get() =
+        states != null ||
+            priorities.isNotEmpty() ||
+            tagNames.isNotEmpty() ||
+            projectName != null ||
+            due != DueCondition.NONE ||
+            hasDescription != null ||
+            pinned != null
+
+    /**
+     * This filter without its structured constraints.
+     *
+     * The free text and the sort stay: what the user asked for by words is not
+     * what the filter sheet may take away, and the order of the answer is not
+     * a narrowing of it either.
+     */
+    fun withoutStructuredConstraints(): SimpleFilter =
+        copy(
+            states = null,
+            priorities = emptySet(),
+            tagNames = emptySet(),
+            matchAllTags = false,
+            projectName = null,
+            due = DueCondition.NONE,
+            customDueDate = null,
+            customDueDateEnd = null,
+            hasDescription = null,
+            pinned = null,
+        )
 
     enum class DueCondition {
         TODAY,

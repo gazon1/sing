@@ -146,7 +146,17 @@ class SimpleFilterBuilderTest {
             simpleFilter {
                 freeText("meeting notes")
             }
-        assertEquals("meeting notes", filter.freeText)
+        assertEquals(listOf("meeting notes"), filter.freeTextTerms)
+    }
+
+    @Test
+    fun `two freeText calls keep two terms`() {
+        val filter =
+            simpleFilter {
+                freeText("milk")
+                freeText("bread")
+            }
+        assertEquals(listOf("milk", "bread"), filter.freeTextTerms)
     }
 
     @Test

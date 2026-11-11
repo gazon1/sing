@@ -12,6 +12,7 @@ import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
+import com.singularity.todo.feature.search.query.Condition
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
@@ -27,6 +28,7 @@ import com.singularity.todo.feature.search.query.TagLookupResult
 import com.singularity.todo.feature.search.searchContent
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
@@ -52,6 +54,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -274,17 +277,19 @@ class SearchViewModelTest {
     // ─── Filter application ─────────────────────────────────────────────────────
 
     @Test
-    fun `OnApplyFilter null clears results and stops searching`() =
+    fun `OnApplyFilter replaces the executed query`() =
         runTest {
             val vm = createVm()
             runCurrent()
 
-            vm.onIntent(SearchIntent.OnApplyFilter(null))
+            vm.onIntent(
+                SearchIntent.OnApplyFilter(SimpleFilter(priorities = setOf(TaskPriority.High))),
+            )
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertTrue(state.results.tasks.isEmpty())
-            assertTrue(state.activeFilter == null)
+            assertIs<Condition.HasPriority>(state.parsedQuery?.condition)
+            assertEquals(TaskPriority.High, (state.parsedQuery?.condition as Condition.HasPriority).priority)
         }
 
     @Test
@@ -304,6 +309,88 @@ class SearchViewModelTest {
             val state = vm.stateFlow.value
             assertTrue(state.activeFilter != null)
             assertTrue(state.isSearching)
+        }
+
+    // ─── Clearing the filters changes the query that runs ──────────────────────
+
+    @Test
+    fun `clearing the structured constraints changes the executed query and keeps the free text`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
+
+            val filter =
+                SimpleFilter(
+                    priorities = setOf(TaskPriority.High),
+                    freeTextTerms = listOf("milk"),
+                )
+            vm.onIntent(SearchIntent.OnApplyFilter(filter))
+            runCurrent()
+            assertIs<Condition.And>(
+                vm.stateFlow.value.parsedQuery
+                    ?.condition,
+            )
+
+            // What the no-results state does when the user asks for the filters
+            // to be taken away.
+            vm.onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            // The executed query is free text only — not the priority predicate
+            // the previous filter carried.
+            assertEquals(Condition.HasText("milk"), state.parsedQuery?.condition)
+            assertTrue(state.activeFilter?.priorities?.isEmpty() == true)
+        }
+
+    @Test
+    fun `clearing the filters does not clear the query text`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            runCurrent()
+
+            val filter = SimpleFilter(priorities = setOf(TaskPriority.High), freeTextTerms = listOf("milk"))
+            vm.onIntent(SearchIntent.OnApplyFilter(filter))
+            runCurrent()
+            vm.onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+            runCurrent()
+
+            assertEquals("milk", vm.stateFlow.value.query.text)
+        }
+
+    @Test
+    fun `clearing the filters brings back the results the constraints had hidden`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            advanceTimeBy(400L)
+            runCurrent()
+            assertEquals(1, vm.stateFlow.value.results.tasks.size)
+
+            // A priority no task carries: the query now asks for something the
+            // records do not have.
+            val filter = SimpleFilter(priorities = setOf(TaskPriority.High), freeTextTerms = listOf("milk"))
+            vm.onIntent(SearchIntent.OnApplyFilter(filter))
+            advanceTimeBy(400L)
+            runCurrent()
+            assertTrue(
+                vm.stateFlow.value.results.tasks
+                    .isEmpty(),
+            )
+
+            // The way out of the empty result set.
+            vm.onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals(1, state.results.tasks.size)
+            assertEquals(SearchContent.Results, searchContent(state.query.text, state.results, state.isSearching))
         }
 
     // ─── Saved search ─────────────────────────────────────────────────────────

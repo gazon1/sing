@@ -29,7 +29,7 @@ class SimpleFilterMapperTest {
     fun `HasText becomes freeText`() {
         val query = Query(condition = Condition.HasText("meeting"))
         val result = mapper.fromQuery(query)
-        assertEquals("meeting", result.getOrNull()?.freeText)
+        assertEquals(listOf("meeting"), result.getOrNull()?.freeTextTerms)
     }
 
     @Test

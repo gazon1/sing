@@ -34,8 +34,10 @@ class SimpleFilterMapper {
             flattenCondition(c).forEach { atom ->
                 when (atom) {
                     is Condition.HasText -> {
-                        val existing = filter.build().freeText
-                        filter.freeText(listOfNotNull(existing, atom.text).joinToString(" ").trim().ifEmpty { null })
+                        // One term per condition: the terms are a conjunction, and
+                        // joining them into one string would make the query ask for
+                        // a record that carries the whole phrase.
+                        filter.freeText(atom.text)
                     }
 
                     is Condition.HasStatus -> {
@@ -133,10 +135,9 @@ class SimpleFilterMapper {
     /**
      * Converts a [SimpleFilter] to a [Query].
      *
-     * @throws UnsupportedSimpleFilterException when [SimpleFilter.matchAllTags] is true
-     *         with more than one tag (UI doesn't expose matchAll for multiple tags yet),
-     *         or when [SimpleFilter.due] is [SimpleFilter.DueCondition.CUSTOM]
-     *         (date ranges require custom interval syntax not yet supported).
+     * @throws UnsupportedSimpleFilterException when [SimpleFilter.due] is
+     *         [SimpleFilter.DueCondition.CUSTOM] (date ranges require custom
+     *         interval syntax not yet supported).
      */
     fun toQuery(filter: SimpleFilter): Result<Query> =
         runCatching {
@@ -211,9 +212,11 @@ class SimpleFilterMapper {
                 conditions.add(Condition.IsPinned)
             }
 
-            // Free text
-            filter.freeText?.takeIf { it.isNotBlank() }?.let { text ->
-                conditions.add(Condition.HasText(text))
+            // Free text — one condition per term. The terms are a conjunction: a
+            // query of two words asks for a record that carries both, and a query
+            // of one phrase asks for a record that carries the phrase.
+            filter.freeTextTerms.forEach { term ->
+                conditions.add(Condition.HasText(term))
             }
 
             // Wrap multiple conditions in AND; null when no conditions (empty query)

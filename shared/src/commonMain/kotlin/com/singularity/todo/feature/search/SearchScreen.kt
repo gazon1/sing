@@ -248,7 +248,7 @@ private fun SearchSheetHosts(
     activeFilter: SimpleFilter?,
     query: String,
     onDismissFilterSheet: () -> Unit,
-    onApplyFilter: (SimpleFilter?) -> Unit,
+    onApplyFilter: (SimpleFilter) -> Unit,
     onDismissSaveDialog: () -> Unit,
     onSaveSearch: (String) -> Unit,
     onDismissRename: () -> Unit,

@@ -54,14 +54,13 @@ import kotlinx.collections.immutable.toImmutableSet
  *
  * @param initialFilter The filter to seed the sheet's local state.
  * @param onApply Called when the user taps "Apply" with the resulting filter.
- *                Pass `null` to indicate the user wants no filter (clears active filter).
  * @param onDismiss Called when the user swipes down or taps outside.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SimpleFilterSheet(
     initialFilter: SimpleFilter?,
-    onApply: (SimpleFilter?) -> Unit,
+    onApply: (SimpleFilter) -> Unit,
     onDismiss: () -> Unit,
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
 ) {
@@ -89,6 +88,21 @@ fun SimpleFilterSheet(
     var localSortDescending by remember(initialFilter) {
         mutableStateOf(initialFilter?.sortDescending ?: false)
     }
+
+    // The applied filter is the filter of the query with the sheet's facets.
+    // The free text, the tags and the project stay: they are the parts of the
+    // query the sheet does not edit, and an Apply that dropped them answered a
+    // different question than the one on the screen.
+    val appliedFilter =
+        (initialFilter ?: SimpleFilter()).copy(
+            states = localStates,
+            priorities = localPriorities,
+            due = localDue,
+            hasDescription = localHasDescription,
+            pinned = localPinned,
+            sortOrder = localSortOrder,
+            sortDescending = localSortDescending,
+        )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -128,29 +142,13 @@ fun SimpleFilterSheet(
                     Spacer(modifier = Modifier.width(8.dp))
                     TextButton(
                         onClick = {
-                            val hasNonDefault =
-                                localStates != null ||
-                                    localPriorities.isNotEmpty() ||
-                                    localDue != SimpleFilter.DueCondition.NONE ||
-                                    localHasDescription != null ||
-                                    localPinned != null ||
-                                    localSortOrder != SortOrder.DUE ||
-                                    localSortDescending
-                            onApply(
-                                if (hasNonDefault) {
-                                    SimpleFilter(
-                                        states = localStates,
-                                        priorities = localPriorities,
-                                        due = localDue,
-                                        hasDescription = localHasDescription,
-                                        pinned = localPinned,
-                                        sortOrder = localSortOrder,
-                                        sortDescending = localSortDescending,
-                                    )
-                                } else {
-                                    null
-                                },
-                            )
+                            // Nothing to apply and nothing to keep: a query that
+                            // cannot be expressed as a filter stays as it is. An
+                            // applied filter would replace it with an empty query,
+                            // and the search would answer a question nobody asked.
+                            if (initialFilter != null || !appliedFilter.isEmpty) {
+                                onApply(appliedFilter)
+                            }
                         },
                         modifier =
                             Modifier
