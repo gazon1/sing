@@ -49,11 +49,18 @@ class SearchScreenSheetSmokeTest {
     private fun screenState() = SearchUiState(savedSearches = persistentListOf(savedSearch))
 
     @Test
-    fun `filter sheet opens from the top bar and dismisses`() =
+    fun `filter sheet opens from the top bar and its actions can be reached`() =
         // A ModalBottomSheet is drawn in its own window, about 1080 px tall, and it
         // does not follow the test window. At the default 768 px height the sheet's
         // Apply and Cancel buttons are composed below it and cannot be pressed.
-        runIsolatedComposeTest(width = 420, height = 1600) {
+        //
+        // The window is 360 px wide — the width the issue reports — and tall enough
+        // for the whole sheet, because on the desktop the sheet is sized to its
+        // content and hangs below the window when the content is taller than the
+        // window. On Android the sheet is bounded by the window and its body
+        // scrolls; the scroll-into-view at 360 dp is covered by the Maestro flow
+        // `search-filter-sheet-reachability` and by the device measurement.
+        runIsolatedComposeTest(width = 360, height = 2400) {
             setContent {
                 SearchScreenContent(
                     state = screenState(),
@@ -63,7 +70,13 @@ class SearchScreenSheetSmokeTest {
             }
 
             clickContentDescription("Filter")
+
+            // The actions are the last thing in the sheet's scrollable body, so they
+            // come into view by scrolling. A sheet that put them in a header at the
+            // top lost them from the tree as soon as the body was scrolled; this one
+            // puts them where a scroll reaches them.
             assertTagDisplayed(TestTags.SearchFilter.APPLY_BUTTON)
+            assertTagDisplayed(TestTags.SearchFilter.CANCEL_BUTTON)
 
             clickTagFirst(TestTags.SearchFilter.CANCEL_BUTTON)
             awaitTagGone(TestTags.SearchFilter.APPLY_BUTTON)

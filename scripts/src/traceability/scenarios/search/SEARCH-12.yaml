@@ -1,0 +1,22 @@
+# Scenario specification for SEARCH-12.
+
+id: SEARCH-12
+title: The filter sheet's actions can be reached
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The filter sheet is taller than the screen it opens on, so its last chip row
+  and its actions are below the fold.
+steps:
+  - Open the quick search from the menu sheet.
+  - Open the filter sheet.
+  - Scroll the body of the sheet to the end.
+  - Observe the actions.
+  - Press Cancel.
+expected: >-
+  The Apply and Cancel actions are on screen above the system navigation once the
+  body is scrolled to the end, and Cancel closes the sheet. The sheet that kept
+  its actions in a header at the top lost them from the accessibility tree as
+  soon as the body was scrolled, so they could not be pressed at all.

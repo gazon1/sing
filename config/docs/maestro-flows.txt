@@ -100,6 +100,8 @@ Maestro/flows/search/07-saved-search.yaml
 Maestro/flows/search/08-word-prefix.yaml
 Maestro/flows/search/09-contains-mode.yaml
 Maestro/flows/search/10-task-card-actions.yaml
+Maestro/flows/search/11-filter-sheet-reachability.yaml
+Maestro/flows/search/12-no-results-recovery.yaml
 Maestro/flows/settings/01-theme-toggle.yaml
 Maestro/flows/settings/02-notifications.yaml
 Maestro/flows/settings/03-cycle-tabs.yaml

@@ -1330,6 +1330,42 @@ Steps:
 
 **Expected:** While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does not show the previous query's results. Once the answer arrives the indicator is gone and the matching task is shown.
 
+#### `SEARCH-12` — The filter sheet's actions can be reached
+
+**confirmed** · P1 · `#SEARCH`
+
+**Given:** The filter sheet is taller than the screen it opens on, so its last chip row and its actions are below the fold.
+
+Steps:
+
+1. Open the quick search from the menu sheet.
+2. Open the filter sheet.
+3. Scroll the body of the sheet to the end.
+4. Observe the actions.
+5. Press Cancel.
+
+**Expected:** The Apply and Cancel actions are on screen above the system navigation once the body is scrolled to the end, and Cancel closes the sheet. The sheet that kept its actions in a header at the top lost them from the accessibility tree as soon as the body was scrolled, so they could not be pressed at all.
+
+#### `SEARCH-13` — A search that matched nothing offers a way out
+
+**confirmed** · P1 · `#SEARCH`
+
+**Given:** A task titled "RecoveryTask2026" exists and is active, so a query that asks for it and a query that filters it away can both be asked.
+
+Steps:
+
+1. Open the quick search from the menu sheet.
+2. Type a word nothing carries.
+3. Observe the empty result.
+4. Clear the query.
+5. Type the title of the seeded task.
+6. Open the filter sheet and ask for completed tasks only.
+7. Apply the filter.
+8. Observe the empty result.
+9. Take the filters away.
+
+**Expected:** The empty result says that nothing matched and offers the way out that fits: the query can be cleared when there is no filter to take away, and the filters can be taken away when the filters are what hid the result. Taking the filters away brings the result back — the predicates are gone from the query that runs, not just from the chip row.
+
 ### feature.settings
 
 #### `SETTINGS-01` — Changing the theme mode leaves Settings intact and navigable

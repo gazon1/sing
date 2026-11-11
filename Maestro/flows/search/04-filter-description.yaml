@@ -72,6 +72,13 @@ tags:
 # Toggle has-description filter on.
 - tapOn:
     id: search_filter_has_description_switch
+# The actions are the last thing in the sheet's scrollable body, so they are
+# reached by scrolling — the sheet must not clip them away.
+- scrollUntilVisible:
+    element:
+      id: search_filter_apply_button
+    direction: DOWN
+    timeout: 8000
 # Apply.
 - tapOn:
     id: search_filter_apply_button
