@@ -84,17 +84,21 @@ ellipsis: a long title wraps instead of pushing the metadata row off the screen.
 `TaskMetaRow` draws the due date first, then the marks, then the series
 marker, then the separator, and the project last. The project is the only
 child that gives up width (`Modifier.weight(1f, fill = false)`), so it is the
-only field that ellipsises. `TaskMarkingsRow.ConveyedElsewhere` became
-`internal` so the meta row can tell whether a mark is drawn at all — a row
-whose only mark is conveyed elsewhere must not hang a separator on empty space.
+only field that ellipsises. The marks the row says another way are answered in
+one place — `visibleMarkings()` returns the marks that are actually drawn — so
+the row that draws them and the row that has to know whether the separator has
+something to separate cannot disagree: a row whose only mark is conveyed
+elsewhere must not hang a separator on empty space, nor reserve an empty line
+under the title.
 
-The series marker in the row is drawn **compact**: the icon alone, without the
-word "series · 5 dates". The count does not disappear with the word — it stays
-in the icon's description, so a screen reader still hears how many dates the
-series has, and the task detail screen's series card still shows it to a
-sighted user. `SeriesMarker` grew no new parameter for this: its existing
-`compact` flag already meant "the icon alone", and the only change is that the
-label it speaks keeps the count when the count is known.
+The series marker in the row is the icon alone: the word "series · 5 dates"
+that used to stand beside it is gone from the component — both call sites drew
+the icon only, so the word and the `compact` flag that chose between them were
+dead weight. The count does not disappear with the word — it stays in the
+icon's description, so a screen reader still hears how many dates the series
+has, and the task detail screen's series card still shows it to a sighted user.
+The marker speaks the `series_label` plural the repo already had ("Series · 5
+dates", "Серия · 5 дат") instead of a hand-written English phrase.
 
 This supersedes one clause of
 [2026-10-22-a-series-shows-itself-where-it-appears](2026-10-22-a-series-shows-itself-where-it-appears.md):
@@ -105,10 +109,13 @@ decision stands — the undo of a series still carries the ids that went away, a
 the statistics still count a series as one work.
 
 `PriorityChip` keeps the priority hue as a 13 dp dot and paints the word in
-`MaterialTheme.colorScheme.onSurfaceVariant`. The agenda row itself was not
-changed here: it already draws the priority once, as a non-clickable
-`PriorityIndicator` star, and that star stays non-clickable — priority is
-edited in the task editor, and the issue asks for no new click target.
+`MaterialTheme.colorScheme.onSurfaceVariant`. The word comes from a string
+resource, not from the enum's constant: `priority.name` is a code identifier,
+and a Russian user read it as English in the middle of a Russian card. The
+agenda row itself was not changed here: it already draws the priority once, as a
+non-clickable `PriorityIndicator` star, and that star stays non-clickable —
+priority is edited in the task editor, and the issue asks for no new click
+target.
 
 ## Rationale
 
@@ -177,8 +184,16 @@ already says "this is a series", and the count survives in the description.
   still reads "Series · 5 dates", and the toast that deletes a series says how
   many dates went away.
 - The priority chip (archive, project detail, search) is a coloured dot with a
-  readable word. The agenda row itself is unchanged in this respect: it already
-  drew the priority once, as a non-clickable star, and it still does.
+  readable word, said in the user's language. The agenda row itself is unchanged
+  in this respect: it already drew the priority once, as a non-clickable star,
+  and it still does.
+- **The row speaks the user's language.** The series marker's description and the
+  priority chip's word came from English words written into the code
+  (`"series · 5 dates"`, `priority.name`), so a Russian user met English in
+  the middle of an otherwise Russian row — and the marker's description was
+  the only place the series count reached the row, so that English phrase was
+  all a screen reader had to say. Both now come from resources the repo already
+  had (`series_label`, and new `priority_word_*` strings).
 - **A residual gap, stated plainly.** The Medium marker itself is amber on a
   light surface, which measures about 1.6:1 — below the 3:1 that WCAG asks of
   a non-text signal. Fixing it would mean changing the priority palette, and
