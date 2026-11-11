@@ -584,6 +584,18 @@ class PublicationContractTest(unittest.TestCase):
         self.assertGreater(ap.MAX_TAR_BYTES, 2 * 1024 * 1024 * 1024)
 
 
+    def test_cli_refuses_an_unknown_population(self):
+        # The exit behaviour of these two commands is a contract: an unknown
+        # population was refused before the refactoring and must stay refused.
+        for command, handler in (
+            ("validate-state", ap.cmd_validate_state),
+            ("write-root-index", ap.cmd_write_root_index),
+        ):
+            args = ap.build_parser().parse_args(
+                [command, "--site-dir", str(self.tmp), "--population", "bogus"]
+            )
+            with self.assertRaises(ap.PublishError):
+                handler(args)
 
 if __name__ == "__main__":
     unittest.main()

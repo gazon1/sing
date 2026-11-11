@@ -909,7 +909,7 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
 
 def cmd_validate_state(args: argparse.Namespace) -> int:
     site_dir = Path(args.site_dir)
-    populations = list(args.population) if args.population else present_populations(site_dir)
+    populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
     if not populations:
         raise PublishError("no published populations found to validate")
     validate_publish_tree(site_dir, populations)
@@ -934,7 +934,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
 def cmd_write_root_index(args: argparse.Namespace) -> int:
     site_dir = Path(args.site_dir)
-    populations = list(args.population) if args.population else present_populations(site_dir)
+    populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
     write_root_index(site_dir, populations or list(SUPPORTED_POPULATIONS))
     print(f"root index written: {site_dir / 'index.html'}")
     return 0
