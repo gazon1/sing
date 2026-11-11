@@ -9,15 +9,17 @@ Connect `build-logic/convention` to the main build when **both** are true:
 1. **(a) ≥ 10 modules** share the same convention plugin (kotlin-multiplatform-library,
    android-application, jvm-application, android-library). Count current convention
    candidates: `shared`, `androidApp`, `desktopApp`, `mcp-server`, `detekt-rules` —
-   five modules. A new shared convention is worth the overhead when a sixth module
-   would otherwise copy the same plugin block.
+   five of them, out of the twelve modules the build includes. A new shared
+   convention is worth the overhead when a sixth module would otherwise copy the
+   same plugin block.
 
 2. **(b) Gradle closed the included-build isolation gap.** Track [gradle/gradle#34896](https://github.com/gradle/gradle/issues/34896). When a stable Gradle release ships
    a resolution that eliminates the `pluginManagement` + classpath-isolation conflict,
    the migration steps below apply.
 
-**Do not wire preemptively.** The convention build adds a second Gradle invocation
-to every `includeBuild` refresh in CI. The current 5-module flat structure compiles
+**Do not wire preemptively.** The convention build adds a second build to configure
+and compile on every run — Gradle composes an included build into the same
+invocation, but it configures it separately. The current flat structure compiles
 in one daemon pass; the convention build buys consistency at the cost of build latency.
 
 ## Convention plugin checklist
@@ -56,15 +58,32 @@ The fix for a review of this directory is to compile it by hand before saying
 it is correct:
 
 ```bash
-# A scratch project with the `kotlin-dsl` plugin is enough — the sources only
-# need Gradle's API on the classpath.
+# A scratch project with the `kotlin-dsl` plugin is enough for the three
+# sources that need nothing but Gradle's API on the classpath.
 mkdir -p /tmp/convention-check/src/main/kotlin
-cp build-logic/convention/src/main/kotlin/*.kt /tmp/convention-check/src/main/kotlin/
+cp build-logic/convention/src/main/kotlin/AndroidApplicationConventionPlugin.kt \
+   build-logic/convention/src/main/kotlin/CommonDepsConventionPlugin.kt \
+   build-logic/convention/src/main/kotlin/JvmApplicationConventionPlugin.kt \
+   /tmp/convention-check/src/main/kotlin/
+# The `kotlin-dsl` plugin needs a repository for its own stdlib and reflect
+# dependencies — without one the build fails before it reaches the compiler.
+cat > /tmp/convention-check/settings.gradle.kts <<'EOF'
+dependencyResolutionManagement {
+    repositories { mavenCentral() }
+}
+rootProject.name = "convention-check"
+EOF
 printf 'plugins { `kotlin-dsl` }\n' > /tmp/convention-check/build.gradle.kts
 ./gradlew --project-dir /tmp/convention-check compileKotlin
 ```
 
-Two errors this catches, both of which the tree carried for a while:
+`KotlinMultiplatformLibraryConventionPlugin.kt` is not in that list on
+purpose: it imports `com.android.build.api.dsl.MultiplatformExtension` and
+`org.jetbrains.kotlin.gradle.dsl.JvmTarget`, so it needs the Android Gradle
+Plugin and the Kotlin Gradle Plugin on the classpath as well. Nothing in this
+repository checks it.
+
+Two things the compile catches, both of which the tree carried for a while:
 
 - `getByType<VersionCatalogsExtension>()` needs `import org.gradle.kotlin.dsl.getByType`.
   The Kotlin DSL script files get that import implicitly; a plain Kotlin source
@@ -73,7 +92,8 @@ Two errors this catches, both of which the tree carried for a while:
   the error reads like a Gradle API problem rather than an import problem.
 - `versionCatalog.findVersion(key).get()` compiles, but it throws
   `NoSuchElementException: No value present` when the key is missing — and the
-  message names nothing. `orElseThrow { … }` names the key instead.
+  message names nothing. `orElseThrow { … }` names the key instead. This one is
+  a runtime difference, so the compile step does not catch it.
 
 ## Migration (when Gradle 9 included-build classpath is resolved)
 
