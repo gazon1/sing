@@ -20,6 +20,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMarkerRimColor
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
@@ -48,6 +49,11 @@ internal fun priorityChipColor(priority: TaskPriority): Color = priorityMeta(pri
  * 2026-11-09 comparison). So the colour moved into a dot, and the word next to it
  * is drawn in a theme colour that keeps its contrast in both themes. The word
  * says which priority it is; the dot says what it looks like.
+ *
+ * The dot wears a rim, because a hue alone is not a shape the eye can find: on a
+ * light surface the amber measures about 1.5:1 against it, which is below the 3:1
+ * a non-text indicator has to keep. The rim is a theme colour and the dot keeps
+ * the size it had — the rim is taken out of the dot, not added to it.
  */
 @Composable
 fun PriorityChip(
@@ -64,6 +70,9 @@ fun PriorityChip(
             modifier =
                 Modifier
                     .size(TaskListSizes.MetaIcon)
+                    .clip(CircleShape)
+                    .background(priorityMarkerRimColor())
+                    .padding(TaskListSizes.PriorityMarkerRim)
                     .clip(CircleShape)
                     .background(priorityChipColor(priority)),
         )

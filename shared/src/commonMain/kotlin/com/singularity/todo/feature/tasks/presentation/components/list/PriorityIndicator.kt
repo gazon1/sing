@@ -1,13 +1,17 @@
 package com.singularity.todo.feature.tasks.presentation.components.list
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -15,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMarkerRimColor
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
@@ -33,6 +38,12 @@ internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
  * применённое" действие), остальные уровни — залитой звездой соответствующего
  * цвета. Раздельная функция [priorityColor] переиспользуется в [TaskCheckbox]
  * и [TaskRowContent], чтобы цвет приоритета был согласован по всей строке.
+ *
+ * **У звезды есть ободок.** Цвет приоритета — это оттенок, а не свет: янтарный
+ * Medium на светлой поверхности даёт около 1.5:1, и глаз не находит маркер в
+ * строке. Ободок — тематический цвет, который держит 3:1 к поверхности в обеих
+ * темах, и именно он делает маркер различимым. Звезда при этом не растёт:
+ * ободок берётся из её же размера.
  */
 @Composable
 fun PriorityIndicator(
@@ -40,12 +51,26 @@ fun PriorityIndicator(
     modifier: Modifier = Modifier,
 ) {
     val color = priorityColor(priority)
-    Icon(
-        imageVector = if (priority.isActive) Icons.Filled.Star else Icons.Outlined.StarOutline,
-        contentDescription = priorityContentDescription(priority),
-        tint = color,
+    val star = if (priority.isActive) Icons.Filled.Star else Icons.Outlined.StarOutline
+    Box(
         modifier = modifier.size(TaskListSizes.PriorityStar),
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        // The rim: the same star, a little larger, in the theme colour the
+        // marker is seen by.
+        Icon(
+            imageVector = star,
+            contentDescription = null,
+            tint = priorityMarkerRimColor(),
+            modifier = Modifier.fillMaxSize(),
+        )
+        Icon(
+            imageVector = star,
+            contentDescription = priorityContentDescription(priority),
+            tint = color,
+            modifier = Modifier.fillMaxSize().padding(TaskListSizes.PriorityMarkerRim),
+        )
+    }
 }
 
 /**
