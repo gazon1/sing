@@ -964,7 +964,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except PublishError as exc:
+    except (PublishError, OSError) as exc:
+        # A failed write or a failed delete is an OSError, not a PublishError.
+        # It is still one error of the publication, and it is reported like
+        # one: the publish log gets a sentence, not a traceback.
         print(f"allure-pages publication error: {exc}", file=sys.stderr)
         return 1
 

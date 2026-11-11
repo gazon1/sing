@@ -1,3 +1,4 @@
+import contextlib
 import importlib.util
 import io
 import json
@@ -614,6 +615,37 @@ class PublicationContractTest(unittest.TestCase):
         self.assertGreater(ap.MAX_TAR_MEMBERS, 25_000 + 2 * 20 * 5_000)
         self.assertGreater(ap.MAX_TAR_BYTES, 2 * 1024 * 1024 * 1024)
 
+
+    def test_cli_reports_a_filesystem_failure_as_a_publication_error(self):
+        # A failed delete or a full disk is an OSError, not a PublishError.
+        # The CLI must still say what happened in one line.
+        original = ap.apply_publication
+
+        def fail(*args, **kwargs):
+            raise OSError("disk full")
+
+        ap.apply_publication = fail
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                code = ap.main(
+                    [
+                        "apply",
+                        "--site-dir", str(self.tmp),
+                        "--run-id", "1",
+                        "--run-number", "10",
+                        "--run-attempt", "1",
+                        "--event", "push",
+                        "--sha", "abc",
+                        "--population", "fast",
+                        "--report-path", "10",
+                    ]
+                )
+        finally:
+            ap.apply_publication = original
+        self.assertEqual(code, 1)
+        self.assertIn("publication error: disk full", stderr.getvalue())
+        self.assertNotIn("Traceback", stderr.getvalue())
 
     def test_cli_refuses_an_unknown_population(self):
         # The exit behaviour of this command is a contract: an unknown
