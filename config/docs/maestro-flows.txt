@@ -131,6 +131,7 @@ Maestro/flows/tasks/06-delete-undo.yaml
 Maestro/flows/tasks/07-cyrillic-title.yaml
 Maestro/flows/tasks/08-date-buckets.yaml
 Maestro/flows/tasks/09-rename-empty.yaml
+Maestro/flows/tasks/10-swipe-delete-undo.yaml
 Maestro/flows/tasks/13-create-full-task.yaml
 Maestro/flows/tasks/14-prefill-from-today.yaml
 Maestro/flows/tasks/15-prefill-from-inbox.yaml

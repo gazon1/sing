@@ -48,8 +48,9 @@ import kotlinx.coroutines.flow.map
  * (the host was composed before it) and the shell-level FAB (drawn after the
  * whole entry). The toast was laid out and timed correctly but never visible
  * — and its action label sat under the FAB even when it was. Rendering the
- * snackbar in its own [Popup] window, anchored to the host's bounds, puts it
- * above both. Dialog notifications were already separate windows.
+ * snackbar in its own [Popup] — its own semantics root, drawn above the app's
+ * window — anchored to the host's bounds, puts it above both. Dialog
+ * notifications were already separate windows.
  */
 @Composable
 fun <T> NotificationHost(
@@ -152,6 +153,16 @@ fun NotificationHost(
             popupPositionProvider = BottomCenterAnchorPositionProvider(),
             properties = PopupProperties(focusable = false),
         ) {
+            // The popup is drawn above the app's window, so the toast covers the
+            // shell's button instead of the other way round — the button is
+            // hidden and untappable while the toast is up, which is the same
+            // defect as the one the agenda's own host had (#2752). The host
+            // therefore keeps the clearance the shell publishes, and the toast
+            // sits above the button.
+            //
+            // On a route without a button the shell publishes `0.dp`, so the
+            // toast stays where it was: the clearance follows the button, not
+            // the host.
             TaggedSnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.mapTestTagsAsResourceIds(),

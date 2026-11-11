@@ -21,8 +21,15 @@ import androidx.compose.ui.unit.dp
  * and publishes the space it takes here, and a list adds that space to its own
  * bottom content padding.
  *
+ * A snackbar host keeps the same space clear at the bottom, so the snackbar's
+ * action is not under the button either (#2752). A toast drawn in a `Popup`
+ * takes the same space for the other reason: the popup is drawn above the
+ * app's window, so an unlifted toast would cover the button rather than be
+ * covered by it.
+ *
  * Zero when no button is on screen: a list must not keep blank space for a
- * button that is not there.
+ * button that is not there, and a toast must not float above the bottom edge
+ * for a button that is not there.
  */
 val LocalFabBottomSpace = compositionLocalOf<Dp> { 0.dp }
 
@@ -60,9 +67,10 @@ class FabFootprint {
          * The gap Material3's `Scaffold` leaves below a floating action button.
          *
          * Mirrors Material3's own `private val FabSpacing get() = 16.dp` in the
-         * `Scaffold` source (material3 1.13.0-beta02, the Compose Multiplatform
-         * mirror of `androidx.compose.material3`): the same file places the
-         * button with `fabOffsetFromBottom = fabHeight + FabSpacing +
+         * `Scaffold` source (the Compose Multiplatform mirror of
+         * `androidx.compose.material3`, material3 1.13.x — grep the `Scaffold`
+         * source for `FabSpacing`): the same file places the button with
+         * `fabOffsetFromBottom = fabHeight + FabSpacing +
          * contentWindowInsets.bottom`, so this is the gap between the content's
          * bottom edge and the top of the button.
          */
