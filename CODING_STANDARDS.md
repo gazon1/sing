@@ -565,6 +565,32 @@ not one nobody had noticed for a year. That judgement is the review's work.
 
 ---
 
+## A repair that unblocks a pull request goes in its own pull request
+
+A gate that stands between you and a merge — an overdue decision, a broken
+tool, a version that drifted — is repaired in a pull request of its own, merged
+first.
+
+- **The repair is its own pull request, merged before the feature.** A pull
+  request that carries an unrelated repair next to a feature asks its reader to
+  judge two subjects at once, and the rollback story is wrong: reverting the
+  feature would revert the repair with it, which puts the gate back in the red
+  and blocks the next pull request too.
+- **The feature stacks on top of the repair.** The repair lands first, alone;
+  the feature's pull request then carries the feature, and its diff is one
+  subject again.
+- **An unrelated repair in a feature's diff is a finding, not a detail.** The
+  reviewer asks for it to move, and it moves to a pull request of its own.
+
+The repair that started this was an overdue decision in PR #2804 (issue #2815):
+it was small, it was correct, and it belonged in a pull request of its own.
+
+The gate cannot see this. It can see that the diff is green; it cannot see that
+the diff carries two subjects, and that one of them is a repair that the next
+revert would take with it. That is the review's work.
+
+---
+
 ## Touch targets meet the minimum and the order is correct
 
 Material's minimum interactive size is 48 dp. A fixed visual size applied

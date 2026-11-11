@@ -846,6 +846,9 @@ object TestTags {
     /** The name filter on the projects list screen (placeholder: "Search projects"). */
     const val PROJECTS_SEARCH_INPUT = "projects_search_input"
 
+    /** The create-project `+` action in the projects list's own bar. */
+    const val PROJECTS_CREATE_BUTTON = "projects_create_button"
+
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"
     const val PROJECT_EDITOR_SAVE = "project_editor_save"
@@ -1494,6 +1497,21 @@ object TestTags {
      * cell holds is tagged by date on the number inside it.
      */
     const val CALENDAR_DAY_CELL = "calendar_day_cell"
+
+    /**
+     * A task marker in a compact cell — the status-coloured dot used where a
+     * title chip cannot show a readable title. A layout test measures this node's
+     * bounds against the day column to prove the marker does not spill into the
+     * neighbouring day.
+     */
+    const val CALENDAR_ALL_DAY_MARKER = "calendar_all_day_marker"
+
+    /**
+     * One day's all-day cell in the time grid. A layout test measures it: the
+     * single-day view caps its height and scrolls, so the node's bounds are the
+     * only place that says the cap held.
+     */
+    const val CALENDAR_ALL_DAY_CELL = "calendar_all_day_cell"
 
     /**
      * The bar that appears while the calendar picks days for one task.

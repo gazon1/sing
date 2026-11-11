@@ -19,6 +19,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -269,7 +270,20 @@ fun DesktopComposeUiTest.awaitContentDescription(desc: String) =
  * Does not wait — captures the count at call time.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.countNodes(tag: String): Int = onAllNodesWithTag(tag).fetchSemanticsNodes().size
+fun DesktopComposeUiTest.countNodes(
+    tag: String,
+    useUnmergedTree: Boolean = false,
+): Int = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree).fetchSemanticsNodes().size
+
+/**
+ * How many nodes carry [text] right now.
+ *
+ * The counterpart of [countNodes] for text that repeats: one `+N` label per day
+ * column is several nodes, and `onNodeWithText` refuses to choose. It is a
+ * count, not an assertion — the caller says what the number means.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.countNodesWithText(text: String): Int = onAllNodesWithText(text).fetchSemanticsNodes().size
 
 /**
  * Whether the checkbox with [testTag] reports ToggleableState.On right now.
@@ -378,6 +392,72 @@ fun DesktopComposeUiTest.assertTagSelected(tag: String) =
 fun DesktopComposeUiTest.unclippedBoundsOfTag(tag: String): DpRect = awaitTag(tag).getUnclippedBoundsInRoot()
 
 /**
+ * The unclipped bounds of the node with [tag] in the **unmerged** tree, in root
+ * coordinates.
+ *
+ * The counterpart of [unclippedBoundsOfTag] for a control that sits inside a
+ * clickable. A clickable merges its descendants' semantics, and a test tag is
+ * never merged upward — so in the merged tree the control's own tag is gone and
+ * only the clickable's node is left, with the clickable's bounds. The unmerged
+ * tree keeps the control itself, and the control's box is the one a measurement
+ * wants: a checkbox's touch target is 48 dp wide, while the row around it is
+ * whatever the row is.
+ *
+ * @param tag The test tag of the node.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfTagInUnmergedTree(tag: String): DpRect =
+    onAllNodesWithTag(tag, useUnmergedTree = true)[0].getUnclippedBoundsInRoot()
+
+/**
+ * The **touch** bounds of the node with [tag] in the unmerged tree, in root
+ * coordinates.
+ *
+ * The touch bounds are not the node's box: they are the box that accepts a
+ * pointer, and Compose expands it to the platform's minimum touch target when
+ * the control's own box is smaller. A 22 dp checkbox drawn inside a 48 dp
+ * target reports 22 dp of bounds and 48 dp of touch bounds, and only the
+ * second number is what a finger — or a test that asks "can this be hit?" —
+ * gets.
+ *
+ * @param tag The test tag of the node.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.touchBoundsOfTagInUnmergedTree(tag: String): DpRect {
+    val rect =
+        onAllNodesWithTag(tag, useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .first()
+            .touchBoundsInRoot
+    // `toDp` is a member of `Density`, so it is in scope inside `with(density)`
+    // and needs no import.
+    return with(density) {
+        DpRect(
+            left = rect.left.toDp(),
+            top = rect.top.toDp(),
+            right = rect.right.toDp(),
+            bottom = rect.bottom.toDp(),
+        )
+    }
+}
+
+/**
+ * The unclipped bounds of the [index]th node with [tag].
+ *
+ * The indexed counterpart of [unclippedBoundsOfTag] for a tag that repeats —
+ * seven day columns, a list of markers. The [useUnmergedTree] flag is for a tag
+ * that lives under a merging ancestor (a `clickable` cell): the merged tree
+ * reports the ancestor, and only the unmerged tree still has the child's own
+ * bounds.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfTagAt(
+    tag: String,
+    index: Int,
+    useUnmergedTree: Boolean = false,
+): DpRect = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree)[index].getUnclippedBoundsInRoot()
+
+/**
  * The unclipped bounds of the node with content description [desc], in root
  * coordinates.
  *
@@ -398,6 +478,19 @@ fun DesktopComposeUiTest.unclippedBoundsOfContentDescription(
 ): DpRect =
     onNodeWithContentDescription(desc, useUnmergedTree = useUnmergedTree)
         .getUnclippedBoundsInRoot()
+
+/**
+ * The unclipped bounds of the node with [text], in root coordinates.
+ *
+ * The counterpart of [unclippedBoundsOfTag] for a field that is named by what it
+ * says rather than by a test tag — a due date, a project name.
+ *
+ * The unmerged tree is the one to read: a text that sits inside a clickable row
+ * is merged up into it, and the row's bounds are the row's, not the text's.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfText(text: String): DpRect =
+    onNodeWithText(text, useUnmergedTree = true).getUnclippedBoundsInRoot()
 
 /**
  * One-shot assertion that no node with [text] exists. Same rule as

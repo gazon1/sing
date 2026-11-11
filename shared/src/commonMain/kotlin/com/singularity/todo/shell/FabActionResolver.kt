@@ -15,10 +15,17 @@ data class FabAction(val label: String, val onClick: () -> Unit)
 /**
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.
  *
- * Covers modern [AppDestination.AgendaGraph] and [AppDestination.ProjectsGraph] routes.
+ * Covers every [AppDestination]. The ones that carry an action are [AppDestination.AgendaGraph]
+ * (delegating to [fabActionForAgendaStart]) and [AppDestination.Plans]; the rest resolve to
+ * `null`, each for the reason written beside its branch.
  * The deprecated singletons `AppDestination.Inbox`/`AppDestination.Today` were removed in MR-1
  * (they were dead-code entry registrations that were never reached at runtime — the shell
  * uses AgendaGraph routes instead).
+ *
+ * Every member of [AppDestination] is classified: no `else`, so a destination added to
+ * the hierarchy does not compile until someone decides whether the shell gives it a
+ * button (#2423). A catch-all is how the agenda's drill-downs once came to share a
+ * glyph, and here it would give a new destination a silent "no FAB".
  *
  * ## FAB prefill behaviour
  *
@@ -53,16 +60,9 @@ internal fun fabActionForNav3(
     navigate: (AppDestination) -> Unit,
 ): FabAction? =
     when (current) {
-        // ── Modern routes (Desktop / future Android) ───────────────────────────
+        // ── Destinations that carry the shell action ───────────────────────────
         is AppDestination.AgendaGraph -> {
             fabActionForAgendaStart(current.start, today, navigate)
-        }
-
-        is AppDestination.ProjectsGraph -> {
-            FabAction(
-                label = "Add project",
-                onClick = { navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor())) },
-            )
         }
 
         // The plan tab creates a *task*, not a project: the timeline shows the
@@ -77,8 +77,86 @@ internal fun fabActionForNav3(
             )
         }
 
-        // NotesNavGraph has its own note creation button — no shell FAB needed here.
-        else -> {
+        // ── Destinations with no shell action, each for its own reason ─────────
+
+        // Every screen inside the projects graph carries its own create action:
+        // the list has a `+` in its bar, the editor has Save there, and the
+        // detail has an inline task composer. A shell FAB here would duplicate
+        // one of them and miss the others (#2735).
+        is AppDestination.ProjectsGraph -> {
+            null
+        }
+
+        // Already inside the tasks: the editor or the detail *is* the work, so
+        // there is no new task to add from here.
+        is AppDestination.TasksGraph -> {
+            null
+        }
+
+        // Documented unwired surface: no `entry<>` and no production opener
+        // (`docs/navigation.md`), so nothing renders a FAB over it.
+        is AppDestination.TasksByProject -> {
+            null
+        }
+
+        // Record screens carry their own controls: Save in the project editor, an
+        // inline task composer on the project detail, and the attachment viewer
+        // only displays.
+        is AppDestination.ProjectEditor,
+        is AppDestination.ProjectDetail,
+        is AppDestination.AttachmentViewer,
+        -> {
+            null
+        }
+
+        // The notes graph has its own note creation button.
+        AppDestination.Notes,
+        is AppDestination.NotesGraph,
+        -> {
+            null
+        }
+
+        // A month grid is not a list of tasks; the calendar's selection bar
+        // creates the task for the day the user picked, which a shell FAB
+        // would not know.
+        AppDestination.Calendar,
+        is AppDestination.CalendarGraph,
+        -> {
+            null
+        }
+
+        // The archive holds finished work; a task created here would belong in the
+        // Inbox or a list, not among the done ones.
+        AppDestination.Archive -> {
+            null
+        }
+
+        // The timer, the charts and the settings read or configure existing work
+        // rather than start it.
+        AppDestination.Pomodoro,
+        AppDestination.Statistics,
+        AppDestination.AiUsage,
+        AppDestination.Settings,
+        AppDestination.ProfileSwitcher,
+        -> {
+            null
+        }
+
+        // The assistant, the search and the proposals act on what exists; the
+        // external agent is a third-party process that brings its own surface.
+        AppDestination.AiChat,
+        AppDestination.Search,
+        AppDestination.Proposals,
+        AppDestination.ExternalAgent,
+        -> {
+            null
+        }
+
+        // Forms with their own submit button.
+        AppDestination.AttachAccount,
+        AppDestination.ChangePassword,
+        is AppDestination.MagicLinkConfirm,
+        -> {
             null
         }
     }

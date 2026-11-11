@@ -1,6 +1,7 @@
 package com.singularity.todo.shell
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -84,72 +86,80 @@ fun MenuBottomSheet(
     // The canonical sheet host, not a bare ModalBottomSheet: it applies the
     // window insets and asserts the testTag→resource-id mapping on the sheet's
     // own window.
-    BottomSheetHost(
-        onDismiss = onDismiss,
-        sheetState = sheetState,
-        modifier = Modifier.testTag(TestTags.MENU_SHEET),
-    ) {
-        Column(
-            // The sheet renders into its own window, so the app-root
-            // testTagsAsResourceId never reaches the menu items.
-            //
-            // The column scrolls because the menu holds many entries, the
-            // projects tree and three headers, and a screen shorter than that
-            // would clip the last ones again — the same defect the settings
-            // rail had, and the reason the rail scrolls on every form factor.
-            modifier =
-                Modifier
-                    .mapTestTagsAsResourceIds()
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+    BoxWithConstraints {
+        val sheetMaxWidth =
+            if (maxWidth >= EXPANDED_MENU_WIDTH_DP) MENU_SHEET_MAX_WIDTH_DP else BottomSheetDefaults.SheetMaxWidth
+        BottomSheetHost(
+            onDismiss = onDismiss,
+            sheetState = sheetState,
+            modifier = Modifier.testTag(TestTags.MENU_SHEET),
+            sheetMaxWidth = sheetMaxWidth,
         ) {
-            val accountItems = AppMenu.accountEntries(showAttachAccount)
-            val sections =
-                listOf(
-                    MenuSection(title = "Account", items = accountItems),
-                    MenuSection(title = "Search", items = AppMenu.search),
-                    MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
-                )
-            sections.forEach { section ->
-                SectionHeader(section.title)
-                section.items.forEach { item ->
-                    NavigationDrawerItem(
-                        label = { Text(item.label) },
-                        selected = item.destination == currentDestination,
-                        onClick = { onSelect(item.destination) },
-                        icon = item.iconContent(),
-                        // Ensure testTagsAsResourceId reaches this item individually.
-                        // mapTestTagsAsResourceIds() on the Column covers descendants, but
-                        // NavigationDrawerItem may establish its own semantics scope.
-                        // Applying it here too is idempotent and guarantees propagation.
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .mapTestTagsAsResourceIds()
-                                .testTag(item.id),
+            Column(
+                // The sheet renders into its own window, so the app-root
+                // testTagsAsResourceId never reaches the menu items.
+                //
+                // The column scrolls because the menu holds many entries, the
+                // projects tree and three headers, and a screen shorter than that
+                // would clip the last ones again — the same defect the settings
+                // rail had, and the reason the rail scrolls on every form factor.
+                modifier =
+                    Modifier
+                        .mapTestTagsAsResourceIds()
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val accountItems = AppMenu.accountEntries(showAttachAccount)
+                val sections =
+                    listOf(
+                        MenuSection(title = "Account", items = accountItems),
+                        MenuSection(title = "Search", items = AppMenu.search),
+                        MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
                     )
+                sections.forEach { section ->
+                    SectionHeader(section.title)
+                    section.items.forEach { item ->
+                        NavigationDrawerItem(
+                            label = { Text(item.label) },
+                            selected = item.destination == currentDestination,
+                            onClick = { onSelect(item.destination) },
+                            icon = item.iconContent(),
+                            // Ensure testTagsAsResourceId reaches this item individually.
+                            // mapTestTagsAsResourceIds() on the Column covers descendants, but
+                            // NavigationDrawerItem may establish its own semantics scope.
+                            // Applying it here too is idempotent and guarantees propagation.
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .mapTestTagsAsResourceIds()
+                                    .testTag(item.id),
+                        )
+                    }
+                    HorizontalDivider()
                 }
-                HorizontalDivider()
-            }
 
-            // ─── Projects ─────────────────────────────────────────────────────
-            // The projects as a tree, and the way to the full list. The section
-            // is drawn by the composable the Desktop drawer draws too.
-            ProjectsMenuSection(
-                state = treeState,
-                onToggleSection = onToggleSection,
-                onToggleExpanded = onToggleExpanded,
-                onOpenProject = onOpenProject,
-                onOpenAllProjects = { onSelect(AppDestination.ProjectsGraph()) },
-                headerModifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-            )
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+                // ─── Projects ─────────────────────────────────────────────────────
+                // The projects as a tree, and the way to the full list. The section
+                // is drawn by the composable the Desktop drawer draws too.
+                ProjectsMenuSection(
+                    state = treeState,
+                    onToggleSection = onToggleSection,
+                    onToggleExpanded = onToggleExpanded,
+                    onOpenProject = onOpenProject,
+                    onOpenAllProjects = { onSelect(AppDestination.ProjectsGraph()) },
+                    headerModifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
+                )
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+            }
         }
     }
 }
+
+private val EXPANDED_MENU_WIDTH_DP = 600.dp
+private val MENU_SHEET_MAX_WIDTH_DP = 480.dp
 
 @Composable
 private fun SectionHeader(title: String) {

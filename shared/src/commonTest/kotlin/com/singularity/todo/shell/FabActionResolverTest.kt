@@ -1,5 +1,6 @@
 package com.singularity.todo.shell
 
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
@@ -112,27 +113,31 @@ class FabActionResolverTest {
     // ── Modern ProjectsGraph routes (Desktop) ───────────────────────────────────
 
     @Test
-    fun projectsGraph_list_returnsAddProject() {
+    fun projectsGraph_list_returnsNull() {
         val result =
             fabActionForNav3(
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
                 today,
                 navigate,
             )
-        assertEquals("Add project", result.label())
-        result.click()
-        assertEquals(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()), navigatedTo)
+        assertNull(
+            result,
+            "the list carries its own `+` action; a shell FAB would duplicate it (#2735)",
+        )
     }
 
     @Test
-    fun projectsGraph_editor_returnsAddProject() {
+    fun projectsGraph_editor_returnsNull() {
         val result =
             fabActionForNav3(
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
                 today,
                 navigate,
             )
-        assertEquals("Add project", result.label())
+        assertNull(
+            result,
+            "the editor carries Save in its bar; a shell FAB would duplicate it (#2735)",
+        )
     }
 
     // ── Agenda routes (modern) ────────────────────────────────────────────────
@@ -222,10 +227,12 @@ class FabActionResolverTest {
         val start: AppDestination.TasksStartRoute.Create?,
         /** The due date the editor opens with, or `null` when it prefills none. */
         val dueDate: LocalDate?,
+        /** Why the destination carries no shell action; `null` when it carries one. */
+        val noActionReason: String? = null,
     ) {
         companion object {
-            /** No action at all. */
-            val None = ExpectedFab(start = null, dueDate = null)
+            /** No action at all, and the reason a reader can check on the screen. */
+            fun none(reason: String) = ExpectedFab(start = null, dueDate = null, noActionReason = reason)
         }
     }
 
@@ -304,7 +311,7 @@ class FabActionResolverTest {
             is AgendaStartRoute.SavedAgendaEdit,
             AgendaStartRoute.SavedAgendaCreate,
             -> {
-                ExpectedFab.None
+                ExpectedFab.none("the saved-view screens are not task lists, and the view owns how a task joins it")
             }
         }
 
@@ -341,30 +348,158 @@ class FabActionResolverTest {
         }
     }
 
-    // ── Destinations with no FAB ────────────────────────────────────────────────
+    // ── Every destination is classified ────────────────────────────────────────
 
-    @Test
-    fun notes_returnsNull() {
-        assertNull(fabActionForNav3(AppDestination.Notes, today, navigate))
-    }
+    /**
+     * Every [AppDestination], one instance of each, with a representative payload
+     * where the variant carries one.
+     *
+     * The run is only as complete as this list, and the list is NOT checked by the
+     * compiler: [expectedOuterFabFor] will refuse to compile for an unclassified
+     * variant, but it compiles fine for a variant that is classified and missing
+     * here — and then the resolver's answer for it is never asserted. So a variant
+     * added to the hierarchy has to be added to both places, and this one is the
+     * easy one to forget. The agenda's start routes are covered route by route
+     * above, so one [AppDestination.AgendaGraph] stands for the family here.
+     */
+    private val everyDestination: List<AppDestination> =
+        listOf(
+            AppDestination.Plans,
+            AppDestination.Pomodoro,
+            AppDestination.Statistics,
+            AppDestination.Calendar,
+            AppDestination.Notes,
+            AppDestination.AiChat,
+            AppDestination.Search,
+            AppDestination.ExternalAgent,
+            AppDestination.Proposals,
+            AppDestination.Archive,
+            AppDestination.Settings,
+            AppDestination.AiUsage,
+            AppDestination.ProfileSwitcher,
+            AppDestination.AttachAccount,
+            AppDestination.ChangePassword,
+            AppDestination.MagicLinkConfirm(),
+            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+            AppDestination.TasksByProject(project),
+            AppDestination.ProjectEditor(project),
+            AppDestination.ProjectDetail(project),
+            AppDestination.AttachmentViewer(AttachmentId("attachment-1")),
+            AppDestination.ProjectsGraph(),
+            AppDestination.NotesGraph(),
+            AppDestination.CalendarGraph(),
+            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+        )
 
-    @Test
-    fun pomodoro_returnsNull() {
-        assertNull(fabActionForNav3(AppDestination.Pomodoro, today, navigate))
-    }
+    /**
+     * What the shell carries on each destination, stated destination by destination.
+     *
+     * Exhaustive over the sealed hierarchy, with no `else`: a destination that is
+     * added and not classified here does not compile — the same rule the resolver
+     * follows, stated a second time from the test's side (#2423).
+     */
+    private fun expectedOuterFabFor(destination: AppDestination): ExpectedFab =
+        when (destination) {
+            // The agenda delegates to the start route; the route-level table above
+            // is the one that says what each of them carries.
+            is AppDestination.AgendaGraph -> {
+                expectedFabFor(destination.start)
+            }
 
-    @Test
-    fun statistics_returnsNull() {
-        assertNull(fabActionForNav3(AppDestination.Statistics, today, navigate))
-    }
+            // The plan tab creates a task due today.
+            AppDestination.Plans -> {
+                ExpectedFab(AppDestination.TasksStartRoute.Create(), dueDate = today)
+            }
 
-    @Test
-    fun archive_returnsNull() {
-        assertNull(fabActionForNav3(AppDestination.Archive, today, navigate))
-    }
+            // The projects graph carries its own create actions (#2735).
+            is AppDestination.ProjectsGraph -> {
+                ExpectedFab.none("the projects screens carry their own create controls")
+            }
 
+            // Already inside the tasks: the editor or the detail is the work.
+            is AppDestination.TasksGraph -> {
+                ExpectedFab.none("the screen being shown is the task editor or the task itself")
+            }
+
+            is AppDestination.TasksByProject -> {
+                ExpectedFab.none("documented unwired surface: no entry and no production opener")
+            }
+
+            is AppDestination.ProjectEditor,
+            is AppDestination.ProjectDetail,
+            -> {
+                ExpectedFab.none("the screen carries its own save or inline task composer")
+            }
+
+            is AppDestination.AttachmentViewer -> {
+                ExpectedFab.none("the viewer only displays the attachment")
+            }
+
+            AppDestination.Notes,
+            is AppDestination.NotesGraph,
+            -> {
+                ExpectedFab.none("the notes screens have their own note creation button")
+            }
+
+            AppDestination.Calendar,
+            is AppDestination.CalendarGraph,
+            -> {
+                ExpectedFab.none("a month grid is not a list of tasks; its selection bar creates the day's task")
+            }
+
+            AppDestination.Archive -> {
+                ExpectedFab.none("the archive shows finished work; a new task belongs in a list, not here")
+            }
+
+            AppDestination.Pomodoro,
+            AppDestination.Statistics,
+            AppDestination.AiUsage,
+            AppDestination.Settings,
+            AppDestination.ProfileSwitcher,
+            -> {
+                ExpectedFab.none("the screen reads or configures existing work rather than starting it")
+            }
+
+            AppDestination.AiChat,
+            AppDestination.Search,
+            AppDestination.Proposals,
+            AppDestination.ExternalAgent,
+            -> {
+                ExpectedFab.none("the screen acts on what exists; the agent brings its own surface")
+            }
+
+            AppDestination.AttachAccount,
+            AppDestination.ChangePassword,
+            is AppDestination.MagicLinkConfirm,
+            -> {
+                ExpectedFab.none("the screen is a form with its own submit button")
+            }
+        }
+
+    /**
+     * Every destination resolves to the action it is classified as, and the
+     * failure names the destination that was walked.
+     */
     @Test
-    fun settings_returnsNull() {
-        assertNull(fabActionForNav3(AppDestination.Settings, today, navigate))
+    fun everyDestination_resolvesToTheClassifiedAction() {
+        everyDestination.forEach { destination ->
+            val expected = expectedOuterFabFor(destination)
+            navigatedTo = null
+            val result = fabActionForNav3(destination, today, navigate)
+            val start = expected.start
+            if (start == null) {
+                assertNull(
+                    result,
+                    "$destination is classified as no shell action " +
+                        "(${expected.noActionReason}) but resolves to one — move it out of the no-action group",
+                )
+                return@forEach
+            }
+            assertEquals("Add task", result.label(), "$destination must offer a way to create a task")
+            result.click()
+            val nav = assertIs<AppDestination.TasksGraph>(navigatedTo, "$destination must open the task editor")
+            assertEquals(start, nav.start, "$destination must open the editor with the scope it seeds")
+            assertEquals(expected.dueDate, nav.initialDueDate, "$destination must carry the due date it is given")
+        }
     }
 }

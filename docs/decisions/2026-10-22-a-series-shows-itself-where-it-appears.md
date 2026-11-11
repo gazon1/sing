@@ -1,11 +1,20 @@
 ---
 title: "A series shows itself where it appears, and the statistics count works"
 date: 2026-10-22
-status: accepted
+status: superseded
+superseded-by: 2026-11-10-the-agenda-row-grows-with-its-content
 tags: [tasks, series, statistics, ui]
 ---
 
 # A series shows itself where it appears, and the statistics count works
+
+> **Superseded in part (2026-11-10).** The clause that *the day's list carries the
+> icon and the count* no longer stands: in the task row the series marker is drawn
+> compact — the icon alone, with the count in the marker's description for a screen
+> reader — because the row's width belongs to the date and the project. The other
+> two decisions of this ADR stand: the undo of a series still carries the ids that
+> went away, and the statistics still count a series as one work. See
+> [2026-11-10-the-agenda-row-grows-with-its-content.md](2026-11-10-the-agenda-row-grows-with-its-content.md).
 
 ## Context
 

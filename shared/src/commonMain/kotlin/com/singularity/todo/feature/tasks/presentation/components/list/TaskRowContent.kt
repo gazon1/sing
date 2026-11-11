@@ -34,9 +34,10 @@ import kotlinx.collections.immutable.persistentSetOf
  * только внешней подложкой (разделитель vs карточка с тенью), а не структурой
  * контента. Это исключает дублирование логики между двумя стилями.
  *
- * Заголовок ограничен двумя строками с эллипсисом — это сознательное
- * ограничение: длинный заголовок должен сворачиваться, а не выталкивать
- * мета-строку за пределы экрана или ломать высоту строки.
+ * Заголовок ограничен тремя строками с эллипсисом — длинный заголовок должен
+ * сворачиваться, а не выталкивать мета-строку за пределы экрана или ломать
+ * высоту строки. Строка растёт вместе с заголовком: у заголовка нет
+ * фиксированной высоты, и чекбокс остаётся у его верхней строки.
  */
 @Composable
 fun TaskRowContent(
@@ -77,18 +78,19 @@ fun TaskRowContent(
                     fontSize = 16.sp,
                     lineHeight = 22.sp,
                     textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
             }
 
             // One fact, several sources: the meta row is drawn when there is something
-            // to say. The repeat badge is a marking now, so `markings.isNotEmpty()`
-            // covers it — a repeating task with nothing else still shows its meta row.
+            // to say. The repeat badge is a marking now, so the markings cover it —
+            // but only the ones that are drawn: a mark the row says another way
+            // leaves an empty line and a gap under the title.
             val hasMeta =
                 task.dueLabel != null || task.project != null ||
-                    task.markings.isNotEmpty() || task.seriesDates != null
+                    visibleMarkings(task.markings).isNotEmpty() || task.seriesDates != null
             if (hasMeta) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(

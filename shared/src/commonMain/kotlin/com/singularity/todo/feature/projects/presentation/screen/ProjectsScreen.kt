@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -85,9 +86,17 @@ fun ProjectsScreen() {
         topBar = {
             Column {
                 // On Android the shell owns the only bar, so this one publishes its
-                // title to the shell rather than drawing a second bar.
+                // title and actions to the shell rather than drawing a second bar.
                 TopAppBar(
                     title = { Text("Projects", modifier = Modifier.testTag(TestTags.SHELL_BAR_TITLE)) },
+                    actions = {
+                        IconButton(
+                            onClick = { nav.openEditor(null) },
+                            modifier = Modifier.testTag(TestTags.PROJECTS_CREATE_BUTTON),
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add project")
+                        }
+                    },
                     overrideShell = true,
                 )
                 ProjectSearchAndSortRow(
@@ -103,7 +112,6 @@ fun ProjectsScreen() {
             state = state,
             modifier = Modifier.padding(padding),
             onNavigateToProject = { nav.openDetail(it) },
-            onCreateProject = { nav.openEditor(null) },
             onDelete = { id -> pendingDeleteId = id },
             onReviewClick = { project -> viewModel.onIntent(ProjectsIntent.ReviewProject(project)) },
             onReopen = { id -> viewModel.onIntent(ProjectsIntent.Reopen(id)) },
@@ -206,7 +214,6 @@ private fun ProjectsContent(
     state: ProjectsUiState,
     modifier: Modifier = Modifier,
     onNavigateToProject: (ProjectId) -> Unit,
-    onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
     onReopen: (ProjectId) -> Unit,
@@ -254,7 +261,6 @@ private fun ProjectsContent(
                     closedProjects = state.closedProjects,
                     modifier = modifier.fillMaxSize(),
                     onNavigateToProject = onNavigateToProject,
-                    onCreateProject = onCreateProject,
                     onDelete = onDelete,
                     onReviewClick = onReviewClick,
                     onReopen = onReopen,
@@ -320,7 +326,6 @@ private fun ProjectList(
     closedProjects: ImmutableList<Project>,
     modifier: Modifier = Modifier,
     onNavigateToProject: (ProjectId) -> Unit,
-    onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
     onReopen: (ProjectId) -> Unit,
@@ -384,7 +389,6 @@ private fun ProjectsScreenContentPreview() =
                         closedProjects = persistentListOf(),
                     ),
                 onNavigateToProject = {},
-                onCreateProject = {},
                 onDelete = {},
                 onReviewClick = {},
                 onReopen = {},
@@ -405,7 +409,6 @@ private fun ProjectsScreenEmptyPreview() =
                         closedProjects = persistentListOf(),
                     ),
                 onNavigateToProject = {},
-                onCreateProject = {},
                 onDelete = {},
                 onReviewClick = {},
                 onReopen = {},
@@ -430,7 +433,6 @@ private fun ProjectsScreenDarkPreview() =
                         closedProjects = persistentListOf(),
                     ),
                 onNavigateToProject = {},
-                onCreateProject = {},
                 onDelete = {},
                 onReviewClick = {},
                 onReopen = {},
