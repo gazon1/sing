@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 EXCLUDE_PREFIXES = (
@@ -100,57 +101,63 @@ DETEKT_KOTLIN_COMPATIBILITY = {
 GRADLE_PROPS_VERSION_RE = re.compile(
     r"^(?P<key>[^#\s][^\s=]*)\s*=\s*[\"\']?(?P<value>[\w.\-]+)[\"\']?"
 )
-VERSION_ENTRY_RE = re.compile(r"^(?P<key>[^\s=]+)\s*=\s*\"(?P<value>[^\"]+)\"", re.MULTILINE)
-# A version may also be written as a table with a constraint:
-#   kotlin = { strictly = "2.4.10" }
-# That form is legal TOML and legal for Gradle, so the gate has to read it —
-# otherwise a catalog written that way looks like it has no versions at all.
-VERSION_TABLE_RE = re.compile(
-    r"^(?P<key>[^\s=]+)\s*=\s*\{(?P<body>[^}]*)\}", re.MULTILINE | re.DOTALL
-)
+def _version_value(value) -> str | None:
+    """The version a catalog entry carries, or None when it carries none.
+
+    A version is written either as a string (`kotlin = "2.4.10"`) or as a table
+    with a constraint (`kotlin = { strictly = "2.4.10" }`). The strict
+    constraint decides: `prefer` is a soft wish, and a table that carries both
+    has to be compared against the strict one.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for constraint in ("strictly", "require", "prefer"):
+            candidate = value.get(constraint)
+            if isinstance(candidate, str):
+                return candidate
+    return None
 
 
 def _catalog_versions(workspace: Path) -> dict[str, str]:
     """version key -> value, from the [versions] table of the catalog.
 
-    Both legal forms are read: `key = "value"` and the table form
-    `key = { strictly = "value" }`.
+    The catalog is TOML, and it is read as TOML. A hand-written parser reads
+    the forms its author thought of and misses the rest — a comment behind the
+    `[versions]` header, a single-quoted value — and those misses are not
+    cosmetic: a `[versions]` table the parser does not see is an empty
+    catalog, and the gate then reports the catalog as having no versions at
+    all. A catalog that is not valid TOML is a gate failure with a message,
+    not a traceback.
     """
     catalog = workspace / "gradle" / "libs.versions.toml"
-    versions: dict[str, str] = {}
     if not catalog.is_file():
-        return versions
+        return {}
 
-    text = catalog.read_text(encoding="utf-8")
+    try:
+        with catalog.open("rb") as handle:
+            data = tomllib.load(handle)
+    except tomllib.TOMLDecodeError as exc:
+        print(
+            f"ERROR: {catalog} is not valid TOML: {exc} — the gate cannot read the "
+            "catalog, so it cannot say whether the versions agree.",
+            file=sys.stderr,
+        )
+        return {}
+
     # Only the [versions] table holds versions. The other tables hold
     # libraries, bundles and plugins, and their entries are tables of their
     # own — reading them as versions would make the gate compare a plugin id
     # against a dependency version.
-    match = re.search(r"^\[versions\]\s*$(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
-    if not match:
-        return versions
-    section = match.group(1)
+    section = data.get("versions")
+    if not isinstance(section, dict):
+        return {}
 
-    # The table form is taken out first: the lines inside its body would
-    # otherwise be read as plain entries (`strictly = "2.4.10"` -> a version
-    # named `strictly`).
-    def take_table(m: re.Match) -> str:
-        body = m.group("body")
-        # The required version first: `prefer` is a soft wish, and a table that
-        # carries both has to be compared against the strict one.
-        constraint = re.search(r"\b(strictly|require)\s*=\s*\"([^\"]+)\"", body)
-        if constraint:
-            versions[m.group("key")] = constraint.group(2)
-            return ""
-        soft = re.search(r"\bprefer\s*=\s*\"([^\"]+)\"", body)
-        if soft:
-            versions[m.group("key")] = soft.group(1)
-        return ""
-
-    section = VERSION_TABLE_RE.sub(take_table, section)
-
-    for m in VERSION_ENTRY_RE.finditer(section):
-        versions[m.group("key")] = m.group("value")
+    versions: dict[str, str] = {}
+    for key, value in section.items():
+        text = _version_value(value)
+        if text is not None:
+            versions[key] = text
     return versions
 
 
@@ -166,7 +173,7 @@ def _settings_plugin_drift(workspace: Path):
             "the settings-plugin drift check would pass vacuously.",
             file=sys.stderr,
         )
-        return [("settings.gradle.kts", "no catalog versions to compare against")]
+        return [(settings, "no catalog versions to compare against")]
 
     out: list[tuple[Path, str]] = []
     for m in SETTINGS_PLUGIN_RE.finditer(settings.read_text(encoding="utf-8")):
@@ -193,7 +200,7 @@ def _root_plugins_drift(workspace: Path):
         return []
     versions = _catalog_versions(workspace)
     if not versions:
-        return [("build.gradle.kts", "no catalog versions to compare against")]
+        return [(root_gradle, "no catalog versions to compare against")]
 
     # Extract the plugins {} block
     content = root_gradle.read_text(encoding="utf-8")
@@ -250,11 +257,11 @@ def _gradle_properties_duplication(workspace: Path):
 
 def _detekt_kotlin_compatibility(workspace: Path):
     """The catalog's Kotlin version must be one the catalog's detekt was built with."""
+    catalog = workspace / "gradle" / "libs.versions.toml"
     versions = _catalog_versions(workspace)
     if not versions:
-        return [("gradle/libs.versions.toml", "no catalog versions to compare against")]
+        return [(catalog, "no catalog versions to compare against")]
 
-    catalog = workspace / "gradle" / "libs.versions.toml"
     detekt = versions.get("detekt")
     kotlin = versions.get("kotlin")
     # One version without the other is not a comparison — it is a check that

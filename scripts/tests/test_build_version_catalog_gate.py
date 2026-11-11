@@ -234,5 +234,64 @@ class CatalogEntryForms(CatalogTree):
         self.assertEqual(self.versions(), {})
 
 
+class CatalogTomlForms(CatalogTree):
+    """The catalog is TOML, and the gate reads it as TOML.
+
+    The gate used to read the catalog with regular expressions, and a regular
+    expression reads the forms its author thought of. The forms it missed
+    were not exotic — a comment behind the `[versions]` header, a
+    single-quoted value — and a missed header made the whole table invisible.
+    An invisible table is an empty catalog, and an empty catalog is what the
+    gate reports when it cannot compare anything.
+    """
+
+    def versions(self):
+        return gate._catalog_versions(self.root)
+
+    def run_main(self):
+        argv = ["build-version-catalog-gate.py", "--quiet", str(self.root)]
+        out = io.StringIO()
+        err = io.StringIO()
+        with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(out), \
+                contextlib.redirect_stderr(err):
+            code = gate.main()
+        return code, out.getvalue(), err.getvalue()
+
+    def test_a_comment_behind_the_versions_header_does_not_hide_the_table(self):
+        self.write_catalog(CATALOG.replace("[versions]\n", "[versions] # the versions\n"))
+        self.assertEqual(self.versions()["kotlin"], "2.4.10")
+
+    def test_a_single_quoted_value_is_read(self):
+        self.write_catalog(CATALOG.replace('kotlin = "2.4.10"', "kotlin = '2.4.10'"))
+        self.assertEqual(self.versions()["kotlin"], "2.4.10")
+
+    def test_a_comment_behind_the_header_does_not_hide_a_disagreement(self):
+        """The false failure this cost: a catalog that looked empty."""
+        self.write_catalog(
+            CATALOG.replace("[versions]\n", "[versions] # the versions\n").replace(
+                'kotlin = "2.4.10"', 'kotlin = "2.4.21"'
+            )
+        )
+        code, out, _ = self.run_main()
+        self.assertEqual(code, 1)
+        self.assertIn("2.4.21", out)
+        self.assertNotIn("no catalog versions", out)
+
+    def test_a_catalog_that_is_not_valid_toml_is_a_failure_with_a_message(self):
+        self.write_catalog("[versions\nkotlin = \n")
+        code, out, err = self.run_main()
+        self.assertEqual(code, 1)
+        self.assertIn("not valid TOML", err)
+        self.assertNotIn("Traceback", out + err)
+
+    def test_a_catalog_without_a_versions_table_fails_without_a_traceback(self):
+        """An unreadable catalog is a violation, not a crash."""
+        self.write_catalog('[libraries]\nkotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }\n')
+        code, out, _ = self.run_main()
+        self.assertEqual(code, 1)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("no catalog versions", out)
+
+
 if __name__ == "__main__":
     unittest.main()
