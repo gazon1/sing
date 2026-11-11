@@ -1,0 +1,505 @@
+"""Tests for the "Dependabot auto-merge" workflow.
+
+The workflow decides, on its own, which dependabot pull requests may merge
+themselves: a candidate that is a patch or a minor bump and whose own `CI gate`
+check-run is green gets squashed, everything else is left alone and explained
+in the job summary.
+
+Two properties of that decision are worth pinning, because both of them were
+once wrong in a way that was invisible until a pull request was merged or a
+whole batch died:
+
+* a conflicted pull request (`.mergeable_state == "dirty"`) is EXCLUDED — it is
+  reported as a warning, it is named in the "Excluded — conflicts" group of the
+  summary, and it is never handed to `gh pr merge` (which answers 405 and takes
+  the whole run down with it);
+* one refused merge does not stop the others — the failure is recorded, the
+  later pull requests are still merged, and the step reports the failure at the
+  end instead of aborting on the first one.
+
+The workflow's shell lives inside YAML, so the tests extract the `run:` script
+of a named step and run it with bash against a throwaway directory: a fake `gh`
+on PATH answers the API calls the workflow actually makes, `jq` is the real one
+when the machine has it, and the clock is a fake.
+
+The clock is a fake for a reason: the `checks` step polls until a deadline of
+thirty minutes, sleeping twenty seconds a round, so a pull request whose gate
+never turns green would otherwise keep the suite running for half an hour. The
+fake `date` jumps past that deadline on its second call, and every step runs
+under a subprocess timeout, so a workflow that stops honouring its own deadline
+fails the test in seconds instead of hanging it.
+
+Nothing here touches the network or the real `gh`: the stub directory comes
+first on PATH, and the fake `gh` only answers the two API URLs and the one
+merge the workflow performs.
+
+The properties asserted here:
+
+* a conflicted pull request is excluded and reported, and the run still ends
+  successfully;
+* a green pull request is merged, with the head commit that was verified pinned
+  by `--match-head-commit`;
+* a pull request whose check-run is not green is reported as waiting and is
+  never handed to `gh pr merge`;
+* a run in which every candidate is conflicted says so — the "Merged" group
+  reads "none" instead of being silent;
+* a refused merge is recorded and does not stop the merges that come after it,
+  and the step exits non-zero.
+"""
+
+import json
+import os
+import pathlib
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'dependabot-auto-merge.yml'
+
+#: The repository the workflow is asked about. The extracted script carries the
+#: literal `${{ github.repository }}`, which the test replaces before running it.
+REPOSITORY = 'acme/widgets'
+
+#: The PATH the workflow runs under: the stubs first, then the system
+#: directories the shell needs (`env`, `bash`, `jq`, `tr`, `cp`).
+SYSTEM_PATH = '/usr/local/bin:/usr/bin:/bin'
+
+#: How long a single step may take. The real `checks` step polls for thirty
+#: minutes; the fake clock ends that in milliseconds. A step that runs past
+#: this is a step that lost its deadline, and the test says so instead of
+#: hanging the suite.
+STEP_TIMEOUT = 60
+
+#: The stand-in for `gh`, for the two API calls the workflow makes and the one
+#: merge it performs. The state lives in files under $FAKE_GH_STATE, so a test
+#: can change the world between calls.
+FAKE_GH = '''#!/usr/bin/env python3
+"""A stand-in for `gh`, for the calls the workflow makes.
+
+* `gh api repos/OWNER/REPO/pulls/N` answers with the pull request: its
+  `.mergeable_state` and its `.head.sha`;
+* `gh api repos/OWNER/REPO/commits/SHA/check-runs?per_page=100` answers with
+  the check-runs of that commit, filtered by the workflow's own `--jq`
+  expression;
+* `gh pr merge N --squash --delete-branch --match-head-commit SHA` is recorded
+  and succeeds unless the test said that this pull request is refused.
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+STATE = os.environ['FAKE_GH_STATE']
+
+
+def _read(path, default=''):
+    try:
+        with open(path, encoding='utf-8') as handle:
+            return handle.read().strip()
+    except FileNotFoundError:
+        return default
+
+
+def _pull_request(number):
+    state = _read(os.path.join(STATE, 'pulls', number + '.json'))
+    return json.loads(state) if state else {}
+
+
+def _check_runs(sha):
+    conclusion = _read(os.path.join(STATE, 'checks', sha + '.conclusion'), 'success')
+    if conclusion == 'none':
+        return {'check_runs': []}
+    return {'check_runs': [{'id': 1, 'name': 'CI gate', 'conclusion': conclusion}]}
+
+
+def _apply_jq(expression, payload):
+    """The `--jq` of `gh api`, applied the way `gh` applies it."""
+    text = json.dumps(payload)
+    try:
+        jq = subprocess.run(['jq', '-r', expression], input=text, capture_output=True, text=True)
+    except FileNotFoundError:
+        jq = None
+    if jq is not None and jq.returncode == 0:
+        return jq.stdout
+    # No `jq` on the machine: the only filter the workflow uses asks for the
+    # conclusion of the last check-run named "CI gate".
+    runs = sorted(
+        (run for run in payload.get('check_runs', []) if run.get('name') == 'CI gate'),
+        key=lambda run: run.get('id', 0),
+    )
+    if not runs:
+        return 'missing\\n'
+    conclusion = runs[-1].get('conclusion')
+    return (conclusion or 'pending') + '\\n'
+
+
+def main(argv):
+    if not argv:
+        return 2
+    if argv[0] == 'api':
+        url = argv[1]
+        expression = None
+        rest = argv[2:]
+        while rest:
+            if rest[0] == '--jq' and len(rest) > 1:
+                expression = rest[1]
+                break
+            rest = rest[1:]
+        if '/check-runs' in url:
+            sha = url.split('/commits/', 1)[1].split('/check-runs', 1)[0]
+            payload = _check_runs(sha)
+        elif '/pulls/' in url:
+            number = url.rsplit('/pulls/', 1)[1].split('?', 1)[0]
+            payload = _pull_request(number)
+        else:
+            sys.stderr.write('fake gh: unexpected url %s\\n' % url)
+            return 2
+        if expression is None:
+            sys.stdout.write(json.dumps(payload) + '\\n')
+        else:
+            sys.stdout.write(_apply_jq(expression, payload))
+        return 0
+    if argv[0] == 'pr' and len(argv) > 1 and argv[1] == 'merge':
+        number = argv[2]
+        with open(os.path.join(STATE, 'merge_calls.log'), 'a', encoding='utf-8') as log:
+            log.write(' '.join(argv) + '\\n')
+        if os.path.exists(os.path.join(STATE, 'merge_refused', number)):
+            sys.stderr.write('fake gh: the merge of #%s was refused\\n' % number)
+            return 1
+        return 0
+    sys.stderr.write('fake gh: unsupported call %r\\n' % (argv,))
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
+'''
+
+#: The stand-in for `date`. The polling loop of the `checks` step waits for the
+#: CI gate to turn green until a deadline of thirty minutes, sleeping twenty
+#: seconds a round. The first call is the deadline itself; every later call is
+#: already past it, so the loop gives up on its second round instead of its
+#: ninetieth.
+FAKE_DATE = '''#!/usr/bin/env bash
+set -euo pipefail
+state="$FAKE_DATE_STATE"
+count=0
+if [ -f "$state" ]; then
+  count="$(cat "$state")"
+fi
+count=$((count + 1))
+printf '%s' "$count" > "$state"
+if [ "$count" -le 1 ]; then
+  echo 1000000
+else
+  echo 1003600
+fi
+'''
+
+#: The stand-in for `jq`, used only on a machine that has no `jq` of its own.
+#: It understands the two filters the workflow applies to the pull request.
+MINI_JQ = '''#!/usr/bin/env python3
+import json
+import sys
+
+expression = sys.argv[1]
+payload = json.load(sys.stdin)
+if expression.startswith('.mergeable_state'):
+    print(payload.get('mergeable_state') or 'unknown')
+elif expression.startswith('.head.sha'):
+    print((payload.get('head') or {}).get('sha', ''))
+else:
+    sys.stderr.write('mini jq: unsupported expression %s\\n' % expression)
+    sys.exit(2)
+'''
+
+
+def _steps(lines):
+    """The steps of the workflow's single job, as blocks of lines."""
+    start = None
+    for index, line in enumerate(lines):
+        if re.match(r'^ {4}steps:\s*$', line):
+            start = index
+            break
+    if start is None:
+        raise AssertionError('the workflow has no steps')
+
+    entries = []
+    indent = None
+    for index in range(start + 1, len(lines)):
+        match = re.match(r'^( +)- ', lines[index])
+        if match is None:
+            continue
+        if indent is None:
+            indent = len(match.group(1))
+        if len(match.group(1)) == indent:
+            entries.append(index)
+    if not entries:
+        raise AssertionError('the workflow has no steps')
+
+    blocks = []
+    for position, entry in enumerate(entries):
+        end = entries[position + 1] if position + 1 < len(entries) else len(lines)
+        blocks.append(lines[entry:end])
+    return blocks
+
+
+def _key(block, key, indent):
+    pattern = re.compile(r'^ {%d}%s: (.*)$' % (indent, key))
+    for line in block:
+        match = pattern.match(line)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def _step_name(block):
+    """The name of a step: it sits on the `- name:` line, not on its own key."""
+    match = re.match(r'^\s*- name: (.*)$', block[0])
+    return match.group(1).strip() if match else None
+
+
+def _run_script(block, indent):
+    """The `run:` script of a step, as a shell script."""
+    pattern = re.compile(r'^ {%d}run: (.*)$' % indent)
+    for position, line in enumerate(block):
+        match = pattern.match(line)
+        if not match:
+            continue
+        if match.group(1).strip() not in ('|', '|-', '|+'):
+            raise AssertionError('the run block is not a literal: %r' % match.group(1))
+        body = []
+        for line in block[position + 1:]:
+            if line.strip() and len(line) - len(line.lstrip()) <= indent:
+                break
+            body.append(line)
+        while body and not body[-1].strip():
+            body.pop()
+        if not body:
+            raise AssertionError('the run block is empty')
+        strip = len(body[0]) - len(body[0].lstrip())
+        return '\n'.join(line[strip:] if line.strip() else '' for line in body) + '\n'
+    raise AssertionError('the step has no run block')
+
+
+def _step_script(name=None, step_id=None):
+    """The script of one step of the workflow, with the repository filled in."""
+    lines = WORKFLOW.read_text(encoding='utf-8').splitlines()
+    for block in _steps(lines):
+        step_indent = len(block[0]) - len(block[0].lstrip()) + 2
+        if name is not None and _step_name(block) != name:
+            continue
+        if step_id is not None and _key(block, 'id', step_indent) != step_id:
+            continue
+        if name is None and step_id is None:
+            raise AssertionError('a step needs a name or an id')
+        script = _run_script(block, step_indent)
+        return script.replace('${{ github.repository }}', REPOSITORY)
+    raise AssertionError('no step named %r with id %r' % (name, step_id))
+
+
+def _summary_group(summary, heading):
+    """The lines of one `###` group of the job summary."""
+    lines = summary.splitlines()
+    try:
+        start = lines.index(heading)
+    except ValueError:
+        raise AssertionError('the summary has no group %r:\n%s' % (heading, summary))
+    group = []
+    for line in lines[start + 1:]:
+        if line.startswith('### '):
+            break
+        group.append(line)
+    return [line.strip() for line in group if line.strip()]
+
+
+class DependabotAutoMergeWorkflowTest(unittest.TestCase):
+    """The workflow excludes the pull requests it must not merge, and merges the rest."""
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='dependabot-auto-merge-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.stubs = self.tmp / 'stubs'
+        self.stubs.mkdir()
+        self.state = self.tmp / 'gh-state'
+        (self.state / 'pulls').mkdir(parents=True)
+        (self.state / 'checks').mkdir(parents=True)
+        (self.state / 'merge_refused').mkdir(parents=True)
+        self.runner_temp = self.tmp / 'runner-temp'
+        self.runner_temp.mkdir()
+        self.summary = self.runner_temp / 'step-summary.md'
+        self.summary.write_text('', encoding='utf-8')
+
+        self._write_stub('gh', FAKE_GH)
+        self._write_stub('date', FAKE_DATE)
+        if shutil.which('jq') is None:
+            self._write_stub('jq', MINI_JQ)
+
+    def _write_stub(self, name: str, body: str) -> None:
+        stub = self.stubs / name
+        stub.write_text(body, encoding='utf-8')
+        stub.chmod(0o755)
+
+    def _pull_request(self, number: str, mergeable_state: str, head_sha: str) -> None:
+        payload = {'mergeable_state': mergeable_state, 'head': {'sha': head_sha}}
+        (self.state / 'pulls' / f'{number}.json').write_text(
+            json.dumps(payload), encoding='utf-8'
+        )
+
+    def _check_run(self, sha: str, conclusion: str) -> None:
+        (self.state / 'checks' / f'{sha}.conclusion').write_text(conclusion, encoding='utf-8')
+
+    def _refuse_the_merge_of(self, number: str) -> None:
+        (self.state / 'merge_refused' / number).write_text('refused', encoding='utf-8')
+
+    def _merge_calls(self):
+        log = self.state / 'merge_calls.log'
+        if not log.exists():
+            return []
+        return [line for line in log.read_text(encoding='utf-8').splitlines() if line]
+
+    def _run_step(self, script: str) -> subprocess.CompletedProcess:
+        path = self.tmp / 'step.sh'
+        path.write_text(script, encoding='utf-8')
+        env = dict(os.environ)
+        env['PATH'] = f'{self.stubs}:{SYSTEM_PATH}'
+        env['RUNNER_TEMP'] = str(self.runner_temp)
+        env['GITHUB_STEP_SUMMARY'] = str(self.summary)
+        env['FAKE_GH_STATE'] = str(self.state)
+        env['FAKE_DATE_STATE'] = str(self.tmp / 'date-state')
+        try:
+            return subprocess.run(
+                ['bash', str(path)],
+                cwd=self.tmp,
+                capture_output=True,
+                text=True,
+                env=env,
+                check=False,
+                timeout=STEP_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            self.fail(
+                'the step did not finish in %d seconds: it is polling past its own deadline'
+                % STEP_TIMEOUT
+            )
+
+    def _summary(self) -> str:
+        return self.summary.read_text(encoding='utf-8')
+
+    def _candidates(self, *numbers: str) -> None:
+        """The pull requests the `bump` step handed on as mergeable."""
+        (self.runner_temp / 'mergeable.txt').write_text(
+            ''.join(f'{number}\n' for number in numbers), encoding='utf-8'
+        )
+        (self.runner_temp / 'skipped.txt').write_text('', encoding='utf-8')
+
+    def test_a_conflicted_pull_request_is_excluded_and_reported(self):
+        """A conflicted pull request is named in the summary and never merged."""
+        self._pull_request('12', 'dirty', 'sha-conflicted')
+        self._check_run('sha-conflicted', 'success')
+        self._candidates('12')
+
+        checks = self._run_step(_step_script(step_id='checks'))
+        self.assertEqual(0, checks.returncode, checks.stdout + checks.stderr)
+
+        merge = self._run_step(_step_script(name='Merge it'))
+        self.assertEqual(0, merge.returncode, merge.stdout + merge.stderr)
+
+        self.assertEqual([], self._merge_calls(), 'a conflicted pull request was merged')
+        self.assertIn('::warning::#12 has conflicts', checks.stdout)
+        conflicts = _summary_group(self._summary(), '### Excluded — conflicts')
+        self.assertIn('- #12 has conflicts and cannot be merged', conflicts)
+
+    def test_a_green_pull_request_is_merged_at_the_verified_head_commit(self):
+        """The merge is pinned to the head commit whose check-run was green."""
+        self._pull_request('7', 'clean', 'sha-green')
+        self._check_run('sha-green', 'success')
+        self._candidates('7')
+
+        checks = self._run_step(_step_script(step_id='checks'))
+        self.assertEqual(0, checks.returncode, checks.stdout + checks.stderr)
+
+        merge = self._run_step(_step_script(name='Merge it'))
+        self.assertEqual(0, merge.returncode, merge.stdout + merge.stderr)
+
+        self.assertEqual(
+            ['pr merge 7 --squash --delete-branch --match-head-commit sha-green'],
+            self._merge_calls(),
+        )
+        merged = _summary_group(self._summary(), '### Merged')
+        self.assertIn('- #7 (sha-green)', merged)
+
+    def test_a_pull_request_whose_check_run_is_not_green_is_waiting(self):
+        """A check-run that is not `success` leaves the pull request waiting."""
+        self._pull_request('9', 'clean', 'sha-red')
+        self._check_run('sha-red', 'failure')
+        self._candidates('9')
+
+        checks = self._run_step(_step_script(step_id='checks'))
+
+        # The run gives up on the deadline rather than merging an un-green pull
+        # request, and the summary says which one it was waiting for.
+        self.assertNotEqual(0, checks.returncode, checks.stdout + checks.stderr)
+        waiting = _summary_group(self._summary(), '### Waiting for a green CI gate')
+        self.assertIn('- #9', waiting)
+
+        # Nothing was handed to `gh pr merge`: the merge list was never written.
+        self.assertFalse(
+            (self.runner_temp / 'merge-now.txt').exists(),
+            'a waiting pull request was put in the merge list',
+        )
+        self.assertEqual([], self._merge_calls(), 'a waiting pull request was merged')
+
+    def test_a_run_in_which_every_candidate_is_conflicted_says_so(self):
+        """The "Merged" group reads "none" — a run that merged nothing is not silent."""
+        self._pull_request('21', 'dirty', 'sha-a')
+        self._pull_request('22', 'dirty', 'sha-b')
+        self._candidates('21', '22')
+
+        checks = self._run_step(_step_script(step_id='checks'))
+        self.assertEqual(0, checks.returncode, checks.stdout + checks.stderr)
+
+        merge = self._run_step(_step_script(name='Merge it'))
+        self.assertEqual(0, merge.returncode, merge.stdout + merge.stderr)
+
+        self.assertEqual([], self._merge_calls())
+        self.assertEqual(['- none'], _summary_group(self._summary(), '### Merged'))
+        conflicts = _summary_group(self._summary(), '### Excluded — conflicts')
+        self.assertIn('- #21 has conflicts and cannot be merged', conflicts)
+        self.assertIn('- #22 has conflicts and cannot be merged', conflicts)
+
+    def test_a_refused_merge_does_not_stop_the_merges_that_follow_it(self):
+        """One refused merge is recorded, the next pull request is still merged."""
+        self._pull_request('31', 'clean', 'sha-one')
+        self._pull_request('32', 'clean', 'sha-two')
+        self._check_run('sha-one', 'success')
+        self._check_run('sha-two', 'success')
+        self._refuse_the_merge_of('31')
+        self._candidates('31', '32')
+
+        checks = self._run_step(_step_script(step_id='checks'))
+        self.assertEqual(0, checks.returncode, checks.stdout + checks.stderr)
+
+        merge = self._run_step(_step_script(name='Merge it'))
+        self.assertNotEqual(0, merge.returncode, merge.stdout + merge.stderr)
+
+        self.assertEqual(
+            [
+                'pr merge 31 --squash --delete-branch --match-head-commit sha-one',
+                'pr merge 32 --squash --delete-branch --match-head-commit sha-two',
+            ],
+            self._merge_calls(),
+            'the merge that follows a refused one was never attempted',
+        )
+        merged = _summary_group(self._summary(), '### Merged')
+        self.assertIn('- #32 (sha-two)', merged)
+        refused = _summary_group(self._summary(), '### Not merged — the merge was refused')
+        self.assertIn('- #31 (sha-one)', refused)
+
+
+if __name__ == '__main__':
+    unittest.main()
