@@ -32,6 +32,20 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The ref every gate in this workflow measures a change against, named once
+  # for the whole workflow. On a pull request it is the branch the pull
+  # request targets. On a push there is no such branch — the branch that was
+  # pushed is the change itself, and a change measured against itself is
+  # measured against nothing — so the name stays empty and the chain in
+  # `sgate.gatekit.refs` answers: the integration branch, then the trunk.
+  #
+  # The gates read it through `SGATE_BASE_REF` (ADR
+  # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
+  # and a named base is exclusive: the gates never fall back to another
+  # branch, so every gate in a run compares against the same thing.
+  SGATE_BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) }}
+
 
 jobs:
   # Path-filter detection — always runs so ci-gate can wait for it; downstream jobs
@@ -188,15 +202,6 @@ jobs:
       # `actions: read`. Without it the cache restore is refused and the gate
       # that resolves the build runs against a cold Gradle home again.
       actions: read
-    env:
-      # The ref the change is measured against, named once for every gate in
-      # this job. On a pull request it is the branch the pull request targets;
-      # on a push it is the branch that was pushed. The gates read it through
-      # `SGATE_BASE_REF` (ADR
-      # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
-      # and a named base is exclusive: the gates never fall back to another
-      # branch, so every gate in this job compares against the same thing.
-      SGATE_BASE_REF: origin/${{ github.base_ref || github.ref_name }}
     # Run when scripts/docs changed, or when anything changed on main (always), or on
     # workflow_dispatch (manual trigger).
     if: >
@@ -208,7 +213,7 @@ jobs:
       )
     steps:
       # The baseline ratchet compares the working tree against the merge-base
-      # with the base named in `SGATE_BASE_REF` above, so that ref has to
+      # with the base named in `SGATE_BASE_REF` in the workflow, so that ref has to
       # exist. A shallow checkout has no such ref: the comparison would fall
       # back to `HEAD`, and on a pull request `HEAD` is the file against
       # itself — a check that cannot see the branch's own growth is not a
@@ -606,19 +611,10 @@ jobs:
     permissions:
       actions: read
       contents: read
-    env:
-      # The ref the change is measured against, named once for every step in
-      # this job. On a pull request it is the branch the pull request targets;
-      # on a push it is the branch that was pushed. The map reads it through
-      # `SGATE_BASE_REF` (ADR
-      # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
-      # and a named base is exclusive: the map never falls back to another
-      # branch, so the selection is always about the same comparison.
-      SGATE_BASE_REF: origin/${{ github.base_ref || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # The map compares against the base named in `SGATE_BASE_REF` above,
+          # The map compares against the base named in `SGATE_BASE_REF` in the workflow,
           # so that ref has to exist. A shallow checkout has no such ref, and
           # the tool refuses a base it cannot resolve — a comparison that could
           # not be made is not a comparison that found nothing.

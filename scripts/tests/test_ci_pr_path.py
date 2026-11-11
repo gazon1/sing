@@ -658,6 +658,43 @@ class ControlHarnessPlacement(unittest.TestCase):
         self.assertIn("gates", jobs["changes"].get("outputs", {}))
 
 
+class OneBaseRefForTheWholeWorkflow(unittest.TestCase):
+    """The base ref is named once, and never as the branch that was pushed."""
+
+    def test_the_workflow_names_the_base_ref_once(self):
+        """The workflow names the base, and the jobs inherit it.
+
+        Every gate that measures a change reads the base through
+        `SGATE_BASE_REF`. A job that names its own base — or a workflow that
+        names none — is a run in which two gates measure two different
+        changes, and nothing says so.
+        """
+        workflow = _workflow()
+        env = workflow.get("env") or {}
+        self.assertIn("SGATE_BASE_REF", env)
+
+        for name, job in _jobs().items():
+            job_env = job.get("env") or {}
+            self.assertNotIn(
+                "SGATE_BASE_REF",
+                job_env,
+                f"the {name} job names its own base — the workflow names it once",
+            )
+
+    def test_the_named_base_is_never_the_branch_that_was_pushed(self):
+        """The base is the branch a pull request targets, never the pushed one.
+
+        On a push the branch that was pushed IS the change, and a change
+        measured against itself is measured against nothing: the ratchet
+        compares the baseline with itself and reports no growth. The name is
+        therefore the pull request's target branch, and on a push it stays
+        empty — the chain in `sgate.gatekit.refs` answers then.
+        """
+        value = (_workflow().get("env") or {}).get("SGATE_BASE_REF", "")
+        self.assertIn("github.base_ref", value)
+        self.assertNotIn("github.ref_name", value)
+
+
 def _filters(changes_job: dict) -> dict:
     """The paths-filter's filters, parsed."""
     for step in changes_job.get("steps", []) or []:
