@@ -5,6 +5,12 @@ status: accepted
 tags: [security, secure-storage, desktop, jvm]
 ---
 
+> **Superseded in part (2026-11-04):** the `isHardwareBacked()` flag this record names was
+> renamed to `usesPlatformKeyStore()` and now answers which store holds the secret; the
+> OS-name conjunct behind it was removed. Everything this record says about the fallback
+> itself still holds.
+> See [2026-11-04-the-secure-storage-flag-names-the-store-not-the-hardware.md](2026-11-04-the-secure-storage-flag-names-the-store-not-the-hardware.md).
+
 # The JVM AES-GCM fallback is obfuscation, not a secret store
 
 ## Context

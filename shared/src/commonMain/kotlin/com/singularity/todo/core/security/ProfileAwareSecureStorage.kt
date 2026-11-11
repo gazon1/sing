@@ -38,5 +38,5 @@ class ProfileAwareSecureStorage(
         delegate.delete(prefixed(key))
     }
 
-    override fun isHardwareBacked(): Boolean = delegate.isHardwareBacked()
+    override fun usesPlatformKeyStore(): Boolean = delegate.usesPlatformKeyStore()
 }
