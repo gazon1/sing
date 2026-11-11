@@ -1,0 +1,18 @@
+# Opens the Archive screen from the app menu.
+#
+# The Archive is a menu destination, not a tab: the app menu first, then the
+# entry. Callers wait for the screen's own content after this.
+appId: com.singularity.todo
+---
+- runFlow: open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_archive
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_archive

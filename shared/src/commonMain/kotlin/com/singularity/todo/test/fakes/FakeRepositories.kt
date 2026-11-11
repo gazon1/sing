@@ -741,6 +741,8 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     override fun watchTrash(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
+    override fun watchArchivableCountForUser(userId: String): Flow<Int> = error("not implemented")
+
     override suspend fun getTrashForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> =
         error("not implemented")
 
@@ -1014,14 +1016,27 @@ open class FakeTaskRepository(
 
     override suspend fun currentUserId(): UserId = currentUser.scopedUserId.value
 
+    // The production read is `watchActive`, which excludes archived rows. The fake
+    // used to return them, so a test that counted or listed from `observeAll()`
+    // passed against a wider set than production returns. The trash is observed
+    // through `observeByFilter(Trash)`, not through this read.
     override fun observeAll(): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
             store.state
                 .onStart { emit(store.state.value) }
                 .map { map ->
                     map.values
-                        .filter { it.userId == uid }
+                        .filter { it.userId == uid && !it.isTrashed }
                         .toList()
+                }
+        }
+
+    override fun observeArchivableCount(): Flow<Int> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state
+                .onStart { emit(store.state.value) }
+                .map { map ->
+                    map.values.count { it.userId == uid && it.isCompleted && !it.isTrashed }
                 }
         }
 
@@ -3983,5 +3998,17 @@ class FakeArchiveRepository : ArchiveRepository {
     /** When set, the archive answers with this instead of succeeding with zero rows. */
     var archiveCompletedTasksOverride: Result<Int>? = null
 
-    override suspend fun archiveCompletedTasks(): Result<Int> = archiveCompletedTasksOverride ?: Result.success(0)
+    /**
+     * How many times the sweep was asked for.
+     *
+     * A double confirmation must ask once; a call counter is the only way the state
+     * can tell "the guard worked" from "the second write happened to change nothing".
+     */
+    var archiveCompletedTasksCalls: Int = 0
+        private set
+
+    override suspend fun archiveCompletedTasks(): Result<Int> {
+        archiveCompletedTasksCalls++
+        return archiveCompletedTasksOverride ?: Result.success(0)
+    }
 }

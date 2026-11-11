@@ -425,7 +425,9 @@ non-alphanumeric characters with `_`.
 
 | Constant | Value | Where |
 |---|---|---|
+| `ARCHIVE_BULK_ACTION` | `archive_bulk_action` | |
 | `ARCHIVE_EMPTY` | `archive_empty` | |
+| `ARCHIVE_OVERFLOW` | `archive_overflow` | |
 | `ATTACHMENTS_ADD_FILE_ROW` | `attachments_add_file_row` | |
 | `ATTACHMENTS_ADD_URL_BUTTON` | `attachments_add_url_button` | |
 | `ATTACHMENTS_PICK_FILE_BUTTON` | `attachments_pick_file_button` | |

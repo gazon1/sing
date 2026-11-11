@@ -97,6 +97,7 @@ their logic.
 | `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
+| `open-archive.yaml` | Opens the Archive screen from the app menu |
 | `expand-projects-section.yaml` | Flows needing a project from the menu's tree; the Projects section is folded until it is unfolded, and the unfold is safe to repeat |
 | `open-settings.yaml` | Opens Settings from the app menu and waits for the settings tab control |
 | `settings-tab.yaml` | Flows opening a settings tab by name (`SETTINGS_TAB: settings_tab_account`); it opens the narrow settings sheet, scrolls the row into view and taps it |
@@ -224,7 +225,7 @@ wherever the flow lives. `scripts/src/emulator/maestro/_flow.py` reads the
 tag, `scripts/ci/check-maestro-results.py` measures the same set, and
 `scripts/check-maestro-smoke-suite.py` holds this number to the tag.
 
-Current smoke flows (29):
+Current smoke flows (30):
 
 The flows are not written out here on purpose. A written-out list is a second
 place for the suite to be wrong, and this one was wrong for months: it said

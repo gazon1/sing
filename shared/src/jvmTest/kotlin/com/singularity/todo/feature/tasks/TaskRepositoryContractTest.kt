@@ -124,6 +124,31 @@ abstract class TaskRepositoryContractTest {
             assertTrue(repo.observeAll().first().any { it.id.value == "t1" })
         }
 
+    /**
+     * The count the Archive screen labels its bulk action with.
+     *
+     * It has to be the set the write would move: completed and live. An open task is
+     * not eligible, and an archived one is already where the write would put it. The
+     * real implementation answers with a `COUNT(*)`; the fake counts the stored rows.
+     * Both are held to the same answer here.
+     */
+    @Test
+    fun `the archivable count is the completed live tasks`() =
+        runTest {
+            val repo = newRepository(alice)
+            val at = Instant.fromEpochMilliseconds(1_000)
+            repo.create(task("completed").copy(completedAt = at)).getOrThrow()
+            repo.create(task("active")).getOrThrow()
+            repo.create(task("archived").copy(completedAt = at, archivedAt = at)).getOrThrow()
+            advanceUntilIdle()
+
+            assertEquals(
+                1,
+                repo.observeArchivableCount().first(),
+                "only the completed live task is archivable",
+            )
+        }
+
     @Test
     fun `create returns the created task`() =
         runTest {

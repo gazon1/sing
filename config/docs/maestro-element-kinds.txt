@@ -30,6 +30,8 @@ agenda_section_overdue item
 agenda_section_today item
 agenda_section_tomorrow item
 android:id/button1 button
+archive_bulk_action menu
+archive_empty text
 attachments_add_file_row item
 attachments_url_input field
 auth_attach_account_button button
@@ -123,6 +125,7 @@ recurrence_option_daily dialog
 # wait is for the answer and not for the dialog: every flow that waits for it
 # waits for a round-trip to finish first.
 result_dialog network
+result_dialog_confirm button
 saved_agenda_card_${RUN_ID}_copy_source item
 saved_agenda_card_${RUN_ID}_journey_renamed item
 saved_agenda_card_${RUN_ID}_journey_view item
