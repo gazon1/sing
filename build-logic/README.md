@@ -98,13 +98,18 @@ printf 'plugins { `kotlin-dsl` }\n' > "$SCRATCH/build.gradle.kts"
 
 `KotlinMultiplatformLibraryConventionPlugin.kt` is not in that list, and it
 is not only because it needs more on the classpath: **it does not compile as
-written.** Two of its references name things that do not exist —
+written.** Three of its references name things that do not exist —
 
 - it imports `com.android.build.api.dsl.MultiplatformExtension`, and the AGP
   type for that plugin is `com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryExtension`;
 - it applies the plugin id `com.android.multiplatform-library`, and AGP ships
   `com.android.kotlin.multiplatform.library` — the id this repository's own
-  catalog uses.
+  catalog uses;
+- it applies the plugin id `io.room.incremental`, and Room 3 publishes only
+  `androidx.room3` — also the id this repository's own catalog uses.
+
+Only the first is a compile error. The other two are plugin ids that fail when
+the plugin is applied, and nothing applies it.
 
 Adding AGP and KGP to the classpath does not make it compile. It is a
 reference implementation of a migration that has not happened yet, and

@@ -13,10 +13,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
  * The migration plan lives in `build-logic/README.md` — one home for it, so the
  * plan cannot drift away from the tree it describes.
  *
- * This file does not compile as written: it imports
- * `com.android.build.api.dsl.MultiplatformExtension`, which AGP does not ship,
- * and it applies the plugin id `com.android.multiplatform-library`, which AGP
- * does not publish. The README says so and says what the real names are.
+ * This file does not compile as written: it references three names that do
+ * not exist — a class AGP does not ship and two plugin ids nobody publishes.
+ * The README says so and says what the real names are.
  */
 class KotlinMultiplatformLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
