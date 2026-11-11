@@ -330,6 +330,42 @@ class SetupGradleHomeTest(unittest.TestCase):
         self.assertTrue(keystore.is_dir(), 'the keystore directory is missing')
         self.assertFalse(keystore.is_symlink(), 'the keystore is a link — it must be private')
 
+    def test_the_old_linked_caches_directory_is_migrated_even_when_the_shared_one_is_gone(self):
+        """The shared cache was cleaned away; the old link to it still goes.
+
+        The old layout linked `caches/` itself into the shared home. A link is a
+        link whether or not its target still exists: as long as it is there,
+        the keystore lands in the shared home the day that directory is back.
+        """
+        self.private.mkdir(parents=True)
+        (self.private / 'caches').symlink_to(self.shared / 'caches')
+
+        result = self._run()
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        local_caches = self.private / 'caches'
+        self.assertFalse(local_caches.is_symlink(), 'the old link to caches/ was kept')
+        self.assertTrue(local_caches.is_dir(), 'the local caches/ directory was not created')
+        self.assertFalse(
+            (self.shared / 'caches').exists(),
+            'the shared home was given a caches/ directory it does not have',
+        )
+
+    def test_the_old_linked_version_directory_is_migrated_even_when_the_shared_one_is_gone(self):
+        """A version link into a shared cache that is gone goes as well."""
+        (self.private / 'caches').mkdir(parents=True)
+        (self.private / 'caches' / VERSION).symlink_to(self.shared / f'caches/{VERSION}')
+
+        result = self._run()
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        local_caches = self.private / 'caches'
+        self.assertEqual(
+            [],
+            [child.name for child in local_caches.iterdir() if child.is_symlink()],
+            'a link into the shared home survived — the keystore would land in it',
+        )
+
     # ── a version the shared home does not have yet ────────────────────────
 
     def test_a_local_only_version_directory_is_moved_into_the_shared_home(self):

@@ -85,13 +85,16 @@ GRADLE_VERSION_DIR_RE='^[0-9]+(\.[0-9]+)*'
 shared_caches="${HOME}/.gradle/caches"
 local_caches="${guh}/caches"
 
+# The old layout linked `caches/` itself into the shared home. The link goes
+# — whether or not the shared directory it pointed at still exists: a dangling
+# link is still a link into the shared home, and the day that directory is
+# back, the keystore lands in it again.
+if [[ -L "$local_caches" ]]; then
+    rm -f "$local_caches"
+    mkdir -p "$local_caches"
+fi
+
 if [[ -d "$shared_caches" ]]; then
-    if [[ -L "$local_caches" ]]; then
-        # The old layout: `caches/` itself was a link to the shared one, and the
-        # keystore came with it. The link goes; the shared directory it pointed
-        # at is untouched.
-        rm -f "$local_caches"
-    fi
     mkdir -p "$local_caches"
 
     # The Gradle versions: the shared home's and the local one's. A version
@@ -177,6 +180,15 @@ if [[ -d "$shared_caches" ]]; then
             continue
         fi
         link_entry "$entry" "${local_caches}/${name}"
+    done
+else
+    # The shared home has no caches at all. A version directory that is still a
+    # link into it points at a directory that is gone: the link goes, so the
+    # keystore cannot land in the shared home the day that directory is back.
+    for local_version in "${local_caches}"/*; do
+        if [[ -L "$local_version" ]]; then
+            rm -f "$local_version"
+        fi
     done
 fi
 
