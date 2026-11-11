@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.systemToday
-import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.ContentState
@@ -78,59 +78,62 @@ fun ArchiveScreen(
                     .padding(padding)
                     .padding(horizontal = 16.dp),
         ) {
-            RefreshableContent {
-                when (val s = state) {
-                    ArchiveUiState.Loading -> {
-                        LoadingIndicator()
-                    }
+            // No RefreshableContent here on purpose. The shared refresh gesture's
+            // first step is the bulk archive, so a pull on this screen would be the
+            // unconfirmed bulk write the overflow action exists to replace. The other
+            // screens keep the gesture; this one's only bulk path is the confirmed
+            // overflow item.
+            when (val s = state) {
+                ArchiveUiState.Loading -> {
+                    LoadingIndicator()
+                }
 
-                    is ArchiveUiState.Error -> {
-                        StatefulContent(
-                            state = ContentState.Error(AppError.Unknown(s.message, code = "archive.load_failed")),
-                            emptyTitle = "",
-                            onRetry = { viewModel.onIntent(ArchiveIntent.Retry) },
-                            modifier = Modifier.fillMaxSize(),
-                        ) { _, _ -> }
-                    }
+                is ArchiveUiState.Error -> {
+                    StatefulContent(
+                        state = ContentState.Error(AppError.Unknown(s.message, code = "archive.load_failed")),
+                        emptyTitle = "",
+                        onRetry = { viewModel.onIntent(ArchiveIntent.Retry) },
+                        modifier = Modifier.fillMaxSize(),
+                    ) { _, _ -> }
+                }
 
-                    is ArchiveUiState.Content -> {
-                        if (s.tasks.isEmpty()) {
-                            EmptyState(
-                                title = "Archive is empty",
-                                subtitle = "Completed tasks you archive will appear here",
-                                testTag = TestTags.ARCHIVE_EMPTY,
-                            )
-                        } else {
-                            val blockedTaskIds = remember(s.tasks) { Blocking.blockedTaskIds(s.tasks).toImmutableSet() }
-                            LazyColumn(
-                                modifier = Modifier.widthIn(max = 640.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                items(s.tasks, key = { it.id.value }) { task ->
-                                    TaskCard(
-                                        task = task,
-                                        today = systemToday(),
-                                        blockedTaskIds = blockedTaskIds,
-                                        onClick = {
-                                            navigator.navigate(
-                                                AppDestination.TasksGraph(
-                                                    AppDestination.TasksStartRoute.Detail(task.id),
-                                                ),
-                                            )
-                                        },
-                                        actions =
-                                            TaskCardActions(
-                                                onAiClick = {
-                                                    navigator.navigate(
-                                                        AppDestination.TasksGraph(
-                                                            AppDestination.TasksStartRoute.Detail(task.id),
-                                                        ),
-                                                    )
-                                                },
+                is ArchiveUiState.Content -> {
+                    if (s.tasks.isEmpty()) {
+                        EmptyState(
+                            title = "Archive is empty",
+                            subtitle = "Completed tasks you archive will appear here",
+                            testTag = TestTags.ARCHIVE_EMPTY,
+                        )
+                    } else {
+                        val blockedTaskIds = remember(s.tasks) { Blocking.blockedTaskIds(s.tasks).toImmutableSet() }
+                        LazyColumn(
+                            modifier = Modifier.widthIn(max = 640.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            items(s.tasks, key = { it.id.value }) { task ->
+                                TaskCard(
+                                    task = task,
+                                    today = systemToday(),
+                                    blockedTaskIds = blockedTaskIds,
+                                    onClick = {
+                                        navigator.navigate(
+                                            AppDestination.TasksGraph(
+                                                AppDestination.TasksStartRoute.Detail(task.id),
                                             ),
-                                    )
-                                }
+                                        )
+                                    },
+                                    actions =
+                                        TaskCardActions(
+                                            onAiClick = {
+                                                navigator.navigate(
+                                                    AppDestination.TasksGraph(
+                                                        AppDestination.TasksStartRoute.Detail(task.id),
+                                                    ),
+                                                )
+                                            },
+                                        ),
+                                )
                             }
                         }
                     }
@@ -166,6 +169,14 @@ private fun ArchiveTopBar(
     val content = state as? ArchiveUiState.Content
     val eligible = content?.eligibleCount ?: 0
     val archiving = content?.archiving == true
+
+    // The dialog is *closed*, not merely hidden, when the count reaches zero: the
+    // `if` below only stops drawing it, and leaving `confirming` true made it
+    // reappear by itself if another task became completed later. The user confirmed
+    // nothing while the count was zero, and the old dialog is not a pending answer.
+    LaunchedEffect(eligible) {
+        if (eligible == 0) confirming = false
+    }
 
     TopAppBar(
         title = { Text("Archive") },
@@ -203,9 +214,6 @@ private fun ArchiveTopBar(
         },
     )
 
-    // The count can fall to zero while the dialog is open — another device archived
-    // the same work. Closing it is the honest answer: there is nothing left to
-    // confirm, and a "0 tasks" dialog would name an operation nobody can perform.
     if (confirming && eligible > 0) {
         ConfirmActionDialog(
             title = "Archive completed tasks?",

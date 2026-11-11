@@ -21,6 +21,10 @@ press by accident.
 - Report the repository's archived count on success, say when a confirmed sweep
   archived nothing, and report a failed sweep to the user instead of leaving it
   silent.
+- Remove the destructive pull-to-refresh path from the Archive screen: the
+  confirmed overflow item is the only bulk path there.
+- Close the confirmation when the eligible count reaches zero; it must not
+  reopen when eligibility returns.
 - Update the empty-state copy, which currently points at the removed button.
 - **No bulk undo or bulk restore.** The confirmation replaces an undo offer the
   system cannot honour today; a snackbar claiming the batch can be undone would
@@ -42,9 +46,9 @@ None.
 
 - The Archive screen and its ViewModel in the shared feature; two new test tags.
 - Desktop flow coverage and one Maestro archive flow.
-- The refresh gesture on the Archive screen still runs the archive sweep without
-  a confirmation. That interaction is unchanged and recorded as a follow-up in
-  the ADR.
+- The Archive screen no longer uses the shared refresh container, whose first
+  step is the unconfirmed bulk archive. The other screens' refresh behavior is
+  unchanged.
 - One read-only count query in the repository. No schema, write or sync change.
 
 ## References

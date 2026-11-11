@@ -16,9 +16,11 @@ There is no bulk restore. A task can be restored individually from its detail
 screen, but the confirmation cannot promise that the whole batch is one tap away
 from coming back.
 
-The refresh gesture already runs the same sweep: every screen wrapped in
-`RefreshableContent` archives completed tasks and then synchronises
-(`2026-10-25-the-refresh-is-one-run.md`). The Archive screen is one of them.
+The refresh gesture runs the same sweep on every screen wrapped in
+`RefreshableContent`: the first step archives completed tasks, then it
+synchronises (`2026-10-25-the-refresh-is-one-run.md`). The Archive screen used
+to be one of them. A pull there was not a refresh — it was the same unconfirmed
+bulk write this decision is about, reached by a gesture instead of a button.
 
 ## Idea
 
@@ -43,7 +45,14 @@ that moved nothing says so rather than staying silent.
 
 The confirmation is the shared dialog, not a bespoke one, so it carries the
 `dialog_confirm` / `dialog_dismiss` tags the Android flows already address
-(`2026-09-29-maestro-dialog-buttons-no-testtag.md`).
+(`2026-09-29-maestro-dialog-buttons-no-testtag.md`). It is closed — not merely
+hidden — when the count reaches zero: a dialog that came back by itself when
+another task became completed would name an answer the user never gave.
+
+The Archive screen does not use `RefreshableContent`. The shared refresh's
+first step is the bulk archive, so a pull on this screen would be the
+unconfirmed sweep the overflow action replaces. The other screens keep the
+gesture; their bulk-archive behavior is the refresh decision's, not this one's.
 
 ## Rationale
 
@@ -72,10 +81,11 @@ predicate, so the number and the sweep cannot disagree.
   when the count is zero — another device may have moved the same work.
 - The repository gains one read-only count query. It has no write or schema
   impact, and its predicate is the same one the bulk `UPDATE` uses.
-- **Open follow-up:** pull-to-refresh on the Archive screen runs the same sweep
-  without a confirmation. This decision does not change that path; if bulk
-  archiving needs confirmation as a safety rule rather than as a placement rule,
-  the refresh gesture has to be decided separately.
+- The Archive screen has no pull-to-refresh. Its content is no longer wrapped in
+  `RefreshableContent`, because that container's first step is the unconfirmed
+  bulk archive. The other screens keep the shared gesture.
+- The confirmation is closed when the eligible count reaches zero, and a later
+  eligibility change does not reopen it.
 - `autoArchiveRetentionDays` is honoured by the background job (`ArchiveJob`),
   while the manual sweep and the refresh sweep take every completed task. The
   new copy says "completed tasks" and does not imply the retention window

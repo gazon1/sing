@@ -9,12 +9,14 @@
 The Archive screen SHALL offer a single bulk action that moves every completed
 live task of the active profile to the archive. The action SHALL be reachable
 from the screen's top-bar overflow, SHALL be unavailable when no task is
-eligible, and SHALL be confirmed before it writes.
+eligible, and SHALL be confirmed before it writes. The Archive screen SHALL NOT
+run the sweep from a gesture that is not that confirmed action.
 
 The confirmation SHALL name the number of eligible tasks. Dismissing it SHALL
-perform no write. A confirmed sweep SHALL report the number of tasks the
-repository actually archived, or say that nothing was archived, and a failed
-sweep SHALL be reported to the user.
+perform no write. It SHALL close when the eligible count reaches zero, and it
+SHALL NOT reopen when eligibility returns. A confirmed sweep SHALL report the
+number of tasks the repository actually archived, or say that nothing was
+archived, and a failed sweep SHALL be reported to the user.
 
 #### Scenario: The action is in the overflow, not in the content
 
@@ -22,12 +24,25 @@ sweep SHALL be reported to the user.
 - **Then** no full-width bulk-archive control is present in the content area
 - **And** the bulk action is reachable from the top-bar overflow
 
+#### Scenario: A pull on the Archive screen does not archive
+
+- **Given** the Archive screen
+- **When** the user pulls the content down
+- **Then** no task is archived by the gesture
+
 #### Scenario: The confirmation names the count
 
 - **Given** three completed tasks that are not archived
 - **When** the user opens the bulk action
 - **Then** the confirmation names three eligible tasks
 - **And** the confirm action names the same number
+
+#### Scenario: The confirmation closes when eligibility reaches zero
+
+- **Given** the confirmation is open for some eligible tasks
+- **When** another device archives those tasks
+- **Then** the confirmation closes
+- **And** it does not reopen when a new task becomes eligible
 
 #### Scenario: Cancel writes nothing
 

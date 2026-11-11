@@ -27,6 +27,10 @@ Read first: ADR `2026-11-11-the-bulk-archive-lives-in-the-overflow.md`.
       **Test:** `ArchiveViewModelTest` — the success event carries the count; the
       zero-result sweep emits the neutral event; a single task is reported in the
       singular; the failure event and the reporter entry are present.
+- [x] shared/ — A failed sweep clears the in-flight guard, so the action is
+      available again.
+      **Test:** `ArchiveViewModelTest` — a failed sweep leaves `archiving` false
+      and the next dispatch reaches the repository.
 
 ## 2. The screen offers the confirmed overflow action
 
@@ -38,6 +42,15 @@ Read first: ADR `2026-11-11-the-bulk-archive-lives-in-the-overflow.md`.
 - [x] shared/ — Cancel leaves the task live; Confirm archives it.
       **Test:** `ArchiveBulkActionFlowTest` — the repository's archived state is
       read after each action.
+- [x] shared/ — The confirmation closes when the eligible count reaches zero and
+      does not reopen when eligibility returns.
+      **Test:** `ArchiveBulkActionFlowTest` — the dialog is dismissed by a
+      zero count, and a later eligible task does not bring it back.
+- [x] shared/ — The Archive screen no longer uses the shared refresh container,
+      whose first step is the unconfirmed bulk archive. The other screens keep
+      the gesture.
+      **Test:** the screen has no `RefreshableContent`; the spec scenario "A pull
+      on the Archive screen does not archive".
 - [x] shared/ — Update the empty-state copy and remove the button from the
       preview.
       **Test:** `Maestro/flows/negative/04-empty-archive.yaml` still reaches the

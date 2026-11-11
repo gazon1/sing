@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -236,6 +237,37 @@ class ArchiveViewModelTest {
             } finally {
                 collector.cancel()
             }
+        }
+
+    /**
+     * A failed sweep must clear the in-flight guard.
+     *
+     * The guard lives in the ViewModel because the dialog's confirm button has no
+     * `enabled` gate of its own. A failure that left the flag set would leave the
+     * action unavailable until the screen was recreated.
+     */
+    @Test
+    fun `a failed sweep makes the action available again`() =
+        runTest {
+            archiveRepo.archiveCompletedTasksOverride = Result.failure(IllegalStateException("disk full"))
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(ArchiveIntent.ArchiveCompletedTasks)
+            runCurrent()
+
+            val afterFailure = assertIs<ArchiveUiState.Content>(vm.stateFlow.value)
+            assertFalse(afterFailure.archiving, "a failed sweep must clear the in-flight guard")
+
+            archiveRepo.archiveCompletedTasksOverride = Result.success(1)
+            vm.onIntent(ArchiveIntent.ArchiveCompletedTasks)
+            runCurrent()
+
+            assertEquals(
+                2,
+                archiveRepo.archiveCompletedTasksCalls,
+                "the action must be available again after a failed sweep",
+            )
         }
 
     /** A single archived task is reported in the singular, not as "1 tasks". */

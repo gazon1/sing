@@ -6,7 +6,7 @@
 # The action used to be a full-width button. This flow pins the replacement and
 # the two outcomes that matter: a cancel must leave the task in the live list,
 # and a confirm must put it in the archive. See
-# docs/decisions/2026-11-11-archive-bulk-action-lives-in-the-overflow.md.
+# docs/decisions/2026-11-11-the-bulk-archive-lives-in-the-overflow.md.
 appId: com.singularity.todo
 name: archive-bulk-confirm
 tags:

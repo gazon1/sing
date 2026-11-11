@@ -11,6 +11,7 @@ import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -76,6 +77,38 @@ class ArchiveBulkActionFlowTest {
             // the finished operation rather than about the click.
             assertTagDisplayed(TestTags.taskItem(TITLE))
             assertNotNull(archivedAt(koin), "Confirm must archive the completed task")
+        }
+
+    @Test
+    @DisplayName("a confirmation does not reappear after eligibility returns")
+    fun the_confirmation_does_not_reappear_after_eligibility_returns() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = TODAY, title = TITLE, completed = true)
+
+            tapTab("Archive")
+            assertTagDisplayed(TestTags.ARCHIVE_EMPTY)
+
+            clickTag(TestTags.ARCHIVE_OVERFLOW)
+            awaitTag(TestTags.ARCHIVE_BULK_ACTION)
+            clickTag(TestTags.ARCHIVE_BULK_ACTION)
+            assertTagDisplayed(TestTags.Dialog.CONFIRM)
+
+            // Another device moves the same work while the dialog is open.
+            val repo = koin.get<TaskRepository>()
+            val completed = repo.observeAll().first().single { it.title == TITLE }
+            repo.softDelete(completed.id).getOrThrow()
+            awaitTagGone(TestTags.Dialog.CONFIRM)
+
+            // Eligibility comes back. The confirmation the user never answered
+            // while the count was zero must not come back with it.
+            tasks(koin).given(due = TODAY, title = "Second task", completed = true)
+
+            // Opening the menu is also the proof the dialog is gone: if it came
+            // back, it covers the overflow and this item is not the one on screen.
+            clickTag(TestTags.ARCHIVE_OVERFLOW)
+            awaitText("Archive completed tasks (1)")
+            assertTagTextEquals(TestTags.ARCHIVE_BULK_ACTION, "Archive completed tasks (1)")
+            awaitTagGone(TestTags.Dialog.CONFIRM)
         }
 
     @Test
