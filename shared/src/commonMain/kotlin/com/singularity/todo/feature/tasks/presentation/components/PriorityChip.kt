@@ -21,6 +21,13 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.priority_none
+import singularity_todo.shared.generated.resources.priority_word_high
+import singularity_todo.shared.generated.resources.priority_word_low
+import singularity_todo.shared.generated.resources.priority_word_medium
+import singularity_todo.shared.generated.resources.priority_word_urgent
 
 /**
  * The chip's own priority tint.
@@ -62,12 +69,28 @@ fun PriorityChip(
         )
         Spacer(Modifier.width(TaskListSpacing.Xs))
         Text(
-            text = priority.name,
+            text = priorityWord(priority),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/**
+ * The chip's word for the priority, in the user's language.
+ *
+ * Not `priority.name`: the enum's constant is a code identifier, and the app
+ * ships a Russian locale where every other priority string is translated.
+ */
+@Composable
+private fun priorityWord(priority: TaskPriority): String =
+    when (priority) {
+        TaskPriority.Low -> stringResource(Res.string.priority_word_low)
+        TaskPriority.Medium -> stringResource(Res.string.priority_word_medium)
+        TaskPriority.High -> stringResource(Res.string.priority_word_high)
+        TaskPriority.Urgent -> stringResource(Res.string.priority_word_urgent)
+        TaskPriority.None -> stringResource(Res.string.priority_none)
+    }
 
 // ===== Preview =====
 
