@@ -73,10 +73,6 @@ class TaskRowDensityTest {
 
             val row = unclippedBoundsOfTagInUnmergedTree(TestTags.taskItem(ONE_LINE))
             assertDp(MAX_ONE_LINE_ROW, row.heightDp(), "a one-line row's height")
-            assertTrue(
-                row.heightDp() <= MAX_ONE_LINE_ROW,
-                "a one-line row measured ${row.heightDp()}, the bound is $MAX_ONE_LINE_ROW",
-            )
         }
 
     @Test
@@ -116,12 +112,23 @@ class TaskRowDensityTest {
             val reference = titles[0].getUnclippedBoundsInRoot()
             val rendered = titles[1].getUnclippedBoundsInRoot()
 
-            assertDp(LINE_HEIGHT * 2, reference.heightDp(), "the reference title's height")
+            // How many lines the title needs is a property of the font, not of the
+            // row. The test states the premise — this title needs two or three
+            // lines at this width — and measures everything else against what the
+            // font actually did. A font that wraps it differently must not fail a
+            // row that is drawn correctly.
+            val lines = (reference.heightDp() / LINE_HEIGHT).toInt()
+            assertTrue(
+                lines in 2..3,
+                "the test title must need two or three lines at ${TITLE_COLUMN.value} dp, " +
+                    "it needs $lines",
+            )
             assertDp(reference.heightDp(), rendered.heightDp(), "the row's title height — the title is cut")
-            // Two lines still fit inside the 48 dp the checkbox's touch target
-            // takes, so the row does not grow yet — it is the same 72 dp.
+            // The row is as tall as its tallest part — the checkbox's 48 dp target
+            // or the title, whichever is higher — plus the padding above and below.
+            // Two lines (44 dp) still fit inside the target, so the row stays at 72 dp.
             assertDp(
-                MAX_ONE_LINE_ROW,
+                maxOf(TouchTarget.MinSize, rendered.heightDp()) + TaskListSpacing.Md * 2,
                 unclippedBoundsOfTagInUnmergedTree(TestTags.taskItem(TWO_LINE)).heightDp(),
                 "a two-line row's height",
             )
@@ -143,8 +150,18 @@ class TaskRowDensityTest {
             val reference = titles[0].getUnclippedBoundsInRoot()
             val rendered = titles[1].getUnclippedBoundsInRoot()
 
-            assertDp(LINE_HEIGHT * 3, reference.heightDp(), "the reference title's height")
-            assertDp(reference.heightDp(), rendered.heightDp(), "the row's title height — the title is cut")
+            // The premise, and only the premise: the title needs at least three
+            // lines, so the row shows three of them. How many lines it would need
+            // beyond that is the font's business — a font that wraps it into four
+            // lines must not fail a row that is drawn correctly.
+            val lines = (reference.heightDp() / LINE_HEIGHT).toInt()
+            assertTrue(
+                lines >= 3,
+                "the test title must need at least three lines at ${TITLE_COLUMN.value} dp, " +
+                    "it needs $lines",
+            )
+            // Three lines are shown and the rest is cut — that is the ellipsis.
+            assertDp(LINE_HEIGHT * 3, rendered.heightDp(), "the row's title height — it must show three lines")
             // The title is now taller than the checkbox's 48 dp target, so the
             // row follows the title: 66 dp of title plus 12 dp above and below.
             assertDp(
@@ -482,6 +499,12 @@ class TaskRowDensityTest {
         const val PROJECT = "Очень длинное название проекта которое точно не влезет в строку"
         const val MEDIUM_PRIORITY = "Medium priority"
         const val RECURRING_MARK = "Recurring task"
+
+        /**
+         * The marker's description, as the default locale spells it: the
+         * `series_label` plural resource ("Series · 5 dates" in English,
+         * "Серия · 5 дат" in Russian).
+         */
         const val SERIES_MARK = "Series · 5 dates"
     }
 }
