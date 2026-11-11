@@ -117,6 +117,18 @@ non-clickable `PriorityIndicator` star, and that star stays non-clickable —
 priority is edited in the task editor, and the issue asks for no new click
 target.
 
+**The marker wears a rim.** The priority hue stays what it is — `priorityMeta`
+still answers Medium with `#F2C94C`, and nothing app-wide about the priority
+palette changes — but a hue is not an edge. Amber on a light surface measures
+about 1.5:1, and the marker is a non-text indicator, which has to keep 3:1
+against what it stands on. So both markers (the chip's 13 dp dot and the row's
+16 dp star) are drawn with a rim in `colorScheme.outline`: a mid tone in both
+themes, and always darker than the amber it surrounds. The rim is taken **out
+of** the marker's own size, so neither the chip's layout nor the row's density
+changes — the marker keeps the footprint it had, and the eye gets an edge to
+find it by. The chip's word and the star's description are unchanged: the rim
+says "here is a marker", the colour says which priority it is.
+
 ## Rationale
 
 **The order is the width policy.** Compose measures a `Row`'s children in
@@ -144,7 +156,11 @@ is only visible in the unmerged tree, so that is where the test reads it.
 would prove that the theme has a readable colour, not that the chip uses it.
 `PriorityChipContrastTest` screenshots the chip and compares the label's own
 pixels against the surface behind them, so a label that drifts back to the
-priority hue fails on the rendered result.
+priority hue fails on the rendered result. The marker is measured the same way,
+and on the marker itself: `PriorityMarkerContrastTest` reads the ring of
+pixels around the priority colour and asks what that edge measures against the
+surface — which is the question WCAG 1.4.11 asks, and the one a test of the
+label's colour cannot answer.
 
 **An ellipsis is not the same as a zero.** A project that is measured to zero
 width is not shortened, it is gone — no name, no colour dot, and a separator
@@ -194,14 +210,19 @@ already says "this is a series", and the count survives in the description.
   the only place the series count reached the row, so that English phrase was
   all a screen reader had to say. Both now come from resources the repo already
   had (`series_label`, and new `priority_word_*` strings).
-- **A residual gap, stated plainly.** The Medium marker itself is amber on a
-  light surface, which measures about 1.6:1 — below the 3:1 that WCAG asks of
-  a non-text signal. Fixing it would mean changing the priority palette, and
-  `PriorityColorTest` pins Medium to `0xFFF2C94C` app-wide; the issue forbids
-  a global priority-colour change. So the marker's hue stays, and the issue's
-  own acceptance — one visible signal, no low-contrast amber *text*, no new
-  click target — is met. A future change to the palette would have to change
-  the pinned colour and the pin together.
+- **The residual gap is closed: the marker has an edge.** The Medium marker is
+  amber, and amber on a light surface measures about 1.6:1 — below the 3:1 that
+  WCAG asks of a non-text signal. The palette does not move: `PriorityColorTest`
+  still pins Medium to `0xFFF2C94C` app-wide, and the issue forbids a global
+  priority-colour change. What changed is the marker around it: the dot and the
+  star wear a rim in `colorScheme.outline`, so what the eye finds against the
+  surface is a mid tone at more than 3:1 in both themes, and the hue is what
+  the rim surrounds rather than what it has to carry. The rim is taken out of
+  the marker's own size, so the chip's layout and the row's density are
+  unchanged. `PriorityMarkerContrastTest` measures the marker's own edge — the
+  ring of pixels around the priority colour — against the surface it stands
+  on, in both themes, so the gap cannot come back unnoticed. A future change to
+  the palette would have to change the pinned colour and the pin together.
 - The priority checkbox fill is untouched: the accent only shows on a
   completed task's circle, and the row hides the star for completed tasks, so
   the two signals never coexist.
@@ -212,10 +233,12 @@ already says "this is a series", and the count survives in the description.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowContent.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskMetaRow.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskMarkingsRow.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/PriorityIndicator.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/SeriesMarker.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityChip.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowDensityTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityChipContrastTest.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/presentation/components/PriorityMarkerContrastTest.kt`
 - [2026-10-22-a-series-shows-itself-where-it-appears.md](2026-10-22-a-series-shows-itself-where-it-appears.md) —
   the mark of a series, the undo of a series and the statistics count; the clause
   that put the count in the day's list is superseded here.
