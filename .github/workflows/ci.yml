@@ -2003,21 +2003,6 @@ jobs:
           T0: ${{ steps.deploy-start.outputs.ts }}
         run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
 
-      - name: Reconcile publication state (no regression)
-        if: steps.decide.outputs.action != 'publish'
-        env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-          EVENT_NAME: ${{ github.event_name }}
-          SHA: ${{ github.sha }}
-        run: |
-          # Keep recorded latest/index consistent; never deploy a stale/duplicate.
-          python3 scripts/ci/allure_pages.py reconcile \
-            --site-dir gh-pages \
-            --population "$TEST_POPULATION" || true
-          echo "Allure Pages publication skipped - ${{ steps.decide.outputs.action }}"
-
       - name: Record publication measurements
         if: ${{ always() }}
         env:

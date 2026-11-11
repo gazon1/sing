@@ -880,13 +880,6 @@ def cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_reconcile(args: argparse.Namespace) -> int:
-    _population(args.population)
-    reconcile_population(Path(args.site_dir), args.population)
-    print(f"reconciled: {args.population}")
-    return 0
-
-
 def cmd_validate_state(args: argparse.Namespace) -> int:
     site_dir = Path(args.site_dir)
     populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
@@ -941,11 +934,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_apply.add_argument("--keep-reports", default=str(REPORTS_PER_POPULATION))
     add_publication_args(p_apply)
     p_apply.set_defaults(func=cmd_apply)
-
-    p_reconcile = sub.add_parser("reconcile", help="reconcile indexes to recorded latest for a population")
-    p_reconcile.add_argument("--site-dir", required=True)
-    p_reconcile.add_argument("--population", required=True)
-    p_reconcile.set_defaults(func=cmd_reconcile)
 
     p_validate = sub.add_parser("validate-state", help="validate publish tree, manifests and latest/index consistency")
     p_validate.add_argument("--site-dir", required=True)
