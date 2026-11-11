@@ -10,29 +10,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
  *
  * ## Migration (not yet applied — Gradle 9 included-build classpath complexity)
  *
- * Replace `shared/build.gradle.kts` plugins block:
- * ```kotlin
- * // BEFORE (7 plugin aliases)
- * plugins {
- *     alias(libs.plugins.kotlinMultiplatform)
- *     alias(libs.plugins.androidMultiplatformLibrary)
- *     alias(libs.plugins.composeMultiplatform)
- *     alias(libs.plugins.composeCompiler)
- *     alias(libs.plugins.kotlinxSerialization)
- *     alias(libs.plugins.ksp)
- *     alias(libs.plugins.room3)
- *     alias(libs.plugins.detekt)
- *     alias(libs.plugins.kover)
- * }
+ * The migration plan lives in `build-logic/README.md` — one home for it, so the
+ * plan cannot drift away from the tree it describes.
  *
- * // AFTER (1 convention plugin + platform-specific)
- * plugins {
- *     id("kotlin-multiplatform-library-convention")
- *     alias(libs.plugins.ksp)        // Room KSP — needs platform-specific version
- *     alias(libs.plugins.detekt)
- *     alias(libs.plugins.kover)
- * }
- * ```
+ * This file does not compile as written: it imports
+ * `com.android.build.api.dsl.MultiplatformExtension`, which AGP does not ship,
+ * and it applies the plugin id `com.android.multiplatform-library`, which AGP
+ * does not publish. The README says so and says what the real names are.
  */
 class KotlinMultiplatformLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {

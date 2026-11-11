@@ -16,13 +16,8 @@ import org.gradle.kotlin.dsl.getByType
  *
  * ## Migration (not yet applied — Gradle 9 included-build classpath complexity)
  *
- * 1. Add to `settings.gradle.kts` pluginManagement:
- *    `includeBuild("build-logic/convention")`
- * 2. Replace root `build.gradle.kts` plugins block:
- *    `id("common-deps-convention") apply false`
- * 3. Remove `allprojects { configurations.all { resolutionStrategy { ... } } }` from root.
- *
- * Applied in root `build.gradle.kts` via `id("common-deps-convention")`.
+ * The migration plan lives in `build-logic/README.md` — one home for it, so the
+ * plan cannot drift away from the tree it describes.
  */
 class CommonDepsConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
