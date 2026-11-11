@@ -112,27 +112,31 @@ class FabActionResolverTest {
     // ── Modern ProjectsGraph routes (Desktop) ───────────────────────────────────
 
     @Test
-    fun projectsGraph_list_returnsAddProject() {
+    fun projectsGraph_list_returnsNull() {
         val result =
             fabActionForNav3(
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
                 today,
                 navigate,
             )
-        assertEquals("Add project", result.label())
-        result.click()
-        assertEquals(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()), navigatedTo)
+        assertNull(
+            result,
+            "the list carries its own `+` action; a shell FAB would duplicate it (#2735)",
+        )
     }
 
     @Test
-    fun projectsGraph_editor_returnsAddProject() {
+    fun projectsGraph_editor_returnsNull() {
         val result =
             fabActionForNav3(
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
                 today,
                 navigate,
             )
-        assertEquals("Add project", result.label())
+        assertNull(
+            result,
+            "the editor carries Save in its bar; a shell FAB would duplicate it (#2735)",
+        )
     }
 
     // ── Agenda routes (modern) ────────────────────────────────────────────────

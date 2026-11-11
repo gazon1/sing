@@ -92,7 +92,7 @@ class TextFieldBridgeFlowTest {
     fun the_project_name_reaches_the_draft_and_clearing_it_disables_save() =
         runDesktopAppTest(checkA11y = true) {
             openAllProjects()
-            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            clickTag(TestTags.PROJECTS_CREATE_BUTTON)
 
             typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
 
@@ -131,7 +131,7 @@ class TextFieldBridgeFlowTest {
     fun the_project_search_query_filters_the_list() =
         runDesktopAppTest(checkA11y = true) {
             openAllProjects()
-            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            clickTag(TestTags.PROJECTS_CREATE_BUTTON)
             typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
             // The name has to reach the draft before Save means anything: the button is
             // enabled by the draft, not by the field.

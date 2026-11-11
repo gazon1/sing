@@ -453,6 +453,7 @@ non-alphanumeric characters with `_`.
 | `MultiDatePicker.NEXT_MONTH` | `multi_date_picker_next_month` | |
 | `MultiDatePicker.OK` | `multi_date_picker_ok` | |
 | `MultiDatePicker.PREV_MONTH` | `multi_date_picker_prev_month` | |
+| `PROJECTS_CREATE_BUTTON` | `projects_create_button` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
 | `PROPOSALS_EMPTY` | `proposals_empty` | |

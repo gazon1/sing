@@ -827,6 +827,9 @@ object TestTags {
     /** The name filter on the projects list screen (placeholder: "Search projects"). */
     const val PROJECTS_SEARCH_INPUT = "projects_search_input"
 
+    /** The create-project `+` action in the projects list's own bar. */
+    const val PROJECTS_CREATE_BUTTON = "projects_create_button"
+
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"
     const val PROJECT_EDITOR_SAVE = "project_editor_save"

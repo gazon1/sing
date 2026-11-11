@@ -58,11 +58,12 @@ internal fun fabActionForNav3(
             fabActionForAgendaStart(current.start, today, navigate)
         }
 
+        // Every screen inside the projects graph carries its own create action:
+        // the list has a `+` in its bar, the editor has Save there, and the
+        // detail has an inline task composer. A shell FAB here would duplicate
+        // one of them and miss the others (#2735).
         is AppDestination.ProjectsGraph -> {
-            FabAction(
-                label = "Add project",
-                onClick = { navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor())) },
-            )
+            null
         }
 
         // The plan tab creates a *task*, not a project: the timeline shows the
