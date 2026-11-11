@@ -68,8 +68,11 @@ fun InterfaceSettingsScreen(
                 .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingsSection(title = "Theme") {
+        SettingsSection(title = "Preview") {
             ThemePreview()
+        }
+
+        SettingsSection(title = "Theme") {
             ThemeModeSelector(
                 selected = state.appearance.themeMode,
                 onSelect = { onIntent(SettingsIntent.Appearance.UpdateThemeMode(it)) },
