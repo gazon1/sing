@@ -220,21 +220,101 @@ def empty_manifest(population: str) -> Manifest:
     return Manifest(schema_version=SCHEMA_VERSION, population=population)
 
 
-def load_manifest(path: Path, population: str) -> Manifest:
-    """Read one population's manifest; a missing file is an empty manifest."""
-    _population(population)
-    if not path.exists():
-        return empty_manifest(population)
+def migrate_manifest(data: dict[str, Any], population: str) -> dict[str, Any]:
+    """Bring a manifest document up to the current schema.
+
+    Migration is explicit and separate from validation, so a document is
+    never reinterpreted on the way into a model. Schema v1 had no
+    `population` field: one manifest held the whole site and each record
+    named its own population. A v1 document is therefore split here — the
+    records of this population are kept, and the newest of them becomes
+    `latest`. A version this function does not know is refused, not
+    reinterpreted.
+    """
+    version = data.get("schema_version")
+    if version == SCHEMA_VERSION:
+        return data
+    if version != 1:
+        raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
+    records = data.get("publications")
+    if not isinstance(records, dict):
+        raise PublishError("malformed publication manifest: publications must be an object")
+    kept = {
+        key: value
+        for key, value in records.items()
+        if isinstance(value, dict) and value.get("population") == population
+    }
+    latest = data.get("latest")
+    if not isinstance(latest, dict) or latest.get("population") != population:
+        latest = None
+    elif _record_identity(latest) not in kept:
+        latest = None
+    if latest is None:
+        latest = _newest_publication(kept)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "population": population,
+        "publications": kept,
+        "latest": latest,
+    }
+
+
+def _record_identity(record: dict[str, Any]) -> str | None:
+    """The identity of a stored record: the key the manifest stores it under."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        return f"{int(record['run_id'])}-{int(record['run_attempt'])}"
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _newest_publication(records: dict[str, Any]) -> dict[str, Any] | None:
+    """The newest record of a set, by (run_number, run_attempt)."""
+    newest: dict[str, Any] | None = None
+    for value in records.values():
+        if not isinstance(value, dict):
+            continue
+        try:
+            key = (int(value["run_number"]), int(value["run_attempt"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if newest is None:
+            newest = value
+            continue
+        newest_key = (int(newest["run_number"]), int(newest["run_attempt"]))
+        if key > newest_key:
+            newest = value
+    return newest
+
+
+def legacy_manifest_path(path: Path) -> Path | None:
+    """Where a schema v1 manifest lived: the site root, above the namespace."""
+    namespace = path.parent
+    if namespace.parent == namespace:
+        return None
+    return namespace.parent / "allure-manifest.json"
+
+
+def load_manifest(path: Path, population: str) -> Manifest:
+    """Read one population's manifest; a missing file is an empty manifest.
+
+    A schema v1 manifest was one file for the whole site. When the
+    namespace has no manifest of its own, the legacy file is migrated into
+    it.
+    """
+    _population(population)
+    source = path
+    if not path.exists():
+        legacy = legacy_manifest_path(path)
+        if legacy is None or not legacy.exists():
+            return empty_manifest(population)
+        source = legacy
+    try:
+        data = json.loads(source.read_text(encoding="utf-8"))
     except Exception as exc:
         raise PublishError(f"malformed publication manifest: {exc}") from exc
     if not isinstance(data, dict):
         raise PublishError("malformed publication manifest: expected object")
-    version = data.get("schema_version")
-    if version != SCHEMA_VERSION:
-        raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
-    data.setdefault("population", population)
+    data = migrate_manifest(data, population)
     try:
         manifest = Manifest.model_validate(data)
     except ValidationError as exc:

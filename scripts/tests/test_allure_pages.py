@@ -473,11 +473,59 @@ class PublicationContractTest(unittest.TestCase):
                 publications={stored.identity: stored},
             )
 
-    def test_unsupported_schema_version_is_refused(self):
+    def test_a_v1_manifest_is_migrated_explicitly(self):
         pdir = self.tmp / "fast"
         pdir.mkdir(parents=True)
         path = ap.manifest_path(pdir)
-        path.write_text(json.dumps({"schema_version": 1, "population": "fast", "latest": None, "publications": {}}), encoding="utf-8")
+        fast = pub(run_id=1, run_number=10, population="fast")
+        full = pub(run_id=2, run_number=11, population="full")
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "latest": fast.model_dump(mode="json"),
+                    "publications": {
+                        fast.identity: fast.model_dump(mode="json"),
+                        full.identity: full.model_dump(mode="json"),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        manifest = ap.load_manifest(path, "fast")
+        self.assertEqual(manifest.schema_version, 2)
+        self.assertEqual(manifest.population, "fast")
+        self.assertEqual(sorted(manifest.publications), [fast.identity])
+        self.assertIsNotNone(manifest.latest)
+        self.assertEqual(manifest.latest.identity, fast.identity)
+
+    def test_a_legacy_site_manifest_is_migrated_into_the_namespace(self):
+        # Schema v1 kept one manifest for the whole site, above the namespace.
+        fast = pub(run_id=1, run_number=10, population="fast")
+        (self.tmp / "allure-manifest.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "latest": None,
+                    "publications": {fast.identity: fast.model_dump(mode="json")},
+                }
+            ),
+            encoding="utf-8",
+        )
+        manifest = ap.load_manifest(ap.manifest_path(self.tmp / "fast"), "fast")
+        self.assertEqual(manifest.schema_version, 2)
+        self.assertEqual(sorted(manifest.publications), [fast.identity])
+        self.assertIsNotNone(manifest.latest)
+        self.assertEqual(manifest.latest.identity, fast.identity)
+
+    def test_an_unknown_schema_version_is_refused(self):
+        pdir = self.tmp / "fast"
+        pdir.mkdir(parents=True)
+        path = ap.manifest_path(pdir)
+        path.write_text(
+            json.dumps({"schema_version": 3, "population": "fast", "latest": None, "publications": {}}),
+            encoding="utf-8",
+        )
         with self.assertRaises(ap.PublishError):
             ap.load_manifest(path, "fast")
 
