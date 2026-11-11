@@ -2,6 +2,9 @@
 #
 # The quick-add field submits on the IME "Done" action, same as the notes
 # quick-add row.
+#
+# The project is created through the list bar's `+` (projects_create_button).
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: projects-add-task
 tags:

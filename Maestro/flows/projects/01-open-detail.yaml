@@ -1,4 +1,7 @@
 # Projects: open a project's detail screen from the project list in the menu.
+#
+# The project is created through the list bar's `+` (projects_create_button).
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: projects-open-detail
 tags:

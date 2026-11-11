@@ -4,7 +4,7 @@
 # The actions must stay reachable, so this flow opens them from the long-press
 # menu: the pin row runs from the menu, and the delete row removes the task end
 # to end.
-# прогнан на устройстве: да (2026-11-10) — realme RMX3938, 0O65321F32204DD5
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: projects-task-card-actions
 tags:
