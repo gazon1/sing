@@ -44,7 +44,7 @@ Gradle 9's classpath isolation for included builds means:
 ## Current status
 
 - ✅ 4 convention plugin source files written (documented; three compile, the
-  fourth needs AGP + KGP — see below)
+  fourth does not — see below)
 - ✅ README with migration path documented
 - ⏳ `build.gradle.kts` + `settings.gradle.kts` NOT wired (blocks main build)
 
@@ -85,11 +85,19 @@ printf 'plugins { `kotlin-dsl` }\n' > "$SCRATCH/build.gradle.kts"
 ./gw --project-dir "$SCRATCH" compileKotlin
 ```
 
-`KotlinMultiplatformLibraryConventionPlugin.kt` is not in that list on
-purpose: it imports `com.android.build.api.dsl.MultiplatformExtension` and
-`org.jetbrains.kotlin.gradle.dsl.JvmTarget`, so it needs the Android Gradle
-Plugin and the Kotlin Gradle Plugin on the classpath as well. Nothing in this
-repository checks it.
+`KotlinMultiplatformLibraryConventionPlugin.kt` is not in that list, and it
+is not only because it needs more on the classpath: **it does not compile as
+written.** Two of its references name things that do not exist —
+
+- it imports `com.android.build.api.dsl.MultiplatformExtension`, and the AGP
+  type for that plugin is `com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryExtension`;
+- it applies the plugin id `com.android.multiplatform-library`, and AGP ships
+  `com.android.kotlin.multiplatform.library` — the id this repository's own
+  catalog uses.
+
+Adding AGP and KGP to the classpath does not make it compile. It is a
+reference implementation of a migration that has not happened yet, and
+nothing in this repository checks it.
 
 Two defects this tree carried for a while, the first of which the compile
 catches:
