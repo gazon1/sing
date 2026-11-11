@@ -456,13 +456,6 @@ def present_populations(site_dir: Path) -> list[str]:
     return present
 
 
-def write_root_index(site_dir: Path, populations: Iterable[str] | None = None) -> None:
-    pops = list(populations) if populations is not None else present_populations(site_dir)
-    if not pops:
-        pops = list(SUPPORTED_POPULATIONS)
-    _atomic_write_text(site_dir / "index.html", build_root_index(pops))
-
-
 def ensure_population_namespace(gh_pages_dir: Path, population: str) -> Path:
     """Ensure gh-pages/<population> exists with isolated history state.
 
@@ -598,28 +591,6 @@ def _remove_reports(population_dir: Path, report_paths: Iterable[str]) -> list[s
             shutil.rmtree(directory)
             removed.append(report_path)
     return removed
-
-
-def prune_population(population_dir: Path, population: str, keep: int = REPORTS_PER_POPULATION) -> dict[str, Any]:
-    """Keep the newest `keep` publications of one population and drop the rest."""
-    _population(population)
-    keep = _positive_int(keep, "keep-reports")
-    mpath = manifest_path(population_dir)
-    manifest = load_manifest(mpath, population)
-    if manifest.latest is None:
-        return {"removed": [], "kept": 0}
-
-    publications, removed_paths = _retention_plan(population_dir, manifest, keep)
-    removed = _remove_reports(population_dir, removed_paths)
-    if removed or len(publications) != len(manifest.publications):
-        manifest = Manifest(
-            schema_version=SCHEMA_VERSION,
-            population=population,
-            latest=manifest.latest,
-            publications=publications,
-        )
-        save_manifest(mpath, manifest)
-    return {"removed": removed, "kept": len(publications)}
 
 
 def reconcile_population(site_dir: Path, population: str) -> None:
@@ -926,26 +897,8 @@ def cmd_validate_state(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_prune(args: argparse.Namespace) -> int:
-    _population(args.population)
-    population_dir = Path(args.site_dir) / args.population
-    if not population_dir.is_dir():
-        raise PublishError(f"population namespace does not exist: {args.population}")
-    result = prune_population(population_dir, args.population, _positive_int(args.keep_reports, "keep-reports"))
-    _print_json(result)
-    return 0
-
-
 def cmd_measure(args: argparse.Namespace) -> int:
     _print_json(tree_stats(Path(args.path)))
-    return 0
-
-
-def cmd_write_root_index(args: argparse.Namespace) -> int:
-    site_dir = Path(args.site_dir)
-    populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
-    write_root_index(site_dir, populations or list(SUPPORTED_POPULATIONS))
-    print(f"root index written: {site_dir / 'index.html'}")
     return 0
 
 
@@ -999,20 +952,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_validate.add_argument("--population", action="append")
     p_validate.set_defaults(func=cmd_validate_state)
 
-    p_prune = sub.add_parser("prune", help="prune old per-population reports while keeping latest/required history")
-    p_prune.add_argument("--site-dir", required=True)
-    p_prune.add_argument("--population", required=True)
-    p_prune.add_argument("--keep-reports", default=str(REPORTS_PER_POPULATION))
-    p_prune.set_defaults(func=cmd_prune)
-
     p_measure = sub.add_parser("measure", help="report file count and byte size of a directory tree")
     p_measure.add_argument("--path", required=True)
     p_measure.set_defaults(func=cmd_measure)
-
-    p_root = sub.add_parser("write-root-index", help="write root navigation index linking populations")
-    p_root.add_argument("--site-dir", required=True)
-    p_root.add_argument("--population", action="append")
-    p_root.set_defaults(func=cmd_write_root_index)
 
     return parser
 

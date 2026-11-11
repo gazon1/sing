@@ -188,7 +188,6 @@ class AllurePagesTest(unittest.TestCase):
         manifest = manifest_of("fast", latest)
         ap.save_manifest(ap.manifest_path(pdir), manifest)
         self.write_index(pdir, "10")
-        ap.write_root_index(self.site, ["fast"])
         with self.assertRaises(ap.PublishError):
             ap.validate_population_state(pdir, "fast", manifest)
 
@@ -268,23 +267,33 @@ class AllurePagesTest(unittest.TestCase):
         self.assertEqual(fast_remaining, ["3", "4", "5", "6", "7"])
         self.assertEqual(full_remaining, ["1", "2", "3", "4", "5", "6", "7"])
 
-    def test_pruning_keeps_a_report_the_manifest_does_not_name(self):
+    def test_retention_keeps_a_report_the_manifest_does_not_name(self):
         self.make_report(self.site, "fast", "10")
         ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
         unexplained = self.make_report(self.site, "fast", "9")
-        ap.prune_population(self.site / "fast", "fast", keep=1)
+        self.make_report(self.site, "fast", "11")
+        ap.apply_publication(
+            self.site,
+            pub(run_id=2, run_number=11, population="fast", report_path="11"),
+            keep_reports=1,
+        )
         self.assertTrue(unexplained.is_dir())
 
-    def test_pruning_drops_a_publication_whose_report_is_gone(self):
+    def test_retention_drops_a_publication_whose_report_is_gone(self):
         self.make_report(self.site, "fast", "10")
         ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
         self.make_report(self.site, "fast", "11")
         ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
         shutil.rmtree(self.site / "fast" / "10")
-        result = ap.prune_population(self.site / "fast", "fast", keep=20)
-        self.assertNotIn("1-1", self.manifest(self.site, "fast").publications)
-        self.assertIn("2-1", self.manifest(self.site, "fast").publications)
-        self.assertEqual(result["kept"], 1)
+        self.make_report(self.site, "fast", "12")
+        ap.apply_publication(
+            self.site,
+            pub(run_id=3, run_number=12, population="fast", report_path="12"),
+            keep_reports=20,
+        )
+        manifest = self.manifest(self.site, "fast")
+        self.assertNotIn("1-1", manifest.publications)
+        self.assertIn("2-1", manifest.publications)
 
     def test_apply_writes_the_publication_state_as_one_unit(self):
         self.make_report(self.site, "fast", "10")
@@ -607,17 +616,13 @@ class PublicationContractTest(unittest.TestCase):
 
 
     def test_cli_refuses_an_unknown_population(self):
-        # The exit behaviour of these two commands is a contract: an unknown
+        # The exit behaviour of this command is a contract: an unknown
         # population was refused before the refactoring and must stay refused.
-        for command, handler in (
-            ("validate-state", ap.cmd_validate_state),
-            ("write-root-index", ap.cmd_write_root_index),
-        ):
-            args = ap.build_parser().parse_args(
-                [command, "--site-dir", str(self.tmp), "--population", "bogus"]
-            )
-            with self.assertRaises(ap.PublishError):
-                handler(args)
+        args = ap.build_parser().parse_args(
+            ["validate-state", "--site-dir", str(self.tmp), "--population", "bogus"]
+        )
+        with self.assertRaises(ap.PublishError):
+            ap.cmd_validate_state(args)
 
 if __name__ == "__main__":
     unittest.main()
