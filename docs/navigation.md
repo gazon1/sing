@@ -38,9 +38,8 @@ polymorphic saved-state module) but are never valid app-level open targets.
 | Key | Inner content | Opened from (sources) |
 |---|---|---|
 | `AgendaGraph(Inbox / Today / Upcoming)` | `AgendaNavGraph(start = …)` | bottom bar tabs (3 instances), desktop drawer/menu, back-at-root returns to previous |
-| `Plans` | `PlansScreen` (the timeline) | menu sheet / desktop menu |
 | `Pomodoro` | `PomodoroScreen` | menu sheet / desktop menu |
-| `Calendar` | `CalendarNavGraph(Month(today))` | bottom bar tab, desktop drawer — `Plans` and `Pomodoro` are in the menu instead |
+| `Calendar` | `CalendarNavGraph(Month(today))` | bottom bar tab, desktop drawer — `Pomodoro` is in the menu instead |
 | `Statistics` | `StatisticsScreen` | menu sheet / desktop menu |
 | `Notes` | `NotesNavGraph(List)` | menu sheet / desktop menu |
 | `AiChat` | `ChatScreen` | menu sheet / desktop menu |
@@ -108,7 +107,7 @@ registry answers "what does this URI open?" from an explicit ordered list.
 | Emitter | Emits (non-null) | Previously allowed by the entry allow-list? |
 |---|---|---|
 | `TasksNavigator` | `ProjectDetail`, `NotesGraph(Preview)`, `NotesGraph(EditorForTask)` | ProjectDetail ✔ / **NotesGraph ✘ swallowed** |
-| `ProjectsNavigator` | `AgendaGraph(Project)`, `TasksGraph(Detail)` | **✘ swallowed from Plans/ProjectsGraph/Editor contexts** (only `ProjectDetail` entry allowed them) |
+| `ProjectsNavigator` | `AgendaGraph(Project)`, `TasksGraph(Detail)` | **✘ swallowed from ProjectsGraph/Editor contexts** (only `ProjectDetail` entry allowed them) |
 | `AgendaNavigator` | `TasksGraph(Detail)`, project/detail targets | TasksGraph ✔, ProjectDetail ✔ |
 | `CalendarNavigator` | tasks / project targets | TasksGraph ✔ / **ProjectDetail ✘ swallowed** |
 | `SearchNavigator` | tasks / notes / project / `AgendaGraph(Tag)` | search bypassed the allow-list (connected `navCallbacks` directly) ✔ |

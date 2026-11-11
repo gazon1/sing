@@ -11,7 +11,9 @@ Parallel worktrees share `~/.gradle`, and a shared Gradle home is a shared
 cache lock *and* a shared daemon registry: the build pushes against the
 neighbours and takes several times longer. `./gw` gives the worktree a
 private `GRADLE_USER_HOME` (the caches and the JDK stay shared — nobody
-writes them at the same time). A detail, but on a machine with several
+writes them at the same time; the configuration-cache keystore inside a
+Gradle version's cache stays private, because it is opened under a lock). A
+detail, but on a machine with several
 checkouts it is the difference between 5 and 40 minutes.
 
 ```bash

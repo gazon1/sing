@@ -71,9 +71,6 @@ facts:
   - id: K-alarms-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/alarms.md
-  - id: K-plans-001
-    owner_type: knowledge
-    canonical_ref: knowledge/architecture/plans.md
   - id: K-proposals-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/proposals.md

@@ -9,7 +9,7 @@ id: PLANS-01
 title: "Plans renders days in chronological order with that day's tasks"
 area: feature.plans
 priority: P1
-status: confirmed
+status: deprecated
 targets: [android, desktop]
 preconditions: >-
   Tasks exist with due dates on three different days, one of them today and one
@@ -24,3 +24,10 @@ expected: >-
   due today sits in the "Today" section and the task due in six days sits in
   that day's section and in no other. The empty day in between has no section
   of its own, and the days that do carry tasks keep their chronological order.
+
+# Deprecated on purpose (2026-11-11): the Plans destination was retired and its
+# useful behaviour — a chronological timeline of days that hold tasks — moved
+# into the Upcoming agenda tab. The scenarios are kept rather than deleted
+# because the screen shipped and users could see it; deleting the files would
+# leave "where did the timeline go?" unanswered in the scenario layer. The
+# surviving behaviour is carried by the Upcoming scenarios (AGENDA-09).

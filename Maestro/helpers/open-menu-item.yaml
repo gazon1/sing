@@ -4,8 +4,8 @@
 #   - runFlow:
 #       file: ../../helpers/open-menu-item.yaml
 #       env:
-#         ENTRY_ID: menu_plans
-#         DEST_ID: plans_screen
+#         ENTRY_ID: menu_pomodoro
+#         DEST_ID: pomodoro_phase_label
 #
 # The destination is not in the bottom bar: it sits behind the "Menu" button,
 # in a sheet that scrolls. An entry can be in the tree and still be below the

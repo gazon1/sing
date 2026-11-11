@@ -13,6 +13,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -267,8 +268,24 @@ class FakeRepositoryFidelityTest {
             advanceUntilIdle()
 
             assertTrue(repo.delete(TaskId("t1")).isSuccess)
-            val stored = repo.observeAll().first().firstOrNull { it.id.value == "t1" }
-            assertNotNull(stored, "production soft-deletes; a hard delete loses the row")
+            val stored = repo.observeByFilter(TaskFilter.Trash).first().firstOrNull { it.id.value == "t1" }
+            assertNotNull(stored, "production soft-deletes; the row moves to the trash")
+        }
+
+    @Test
+    fun `task delete removes the row from observeAll, like watchActive`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+            repo.seed(task("t1", alice))
+            advanceUntilIdle()
+
+            assertTrue(repo.delete(TaskId("t1")).isSuccess)
+            assertTrue(
+                repo.observeAll().first().none { it.id.value == "t1" },
+                "production's observeAll is watchActive: an archived row is not a live row",
+            )
         }
 
     @Test

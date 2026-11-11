@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.nav
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.ListAlt
@@ -58,8 +57,9 @@ import kotlinx.serialization.Serializable
  * slot is deliberately empty, per the decision
  * `2026-11-04-the-fifth-tab-slot-stays-empty.md`.
  *
- * [Calendar] is now a tab; [Plans] and [Pomodoro] live in the app menu — see
- * [DestinationKind.menuEntries].
+ * [Calendar] is now a tab; [Pomodoro] and the other secondary destinations live in
+ * the app menu — see [DestinationKind.menuEntries]. The future-task timeline is the
+ * Upcoming agenda tab, not a destination of its own.
  *
  * Why a [Serializable] sealed interface and not an enum:
  * - Type-safe payloads (e.g. [TaskDetail.taskId]) without manual route-string plumbing.
@@ -76,11 +76,6 @@ import kotlinx.serialization.Serializable
 sealed interface AppDestination : AppNavKey {
     /** User-visible label — used by BottomBar and MenuSheet. */
     val title: String
-
-    @Serializable
-    data object Plans : AppDestination {
-        override val title = "Plans"
-    }
 
     @Serializable
     data object Pomodoro : AppDestination {
@@ -463,8 +458,6 @@ val AppDestination.icon: ImageVector
     get() =
         when (this) {
             // ─── Tabs and menu entries ──────────────────────────────────────
-            AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
-
             AppDestination.Pomodoro -> Icons.Filled.Repeat
 
             AppDestination.Statistics -> Icons.Filled.Insights
@@ -610,7 +603,6 @@ object DestinationKind {
             AppDestination.Proposals,
             AppDestination.Search,
             AppDestination.Archive,
-            AppDestination.Plans,
             AppDestination.Pomodoro,
             AppDestination.ProfileSwitcher,
             AppDestination.Settings,

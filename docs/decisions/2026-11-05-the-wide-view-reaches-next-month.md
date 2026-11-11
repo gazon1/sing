@@ -5,6 +5,13 @@ status: accepted
 tags: [agenda, presets, navigation]
 ---
 
+> **Reach unchanged, fallback updated (2026-11-11):** the Plans timeline named
+> below is retired. A task due beyond the wide view's reach is still reached
+> through the Calendar and a saved view with its own date range, and now also
+> through the Upcoming tab, which holds the whole future. The wide view's own
+> reach is deliberately unchanged. See
+> [2026-11-11-upcoming-owns-the-whole-future.md](2026-11-11-upcoming-owns-the-whole-future.md).
+
 ## Context
 
 `AgendaPresets.All` is the wide agenda view: every dated task, grouped by

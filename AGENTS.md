@@ -112,7 +112,8 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 ## Сборка и гейты
 
 **Порядок проверки — `docs/architecture/verification.md`:** `./gw` вместо
-`./gradlew` (приватный `GRADLE_USER_HOME` на worktree), карта команд
+`./gradlew` (приватный `GRADLE_USER_HOME` на worktree; `cc-keystore/` каждой
+версии Gradle — приватный на worktree), карта команд
 (`just gate`, `./check.sh`, `bash scripts/ci/static-gates.sh`), порядок detekt,
 компиляция сразу после связной правки, долгий запуск как одна фоновая задача,
 загрузка хоста (`./sg host-load`), вердикт CI, причина упавшего теста в артефакте,

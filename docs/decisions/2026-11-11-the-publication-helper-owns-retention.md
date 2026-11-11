@@ -10,7 +10,7 @@ tags: [ci, allure, github-pages]
 Issue [#2774](https://github.com/gazon1/sing/issues/2774) asks for the Allure Pages
 publication helper (`scripts/ci/allure_pages.py`) to become a small, safe publisher.
 The publication contract it implements was agreed in
-`docs/decisions/allure-publication-latest-history-and-retention.md`; this record
+`docs/decisions/2026-11-10-allure-publication-latest-history-and-retention.md`; this record
 covers the parts of it that the contract left to the implementation: who owns
 retention, what a damaged manifest means, what a report path may be, and how the
 helper writes to disk.
@@ -69,6 +69,13 @@ action's pruning never runs.
 A second owner of the window is a second opinion nobody asked for: the two
 disagreed about what a "report" is, and the action's answer deleted the manifest
 that names them.
+
+The manifest is a dotfile, `.allure-manifest.json`, for the same reason the
+threshold is unreachable: the action lists its namespace with `ls`, and `ls`
+does not list a dotfile. The state survives a prune that happens anyway, and a
+site published before the rename is read once from the visible file it carries.
+Two guards answer one failure: the action stops pruning, and the state stops
+being something the action can prune.
 
 ## 2. A manifest that does not hold together is an error
 
@@ -192,6 +199,9 @@ implementations drift apart.
   purpose: it counts entries in the namespace, while the helper's window counts
   publications, and a threshold in the same ballpark as the window would be a
   second owner of it — one number away from deleting the manifest.
+- The manifest is `.allure-manifest.json`. A namespace published before the
+  rename still carries the visible file, and it is read once so the rename does
+  not reset the recorded latest and history.
 - A manifest that does not satisfy the invariants stops the publication. That is
   the intended behaviour, and it is a behaviour change: a manifest whose `latest`
   did not match its stored record used to be normalized and carried on with.
@@ -226,4 +236,4 @@ implementations drift apart.
 - Code: `scripts/ci/allure_pages.py`, `scripts/tests/test_allure_pages.py`,
   `.github/workflows/ci.yml`
 - Prior decisions:
-  `docs/decisions/allure-publication-latest-history-and-retention.md`
+  `docs/decisions/2026-11-10-allure-publication-latest-history-and-retention.md`

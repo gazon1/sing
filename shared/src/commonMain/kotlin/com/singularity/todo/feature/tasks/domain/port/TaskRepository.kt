@@ -28,6 +28,13 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 
     fun observeAll(): Flow<List<Task>>
 
+    /**
+     * The number of completed live tasks of the actively scoped profile — the set
+     * the bulk archive moves. The same predicate as the write, as a projection:
+     * the caller needs the number, not the rows.
+     */
+    fun observeArchivableCount(): Flow<Int>
+
     fun observe(id: TaskId): Flow<Task?>
 
     suspend fun get(id: TaskId): Task?

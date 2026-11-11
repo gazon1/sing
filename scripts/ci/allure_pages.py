@@ -212,6 +212,14 @@ def _positive_int(value: Any, name: str) -> int:
 
 
 def manifest_path(population_dir: Path) -> Path:
+    # Dot-prefixed on purpose: the pinned report action prunes `<population>/`
+    # with `ls | sort -n | head -n -N | xargs rm`, which would delete a visible
+    # manifest (it sorts first as non-numeric) once the directory holds ~20
+    # reports. `ls` does not list dotfiles, so the state survives that prune.
+    return population_dir / ".allure-manifest.json"
+
+
+def _legacy_manifest_path(population_dir: Path) -> Path:
     return population_dir / "allure-manifest.json"
 
 
@@ -297,17 +305,23 @@ def legacy_manifest_path(path: Path) -> Path | None:
 def load_manifest(path: Path, population: str) -> Manifest:
     """Read one population's manifest; a missing file is an empty manifest.
 
-    A schema v1 manifest was one file for the whole site. When the
-    namespace has no manifest of its own, the legacy file is migrated into
-    it.
+    A site published before the rename still carries the visible manifest in
+    the namespace; it is read once, so the layout change does not reset the
+    recorded latest and history. A schema v1 manifest was one file for the
+    whole site. When the namespace has no manifest of its own, the legacy file
+    is migrated into it.
     """
     _population(population)
     source = path
     if not path.exists():
-        legacy = legacy_manifest_path(path)
-        if legacy is None or not legacy.exists():
-            return empty_manifest(population)
-        source = legacy
+        visible = _legacy_manifest_path(path.parent)
+        if visible.is_file():
+            source = visible
+        else:
+            legacy = legacy_manifest_path(path)
+            if legacy is None or not legacy.exists():
+                return empty_manifest(population)
+            source = legacy
     try:
         data = json.loads(source.read_text(encoding="utf-8"))
     except Exception as exc:

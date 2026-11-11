@@ -134,18 +134,18 @@ class Nav3StateReselectTest {
 
     @Test
     fun `open of a top-level destination switches tabs and records the previous one`() {
-        val s = state(AppDestination.Plans)
+        val s = state(AppDestination.Pomodoro)
         val navigator = Navigator(s)
 
-        navigator.open(AppDestination.Plans)
+        navigator.open(AppDestination.Pomodoro)
 
-        assertEquals(AppDestination.Plans, s.topLevelRoute)
+        assertEquals(AppDestination.Pomodoro, s.topLevelRoute)
         assertEquals(start, s.previousTopLevelRoute)
     }
 
     @Test
     fun `open of a sub-route pushes onto the current stack without switching tabs`() {
-        val s = state(AppDestination.Plans)
+        val s = state(AppDestination.Pomodoro)
         val navigator = Navigator(s)
         val target = AppDestination.ProjectDetail(ProjectId("p1"))
 
@@ -160,22 +160,22 @@ class Nav3StateReselectTest {
     @Test
     fun `reopening the active tab through open emits a reselect and touches no stack`() =
         runTest {
-            val s = state(AppDestination.Plans)
+            val s = state(AppDestination.Pomodoro)
             val navigator = Navigator(s)
-            navigator.open(AppDestination.Plans)
+            navigator.open(AppDestination.Pomodoro)
             val stackSize = s.requireBackStackFor(s.topLevelRoute).size
 
             val received = async { s.reselectEvents.first() }
             runCurrent()
-            navigator.open(AppDestination.Plans)
+            navigator.open(AppDestination.Pomodoro)
 
-            assertEquals(AppDestination.Plans, received.await())
+            assertEquals(AppDestination.Pomodoro, received.await())
             assertEquals(stackSize, s.requireBackStackFor(s.topLevelRoute).size)
         }
 
     @Test
     fun `open of a bare nested start route fails before touching the stack`() {
-        val s = state(AppDestination.Plans)
+        val s = state(AppDestination.Pomodoro)
         val navigator = Navigator(s)
         val before = s.requireBackStackFor(s.topLevelRoute).toList()
 

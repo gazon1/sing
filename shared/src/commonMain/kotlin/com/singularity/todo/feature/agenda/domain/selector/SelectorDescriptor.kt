@@ -38,6 +38,7 @@ val Selector.typeDescription: String
                     RelativeBucket.NextMonth -> "Next month"
                     RelativeBucket.Yesterday -> "Yesterday"
                     RelativeBucket.NoDate -> "No date"
+                    RelativeBucket.Future -> "Future tasks"
                 }
             }
 

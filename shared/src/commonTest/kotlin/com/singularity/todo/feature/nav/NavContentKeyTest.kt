@@ -135,7 +135,6 @@ class NavContentKeyTest {
     fun `every destination has a content key`() {
         val destinations =
             listOf(
-                AppDestination.Plans,
                 AppDestination.Pomodoro,
                 AppDestination.Statistics,
                 AppDestination.Calendar,

@@ -28,6 +28,21 @@ enum class AgendaLayout {
  * @param discard If true, matched tasks are removed from subsequent sections.
  *        Used for exclude-first semantics (e.g. "All tasks except Completed").
  * @param prefill Default values pre-filled when the user taps '+' in this section.
+ * @param groupBy If non-null, the tasks this section matches are rendered as one
+ *        section per period of that grouping instead of one section. The periods
+ *        come from the matched tasks, in chronological order, so a day, week or
+ *        month with no task has no header and a distant task is not a gap of empty
+ *        periods. Each generated section carries its own prefill, so its '+' creates
+ *        a task due in that period.
+ *
+ *        It is the section's default grouping. A screen that owns the profile's
+ *        grouping passes that choice as an override; a saved view keeps the field
+ *        through the save, and its screen applies the profile's choice too.
+ *
+ *        It lives on the section rather than on [AgendaDefinition] because a saved
+ *        view stores its sections and rebuilds the definition from them: a
+ *        grouping on the definition would be silently dropped the moment the user
+ *        saved the tab as a view.
  */
 @Serializable
 @SerialName("Section")
@@ -40,6 +55,7 @@ data class Section(
     val selector: Selector,
     val discard: Boolean = false,
     val prefill: SectionPrefill? = null,
+    val groupBy: DateGrouping? = null,
 ) {
     /**
      * Guaranteed-non-null stable id for this section.
@@ -136,6 +152,7 @@ class AgendaScope {
         order: Int = sections.size,
         discard: Boolean = false,
         prefill: SectionPrefill? = null,
+        groupBy: DateGrouping? = null,
         block: SectionScope.() -> Unit = {},
     ) {
         val scope = SectionScope().apply(block)
@@ -143,7 +160,7 @@ class AgendaScope {
         checkNotNull(effectiveSelector) {
             "Section '$name' has no selector — pass as parameter or assign inside block"
         }
-        sections.add(Section(id, name, order, effectiveSelector, discard, prefill))
+        sections.add(Section(id, name, order, effectiveSelector, discard, prefill, groupBy))
     }
 }
 

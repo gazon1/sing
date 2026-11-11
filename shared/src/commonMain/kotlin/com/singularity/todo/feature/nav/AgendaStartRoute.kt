@@ -26,9 +26,11 @@ sealed interface AgendaStartRoute : AppNavKey {
     data object Today : AgendaStartRoute
 
     /**
-     * Upcoming — tomorrow, the rest of this week, and next week.
+     * Upcoming — tomorrow and every day after it, grouped by date.
      *
-     * Disjoint from [Today]: the overdue and today's tasks belong to that tab.
+     * Disjoint from [Today], which owns the overdue and today's tasks, and from
+     * [Inbox], which owns the undated ones. There is no far edge: the tab is the
+     * complete feed of future dated tasks.
      */
     @Serializable
     data object Upcoming : AgendaStartRoute

@@ -1,0 +1,25 @@
+# Scenario AGENDA-09 — the Android carrier for the Upcoming feed.
+#
+# The order-of-headers and no-empty-day claims are AGENDA-10 on desktop:
+# Maestro can see that rows and their headers exist, but comparing their
+# vertical order is not what it does. Keeping this claim narrower is what makes
+# the Android cell in the coverage matrix honest.
+
+id: AGENDA-09
+title: "Upcoming groups future tasks under date headers and leaves Today out"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Open tasks exist with due dates tomorrow, three days out and six days out. A
+  task due today and a task with no due date exist as controls.
+steps:
+  - "Open the Upcoming tab."
+  - "Find the task due tomorrow and the header it sits under."
+  - "Read the three future tasks."
+expected: >-
+  The three future tasks are listed under date headers in the Upcoming tab, and
+  each appears once. The day/week control switches the feed to week headers and
+  back without losing a task. The task due today is absent — the Today tab owns
+  it — and the undated task is absent — the Inbox tab owns it.

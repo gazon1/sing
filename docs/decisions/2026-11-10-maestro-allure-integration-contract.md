@@ -13,7 +13,7 @@ The JVM tier already produces Allure: `allure-junit5` writes results, the
 `allureReport` task renders them, and `.github/workflows/ci.yml` publishes them
 to GitHub Pages through `scripts/ci/allure_pages.py`
 (`docs/decisions/2026-11-06-the-allure-report-is-generated-in-the-build.md`,
-`docs/decisions/allure-publication-latest-history-and-retention.md`).
+`docs/decisions/2026-11-10-allure-publication-latest-history-and-retention.md`).
 
 The Maestro tier does not appear in any of that. It already produces everything a
 report needs — `.github/workflows/e2e.yml` runs `maestro test … --format JUNIT`,
@@ -324,6 +324,6 @@ defect is to let whichever record was read second decide whether the run failed.
 - Decisions: `2026-11-06-one-junit-xml-reader.md`,
   `2026-11-06-the-allure-report-is-generated-in-the-build.md`,
   `2026-11-09-the-evidence-of-a-run-is-indexed-by-one-reporter.md`,
-  `allure-publication-latest-history-and-retention.md`
+  `2026-11-10-allure-publication-latest-history-and-retention.md`
 - Issues: #2771 (this contract), #2772 (conversion), #2773 (attachments),
   #2761, #2764, #2766, #2767, #2769 (publication)

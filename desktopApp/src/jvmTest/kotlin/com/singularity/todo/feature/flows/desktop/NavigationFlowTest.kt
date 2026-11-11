@@ -87,7 +87,7 @@ class NavigationFlowTest {
                 "Calendar" !in DesktopShell.TABS,
                 "the Calendar is a tab again: ${DesktopShell.TABS}",
             )
-            assertContentDescriptionReachable("Plans")
+            assertContentDescriptionReachable("Pomodoro")
 
             // And it did not disappear — it moved to the menu, which is where the
             // rest of the app's destinations live.

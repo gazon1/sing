@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.state
 import com.singularity.todo.core.ui.components.formatRussianDueDateOrNull
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
@@ -28,6 +29,9 @@ import kotlinx.datetime.LocalDate
  *        sections on Today default to collapsed so today's work stays reachable.
  * @param isTodayAgenda True when the screen is the Today tab; only there are the
  *        overdue section's collapse controls offered.
+ * @param dateGrouping The profile's chosen grouping when this agenda has a
+ *        date-grouped section, or null when it has none. Non-null is what makes the
+ *        day/week/month control visible.
  *
  * ## Why there is no `@Immutable` here
  *
@@ -54,6 +58,7 @@ sealed interface AgendaUiState {
         val pendingBlockedBulkClose: BlockedBulkCloseRequest? = null,
         val collapsedSectionIds: ImmutableSet<String> = persistentSetOf(),
         val isTodayAgenda: Boolean = false,
+        val dateGrouping: DateGrouping? = null,
     ) : AgendaUiState
 
     data class Error(val message: String) : AgendaUiState

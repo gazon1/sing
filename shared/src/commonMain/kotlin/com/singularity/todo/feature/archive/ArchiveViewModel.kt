@@ -20,13 +20,22 @@ import kotlinx.coroutines.launch
 sealed interface ArchiveUiState {
     data object Loading : ArchiveUiState
 
-    data class Content(val tasks: List<Task>, val refreshing: Boolean = false) : ArchiveUiState
+    /**
+     * @param tasks the archived tasks, newest first.
+     * @param eligibleCount the repository's archivable count: completed live tasks,
+     *   the same predicate as the bulk write's `UPDATE`.
+     * @param archiving a bulk archive is in flight. The action is unavailable while
+     *   it runs, so one confirmation is one write.
+     */
+    data class Content(val tasks: List<Task>, val eligibleCount: Int = 0, val archiving: Boolean = false) :
+        ArchiveUiState
 
     data class Error(val message: String) : ArchiveUiState
 }
 
 sealed interface ArchiveIntent : MviIntent {
-    data object Refresh : ArchiveIntent
+    /** Move every completed live task to the archive. Dispatched after confirmation. */
+    data object ArchiveCompletedTasks : ArchiveIntent
 
     data object Retry : ArchiveIntent
 }
@@ -52,7 +61,7 @@ class ArchiveViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-    private val refreshing = MutableStateFlow(false)
+    private val archiving = MutableStateFlow(false)
 
     /**
      * The request to observe the archive again after a failure.
@@ -88,9 +97,14 @@ class ArchiveViewModel(
             ) {
                 combine(
                     taskRepo.observeByFilter(TaskFilter.Trash),
-                    refreshing,
-                ) { tasks: List<Task>, r: Boolean ->
-                    ArchiveUiState.Content(tasks, refreshing = r) as ArchiveUiState
+                    taskRepo.observeArchivableCount(),
+                    archiving,
+                ) { tasks: List<Task>, eligible: Int, busy: Boolean ->
+                    ArchiveUiState.Content(
+                        tasks = tasks,
+                        eligibleCount = eligible,
+                        archiving = busy,
+                    ) as ArchiveUiState
                 }
             }.collect { newState -> updateState { newState } }
         }
@@ -98,18 +112,33 @@ class ArchiveViewModel(
 
     override fun onIntent(intent: ArchiveIntent) {
         when (intent) {
-            ArchiveIntent.Refresh -> refresh()
+            ArchiveIntent.ArchiveCompletedTasks -> archiveCompletedTasks()
             ArchiveIntent.Retry -> reloadTrigger.reload()
         }
     }
 
-    private fun refresh() {
-        refreshing.value = true
-        catchTo("Failed to refresh archive", { msg -> emit(ArchiveUiEvent.Error(msg)) }) {
+    private fun archiveCompletedTasks() {
+        // One confirmation is one write. The screen also disables the action while
+        // this flag is set, but the dialog's confirm button has no such gate, so the
+        // guard lives here where every dispatch meets it.
+        if (archiving.value) return
+        archiving.value = true
+        // `catchTo` already routes a `Result.failure` from the repository: it folds
+        // the outer result and calls `onFailure` on the inner one. An explicit
+        // `getOrThrow()` here would only move the same failure to the other branch.
+        catchTo("Failed to archive completed tasks", { msg -> emit(ArchiveUiEvent.Error(msg)) }) {
             archiveRepo.archiveCompletedTasks().onSuccess { count ->
-                if (count > 0) emit(ArchiveUiEvent.Archived("Moved $count tasks to archive"))
+                if (count > 0) {
+                    val noun = if (count == 1) "task" else "tasks"
+                    emit(ArchiveUiEvent.Archived("Moved $count $noun to archive"))
+                } else {
+                    // Another device can move the same work between the dialog and
+                    // the confirmation. The write is idempotent, so the only honest
+                    // answer is that there was nothing left to move.
+                    emit(ArchiveUiEvent.NothingToArchive)
+                }
             }
-        }.invokeOnCompletion { refreshing.value = false }
+        }.invokeOnCompletion { archiving.value = false }
     }
 
     private companion object {

@@ -85,7 +85,6 @@ class NavSavedStateConfigTest {
             listOf(
                 AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
                 AppDestination.AgendaGraph(AgendaStartRoute.Today),
-                AppDestination.Plans,
                 AppDestination.Pomodoro,
                 AppDestination.Statistics,
                 AppDestination.Calendar,

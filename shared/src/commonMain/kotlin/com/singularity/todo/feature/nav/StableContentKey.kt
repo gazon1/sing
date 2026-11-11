@@ -5,7 +5,6 @@ import com.singularity.todo.feature.tags.TagId
 
 internal fun AppDestination.stableContentKey(): String =
     when (this) {
-        is AppDestination.Plans -> "plans"
         is AppDestination.Pomodoro -> "pomodoro"
         is AppDestination.Statistics -> "statistics"
         is AppDestination.Calendar -> "calendar"
