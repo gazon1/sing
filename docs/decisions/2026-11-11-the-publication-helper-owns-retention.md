@@ -153,9 +153,12 @@ left alone: the helper does not delete history it cannot explain.
 
 # Consequences
 
-- The workflow passes `keep_reports: 200` to the report action and restores the
+- The workflow passes `keep_reports: 100000` to the report action and restores the
   runner's ownership of the tree the action built. The action's pruning is
-  inert; the helper's window is the contract.
+  inert; the helper's window is the contract. The threshold is unreachable on
+  purpose: it counts entries in the namespace, while the helper's window counts
+  publications, and a threshold in the same ballpark as the window would be a
+  second owner of it — one number away from deleting the manifest.
 - A manifest that does not satisfy the invariants stops the publication. That is
   the intended behaviour, and it is a behaviour change: a manifest whose `latest`
   did not match its stored record used to be normalized and carried on with.

@@ -1914,9 +1914,17 @@ jobs:
           # more than keep_reports+1 entries, and it prunes the non-numeric
           # entries first: the manifest, the population index and last-history
           # go before any report does. The helper owns retention, so the
-          # action must not prune — this only has to stay above the number of
-          # reports the helper keeps.
-          keep_reports: 200
+          # action must not prune.
+          #
+          # The threshold counts entries, not reports: the report folders, the
+          # manifest, the population index and last-history, and any folder
+          # the manifest does not name — which the helper deliberately leaves
+          # alone. The helper keeps 20 publications, so the namespace holds
+          # about 23 entries, and no number of publications reaches the
+          # threshold below. Anything in the same ballpark as the helper's
+          # window would be a second owner of that window, one number away
+          # from deleting the manifest.
+          keep_reports: 100000
 
       - name: Restore runner ownership of the generated tree
         # The action is a Docker action: it runs as root and leaves
