@@ -60,7 +60,7 @@ Tab reselect emits `Nav3State.reselectEvents`; reselect never mutates a stack
 | `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute(initialDueDate))` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | the deep link names the tab too — see *Deep links* below |
 | `TasksByProject(projectId)` | *(no `entry<>` declared)* | **no production opener — unwired surface** (see `ProjectDetailUi` "see all") | candidate for follow-up issue |
 | `ProjectDetail(projectId)` | `ProjectsNavGraph(Detail)` | `TasksNavigator.openProject`, `SearchNavigator.openProject` | allow-list previously permitted from Tasks/Agenda contexts only |
-| `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | the project list's FAB, project detail edit | |
+| `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | the project list's `+` action, project detail edit | |
 | `ProjectsGraph(start)` | `ProjectsNavGraph(start.toProjectsRoute())` | the menu's "All projects" entry, the menu's project tree | the tree opens a project through `ProjectsOpener`, not through a destination — a project id is not a destination |
 | `NotesGraph(start)` | `NotesNavGraph(start.toNotesRoute())` | `TasksNavigator.openNote*`, `SearchNavigator.openNote`, task→linked-note | previously **swallowed** by the Tasks allow-list (REQ-NAV-002) |
 | `CalendarGraph(start)` | `CalendarNavGraph` | *(no production opener — there is no calendar deep link)* | |

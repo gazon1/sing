@@ -4,14 +4,11 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.test.helpers.DesktopShell
-import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
-import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.openAllProjects
@@ -26,10 +23,10 @@ import kotlin.test.Test
  * The project list is no longer a tab — it is reached from the drawer's Projects
  * section — so the flow opens it from the menu.
  *
- * The Android flow taps `TestTags.TASKS_FAB` — the shell's extended FAB. The
- * desktop shell renders a plain `FloatingActionButton` with no testTag, only the
- * `Add project` contentDescription, so the selector differs while the flow is the
- * same: menu → list → create → name → save → card → detail.
+ * Both tiers create a project from the list's own bar (`+`,
+ * [TestTags.PROJECTS_CREATE_BUTTON]): the shell FAB that used to open the editor
+ * is gone (#2735), so the selector is the same on both platforms and the flow is
+ * the same: menu → list → create → name → save → card → detail.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -44,14 +41,14 @@ class ProjectsFlowTest {
             // opens — so there is no tab to be "current"; the screen's own empty
             // state is the assertion.
             assertTextDisplayed("No projects yet")
-            assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_PROJECT)
+            assertTagDisplayed(TestTags.PROJECTS_CREATE_BUTTON)
         }
 
     @Test
     fun creating_a_project_puts_a_card_in_the_list() =
         runDesktopAppTest {
             openAllProjects()
-            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            clickTag(TestTags.PROJECTS_CREATE_BUTTON)
 
             typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
             clickTag(TestTags.PROJECT_EDITOR_SAVE)
@@ -65,7 +62,7 @@ class ProjectsFlowTest {
     fun opening_a_project_reaches_its_detail_screen() =
         runDesktopAppTest(checkA11y = true) {
             openAllProjects()
-            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            clickTag(TestTags.PROJECTS_CREATE_BUTTON)
             typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
             clickTag(TestTags.PROJECT_EDITOR_SAVE)
 
@@ -96,7 +93,7 @@ class ProjectsFlowTest {
     fun closing_a_project_asks_what_the_cascade_will_close() =
         runDesktopAppTest(checkA11y = true) {
             openAllProjects()
-            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            clickTag(TestTags.PROJECTS_CREATE_BUTTON)
             typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
             clickTag(TestTags.PROJECT_EDITOR_SAVE)
 

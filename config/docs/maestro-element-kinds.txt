@@ -121,6 +121,7 @@ project_card_project_alpha item
 project_card_roadmap item
 project_detail_quick_add field
 project_editor_name_input field
+projects_create_button button
 recurrence_option_daily dialog
 # The shared error dialog is where the server's answer is presented, so the
 # wait is for the answer and not for the dialog: every flow that waits for it

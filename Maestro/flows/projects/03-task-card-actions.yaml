@@ -23,10 +23,10 @@ tags:
     id: menu_all_projects
 - extendedWaitUntil:
     visible:
-      id: tasks_fab
+      id: projects_create_button
     timeout: 8000
 - tapOn:
-    id: tasks_fab
+    id: projects_create_button
 - extendedWaitUntil:
     visible:
       id: project_editor_name_input
