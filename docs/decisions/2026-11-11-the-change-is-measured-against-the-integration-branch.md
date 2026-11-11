@@ -32,6 +32,17 @@ change against the wrong trunk, and the wrong answer is a green run.
 One tool must answer "which ref is the base?", and every tool must ask it
 the same way.
 
+The exclusive rule below has a consequence nobody planned for: a name that
+refers to a ref in *this* repository means nothing in another one. The first
+CI run of this change found it — the workflow names the base once, for the
+whole workflow, and the name reached a control's fixture repository. The
+ratchet measured the fixture's branch against a ref the fixture does not have,
+found no growth, and passed a deliberately sabotaged input. The control that
+was there to prove the gate can fail proved instead that it cannot, and only
+in CI: on a workstation the same control passed, because the name was not
+there. A base that is not there is not a base, and it is not a missing base
+either — it is a tree that has been told it has none.
+
 ## Idea
 
 One module owns the answer. Every tool asks it. The answer is a chain, and
@@ -74,6 +85,16 @@ The tools therefore carry **no second answer**: no tool falls back to
 `origin/main` when the owner has none, because that fallback is either dead
 (the owner already tried `origin/main`) or wrong (it answers a question the
 caller did not ask). A tool with no base says so.
+
+**A named base travels with the tree it names.** `SGATE_BASE_REF` names a ref
+in the tree the caller is in, so it is true here and says nothing about
+another repository. A process that runs in another tree — a fixture's own
+repository, a control's copy of this one — does not carry the name: the name
+is not there, and because a named base is exclusive, the tree that has no base
+of its own would be told it has none, and the chain that could have answered
+would never be consulted. `scripts/src/sgate/gatekit/gitenv.py` owns the
+answer to "which names must not cross into another tree" — git's hook
+variables and this one — and the control harness and the test fixtures use it.
 
 **The ratchet keeps its announced fallback.** `scripts/check-baseline-ratchet.py`
 has a base of its own to compare with, and a named base that is not here leaves
@@ -165,6 +186,9 @@ not exist — a green answer to a question nobody asked.
 - `config/hooks/pre-push.json` records the hook's base chain, and
   `scripts/check-hook-gates.py` verifies code and JSON in both directions, so
   the record and the hook cannot drift.
+- A gate that runs in another tree is given an environment without the base
+  name, and so is a fixture that builds its own repository. The name is not
+  banned — the tree it belongs to still gets it — but it does not travel.
 - The branch topology itself — `dev` existing, protected, and receiving the
   population split — is #2832's later phases. This decision makes the tools
   able to name it; it does not create it.
@@ -173,6 +197,8 @@ not exist — a green answer to a question nobody asked.
 
 - `scripts/src/sgate/gatekit/refs.py` — `BASE_CANDIDATES`,
   `REMOTE_BASE_CANDIDATES`, `resolve_base_ref()`, `resolves()`.
+- `scripts/src/sgate/gatekit/gitenv.py` — the names that must not cross into
+  another tree, and `foreign_env()`.
 - `scripts/refs_loader.py` — the by-path loader for hook-side scripts.
 - `scripts/src/sgate/commands/checkout_state.py` — `_upstream_ref()`, the
   three-valued `differs`.
@@ -183,6 +209,10 @@ not exist — a green answer to a question nobody asked.
 - `scripts/tests/test_checkout_state.py` — the integration branch as the
   base, the local branch that is not a base, the missing base that stays
   unknown.
+- `scripts/tests/test_git_sandbox.py` — the base name that does not travel
+  into another tree.
+- `scripts/tests/test_check_gate_wiring.py` — the control that still proves the
+  gate can fail when a base is named.
 - `.githooks/pre-push` — the shell chain.
 - `docs/decisions/2026-10-25-the-suite-measures-this-checkout.md`.
 - `docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`.
