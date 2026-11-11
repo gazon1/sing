@@ -21,6 +21,17 @@ sealed interface CalendarIntent : MviIntent {
 
     data class DayClicked(val date: LocalDate) : CalendarIntent
 
+    /**
+     * Opens [date] in DAY view, preserving the date.
+     *
+     * Distinct from [DayClicked], which only enters DAY from MONTH and otherwise
+     * keeps the current mode — in WEEK/FOUR_DAYS a date is one column of a
+     * multi-day grid, not the day view. The date header and the collapsed
+     * all-day overflow use this to give every hidden event a route to the full
+     * day list.
+     */
+    data class OpenDay(val date: LocalDate) : CalendarIntent
+
     data object ToggleMiniCalendar : CalendarIntent
 
     data class TaskClicked(val taskId: TaskId) : CalendarIntent

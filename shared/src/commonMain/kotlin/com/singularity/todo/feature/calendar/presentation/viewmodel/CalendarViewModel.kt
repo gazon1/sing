@@ -177,6 +177,10 @@ class CalendarViewModel(
                 }
             }
 
+            is CalendarIntent.OpenDay -> {
+                openDay(intent.date)
+            }
+
             CalendarIntent.ToggleMiniCalendar -> {
                 _calendarState.value = _calendarState.value.copy(isMiniOpen = !_calendarState.value.isMiniOpen)
             }
@@ -221,6 +225,24 @@ class CalendarViewModel(
             CalendarIntent.CreateTaskOnSelectedDates -> {
                 createTaskOnSelectedDates()
             }
+        }
+    }
+
+    /**
+     * Opens [date] in DAY view, unless a day-picking session is active.
+     *
+     * Picking mode still owns the tap: opening a date must not throw the user
+     * out of a selection they are building.
+     */
+    private fun openDay(date: LocalDate) {
+        if (_dateSelection.value.isActive) {
+            _dateSelection.value = _dateSelection.value.toggle(date)
+        } else {
+            _calendarState.value =
+                _calendarState.value.copy(
+                    viewMode = CalendarViewMode.DAY,
+                    anchor = date,
+                )
         }
     }
 

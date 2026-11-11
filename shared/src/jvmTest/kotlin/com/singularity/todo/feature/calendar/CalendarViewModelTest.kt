@@ -168,6 +168,63 @@ class CalendarViewModelTest {
             )
         }
 
+    // ─── date-to-DAY navigation ────────────────────────────────────────────
+    //
+    // In WEEK/FOUR_DAYS a date column is not the day view, so the row header and
+    // the collapsed all-day overflow need an explicit route into DAY. OpenDay is
+    // that route; DayClicked keeps its old semantics (enter DAY only from MONTH).
+
+    @Test
+    fun `OpenDay from WEEK switches to DAY and keeps the date`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.WEEK)
+            val date = LocalDate(2026, Month.SEPTEMBER, 18)
+
+            vm.onIntent(CalendarIntent.OpenDay(date))
+
+            assertEquals(CalendarViewMode.DAY, vm.calendarState.value.viewMode)
+            assertEquals(date, vm.calendarState.value.anchor)
+        }
+
+    @Test
+    fun `OpenDay from FOUR_DAYS switches to DAY`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.FOUR_DAYS)
+            val date = LocalDate(2026, Month.SEPTEMBER, 18)
+
+            vm.onIntent(CalendarIntent.OpenDay(date))
+
+            assertEquals(CalendarViewMode.DAY, vm.calendarState.value.viewMode)
+            assertEquals(date, vm.calendarState.value.anchor)
+        }
+
+    @Test
+    fun `DayClicked in WEEK still keeps the mode`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.WEEK)
+            val date = LocalDate(2026, Month.SEPTEMBER, 18)
+
+            vm.onIntent(CalendarIntent.DayClicked(date))
+
+            assertEquals(CalendarViewMode.WEEK, vm.calendarState.value.viewMode)
+            assertEquals(date, vm.calendarState.value.anchor)
+        }
+
+    @Test
+    fun `OpenDay in the selection mode picks the day instead of leaving the mode`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.WEEK)
+            val first = LocalDate(2026, Month.SEPTEMBER, 16)
+            val second = LocalDate(2026, Month.SEPTEMBER, 18)
+            vm.onIntent(CalendarIntent.EnterDateSelectionMode(first))
+
+            vm.onIntent(CalendarIntent.OpenDay(second))
+
+            assertEquals(CalendarViewMode.WEEK, vm.calendarState.value.viewMode)
+            assertTrue(vm.dateSelection.value.isActive)
+            assertEquals(setOf(first, second), vm.dateSelection.value.dates)
+        }
+
     // ─── initial state ─────────────────────────────────────────────────────
 
     @Test

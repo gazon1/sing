@@ -269,7 +269,10 @@ fun DesktopComposeUiTest.awaitContentDescription(desc: String) =
  * Does not wait — captures the count at call time.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.countNodes(tag: String): Int = onAllNodesWithTag(tag).fetchSemanticsNodes().size
+fun DesktopComposeUiTest.countNodes(
+    tag: String,
+    useUnmergedTree: Boolean = false,
+): Int = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree).fetchSemanticsNodes().size
 
 /**
  * Whether the checkbox with [testTag] reports ToggleableState.On right now.
@@ -426,6 +429,22 @@ fun DesktopComposeUiTest.touchBoundsOfTagInUnmergedTree(tag: String): DpRect {
         )
     }
 }
+
+/**
+ * The unclipped bounds of the [index]th node with [tag].
+ *
+ * The indexed counterpart of [unclippedBoundsOfTag] for a tag that repeats —
+ * seven day columns, a list of markers. The [useUnmergedTree] flag is for a tag
+ * that lives under a merging ancestor (a `clickable` cell): the merged tree
+ * reports the ancestor, and only the unmerged tree still has the child's own
+ * bounds.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfTagAt(
+    tag: String,
+    index: Int,
+    useUnmergedTree: Boolean = false,
+): DpRect = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree)[index].getUnclippedBoundsInRoot()
 
 /**
  * The unclipped bounds of the node with content description [desc], in root

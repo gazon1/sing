@@ -385,6 +385,8 @@ non-alphanumeric characters with `_`.
 
 | Constant | Value | Where |
 |---|---|---|
+| `CALENDAR_ALL_DAY_CELL` | `calendar_all_day_cell` | |
+| `CALENDAR_ALL_DAY_MARKER` | `calendar_all_day_marker` | |
 | `CALENDAR_CONTROLS` | `calendar_controls` | |
 | `CALENDAR_DAY_CELL` | `calendar_day_cell` | |
 | `CALENDAR_MONTH_TITLE` | `calendar_month_title` | |
