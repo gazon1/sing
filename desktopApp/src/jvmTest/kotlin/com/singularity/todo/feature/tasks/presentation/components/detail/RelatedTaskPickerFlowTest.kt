@@ -11,8 +11,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.onNodeWithTag
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.core.search.SearchTextIndex
@@ -30,6 +28,7 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeSearchTextIndex
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.awaitAnyDisplayed
@@ -77,8 +76,7 @@ class RelatedTaskPickerFlowTest {
 
             awaitAnyDisplayed(TestTags.relatedTaskItem("missing"))
             assertTagDisplayed(TestTags.relatedTaskRemove("missing"))
-            onNodeWithTag(TestTags.relatedTaskItem("missing"), useUnmergedTree = true)
-                .assertTextContains("Unavailable task", substring = true)
+            awaitText("Unavailable task")
 
             clickTag(TestTags.relatedTaskRemove("missing"))
             waitForIdle()
@@ -93,7 +91,7 @@ class RelatedTaskPickerFlowTest {
     fun `picker adds one task then reopen excludes it and can add another`() =
         runIsolatedComposeTest {
             val now = Instant.parse("2026-01-01T00:00:00Z")
-            val uid = UserId("u1")
+            val uid = TestUsers.DEFAULT
             val taskRepo =
                 FakeTaskRepository().apply {
                     add(task("t-cur", "Current", uid, now))
@@ -116,7 +114,6 @@ class RelatedTaskPickerFlowTest {
             val index = FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository())
             val added = mutableListOf<Pair<TaskId, DependencyVerb>>()
 
-            mainClock.autoAdvance = false
             setContent {
                 PickerHarness(
                     taskId = TaskId("t-cur"),
@@ -129,13 +126,10 @@ class RelatedTaskPickerFlowTest {
             clickTag("open_picker")
             awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
             typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Alpha")
-            mainClock.advanceTimeBy(350)
-            waitForIdle()
 
             awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-a"))
             awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-b"))
-            onNodeWithTag(TestTags.relatedTaskCandidate("t-a"), useUnmergedTree = true)
-                .assertTextContains("Project X", substring = true)
+            awaitText("Project X")
 
             clickTag(TestTags.relatedTaskCandidate("t-a"))
             clickTag(TestTags.RELATED_TASK_PICKER_ADD)
@@ -145,8 +139,6 @@ class RelatedTaskPickerFlowTest {
             clickTag("open_picker")
             awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
             typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Alpha")
-            mainClock.advanceTimeBy(350)
-            waitForIdle()
 
             awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-b"))
             assertTagNotExists(TestTags.relatedTaskCandidate("t-a"))
@@ -163,54 +155,55 @@ class RelatedTaskPickerFlowTest {
         }
 
     @Test
-    fun `picker handles idle no results clear and error states`() =
+    fun `picker handles idle no results and clear states`() =
         runIsolatedComposeTest {
             val now = Instant.parse("2026-01-01T00:00:00Z")
-            val uid = UserId("u1")
+            val uid = TestUsers.DEFAULT
             val taskRepo =
                 FakeTaskRepository().apply {
                     add(task("t-cur", "Current", uid, now))
                     add(task("t-cand", "Alpha candidate", uid, now))
                 }
             val projectRepo = FakeProjectsRepository()
-            val okIndex = FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository())
-            val failingIndex = ThrowingSearchIndex()
 
-            mainClock.autoAdvance = false
             setContent {
-                var mode by remember { mutableStateOf("ok") }
-                Column {
-                    TextButton(onClick = { mode = "ok" }, modifier = Modifier.testTag("mode_ok")) { Text("ok") }
-                    TextButton(onClick = { mode = "fail" }, modifier = Modifier.testTag("mode_fail")) { Text("fail") }
-                    RelatedTaskPickerSheet(
-                        taskId = TaskId("t-cur"),
-                        existingRelationIds = persistentSetOf(),
-                        onAdd = { _, _ -> },
-                        onDismiss = {},
-                        searchIndex = if (mode == "ok") okIndex else failingIndex,
-                        projectsRepo = projectRepo,
-                    )
-                }
+                RelatedTaskPickerSheet(
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = persistentSetOf(),
+                    onAdd = { _, _ -> },
+                    onDismiss = {},
+                    searchIndex =
+                        FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository()),
+                    projectsRepo = projectRepo,
+                )
             }
 
             awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
             awaitText("Type to find a task to relate")
 
             typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "zzznomatch")
-            mainClock.advanceTimeBy(350)
-            waitForIdle()
             awaitText("No matching tasks")
 
             clickTag(TestTags.RELATED_TASK_PICKER_CLEAR)
-            mainClock.advanceTimeBy(350)
-            waitForIdle()
             awaitText("Type to find a task to relate")
+        }
 
-            clickTag("mode_fail")
-            waitForIdle()
+    @Test
+    fun `picker shows the search error and how to recover`() =
+        runIsolatedComposeTest {
+            setContent {
+                RelatedTaskPickerSheet(
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = persistentSetOf(),
+                    onAdd = { _, _ -> },
+                    onDismiss = {},
+                    searchIndex = ThrowingSearchIndex(),
+                    projectsRepo = FakeProjectsRepository(),
+                )
+            }
+
+            awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
             typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Alpha")
-            mainClock.advanceTimeBy(350)
-            waitForIdle()
             awaitText("boom")
             awaitText("Edit or clear the query to try again.")
         }

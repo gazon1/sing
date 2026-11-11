@@ -26,41 +26,21 @@ class RelatedTaskPickerSearchTest {
             val now = Instant.parse("2026-01-01T00:00:00Z")
             val uid = UserId("u1")
             val current = task("t-cur", "Alpha current", uid, now)
-            val excluded = setOf(TaskId("t-ex1"), TaskId("t-ex2"))
+            val excluded = (1..130).map { TaskId("t-ex$it") }.toSet()
+            val excludedTasks = excluded.map { task(it.value, "Alpha excluded", uid, now) }
             val wanted = task("t-want", "Alpha wanted", uid, now)
-            val firstPage = (1..50).map { i -> task("t-$i", "Alpha noise $i", uid, now) }
+            // Pages of 30 and 60 are filled entirely with excluded rows, so only the
+            // expanding fetch can reach the page that carries the wanted task.
             val index =
                 object : SearchTextIndex by NoOpSearchTextIndex() {
                     override suspend fun recentTaskTitles(
                         query: TextMatchQuery,
                         limit: Int,
                     ): List<Task> =
-                        when (limit) {
-                            10 -> {
-                                firstPage.take(10)
-                            }
-
-                            20 -> {
-                                firstPage.take(20) + listOf(task("t-ex1", "Alpha related", uid, now))
-                            }
-
-                            40 -> {
-                                firstPage.take(38) + listOf(task("t-ex2", "Alpha related 2", uid, now), current)
-                            }
-
-                            80 -> {
-                                firstPage +
-                                    listOf(
-                                        task("t-ex1", "Alpha related", uid, now),
-                                        task("t-ex2", "Alpha related 2", uid, now),
-                                        current,
-                                        wanted,
-                                    )
-                            }
-
-                            else -> {
-                                firstPage
-                            }
+                        if (limit < 120) {
+                            excludedTasks.take(limit)
+                        } else {
+                            listOf(wanted) + excludedTasks.take(40) + current
                         }
                 }
 

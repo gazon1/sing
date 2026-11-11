@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,11 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
@@ -30,9 +31,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,13 +47,16 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -99,26 +102,34 @@ internal suspend fun searchRelatedTaskCandidates(
     maxFetchLimit: Int = RELATED_TASK_PICKER_MAX_FETCH_LIMIT,
 ): List<Task> {
     val q = rawQuery.trim()
-    if (q.isBlank()) return emptyList()
-
-    val rule = FreeTextRule.singleTerm(q)
-    val plan = rule.plan(SearchMode.Word)
-    val query =
-        when (plan) {
-            is TextMatchPlan.Narrowed -> rule.indexQuery(SearchMode.Word)
-            TextMatchPlan.BroadScan -> return emptyList()
-        }
-    if (query == TextMatchQuery.EMPTY) return emptyList()
+    val query = relatedTaskSearchQuery(q)
+    if (query == null) return emptyList()
 
     var fetchLimit = initialFetchLimit.coerceAtLeast(resultLimit)
     val cap = maxFetchLimit.coerceAtLeast(fetchLimit)
+    var result = emptyList<Task>()
     while (true) {
         val batch = searchIndex.recentTaskTitles(query, fetchLimit)
         val filtered = batch.asSequence().filter { it.id != taskId && it.id !in existingRelationIds }.toList()
-        if (filtered.size >= resultLimit) return filtered.take(resultLimit)
-        if (batch.size < fetchLimit || fetchLimit >= cap) return filtered.take(resultLimit)
+        val done = filtered.size >= resultLimit || batch.size < fetchLimit || fetchLimit >= cap
+        if (done) {
+            result = filtered.take(resultLimit)
+            break
+        }
         fetchLimit = (fetchLimit * 2).coerceAtMost(cap)
     }
+    return result
+}
+
+private fun relatedTaskSearchQuery(rawQuery: String): TextMatchQuery? {
+    if (rawQuery.isBlank()) return null
+    val rule = FreeTextRule.singleTerm(rawQuery)
+    val query =
+        when (rule.plan(SearchMode.Word)) {
+            is TextMatchPlan.Narrowed -> rule.indexQuery(SearchMode.Word)
+            TextMatchPlan.BroadScan -> null
+        }
+    return query?.takeUnless { it == TextMatchQuery.EMPTY }
 }
 
 /**
@@ -139,8 +150,7 @@ fun RelatedTaskPickerSheet(
     searchIndex: SearchTextIndex = koinInject(),
     projectsRepo: ProjectsRepository = koinInject(),
 ) {
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-    LaunchedEffect(Unit) { sheetState.show() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val queryState = rememberTextFieldState()
     var selectedId by remember { mutableStateOf<TaskId?>(null) }
@@ -156,25 +166,19 @@ fun RelatedTaskPickerSheet(
             .debounce(300.milliseconds)
             .distinctUntilChanged()
             .collectLatest { raw ->
-                val q = raw.trim()
                 selectedId = null
                 selectedVerb = DependencyVerb.BLOCKS
-                if (q.isBlank()) {
+                if (raw.isBlank()) {
                     searchState = PickerSearchState.Idle
-                    return@collectLatest
-                }
-                searchState = PickerSearchState.Loading
-                try {
-                    val tasks = searchRelatedTaskCandidates(raw, taskId, excludedIds, searchIndex)
+                } else {
+                    searchState = PickerSearchState.Loading
                     searchState =
-                        if (tasks.isEmpty()) {
-                            PickerSearchState.NoResults
-                        } else {
-                            PickerSearchState.Results(tasks)
-                        }
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    searchState = PickerSearchState.Error(e.message ?: "Search failed")
+                        runRelatedTaskSearch(
+                            rawQuery = raw,
+                            taskId = taskId,
+                            existingRelationIds = excludedIds,
+                            searchIndex = searchIndex,
+                        )
                 }
             }
     }
@@ -182,142 +186,193 @@ fun RelatedTaskPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        modifier = Modifier.mapTestTagsAsResourceIds(),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.85f)
-                    .imePadding()
-                    .padding(horizontal = 16.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Add related task",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close")
-                }
-            }
+        RelatedTaskPickerContent(
+            queryState = queryState,
+            searchState = searchState,
+            projectsById = projectsById,
+            selectedId = selectedId,
+            selectedVerb = selectedVerb,
+            onDismiss = onDismiss,
+            onSelect = { id ->
+                selectedId = id
+                selectedVerb = DependencyVerb.BLOCKS
+            },
+            onVerbChange = { selectedVerb = it },
+            onAdd = {
+                val id = selectedId ?: return@RelatedTaskPickerContent
+                onAdd(id, selectedVerb)
+            },
+        )
+    }
+}
 
-            Spacer(Modifier.height(8.dp))
+private suspend fun runRelatedTaskSearch(
+    rawQuery: String,
+    taskId: TaskId,
+    existingRelationIds: Set<TaskId>,
+    searchIndex: SearchTextIndex,
+): PickerSearchState {
+    val tasks =
+        runCatchingCancellable {
+            searchRelatedTaskCandidates(rawQuery, taskId, existingRelationIds, searchIndex)
+        }.getOrElse { error ->
+            return PickerSearchState.Error(error.message ?: "Search failed")
+        }
+    return if (tasks.isEmpty()) PickerSearchState.NoResults else PickerSearchState.Results(tasks)
+}
 
-            OutlinedTextField(
-                state = queryState,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .testTag(TestTags.RELATED_TASK_PICKER_SEARCH),
-                placeholder = { Text("Search tasks") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (queryState.text.isNotEmpty()) {
-                        IconButton(
-                            onClick = { queryState.clearText() },
-                            modifier = Modifier.testTag(TestTags.RELATED_TASK_PICKER_CLEAR),
-                        ) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear query")
-                        }
-                    }
-                },
-                lineLimits = TextFieldLineLimits.SingleLine,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+@Composable
+private fun RelatedTaskPickerContent(
+    queryState: TextFieldState,
+    searchState: PickerSearchState,
+    projectsById: Map<ProjectId, Project>,
+    selectedId: TaskId?,
+    selectedVerb: DependencyVerb,
+    onDismiss: () -> Unit,
+    onSelect: (TaskId) -> Unit,
+    onVerbChange: (DependencyVerb) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .imePadding()
+                .padding(horizontal = 16.dp),
+    ) {
+        RelatedTaskPickerHeader(onDismiss = onDismiss)
+        Spacer(Modifier.height(8.dp))
+        RelatedTaskPickerSearchField(queryState = queryState)
+        Spacer(Modifier.height(8.dp))
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            PickerResults(
+                searchState = searchState,
+                projectsById = projectsById,
+                selectedId = selectedId,
+                selectedVerb = selectedVerb,
+                onSelect = onSelect,
+                onVerbChange = onVerbChange,
             )
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = onAdd,
+            enabled = selectedId != null,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag(TestTags.RELATED_TASK_PICKER_ADD),
+        ) {
+            Text("Add related task")
+        }
+    }
+}
 
-            Spacer(Modifier.height(8.dp))
+@Composable
+private fun RelatedTaskPickerHeader(onDismiss: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "Add related task",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onDismiss) {
+            Icon(Icons.Filled.Close, contentDescription = "Close")
+        }
+    }
+}
 
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-            ) {
-                when (val state = searchState) {
-                    PickerSearchState.Idle -> {
-                        Text(
-                            text = "Type to find a task to relate",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-
-                    PickerSearchState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    }
-
-                    PickerSearchState.NoResults -> {
-                        Text(
-                            text = "No matching tasks",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-
-                    is PickerSearchState.Error -> {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = state.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = "Edit or clear the query to try again.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    is PickerSearchState.Results -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            items(state.tasks, key = { it.id.value }) { task ->
-                                val projectName = task.projectId?.let { projectsById[it]?.name }
-                                val selected = selectedId == task.id
-                                RelatedTaskCandidateRow(
-                                    task = task,
-                                    projectName = projectName,
-                                    selected = selected,
-                                    selectedVerb = if (selected) selectedVerb else null,
-                                    onSelect = {
-                                        selectedId = task.id
-                                        selectedVerb = DependencyVerb.BLOCKS
-                                    },
-                                    onVerbChange = { selectedVerb = it },
-                                )
-                            }
-                        }
-                    }
+@Composable
+private fun RelatedTaskPickerSearchField(queryState: TextFieldState) {
+    OutlinedTextField(
+        state = queryState,
+        modifier = Modifier.fillMaxWidth().testTag(TestTags.RELATED_TASK_PICKER_SEARCH),
+        placeholder = { Text("Search tasks") },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+            if (queryState.text.isNotEmpty()) {
+                IconButton(
+                    onClick = { queryState.clearText() },
+                    modifier = Modifier.testTag(TestTags.RELATED_TASK_PICKER_CLEAR),
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "Clear query")
                 }
             }
+        },
+        lineLimits = TextFieldLineLimits.SingleLine,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+    )
+}
 
-            Spacer(Modifier.height(8.dp))
+@Composable
+private fun BoxScope.PickerResults(
+    searchState: PickerSearchState,
+    projectsById: Map<ProjectId, Project>,
+    selectedId: TaskId?,
+    selectedVerb: DependencyVerb,
+    onSelect: (TaskId) -> Unit,
+    onVerbChange: (DependencyVerb) -> Unit,
+) {
+    when (searchState) {
+        PickerSearchState.Idle -> {
+            PickerMessage("Type to find a task to relate")
+        }
 
-            Button(
-                onClick = {
-                    val id = selectedId ?: return@Button
-                    onAdd(id, selectedVerb)
-                },
-                enabled = selectedId != null,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .testTag(TestTags.RELATED_TASK_PICKER_ADD),
-            ) {
-                Text("Add related task")
+        PickerSearchState.Loading -> {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+
+        PickerSearchState.NoResults -> {
+            PickerMessage("No matching tasks")
+        }
+
+        is PickerSearchState.Error -> {
+            PickerError(message = searchState.message)
+        }
+
+        is PickerSearchState.Results -> {
+            LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(searchState.tasks, key = { it.id.value }) { task ->
+                    val projectName = task.projectId?.let { projectsById[it]?.name }
+                    val selected = selectedId == task.id
+                    RelatedTaskCandidateRow(
+                        task = task,
+                        projectName = projectName,
+                        selected = selected,
+                        selectedVerb = if (selected) selectedVerb else null,
+                        onSelect = { onSelect(task.id) },
+                        onVerbChange = onVerbChange,
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun PickerMessage(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(16.dp),
+    )
+}
+
+@Composable
+private fun PickerError(message: String) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Edit or clear the query to try again.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -343,12 +398,7 @@ private fun RelatedTaskCandidateRow(
             style = MaterialTheme.typography.bodyLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            color =
-                if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
         if (!projectName.isNullOrBlank()) {
             Spacer(Modifier.height(2.dp))
