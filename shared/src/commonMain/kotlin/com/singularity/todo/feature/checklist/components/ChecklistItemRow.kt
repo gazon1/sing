@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,10 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.completionName
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_checked
+import singularity_todo.shared.generated.resources.task_unchecked
 
 /**
  * The identity of one row of [ChecklistItemRow].
@@ -125,6 +130,11 @@ fun ChecklistItemRow(
     // The name of the control, not of the row: a screen reader has to say which
     // item the box completes, or the box is a nameless square on the row.
     val name = completionName(tags.kind, text)
+    // The state is a state, not part of the name — and it is the same wording the
+    // other two controls of the family use, so a user hears "Done" and not
+    // "Checked" depending on which screen the control is on.
+    val checkedStateDescription =
+        stringResource(if (checked) Res.string.task_checked else Res.string.task_unchecked)
 
     Row(
         modifier =
@@ -145,7 +155,10 @@ fun ChecklistItemRow(
                 modifier =
                     Modifier
                         .testTag(tags.checkbox)
-                        .semantics { contentDescription = name },
+                        .semantics {
+                            contentDescription = name
+                            stateDescription = checkedStateDescription
+                        },
             )
         }
         Spacer(modifier = Modifier.width(8.dp))

@@ -144,6 +144,16 @@ class TaskCompletionSemanticsTest {
                 "a checklist item is named as an item",
             )
 
+            // The role and the state too: a name on a control that is no longer a
+            // checkbox, or that no longer says whether the item is done, is half a
+            // control. The wording of the state is the family's wording.
+            val subtask = semanticsOf(TestTags.subtaskCheckbox(TITLE))
+            assertEquals(Role.Checkbox, subtask.getOrNull(SemanticsProperties.Role))
+            assertEquals("Not done", subtask.getOrNull(SemanticsProperties.StateDescription))
+            val item = semanticsOf(TestTags.checklistItemCheckbox(id = ITEM_ID, title = TITLE))
+            assertEquals(Role.Checkbox, item.getOrNull(SemanticsProperties.Role))
+            assertEquals("Not done", item.getOrNull(SemanticsProperties.StateDescription))
+
             // The title of a subtask opens the subtask; the box completes it.
             clickCheckbox(TestTags.subtaskCheckbox(TITLE))
             assertEquals(1, toggles, "the checkbox completes the subtask")

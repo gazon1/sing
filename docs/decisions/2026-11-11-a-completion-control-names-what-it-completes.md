@@ -39,7 +39,8 @@ thing the control belongs to — `Task:`, `Subtask:`, `Item:` — and the
   or **Item**. The title is the thing's own title; a blank title falls back to
   the existing "untitled" string rather than producing a dangling colon.
 - The checked state is carried by the state description only. It never appears
-  in the name.
+  in the name. All three controls use the same two strings for it, so a user
+  hears "Done" on every screen rather than "Checked" on one of them.
 - One shared helper owns the mapping from kind to localized name, so the three
   controls cannot drift into three wordings.
 - The kind is decided by the row, not by the widget. A row with a parent is a
