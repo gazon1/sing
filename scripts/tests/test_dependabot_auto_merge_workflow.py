@@ -51,6 +51,8 @@ The properties asserted here:
   reads "none" instead of being silent;
 * a run in which every candidate was excluded by the kind of its bump still
   writes a summary, even though the steps that merge are skipped;
+* the step that writes the summary is the last step of the job and it runs
+  unconditionally — the guarantee the run above depends on;
 * a refused merge is recorded and does not stop the merges that come after it,
   and the step exits non-zero.
 """
@@ -143,7 +145,7 @@ def _apply_jq(expression, payload):
         jq = None
     if jq is not None and jq.returncode == 0:
         return jq.stdout
-    # No `jq` on the machine: the only filter the workflow uses asks for the
+    # No `jq` on the machine: the filter the workflow uses here asks for the
     # conclusion of the last check-run named "CI gate".
     runs = sorted(
         (run for run in payload.get('check_runs', []) if run.get('name') == 'CI gate'),
@@ -309,8 +311,8 @@ def _run_script(block, indent):
     raise AssertionError('the step has no run block')
 
 
-def _step_script(name=None, step_id=None):
-    """The script of one step of the workflow, with the repository filled in."""
+def _step_block(name=None, step_id=None):
+    """The block of one step of the workflow, and the indent of its keys."""
     lines = WORKFLOW.read_text(encoding='utf-8').splitlines()
     for block in _steps(lines):
         step_indent = len(block[0]) - len(block[0].lstrip()) + 2
@@ -320,9 +322,20 @@ def _step_script(name=None, step_id=None):
             continue
         if name is None and step_id is None:
             raise AssertionError('a step needs a name or an id')
-        script = _run_script(block, step_indent)
-        return script.replace('${{ github.repository }}', REPOSITORY)
+        return block, step_indent
     raise AssertionError('no step named %r with id %r' % (name, step_id))
+
+
+def _step_script(name=None, step_id=None):
+    """The script of one step of the workflow, with the repository filled in."""
+    block, step_indent = _step_block(name=name, step_id=step_id)
+    script = _run_script(block, step_indent)
+    return script.replace('${{ github.repository }}', REPOSITORY)
+
+
+def _step_condition(block, step_indent):
+    """The `if:` of a step, or None when it runs unconditionally."""
+    return _key(block, 'if', step_indent)
 
 
 def _summary_group(summary, heading):
@@ -356,6 +369,12 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         self.runner_temp.mkdir()
         self.summary = self.runner_temp / 'step-summary.md'
         self.summary.write_text('', encoding='utf-8')
+        # The decisions table of the repository is not the subject of these
+        # tests, and a decision recorded for one of the dependencies would
+        # change what the summary says. The table the step reads is a
+        # throwaway one with no rows in it.
+        self.decisions = self.tmp / 'dependency-decisions.tsv'
+        self.decisions.write_text('', encoding='utf-8')
 
         self._write_stub('gh', FAKE_GH)
         self._write_stub('date', FAKE_DATE)
@@ -387,6 +406,17 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
             return []
         return [line for line in log.read_text(encoding='utf-8').splitlines() if line]
 
+    def _outputs(self) -> dict:
+        """The step outputs the workflow wrote to `$GITHUB_OUTPUT`."""
+        path = self.tmp / 'github-output'
+        if not path.exists():
+            return {}
+        outputs = {}
+        for line in path.read_text(encoding='utf-8').splitlines():
+            name, _, value = line.partition('=')
+            outputs[name.strip()] = value.strip()
+        return outputs
+
     def _run_step(self, script: str, cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess:
         path = self.tmp / 'step.sh'
         path.write_text(script, encoding='utf-8')
@@ -395,6 +425,9 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         env['RUNNER_TEMP'] = str(self.runner_temp)
         env['GITHUB_STEP_SUMMARY'] = str(self.summary)
         env['GITHUB_OUTPUT'] = str(self.tmp / 'github-output')
+        # The decisions table the `bump` step reads: a throwaway one, so the
+        # repository's own table cannot change what the summary says.
+        env['DEPENDENCY_DECISIONS'] = str(self.decisions)
         env['FAKE_GH_STATE'] = str(self.state)
         env['FAKE_DATE_STATE'] = str(self.tmp / 'date-state')
         # The fake `gh` looks its `jq` up in the system directories alone: the
@@ -511,6 +544,30 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         self.assertIn('- #21 has conflicts and cannot be merged', conflicts)
         self.assertIn('- #22 has conflicts and cannot be merged', conflicts)
 
+    def test_the_summary_step_runs_even_when_the_steps_before_it_are_skipped(self):
+        """The step that writes the summary is the last one, and it always runs.
+
+        The steps before it are conditional — the poll is skipped when no
+        candidate was a patch or a minor bump, the merge is skipped when the
+        poll did not succeed — and a skipped step writes no summary. The
+        summary step therefore has to be unconditional, and it has to come
+        after the steps whose files it reads.
+        """
+        lines = WORKFLOW.read_text(encoding='utf-8').splitlines()
+        blocks = _steps(lines)
+        last = blocks[-1]
+        self.assertEqual(
+            'What happened to every pull request',
+            _step_name(last),
+            'the summary step is not the last step of the job',
+        )
+        indent = len(last[0]) - len(last[0].lstrip()) + 2
+        self.assertEqual(
+            'always()',
+            _step_condition(last, indent),
+            'the summary step is conditional, so a skipped step before it takes the summary away',
+        )
+
     def test_a_run_in_which_every_candidate_is_excluded_says_why(self):
         """A run that merged nothing because of the kind of bump says so.
 
@@ -527,6 +584,12 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         self.assertEqual('', (self.runner_temp / 'mergeable.txt').read_text(encoding='utf-8'))
         skipped = (self.runner_temp / 'skipped.txt').read_text(encoding='utf-8')
         self.assertIn('41', skipped, 'the excluded pull request was not recorded')
+
+        # The count is what the steps after it are conditioned on: a count of
+        # zero is what skips them, and this run is that case.
+        self.assertEqual('0', self._outputs()['count'])
+        checks, indent = _step_block(step_id='checks')
+        self.assertIn("steps.bump.outputs.count != '0'", _step_condition(checks, indent) or '')
 
         # The steps that follow are skipped, and the summary still says why.
         summary = self._run_summary_step()
