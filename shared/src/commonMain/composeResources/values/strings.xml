@@ -21,6 +21,12 @@
     <string name="delete_task">Delete task</string>
     <string name="task_checked">Done</string>
     <string name="task_unchecked">Not done</string>
+    <!-- The accessible name of a completion control: what it completes, and
+         which one. The completed state is not in here — it is a state, not a
+         name, and it changes while the name stays. -->
+    <string name="task_checkbox_label">Task: %1$s</string>
+    <string name="subtask_checkbox_label">Subtask: %1$s</string>
+    <string name="checklist_item_checkbox_label">Item: %1$s</string>
     <string name="priority_none">No priority</string>
     <string name="priority_low">Low priority</string>
     <string name="priority_medium">Medium priority</string>
