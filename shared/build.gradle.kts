@@ -1224,6 +1224,9 @@ afterEvaluate {
             // the phone's own implementation had no test at all — and the move is
             // what makes the backup's writes atomic.
             "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
+            // The E2E build starts after the spotlight tour (#2819). The module lives
+            // in androidMain, so the JVM lane cannot reach it.
+            "com/singularity/todo/test/stubs/TestOnboardingModuleTest.class",
         )
     }
 }
