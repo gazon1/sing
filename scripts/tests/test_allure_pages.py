@@ -153,6 +153,23 @@ class AllurePagesTest(unittest.TestCase):
         self.assertIn("URL=10/index.html", (self.site / "fast" / "index.html").read_text(encoding="utf-8"))
         self.assertIn("fast/index.html", (self.site / "index.html").read_text(encoding="utf-8"))
 
+    def test_root_index_links_the_legacy_reports(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        root = (self.site / "index.html").read_text(encoding="utf-8")
+        self.assertIn('href="fast/index.html"', root)
+        self.assertIn('href="2807/index.html"', root)
+
+    def test_root_index_does_not_link_a_folder_that_is_not_a_report(self):
+        (self.site / "2808").mkdir()
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        root = (self.site / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn('href="2808/index.html"', root)
+
     def test_apply_stale_does_not_regress_latest_or_indexes(self):
         self.make_report(self.site, "fast", "11")
         newer = pub(run_id=2, run_number=11, population="fast", report_path="11")

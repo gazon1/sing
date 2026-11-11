@@ -436,17 +436,46 @@ def _population_index_html(report_path: str) -> str:
     )
 
 
-def build_root_index(populations: Iterable[str]) -> str:
+def legacy_report_dirs(site_dir: Path) -> list[str]:
+    """The root-level report folders the legacy layout left behind.
+
+    The legacy layout published every report at the root of the branch, in a
+    folder named after the run number. The population layout publishes them
+    inside a population namespace. Both are published, so the root index
+    links both: a report that is published and not linked is a report nobody
+    finds.
+
+    A folder is a report when it holds the report page. A numeric folder
+    without an `index.html` is not a report, and a link to it would be a
+    link that leads nowhere.
+    """
+    if not site_dir.is_dir():
+        return []
+    names = [
+        path.name
+        for path in site_dir.iterdir()
+        if path.is_dir() and path.name.isdigit() and (path / "index.html").is_file()
+    ]
+    return sorted(names, key=int)
+
+
+def build_root_index(site_dir: Path, populations: Iterable[str]) -> str:
+    """The root navigation page: the populations and the legacy reports."""
     items = [
         f'<li><a href="{html.escape(pop, quote=True)}/index.html">'
         f"{html.escape(pop)} latest report</a></li>"
         for pop in populations
     ]
+    items += [
+        f'<li><a href="{html.escape(name, quote=True)}/index.html">'
+        f"{html.escape(name)} legacy report</a></li>"
+        for name in legacy_report_dirs(site_dir)
+    ]
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         "<title>Allure reports</title></head><body>"
-        "<h1>Allure reports</h1><p>Population-specific latest reports:</p>"
+        "<h1>Allure reports</h1>"
         f"<ul>{''.join(items)}</ul></body></html>\n"
     )
 
@@ -603,7 +632,7 @@ def reconcile_population(site_dir: Path, population: str) -> None:
     changes = {population_dir / "index.html": _population_index_html(manifest.latest.report_path)}
     pops = present_populations(site_dir)
     if pops:
-        changes[site_dir / "index.html"] = build_root_index(pops)
+        changes[site_dir / "index.html"] = build_root_index(site_dir, pops)
     _commit_files(changes)
 
 
@@ -650,7 +679,7 @@ def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int =
             {
                 mpath: manifest_json(updated),
                 population_dir / "index.html": _population_index_html(incoming.report_path),
-                site_dir / "index.html": build_root_index(pops),
+                site_dir / "index.html": build_root_index(site_dir, pops),
             }
         )
         # Retention runs after the state is committed: a report directory
