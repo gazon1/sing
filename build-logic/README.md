@@ -45,6 +45,36 @@ Gradle 9's classpath isolation for included builds means:
 - ✅ README with migration path documented
 - ⏳ `build.gradle.kts` + `settings.gradle.kts` NOT wired (blocks main build)
 
+## Nothing compiles these files
+
+The convention build is not wired, so **no Gradle task in this repository compiles
+these sources** — not locally, not in CI. A change here can therefore rot in
+silence: nothing turns red, and the breakage surfaces only on the day the
+build is wired.
+
+The fix for a review of this directory is to compile it by hand before saying
+it is correct:
+
+```bash
+# A scratch project with the `kotlin-dsl` plugin is enough — the sources only
+# need Gradle's API on the classpath.
+mkdir -p /tmp/convention-check/src/main/kotlin
+cp build-logic/convention/src/main/kotlin/*.kt /tmp/convention-check/src/main/kotlin/
+printf 'plugins { `kotlin-dsl` }\n' > /tmp/convention-check/build.gradle.kts
+./gradlew --project-dir /tmp/convention-check compileKotlin
+```
+
+Two errors this catches, both of which the tree carried for a while:
+
+- `getByType<VersionCatalogsExtension>()` needs `import org.gradle.kotlin.dsl.getByType`.
+  The Kotlin DSL script files get that import implicitly; a plain Kotlin source
+  file does not. Without it the compiler reports the failure at the *call site*
+  ("no value passed for parameter 'type'") and never at the missing import, so
+  the error reads like a Gradle API problem rather than an import problem.
+- `versionCatalog.findVersion(key).get()` compiles, but it throws
+  `NoSuchElementException: No value present` when the key is missing — and the
+  message names nothing. `orElseThrow { … }` names the key instead.
+
 ## Migration (when Gradle 9 included-build classpath is resolved)
 
 ### Step 1: Wire convention build in `settings.gradle.kts`
