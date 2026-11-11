@@ -12,6 +12,9 @@ import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
@@ -22,8 +25,11 @@ import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterExceptio
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +64,9 @@ import kotlin.time.Duration.Companion.milliseconds
  *   surface states next to the field: the word mode finds a word by its
  *   beginning, the contains mode finds the term wherever it occurs. The mode
  *   is part of what was asked, so it is part of the state of the screen.
+ * @param projectsById The projects of the profile, by id. A result row names the
+ *   project its task belongs to, and the lookup is one subscription for the
+ *   screen — not one per search and not one per row.
  */
 data class SearchUiState(
     val query: FieldOwnedText = FieldOwnedText.empty(),
@@ -68,6 +77,7 @@ data class SearchUiState(
     val results: SearchResults = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
     val isSearching: Boolean = false,
     val mode: SearchMode = SearchMode.Word,
+    val projectsById: ImmutableMap<ProjectId, Project> = persistentMapOf(),
 ) {
     /**
      * The query as the field's source.
@@ -132,9 +142,11 @@ sealed interface SearchIntent : MviIntent {
 // ─── ViewModel ─────────────────────────────────────────────────────────────────
 
 /**
+ * Canonical 6-argument constructor for [SearchViewModel].
  *
  * @param searchUseCase Executes a parsed [Query] against the data layer.
  * @param savedSearchRepo Persists and observes saved searches.
+ * @param projectRepo Supplies the project a result row names.
  * @param scope Coroutine scope for all ViewModel coroutine work.
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -142,6 +154,7 @@ class SearchViewModel(
     private val searchUseCase: SearchUseCase,
     private val savedSearchRepo: SavedSearchRepository,
     private val taskRepo: TaskRepository,
+    private val projectRepo: ProjectsRepository,
     private val parseQuery: (String) -> Query,
     private val clock: Clock,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
@@ -163,12 +176,14 @@ class SearchViewModel(
         searchUseCase: SearchUseCase,
         savedSearchRepo: SavedSearchRepository,
         taskRepo: TaskRepository,
+        projectRepo: ProjectsRepository,
         clock: Clock,
         crashReporter: CrashReportingPort,
     ) : this(
         searchUseCase = searchUseCase,
         savedSearchRepo = savedSearchRepo,
         taskRepo = taskRepo,
+        projectRepo = projectRepo,
         parseQuery = { input ->
             com.singularity.todo.feature.search.query
                 .SingularityQueryParser(input)
@@ -230,6 +245,21 @@ class SearchViewModel(
         vmScope.launch {
             savedSearchRepo.observeAll().collect { saved ->
                 updateState { it.copy(savedSearches = saved.toImmutableList()) }
+            }
+        }
+
+        // The projects a result row names.
+        //
+        // The lookup includes closed projects, so a badge never vanishes because
+        // the project was finished — the same lookup the agenda does. It is one
+        // subscription for the screen: the search itself does not read the
+        // projects table (a query of filters only reads nothing but the tasks
+        // it filters), and no row looks a project up.
+        vmScope.launch {
+            projectRepo.observeAllIncludingClosed().collect { projects ->
+                updateState {
+                    it.copy(projectsById = projects.associateBy { project -> project.id }.toImmutableMap())
+                }
             }
         }
 

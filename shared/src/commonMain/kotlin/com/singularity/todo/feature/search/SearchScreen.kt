@@ -63,6 +63,8 @@ import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.highlightedText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.nav.Search
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.RenameSearchDialog
@@ -78,6 +80,7 @@ import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -189,6 +192,7 @@ fun SearchScreenContent(
                 SearchOutcome(
                     content = searchContent(state.query.text, state.results, state.isSearching),
                     results = state.results,
+                    projectsById = state.projectsById,
                     navigator = navigator,
                     onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
                 )
@@ -290,6 +294,7 @@ private fun SearchSheetHosts(
 private fun SearchOutcome(
     content: SearchContent,
     results: SearchResults,
+    projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
 ) {
@@ -323,6 +328,7 @@ private fun SearchOutcome(
         SearchContent.Results -> {
             SearchResultsList(
                 results = results,
+                projectsById = projectsById,
                 navigator = navigator,
                 onPin = onPin,
             )
@@ -333,6 +339,7 @@ private fun SearchOutcome(
 @Composable
 private fun SearchResultsList(
     results: SearchResults,
+    projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
 ) {
@@ -347,12 +354,17 @@ private fun SearchResultsList(
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
             items(results.tasks, key = { it.record.id.value }) { hit ->
+                // The project of the task, resolved from the map the screen was
+                // given — not a lookup per row.
+                val project = hit.record.projectId?.let { projectsById[it] }
                 TaskCard(
                     task = hit.record,
                     onClick = { navigator.openTask(hit.record.id) },
                     today = systemToday(),
                     blockedTaskIds = blockedTaskIds,
                     matchRanges = hit.ranges,
+                    projectName = project?.name,
+                    projectColor = project?.color,
                     actions =
                         TaskCardActions(
                             onPin = { onPin(hit.record.id) },
