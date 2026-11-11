@@ -79,6 +79,18 @@ from typing import Iterator, NamedTuple
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 
+# The loader beside this script answers "which ref is this change measured
+# against". It is loaded by path, the way this file is loaded by the scripts
+# that read the module graph: the `sgate` package imports `click` and
+# `loguru`, and this file runs where neither is guaranteed. The directory has
+# to be on the path before the loader can be imported — a caller that loads
+# this file by path does not put it there on its own.
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from refs_loader import resolve_base_ref  # noqa: E402
+
 #: How a path that is not valid UTF-8 is read.
 #:
 #: A filename is a byte string, and git will store a filename whose bytes are
@@ -775,7 +787,7 @@ def plan(paths: list[str]) -> tuple[list[str], list[str]]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('--base', default='origin/main',
+    parser.add_argument('--base', default=resolve_base_ref(cwd=ROOT) or 'origin/main',
                         help='What the change is measured against.')
     parser.add_argument('--explain', action='store_true',
                         help='Print why each task is in the plan.')

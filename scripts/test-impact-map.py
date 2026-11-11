@@ -89,6 +89,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 import scanning  # noqa: E402 — the path entry above is the reason for the late import
 import arch_suite  # noqa: E402 — the path entry above is the reason for the late import
+from refs_loader import resolve_base_ref  # noqa: E402 — same reason
 
 #: The directory the arch suite lives in. A test there is a statement about the
 #: TREE, not about one class: `CommonMainJvmApiTest` walks every file of
@@ -870,8 +871,9 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
     caller reads has to be the same answer whatever the tree holds.
     """
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('--base', default='origin/main',
-                        help='What the change is measured against.')
+    parser.add_argument('--base', default=None,
+                        help=('What the change is measured against. Defaults to '
+                              'the integration branch, then the trunk.'))
     parser.add_argument('--explain', action='store_true',
                         help='Print why each test class is in the map.')
     parser.add_argument('--command', action='store_true',
@@ -895,19 +897,26 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
         print(f'test-impact-map: {error}', file=sys.stderr)
         return 2
 
-    try:
-        changed = changed_paths(args.base) if paths is None else paths
-    except UnresolvableBaseRef as error:
-        print(f'test-impact-map: {error}', file=sys.stderr)
-        return 2
+    # The base is resolved only when the tool has something to measure: the
+    # lookup is a git command, and a caller that names the paths it wants
+    # measured does not need it.
+    base = args.base
+    changed = paths
+    if paths is None:
+        base = base or resolve_base_ref(cwd=ROOT) or 'origin/main'
+        try:
+            changed = changed_paths(base)
+        except UnresolvableBaseRef as error:
+            print(f'test-impact-map: {error}', file=sys.stderr)
+            return 2
 
     # Nothing changed AND the head is inside the base: there is no difference
     # to measure. The check comes before the selection, because the selection
     # would answer a different question — and the answer it would give
     # ("this change claims no test class") is the one that reads like a
     # verdict about a change that was already published.
-    if not changed and paths is None and base_contains_head(args.base):
-        report_base_contains_head(args.base)
+    if not changed and paths is None and base_contains_head(base):
+        report_base_contains_head(base)
         return 0
 
     selected: list[str] = []

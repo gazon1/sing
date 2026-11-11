@@ -71,6 +71,19 @@ import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 
+# The loader beside this script answers "which ref is this change measured
+# against". It is loaded by path, the way `scripts/changed-modules.py` is
+# loaded below: the `sgate` package imports `click` and `loguru`, and this
+# script runs where neither is guaranteed. The directory has to be on the
+# path before the loader can be imported — the hook runs this script by its
+# path, which puts the directory there on its own, and the line below makes
+# that true for a caller that loads the script by path too.
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from refs_loader import resolve_base_ref  # noqa: E402
+
 CLEAN = 0
 COMPILE_FAILED = 1
 PLAN_FAILED = 2
@@ -293,8 +306,11 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument(
         '--base',
-        default=os.environ.get('COMPILE_CHANGED_BASE', 'origin/main'),
-        help='What the change is measured against (default: origin/main).',
+        default=os.environ.get('COMPILE_CHANGED_BASE') or resolve_base_ref(cwd=ROOT) or 'origin/main',
+        help=(
+            'What the change is measured against (default: the integration branch, '
+            'then the trunk).'
+        ),
     )
     parser.add_argument(
         '--list',

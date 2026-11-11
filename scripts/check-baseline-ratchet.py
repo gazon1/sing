@@ -101,6 +101,7 @@ if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
 
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register, run
+from sgate.gatekit.refs import BASE_CANDIDATES
 
 # Detekt baseline entries look like:
 #   <ID>RuleName:File.kt:Fqcn$signature</ID>
@@ -185,16 +186,14 @@ def git_show(path: Path, rev: str = "HEAD") -> str | None:
 
 #: The refs the base branch is looked for under, in the order they are tried.
 #:
-#: `origin/main` first: a working copy that has a remote is the normal case, and
-#: the remote's main is the branch the pull request targets. `main` after it, for
-#: the checkout that has no remote — a fixture, or a clone whose remote was
-#: removed.
-_BASE_CANDIDATES = (
-    "origin/main",
-    "main",
-    "refs/remotes/origin/main",
-    "refs/heads/main",
-)
+#: The integration branch first — it is the branch the work is based on while
+#: it exists — and the trunk after it, for the repository that has no
+#: integration branch yet. The local branches come after the remote-tracking
+#: ones: the remote's copy of the trunk is fresher than the local one.
+#:
+#: The list lives in `sgate.gatekit.refs`, so that every tool that measures a
+#: change measures it against the same refs.
+_BASE_CANDIDATES = BASE_CANDIDATES
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -248,9 +247,9 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
 
     ## When there is no base branch
 
-    A shallow checkout has no `origin/main`, and a repository with one branch
-    has no merge-base to find. In that case the gate falls back to `HEAD` and
-    **says so**: a check that silently degrades to "compare the file with
+    A shallow checkout has no remote-tracking branch, and a repository with one
+    branch has no merge-base to find. In that case the gate falls back to `HEAD`
+    and **says so**: a check that silently degrades to "compare the file with
     itself" is the defect this change removes, so the fallback is announced
     rather than taken quietly.
     """
@@ -344,8 +343,8 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
     help=(
         "the branch the baseline is compared against. The comparison is made "
         "against the merge-base of this branch and that one, so the delta the "
-        "gate measures is the branch's own work. Default: origin/main, then "
-        "main; SGATE_BASE_REF overrides it."
+        "gate measures is the branch's own work. Default: the integration "
+        "branch, then the trunk; SGATE_BASE_REF overrides it."
     ),
 )
 @click.option(

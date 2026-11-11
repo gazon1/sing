@@ -22,11 +22,13 @@ These tests hold the command to its own claims:
 """
 
 import importlib.util
+import os
 import pathlib
 import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 
@@ -90,6 +92,33 @@ class CheckoutStateTest(unittest.TestCase):
         state = mod._state(self.tmp)
         self.assertFalse(state['upstreamKnown'])
 
+    def test_the_integration_branch_is_the_base_when_it_is_here(self):
+        # The trunk a change is based on is the integration branch while it
+        # exists. The remote's copy of `dev` is the base, and `main` is not
+        # asked at all.
+        self._commit('first')
+        self._upstream('origin/dev')
+        self._upstream('origin/main')
+        state = mod._state(self.tmp)
+        self.assertEqual('origin/dev', state['upstream'])
+        self.assertTrue(state['upstreamKnown'])
+
+    def test_the_trunk_is_the_base_when_there_is_no_integration_branch(self):
+        # A repository that has no `dev` branch yet still has a trunk, and the
+        # command measures against it rather than against nothing.
+        self._commit('first')
+        self._upstream('origin/main')
+        state = mod._state(self.tmp)
+        self.assertEqual('origin/main', state['upstream'])
+
+    def test_a_local_branch_is_not_the_base(self):
+        # The fixture's own branch is `main`, and it is not a base: a checkout
+        # measured against its own branch answers nothing.
+        self._commit('first')
+        state = mod._state(self.tmp)
+        self.assertFalse(state['upstreamKnown'])
+        self.assertEqual('', state['upstream'])
+
     def test_a_branch_that_is_only_ahead_is_not_diverged(self):
         self._commit('first')
         self._upstream()
@@ -151,6 +180,24 @@ class CheckoutStateTest(unittest.TestCase):
         self.assertFalse(state['upstreamKnown'])
         self.assertIsNone(state['instructions']['differs'])
         self.assertIn('unknown', mod._report(state))
+
+    def test_a_named_base_that_is_not_here_is_not_a_base(self):
+        # A caller that names a base gets that base or none. Silently
+        # measuring against another ref would answer a question nobody asked.
+        self._commit('first')
+        self._upstream('origin/main')
+        with unittest.mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/dev'}):
+            state = mod._state(self.tmp)
+        self.assertFalse(state['upstreamKnown'])
+        self.assertEqual('', state['upstream'])
+
+    def test_a_named_base_that_is_here_is_the_base(self):
+        self._commit('first')
+        self._upstream('origin/dev')
+        with unittest.mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/dev'}):
+            state = mod._state(self.tmp)
+        self.assertEqual('origin/dev', state['upstream'])
+        self.assertTrue(state['upstreamKnown'])
 
     def test_the_carried_list_says_how_many_it_did_not_print(self):
         self._commit('first')

@@ -26,7 +26,6 @@ phase that silently proves nothing is the defect this module exists to avoid.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from collections.abc import Iterable, Mapping
@@ -41,16 +40,17 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from sgate.gatekit.gitenv import tree_env  # noqa: E402
+from sgate.gatekit.refs import BASE_CANDIDATES, resolve_base_ref  # noqa: E402
 
 #: The refs the change is measured against, in order. The first one that
-#: resolves wins; `origin/main` is the branch a pull request is measured
-#: against, and the others are what a local checkout of that branch looks like.
-BASE_CANDIDATES = (
-    "origin/main",
-    "main",
-    "refs/remotes/origin/main",
-    "refs/heads/main",
-)
+#: resolves wins; the integration branch is the branch a pull request is
+#: measured against while it exists, and the local branches are what a
+#: checkout of the trunk looks like without a remote.
+#:
+#: The list lives in `sgate.gatekit.refs`, so that every tool that measures a
+#: change measures it against the same refs. It is named here as well, because
+#: the tests replace it — a module attribute that is not read is an
+#: attribute nobody can narrow.
 
 #: The tree whose files are the gate scripts' own tests, not gate scripts.
 TEST_PREFIX = "scripts/tests/"
@@ -88,14 +88,14 @@ def _merge_base(base: str) -> str | None:
 
 
 def _base_ref() -> str | None:
-    """The ref this change is measured against, or None when there is none."""
-    explicit = os.environ.get("SGATE_BASE_REF", "").strip()
-    candidates = (explicit,) if explicit else BASE_CANDIDATES
-    for candidate in candidates:
-        code, _ = _git("rev-parse", "--verify", "--quiet", f"{candidate}^{{commit}}")
-        if code == 0:
-            return candidate
-    return None
+    """The ref this change is measured against, or None when there is none.
+
+    The answer comes from the one place that owns it
+    (`sgate.gatekit.refs`): `SGATE_BASE_REF` when the caller names a base,
+    and otherwise the chain — the integration branch while it exists, the
+    trunk after it.
+    """
+    return resolve_base_ref(cwd=ROOT, env=tree_env(), candidates=BASE_CANDIDATES)
 
 
 def changed_files() -> set[str] | None:

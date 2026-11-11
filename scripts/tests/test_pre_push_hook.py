@@ -105,6 +105,13 @@ PRE_PUSH_DECLARATION = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'pr
 #: same reason it carries the answer itself.
 GITENV_LOADER = REPO_ROOT / 'scripts' / 'gitenv_loader.py'
 
+#: The answer to "which ref is a change measured against". The verdict script
+#: and the module graph both ask for it, and the ambient interpreter the hook
+#: runs cannot import the package that holds it.
+REFS_SCRIPT = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'refs.py'
+#: The one way to reach that answer when the package is out of reach.
+REFS_LOADER = REPO_ROOT / 'scripts' / 'refs_loader.py'
+
 #: A stand-in for the GitHub CLI: it reports one run of the CI workflow, the
 #: way `gh run list` reports it. The hook asks about the commit it pushes, and
 #: the answer has to name the workflow, the run and the conclusion.
@@ -573,6 +580,12 @@ class PrePushHookTest(unittest.TestCase):
         # the file by path, because the package that also holds it cannot be
         # imported by the ambient interpreter the hook runs.
         self._write('scripts/gitenv_loader.py', GITENV_LOADER.read_text(encoding='utf-8'))
+        # And the base refs, with the loader that reaches them by path: the
+        # verdict script and the module graph both ask which ref a change is
+        # measured against, and the tree that carries the ask has to carry the
+        # answer.
+        self._write('scripts/src/sgate/gatekit/refs.py', REFS_SCRIPT.read_text(encoding='utf-8'))
+        self._write('scripts/refs_loader.py', REFS_LOADER.read_text(encoding='utf-8'))
         # And the tool the hook compares two answers with. It is not a gate,
         # so it is not stubbed: the fixture carries the real file, the way it
         # carries the verdict. A stubbed ratchet would answer "nothing is new"

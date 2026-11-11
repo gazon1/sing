@@ -21,6 +21,12 @@ _SRC = ROOT / "scripts" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 from sgate.gatekit.gitenv import tree_env  # noqa: E402
+from sgate.gatekit.refs import resolve_base_ref  # noqa: E402
+
+#: The base a change is measured against when nothing else names one, and no
+#: base ref resolves here either. It is a name and not a fallback: the merge
+#: base of it cannot be found, and the caller is told so.
+FALLBACK_BASE = "origin/main"
 
 
 def _git(*args: str, cwd: pathlib.Path, check: bool = False) -> tuple[int, str, str]:
@@ -68,7 +74,7 @@ def _resolve_base(base: str, cwd: pathlib.Path, require_base: bool) -> str | Non
 
 
 def changed_paths(
-    base: str = "origin/main",
+    base: str | None = None,
     pathspec: Sequence[str] = (),
     staged_only: bool = False,
     *,
@@ -83,12 +89,18 @@ def changed_paths(
     *require_base* — when True (default), an unresolvable merge-base is an error;
       when False, explicitly falls back to working-tree-only scope.
 
+    *base* — the ref the change is measured against. None asks the one place
+    that owns the question (`sgate.gatekit.refs`): the integration branch while
+    it exists, the trunk after it.
+
     Branch-wide uses ``git merge-base`` + ``git diff <merge-base>`` (working tree vs
     merge-base, covering staged+unstaged tracked changes) plus untracked files.
     """
     root = pathlib.Path(root) if root is not None else (pathlib.Path(cwd) if cwd is not None else ROOT)
     cwd = pathlib.Path(cwd) if cwd is not None else root
     ps = ("--", *pathspec) if pathspec else ()
+    if base is None:
+        base = resolve_base_ref(cwd=cwd, env=tree_env()) or FALLBACK_BASE
 
     files: list[str] = []
     if staged_only:

@@ -296,12 +296,27 @@ tree_for_sha() {
 # what the base does not have, the push brought.
 #
 # `SGATE_BASE_REF` names the base when the caller knows better (a release
-# line, a fork); the trunk's remote-tracking ref is the fallback, and `main`
-# the last one. A push with no base at all is judged as if everything in the
-# tree were new — the safe direction.
+# line, a fork); the integration branch's remote-tracking ref is the fallback,
+# then the trunk's, and `main` the last one. A named base that is not here is
+# no base at all: the chain is not asked, because answering with a different
+# ref answers a question nobody asked. A push with no base at all is judged as
+# if everything in the tree were new — the safe direction.
 resolve_base_commit() {
     local sha="$1" candidate resolved base
-    for candidate in "${SGATE_BASE_REF:-}" "refs/remotes/${PUSH_REMOTE_NAME}/main" "origin/main" "main"; do
+    local -a candidates
+    if [ -n "${SGATE_BASE_REF:-}" ]; then
+        candidates=("${SGATE_BASE_REF}")
+    else
+        candidates=(
+            "refs/remotes/${PUSH_REMOTE_NAME}/dev"
+            "refs/remotes/${PUSH_REMOTE_NAME}/main"
+            "origin/dev"
+            "origin/main"
+            "dev"
+            "main"
+        )
+    fi
+    for candidate in "${candidates[@]}"; do
         [ -n "$candidate" ] || continue
         resolved="$(git rev-parse --verify --quiet "${candidate}^{commit}" 2>/dev/null || true)"
         [ -n "$resolved" ] || continue

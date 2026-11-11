@@ -50,6 +50,7 @@ ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from git_changed import changed_paths as _changed_paths  # noqa: E402
+from refs_loader import resolve_base_ref  # noqa: E402
 
 
 def changed_paths(base: str, pathspec=(), staged_only: bool = False) -> list[str]:
@@ -207,8 +208,11 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
         "--base",
-        default=os.environ.get("LINT_BASE", "origin/main"),
-        help="What the change is measured against (default: origin/main).",
+        default=os.environ.get("LINT_BASE") or resolve_base_ref(cwd=ROOT) or "origin/main",
+        help=(
+            "What the change is measured against (default: the integration branch, "
+            "then the trunk)."
+        ),
     )
     parser.add_argument(
         "--list",
