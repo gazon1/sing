@@ -9,8 +9,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.DesktopComposeUiTest
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.SemanticsMatcher
 import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -134,7 +135,12 @@ class PriorityChipContrastTest {
             }
         }
 
-        val pixels = onAllNodesWithText(LABEL)[0].captureToImage().toPixelMap()
+        // The label is found by what it is, not by what it says: the chip's one
+        // text. The wording is the app's, in the user's language, and a test
+        // that spelled it out would only pass on the machine whose locale
+        // matches the spelling.
+        val labelNode = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Text))[0]
+        val pixels = labelNode.captureToImage().toPixelMap()
         val colours =
             buildList {
                 for (x in 0 until pixels.width) {
@@ -182,8 +188,5 @@ class PriorityChipContrastTest {
     private companion object {
         /** WCAG AA for normal text. */
         const val AA_NORMAL_TEXT = 4.5f
-
-        /** What the chip calls Medium — the `priority_word_medium` resource. */
-        const val LABEL = "Medium"
     }
 }

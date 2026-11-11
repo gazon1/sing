@@ -31,7 +31,9 @@ import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.touchBoundsOfTagInUnmergedTree
 import com.singularity.todo.test.helpers.unclippedBoundsOfTagInUnmergedTree
+import com.singularity.todo.test.helpers.useEnglishTestLocale
 import kotlinx.collections.immutable.persistentSetOf
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,6 +62,20 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class TaskRowDensityTest {
+    /**
+     * The locale this file asserts in.
+     *
+     * The priority and marking descriptions are the app's own strings, and the
+     * app ships an English and a Russian locale. The expectations below are
+     * spelled the way the base locale spells them, so this file says which
+     * locale it means: the result then depends on the app and not on the
+     * machine the suite runs on.
+     */
+    @BeforeEach
+    fun pinBaseLocale() {
+        useEnglishTestLocale()
+    }
+
     // ─── Height ───────────────────────────────────────────────────────────────
 
     @Test
@@ -509,7 +525,7 @@ class TaskRowDensityTest {
         const val RECURRING_MARK = "Recurring task"
 
         /**
-         * The marker's description, as the default locale spells it: the
+         * The marker's description, as the base locale spells it: the
          * `series_label` plural resource ("Series · 5 dates" in English,
          * "Серия · 5 дат" in Russian).
          */
