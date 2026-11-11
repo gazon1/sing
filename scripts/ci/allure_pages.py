@@ -16,7 +16,6 @@ Dependency-light and usable from CI workflow steps and local tests.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import re
@@ -130,10 +129,22 @@ def _population(value: Any) -> str:
 
 
 def manifest_path(population_dir: Path) -> Path:
+    # Dot-prefixed on purpose: the pinned report action prunes `<population>/`
+    # with `ls | sort -n | head -n -N | xargs rm`, which would delete a visible
+    # manifest (it sorts first as non-numeric) once the directory holds ~20
+    # reports. `ls` does not list dotfiles, so the state survives that prune.
+    return population_dir / ".allure-manifest.json"
+
+
+def _legacy_manifest_path(population_dir: Path) -> Path:
     return population_dir / "allure-manifest.json"
 
 
 def load_manifest(path: Path, population: str | None = None) -> dict[str, Any]:
+    # A site published before the rename still carries the visible manifest;
+    # read it once so the layout change does not reset recorded latest/history.
+    if not path.exists() and _legacy_manifest_path(path.parent).is_file():
+        path = _legacy_manifest_path(path.parent)
     if not path.exists():
         pop = _population(population) if population is not None else None
         return {"schema_version": SCHEMA_VERSION, "population": pop, "latest": None, "publications": {}}
@@ -344,9 +355,6 @@ def validate_publish_tree(site_dir: Path, populations: Iterable[str] | None = No
         raise PublishError(f"publish tree does not exist: {site_dir}")
     for git_dir in site_dir.rglob(".git"):
         raise PublishError(f"publish tree contains git metadata: {git_dir.relative_to(site_dir)}")
-    for archive in list(site_dir.rglob("*.tar.gz")) + list(site_dir.rglob("*.tgz")) + list(site_dir.rglob("*.zip")):
-        # keep zip out? temp archives - tar/tgz explicitly required; be conservative for tarballs
-        pass
     for archive in list(site_dir.rglob("*.tar.gz")) + list(site_dir.rglob("*.tgz")):
         raise PublishError(f"publish tree contains temporary archive: {archive.relative_to(site_dir)}")
     root_index = site_dir / "index.html"
@@ -607,13 +615,6 @@ def cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_reconcile(args: argparse.Namespace) -> int:
-    population = _population(args.population)
-    reconcile_population(Path(args.site_dir), population)
-    print(f"reconciled: {population}")
-    return 0
-
-
 def cmd_validate_state(args: argparse.Namespace) -> int:
     site_dir = Path(args.site_dir)
     populations = [_population(p) for p in args.population] if args.population else present_populations(site_dir)
@@ -687,11 +688,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_apply.add_argument("--keep-reports", default=str(REPORTS_PER_POPULATION))
     add_publication_args(p_apply)
     p_apply.set_defaults(func=cmd_apply)
-
-    p_reconcile = sub.add_parser("reconcile", help="reconcile indexes to recorded latest for a population")
-    p_reconcile.add_argument("--site-dir", required=True)
-    p_reconcile.add_argument("--population", required=True)
-    p_reconcile.set_defaults(func=cmd_reconcile)
 
     p_validate = sub.add_parser("validate-state", help="validate publish tree, manifests and latest/index consistency")
     p_validate.add_argument("--site-dir", required=True)
