@@ -10,7 +10,7 @@ id: PLANS-09
 title: "A task is opened from a section and a new task inherits that section's date"
 area: feature.plans
 priority: P2
-status: confirmed
+status: deprecated
 targets: [android, desktop]
 preconditions: >-
   A task with a due date inside the horizon exists, and Plans is open.
@@ -23,3 +23,10 @@ expected: >-
   opens with the due date prefilled with the section's date — the day itself in
   day granularity, and the first day of the period in week and month
   granularity.
+
+# Deprecated on purpose (2026-11-11): the Plans destination was retired and its
+# useful behaviour — a chronological timeline of days that hold tasks — moved
+# into the Upcoming agenda tab. The scenarios are kept rather than deleted
+# because the screen shipped and users could see it; deleting the files would
+# leave "where did the timeline go?" unanswered in the scenario layer. The
+# surviving behaviour is carried by the Upcoming scenarios (AGENDA-09).

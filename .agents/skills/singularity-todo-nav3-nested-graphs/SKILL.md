@@ -312,14 +312,14 @@ file — or in `feature/nav/entries/` when the feature has no nav package of its
 ```kotlin
 // feature/nav/entries/ProjectsEntries.kt
 fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Plans> {
+    entry<AppDestination.ProjectsGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
-            start = ProjectsRoute.List,
+            start = route.start.toProjectsRoute(),
             onExitGraph = nav.graphExit,
-            backStack = stacks.projects,
+            backStack = if (route.start == AppDestination.ProjectsStartRoute.List) stacks.projects else null,
         )
     }
-    entry<AppDestination.ProjectDetail> { route ->
+    entry<AppDestination.ProjectDetail>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Detail(route.projectId),
             onExitGraph = nav.graphExit,

@@ -44,7 +44,6 @@ object TagsMd {
             "Navigation",
             "Tasks",
             "Agenda",
-            "Plans",
             "Pomodoro",
             "Tags",
             "Notes",
@@ -368,14 +367,6 @@ object TagsMd {
                 DynamicMeta(fnName, "Agenda", "Overdue", "The \"View all\" action of an agenda section header")
             }
 
-            "plansSection" -> {
-                DynamicMeta(fnName, "Plans", "day:2026-09-16", "Timeline section headers")
-            }
-
-            "plansSectionAdd" -> {
-                DynamicMeta(fnName, "Plans", "day:2026-09-16", "The add control of a timeline section")
-            }
-
             "menuProjectNode" -> {
                 DynamicMeta(fnName, "Menu", "p1", "A project in the menu's project tree")
             }
@@ -524,10 +515,6 @@ object TagsMd {
             "CHECKLIST_" to "Tasks",
             "SUBTASK" to "Tasks",
             "AGENDA_" to "Agenda",
-            // The timeline of the Plans tab: its sections, its granularity control
-            // and its empty state. A heading of its own rather than a fragment of
-            // Agenda: the plan is a feature, not a preset of the agenda's.
-            "PLANS_" to "Plans",
             "SAVED_" to "Agenda",
             "POMODORO_" to "Pomodoro",
             "TAGS_" to "Tags",

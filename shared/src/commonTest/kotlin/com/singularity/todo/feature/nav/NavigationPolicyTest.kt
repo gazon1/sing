@@ -30,7 +30,7 @@ class NavigationPolicyTest {
     fun `bottom-bar tab target resolves to SwitchTab from any context`() {
         assertEquals(
             OpenAction.SwitchTab,
-            resolve(AppDestination.Plans, AppDestination.AgendaGraph(AgendaStartRoute.Today)),
+            resolve(AppDestination.Pomodoro, AppDestination.AgendaGraph(AgendaStartRoute.Today)),
         )
         assertEquals(OpenAction.SwitchTab, resolve(AppDestination.NotesGraph(), AppDestination.Pomodoro))
         assertEquals(OpenAction.SwitchTab, resolve(Settings, AppDestination.Calendar))
@@ -38,7 +38,7 @@ class NavigationPolicyTest {
 
     @Test
     fun `menu destination target resolves to SwitchTab from any context`() {
-        assertEquals(OpenAction.SwitchTab, resolve(AppDestination.Plans, AppDestination.Search))
+        assertEquals(OpenAction.SwitchTab, resolve(AppDestination.Pomodoro, AppDestination.Search))
         assertEquals(
             OpenAction.SwitchTab,
             resolve(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()), AppDestination.Settings),
@@ -50,7 +50,7 @@ class NavigationPolicyTest {
     @Test
     fun `reopening the active top-level destination resolves to SwitchTab`() {
         // SwitchTab → Nav3State.onTabTapped → reselect event; must never push.
-        assertEquals(OpenAction.SwitchTab, resolve(AppDestination.Plans, AppDestination.Plans))
+        assertEquals(OpenAction.SwitchTab, resolve(AppDestination.Pomodoro, AppDestination.Pomodoro))
         assertEquals(
             OpenAction.SwitchTab,
             resolve(
@@ -90,11 +90,11 @@ class NavigationPolicyTest {
 
     @Test
     fun `cross-feature opens resolve to ExitAndOpen`() {
-        // Plans list → task (the allow-list path that used to degrade to goBack, REQ-NAV-002).
+        // A menu destination → task (the allow-list path that used to degrade to goBack, REQ-NAV-002).
         assertEquals(
             OpenAction.ExitAndOpen,
             resolve(
-                AppDestination.Plans,
+                AppDestination.Pomodoro,
                 AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))),
             ),
         )
@@ -130,7 +130,7 @@ class NavigationPolicyTest {
 
     @Test
     fun `bare tasks start route as an app-level target fails naming source and target`() {
-        val from = AppDestination.Plans
+        val from = AppDestination.Pomodoro
         val to = AppDestination.TasksStartRoute.Create()
 
         val error = assertFailsWith<IllegalArgumentException> { resolve(from, to) }
@@ -141,7 +141,7 @@ class NavigationPolicyTest {
 
     @Test
     fun `every nested start-route family is rejected as an app-level target`() {
-        val from = AppDestination.Plans
+        val from = AppDestination.Pomodoro
         listOf<AppNavKey>(
             AppDestination.TasksStartRoute.Create(),
             AppDestination.ProjectsStartRoute.List,
@@ -243,13 +243,8 @@ class NavigationPolicyTest {
             // SettingsNavigator: openProfileSwitcher — the target is a menu entry,
             // so rule 2 (activation) wins over the same-family Push.
             Emission(Settings, AppDestination.ProfileSwitcher, OpenAction.SwitchTab),
-            // FabActionResolver: the plan tab creates a task (cross-family), and the
-            // project list creates a project (same family — a non-tab push).
-            Emission(
-                AppDestination.Plans,
-                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-                OpenAction.ExitAndOpen,
-            ),
+            // FabActionResolver: the project list creates a project (same family — a
+            // non-tab push).
             Emission(
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
@@ -258,7 +253,7 @@ class NavigationPolicyTest {
             // The menu's projects section opens the project list from whichever tab
             // the user is on — cross-family, so the tab stays underneath.
             Emission(
-                AppDestination.Plans,
+                AppDestination.Pomodoro,
                 AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
                 OpenAction.ExitAndOpen,
             ),
@@ -275,17 +270,17 @@ class NavigationPolicyTest {
                 OpenAction.SwitchTab,
             ),
             // Shell tab bar (Android bottom bar / desktop drawer tabs).
-            Emission(AppDestination.Plans, AppDestination.AgendaGraph(AgendaStartRoute.Today), OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Pomodoro, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Calendar, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Plans, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.AgendaGraph(AgendaStartRoute.Today), OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Pomodoro, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Calendar, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Pomodoro, OpenAction.SwitchTab),
             // Shell menu sheet / drawer entries (AndroidMenuBottomSheet, desktop).
-            Emission(AppDestination.Plans, AppDestination.Statistics, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Notes, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.AiChat, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Search, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Archive, OpenAction.SwitchTab),
-            Emission(AppDestination.Plans, AppDestination.Settings, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Statistics, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Notes, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.AiChat, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Search, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Archive, OpenAction.SwitchTab),
+            Emission(AppDestination.Pomodoro, AppDestination.Settings, OpenAction.SwitchTab),
             // Android deep link: singularity://agenda/{view} → edit saved view.
             // Same family (Agenda), not a tab instance → Push, not ExitAndOpen.
             Emission(

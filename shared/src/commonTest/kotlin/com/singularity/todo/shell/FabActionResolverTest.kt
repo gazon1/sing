@@ -142,14 +142,6 @@ class FabActionResolverTest {
 
     // ── Agenda routes (modern) ────────────────────────────────────────────────
 
-    @Test
-    fun plans_returnsAddTask() {
-        // The plan tab creates the work that is due — a task due today — not a
-        // project. The plan is the work ahead, and a project is not a piece of it.
-        val result = fabActionForNav3(AppDestination.Plans, today, navigate)
-        assertEquals("Add task", result.label())
-    }
-
     // ── The bottom bar is the source of truth (#1959) ───────────────────────────
 
     /**
@@ -364,7 +356,6 @@ class FabActionResolverTest {
      */
     private val everyDestination: List<AppDestination> =
         listOf(
-            AppDestination.Plans,
             AppDestination.Pomodoro,
             AppDestination.Statistics,
             AppDestination.Calendar,
@@ -404,11 +395,6 @@ class FabActionResolverTest {
             // is the one that says what each of them carries.
             is AppDestination.AgendaGraph -> {
                 expectedFabFor(destination.start)
-            }
-
-            // The plan tab creates a task due today.
-            AppDestination.Plans -> {
-                ExpectedFab(AppDestination.TasksStartRoute.Create(), dueDate = today)
             }
 
             // The projects graph carries its own create actions (#2735).

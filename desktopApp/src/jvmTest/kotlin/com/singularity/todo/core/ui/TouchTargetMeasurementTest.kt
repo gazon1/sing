@@ -37,7 +37,7 @@ import kotlin.test.assertEquals
  *
  * The bounds come from `unclippedBoundsOfTag`, declared in
  * `test/helpers/DesktopAssertions.kt` in this same `jvmTest` source set — the
- * same reader the calendar, menu and plans position tests use, so the helper
+ * same reader the calendar and menu position tests use, so the helper
  * is part of a source set that already compiles, not something this file has
  * to bring with it.
  *

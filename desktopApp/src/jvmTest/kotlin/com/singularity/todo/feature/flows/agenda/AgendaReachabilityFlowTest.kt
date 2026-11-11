@@ -10,7 +10,8 @@ import kotlin.test.Test
 /**
  * Verifies all desktop shell tabs are reachable and switch correctly.
  *
- * Desktop shell tabs (in order): Inbox, Today, Upcoming, Plans, Pomodoro, Calendar
+ * Desktop shell entries tested here: Inbox, Today, Upcoming, Pomodoro, and the
+ * Calendar (a menu entry, reached through the same drawer).
  *
  * ## What this tests (MR-4)
  * - Each tab click switches the active tab (Selected semantics)
@@ -40,13 +41,6 @@ class AgendaReachabilityFlowTest {
         runDesktopAppTest(checkA11y = true) {
             tapTab("Upcoming")
             assertCurrentTab("Upcoming")
-        }
-
-    @Test
-    fun plans_tab_is_reachable() =
-        runDesktopAppTest(checkA11y = true) {
-            tapTab("Plans")
-            assertCurrentTab("Plans")
         }
 
     @Test

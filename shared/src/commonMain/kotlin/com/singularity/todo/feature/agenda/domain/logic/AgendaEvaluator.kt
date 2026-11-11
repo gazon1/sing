@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.domain.logic
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
@@ -27,7 +28,9 @@ import kotlin.time.Instant
  * 1. Sort sections by [Section.order].
  * 2. For each section, filter tasks that match [Selector].
  * 3. If [Section.discard] is true, remove matched tasks from the pool for subsequent sections.
- * 4. Wrap remaining tasks in [AgendaRowItem] with their computed markings.
+ * 4. Wrap the matched tasks in [AgendaRowItem] with their computed markings.
+ * 5. A section with [Section.groupBy] becomes one section per period
+ *    ([DateSectionGrouper]); every other section is rendered as declared.
  */
 object AgendaEvaluator {
     /**
@@ -39,6 +42,9 @@ object AgendaEvaluator {
      * @param now The current instant, used for staleness computation in [Selector.Stagnant].
      * @param projectsById The projects resolved once for the whole list, keyed by id —
      *   the name and colour a row carries. Empty when the caller has no projects.
+     * @param dateGrouping The grouping the screen chose for date-grouped sections, or
+     *   null to keep each section's own default. It is the profile's saved choice
+     *   for the Upcoming tab, not a property of the definition.
      */
     fun evaluate(
         tasks: List<Task>,
@@ -46,6 +52,7 @@ object AgendaEvaluator {
         today: LocalDate,
         now: Instant,
         projectsById: Map<String, Project> = emptyMap(),
+        dateGrouping: DateGrouping? = null,
     ): List<RenderedSection> {
         var remaining = tasks.toSet()
         // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
@@ -67,37 +74,45 @@ object AgendaEvaluator {
             )
         return definition.sections
             .sortedBy { it.order }
-            .mapNotNull { section ->
+            .flatMap { section ->
                 val matched = remaining.filter { section.selector.matches(it, context) }
-                if (matched.isEmpty()) return@mapNotNull null
+                if (matched.isEmpty()) return@flatMap emptyList()
 
                 if (section.discard) {
                     remaining = remaining - matched.toSet()
                 }
 
-                RenderedSection(
-                    id = section.effectiveId,
-                    name = section.name,
-                    tasks =
-                        matched
-                            .map { task ->
-                                val project = task.projectId?.value?.let { projectsById[it] }
-                                AgendaRowItem(
+                val rows =
+                    matched.map { task ->
+                        val project = task.projectId?.value?.let { projectsById[it] }
+                        AgendaRowItem(
+                            task = task,
+                            markings =
+                                computeTaskMarkings(
                                     task = task,
-                                    markings =
-                                        computeTaskMarkings(
-                                            task = task,
-                                            today = today,
-                                            isBlocked = task.id in blockedIds,
-                                        ),
-                                    seriesDates = task.seriesId?.let { seriesSizes[it.value] },
-                                    project = project?.name,
-                                    projectColor = project?.color,
-                                )
-                            }.toImmutableList(),
-                    badge = matched.size.takeIf { it > 0 },
-                    prefill = section.prefill,
-                )
+                                    today = today,
+                                    isBlocked = task.id in blockedIds,
+                                ),
+                            seriesDates = task.seriesId?.let { seriesSizes[it.value] },
+                            project = project?.name,
+                            projectColor = project?.color,
+                        )
+                    }
+
+                val grouping = section.groupBy
+                if (grouping != null) {
+                    DateSectionGrouper.group(section, rows, today, dateGrouping ?: grouping)
+                } else {
+                    listOf(
+                        RenderedSection(
+                            id = section.effectiveId,
+                            name = section.name,
+                            tasks = rows.toImmutableList(),
+                            badge = rows.size.takeIf { it > 0 },
+                            prefill = section.prefill,
+                        ),
+                    )
+                }
             }
     }
 

@@ -9,7 +9,7 @@ id: PLANS-10
 title: "An empty horizon shows an empty state, and undated tasks are absent from the timeline"
 area: feature.plans
 priority: P2
-status: confirmed
+status: deprecated
 targets: [android, desktop]
 preconditions: >-
   No task has a due date inside the current horizon, and one task exists with
@@ -19,3 +19,10 @@ steps:
 expected: >-
   The screen shows a message that there is nothing scheduled rather than a blank
   list, and the undated task is not listed anywhere on the timeline.
+
+# Deprecated on purpose (2026-11-11): the Plans destination was retired and its
+# useful behaviour — a chronological timeline of days that hold tasks — moved
+# into the Upcoming agenda tab. The scenarios are kept rather than deleted
+# because the screen shipped and users could see it; deleting the files would
+# leave "where did the timeline go?" unanswered in the scenario layer. The
+# surviving behaviour is carried by the Upcoming scenarios (AGENDA-09).

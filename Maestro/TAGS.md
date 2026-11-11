@@ -66,7 +66,6 @@ non-alphanumeric characters with `_`.
 | `MENU_ATTACH_ACCOUNT` | `menu_attach_account` | |
 | `MENU_CALENDAR` | `menu_calendar` | |
 | `MENU_NOTES` | `menu_notes` | |
-| `MENU_PLANS` | `menu_plans` | |
 | `MENU_POMODORO` | `menu_pomodoro` | |
 | `MENU_PROFILES` | `menu_profiles` | |
 | `MENU_PROJECTS_COLLAPSE` | `menu_projects_collapse` | |
@@ -163,7 +162,9 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `AGENDA_GREETING` | `agenda_greeting` | |
-| `AGENDA_HORIZON_NOTE` | `agenda_horizon_note` | |
+| `AGENDA_GROUPING_DAY` | `agenda_grouping_day` | |
+| `AGENDA_GROUPING_MONTH` | `agenda_grouping_month` | |
+| `AGENDA_GROUPING_WEEK` | `agenda_grouping_week` | |
 | `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
@@ -182,17 +183,6 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
 | `SAVED_AGENDA_OVERFLOW_BUTTON` | `saved_agenda_overflow_button` | |
 | `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | |
-
-### Plans
-
-| Constant | Value | Where |
-|---|---|---|
-| `PLANS_EMPTY_STATE` | `plans_empty_state` | |
-| `PLANS_ERROR` | `plans_error` | |
-| `PLANS_GRANULARITY_DAY` | `plans_granularity_day` | |
-| `PLANS_GRANULARITY_MONTH` | `plans_granularity_month` | |
-| `PLANS_GRANULARITY_WEEK` | `plans_granularity_week` | |
-| `PLANS_SCREEN` | `plans_screen` | |
 
 ### Pomodoro
 
@@ -524,8 +514,6 @@ use the expanded string directly).
 | `agendaSectionViewAll("Overdue")` | `"Overdue"` | `agenda_section_view_all_overdue` | The "View all" action of an agenda section header |
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
-| `plansSection("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_day_2026_09_16` | Timeline section headers |
-| `plansSectionAdd("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_add_day_2026_09_16` | The add control of a timeline section |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |

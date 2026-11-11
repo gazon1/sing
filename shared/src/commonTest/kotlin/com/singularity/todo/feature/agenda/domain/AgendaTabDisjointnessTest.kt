@@ -32,17 +32,15 @@ import kotlin.test.assertTrue
  *
  * The partition:
  *
- * | Tab       | Sections                             |
- * |-----------|--------------------------------------|
- * | Inbox     | No Date                              |
- * | Today     | Overdue, Today                       |
- * | Upcoming  | Tomorrow, This Week, Next Week       |
+ * | Tab       | Date range                            |
+ * |-----------|---------------------------------------|
+ * | Inbox     | No date                               |
+ * | Today     | Overdue and today                     |
+ * | Upcoming  | Tomorrow onwards, grouped by date     |
  *
- * Two things make it hold. The tabs own disjoint sets of date buckets, so no
- * section is shown by two of them; and the Upcoming tab's "This Week" section is
- * the week bucket *minus* the days the Today tab owns, because the week bucket
- * spans Monday to Sunday and would otherwise hand today's and the overdue tasks
- * to two tabs at once.
+ * The tabs own disjoint sets of dates, so a task is in exactly one of them. The
+ * Upcoming tab is no longer a horizon: it reaches as far as the data does, and
+ * the only boundary left is tomorrow — the first day Today does not own.
  *
  * The configuration that used to break it is the working day: the Today tab
  * rendered the work-day plan *instead of* its own buckets, so an overdue task
@@ -228,7 +226,7 @@ class AgendaTabDisjointnessTest {
     }
 
     @Test
-    fun `every task within the tabs' horizon appears in exactly one tab`() {
+    fun `every open task appears in exactly one tab`() {
         val cases =
             listOf(
                 Case("undated", null, expectedTab = "Inbox"),
@@ -246,6 +244,8 @@ class AgendaTabDisjointnessTest {
                 Case("end of this week", LocalDate(2026, 10, 18), expectedTab = "Upcoming"),
                 Case("start of next week", LocalDate(2026, 10, 19), expectedTab = "Upcoming"),
                 Case("end of next week", LocalDate(2026, 10, 25), expectedTab = "Upcoming"),
+                Case("beyond next week", LocalDate(2026, 11, 20), expectedTab = "Upcoming"),
+                Case("distant future", LocalDate(2027, 3, 1), expectedTab = "Upcoming"),
             )
 
         configurations.forEach { (workingDay, label) ->
@@ -274,6 +274,8 @@ class AgendaTabDisjointnessTest {
                 Case("tomorrow", LocalDate(2026, 10, 15), expectedTab = "Upcoming"),
                 Case("later this week", LocalDate(2026, 10, 16), expectedTab = "Upcoming"),
                 Case("end of next week", LocalDate(2026, 10, 25), expectedTab = "Upcoming"),
+                Case("next month", LocalDate(2026, 11, 20), expectedTab = "Upcoming"),
+                Case("distant future", LocalDate(2027, 3, 1), expectedTab = "Upcoming"),
             )
 
         configurations.forEach { (workingDay, label) ->
@@ -374,65 +376,65 @@ class AgendaTabDisjointnessTest {
     }
 
     /**
-     * The decision, pinned: a task dated further out than next week is in no
-     * bottom-bar tab at all — and that is deliberate.
+     * The decision, pinned: the future feed has no far edge.
      *
-     * The three tabs are a partition of what they cover, not of every task: they
-     * answer "what is not dated yet", "what is now or late" and "what is coming
-     * soon". A task due in three weeks is none of those; it is planned, and the
-     * Plans timeline, the Calendar and a saved view seeded from
-     * [AgendaPresets.All] are where it is seen. The wide view still holds it, so
-     * the gap is a horizon rather than a hole.
+     * Upcoming used to stop at next week and leave later tasks to the Plans
+     * timeline. It now holds every future dated task, so a task three weeks or a
+     * year out belongs to the same tab as tomorrow's — and to no other tab.
      *
-     * See ADR `2026-11-05-the-agenda-tabs-cover-a-horizon`. Keeping this test is
-     * the acceptance criterion: the gap must stay a stated decision, not become
-     * an accidental regression in either direction.
+     * See ADR `2026-11-11-upcoming-owns-the-whole-future`.
      */
     @Test
-    fun `a task due beyond next week is in no tab`() {
-        val task = task("task-beyond", LocalDate(2026, 10, 26))
+    fun `a task due beyond next week is in Upcoming`() {
+        val cases =
+            listOf(
+                "beyond next week" to LocalDate(2026, 11, 20),
+                "distant future" to LocalDate(2027, 3, 1),
+            )
 
-        configurations.forEach { (workingDay, label) ->
+        cases.forEachIndexed { index, (label, due) ->
+            val task = task("task-beyond-$index", due)
+            configurations.forEach { (workingDay, configuration) ->
+                assertEquals(
+                    listOf("Upcoming"),
+                    tabsContaining(task, tabs(workingDay)),
+                    "on $configuration a task due in the $label must be in Upcoming and in no other tab",
+                )
+            }
             assertEquals(
-                emptyList(),
-                tabsContaining(task, tabs(workingDay)),
-                "on $label a task dated beyond next week is in no agenda tab — the tabs cover a " +
-                    "horizon, and the answer for \"what is due later\" is the Plans timeline and the Calendar",
+                1,
+                sectionsContaining(AgendaPresets.Upcoming, task).size,
+                "a task due in the $label appears under exactly one date header",
             )
         }
-        assertEquals(
-            listOf("This Month"),
-            sectionsContaining(AgendaPresets.All, task),
-            "the wide view is where a later task is seen, so the tab bar's horizon " +
-                "must not drop it from the agenda altogether",
-        )
     }
 
     /**
-     * The wide view is not a tab: it is the seed a new saved view starts from.
+     * The wide view and the future feed are separate surfaces with separate
+     * reaches.
      *
-     * It holds every section the tabs show — it is the whole agenda — and it
-     * holds buckets the three tabs deliberately leave out, which is what makes
-     * it the wide view rather than a fourth copy of one of them.
+     * `AgendaPresets.All` keeps the bounded reach it was given (to the end of next
+     * month) and stays the seed of a new saved view; Upcoming reaches as far as
+     * the data does. Widening the wide view is #2021's decision, not a side effect
+     * of this tab.
      */
     @Test
-    fun `the All preset is the wide view, not a tab`() {
-        val tabSections =
-            tabs(workingDay = false)
-                .flatMap { (_, definition) -> definition.sections.map { it.name } }
-                .toSet()
+    fun `the wide view keeps its own reach and is not a superset of the future feed`() {
         val allSections = AgendaPresets.All.sections.map { it.name }
+        val bucketedViews =
+            listOf("No Date", "Overdue", "Today", "Yesterday", "This Month", "Next Month")
 
-        tabSections.forEach { section ->
+        bucketedViews.forEach { section ->
             assertTrue(
                 section in allSections,
                 "the wide All view must still hold the \"$section\" section",
             )
         }
-        assertTrue(
-            allSections.any { it !in tabSections },
-            "the wide All view must hold buckets the tabs do not — it is the whole " +
-                "agenda, not a fourth tab",
+        assertEquals(
+            emptyList(),
+            sectionsContaining(AgendaPresets.All, task("far", LocalDate(2027, 3, 1))),
+            "the wide view's reach still ends after next month; Upcoming is where a " +
+                "far-future task is seen",
         )
     }
 }

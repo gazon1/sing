@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeDateGroupingSettingsRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
@@ -117,6 +118,7 @@ class AgendaBulkCloseTest {
                         mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                         workScheduleSettings = fakeSettings.workSchedule,
                         greetingSettings = fakeSettings.greeting,
+                        dateGrouping = FakeDateGroupingSettingsRepository(),
                         projectsRepository =
                             com.singularity.todo.test.fakes
                                 .FakeProjectsRepository(),

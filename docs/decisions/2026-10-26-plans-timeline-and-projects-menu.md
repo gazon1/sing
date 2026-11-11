@@ -5,6 +5,11 @@ status: accepted
 tags: [navigation, agenda, ui, projects]
 ---
 
+> **Superseded in part (2026-11-11):** the Plans destination and its timeline
+> screen are retired; the timeline's day grouping moved into the Upcoming agenda
+> tab, and the projects-tree decision below still stands. See
+> [2026-11-11-upcoming-owns-the-whole-future.md](2026-11-11-upcoming-owns-the-whole-future.md).
+
 ## Context
 
 The Plans tab was a project list. It was reached from the bottom navigation bar, and it opened

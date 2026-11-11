@@ -160,9 +160,9 @@ FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
     ("navTab", "Inbox", "nav_tab_"),
     ("navTab", "Upcoming", "nav_tab_"),
     ("navTab", "Calendar", "nav_tab_"),
-    # Plans and Pomodoro are not tabs: they are entries of the app menu, and a
-    # flow addresses them by their MENU_* tags (`menu_plans`, `menu_pomodoro`).
-    # A `navTab(...)` output for either names a node the shell never draws.
+    # Pomodoro is not a tab: it is an entry of the app menu, and a flow
+    # addresses it by its MENU_* tag (`menu_pomodoro`). A `navTab(...)` output
+    # for it names a node the shell never draws.
     # themeModeButton — 3 ThemeMode values (prefix: settings_theme_mode_)
     ("themeModeButton", "System", "settings_theme_mode_"),
     ("themeModeButton", "Light", "settings_theme_mode_"),
@@ -196,11 +196,10 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "nav_tab_upcoming",
     "nav_tab_calendar",
     # Not drawn, and kept for exactly one purpose: the composition flow asserts
-    # the *absence* of these two from the bar, and an id the validator has never
-    # heard of cannot be asserted to be missing. Nothing may tap them — a tap on
+    # the *absence* of this from the bar, and an id the validator has never
+    # heard of cannot be asserted to be missing. Nothing may tap it — a tap on
     # an absent id is the false green this file exists to catch, and the standing
     # guard against it is #2142.
-    "nav_tab_plans",
     "nav_tab_pomodoro",
     # menuItem(...) — menu sheet items
     "menu_archive",
@@ -219,9 +218,6 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "menu_project_node_bulk_001",
     "menu_project_expander_roadmap",
     "menu_project_expander_childless",
-    # plansSection("overdue") — the overdue section's id is a constant of the
-    # grouper, so the expansion is finite.
-    "plans_section_overdue",
     # taskItem(...) — from seed flows
     "task_item_bigoverdue_1",
     "task_item_buy_milk",
@@ -240,11 +236,11 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_write_spec",
     "task_item_worktask",
     "task_item_grocery_run",
-    # taskItem(...) — from the Plans flows: the timeline's rows
-    "task_item_only_once",
+    # taskItem(...) — from the Upcoming feed's flow: its dated rows
     "task_item_due_today",
     "task_item_due_tomorrow",
-    "task_item_due_in_45_days",
+    "task_item_due_in_three_days",
+    "task_item_due_in_six_days",
     # projectCard(...) — from the menu's flows: the full project list's rows
     "project_card_roadmap",
     "project_card_childless",

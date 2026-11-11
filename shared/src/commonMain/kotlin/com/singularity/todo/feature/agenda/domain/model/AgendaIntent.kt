@@ -75,6 +75,9 @@ sealed interface AgendaIntent : MviIntent {
      */
     data class CreateOnDates(val dates: Set<kotlinx.datetime.LocalDate>) : AgendaIntent
 
+    /** The user chose how the date-grouped feed is split: day, week or month. */
+    data class SetDateGrouping(val grouping: DateGrouping) : AgendaIntent
+
     // ── Selection mode ──────────────────────────────────────────────────────────
 
     /**

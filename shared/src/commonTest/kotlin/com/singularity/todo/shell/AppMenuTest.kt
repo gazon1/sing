@@ -58,11 +58,11 @@ class AppMenuTest {
     }
 
     @Test
-    fun theCalendarIsATabAndThePlansIsInTheMenu() {
-        // The Calendar was promoted to a tab and the Plans tab moved into the
-        // menu: the two facts are what the menu's shape is made of.
+    fun theCalendarIsATabAndThePomodoroIsInTheMenu() {
+        // The Calendar is a tab, so it is not repeated in the menu; the Pomodoro
+        // is a menu destination. The two facts are what the menu's shape is made of.
         assertTrue(AppDestination.Calendar !in AppMenu.allDestinations)
-        assertTrue(AppDestination.Plans in AppMenu.allDestinations)
+        assertTrue(AppDestination.Pomodoro in AppMenu.allDestinations)
     }
 
     @Test

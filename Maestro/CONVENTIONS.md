@@ -105,8 +105,6 @@ their logic.
 | `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
-| `plans-section.yaml` | Flows waiting for a timeline section by its date tag |
-| `plans-section-gone.yaml` | Flows asserting that a timeline section is gone |
 | `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet from the "+ Add file" row |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
 

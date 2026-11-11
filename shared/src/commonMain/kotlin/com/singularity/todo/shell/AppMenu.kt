@@ -162,10 +162,6 @@ object AppMenu {
                 TestTags.MENU_PROPOSALS
             }
 
-            AppDestination.Plans -> {
-                TestTags.MENU_PLANS
-            }
-
             AppDestination.Pomodoro -> {
                 TestTags.MENU_POMODORO
             }

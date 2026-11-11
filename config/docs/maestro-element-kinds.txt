@@ -17,9 +17,10 @@
 #
 # Sorted by id, one mapping per line, no blank lines.
 ${DAY_CELL} item
-${PLANS_SECTION} item
 ${SETTINGS_TAB} tab
 ${TASK_ID} item
+agenda_grouping_day button
+agenda_grouping_week button
 agenda_save_current_button button
 agenda_saved_views_button button
 agenda_section_blocked item
@@ -102,11 +103,6 @@ notes_quick_add_input field
 overflow_archive menu
 overflow_delete menu
 overflow_restore menu
-plans_empty_state text
-plans_granularity_day button
-plans_granularity_month button
-plans_granularity_week button
-plans_section_overdue item
 proposals_empty text
 pomodoro_focus_chip button
 pomodoro_phase_label text
@@ -189,13 +185,13 @@ task_item_bigoverdue_1 item
 task_item_buy_milk item
 task_item_clearsearchtask2026 item
 task_item_deleteattachtask2026 item
-task_item_due_in_45_days item
+task_item_due_in_six_days item
+task_item_due_in_three_days item
 task_item_due_today item
 task_item_due_tomorrow item
 task_item_emptyurltask2026 item
 task_item_healthoverdue_task item
 task_item_offline_task item
-task_item_only_once item
 task_item_parent_task item
 task_item_persistencetask2026 item
 task_item_pinnedtask2026 item

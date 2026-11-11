@@ -89,8 +89,6 @@ import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPor
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
-import com.singularity.todo.feature.plans.domain.model.PlansGranularity
-import com.singularity.todo.feature.plans.domain.port.PlansSettingsRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -236,27 +234,6 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
 
             override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
                 _id.value = id
-            }
-        }
-
-    /**
-     * The plans' granularity, keyed by the profile it belongs to.
-     *
-     * The production repository keys it by the profile-scoped user id, because
-     * the settings file is shared by the profiles; the fake keeps the same
-     * shape, so a test that switches profiles sees what production shows.
-     */
-    override val plans: PlansSettingsRepository =
-        object : PlansSettingsRepository {
-            private val granularities = mutableMapOf<String, MutableStateFlow<PlansGranularity>>()
-
-            private fun forUser(userId: String): MutableStateFlow<PlansGranularity> =
-                granularities.getOrPut(userId) { MutableStateFlow(PlansGranularity.Default) }
-
-            override val granularity: Flow<PlansGranularity> = forUser(initialUserId)
-
-            override suspend fun setGranularity(granularity: PlansGranularity) {
-                forUser(initialUserId).value = granularity
             }
         }
 

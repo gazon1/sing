@@ -89,6 +89,8 @@ object TaskVocabulary {
     private const val DUE_THIS_MONTH = "the tasks that are due this month"
     private const val DUE_NEXT_MONTH = "the tasks that are due next month"
     private const val DUE_LATER = "the tasks that are due after today"
+    private const val UNFINISHED_DUE_LATER_WITH_DEFERRED =
+        "the unfinished tasks that are due after today, including the deferred ones"
     private const val DEFERRED = "the tasks that are deferred to someday"
     private const val NOT_DEFERRED = "every live task that is not deferred"
     private const val UNFINISHED = "every unfinished task"
@@ -113,12 +115,17 @@ object TaskVocabulary {
     private const val IN_DATE_BUCKET = "the tasks in a relative date bucket"
     private const val UNSCHEDULED = "the tasks that are not scheduled yet"
     private const val DUE_TODAY_WITH_OVERDUE = "the tasks due today, with the overdue ones on top"
-    private const val COMING_SOON = "the tasks coming soon, from tomorrow to next week"
     private const val THE_DAY = "the agenda of one day"
     private const val A_WORKING_DAY = "the agenda of a working day, in work blocks"
 
-    /** Every date bucket there is. */
-    private val ALL_BUCKETS: Set<RelativeBucket> = RelativeBucket.entries.toSet()
+    /**
+     * The buckets the wide `All` view holds — every bucket but the open-ended one.
+     *
+     * `Future` is the Upcoming tab's reach, and the wide view deliberately keeps its
+     * own (bounded) reach. It is still a bucket a preset uses, so it is reachable;
+     * it just is not one of `All`'s sections.
+     */
+    private val ALL_BUCKETS: Set<RelativeBucket> = RelativeBucket.entries.toSet() - RelativeBucket.Future
 
     /**
      * The question each set of buckets answers.
@@ -140,7 +147,7 @@ object TaskVocabulary {
             setOf(RelativeBucket.NoDate) to UNSCHEDULED,
             // The sets the agenda's date-based presets hold.
             setOf(RelativeBucket.Overdue, RelativeBucket.Today) to DUE_TODAY_WITH_OVERDUE,
-            setOf(RelativeBucket.Tomorrow, RelativeBucket.ThisWeek, RelativeBucket.NextWeek) to COMING_SOON,
+            setOf(RelativeBucket.Future) to UNFINISHED_DUE_LATER_WITH_DEFERRED,
             ALL_BUCKETS to LIVE,
         )
 
@@ -157,7 +164,7 @@ object TaskVocabulary {
             "All" to ALL_BUCKETS,
             "Inbox" to setOf(RelativeBucket.NoDate),
             "Today" to setOf(RelativeBucket.Overdue, RelativeBucket.Today),
-            "Upcoming" to setOf(RelativeBucket.Tomorrow, RelativeBucket.ThisWeek, RelativeBucket.NextWeek),
+            "Upcoming" to setOf(RelativeBucket.Future),
         )
 
     /**
@@ -239,6 +246,9 @@ object TaskVocabulary {
             RelativeBucket.ThisMonth to "This Month",
             RelativeBucket.NextMonth to "Next Month",
             RelativeBucket.NoDate to "No Date",
+            // The section is generated per date; this is its name when the evaluator
+            // has no date to give it (the grouping's undated fallback).
+            RelativeBucket.Future to "Later",
         )
 
     /**
@@ -315,10 +325,10 @@ object TaskVocabulary {
                 name = "upcoming",
                 source = Source.PRESET,
                 reason =
-                    "the agenda's Upcoming tab holds the tomorrow, this-week and next-week " +
-                        "buckets — a horizon — while the filter and the selection hold every " +
-                        "later date. The tab is what the bottom bar shows soon; the set is " +
-                        "everything that is not due yet",
+                    "the agenda's Upcoming tab holds unfinished future tasks, deferred ones " +
+                        "included; TaskFilter.Upcoming and the selection keep completed tasks " +
+                        "and leave `someday` out. The tab is what the user sees; the other two " +
+                        "are sets for code",
             ),
         )
 }

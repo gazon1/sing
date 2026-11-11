@@ -456,3 +456,24 @@ specs/013-gate-probe-cost/research.md:check-gate-liveness.py
 specs/013-gate-probe-cost/tasks.md:check-gate-liveness.py
 specs/013-gate-probe-cost/tasks.md:scripts/check-gate-liveness.py
 specs/013-gate-probe-cost/tasks.md:scripts/tests/test_check_gate_liveness.py
+
+# Added 2026-11-11 when the Plans destination was retired (#2828). The spec
+# `specs/016-plans-timeline-projects-menu/` is the historical record of the
+# timeline that shipped; its task list names the files that were written then
+# and deleted now. The surviving behaviour is carried by the Upcoming agenda
+# tab (ADR 2026-11-11-upcoming-owns-the-whole-future).
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/PlansDiModule.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/model/TimelineTask.kt
+specs/016-plans-timeline-projects-menu/tasks.md:desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansDaysChronologicalScenarioTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansGranularityControlScenarioTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:TimelineGrouper.kt
+specs/016-plans-timeline-projects-menu/tasks.md:TimelinePeriods.kt
+specs/016-plans-timeline-projects-menu/tasks.md:TimelinePeriod.kt
+specs/016-plans-timeline-projects-menu/tasks.md:TimelineLabels.kt
+specs/016-plans-timeline-projects-menu/tasks.md:PlansViewModel.kt
+specs/016-plans-timeline-projects-menu/tasks.md:PlansUiState.kt
+specs/016-plans-timeline-projects-menu/tasks.md:PlansDeps.kt
+specs/016-plans-timeline-projects-menu/tasks.md:DataStorePlansSettingsRepository.kt
+specs/016-plans-timeline-projects-menu/tasks.md:PlansContent.kt
+specs/016-plans-timeline-projects-menu/tasks.md:PlansSectionList.kt
+specs/016-plans-timeline-projects-menu/tasks.md:PlansScreen.kt
