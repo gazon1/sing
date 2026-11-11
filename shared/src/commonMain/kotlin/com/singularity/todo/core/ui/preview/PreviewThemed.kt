@@ -15,6 +15,8 @@ import com.singularity.todo.core.ui.theme.SingularityTheme
  *
  * @param darkTheme  If true, uses the dark color scheme; otherwise light.
  * @param accent     Accent color used by [SingularityAccents].
+ * @param fontSizeScale The appearance setting's text scale, carried through so a
+ *                   preview whose state says 1.25f does not render at 1f.
  * @param useSurface If true, wraps content in a [Surface] with the background color.
  *                   Pass false when the preview root already contains a Scaffold
  *                   (which provides its own background via MaterialTheme.colorScheme.background).
@@ -23,10 +25,15 @@ import com.singularity.todo.core.ui.theme.SingularityTheme
 internal fun PreviewThemed(
     darkTheme: Boolean = false,
     accent: SingularityAccents = SingularityAccents.Blue,
+    fontSizeScale: Float = 1f,
     useSurface: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    SingularityTheme(themeMode = if (darkTheme) ThemeMode.Dark else ThemeMode.Light, accent = accent) {
+    SingularityTheme(
+        themeMode = if (darkTheme) ThemeMode.Dark else ThemeMode.Light,
+        accent = accent,
+        fontSizeScale = fontSizeScale,
+    ) {
         if (useSurface) {
             Surface(color = MaterialTheme.colorScheme.background) { content() }
         } else {
