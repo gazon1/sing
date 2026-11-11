@@ -482,7 +482,7 @@ class TaskRowDensityTest {
         const val PROJECT = "Очень длинное название проекта которое точно не влезет в строку"
         const val MEDIUM_PRIORITY = "Medium priority"
         const val RECURRING_MARK = "Recurring task"
-        const val SERIES_MARK = "series · 5 dates"
+        const val SERIES_MARK = "Series · 5 dates"
     }
 }
 

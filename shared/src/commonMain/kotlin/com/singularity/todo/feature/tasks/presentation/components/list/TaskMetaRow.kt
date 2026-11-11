@@ -42,7 +42,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * получает свою ширину раньше, чем отметки и проект заберут что-то у неё.
  * Длинное название проекта ужимается многоточием, дата — нет.
  *
- * **Маркер серии в строке — иконка без слова.** Слово «series · 5 dates» было
+ * **Маркер серии в строке — иконка без слова.** Слово «Series · 5 dates» было
  * самым широкым потребителем ширины на линии: вместе с датой и тремя отметками
  * оно съедало колонку целиком, и проект — единственный, кто уступает, — получал
  * ноль вместо многоточия. Теперь маркер рисуется иконкой, а счётчик остаётся в
@@ -100,10 +100,10 @@ fun TaskMetaRow(
         TaskMarkingsRow(markings = markings)
 
         if (seriesDates != null) {
-            // The icon alone: the marker's word ("series · 5 dates") is the
+            // The icon alone: the marker's word ("Series · 5 dates") is the
             // widest thing on the line, and the width belongs to the date and
             // the project. The count stays in the icon's description.
-            SeriesMarker(isSeries = true, dates = seriesDates, compact = true)
+            SeriesMarker(isSeries = true, dates = seriesDates)
         }
 
         if (project != null && somethingBeforeProject) {
