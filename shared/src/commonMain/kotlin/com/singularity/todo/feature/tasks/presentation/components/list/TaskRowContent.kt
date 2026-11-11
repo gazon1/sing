@@ -44,6 +44,7 @@ fun TaskRowContent(
     task: TaskUi,
     onToggleCompleted: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Row(
         verticalAlignment = Alignment.Top,
@@ -52,6 +53,7 @@ fun TaskRowContent(
         TaskCheckbox(
             isChecked = task.isCompleted,
             onCheckedChange = { onToggleCompleted() },
+            enabled = enabled,
             accentColor = priorityColor(task.priority),
             // The card variant tags its own toggle; the flat agenda row has to carry the
             // same tag here, or completion cannot be driven from UI automation.

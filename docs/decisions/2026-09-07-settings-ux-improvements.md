@@ -21,7 +21,11 @@ Settings UX had several rough edges compared to production apps like TickTick:
 
 - Replaced `LazyRow + AccentChip(Card)` with `Row + AccentSwatch(Box/CircleShape/40dp)`.
 - Selected swatch: `2.dp` border + white `Check` icon overlaid.
-- Added live preview card above swatches: a mini task row with the accent dot rendered in the chosen color.
+- Added a live preview card above swatches: a mini task row with the accent dot rendered in the chosen color.
+- Updated: the dot is gone. The live preview is now the production `TaskRowContent` next to
+  `NoteCardContent(isSelected = true)`, rendered on the ambient `SingularityTheme` — so it shows
+  the accent's `primaryContainer` on a real card, and it carries the whole appearance, not just
+  the swatch. It is hidden from assistive tech, since the checkbox is not a live control.
 
 ### C2 — Native TimePicker for work schedule (`WorkScheduleSettingsScreen.kt`)
 
@@ -31,7 +35,10 @@ Settings UX had several rough edges compared to production apps like TickTick:
 
 ### C3 — Font size live preview (`InterfaceSettingsScreen.kt`)
 
-- `Text("Sample task text", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp * state.fontSizeScale))` rendered below the font scale slider.
+- `Text("Sample task text", style = MaterialTheme.typography.bodyMedium)` below the font scale
+  slider. The scale is applied by `createTypography(fontSizeScale)` in the theme, so the sample
+  reads the scaled slot; the earlier `copy(fontSize = 14.sp * scale)` restated the baseline and
+  was the shape that double-scales the moment the typography changes.
 
 ### C4 — AI connection badge in NavRail (`SettingsScreen.kt`)
 

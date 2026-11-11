@@ -36,8 +36,9 @@ import singularity_todo.shared.generated.resources.untitled_note
  * Both [NoteCard] and [SwipeableNoteCard][com.singularity.todo.feature.notes.SwipeableNoteCard]
  * use this to avoid duplicating the rendering logic.
  *
- * Does NOT include the [Card] wrapper — callers provide their own
- * Card with the appropriate color scheme and click/swipe modifiers.
+ * Includes its own [Card] and the `noteItem` identity tag; it omits only the click
+ * handler [NoteCard] adds — the shape a caller that must not be tappable wants
+ * (the theme preview in Settings).
  */
 @Composable
 internal fun NoteCardContent(

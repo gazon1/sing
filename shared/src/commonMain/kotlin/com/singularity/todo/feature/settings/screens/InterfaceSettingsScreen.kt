@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.settings.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -11,12 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,12 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.settings.ThemeMode
@@ -47,8 +42,16 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.LocalIsDarkTheme
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.accentPrimaryColor
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.settings.SettingsUiState
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowContent
+import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import kotlinx.coroutines.launch
+import kotlin.time.Instant
 
 @Composable
 fun InterfaceSettingsScreen(
@@ -66,6 +69,7 @@ fun InterfaceSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Theme") {
+            ThemePreview()
             ThemeModeSelector(
                 selected = state.appearance.themeMode,
                 onSelect = { onIntent(SettingsIntent.Appearance.UpdateThemeMode(it)) },
@@ -103,6 +107,54 @@ fun InterfaceSettingsScreen(
     }
 }
 
+/**
+ * What the selected theme, accent and font scale actually look like.
+ *
+ * Drawn with the production components on the ambient `SingularityTheme`, so it
+ * cannot disagree with the app: the note is rendered selected, which is the
+ * `primaryContainer` role the accent paints. Reusing the components also means
+ * the preview shows the truth about them — the task row's title is a fixed
+ * `16.sp` and does not follow the font-scale setting, while the note's typography
+ * does.
+ *
+ * Hidden from assistive tech: the checkbox is not a control and the note is not a
+ * note. It stays in the semantics tree, so tests can still assert on it.
+ */
+@Composable
+private fun ThemePreview() {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { hideFromAccessibility() },
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // `enabled = false` is what keeps the sample out of the desktop focus order —
+        // a disabled toggleable takes neither focus nor input.
+        TaskRowContent(task = themePreviewTask, onToggleCompleted = {}, enabled = false)
+        NoteCardContent(note = themePreviewNote, isSelected = true)
+    }
+}
+
+private val themePreviewTask =
+    TaskUi(
+        id = TaskId("theme-preview-task"),
+        title = "Sample task",
+        project = "Sample project",
+        dueLabel = "Today",
+        priority = TaskPriority.Medium,
+    )
+
+private val themePreviewNote =
+    Note(
+        id = NoteId("theme-preview-note"),
+        userId = UserId.anonymous,
+        title = "Sample note",
+        bodyHtml = "<p>The accent tints a selected note.</p>",
+        createdAt = Instant.fromEpochMilliseconds(0),
+        updatedAt = Instant.fromEpochMilliseconds(0),
+    )
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AccentColorPicker(
@@ -110,43 +162,6 @@ private fun AccentColorPicker(
     onSelect: (SingularityAccents) -> Unit,
 ) {
     SettingsSection(title = "Accent Color") {
-        // Live preview — mini task card showing the selected accent's palette colour,
-        // which is the colour the app will actually paint. The seed is not that colour.
-        val currentAccent = selected
-        val isDark = LocalIsDarkTheme.current
-        val currentAccentColor =
-            remember(currentAccent, isDark) {
-                accentPrimaryColor(accent = currentAccent, isDark = isDark)
-            }
-        Card(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-            colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(currentAccentColor),
-                )
-                Text(
-                    "Sample task",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
         // Swatches row
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SingularityAccents.entries.forEach { accent ->
@@ -214,13 +229,11 @@ private fun FontSizeSlider(
                     .fillMaxWidth()
                     .testTag(TestTags.Settings.FONT_SIZE_SLIDER),
         )
-        // Live preview sample
+        // Live preview sample — the theme already applies the scale to its type
+        // scale, so this reads the scaled slot instead of multiplying again.
         Text(
             "Sample task text",
-            style =
-                MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = (14.sp * value),
-                ),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -277,7 +290,7 @@ private fun InterfaceSettingsScreenLightPreview() =
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun InterfaceSettingsScreenDarkPreview() =
-    PreviewThemed(darkTheme = true, useSurface = false) {
+    PreviewThemed(darkTheme = true, fontSizeScale = 1.25f, useSurface = false) {
         InterfaceSettingsScreen(
             state =
                 SettingsUiState.Content(

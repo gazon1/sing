@@ -66,6 +66,9 @@ import singularity_todo.shared.generated.resources.task_unchecked
  *    на системный ripple, потому что на тёмном фоне он плохо виден.
  *  - **Цвет заливки = цвет приоритета** — единая семантика по всей строке.
  *
+ * @param enabled `false` делает бокс инертным: он рисуется как обычно, но не
+ *   берёт фокус и не принимает ввод. Так его показывает превью темы в настройках
+ *   — это образец строки, а не живой контрол.
  * @param accentColor цвет заполнения — обычно цвет приоритета задачи
  */
 @Composable
@@ -73,6 +76,7 @@ fun TaskCheckbox(
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -126,6 +130,7 @@ fun TaskCheckbox(
                 // animation and null indication are preserved from the previous clickable.
                 .toggleable(
                     value = isChecked,
+                    enabled = enabled,
                     interactionSource = interactionSource,
                     indication = null,
                     role = Role.Checkbox,
