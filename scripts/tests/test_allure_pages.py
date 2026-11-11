@@ -300,6 +300,28 @@ class AllurePagesTest(unittest.TestCase):
             ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
         self.assertEqual(ap.manifest_path(self.site / "fast").read_text(encoding="utf-8"), before)
 
+    def test_a_failed_commit_restores_a_file_that_is_not_text(self):
+        # The rollback puts back what was there, and what was there is bytes.
+        target = self.root / "state.bin"
+        target.write_bytes(b"\x00\x01\xffbinary")
+        original = ap._atomic_write_text
+        calls = {"n": 0}
+
+        def fail_on_second(path, content):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise OSError("disk full")
+            original(path, content)
+
+        ap._atomic_write_text = fail_on_second
+        try:
+            with self.assertRaises(OSError):
+                ap._commit_files({target: "new", self.root / "other.txt": "new"})
+        finally:
+            ap._atomic_write_text = original
+        self.assertEqual(target.read_bytes(), b"\x00\x01\xffbinary")
+
+    # ── Publish tree ──────────────────────────────────────────────────────────
 
     def test_publish_tree_validation_rejects_git_and_temp_archives(self):
         self.make_report(self.site, "fast", "10")

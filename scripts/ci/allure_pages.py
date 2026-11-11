@@ -374,10 +374,19 @@ def decide(manifest: Manifest, incoming: Publication) -> tuple[str, str]:
 
 def _atomic_write_text(path: Path, content: str) -> None:
     """Write a file through a temporary file in the same directory."""
+    _atomic_write_bytes(path, content.encode("utf-8"))
+
+
+def _atomic_write_bytes(path: Path, content: bytes) -> None:
+    """Write bytes through a temporary file in the same directory.
+
+    The rollback of a multi-file commit puts back what was there, and what
+    was there is bytes: a file that is not text must still be restorable.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "wb") as handle:
             handle.write(content)
         os.chmod(tmp, 0o644)
         os.replace(tmp, path)
@@ -407,7 +416,7 @@ def _commit_files(changes: dict[Path, str]) -> None:
             if original is None:
                 path.unlink(missing_ok=True)
             else:
-                _atomic_write_text(path, original.decode("utf-8"))
+                _atomic_write_bytes(path, original)
         raise
 
 
