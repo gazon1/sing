@@ -76,14 +76,12 @@ tags:
 
 # Open the filter sheet and ask for completed tasks only — the seeded task is
 # active, so nothing is left.
+#
+# The sheet opens at half height on a 360 dp phone: the status chips are in the
+# first screenful of it, the actions are at its end. The tap waits for the chip
+# it names, so the sheet needs no separate wait of its own.
 - tapOn:
     text: "Filter"
-# The sheet opens at half height on a 360 dp phone: the status chips are in
-# the first screenful of it, the actions are at its end.
-- extendedWaitUntil:
-    visible:
-      text: "Status"
-    timeout: 8000
 - tapOn:
     text: "Completed"
 - scrollUntilVisible:

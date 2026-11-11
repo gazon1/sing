@@ -44,16 +44,8 @@ tags:
 - assertVisible:
     id: search_filter_pinned_switch
 
-# The last chip row is reachable too — the sort chips sit below the switches.
-- scrollUntilVisible:
-    element:
-      text: "Descending"
-    direction: DOWN
-    timeout: 8000
-- assertVisible:
-    text: "Descending"
-
-# Scroll the sheet's body to the end: the actions are the last thing in it.
+# The last chip row is reachable too — the sort chips sit below the switches,
+# and the actions are the last thing in the sheet's body.
 - scrollUntilVisible:
     element:
       id: search_filter_apply_button
@@ -65,6 +57,11 @@ tags:
     id: search_filter_apply_button
 - assertVisible:
     id: search_filter_cancel_button
+
+# And the last chip row is on screen with them: the sort section sits right
+# above the actions.
+- assertVisible:
+    text: "Descending"
 
 # And they can be pressed: Cancel closes the sheet.
 - tapOn:
