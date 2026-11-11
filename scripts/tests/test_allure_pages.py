@@ -69,6 +69,10 @@ class AllurePagesTest(unittest.TestCase):
         (d / "last-history").mkdir(exist_ok=True)
         return d
 
+    def write_index(self, population_dir, report_path):
+        """The population index, as the publication state writes it."""
+        ap._atomic_write_text(pathlib.Path(population_dir) / "index.html", ap._population_index_html(report_path))
+
     def make_report(self, site, population="fast", path="10"):
         pdir = self.pop_dir(site, population)
         report_dir = pdir / path
@@ -154,7 +158,7 @@ class AllurePagesTest(unittest.TestCase):
         ap.apply_publication(self.site, newer)
         # simulate late build overwriting population index toward older report
         self.make_report(self.site, "fast", "10")
-        ap.write_population_index(self.site / "fast", "10")
+        self.write_index(self.site / "fast", "10")
         older = pub(run_id=1, run_number=10, population="fast", report_path="10")
         result = ap.apply_publication(self.site, older)
         self.assertEqual(result["action"], "skip-stale")
@@ -183,7 +187,7 @@ class AllurePagesTest(unittest.TestCase):
         latest = pub(run_id=1, run_number=10, population="fast", report_path="10")
         manifest = manifest_of("fast", latest)
         ap.save_manifest(ap.manifest_path(pdir), manifest)
-        ap.write_population_index(pdir, "10")
+        self.write_index(pdir, "10")
         ap.write_root_index(self.site, ["fast"])
         with self.assertRaises(ap.PublishError):
             ap.validate_population_state(pdir, "fast", manifest)

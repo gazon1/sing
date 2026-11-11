@@ -185,19 +185,13 @@ def _population(value: Any) -> str:
 
 
 def _positive_int(value: Any, name: str) -> int:
+    """A positive integer, from a number or from digits.
+
+    Digits only: `10.5` is refused instead of becoming `10`, and a boolean
+    is refused instead of becoming `1`.
+    """
     if isinstance(value, bool):
-        raise PublishError(f"invalid {name}: expected positive integer")
-    try:
-        number = int(value)
-    except Exception as exc:
-        raise PublishError(f"invalid {name}: expected positive integer") from exc
-    if number < 1:
-        raise PublishError(f"invalid {name}: expected >= 1")
-    return number
-
-
-def _cli_int(value: Any, name: str) -> int:
-    """A CLI integer: digits only, so `10.5` never becomes `10`."""
+        raise PublishError(f"invalid {name}: expected positive integer, got {value!r}")
     text = str(value).strip()
     if not re.fullmatch(r"[0-9]+", text):
         raise PublishError(f"invalid {name}: expected a positive integer, got {value!r}")
@@ -344,10 +338,6 @@ def _population_index_html(report_path: str) -> str:
         '<meta http-equiv="Pragma" content="no-cache">'
         '<meta http-equiv="Expires" content="0">\n'
     )
-
-
-def write_population_index(population_dir: Path, report_path: str) -> None:
-    _atomic_write_text(population_dir / "index.html", _population_index_html(report_path))
 
 
 def build_root_index(populations: Iterable[str]) -> str:
@@ -726,7 +716,7 @@ def bootstrap_history_from_tarball(
     try:
         _extract_tarball(Path(tarball_path), staging)
         (staging / "last-history").mkdir(parents=True, exist_ok=True)
-    except Exception as exc:
+    except (tarfile.TarError, OSError, PublishError) as exc:
         shutil.rmtree(staging, ignore_errors=True)
         return {"status": "malformed-tarball", "http_status": 200, "extracted": False, "error": str(exc)}
 
@@ -756,9 +746,9 @@ def _publication_from_args(args: argparse.Namespace) -> Publication:
     """Build a publication from CLI values, without silent coercion."""
     try:
         return Publication(
-            run_id=_cli_int(args.run_id, "run-id"),
-            run_number=_cli_int(args.run_number, "run-number"),
-            run_attempt=_cli_int(args.run_attempt, "run-attempt"),
+            run_id=_positive_int(args.run_id, "run-id"),
+            run_number=_positive_int(args.run_number, "run-number"),
+            run_attempt=_positive_int(args.run_attempt, "run-attempt"),
             event=args.event,
             sha=args.sha,
             population=args.population,
@@ -766,6 +756,11 @@ def _publication_from_args(args: argparse.Namespace) -> Publication:
         )
     except ValidationError as exc:
         raise _model_error("publication", exc) from exc
+
+
+def _print_json(payload: dict[str, Any]) -> None:
+    """The one way the CLI prints a machine-readable result."""
+    print(json.dumps(payload, sort_keys=True))
 
 
 def cmd_validate_input(args: argparse.Namespace) -> int:
@@ -777,13 +772,13 @@ def cmd_validate_input(args: argparse.Namespace) -> int:
 def cmd_bootstrap_history(args: argparse.Namespace) -> int:
     tarball = Path(args.tarball) if args.tarball else None
     result = bootstrap_history_from_tarball(Path(args.gh_pages_dir), tarball, args.http_status)
-    print(json.dumps(result, sort_keys=True))
+    _print_json(result)
     return 0 if result["status"] in {"ok", "missing-branch"} else 1
 
 
 def cmd_prepare_namespace(args: argparse.Namespace) -> int:
     result = prepare_namespace(Path(args.gh_pages_dir), args.population)
-    print(json.dumps(result, sort_keys=True))
+    _print_json(result)
     return 0
 
 
@@ -794,32 +789,26 @@ def cmd_decide(args: argparse.Namespace) -> int:
     population_dir = Path(args.site_dir) / incoming.population
     manifest = load_manifest(manifest_path(population_dir), incoming.population)
     action, reason = decide(manifest, incoming)
-    print(
-        json.dumps(
-            {
-                "action": action,
-                "reason": reason,
-                "identity": incoming.identity,
-                "population": incoming.population,
-            },
-            sort_keys=True,
-        )
+    _print_json(
+        {
+            "action": action,
+            "reason": reason,
+            "identity": incoming.identity,
+            "population": incoming.population,
+        }
     )
     return 0
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
     incoming = _publication_from_args(args)
-    result = apply_publication(Path(args.site_dir), incoming, _cli_int(args.keep_reports, "keep-reports"))
-    print(
-        json.dumps(
-            {
-                "action": result["action"],
-                "reason": result["reason"],
-                "pruned": result.get("pruned", []),
-            },
-            sort_keys=True,
-        )
+    result = apply_publication(Path(args.site_dir), incoming, _positive_int(args.keep_reports, "keep-reports"))
+    _print_json(
+        {
+            "action": result["action"],
+            "reason": result["reason"],
+            "pruned": result.get("pruned", []),
+        }
     )
     return 0
 
@@ -846,14 +835,13 @@ def cmd_prune(args: argparse.Namespace) -> int:
     population_dir = Path(args.site_dir) / args.population
     if not population_dir.is_dir():
         raise PublishError(f"population namespace does not exist: {args.population}")
-    result = prune_population(population_dir, args.population, _cli_int(args.keep_reports, "keep-reports"))
-    print(json.dumps(result, sort_keys=True))
+    result = prune_population(population_dir, args.population, _positive_int(args.keep_reports, "keep-reports"))
+    _print_json(result)
     return 0
 
 
 def cmd_measure(args: argparse.Namespace) -> int:
-    stats = tree_stats(Path(args.path))
-    print(json.dumps(stats, sort_keys=True))
+    _print_json(tree_stats(Path(args.path)))
     return 0
 
 
