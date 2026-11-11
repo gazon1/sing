@@ -134,6 +134,34 @@ is gone is dropped from the manifest instead of being kept as a record of
 something that is not there. A report directory the manifest does not name is
 left alone: the helper does not delete history it cannot explain.
 
+## 7. The root index names everything that is published
+
+The root index lists the populations and the legacy root-level report folders
+(the numeric directories the old layout left behind). Both are published, so
+both are named.
+
+The legacy reports are not removed, and they are not migrated into a
+population namespace: they are published URLs, and rewriting them is a separate
+decision. But a report that is published and not linked from anywhere is a
+report nobody finds, and the root index is the one page that reaches all of
+them.
+
+## 8. The helper has one command per thing it does
+
+`prune`, `write-root-index` and `reconcile` were commands of the helper that
+nothing called. They are gone.
+
+`prune` removed report folders and rewrote the manifest afterwards, so the
+manifest named reports that were already gone; retention runs through the
+publication path now, and retention is manifest-driven (section 6).
+`write-root-index` wrote a page outside the state unit, so a root index could
+describe a state the manifest did not; the root index is written with the
+manifest and the population index, or not at all (section 5). `reconcile`
+wrote into a tree that nothing deploys.
+
+A command that nothing calls is a second implementation of a rule, and the two
+implementations drift apart.
+
 # Rationale
 
 - One owner per decision. Two owners of the retention window produced a manifest
@@ -150,6 +178,11 @@ left alone: the helper does not delete history it cannot explain.
   crashed run loses history.
 - The publication state means something as a whole. A manifest that names a
   report the index does not point at is not a state that can be published.
+- A published report that nothing links to is a report nobody finds. The root
+  index is the page that reaches every published report, so it names all of them.
+- One way to do a thing is one way to be wrong. A command nobody calls is a
+  second implementation of a rule, and the two implementations do not stay in
+  agreement.
 
 # Consequences
 
@@ -174,6 +207,15 @@ left alone: the helper does not delete history it cannot explain.
   not be silently reinterpreted as the current one.
 - The legacy root-level reports on the `gh-pages` branch are not touched by any
   of this. They are published URLs, and removing them is a separate decision.
+  The root index links them, so a published report stays reachable: a report that
+  is published and not linked is a report nobody finds.
+- The CLI no longer has `prune`, `write-root-index` and `reconcile`. Anything that
+  called them has to call the publication path instead, which is the only path
+  that writes the state.
+- A filesystem failure during a publication is reported the way a publication
+  error is reported: one line on stderr, exit code 1, no traceback. The helper
+  cannot do anything about a full disk, but it can say so instead of failing
+  with a stack trace that names an internal frame.
 
 # Links
 
