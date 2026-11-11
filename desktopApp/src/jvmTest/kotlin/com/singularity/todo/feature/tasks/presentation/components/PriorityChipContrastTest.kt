@@ -2,6 +2,8 @@
 
 package com.singularity.todo.feature.tasks.presentation.components
 
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
@@ -72,18 +74,62 @@ class PriorityChipContrastTest {
             )
         }
 
+    @Test
+    fun `the priority label is drawn in a readable colour on a pinned card`() =
+        runIsolatedComposeTest {
+            // A pinned card is not the plain surface: it is the surface with a
+            // tinted overlay on it, so the label is measured against what it
+            // really stands on.
+            val (label, surface) = chipColors(ThemeMode.Light, pinned = true)
+
+            assertTrue(
+                contrastRatio(label, surface) >= AA_NORMAL_TEXT,
+                "the label's contrast on a pinned card is ${contrastRatio(label, surface)}",
+            )
+        }
+
+    @Test
+    fun `the priority label is drawn in a readable colour on a pinned card in the dark theme`() =
+        runIsolatedComposeTest {
+            val (label, surface) = chipColors(ThemeMode.Dark, pinned = true)
+
+            assertTrue(
+                contrastRatio(label, surface) >= AA_NORMAL_TEXT,
+                "the label's contrast on a pinned card is ${contrastRatio(label, surface)}",
+            )
+        }
+
     /**
      * The colour the label is painted with, and the surface it sits on.
      *
      * Both are read out of a screenshot of the chip: the surface is the colour
      * that covers most of the label's box, and the label is the pixel that
      * stands out most against it.
+     *
+     * @param mode the theme to render in.
+     * @param pinned whether the chip sits on a pinned card — the surface with a
+     *   tint over it — instead of on the plain surface.
      */
-    private suspend fun DesktopComposeUiTest.chipColors(mode: ThemeMode): Pair<Color, Color> {
+    private suspend fun DesktopComposeUiTest.chipColors(
+        mode: ThemeMode,
+        pinned: Boolean = false,
+    ): Pair<Color, Color> {
         setContent {
             SingularityTheme(themeMode = mode) {
                 Surface(color = MaterialTheme.colorScheme.surface) {
-                    PriorityChip(priority = TaskPriority.Medium)
+                    if (pinned) {
+                        Card(
+                            colors =
+                                CardDefaults.cardColors(
+                                    containerColor =
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                ),
+                        ) {
+                            PriorityChip(priority = TaskPriority.Medium)
+                        }
+                    } else {
+                        PriorityChip(priority = TaskPriority.Medium)
+                    }
                 }
             }
         }
@@ -137,7 +183,7 @@ class PriorityChipContrastTest {
         /** WCAG AA for normal text. */
         const val AA_NORMAL_TEXT = 4.5f
 
-        /** What the chip calls Medium. */
+        /** What the chip calls Medium — the `priority_word_medium` resource. */
         const val LABEL = "Medium"
     }
 }
