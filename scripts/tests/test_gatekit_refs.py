@@ -159,5 +159,62 @@ class TheResolverTest(RefRepositoryTest):
         self.assertFalse(resolves("origin/main", cwd=self.tmp))
 
 
+class TheChainIsReachableTest(unittest.TestCase):
+    """The chain holds names that can answer."""
+
+    def test_the_chain_holds_no_fully_qualified_name(self):
+        # Git resolves `origin/dev` to the remote-tracking ref and `dev` to the
+        # local branch, so a fully qualified spelling in the chain could never
+        # be reached: the short name above it answers first, and the chain
+        # stops there. Such a name is dead weight, and it reads like a fourth
+        # way of naming the trunk.
+        for candidate in BASE_CANDIDATES:
+            self.assertFalse(
+                candidate.startswith("refs/"),
+                f"{candidate!r} is unreachable: the short name above it answers first",
+            )
+
+
+class TheToolsAskTheOwnerTest(unittest.TestCase):
+    """No tool answers the question on its own."""
+
+    #: The scripts that ask "what does this change touch?".
+    TOOLS = (
+        "git_changed.py",
+        "lint-changed.py",
+        "compile-changed.py",
+        "changed-modules.py",
+        "test-impact-map.py",
+        "check-baseline-ratchet.py",
+    )
+
+    def _scripts(self) -> list[pathlib.Path]:
+        scripts = _ROOT / "scripts"
+        return sorted(path for path in scripts.rglob("*.py") if "tests" not in path.parts)
+
+    def test_no_tool_falls_back_to_a_base_of_its_own(self):
+        # A tool that answers "no base" with `origin/main` is answering a
+        # question nobody asked: the owner already tried `origin/main` and
+        # did not find it, and a named base that is not here means there is no
+        # base at all.
+        for script in self._scripts():
+            text = script.read_text(encoding="utf-8")
+            for spelling in ('or "origin/main"', "or 'origin/main'", 'or `origin/main`'):
+                self.assertNotIn(
+                    spelling,
+                    text,
+                    f"{script.name} carries a base of its own: {spelling}",
+                )
+
+    def test_no_tool_reads_a_base_variable_of_its_own(self):
+        # `LINT_BASE` and `COMPILE_CHANGED_BASE` were the two ways to name a
+        # base before the owner existed. They read before the owner does, so a
+        # named base was not the last word — and the owner was not the owner.
+        for script in self._scripts():
+            text = script.read_text(encoding="utf-8")
+            for name in ("LINT_BASE", "COMPILE_CHANGED_BASE"):
+                self.assertNotIn(name, text, f"{script.name} reads {name}")
+
+
 if __name__ == "__main__":
     unittest.main()

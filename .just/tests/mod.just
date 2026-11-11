@@ -386,8 +386,8 @@ rumdl-changed:
         echo "rumdl is not installed — run: mise install." >&2
         exit 1
     fi
-    base="${LINT_BASE:-origin/main}"
-    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    base="${RUMDL_BASE:-origin/main}"
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set RUMDL_BASE)" >&2; exit 1; }
     mapfile -d '' files < <(
         { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
           git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'
@@ -411,8 +411,8 @@ rumdl-changed-fix:
         echo "rumdl is not installed — run: mise install." >&2
         exit 1
     fi
-    base="${LINT_BASE:-origin/main}"
-    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    base="${RUMDL_BASE:-origin/main}"
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set RUMDL_BASE)" >&2; exit 1; }
     mapfile -d '' files < <(
         { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
           git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'

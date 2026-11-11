@@ -21,12 +21,7 @@ _SRC = ROOT / "scripts" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 from sgate.gatekit.gitenv import tree_env  # noqa: E402
-from sgate.gatekit.refs import resolve_base_ref  # noqa: E402
-
-#: The base a change is measured against when nothing else names one, and no
-#: base ref resolves here either. It is a name and not a fallback: the merge
-#: base of it cannot be found, and the caller is told so.
-FALLBACK_BASE = "origin/main"
+from sgate.gatekit.refs import NO_BASE_REF_MESSAGE, resolve_base_ref  # noqa: E402
 
 
 def _git(*args: str, cwd: pathlib.Path, check: bool = False) -> tuple[int, str, str]:
@@ -59,7 +54,16 @@ def _merge_base(base: str, cwd: pathlib.Path) -> str:
     return out.strip()
 
 
-def _resolve_base(base: str, cwd: pathlib.Path, require_base: bool) -> str | None:
+def _resolve_base(base: str | None, cwd: pathlib.Path, require_base: bool) -> str | None:
+    if base is None:
+        if require_base:
+            raise RuntimeError(f"changed-files: {NO_BASE_REF_MESSAGE}")
+        print(
+            f"changed-files: {NO_BASE_REF_MESSAGE} — checking only the working tree "
+            "(tracked vs HEAD + untracked); this is NOT a full branch-wide check",
+            file=sys.stderr,
+        )
+        return None
     try:
         return _merge_base(base, cwd)
     except RuntimeError as exc:
@@ -91,7 +95,9 @@ def changed_paths(
 
     *base* — the ref the change is measured against. None asks the one place
     that owns the question (`sgate.gatekit.refs`): the integration branch while
-    it exists, the trunk after it.
+    it exists, the trunk after it. When that owner has no answer, the change
+    is not measured against a base nobody named: the caller is told (or, with
+    *require_base* False, gets the working tree and a warning).
 
     Branch-wide uses ``git merge-base`` + ``git diff <merge-base>`` (working tree vs
     merge-base, covering staged+unstaged tracked changes) plus untracked files.
@@ -100,7 +106,7 @@ def changed_paths(
     cwd = pathlib.Path(cwd) if cwd is not None else root
     ps = ("--", *pathspec) if pathspec else ()
     if base is None:
-        base = resolve_base_ref(cwd=cwd, env=tree_env()) or FALLBACK_BASE
+        base = resolve_base_ref(cwd=cwd, env=tree_env())
 
     files: list[str] = []
     if staged_only:

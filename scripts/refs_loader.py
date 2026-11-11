@@ -49,6 +49,9 @@ def load_refs():
 #: The environment variable that names the base explicitly.
 BASE_REF_ENV = load_refs().BASE_REF_ENV
 
+#: What a tool says when no base ref resolves here.
+NO_BASE_REF_MESSAGE = load_refs().NO_BASE_REF_MESSAGE
+
 #: The remote-tracking refs the trunk is looked for under.
 REMOTE_BASE_CANDIDATES = load_refs().REMOTE_BASE_CANDIDATES
 

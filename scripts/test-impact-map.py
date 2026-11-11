@@ -89,7 +89,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 import scanning  # noqa: E402 — the path entry above is the reason for the late import
 import arch_suite  # noqa: E402 — the path entry above is the reason for the late import
-from refs_loader import resolve_base_ref  # noqa: E402 — same reason
+from refs_loader import NO_BASE_REF_MESSAGE, resolve_base_ref  # noqa: E402 — same reason
 
 #: The directory the arch suite lives in. A test there is a statement about the
 #: TREE, not about one class: `CommonMainJvmApiTest` walks every file of
@@ -903,7 +903,10 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
     base = args.base
     changed = paths
     if paths is None:
-        base = base or resolve_base_ref(cwd=ROOT) or 'origin/main'
+        base = base or resolve_base_ref(cwd=ROOT)
+        if base is None:
+            print(f'test-impact-map: {NO_BASE_REF_MESSAGE}', file=sys.stderr)
+            return 2
         try:
             changed = changed_paths(base)
         except UnresolvableBaseRef as error:

@@ -184,16 +184,9 @@ def git_show(path: Path, rev: str = "HEAD") -> str | None:
     return out.stdout
 
 
-#: The refs the base branch is looked for under, in the order they are tried.
-#:
-#: The integration branch first — it is the branch the work is based on while
-#: it exists — and the trunk after it, for the repository that has no
-#: integration branch yet. The local branches come after the remote-tracking
-#: ones: the remote's copy of the trunk is fresher than the local one.
-#:
-#: The list lives in `sgate.gatekit.refs`, so that every tool that measures a
-#: change measures it against the same refs.
-_BASE_CANDIDATES = BASE_CANDIDATES
+#: The refs the base branch is looked for under, in the order they are tried,
+#: live in `sgate.gatekit.refs` — the integration branch first, then the trunk,
+#: so that every tool that measures a change measures it against the same refs.
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -270,7 +263,7 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
             return "HEAD", f"HEAD (no merge-base with SGATE_BASE_REF='{from_env}')"
         return found, f"merge-base({from_env}, HEAD) = {found[:12]}"
 
-    for candidate in _BASE_CANDIDATES:
+    for candidate in BASE_CANDIDATES:
         if not ref_exists(candidate):
             continue
         found = merge_base(candidate)

@@ -82,7 +82,7 @@ _SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from refs_loader import resolve_base_ref  # noqa: E402
+from refs_loader import NO_BASE_REF_MESSAGE, resolve_base_ref  # noqa: E402
 
 CLEAN = 0
 COMPILE_FAILED = 1
@@ -287,7 +287,7 @@ def run_compile(tasks: list[str]) -> subprocess.CompletedProcess:
     )
 
 
-def base_exists(base: str) -> bool:
+def base_exists(base: str | None) -> bool:
     """Whether the change can be measured against the base at all.
 
     The check lives in the module graph, because the graph's own command has
@@ -295,6 +295,8 @@ def base_exists(base: str) -> bool:
     base with `HEAD`, silently drops the committed part of the change from
     every plan.
     """
+    if base is None:
+        return False
     try:
         graph = load_module_graph()
     except (OSError, RuntimeError):
@@ -306,7 +308,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument(
         '--base',
-        default=os.environ.get('COMPILE_CHANGED_BASE') or resolve_base_ref(cwd=ROOT) or 'origin/main',
+        default=resolve_base_ref(cwd=ROOT),
         help=(
             'What the change is measured against (default: the integration branch, '
             'then the trunk).'
@@ -331,12 +333,15 @@ def main(argv: list[str]) -> int:
         return PLAN_FAILED
 
     if not base_exists(args.base):
-        print(
-            f'compile-changed: the base {args.base!r} cannot be measured against — it '
-            f'does not resolve, or it has no merge base with HEAD. The committed part '
-            f'of the change cannot be counted. Fetch it, or pass another base.',
-            file=sys.stderr,
-        )
+        if args.base is None:
+            print(f'compile-changed: {NO_BASE_REF_MESSAGE}', file=sys.stderr)
+        else:
+            print(
+                f'compile-changed: the base {args.base!r} cannot be measured against — it '
+                f'does not resolve, or it has no merge base with HEAD. The committed part '
+                f'of the change cannot be counted. Fetch it, or pass another base.',
+                file=sys.stderr,
+            )
         return PLAN_FAILED
 
     paths = graph.changed_paths(args.base)

@@ -23,10 +23,10 @@ uses it, because a local branch is not an upstream: the local `main` of a
 checkout that has never fetched is the checkout's own branch, and measuring a
 checkout against itself answers nothing.
 
-`BASE_CANDIDATES` holds the same refs plus the local branches and the fully
-qualified names. A tool that asks "what does this change touch?" uses it,
-because a clone without a remote still has a branch, and a change measured
-against nothing is measured against everything.
+`BASE_CANDIDATES` holds the same refs plus the local branches. A tool that asks
+"what does this change touch?" uses it, because a clone without a remote still
+has a branch, and a change measured against nothing is measured against
+everything.
 
 The order
 ---------
@@ -110,6 +110,17 @@ def _controlled_env(env=None) -> dict[str, str]:
 #: The environment variable that names the base explicitly.
 BASE_REF_ENV = "SGATE_BASE_REF"
 
+#: What a tool says when no base ref resolves here.
+#:
+#: A change measured against a base nobody named is a change measured against
+#: the wrong thing without saying so, so a tool that has no base says this
+#: instead of quietly picking one.
+NO_BASE_REF_MESSAGE = (
+    "no base ref could be resolved here: neither the integration branch nor the "
+    f"trunk resolves in this checkout. Fetch one, or name it with {BASE_REF_ENV}, "
+    "or pass --base."
+)
+
 #: The remote-tracking refs the trunk is looked for under, in order.
 #:
 #: The remote's copy of the trunk, and only that: a local branch is not an
@@ -121,19 +132,18 @@ REMOTE_BASE_CANDIDATES = (
 
 #: The refs a change is measured against, in order.
 #:
-#: The remote-tracking copy of the trunk first, then the local branches, then
-#: the fully qualified names — a clone with no remote at all still has a
-#: branch, and a change measured against nothing is measured against
-#: everything.
+#: The remote-tracking copy of the trunk first, then the local branches — a
+#: clone with no remote at all still has a branch, and a change measured
+#: against nothing is measured against everything.
+#:
+#: The short names are enough: git resolves `origin/dev` to the remote-tracking
+#: ref and `dev` to the local branch, so the fully qualified spellings would
+#: never be reached.
 BASE_CANDIDATES = (
     "origin/dev",
     "origin/main",
     "dev",
     "main",
-    "refs/remotes/origin/dev",
-    "refs/remotes/origin/main",
-    "refs/heads/dev",
-    "refs/heads/main",
 )
 
 
@@ -194,6 +204,7 @@ def resolve_base_ref(cwd=None, env=None, candidates=None) -> str | None:
 __all__ = [
     "BASE_CANDIDATES",
     "BASE_REF_ENV",
+    "NO_BASE_REF_MESSAGE",
     "REMOTE_BASE_CANDIDATES",
     "resolve_base_ref",
     "resolves",

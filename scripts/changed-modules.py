@@ -89,7 +89,7 @@ _SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from refs_loader import resolve_base_ref  # noqa: E402
+from refs_loader import NO_BASE_REF_MESSAGE, resolve_base_ref  # noqa: E402
 
 #: How a path that is not valid UTF-8 is read.
 #:
@@ -593,7 +593,7 @@ def consistency_errors(
     return errors
 
 
-def base_usable(base: str) -> bool:
+def base_usable(base: str | None) -> bool:
     """Whether the change can be measured against the base at all.
 
     Two ways it cannot: the ref does not resolve, or it resolves and has no
@@ -604,6 +604,8 @@ def base_usable(base: str) -> bool:
 
     A base that cannot be measured against is a failure, not an empty plan.
     """
+    if base is None:
+        return False
     resolved = subprocess.run(
         ['git', 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}'],
         cwd=ROOT, capture_output=True, text=True, check=False,
@@ -787,7 +789,7 @@ def plan(paths: list[str]) -> tuple[list[str], list[str]]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('--base', default=resolve_base_ref(cwd=ROOT) or 'origin/main',
+    parser.add_argument('--base', default=resolve_base_ref(cwd=ROOT),
                         help='What the change is measured against.')
     parser.add_argument('--explain', action='store_true',
                         help='Print why each task is in the plan.')
@@ -821,12 +823,15 @@ def main(argv: list[str]) -> int:
         return 0
 
     if not base_usable(args.base):
-        print(
-            f'changed-modules: the base {args.base!r} cannot be measured against — it '
-            f'does not resolve, or it has no merge base with HEAD. The committed part '
-            f'of the change would not be counted.',
-            file=sys.stderr,
-        )
+        if args.base is None:
+            print(f'changed-modules: {NO_BASE_REF_MESSAGE}', file=sys.stderr)
+        else:
+            print(
+                f'changed-modules: the base {args.base!r} cannot be measured against — it '
+                f'does not resolve, or it has no merge base with HEAD. The committed part '
+                f'of the change would not be counted.',
+                file=sys.stderr,
+            )
         return 2
 
     paths = changed_paths(args.base)

@@ -40,6 +40,7 @@ from sgate.gatekit.paths import assert_inside, generated_path, is_inside
 from sgate.gatekit.refs import (
     BASE_CANDIDATES,
     BASE_REF_ENV,
+    NO_BASE_REF_MESSAGE,
     REMOTE_BASE_CANDIDATES,
     resolve_base_ref,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "BASE_REF_ENV",
     "BLOCKING",
     "Finding",
+    "NO_BASE_REF_MESSAGE",
     "REMOTE_BASE_CANDIDATES",
     "advisory_findings",
     "blocking_findings",
