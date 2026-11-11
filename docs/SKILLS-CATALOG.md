@@ -25,7 +25,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-attachments` | 413 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-auth-seam` | 115 | The auth seam of this KMP app: the AuthGateway port the domain speaks, the Supabase (KMPAuth) binding behind it, the SecureSessionManager that is the one session store, the provider session observation, and the E2E stub that replaces the whole seam in the debug build. |
 | `singularity-todo-backup` | 304 | Backup/restore pattern for the Singularity Todo KMP app. |
-| `singularity-todo-build-and-gates` | 212 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
+| `singularity-todo-build-and-gates` | 214 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
 | `singularity-todo-ci-cd` | 153 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 221 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 399 | Write-tool surface contract for Singularity Todo KMP MCP server. |

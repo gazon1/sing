@@ -41,6 +41,15 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
     private var seeded = 0
 
     /**
+     * The id of the task that was seeded last.
+     *
+     * A test that addresses the task by id — a proposal is addressed to a task, not to
+     * a title — needs to know which id the seed gave it.
+     */
+    var lastTaskId: TaskId? = null
+        private set
+
+    /**
      * A task the agenda will render.
      *
      * All optional fields use neutral defaults (null / empty / false) so existing
@@ -112,6 +121,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         // that is minutes old — passes the moment the task was created instead.
         val at = createdAt ?: (SEED_EPOCH + n.seconds)
         val taskId = TaskId("robot-task-$n")
+        lastTaskId = taskId
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
         val baseTask =
             testTask(

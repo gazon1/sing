@@ -10,7 +10,7 @@
 | `settings.gradle.kts` | The modules, and every coverage floor — the floors live here, because the root project has no Kover extension of its own, and because one file holds the whole floor policy. A module binds the floor it checks; it does not declare one. |
 | `build.gradle.kts` | The shared configuration: detekt, kover, the Gradle version catalogue. |
 | `gradle/libs.versions.toml` | The version catalogue. |
-| `gradlew` / `./gw` | The wrapper. **Use `./gw`**: it gives the worktree a private `GRADLE_USER_HOME`, so a worktree does not fight the neighbouring checkouts over the shared cache. |
+| `gradlew` / `./gw` | The wrapper. **Use `./gw`**: it gives the worktree a private `GRADLE_USER_HOME`, so a worktree does not fight the neighbouring checkouts over the shared cache. The shared cache is shared down to the last entry, except each Gradle version's `cc-keystore/`, which is private per worktree because Gradle opens it under a lock. |
 
 The root `build.gradle.kts` is one file with one shared block, plus whatever each
 module adds. A change that affects every module belongs in the shared block; a

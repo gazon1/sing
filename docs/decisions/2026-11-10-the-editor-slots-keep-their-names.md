@@ -74,9 +74,39 @@ is the editor's business*. The name of the slot does not have to repeat it.
   `stateSections` would have been. The KDoc of both slots, and the skill documentation
   that names them, carry the difference instead.
 
+## Amendment: an empty slot must draw nothing (2026-11-10)
+
+The slot moved, but the caller still emitted its `Column` unconditionally. A task
+with no first-run offer and no pending proposals therefore drew an empty column
+between the description and the attribute rows, and the editor's
+`Arrangement.spacedBy(TaskSpacing.md)` counted it as a child — so the gap
+between the description and the first row was `md` wider than it should have
+been, on every task that had nothing to offer.
+
+The rule is now: **the offer slot draws nothing when it has nothing to draw.**
+The caller computes the first-run state and the proposals outside the column and
+emits it only when there is a banner or a proposal in it.
+
+Three tests pin this down, and none of them is a screenshot:
+
+- a task with nothing to offer leaves the gap between the description and the
+  first row below the slot at one spacing step — the acceptance criterion of
+  issue #2033;
+- a pending proposal is drawn *above* the attribute rows — the placement this
+  ADR is about, asserted with a proposal actually seeded rather than with the
+  first-run banner;
+- the offers fit the narrowest phone screen, measured at 360 dp wide, which is
+  the width of a folded phone.
+
+The narrow-screen check runs in the desktop Compose harness at 360 dp. It is
+not a device check: the Maestro lane is CI-only and runs on a `pixel_6`, so a
+device-level variant of this assertion is still open.
+
 ## Links
 
 - Issue #1942 — the placement this answers
+- Issue #2033 — the empty-offer criterion
 - PR #2399 — the change that carried it
+- The follow-up pull request — the empty-offer guard and the placement tests
 - `openspec/changes/the-offer-above-the-rows-and-the-state-below` — the contract
 - `2026-09-15-task-editor-unification` — the slot API these two slots came from

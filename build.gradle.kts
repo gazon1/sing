@@ -25,13 +25,30 @@ plugins {
     // on the classpath and the ID resolves; Gradle deduplicates it silently.
 }
 
-allprojects {
-    // Version constants from gradle.properties (not catalog) — avoids catalog accessor shadowing
-    // caused by library keys like jvm-test that generate nested accessors colliding with version keys.
-    val kotlinVersion: String = project.property("version.kotlin") as String
-    val serializationVersion: String = project.property("version.kotlinSerialization") as String
-    val collectionsImmutableVersion: String = project.property("version.kotlinxCollectionsImmutable") as String
+// The version catalog is the single source of truth for the versions below.
+//
+// They used to live in gradle.properties as well, which meant two places to bump
+// and a dependabot PR that touched only the catalog left the build red on a
+// version mismatch. `libs.versions.kotlin` does not resolve — the
+// `kotlin-serialization` version key generates a nested accessor that shadows it —
+// so the catalog is read through VersionCatalogsExtension, which accessor
+// generation does not touch.
+val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
+// The catalog is the single source of truth, so a missing entry is a broken
+// build, not something to paper over: `get()` would fail with a bare
+// "No value present" and no hint about which key is missing.
+fun versionOf(key: String): String =
+    versionCatalog
+        .findVersion(key)
+        .orElseThrow { GradleException("the version catalog has no `$key` version") }
+        .requiredVersion
+
+val kotlinVersion: String = versionOf("kotlin")
+val serializationVersion: String = versionOf("kotlin-serialization")
+val collectionsImmutableVersion: String = versionOf("kotlinxCollectionsImmutable")
+
+allprojects {
     configurations.all {
         resolutionStrategy.eachDependency {
             if (requested.group == "org.jetbrains.kotlin") {

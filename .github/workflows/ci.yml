@@ -1639,7 +1639,14 @@ jobs:
     # green would land on main and not on the pull request that is waiting for
     # the review. The review is re-counted by a pull-request-scoped trigger — a
     # push, or the `agent-reviewed` label.
-    if: ${{ github.event_name == 'pull_request' }}
+    #
+    # A bot pull request is skipped: nobody writes a review comment on one, so
+    # the job could only ever fail — and the CI gate waits for it, so the gate
+    # could only ever fail too. Every open dependabot pull request was stuck
+    # that way: no review comment, `Agent review` red, `CI gate` red, and the
+    # auto-merge waiting for a green that could never come. The gate counts a
+    # skipped job as a valid outcome, so the bot pull request keeps its gate.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
     runs-on: ubuntu-24.04
     # The job does one thing, but it pays for the tooling setup first: the
     # shared action installs the venv and the linters, and that alone takes

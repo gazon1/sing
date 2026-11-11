@@ -8,20 +8,8 @@ import org.gradle.api.Project
  *
  * ## Migration (not yet applied — Gradle 9 included-build classpath complexity)
  *
- * Replace `androidApp/build.gradle.kts` plugins block:
- * ```kotlin
- * // BEFORE
- * plugins {
- *     alias(libs.plugins.androidApplication)
- *     alias(libs.plugins.composeCompiler)
- *     alias(libs.plugins.detekt)
- * }
- *
- * // AFTER
- * plugins {
- *     id("android-application-convention")
- * }
- * ```
+ * The migration plan lives in `build-logic/README.md` — one home for it, so the
+ * plan cannot drift away from the tree it describes.
  */
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
