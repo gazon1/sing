@@ -11,10 +11,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.feature.projects.domain.model.Project
 import kotlinx.collections.immutable.ImmutableList
 
@@ -29,7 +31,10 @@ fun ChildProjectsSheet(
     onShowChildren: (Project) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
+    ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Sub-projects", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))

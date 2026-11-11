@@ -57,6 +57,15 @@ Android keeps exactly the values it asked for — the half-expanded sheet is
 still there, and the Maestro flows and the device measurements that were made on
 the phone still describe what the phone does.
 
+Material's own default is a half-expanded sheet as well: `ModalBottomSheet`
+defaults to `rememberBottomSheetState(initialValue = Hidden)`, whose enabled
+values include `PartiallyExpanded`, and `SheetState.show()` settles on the
+half-expanded anchor whenever the sheet is tall enough to have one. So a sheet
+that draws its own `ModalBottomSheet` and says nothing about its state keeps
+the defect — the sheets that do (the project pickers, the tag-group sheet, the
+task context menu) were moved onto the factory as well, and
+`BottomSheetStateFactoryTest` keeps them there.
+
 Measured in the same 360x768 window, after the fix:
 
 ```
@@ -95,10 +104,16 @@ hanging out of the window.
 - The desktop test asserts the sheet's body is inside its window and that a
   switch from the lower half of the body is on screen without a scroll — the two
   facts that were false before.
+- The rule is guarded by an architecture test rather than by a review: a sheet
+  that draws its own `ModalBottomSheet`, or builds a state with
+  `rememberBottomSheetState`, fails `BottomSheetStateFactoryTest`. A rule
+  nobody can check is a rule nobody follows, and this one was about to be
+  followed in nine places at once.
 
 ## Links
 
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/sheet/BottomSheetHost.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/Platform.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/search/SearchScreenSheetSmokeTest.kt`
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/BottomSheetStateFactoryTest.kt`
 - `docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md`
