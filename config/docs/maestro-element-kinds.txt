@@ -20,7 +20,8 @@ ${DAY_CELL} item
 ${PLANS_SECTION} item
 ${SETTINGS_TAB} tab
 ${TASK_ID} item
-agenda_save_current_button button
+agenda_overflow_button button
+agenda_save_current_button menu
 agenda_saved_views_button button
 agenda_section_blocked item
 agenda_section_no_date item

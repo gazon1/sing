@@ -6,12 +6,17 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * The glyphs of the agenda top bar's three actions.
+ * The glyphs of the agenda top bar's actions.
  *
- * The bar carries three unlabelled buttons, so the glyph is the only thing that
- * says what a button does. Two of them were bookmarks — one filled, one
+ * The bar used to carry three unlabelled buttons, so the glyph was the only thing
+ * that said what a button does. Two of them were bookmarks — one filled, one
  * outlined — which differ by a hairline nobody can resolve on a phone. The
  * metaphors are separate now, and this test holds them apart.
+ *
+ * Two of the three are rows of the bar's overflow menu now, and a row carries its
+ * own label — but the icon is drawn next to that label, so two rows with one
+ * silhouette still read as one action. The rule holds for a menu as much as for a
+ * bar.
  */
 @Tag("fast")
 class AgendaTopBarIconsTest {

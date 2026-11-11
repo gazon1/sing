@@ -56,8 +56,15 @@ value class SpotlightAnchorId(val value: String) {
         /** Agenda top bar: open the list of saved, reusable agenda views. */
         val SavedViews = SpotlightAnchorId("agenda.saved_views")
 
-        /** Agenda top bar: save the current agenda view for later. */
-        val SaveCurrent = SpotlightAnchorId("agenda.save_current")
+        /**
+         * Agenda top bar: the overflow button that holds the infrequent actions.
+         *
+         * It replaced the anchor on the "save current agenda" button: that button
+         * now lives in the overflow menu, and a menu row is drawn in the popup's
+         * own window — its bounds are not the bar's, and a step whose anchor never
+         * registers is skipped rather than waited on.
+         */
+        val AgendaOverflow = SpotlightAnchorId("agenda.overflow")
     }
 }
 
@@ -72,7 +79,7 @@ value class SpotlightAnchorId(val value: String) {
  */
 object SpotlightContent {
     /** Bump whenever [STEPS] changes in a way worth showing again. */
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     /**
      * The tour.
@@ -81,6 +88,12 @@ object SpotlightContent {
      * the features are genuinely undiscoverable: there is no label, no menu, and no
      * onboarding anywhere else that mentions them. Pointing the tour at something
      * obvious instead would spend the one moment the user is most willing to listen.
+     *
+     * The second step points at the overflow button rather than at the "save this
+     * view" row itself: that row is inside the overflow menu, which is drawn in its
+     * own window, and the tour measures its targets in the window it draws in. The
+     * button is where the user has to go to find the row, so it is what the tour can
+     * honestly point at.
      */
     val STEPS: ImmutableList<SpotlightStep> =
         persistentListOf(
@@ -94,8 +107,10 @@ object SpotlightContent {
             SpotlightStep(
                 id = "agenda.save_current.intro",
                 title = "Save this view",
-                body = "Saves the filters and sections you have set up, so you can return to exactly this.",
-                anchor = SpotlightAnchorId.SaveCurrent,
+                body =
+                    "Saves the filters and sections you have set up, so you can return to exactly this. " +
+                        "It is under the ⋮ button at the end of the top bar.",
+                anchor = SpotlightAnchorId.AgendaOverflow,
                 shape = SpotlightShape.Circle,
             ),
         )

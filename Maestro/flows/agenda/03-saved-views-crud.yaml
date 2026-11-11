@@ -11,6 +11,15 @@ tags:
   - agenda
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+# Save-current is a row of the agenda bar's overflow menu, so the menu is opened
+# first. The menu is a popup window of its own, which is why the row carries its
+# own id (mapTestTagsAsResourceIds on the DropdownMenu).
+- tapOn:
+    id: agenda_overflow_button
+- extendedWaitUntil:
+    visible:
+      id: agenda_save_current_button
+    timeout: 5000
 - tapOn:
     id: agenda_save_current_button
 - extendedWaitUntil:

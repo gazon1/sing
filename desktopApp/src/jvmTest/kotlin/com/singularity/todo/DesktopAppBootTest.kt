@@ -60,9 +60,11 @@ class DesktopAppBootTest {
             assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
             assertCurrentTab("Today")
 
-            // The agenda top bar's own actions.
+            // The agenda top bar's own actions. The infrequent ones live in the
+            // overflow menu, so what is always on screen is saved views and the
+            // overflow button that opens the menu.
             assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-            assertTagDisplayed(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
+            assertTagDisplayed(TestTags.AGENDA_OVERFLOW_BUTTON)
         }
 
     private companion object {

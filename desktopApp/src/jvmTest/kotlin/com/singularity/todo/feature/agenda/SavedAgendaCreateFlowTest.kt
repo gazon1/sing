@@ -42,7 +42,9 @@ class SavedAgendaCreateFlowTest {
         ) { koin ->
             waitForIdle()
 
-            // Boot lands on the Today agenda; its top bar carries the bookmark-add control.
+            // Boot lands on the Today agenda. The bookmark-add control is a row of
+            // the top bar's overflow menu, so the menu is opened first.
+            clickTag(TestTags.AGENDA_OVERFLOW_BUTTON)
             clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
             awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 

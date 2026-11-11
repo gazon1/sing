@@ -7,7 +7,7 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * The glyphs of the agenda top bar's three actions.
+ * The glyphs of the agenda top bar's actions.
  *
  * Three metaphors that cannot be mistaken for one another at the size a top bar
  * draws them:
@@ -25,6 +25,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * bookmark left in the bar is the one with a plus, which is the one that creates
  * a saved view. A second bookmark is not an option: two of them in one bar is the
  * defect this replaced.
+ *
+ * Two of the three are rows of the bar's overflow menu now, where the row's own
+ * label says what it is. The glyph still has to tell them apart: the menu shows
+ * the row's icon next to its label, and two rows with one silhouette read as one
+ * action.
  *
  * The icons are named here rather than written inline in the composable, so a
  * test can hold the rule that they differ.

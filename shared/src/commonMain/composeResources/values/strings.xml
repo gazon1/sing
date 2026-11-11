@@ -45,6 +45,12 @@
     <string name="menu_restore">Restore</string>
     <string name="menu_archive">Archive</string>
     <string name="menu_delete">Delete</string>
+    <!-- The agenda top bar. The infrequent actions live in an overflow menu, and
+         a menu row without a label says nothing about what it does. -->
+    <string name="agenda_saved_views">Saved views</string>
+    <string name="agenda_save_current">Save current agenda</string>
+    <string name="agenda_multi_date">Task on several dates</string>
+    <string name="agenda_more_actions">More actions</string>
     <!-- Date parts for the task editor's due-date row. Short names: the row is a
          list line, not a title, and "Wednesday" would not fit next to the time. -->
     <string name="weekday_short_mon">Mon</string>

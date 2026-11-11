@@ -155,8 +155,10 @@ class TextFieldBridgeFlowTest {
     @Test
     fun the_saved_agenda_name_reaches_the_draft() =
         runDesktopAppTest(checkA11y = true) {
-            // Boot lands on the Today agenda; its top bar carries the bookmark-add
-            // control that opens the saved-agenda editor.
+            // Boot lands on the Today agenda. The bookmark-add control that opens
+            // the saved-agenda editor is a row of the top bar's overflow menu, so
+            // the menu is opened first.
+            clickTag(TestTags.AGENDA_OVERFLOW_BUTTON)
             clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
             awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT)
 
