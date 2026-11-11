@@ -1925,6 +1925,13 @@ jobs:
           T0: ${{ steps.build-start.outputs.ts }}
         run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
 
+      # `simple-elf/allure-report-action` is a Docker action, so it writes
+      # `allure-history/` as root. Every later step runs as the runner user and
+      # the first write into that tree would fail with EACCES.
+      - name: Take ownership of the report tree
+        if: steps.decide.outputs.action == 'publish'
+        run: sudo chown -R "$(id -u):$(id -g)" allure-history
+
       # The report action copies `gh-pages` into `allure-history` and then
       # prunes that copy. Restore the manifest from the tree `decide` read so
       # `apply` judges the state the workflow gated on, not a pruned copy.
