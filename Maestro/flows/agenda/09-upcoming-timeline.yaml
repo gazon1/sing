@@ -1,0 +1,106 @@
+# Upcoming: a chronological feed of future dated tasks, one header per date.
+#
+# The Plans timeline retired on 2026-11-11 and its useful behaviour moved here.
+# The flow seeds three tasks (+1d, +3d, +6d) plus today's as a control, then
+# reads the Upcoming tab: tomorrow's header, the three rows, and no row for
+# today's task — the Today tab owns it.
+#
+# The container rule: the first wait is on the "Tomorrow" header, which renders
+# because tomorrow's seeded task is in that section.
+appId: com.singularity.todo
+name: agenda-upcoming-timeline
+tags:
+  - regression
+  - agenda
+  - scenario:AGENDA-09
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Seed one task at a time and wait for the row it wrote before the next link.
+# seed.yaml returns when the app is on Today, which is also true of the activity
+# beneath the seed screen; without this wait the next link can reach a seed
+# screen that is still writing and be ignored.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20today&due=today"
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_today
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20tomorrow&due=+1d"
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_tomorrow
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20in%20three%20days&due=+3d"
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_in_three_days
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20in%20six%20days&due=+6d"
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_in_six_days
+    timeout: 8000
+
+# The grouping control changes the projection, not the set: start from days,
+# switch to weeks and back. A profile that chose weeks last time is reset here.
+- extendedWaitUntil:
+    visible:
+      id: agenda_grouping_day
+    timeout: 8000
+- tapOn:
+    id: agenda_grouping_day
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_tomorrow
+    timeout: 8000
+- tapOn:
+    id: agenda_grouping_week
+- extendedWaitUntil:
+    notVisible:
+      id: agenda_section_tomorrow
+    timeout: 8000
+- tapOn:
+    id: agenda_grouping_day
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_tomorrow
+    timeout: 8000
+
+# Wait for each seeded row: the header above the first one does not prove the
+# other two writes landed. Scrolling also brings a row below the fold into view.
+- scrollUntilVisible:
+    element:
+      id: task_item_due_tomorrow
+    direction: DOWN
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      id: task_item_due_in_three_days
+    direction: DOWN
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      id: task_item_due_in_six_days
+    direction: DOWN
+    timeout: 8000
+# Today belongs to the Today tab, so the future feed does not repeat it.
+- assertNotVisible:
+    id: task_item_due_today

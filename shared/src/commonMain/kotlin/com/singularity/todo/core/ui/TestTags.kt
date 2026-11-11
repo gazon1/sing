@@ -189,9 +189,6 @@ object TestTags {
     /** The proposals' entry in the menu. */
     const val MENU_PROPOSALS = "menu_proposals"
 
-    /** The Plans entry in the menu. */
-    const val MENU_PLANS = "menu_plans"
-
     /** The Pomodoro entry in the menu. */
     const val MENU_POMODORO = "menu_pomodoro"
 
@@ -557,12 +554,14 @@ object TestTags {
      */
     const val AGENDA_GREETING = "agenda_greeting"
 
-    /**
-     * The line at the end of the Upcoming tab that says where a task dated beyond
-     * next week is seen. It is the user-facing half of the decision recorded in
-     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
-     */
-    const val AGENDA_HORIZON_NOTE = "agenda_horizon_note"
+    /** The day option of the future feed's grouping control. */
+    const val AGENDA_GROUPING_DAY = "agenda_grouping_day"
+
+    /** The week option of the future feed's grouping control. */
+    const val AGENDA_GROUPING_WEEK = "agenda_grouping_week"
+
+    /** The month option of the future feed's grouping control. */
+    const val AGENDA_GROUPING_MONTH = "agenda_grouping_month"
 
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
@@ -618,37 +617,6 @@ object TestTags {
 
     /** "View all" action of an agenda section header (e.g. full overdue list). */
     fun agendaSectionViewAll(name: String) = "agenda_section_view_all_${slug(name)}"
-
-    // ─── Plans timeline ───────────────────────────────────────────────────
-
-    /** The screen itself — the root of the timeline. */
-    const val PLANS_SCREEN = "plans_screen"
-
-    /** The granularity control: the day option. */
-    const val PLANS_GRANULARITY_DAY = "plans_granularity_day"
-
-    /** The granularity control: the week option. */
-    const val PLANS_GRANULARITY_WEEK = "plans_granularity_week"
-
-    /** The granularity control: the month option. */
-    const val PLANS_GRANULARITY_MONTH = "plans_granularity_month"
-
-    /** The empty state — nothing is scheduled inside the horizon. */
-    const val PLANS_EMPTY_STATE = "plans_empty_state"
-
-    /** The message the screen shows when the plan could not be loaded. */
-    const val PLANS_ERROR = "plans_error"
-
-    /**
-     * A timeline section header, by the section's id.
-     *
-     * The id, not the label: the label of a day section changes with the date,
-     * and a tag that moves every morning is a tag no automation can rely on.
-     */
-    fun plansSection(id: String) = "plans_section_${slug(id)}"
-
-    /** The "add a task to this section" control of a section header. */
-    fun plansSectionAdd(id: String) = "plans_section_add_${slug(id)}"
 
     // ─── Pomodoro ───────────────────────────────────────────────────────────
 

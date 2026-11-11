@@ -12,6 +12,11 @@ date: 2026-10-31
 > answers to that word, and a caller that sends it is refused rather than given a
 > wider answer than the one it asked for. See
 > [2026-11-06-one-name-one-question.md](2026-11-06-one-name-one-question.md).
+>
+> **Superseded in part (2026-11-11):** Upcoming now owns the whole future
+> (tomorrow onward), not three bounded buckets. The partition still holds; only
+> the Upcoming row of the table and its fallback surfaces changed. See
+> [2026-11-11-upcoming-owns-the-whole-future.md](2026-11-11-upcoming-owns-the-whole-future.md).
 
 # The three agenda tabs are disjoint
 

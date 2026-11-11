@@ -1,0 +1,24 @@
+# Scenario AGENDA-10 — the desktop carrier checks the timeline's order.
+#
+# A screen that printed a header per calendar day would satisfy "each task has
+# a header" and still be the wrong screen. These two claims need a harness that
+# can read bounds, which the Desktop Compose test has and Maestro does not.
+
+id: AGENDA-10
+title: "Upcoming date headers are chronological and an empty day has no header"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  Open tasks exist with due dates tomorrow, three days out and six days out, and
+  no task is due on the days in between. A task due today and a task with no due
+  date exist as controls.
+steps:
+  - "Open the Upcoming tab."
+  - "Read the section headers from top to bottom."
+  - "Read the rows inside the first and the last section that carries a task."
+expected: >-
+  The headers name their dates and appear earliest first. There is no header for
+  a day between them that carries no task. Each task sits under its own date and
+  in no other section; today's and the undated tasks are absent.

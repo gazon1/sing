@@ -65,6 +65,18 @@ fun RelativeBucket.toDateRange(today: LocalDate): DateRange =
                 LocalDate(1970, 1, 1),
             )
         }
+
+        // The open-ended bucket. It starts tomorrow, the first day the Today tab
+        // leaves to it, and has no practical upper edge.
+        // shortcut: the upper bound is 9999-12-31 — kotlinx-datetime 0.8 keeps
+        // LocalDate.MAX internal. Widen it (or turn the range into an open-ended
+        // predicate) if a task can outlive that date.
+        RelativeBucket.Future -> {
+            DateRange(
+                today.plus(1, DateTimeUnit.DAY),
+                LocalDate(9999, 12, 31),
+            )
+        }
     }
 
 private fun LocalDate.endOfMonth(): LocalDate {

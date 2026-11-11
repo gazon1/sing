@@ -21,7 +21,7 @@ import kotlin.test.assertEquals
 @Tag("fast")
 class Nav3StateDeepLinkTest {
     private val today: AppNavKey = AppDestination.AgendaGraph(AgendaStartRoute.Today)
-    private val plans: AppNavKey = AppDestination.Plans
+    private val statistics: AppNavKey = AppDestination.Statistics
 
     private fun state(): Nav3State =
         Nav3State(
@@ -30,7 +30,7 @@ class Nav3StateDeepLinkTest {
             backStacks =
                 mapOf(
                     today to NavBackStack(today),
-                    plans to NavBackStack(plans),
+                    statistics to NavBackStack(statistics),
                 ),
         )
 
@@ -53,12 +53,12 @@ class Nav3StateDeepLinkTest {
     fun `a link on another tab switches to that tab`() {
         val state = state()
 
-        state.openDeepLink(DeepLinkTarget(plans, AppDestination.Pomodoro))
+        state.openDeepLink(DeepLinkTarget(statistics, AppDestination.Pomodoro))
 
-        assertEquals(plans, state.topLevelRoute)
+        assertEquals(statistics, state.topLevelRoute)
         assertEquals(
-            listOf(plans, AppDestination.Pomodoro),
-            state.requireBackStackFor(plans).toList(),
+            listOf(statistics, AppDestination.Pomodoro),
+            state.requireBackStackFor(statistics).toList(),
         )
     }
 
@@ -66,7 +66,7 @@ class Nav3StateDeepLinkTest {
     fun `the previous tab becomes the start tab, so back does not teleport`() {
         val state = state()
 
-        state.openDeepLink(DeepLinkTarget(plans, AppDestination.Pomodoro))
+        state.openDeepLink(DeepLinkTarget(statistics, AppDestination.Pomodoro))
 
         assertEquals(today, state.previousTopLevelRoute)
     }
@@ -75,7 +75,7 @@ class Nav3StateDeepLinkTest {
     fun `the other tab's stack is left alone`() {
         val state = state()
 
-        state.openDeepLink(DeepLinkTarget(plans, AppDestination.Pomodoro))
+        state.openDeepLink(DeepLinkTarget(statistics, AppDestination.Pomodoro))
 
         assertEquals(listOf(today), state.requireBackStackFor(today).toList())
     }

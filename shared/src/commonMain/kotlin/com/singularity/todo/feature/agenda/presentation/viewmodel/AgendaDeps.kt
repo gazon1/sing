@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.feature.agenda.domain.port.DateGroupingSettingsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
@@ -52,6 +53,7 @@ data class AgendaDeps(
     val mergeSeries: MergeTaskSeriesUseCase,
     val workScheduleSettings: WorkScheduleSettingsRepository,
     val greetingSettings: GreetingSettingsRepository,
+    val dateGrouping: DateGroupingSettingsRepository,
     /**
      * The projects, so a row can carry its project's name and colour.
      *

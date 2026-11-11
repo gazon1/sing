@@ -17,7 +17,7 @@ state *which tasks need the skill*, not summarise its contents.
 |---|---:|---|
 | `singularity-todo-adb-screen-unlock` | 97 | How to wake and unlock a physical Android device connected via adb before UI verification. |
 | `singularity-todo-adb-workflow` | 175 | Full adb workflow for UI verification on a physical Android device connected via USB. |
-| `singularity-todo-agenda-section-design` | 147 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
+| `singularity-todo-agenda-section-design` | 149 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 309 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
 | `singularity-todo-android-cli` | 187 | Use when working with Android CLI commands, Android Studio integration, or Journeys for Android app development. |

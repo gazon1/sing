@@ -56,60 +56,61 @@ section, and a task due after that is in none of them. That reach is decided in
 
 The bottom bar shows three agenda tabs, and a task belongs to exactly one of them:
 
-| Tab | Preset | Sections |
+| Tab | Preset | Content |
 |---|---|---|
 | Inbox | `AgendaPresets.Inbox` | No Date |
 | Today | `AgendaPresets.Today` | Overdue, Today |
-| Upcoming | `AgendaPresets.Upcoming` | Tomorrow, This Week, Next Week |
+| Upcoming | `AgendaPresets.Upcoming` | tomorrow onward, one section per chosen period |
 
-`AgendaPresets.All` above is **not** a tab — it holds every bucket, and it is
-the seed a new saved view starts from.
+`AgendaPresets.All` above is **not** a tab — it holds every bounded bucket, and
+it is the seed a new saved view starts from. Its reach still stops at the end of
+next month (ADR `2026-11-05-the-wide-view-reaches-next-month`).
 
-The tabs cover a **horizon**, not the whole agenda: a task dated beyond next week
-is in none of them (ADR `2026-11-05-the-agenda-tabs-cover-a-horizon`). It is in
-the Plans timeline, in the Calendar and in a saved view seeded from `All`, and
-the Upcoming tab ends with a line that says so — `AgendaHorizonNote` in
-`shared-ui`, shown below the last section and below the empty state. Do not add
-a "Later" section to close the gap: the relative buckets have no open-ended
-range, and a catch-all section would make Upcoming the wide view under a tab
-name.
+Upcoming is the complete future feed: it has no far edge. Its single section
+holds `DateBucket(RelativeBucket.Future)` minus `Selector.Completed` and sets
+`groupBy = DateGrouping.Day`. The screen passes the profile's chosen grouping
+(`Day`, `Week` or `Month`) to the evaluator, and the evaluator emits one section
+per period that carries a task, in chronological order. A period with no task
+has no header, so the tab is a timeline, not a calendar page full of empty days.
+
+There is no period count. The old Plans limits (30 days / 12 weeks / 12 months)
+must not come back: the periods come from the tasks, so a task due in three
+years still has its header at every grouping.
+
+Each generated section carries its own `SectionPrefill` with the first future
+day of the period, which is what makes its "+" create a task in that period and
+never in the past.
+
+The grouping lives on `Section`, not on `AgendaDefinition`: a saved view stores
+its sections and rebuilds the definition from them, so a flag on the definition
+would be lost on save. The chosen value is stored per profile
+(`DateGroupingSettingsRepository`) and the control is drawn when the loaded
+state has a non-null `dateGrouping`.
+
+Completed tasks are out of the feed: Upcoming is work still ahead. Today keeps
+the tasks completed today, and search, the archive and saved views keep the
+rest.
+
+See ADR `2026-11-11-upcoming-owns-the-whole-future`.
 
 On a working day with work hours configured, the Today tab keeps these two
 sections and adds the user's work blocks between them (Overdue, the blocks,
-then the rest of today), so the partition and horizon hold for that
-configuration too — see ADR
-`2026-11-05-the-work-day-plan-sits-inside-the-today-tab`.
+then the rest of today), so the partition holds for that configuration too —
+see ADR `2026-11-05-the-work-day-plan-sits-inside-the-today-tab`.
 
 Two rules keep the tabs apart:
 
-- **A tab never repeats another's bucket.** `Upcoming` used to open with
-  "Overdue" and "Today", which made it a superset of the Today tab; with one
-  task in the database all three tabs rendered the same screen.
-- **A bucket that spans another tab's days is narrowed.** `ThisWeek` runs from
-  Monday to Sunday, so it contains today and the days already gone — the days
-  the Today tab owns. The Upcoming preset's "This Week" section is therefore
-  `DateBucket(ThisWeek)` minus `Today` and `Overdue`:
-
-```kotlin
-section(
-    "this_week",
-    "This Week",
-    Selector.AllOf(
-        listOf(
-            Selector.DateBucket(RelativeBucket.ThisWeek),
-            Selector.Not(
-                Selector.AnyOf(
-                    listOf(
-                        Selector.DateBucket(RelativeBucket.Today),
-                        Selector.DateBucket(RelativeBucket.Overdue),
-                    ),
-                ),
-            ),
-        ),
-    ),
-    order = 1,
-)
-```
+- **A tab never repeats another's range.** Upcoming starts tomorrow because
+  Today owns the overdue and today's tasks. It used to open with "Overdue" and
+  "Today" as well, which made it a superset of the Today tab; with one task in
+  the database all three tabs rendered the same screen.
+- **The future bucket is a strict lower bound.** `RelativeBucket.Future` matches
+  `dueDate > today`; do not express it as `Not(Today, Overdue, NoDate)`. That
+  makes the lower bound depend on the overdue rule, and the feed leaks past work
+  the day that rule changes.
+- **Completion is excluded on top of the date.** The section is
+  `AllOf(Future, Not(Completed))`; the `Future` bucket alone still matches a
+  completed future task.
 
 `AgendaTabDisjointnessTest` (commonTest) pins the contract: no two tabs
 declare the same section, and every task shows up in exactly one of them.
@@ -125,6 +126,7 @@ declare the same section, and every task shows up in exactly one of them.
 | `NextWeek` | `ThisMonth` — and `NextMonth` at the month edge |
 | `ThisMonth` | Nothing broad — the months are disjoint |
 | `NextMonth` | Nothing broad |
+| `Future` | Everything after today — it is the open-ended bucket, not a range |
 | `NoDate` | Nothing — null never overlaps with any date |
 
 ## Defensive item keys

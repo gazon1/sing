@@ -10,6 +10,7 @@ import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderId
@@ -23,6 +24,7 @@ import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeDateGroupingSettingsRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
@@ -38,14 +40,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -150,6 +155,7 @@ class AgendaViewModelTest {
         reminderScheduler: ReminderScheduler = fakeReminderScheduler,
         greetingSettings: GreetingSettingsRepository = fakeSettings.greeting,
         taskRepo: FakeTaskRepository = fakeRepo,
+        groupingSettings: FakeDateGroupingSettingsRepository = FakeDateGroupingSettingsRepository(),
     ) = AgendaDeps(
         taskRepo = taskRepo,
         clock = clock,
@@ -163,6 +169,7 @@ class AgendaViewModelTest {
         mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
         workScheduleSettings = fakeSettings.workSchedule,
         greetingSettings = greetingSettings,
+        dateGrouping = groupingSettings,
         projectsRepository = fakeProjectsRepo,
     )
 
@@ -298,6 +305,96 @@ class AgendaViewModelTest {
                 draft.dueDate,
                 "'+' in the Today section must prefill the clock's today, not a compile-time constant",
             )
+        }
+
+    /**
+     * A generated date section is not in the definition, and its '+' must still
+     * create a task due on that date.
+     *
+     * The Upcoming tab is one section in `AgendaPresets` and one section per date
+     * after evaluation. A handler that only looked at the definition would find no
+     * prefill and do nothing — a visible control wired to nothing.
+     */
+    @Test
+    fun `create in a generated date section prefills that date`() =
+        runTest {
+            val pinned = LocalDate(2031, 7, 9)
+            val tomorrow = pinned.plus(1, DateTimeUnit.DAY)
+            val draftStore = FakeDraftStore()
+            fakeRepo.seed(task("future-task", "Plan the week").copy(dueDate = tomorrow))
+
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                clock = FakeClock(Instant.parse("2031-07-09T00:30:00Z")),
+                                draftStore = draftStore,
+                            ),
+                        definition = AgendaPresets.Upcoming,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            val section =
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.single()
+            assertEquals("Tomorrow", section.name)
+
+            vm.onIntent(AgendaIntent.CreateInSection(section.id))
+            runCurrent()
+
+            val draft = draftStore.load(TaskDraftKeys.agendaSection(section.id), TaskDraft.serializer())
+            assertNotNull(draft, "a generated date section's '+' must store a draft")
+            assertEquals(
+                DueDateOption.Custom(tomorrow, tomorrow.toString()),
+                draft.dueDate,
+                "the new task must be due on the date header it was created from",
+            )
+        }
+
+    /**
+     * Changing the grouping re-evaluates the feed and writes the profile's choice.
+     *
+     * The state carries the grouping only when the definition has a grouped
+     * section, which is what makes the control visible on Upcoming and absent on
+     * Inbox and Today.
+     */
+    @Test
+    fun `choosing a grouping re-groups the feed and stores it`() =
+        runTest {
+            val pinned = LocalDate(2031, 7, 9)
+            val grouping = FakeDateGroupingSettingsRepository()
+            fakeRepo.seed(
+                task("tomorrow", "Tomorrow").copy(dueDate = pinned.plus(1, DateTimeUnit.DAY)),
+                task("next-month", "Next month").copy(dueDate = LocalDate(2031, 8, 15)),
+            )
+
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                clock = FakeClock(Instant.parse("2031-07-09T00:30:00Z")),
+                                groupingSettings = grouping,
+                            ),
+                        definition = AgendaPresets.Upcoming,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            val day = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals(DateGrouping.Day, day.dateGrouping)
+            assertEquals(listOf("Tomorrow", "Fri, 15 Aug"), day.sections.map { it.name })
+
+            vm.onIntent(AgendaIntent.SetDateGrouping(DateGrouping.Month))
+            runCurrent()
+
+            val month = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals(DateGrouping.Month, month.dateGrouping)
+            assertEquals(listOf("July 2031", "August 2031"), month.sections.map { it.name })
+            assertEquals(DateGrouping.Month, grouping.grouping.first())
         }
 
     // ─────────────────────── A task on several days ─────────────────────────────

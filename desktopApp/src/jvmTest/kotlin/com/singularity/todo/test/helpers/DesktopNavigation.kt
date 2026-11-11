@@ -27,8 +27,8 @@ object DesktopShell {
     const val FAB_ADD_TASK = "Add task"
     const val SEARCH = "Search"
 
-    /** The five top-level tabs, in drawer order. */
-    val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro")
+    /** The drawer's tab entries, in drawer order. The Calendar is in [MENU_ENTRIES]. */
+    val TABS = listOf("Inbox", "Today", "Upcoming", "Pomodoro")
 
     /** The entry at the end of the drawer's Projects section. */
     const val ALL_PROJECTS_ENTRY = "All projects"
@@ -96,8 +96,8 @@ fun DesktopComposeUiTest.openDrawer() =
         // before the first layout pass has zero bounds, and the click is dispatched
         // to the window's origin — on this shell that is the menu bar, so the drawer
         // never opens and the wait below times out on a test that never clicked the
-        // button. Measured on `PlansGranularityRestoredScenarioTest` in CI
-        // (run 42720173415), where the retry hit it a second time as well.
+        // button. Measured in CI (run 42720173415), where the retry hit it a
+        // second time as well.
         awaitContentDescriptionDisplayed(DesktopShell.HAMBURGER).performClick()
         waitUntil(
             conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",

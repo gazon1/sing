@@ -204,6 +204,15 @@ private fun Selector.DateBucket.matches(
             task.dueDate == null
         }
 
+        // The open-ended bucket is a strict lower bound, not a range: completed
+        // tasks keep their due date, and "tomorrow or later" is about the date,
+        // not about whether the work is still open. The range's far edge is a
+        // sentinel; this branch is the rule.
+        RelativeBucket.Future -> {
+            val dueDate = task.dueDate
+            dueDate != null && dueDate > today
+        }
+
         else -> {
             val dueDate = task.dueDate
             dueDate != null &&

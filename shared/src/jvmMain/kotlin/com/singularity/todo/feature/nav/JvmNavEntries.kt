@@ -12,7 +12,6 @@ import com.singularity.todo.feature.nav.entries.agendaEntries
 import com.singularity.todo.feature.nav.entries.appEntries
 import com.singularity.todo.feature.nav.entries.calendarEntries
 import com.singularity.todo.feature.nav.entries.notesEntries
-import com.singularity.todo.feature.nav.entries.plansEntries
 import com.singularity.todo.feature.nav.entries.projectsEntries
 import com.singularity.todo.feature.nav.entries.searchEntries
 import com.singularity.todo.feature.nav.entries.settingsEntries
@@ -35,7 +34,7 @@ import org.koin.compose.koinInject
  * outer push above a top-level entry, so an entry-local `remember { NavBackStack }` is
  * destroyed and the nested stack reseeds at its start route (ADR
  * `2026-10-01-desktop-nav-followup`, Bug 3: "nested back stack dies on tab switch").
- * Hoisting makes nested state survive: a cross-feature open that pushes above Plans and a
+ * Hoisting makes nested state survive: a cross-feature open that pushes above Upcoming and a
  * tab round-trip both return to the frame the user was on.
  *
  * Android keeps its entry-local `rememberNavBackStack(navSavedStateConfig(), start)` —
@@ -92,7 +91,6 @@ fun createJvmEntryProvider(
         calendarEntries(nav, stacks, today)
         notesEntries(nav, stacks)
         projectsEntries(nav, stacks)
-        plansEntries()
         searchEntries(nav, stacks)
         settingsEntries(nav, stacks)
 
