@@ -18,6 +18,7 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.countNodesWithText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.touchBoundsOfTagInUnmergedTree
 import com.singularity.todo.test.helpers.unclippedBoundsOfTagAt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -277,6 +278,12 @@ class TimeGridNarrowTest {
             assertTrue(
                 markerHeight >= 48.dp,
                 "the marker is $markerHeight tall, below the 48 dp minimum",
+            )
+            val touch = touchBoundsOfTagInUnmergedTree(TestTags.CALENDAR_ALL_DAY_MARKER)
+            val touchWidth = touch.right - touch.left
+            assertTrue(
+                touchWidth >= 48.dp,
+                "the pointer target is $touchWidth wide; Compose should expand it to the 48 dp minimum",
             )
             assertTrue(
                 weekDayWidth(marker) <= cellWidth + 0.5.dp,
