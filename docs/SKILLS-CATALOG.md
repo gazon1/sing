@@ -78,7 +78,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-room-multi-instance` | 150 | Cross-process SQLite access for Singularity Todo KMP. |
 | `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |
 | `singularity-todo-secure-storage` | 175 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
-| `singularity-todo-selectable-text` | 214 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
+| `singularity-todo-selectable-text` | 215 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
 | `singularity-todo-shared-ui-components` | 46 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
 | `singularity-todo-sheet-extraction` | 411 | Sheet extraction workflow for Singularity Todo. |
 | `singularity-todo-stable-json` | 177 | When adding kotlinx.serialization to a KMP project, always use StableJson instead of local `Json { . |
