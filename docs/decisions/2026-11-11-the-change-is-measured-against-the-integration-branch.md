@@ -43,8 +43,10 @@ the chain names the integration branch before the trunk.
 
 **Two chains, and the difference matters.** `REMOTE_BASE_CANDIDATES` holds
 the **remote-tracking** copies only (`origin/dev`, then `origin/main`).
-`BASE_CANDIDATES` holds those plus the local branches and the fully qualified
-names.
+`BASE_CANDIDATES` holds those plus the local branches (`dev`, then `main`) —
+the short names, because git resolves `origin/dev` to the remote-tracking ref
+and `dev` to the local branch, so the fully qualified spellings would never be
+reached.
 
 A tool that asks *"what is this checkout carrying, compared with the trunk it
 is based on?"* uses the remote chain: a local branch is not an upstream, and
@@ -68,6 +70,10 @@ that know better. When it names a ref that is **not here**, there is **no
 base** — the chain is not consulted. Answering with a different ref would be
 answering a question nobody asked, and a tool that measures against a base
 the caller did not name measures against the wrong thing without saying so.
+The tools therefore carry **no second answer**: no tool falls back to
+`origin/main` when the owner has none, because that fallback is either dead
+(the owner already tried `origin/main`) or wrong (it answers a question the
+caller did not ask). A tool with no base says so.
 
 **The ratchet keeps its announced fallback.** `scripts/check-baseline-ratchet.py`
 has a base of its own to compare with, and a named base that is not here leaves
@@ -95,11 +101,13 @@ loads the module the way `scripts/gitenv_loader.py` already loads
 `gitenv.py`: the `sgate` package imports `click` and `loguru`, and the
 pre-push hook runs where neither is guaranteed.
 
-**CI names the base once per job.** The `static` and `quick` jobs set
-`SGATE_BASE_REF: origin/${{ github.base_ref || github.ref_name }}` — the
-branch the pull request targets, or the branch that was pushed. Every gate in
-the job then measures against the same ref, and a named base never falls
-back to another branch.
+**CI names the base once for the whole workflow.** The workflow sets
+`SGATE_BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) }}`
+— the branch the pull request targets, and on a push **nothing**: the branch
+that was pushed is the change itself, and a change measured against itself is
+measured against nothing. The name is therefore empty on a push, and the chain
+answers there. Every job that reads the base reads the same name, and a named
+base never falls back to another branch.
 
 ## Rationale
 
@@ -146,6 +154,12 @@ not exist — a green answer to a question nobody asked.
 - `scripts/git_changed.py`'s default changed from the literal `"origin/main"`
   to `None`, resolved at call time: a default evaluated at import time would
   run git at import.
+- The tools that ask "what does this change touch?" no longer carry a base of
+  their own. `LINT_BASE` and `COMPILE_CHANGED_BASE` are gone, and so is the
+  `origin/main` tail: `SGATE_BASE_REF` and `--base` are the two ways to name a
+  base, and the owner is the third answer that costs no configuration. The
+  `rumdl-changed` recipe keeps a knob of its own, under the name that says
+  what it is for: `RUMDL_BASE`.
 - A tool that asks "what does this change touch?" and finds no base measures
   against **everything** rather than against `HEAD` — the safe direction.
 - `config/hooks/pre-push.json` records the hook's base chain, and
@@ -164,6 +178,8 @@ not exist — a green answer to a question nobody asked.
   three-valued `differs`.
 - `scripts/tests/test_gatekit_refs.py` — the chain, the exclusive named base,
   the resolver's command.
+- `scripts/tests/test_ci_pr_path.py` — the base is named once for the whole
+  workflow, and never as the branch that was pushed.
 - `scripts/tests/test_checkout_state.py` — the integration branch as the
   base, the local branch that is not a base, the missing base that stays
   unknown.
