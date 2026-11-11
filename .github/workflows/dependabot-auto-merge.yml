@@ -110,6 +110,10 @@ jobs:
           deadline=$(( $(date +%s) + 1800 ))
           while true; do
             waiting=0
+            # The green pull requests of THIS round, with the head commit that
+            # was green. The file is rebuilt every round: a pull request that
+            # was green and is no longer must not be merged.
+            : > "$RUNNER_TEMP/green.txt"
             while read -r number; do
               [ -n "$number" ] || continue
               # The pull request is read once: the mergeable state and the head
@@ -118,6 +122,10 @@ jobs:
               state="$(jq -r '.mergeable_state // "unknown"' <<<"$pull_request")"
               case "$state" in
                 dirty)
+                  # A conflicted pull request cannot be merged at all, and it is
+                  # not going to un-conflict itself. It is left out of the
+                  # merge list instead of being handed to `gh pr merge`, which
+                  # would answer 405 and abort the whole step.
                   echo "::error::#${number} has conflicts - cannot be merged"
                   continue
                   ;;
@@ -140,6 +148,7 @@ jobs:
               case "$conclusion" in
                 success)
                   echo "#${number}: the CI gate check-run is green"
+                  echo "$number $head" >> "$RUNNER_TEMP/green.txt"
                   ;;
                 *)
                   echo "#${number}: the CI gate check-run is '$conclusion' - waiting"
@@ -148,6 +157,8 @@ jobs:
               esac
             done < "$RUNNER_TEMP/mergeable.txt"
             if [ "$waiting" -eq 0 ]; then
+              cp "$RUNNER_TEMP/green.txt" "$RUNNER_TEMP/merge-now.txt"
+              echo "merging: $(tr '\n' ' ' < "$RUNNER_TEMP/merge-now.txt")"
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
@@ -163,8 +174,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          while read -r number; do
+          # Only the pull requests whose CI gate was green in the last round,
+          # each with the head commit that was green.
+          #
+          # One pull request that cannot be merged does not stop the others:
+          # the failure is recorded and the step reports it at the end. A
+          # single unmergeable pull request used to abort the step, and every
+          # pull request after it was never merged.
+          failed=0
+          while read -r number head; do
             [ -n "$number" ] || continue
-            gh pr merge "$number" --squash --delete-branch
-            echo "#${number} is merged"
-          done < "$RUNNER_TEMP/mergeable.txt"
+            # The head commit is pinned: the merge only happens if the pull
+            # request still stands on the commit that was verified.
+            if gh pr merge "$number" --squash --delete-branch --match-head-commit "$head"; then
+              echo "#${number} is merged"
+            else
+              echo "::error::#${number} could not be merged at ${head}"
+              failed=1
+            fi
+          done < "$RUNNER_TEMP/merge-now.txt"
+          exit "$failed"

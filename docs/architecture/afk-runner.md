@@ -127,9 +127,14 @@ same ADR records that it does not run `docs-audit` or `find-unwired-surfaces`.
 | A `fail` verdict fails the gate | `scripts/ci/check-agent-review.py:233-237` |
 | The gate does not judge the comment's author — "separate" is a fact about the session, not the login | `scripts/ci/check-agent-review.py:88-94` |
 | The review must be **re-counted**: a comment does not start a CI run, and a run started by the comment has its checks counted on the default branch | `.github/PULL_REQUEST_TEMPLATE.md:38-39`, `docs/architecture/verification.md:126-128` |
+| A **bot** pull request carries no review: the `Agent review` job is skipped for `dependabot[bot]`, and the gate counts a skipped job as a valid outcome | `.github/workflows/ci.yml:1649` |
 
 So the runner applies the label `agent-reviewed` **to the pull request** after the comment lands.
 Without that, the pull request stays red.
+
+**A bot pull request is not reviewed at all.** Nobody writes a review comment on a dependabot pull
+request — there is no separate agent to write it — so the `Agent review` job is skipped there
+instead of being red. The gate still waits for the review on a human pull request.
 
 **The runner reviews once.** The gate decides on the newest marked comment, so a second review
 overrides the first — a `pass` after a `fail` would turn a red pull request green on a review of a
