@@ -85,11 +85,12 @@ fun TaskRowContent(
             }
 
             // One fact, several sources: the meta row is drawn when there is something
-            // to say. The repeat badge is a marking now, so `markings.isNotEmpty()`
-            // covers it — a repeating task with nothing else still shows its meta row.
+            // to say. The repeat badge is a marking now, so the markings cover it —
+            // but only the ones that are drawn: a mark the row says another way
+            // leaves an empty line and a gap under the title.
             val hasMeta =
                 task.dueLabel != null || task.project != null ||
-                    task.markings.isNotEmpty() || task.seriesDates != null
+                    visibleMarkings(task.markings).isNotEmpty() || task.seriesDates != null
             if (hasMeta) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(

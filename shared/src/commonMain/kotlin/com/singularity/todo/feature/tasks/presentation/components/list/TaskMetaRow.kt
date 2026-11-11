@@ -73,7 +73,7 @@ fun TaskMetaRow(
     val isOverdue = TaskMarking.Overdue in markings
     // The marks the row says another way draw nothing, so they cannot be what
     // separates the project from what came before it.
-    val hasVisibleMark = markings.any { it !in ConveyedElsewhere }
+    val hasVisibleMark = visibleMarkings(markings).isNotEmpty()
     // What stands between the project and the left edge of the row: without it
     // the separator would hang on empty space.
     val somethingBeforeProject = dueLabel != null || hasVisibleMark || seriesDates != null

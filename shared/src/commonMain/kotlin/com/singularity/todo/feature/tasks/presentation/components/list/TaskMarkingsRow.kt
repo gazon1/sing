@@ -76,6 +76,21 @@ internal val ConveyedElsewhere =
     )
 
 /**
+ * The marks the row actually draws, in the order it draws them.
+ *
+ * One answer for both questions the row has to ask: which marks are on screen,
+ * and whether anything at all is on screen. The row that draws them and the row
+ * that has to know whether the separator has something to separate must not
+ * answer it differently, or the separator hangs on empty space.
+ *
+ * @param markings the markings that apply to the task.
+ */
+internal fun visibleMarkings(markings: ImmutableSet<TaskMarking>): List<TaskMarking> =
+    markings
+        .filter { it !in ConveyedElsewhere }
+        .sortedBy { it.displayOrder }
+
+/**
  * The marks on a task row: what is this task marked with?
  *
  * Every marking that applies is shown, and none of them hides another. That is
@@ -94,10 +109,7 @@ fun TaskMarkingsRow(
     markings: ImmutableSet<TaskMarking>,
     modifier: Modifier = Modifier,
 ) {
-    val shown =
-        markings
-            .filter { it !in ConveyedElsewhere }
-            .sortedBy { it.displayOrder }
+    val shown = visibleMarkings(markings)
     if (shown.isEmpty()) return
 
     val visible = shown.take(MAX_VISIBLE_MARKINGS)
