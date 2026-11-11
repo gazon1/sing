@@ -1,5 +1,6 @@
 package convention
 
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -25,10 +26,18 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 class CommonDepsConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         val versionCatalog = target.extensions.getByType<VersionCatalogsExtension>().named("libs")
-        val kotlinVersion: String = versionCatalog.findVersion("kotlin").get().requiredVersion
-        val serializationVersion: String = versionCatalog.findVersion("kotlin-serialization").get().requiredVersion
-        val collectionsImmutableVersion: String =
-            versionCatalog.findVersion("kotlinxCollectionsImmutable").get().requiredVersion
+
+        // A missing entry is a broken build, and `get()` would say only
+        // "No value present" — the message names the key that is missing.
+        fun versionOf(key: String): String =
+            versionCatalog
+                .findVersion(key)
+                .orElseThrow { GradleException("the version catalog has no `$key` version") }
+                .requiredVersion
+
+        val kotlinVersion: String = versionOf("kotlin")
+        val serializationVersion: String = versionOf("kotlin-serialization")
+        val collectionsImmutableVersion: String = versionOf("kotlinxCollectionsImmutable")
 
         target.allprojects {
             configurations.all {

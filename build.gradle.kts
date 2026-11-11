@@ -34,10 +34,19 @@ plugins {
 // so the catalog is read through VersionCatalogsExtension, which accessor
 // generation does not touch.
 val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-val kotlinVersion: String = versionCatalog.findVersion("kotlin").get().requiredVersion
-val serializationVersion: String = versionCatalog.findVersion("kotlin-serialization").get().requiredVersion
-val collectionsImmutableVersion: String =
-    versionCatalog.findVersion("kotlinxCollectionsImmutable").get().requiredVersion
+
+// The catalog is the single source of truth, so a missing entry is a broken
+// build, not something to paper over: `get()` would fail with a bare
+// "No value present" and no hint about which key is missing.
+fun versionOf(key: String): String =
+    versionCatalog
+        .findVersion(key)
+        .orElseThrow { GradleException("the version catalog has no `$key` version") }
+        .requiredVersion
+
+val kotlinVersion: String = versionOf("kotlin")
+val serializationVersion: String = versionOf("kotlin-serialization")
+val collectionsImmutableVersion: String = versionOf("kotlinxCollectionsImmutable")
 
 allprojects {
     configurations.all {
