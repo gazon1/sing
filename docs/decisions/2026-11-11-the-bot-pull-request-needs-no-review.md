@@ -73,6 +73,14 @@ aborting on the first failure. Pinning the head introduces a new way for one
 pull request to block all the later ones — a moved head is refused — and the
 refusal must not be the end of the loop.
 
+**The job summary is written by one step, at the end, and it always runs.** The
+steps that decide are conditional — the poll is skipped when no candidate was a
+patch or a minor bump, the merge is skipped when the poll did not succeed — and
+a step that never runs writes nothing. A run in which every pull request was
+excluded used to end successfully and say nothing about why. The summary step
+does not depend on any of them: it reads the files they left, and an absent
+file is an empty list.
+
 # Rationale
 
 **Why the job is skipped rather than the review written on the bot's
@@ -100,6 +108,14 @@ turns one pull request's problem into every later pull request's problem. The
 step reports which pull requests failed and exits non-zero, so the job is
 still red — but the pull requests that could be merged were merged.
 
+**Why one step writes the summary.** A run that merged nothing has to say why,
+and "why" is different in every run: a conflict, the kind of the bump, a check
+that is not green yet, a merge that was refused. Splitting the summary across
+the steps that know each reason puts it exactly where a skipped step can take
+it away — the case that needed it most was a run in which no candidate was a
+patch or a minor bump, so the steps that follow the candidate list never ran
+and the run said nothing. One step at the end reads what the others left.
+
 # Consequences
 
 - A bot pull request's `CI gate` is decided by the checks alone. A human pull
@@ -107,9 +123,10 @@ still red — but the pull requests that could be merged were merged.
 - The rule "a pull request carries the review of a separate agent" now has an
   exception, and the exception is written down where the rule lives:
   `docs/architecture/verification.md` and `docs/architecture/afk-runner.md`.
-- A conflicted dependabot pull request is reported as an error and left for a
-  human — it is never handed to `gh pr merge`, and it never blocks the pull
-  requests behind it.
+- A conflicted dependabot pull request is excluded and named in the job
+  summary, and left for a human — it is never handed to `gh pr merge`, and it
+  never blocks the pull requests behind it. It is a warning, not an error: the
+  run handles it and ends successfully.
 - A pull request whose head moved between the check and the merge is refused
   and reported; the other pull requests are still merged.
 - The merge is pinned to the commit that was verified. A pull request that was

@@ -49,6 +49,8 @@ The properties asserted here:
   never handed to `gh pr merge`;
 * a run in which every candidate is conflicted says so — the "Merged" group
   reads "none" instead of being silent;
+* a run in which every candidate was excluded by the kind of its bump still
+  writes a summary, even though the steps that merge are skipped;
 * a refused merge is recorded and does not stop the merges that come after it,
   and the step exits non-zero.
 """
@@ -385,13 +387,14 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
             return []
         return [line for line in log.read_text(encoding='utf-8').splitlines() if line]
 
-    def _run_step(self, script: str) -> subprocess.CompletedProcess:
+    def _run_step(self, script: str, cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess:
         path = self.tmp / 'step.sh'
         path.write_text(script, encoding='utf-8')
         env = dict(os.environ)
         env['PATH'] = f'{self.stubs}:{SYSTEM_PATH}'
         env['RUNNER_TEMP'] = str(self.runner_temp)
         env['GITHUB_STEP_SUMMARY'] = str(self.summary)
+        env['GITHUB_OUTPUT'] = str(self.tmp / 'github-output')
         env['FAKE_GH_STATE'] = str(self.state)
         env['FAKE_DATE_STATE'] = str(self.tmp / 'date-state')
         # The fake `gh` looks its `jq` up in the system directories alone: the
@@ -400,7 +403,7 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         try:
             return subprocess.run(
                 ['bash', str(path)],
-                cwd=self.tmp,
+                cwd=str(cwd or self.tmp),
                 capture_output=True,
                 text=True,
                 env=env,
@@ -413,7 +416,10 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
                 % STEP_TIMEOUT
             )
 
-    def _summary(self) -> str:
+    def _run_summary_step(self) -> str:
+        """The step that writes the summary, and the summary it wrote."""
+        result = self._run_step(_step_script(name='What happened to every pull request'))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         return self.summary.read_text(encoding='utf-8')
 
     def _candidates(self, *numbers: str) -> None:
@@ -422,6 +428,11 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
             ''.join(f'{number}\n' for number in numbers), encoding='utf-8'
         )
         (self.runner_temp / 'skipped.txt').write_text('', encoding='utf-8')
+
+    def _write_candidate(self, number: str, body: str) -> None:
+        """A candidate the `bump` step reads: the list and its description."""
+        (self.runner_temp / 'candidates.txt').write_text(f'{number}\n', encoding='utf-8')
+        (self.runner_temp / f'description-{number}.md').write_text(body, encoding='utf-8')
 
     def test_a_conflicted_pull_request_is_excluded_and_reported(self):
         """A conflicted pull request is named in the summary and never merged."""
@@ -437,7 +448,8 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
 
         self.assertEqual([], self._merge_calls(), 'a conflicted pull request was merged')
         self.assertIn('::warning::#12 has conflicts', checks.stdout)
-        conflicts = _summary_group(self._summary(), '### Excluded — conflicts')
+        summary = self._run_summary_step()
+        conflicts = _summary_group(summary, '### Excluded — conflicts')
         self.assertIn('- #12 has conflicts and cannot be merged', conflicts)
 
     def test_a_green_pull_request_is_merged_at_the_verified_head_commit(self):
@@ -456,7 +468,7 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
             ['pr merge 7 --squash --delete-branch --match-head-commit sha-green'],
             self._merge_calls(),
         )
-        merged = _summary_group(self._summary(), '### Merged')
+        merged = _summary_group(self._run_summary_step(), '### Merged')
         self.assertIn('- #7 (sha-green)', merged)
 
     def test_a_pull_request_whose_check_run_is_not_green_is_waiting(self):
@@ -470,7 +482,7 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         # The run gives up on the deadline rather than merging an un-green pull
         # request, and the summary says which one it was waiting for.
         self.assertNotEqual(0, checks.returncode, checks.stdout + checks.stderr)
-        waiting = _summary_group(self._summary(), '### Waiting for a green CI gate')
+        waiting = _summary_group(self._run_summary_step(), '### Waiting for a green CI gate')
         self.assertIn('- #9', waiting)
 
         # Nothing was handed to `gh pr merge`: the merge list was never written.
@@ -493,10 +505,35 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         self.assertEqual(0, merge.returncode, merge.stdout + merge.stderr)
 
         self.assertEqual([], self._merge_calls())
-        self.assertEqual(['- none'], _summary_group(self._summary(), '### Merged'))
-        conflicts = _summary_group(self._summary(), '### Excluded — conflicts')
+        summary = self._run_summary_step()
+        self.assertEqual(['- none'], _summary_group(summary, '### Merged'))
+        conflicts = _summary_group(summary, '### Excluded — conflicts')
         self.assertIn('- #21 has conflicts and cannot be merged', conflicts)
         self.assertIn('- #22 has conflicts and cannot be merged', conflicts)
+
+    def test_a_run_in_which_every_candidate_is_excluded_says_why(self):
+        """A run that merged nothing because of the kind of bump says so.
+
+        The `checks` and `Merge it` steps are skipped when no candidate was a
+        patch or a minor bump, so the summary has to come from a step that
+        always runs. This is the run that used to finish successfully and say
+        nothing about why.
+        """
+        # The `bump` step itself: a candidate that is neither a patch nor a
+        # minor is excluded, and the step hands on nothing.
+        self._write_candidate('41', 'Bumps actions/setup-java from 5.7.0 to 6.1.0.')
+        bump = self._run_step(_step_script(step_id='bump'), cwd=REPO_ROOT)
+        self.assertEqual(0, bump.returncode, bump.stdout + bump.stderr)
+        self.assertEqual('', (self.runner_temp / 'mergeable.txt').read_text(encoding='utf-8'))
+        skipped = (self.runner_temp / 'skipped.txt').read_text(encoding='utf-8')
+        self.assertIn('41', skipped, 'the excluded pull request was not recorded')
+
+        # The steps that follow are skipped, and the summary still says why.
+        summary = self._run_summary_step()
+        excluded = _summary_group(summary, '### Excluded — not a patch or a minor bump')
+        self.assertIn('- #41', excluded[0])
+        self.assertIn('no decision is recorded', excluded[0])
+        self.assertEqual(['- none'], _summary_group(summary, '### Merged'))
 
     def test_a_refused_merge_does_not_stop_the_merges_that_follow_it(self):
         """One refused merge is recorded, the next pull request is still merged."""
@@ -521,9 +558,10 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
             self._merge_calls(),
             'the merge that follows a refused one was never attempted',
         )
-        merged = _summary_group(self._summary(), '### Merged')
+        summary = self._run_summary_step()
+        merged = _summary_group(summary, '### Merged')
         self.assertIn('- #32 (sha-two)', merged)
-        refused = _summary_group(self._summary(), '### Not merged — the merge was refused')
+        refused = _summary_group(summary, '### Not merged — the merge was refused')
         self.assertIn('- #31 (sha-one)', refused)
 
 

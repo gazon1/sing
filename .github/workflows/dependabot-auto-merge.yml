@@ -113,46 +113,6 @@ jobs:
           set -euo pipefail
           deadline=$(( $(date +%s) + 1800 ))
 
-          # The summary of what happened to every candidate. Three groups, and
-          # no fourth: merged, excluded, waiting. A run that merged nothing
-          # used to finish successfully and say nothing about why — the pull
-          # requests it did not merge were the interesting part.
-          write_summary() {
-            {
-              echo "## Dependabot auto-merge"
-              echo
-              echo "### Excluded — conflicts"
-              if [ -s "$RUNNER_TEMP/conflicted.txt" ]; then
-                while read -r number; do
-                  [ -n "$number" ] || continue
-                  echo "- #${number} has conflicts and cannot be merged"
-                done < "$RUNNER_TEMP/conflicted.txt"
-              else
-                echo "- none"
-              fi
-              echo
-              echo "### Excluded — not a patch or a minor bump"
-              if [ -s "$RUNNER_TEMP/skipped.txt" ]; then
-                while read -r number decision; do
-                  [ -n "$number" ] || continue
-                  echo "- #${number} — ${decision}"
-                done < "$RUNNER_TEMP/skipped.txt"
-              else
-                echo "- none"
-              fi
-              echo
-              echo "### Waiting for a green CI gate"
-              if [ -s "$RUNNER_TEMP/waiting.txt" ]; then
-                while read -r number; do
-                  [ -n "$number" ] || continue
-                  echo "- #${number}"
-                done < "$RUNNER_TEMP/waiting.txt"
-              else
-                echo "- none"
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
-          }
-
           while true; do
             waiting=0
             # The green pull requests of THIS round, with the head commit that
@@ -217,11 +177,9 @@ jobs:
             if [ "$waiting" -eq 0 ]; then
               cp "$RUNNER_TEMP/green.txt" "$RUNNER_TEMP/merge-now.txt"
               echo "merging: $(tr '\n' ' ' < "$RUNNER_TEMP/merge-now.txt")"
-              write_summary
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              write_summary
               echo "::error::the CI gate check-run did not become green in time"
               exit 1
             fi
@@ -257,9 +215,77 @@ jobs:
               failed=1
             fi
           done < "$RUNNER_TEMP/merge-now.txt"
+          exit "$failed"
 
-          # The last group of the summary: what was merged, and what was not.
+      - name: What happened to every pull request
+        # The summary is written by ONE step, at the end, and it always runs.
+        #
+        # It has to be at the end and it has to always run: the steps before it
+        # are conditional — the checks step is skipped when no candidate was a
+        # patch or a minor bump, and the merge step is skipped when the checks
+        # step did not succeed — and a step that never runs writes no summary.
+        # That is how a run in which every pull request was excluded finished
+        # successfully and said nothing about why.
+        if: always()
+        run: |
+          set -euo pipefail
+          # The files the steps above wrote may not exist: a step that was
+          # skipped wrote none of them. An absent file is an empty list.
+          for name in conflicted waiting skipped merged unmerged; do
+            [ -f "$RUNNER_TEMP/$name.txt" ] || : > "$RUNNER_TEMP/$name.txt"
+          done
+
+          # Four groups, and a fifth one only when a merge was refused:
+          # excluded by conflicts, excluded by the kind of bump, waiting, and
+          # merged. A run that merged nothing used to finish successfully and
+          # say nothing about why — the pull requests it did not merge were the
+          # interesting part.
           {
+            echo "## Dependabot auto-merge"
+            echo
+            echo "### Excluded — conflicts"
+            if [ -s "$RUNNER_TEMP/conflicted.txt" ]; then
+              while read -r number; do
+                [ -n "$number" ] || continue
+                echo "- #${number} has conflicts and cannot be merged"
+              done < "$RUNNER_TEMP/conflicted.txt"
+            else
+              echo "- none"
+            fi
+            echo
+            echo "### Excluded — not a patch or a minor bump"
+            if [ -s "$RUNNER_TEMP/skipped.txt" ]; then
+              while read -r number decision; do
+                [ -n "$number" ] || continue
+                # The decision is a word of its own here: "none" and "unknown"
+                # mean that no decision is recorded and that the dependency
+                # could not be read. A bare "none" in the summary reads like
+                # the absence of an answer instead of the answer itself.
+                case "$decision" in
+                  none)
+                    echo "- #${number} — not a patch and not a minor, and no decision is recorded"
+                    ;;
+                  unknown)
+                    echo "- #${number} — not a patch and not a minor, and its dependency could not be read"
+                    ;;
+                  *)
+                    echo "- #${number} — ${decision}"
+                    ;;
+                esac
+              done < "$RUNNER_TEMP/skipped.txt"
+            else
+              echo "- none"
+            fi
+            echo
+            echo "### Waiting for a green CI gate"
+            if [ -s "$RUNNER_TEMP/waiting.txt" ]; then
+              while read -r number; do
+                [ -n "$number" ] || continue
+                echo "- #${number}"
+              done < "$RUNNER_TEMP/waiting.txt"
+            else
+              echo "- none"
+            fi
             echo
             echo "### Merged"
             if [ -s "$RUNNER_TEMP/merged.txt" ]; then
@@ -279,4 +305,3 @@ jobs:
               done < "$RUNNER_TEMP/unmerged.txt"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          exit "$failed"
