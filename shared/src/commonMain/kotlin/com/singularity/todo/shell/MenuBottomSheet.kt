@@ -17,7 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -25,10 +24,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Bottom-sheet menu shown when the user taps the "Menu" bottom-bar item.
@@ -77,9 +78,9 @@ fun MenuBottomSheet(
     // The sheet is a menu, not a peeker: it opens to show what it holds. See
     // docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
     val sheetState =
-        rememberBottomSheetState(
+        rememberAppSheetState(
             initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            enabledValues = persistentSetOf(SheetValue.Hidden, SheetValue.Expanded),
         )
 
     LaunchedEffect(Unit) { sheetState.show() }

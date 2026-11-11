@@ -16,7 +16,6 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +30,7 @@ import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.components.sheet.SheetActions
 import com.singularity.todo.core.ui.components.sheet.SheetScaffold
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SortOrder
@@ -66,7 +66,7 @@ fun SimpleFilterSheet(
     initialFilter: SimpleFilter?,
     onApply: (SimpleFilter) -> Unit,
     onDismiss: () -> Unit,
-    sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+    sheetState: SheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
 ) {
     // Local mutable copy — not applied until user taps "Apply".
     // The sets are persistent: the chips below take them, and a persistent set

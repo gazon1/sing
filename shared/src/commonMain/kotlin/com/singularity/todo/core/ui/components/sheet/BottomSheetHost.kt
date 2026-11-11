@@ -14,15 +14,67 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import com.singularity.todo.core.ui.isDesktopPlatform
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.launch
+
+/**
+ * The sheet state every sheet in the app asks for.
+ *
+ * ## Why the desktop half has no "partially expanded" state
+ *
+ * On the desktop the sheet is a *window of its own* — Material's
+ * `ModalBottomSheet` renders a `Dialog` there — and it is as tall as that
+ * window: the sheet's content is measured against the window's height and the
+ * sheet is anchored to the window's bottom edge. The half-expanded anchor
+ * therefore hangs half of the sheet *below* the window. Measured in a 360x768
+ * desktop window, the sheet's body sat at y=432..1152: its lower half was
+ * off-screen, so the switches there — and the actions at the end of the scroll —
+ * were drawn where no one could reach them.
+ *
+ * The expanded anchor is `windowHeight - sheetHeight`, so the sheet fits inside
+ * the window and opens with its content — and its actions — in reach.
+ *
+ * Android keeps the half-expanded sheet: there the bottom sheet is a window of
+ * its own as well, but it is anchored to the screen and its height is a
+ * fraction of the screen, so it hangs *inside* the screen.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberAppSheetState(
+    initialValue: SheetValue = SheetValue.Hidden,
+    enabledValues: ImmutableSet<SheetValue> = DEFAULT_SHEET_VALUES,
+): SheetState =
+    rememberBottomSheetState(
+        initialValue = initialValue,
+        // The desktop app has no half-expanded sheet; everything else keeps
+        // the states it asked for.
+        enabledValues =
+            if (isDesktopPlatform) {
+                enabledValues - SheetValue.PartiallyExpanded
+            } else {
+                enabledValues
+            },
+    )
+
+/**
+ * The states a sheet may settle in unless it asks for others.
+ *
+ * A top-level value rather than a default argument: a default argument is
+ * evaluated at every call, and this one is a collection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+private val DEFAULT_SHEET_VALUES: ImmutableSet<SheetValue> =
+    persistentSetOf(SheetValue.Hidden, SheetValue.PartiallyExpanded, SheetValue.Expanded)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BottomSheetHost(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+    sheetState: SheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
     sheetMaxWidth: Dp = BottomSheetDefaults.SheetMaxWidth,
     content: @Composable ColumnScope.() -> Unit,
 ) {

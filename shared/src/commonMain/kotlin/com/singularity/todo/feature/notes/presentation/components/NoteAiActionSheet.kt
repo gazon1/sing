@@ -20,11 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.feature.notes.NoteAiAction
 
 /**
@@ -38,7 +38,7 @@ fun NoteAiActionSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

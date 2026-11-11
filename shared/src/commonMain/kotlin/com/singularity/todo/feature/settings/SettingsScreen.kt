@@ -32,7 +32,6 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +60,7 @@ import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -93,6 +93,7 @@ import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableMap
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -547,9 +548,9 @@ private fun SettingsTabSheet(
         // either fully open or gone. See
         // docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
         val sheetState =
-            rememberBottomSheetState(
+            rememberAppSheetState(
                 initialValue = SheetValue.Expanded,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+                enabledValues = persistentSetOf(SheetValue.Hidden, SheetValue.Expanded),
             )
         // The canonical sheet host, not a bare ModalBottomSheet: it applies the
         // window insets and asserts the testTag→resource-id mapping on the
