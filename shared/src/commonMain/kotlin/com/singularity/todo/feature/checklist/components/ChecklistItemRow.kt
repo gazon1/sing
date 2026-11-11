@@ -17,20 +17,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.CompletionKind
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
+import com.singularity.todo.core.ui.completionName
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
- * The test tags of one row of [ChecklistItemRow].
+ * The identity of one row of [ChecklistItemRow].
  *
  * The row serves two kinds of item — a checklist item and a subtask — and each kind
  * lives in its own namespace of tags. Handing the row three separate tag parameters
  * would push its signature past the house limit for eight parameters, so the three
  * travel together in one value, and the caller names the kind it is rendering.
+ *
+ * The kind travels with the tags for the same reason: it is what the row is, and
+ * the row names its checkbox after it — "Subtask: Buy milk" and "Item: Buy milk"
+ * are different statements, and a screen reader has to be able to tell them apart.
  */
 data class ChecklistRowTags(
     /** The checkbox that toggles the item. */
@@ -39,6 +47,8 @@ data class ChecklistRowTags(
     val item: String,
     /** The button that deletes the item. */
     val delete: String,
+    /** What this row is: a subtask or a checklist item. */
+    val kind: CompletionKind,
 ) {
     companion object {
         /** The tags of a checklist item row. */
@@ -49,6 +59,7 @@ data class ChecklistRowTags(
             checkbox = TestTags.checklistItemCheckbox(id = id, title = title),
             item = TestTags.checklistItem(id = id, title = title),
             delete = TestTags.checklistItemDelete(id = id, title = title),
+            kind = CompletionKind.ChecklistItem,
         )
 
         /** The tags of a subtask row. */
@@ -57,6 +68,7 @@ data class ChecklistRowTags(
                 checkbox = TestTags.subtaskCheckbox(title),
                 item = TestTags.subtaskItem(title),
                 delete = TestTags.subtaskDelete(title),
+                kind = CompletionKind.Subtask,
             )
     }
 }
@@ -110,6 +122,10 @@ fun ChecklistItemRow(
     // gesture that reads as "let me read this line".
     val titleClick: Modifier = if (onOpen != null) Modifier.clickable { onOpen() } else Modifier
 
+    // The name of the control, not of the row: a screen reader has to say which
+    // item the box completes, or the box is a nameless square on the row.
+    val name = completionName(tags.kind, text)
+
     Row(
         modifier =
             modifier
@@ -126,7 +142,10 @@ fun ChecklistItemRow(
             Checkbox(
                 checked = checked,
                 onCheckedChange = { onToggle() },
-                modifier = Modifier.testTag(tags.checkbox),
+                modifier =
+                    Modifier
+                        .testTag(tags.checkbox)
+                        .semantics { contentDescription = name },
             )
         }
         Spacer(modifier = Modifier.width(8.dp))

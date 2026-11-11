@@ -36,11 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.CompletionKind
+import com.singularity.todo.core.ui.completionName
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -67,11 +70,15 @@ import singularity_todo.shared.generated.resources.task_unchecked
  *  - **Цвет заливки = цвет приоритета** — единая семантика по всей строке.
  *
  * @param accentColor цвет заполнения — обычно цвет приоритета задачи
+ * @param kind        что этот чекбокс завершает — задачу, подзадачу или пункт
+ * @param title       название того, что он завершает
  */
 @Composable
 fun TaskCheckbox(
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    kind: CompletionKind,
+    title: String,
     modifier: Modifier = Modifier,
     accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
@@ -114,6 +121,10 @@ fun TaskCheckbox(
     val checkedStateDescription =
         if (isChecked) stringResource(Res.string.task_checked) else stringResource(Res.string.task_unchecked)
 
+    // The name of the control, not of the glyph: a screen reader has to say
+    // which task the box completes, or the box is a nameless dot on the row.
+    val name = completionName(kind, title)
+
     Box(
         modifier =
             modifier
@@ -133,6 +144,7 @@ fun TaskCheckbox(
                 ).semantics {
                     role = Role.Checkbox
                     stateDescription = checkedStateDescription
+                    contentDescription = name
                 },
         contentAlignment = Alignment.Center,
     ) {
@@ -203,21 +215,27 @@ private fun TaskCheckboxPreview() {
             horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Lg),
             modifier = Modifier.padding(TaskListSpacing.Lg).size(280.dp, 60.dp),
         ) {
-            TaskCheckbox(isChecked = false, onCheckedChange = {})
-            TaskCheckbox(isChecked = true, onCheckedChange = {})
+            TaskCheckbox(isChecked = false, onCheckedChange = {}, kind = CompletionKind.Task, title = "Buy milk")
+            TaskCheckbox(isChecked = true, onCheckedChange = {}, kind = CompletionKind.Task, title = "Buy milk")
             TaskCheckbox(
                 isChecked = false,
                 onCheckedChange = {},
+                kind = CompletionKind.Task,
+                title = "Buy milk",
                 accentColor = priorityColor(TaskPriority.High),
             )
             TaskCheckbox(
                 isChecked = true,
                 onCheckedChange = {},
+                kind = CompletionKind.Task,
+                title = "Buy milk",
                 accentColor = priorityColor(TaskPriority.Medium),
             )
             TaskCheckbox(
                 isChecked = false,
                 onCheckedChange = {},
+                kind = CompletionKind.Task,
+                title = "Buy milk",
                 accentColor = priorityColor(TaskPriority.Low),
             )
         }

@@ -21,6 +21,12 @@
     <string name="delete_task">Удалить задачу</string>
     <string name="task_checked">Выполнено</string>
     <string name="task_unchecked">Не выполнено</string>
+    <!-- The accessible name of a completion control: what it completes, and
+         which one. The completed state is not in here — it is a state, not a
+         name, and it changes while the name stays. -->
+    <string name="task_checkbox_label">Задача: %1$s</string>
+    <string name="subtask_checkbox_label">Подзадача: %1$s</string>
+    <string name="checklist_item_checkbox_label">Пункт: %1$s</string>
     <string name="priority_none">Без приоритета</string>
     <string name="priority_low">Низкий приоритет</string>
     <string name="priority_medium">Средний приоритет</string>

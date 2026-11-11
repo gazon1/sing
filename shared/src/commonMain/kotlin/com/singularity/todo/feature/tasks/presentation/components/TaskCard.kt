@@ -32,8 +32,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,7 +45,9 @@ import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.core.search.inColumn
+import com.singularity.todo.core.ui.CompletionKind
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.completionName
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.isAndroidPlatform
@@ -60,6 +66,10 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.LocalDate
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_checked
+import singularity_todo.shared.generated.resources.task_unchecked
 
 /**
  * Card representation of a single task. Stateless — every piece of behavior is
@@ -231,7 +241,15 @@ internal fun RowScope.DefaultTaskCardBody(
         markings
             ?: computeTaskMarkings(task, today, isBlocked || task.id in blockedTaskIds)
     actions.onToggle?.let { onToggle ->
-        ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
+        ToggleButton(
+            isCompleted = task.isCompleted,
+            onClick = onToggle,
+            // A card with a parent is a part of another task, and the screen reader
+            // is told so: "Subtask: Buy milk" is a different statement from
+            // "Task: Buy milk".
+            kind = if (task.parentTaskId != null) CompletionKind.Subtask else CompletionKind.Task,
+            title = task.title,
+        )
     }
     TaskText(task = task, modifier = Modifier.weight(1f), matchRanges = matchRanges)
     if (task.parentTaskId != null) {
@@ -270,15 +288,32 @@ internal fun DefaultTaskCardTrailing(
 private fun ToggleButton(
     isCompleted: Boolean,
     onClick: () -> Unit,
-    taskTitle: String = "",
+    kind: CompletionKind,
+    title: String,
 ) {
+    val name = completionName(kind, title)
+    val checkedStateDescription =
+        stringResource(if (isCompleted) Res.string.task_checked else Res.string.task_unchecked)
     IconButton(
         onClick = onClick,
-        modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle)),
+        modifier =
+            Modifier
+                .testTag(TestTags.taskCheckbox(title))
+                .semantics {
+                    // The role is set here, not left to the IconButton: the control
+                    // completes a task, and a screen reader should say "checkbox",
+                    // not "button". The outermost modifier wins over the one the
+                    // IconButton sets for itself.
+                    role = Role.Checkbox
+                    contentDescription = name
+                    stateDescription = checkedStateDescription
+                },
     ) {
         Icon(
             imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.RadioButtonUnchecked,
-            contentDescription = "Toggle complete",
+            // The name belongs to the button, not to the glyph: the glyph is what
+            // the button draws, the button is what the user presses.
+            contentDescription = null,
             tint =
                 if (isCompleted) {
                     MaterialTheme.colorScheme.primary

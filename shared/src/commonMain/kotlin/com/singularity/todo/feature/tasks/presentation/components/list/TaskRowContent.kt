@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.CompletionKind
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -51,6 +52,11 @@ fun TaskRowContent(
         TaskCheckbox(
             isChecked = task.isCompleted,
             onCheckedChange = { onToggleCompleted() },
+            // A row with a parent is a part of another task, and the screen reader
+            // is told so: "Subtask: Buy milk" is a different statement from
+            // "Task: Buy milk".
+            kind = if (task.parentId != null) CompletionKind.Subtask else CompletionKind.Task,
+            title = task.title,
             accentColor = priorityColor(task.priority),
             // The card variant tags its own toggle; the flat agenda row has to carry the
             // same tag here, or completion cannot be driven from UI automation.
