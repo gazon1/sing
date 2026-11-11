@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -263,6 +264,38 @@ class AllurePagesTest(unittest.TestCase):
         self.assertEqual(fast_remaining, ["3", "4", "5", "6", "7"])
         self.assertEqual(full_remaining, ["1", "2", "3", "4", "5", "6", "7"])
 
+    def test_pruning_keeps_a_report_the_manifest_does_not_name(self):
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        unexplained = self.make_report(self.site, "fast", "9")
+        ap.prune_population(self.site / "fast", "fast", keep=1)
+        self.assertTrue(unexplained.is_dir())
+
+    def test_pruning_drops_a_publication_whose_report_is_gone(self):
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        self.make_report(self.site, "fast", "11")
+        ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
+        shutil.rmtree(self.site / "fast" / "10")
+        result = ap.prune_population(self.site / "fast", "fast", keep=20)
+        self.assertNotIn("1-1", self.manifest(self.site, "fast").publications)
+        self.assertIn("2-1", self.manifest(self.site, "fast").publications)
+        self.assertEqual(result["kept"], 1)
+
+    def test_apply_writes_the_publication_state_as_one_unit(self):
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        before = ap.manifest_path(self.site / "fast").read_text(encoding="utf-8")
+        self.make_report(self.site, "fast", "11")
+        # The population index cannot be replaced. The manifest must not be
+        # left naming a report the index does not point at.
+        index = self.site / "fast" / "index.html"
+        index.unlink()
+        index.mkdir()
+        with self.assertRaises(OSError):
+            ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
+        self.assertEqual(ap.manifest_path(self.site / "fast").read_text(encoding="utf-8"), before)
+
     # ── Publish tree ──────────────────────────────────────────────────────────
 
     def test_publish_tree_validation_rejects_git_and_temp_archives(self):
@@ -311,23 +344,21 @@ class AllurePagesTest(unittest.TestCase):
         self.assertTrue((self.gh / "last-history").is_dir())
         self.assertFalse((self.gh / ".git").exists())
 
-    def test_bootstrap_failed_http_leaves_clean_state(self):
+    def test_bootstrap_failed_http_preserves_the_previous_tree(self):
         (self.gh / "junk.txt").write_text("partial", encoding="utf-8")
         result = ap.bootstrap_history_from_tarball(self.gh, None, 500)
         self.assertEqual(result["status"], "download-failed")
-        self.assertFalse((self.gh / "junk.txt").exists())
-        self.assertTrue((self.gh / "last-history").is_dir())
+        self.assertTrue((self.gh / "junk.txt").is_file())
 
-    def test_bootstrap_malformed_tarball_leaves_clean_state(self):
+    def test_bootstrap_malformed_tarball_preserves_the_previous_tree(self):
         bad = self.root / "gh-pages.tar.gz"
         bad.write_text("not a tarball", encoding="utf-8")
         (self.gh / "junk.txt").write_text("partial", encoding="utf-8")
         result = ap.bootstrap_history_from_tarball(self.gh, bad, 200)
         self.assertEqual(result["status"], "malformed-tarball")
-        self.assertFalse((self.gh / "junk.txt").exists())
-        self.assertTrue((self.gh / "last-history").is_dir())
+        self.assertTrue((self.gh / "junk.txt").is_file())
 
-    def test_bootstrap_cleans_partial_extraction_on_unsafe_path(self):
+    def test_bootstrap_refuses_an_unsafe_path_and_keeps_the_previous_tree(self):
         tar_path = self.root / "gh-pages.tar.gz"
         with tarfile.open(tar_path, "w:gz") as tar:
             data = b"x"
@@ -337,8 +368,30 @@ class AllurePagesTest(unittest.TestCase):
         (self.gh / "junk.txt").write_text("partial", encoding="utf-8")
         result = ap.bootstrap_history_from_tarball(self.gh, tar_path, 200)
         self.assertIn(result["status"], {"malformed-tarball"})
-        self.assertFalse((self.gh / "junk.txt").exists())
+        self.assertTrue((self.gh / "junk.txt").is_file())
         self.assertFalse((self.root / "escape.txt").exists())
+
+    def test_bootstrap_refuses_a_tarball_that_holds_a_link(self):
+        tar_path = self.root / "gh-pages.tar.gz"
+        with tarfile.open(tar_path, "w:gz") as tar:
+            link = tarfile.TarInfo(name="top/elsewhere")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "/etc"
+            tar.addfile(link)
+        (self.gh / "junk.txt").write_text("partial", encoding="utf-8")
+        result = ap.bootstrap_history_from_tarball(self.gh, tar_path, 200)
+        self.assertEqual(result["status"], "malformed-tarball")
+        self.assertTrue((self.gh / "junk.txt").is_file())
+
+    def test_bootstrap_promotes_a_complete_tree(self):
+        tar = self.make_tarball({"10/index.html": "ok"})
+        (self.gh / "stale.txt").write_text("old", encoding="utf-8")
+        result = ap.bootstrap_history_from_tarball(self.gh, tar, 200)
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue((self.gh / "10" / "index.html").is_file())
+        self.assertFalse((self.gh / "stale.txt").exists())
+        leftovers = [p.name for p in self.root.iterdir() if p.name.startswith("allure-history-")]
+        self.assertEqual(leftovers, [])
 
     def test_tree_stats_counts_files_and_bytes(self):
         self.make_report(self.site, "fast", "10")

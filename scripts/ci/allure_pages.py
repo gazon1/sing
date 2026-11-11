@@ -14,6 +14,18 @@ The helper owns three things and nothing else: the publication contracts
 (Pydantic models), the publication policy (ordering, idempotency, retention),
 and the filesystem operations that put the policy on disk. The CLI is a thin
 shell over them.
+
+The filesystem rules it follows:
+
+- A tree is replaced only by a complete replacement. A fetched history is
+  unpacked into a staging directory and promoted, so a failed fetch never
+  leaves a half-unpacked tree behind and never destroys the tree that was
+  there.
+- The publication state is written as one unit. The manifest, the
+  population index and the root index land together or not at all.
+- Every path that reaches the filesystem goes through the report-path
+  policy, so a path from a manifest cannot address anything outside the
+  namespace it belongs to.
 """
 
 from __future__ import annotations
@@ -27,7 +39,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Literal
 
 try:
@@ -40,12 +52,18 @@ except ImportError as exc:  # pragma: no cover - the dependency is declared in s
 SCHEMA_VERSION = 2
 SUPPORTED_POPULATIONS = ("fast", "full")
 REPORTS_PER_POPULATION = 20
-NUMERIC_REPORT_RE = re.compile(r"^\d+$")
 
 # One report-path policy for the whole helper: a report lives in a single
 # directory of its population, named by a safe segment. The rule is enforced
 # once, here, and every path that reaches the filesystem goes through it.
 REPORT_PATH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+# What a fetched history tarball may hold. The tarball is a copy of a branch
+# this repository published: a few thousand files, a few hundred megabytes.
+# A tarball that holds more is not one, and unpacking it is how a disk gets
+# filled.
+MAX_TAR_MEMBERS = 20_000
+MAX_TAR_BYTES = 2 * 1024 * 1024 * 1024
 
 
 class PublishError(Exception):
@@ -68,6 +86,16 @@ def safe_report_path(value: Any) -> str:
             f"(letters, digits, '.', '_', '-'), got {value!r}"
         )
     return value
+
+
+def report_dir(population_dir: Path, report_path: str) -> Path:
+    """The directory of one report inside a population namespace.
+
+    Every path that reaches the filesystem goes through the report-path
+    policy, so a path that came out of a manifest can never address
+    anything outside the namespace it belongs to.
+    """
+    return population_dir / safe_report_path(report_path)
 
 
 class Publication(BaseModel):
@@ -277,20 +305,49 @@ def _atomic_write_text(path: Path, content: str) -> None:
             os.unlink(tmp)
 
 
+def _commit_files(changes: dict[Path, str]) -> None:
+    """Write a set of files as one unit: all of them land, or none does.
+
+    The publication state is several files that only make sense together:
+    the manifest, the population index and the root index. Written one by
+    one, a failure in the middle leaves a state that records one thing and
+    shows another. This writes them together and puts the old contents
+    back when a write fails.
+    """
+    previous = {path: (path.read_bytes() if path.is_file() else None) for path in changes}
+    written: list[Path] = []
+    try:
+        for path, content in changes.items():
+            _atomic_write_text(path, content)
+            written.append(path)
+    except Exception:
+        for path in written:
+            original = previous[path]
+            if original is None:
+                path.unlink(missing_ok=True)
+            else:
+                _atomic_write_text(path, original.decode("utf-8"))
+        raise
+
+
 def _population_index_target(report_path: str) -> str:
     """The redirect target of a population index, escaped for an HTML context."""
     return html.escape(f"{safe_report_path(report_path)}/index.html", quote=True)
 
 
-def write_population_index(population_dir: Path, report_path: str) -> None:
+def _population_index_html(report_path: str) -> str:
+    """The redirect page of a population namespace."""
     target = _population_index_target(report_path)
-    html_page = (
+    return (
         '<!DOCTYPE html><meta charset="utf-8">'
         f'<meta http-equiv="refresh" content="0; URL={target}">'
         '<meta http-equiv="Pragma" content="no-cache">'
         '<meta http-equiv="Expires" content="0">\n'
     )
-    _atomic_write_text(population_dir / "index.html", html_page)
+
+
+def write_population_index(population_dir: Path, report_path: str) -> None:
+    _atomic_write_text(population_dir / "index.html", _population_index_html(report_path))
 
 
 def build_root_index(populations: Iterable[str]) -> str:
@@ -360,10 +417,10 @@ def validate_population_state(population_dir: Path, population: str, manifest: M
     if manifest.latest is None:
         raise PublishError(f"publication manifest for {population} has no latest entry")
     latest = manifest.latest
-    report_dir = population_dir / latest.report_path
-    if not report_dir.is_dir():
+    report_dir_path = report_dir(population_dir, latest.report_path)
+    if not report_dir_path.is_dir():
         raise PublishError(f"manifest latest points to missing report: {population}/{latest.report_path}")
-    if not (report_dir / "index.html").is_file():
+    if not (report_dir_path / "index.html").is_file():
         raise PublishError(
             f"manifest latest report is missing index.html: {population}/{latest.report_path}"
         )
@@ -413,8 +470,52 @@ def validate_publish_tree(site_dir: Path, populations: Iterable[str] | None = No
         raise PublishError("publish tree contains invalid CNAME")
 
 
+def _retention_plan(
+    population_dir: Path, manifest: Manifest, keep: int
+) -> tuple[dict[str, Publication], list[str]]:
+    """The publications to keep and the report paths to remove.
+
+    Retention is manifest-driven: the manifest names what was published,
+    so the manifest is what says what may go. A report directory the
+    manifest does not name is left alone — the helper does not delete
+    history it cannot explain. A publication whose report directory is
+    gone is dropped from the manifest instead of being kept as a record
+    of something that is not there.
+    """
+    latest = manifest.latest
+    candidates = [
+        publication
+        for publication in manifest.publications.values()
+        if publication.identity == (latest.identity if latest else None)
+        or report_dir(population_dir, publication.report_path).is_dir()
+    ]
+    ordered = sorted(candidates, key=lambda publication: publication.order_key, reverse=True)
+    kept = ordered[:keep]
+    keep_paths = {publication.report_path for publication in kept}
+    if latest is not None:
+        keep_paths.add(latest.report_path)
+    removed_paths = sorted(
+        {publication.report_path for publication in manifest.publications.values()} - keep_paths
+    )
+    publications = {publication.identity: publication for publication in kept}
+    if latest is not None:
+        publications[latest.identity] = latest
+    return publications, removed_paths
+
+
+def _remove_reports(population_dir: Path, report_paths: Iterable[str]) -> list[str]:
+    """Remove report directories, and report the ones that were there."""
+    removed: list[str] = []
+    for report_path in report_paths:
+        directory = report_dir(population_dir, report_path)
+        if directory.is_dir():
+            shutil.rmtree(directory)
+            removed.append(report_path)
+    return removed
+
+
 def prune_population(population_dir: Path, population: str, keep: int = REPORTS_PER_POPULATION) -> dict[str, Any]:
-    """Keep the newest `keep` reports of one population and drop the rest."""
+    """Keep the newest `keep` publications of one population and drop the rest."""
     _population(population)
     keep = _positive_int(keep, "keep-reports")
     mpath = manifest_path(population_dir)
@@ -422,30 +523,9 @@ def prune_population(population_dir: Path, population: str, keep: int = REPORTS_
     if manifest.latest is None:
         return {"removed": [], "kept": 0}
 
-    latest_path = manifest.latest.report_path
-    numeric_dirs = [
-        child
-        for child in population_dir.iterdir()
-        if child.is_dir() and NUMERIC_REPORT_RE.match(child.name)
-    ]
-    ordered = sorted(numeric_dirs, key=lambda p: (int(p.name), p.name))
-    keep_paths = {p.name for p in ordered[-keep:]} if keep < len(ordered) else {p.name for p in ordered}
-    keep_paths.add(latest_path)
-
-    removed: list[str] = []
-    for p in ordered:
-        if p.name in keep_paths:
-            continue
-        shutil.rmtree(p)
-        removed.append(p.name)
-
-    if removed:
-        removed_set = set(removed)
-        publications = {}
-        for ident, publication in manifest.publications.items():
-            if publication.report_path in removed_set and ident != manifest.latest.identity:
-                continue
-            publications[ident] = publication
+    publications, removed_paths = _retention_plan(population_dir, manifest, keep)
+    removed = _remove_reports(population_dir, removed_paths)
+    if removed or len(publications) != len(manifest.publications):
         manifest = Manifest(
             schema_version=SCHEMA_VERSION,
             population=population,
@@ -453,7 +533,7 @@ def prune_population(population_dir: Path, population: str, keep: int = REPORTS_
             publications=publications,
         )
         save_manifest(mpath, manifest)
-    return {"removed": removed, "kept": max(len(ordered) - len(removed), 0)}
+    return {"removed": removed, "kept": len(publications)}
 
 
 def reconcile_population(site_dir: Path, population: str) -> None:
@@ -463,10 +543,11 @@ def reconcile_population(site_dir: Path, population: str) -> None:
     manifest = load_manifest(manifest_path(population_dir), population)
     if manifest.latest is None:
         return
-    write_population_index(population_dir, manifest.latest.report_path)
+    changes = {population_dir / "index.html": _population_index_html(manifest.latest.report_path)}
     pops = present_populations(site_dir)
     if pops:
-        write_root_index(site_dir, pops)
+        changes[site_dir / "index.html"] = build_root_index(pops)
+    _commit_files(changes)
 
 
 def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int = REPORTS_PER_POPULATION) -> dict[str, Any]:
@@ -479,12 +560,12 @@ def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int =
     action, reason = decide(manifest, incoming)
 
     if action == "publish":
-        report_dir = population_dir / incoming.report_path
-        if not report_dir.is_dir():
+        target = report_dir(population_dir, incoming.report_path)
+        if not target.is_dir():
             raise PublishError(
                 f"latest report target does not exist: {incoming.population}/{incoming.report_path}"
             )
-        if not (report_dir / "index.html").is_file():
+        if not (target / "index.html").is_file():
             raise PublishError(
                 f"latest report target is missing index.html: {incoming.population}/{incoming.report_path}"
             )
@@ -496,16 +577,30 @@ def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int =
             latest=incoming,
             publications=publications,
         )
-        write_population_index(population_dir, incoming.report_path)
-        save_manifest(mpath, updated)
-        prune_result = prune_population(population_dir, incoming.population, keep_reports)
-        validate_population_state(population_dir, incoming.population)
+        publications, removed_paths = _retention_plan(population_dir, updated, keep_reports)
+        updated = Manifest(
+            schema_version=SCHEMA_VERSION,
+            population=incoming.population,
+            latest=incoming,
+            publications=publications,
+        )
         pops = present_populations(site_dir)
         if incoming.population not in pops:
             pops = [p for p in SUPPORTED_POPULATIONS if p in pops or p == incoming.population]
-        if pops:
-            write_root_index(site_dir, pops)
-        return {"action": action, "reason": reason, "pruned": prune_result["removed"]}
+        # The manifest, the population index and the root index describe one
+        # state: they land together or not at all.
+        _commit_files(
+            {
+                mpath: manifest_json(updated),
+                population_dir / "index.html": _population_index_html(incoming.report_path),
+                site_dir / "index.html": build_root_index(pops),
+            }
+        )
+        # Retention runs after the state is committed: a report directory
+        # that is left behind is a leftover, not an inconsistent state.
+        removed = _remove_reports(population_dir, removed_paths)
+        validate_population_state(population_dir, incoming.population)
+        return {"action": action, "reason": reason, "pruned": removed}
 
     if manifest.latest is None:
         raise PublishError(
@@ -516,10 +611,86 @@ def apply_publication(site_dir: Path, incoming: Publication, keep_reports: int =
     return {"action": action, "reason": reason, "pruned": []}
 
 
-def _cleanup_dir(path: Path) -> None:
-    if path.exists():
-        shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=True)
+def _reset_empty_state(directory: Path) -> None:
+    """Make a directory an empty publication tree."""
+    if directory.exists():
+        shutil.rmtree(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "last-history").mkdir(parents=True, exist_ok=True)
+
+
+def _promote(staging: Path, destination: Path) -> None:
+    """Replace the destination with the staged tree.
+
+    The rename is atomic within a filesystem, so the destination is either
+    the old tree or the new one, never a mixture of the two.
+    """
+    backup = destination.with_name(destination.name + ".previous")
+    if backup.exists():
+        shutil.rmtree(backup)
+    had_destination = destination.exists()
+    if had_destination:
+        destination.rename(backup)
+    try:
+        staging.rename(destination)
+    except OSError:
+        if had_destination:
+            backup.rename(destination)
+        raise
+    if had_destination:
+        shutil.rmtree(backup, ignore_errors=True)
+
+
+def _safe_member_path(name: str) -> None:
+    """Refuse a tarball member whose path leaves the tree it is unpacked into."""
+    if name.startswith("/") or "\\" in name or re.match(r"^[A-Za-z]:", name):
+        raise PublishError(f"tarball contains an unsafe path: {name!r}")
+    parts = PurePosixPath(name).parts
+    if not parts or any(part in ("..", "") for part in parts):
+        raise PublishError(f"tarball contains an unsafe path: {name!r}")
+
+
+def _extract_tarball(tarball_path: Path, destination: Path) -> None:
+    """Unpack a gh-pages tarball into an empty directory, or refuse it.
+
+    Only regular files and directories are unpacked. A tarball that holds a
+    link or a device is refused: a link is a way out of the tree, and the
+    history of this branch is a tree of reports, not a tree of links.
+    """
+    with tarfile.open(tarball_path, "r:gz") as tar:
+        members = tar.getmembers()
+        if not members:
+            raise PublishError("empty tarball")
+        if len(members) > MAX_TAR_MEMBERS:
+            raise PublishError(
+                f"tarball holds {len(members)} members, more than the {MAX_TAR_MEMBERS} allowed"
+            )
+        total = sum(member.size for member in members if member.isfile())
+        if total > MAX_TAR_BYTES:
+            raise PublishError(
+                f"tarball holds {total} bytes, more than the {MAX_TAR_BYTES} allowed"
+            )
+        top_levels = {member.name.split("/", 1)[0] for member in members if member.name}
+        if len(top_levels) != 1:
+            raise PublishError("unexpected tarball layout")
+        prefix = next(iter(top_levels)) + "/"
+        for member in members:
+            if not (member.isfile() or member.isdir()):
+                raise PublishError(f"tarball contains a link or a device: {member.name}")
+            if not member.name.startswith(prefix):
+                continue
+            relative = member.name[len(prefix):]
+            if not relative:
+                continue
+            _safe_member_path(relative)
+        for member in members:
+            if not member.name.startswith(prefix):
+                continue
+            relative = member.name[len(prefix):]
+            if not relative:
+                continue
+            member.name = relative
+            tar.extract(member, destination, filter="data")
 
 
 def bootstrap_history_from_tarball(
@@ -527,64 +698,39 @@ def bootstrap_history_from_tarball(
     tarball_path: Path | None,
     http_status: str | int | None,
 ) -> dict[str, Any]:
-    """Extract gh-pages tarball into gh_pages_dir or initialize clean state.
+    """Prepare the gh-pages tree from the fetched history tarball.
 
-    - 200 + valid tarball: extract (strip top-level dir), preserving branch contents.
-    - 404: explicit first-publication case, clean empty state.
-    - other failures/malformed/missing tarball: cleanup partial extraction and leave
-      clean empty state, returning failure status (caller must not publish over site).
+    - 200 + valid tarball: unpack into a staging directory, then promote it
+      over the destination. The destination keeps its old tree until the
+      new one is complete.
+    - 404: the branch does not exist yet — the first publication starts
+      from an empty tree.
+    - any other failure: the destination is left as it is and the caller
+      is told the history is not usable. The helper does not destroy a
+      tree it has no replacement for.
     """
     status = str(http_status) if http_status is not None else "missing"
 
     if status == "404":
-        _cleanup_dir(gh_pages_dir)
-        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+        _reset_empty_state(gh_pages_dir)
         return {"status": "missing-branch", "http_status": 404, "extracted": False}
 
     if status != "200":
-        _cleanup_dir(gh_pages_dir)
-        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
         return {"status": "download-failed", "http_status": status, "extracted": False}
 
     if tarball_path is None or not Path(tarball_path).exists():
-        _cleanup_dir(gh_pages_dir)
-        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
         return {"status": "missing-tarball", "http_status": 200, "extracted": False}
 
-    _cleanup_dir(gh_pages_dir)
+    gh_pages_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="allure-history-", dir=str(gh_pages_dir.parent)))
     try:
-        with tarfile.open(tarball_path, "r:gz") as tar:
-            members = tar.getmembers()
-            if not members:
-                raise PublishError("empty tarball")
-            top_levels = {m.name.split("/", 1)[0] for m in members if m.name}
-            if len(top_levels) != 1:
-                raise PublishError("unexpected tarball layout")
-            prefix = next(iter(top_levels)) + "/"
-            resolved_root = gh_pages_dir.resolve()
-            for member in members:
-                if not member.name.startswith(prefix):
-                    continue
-                rel = member.name[len(prefix):]
-                if not rel:
-                    continue
-                target = (gh_pages_dir / rel).resolve()
-                if target != resolved_root and resolved_root not in target.parents:
-                    raise PublishError("tarball contains unsafe path")
-            for member in members:
-                if not member.name.startswith(prefix):
-                    continue
-                rel = member.name[len(prefix):]
-                if not rel:
-                    continue
-                member.name = rel
-                tar.extract(member, gh_pages_dir)
+        _extract_tarball(Path(tarball_path), staging)
+        (staging / "last-history").mkdir(parents=True, exist_ok=True)
     except Exception as exc:
-        _cleanup_dir(gh_pages_dir)
-        (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(staging, ignore_errors=True)
         return {"status": "malformed-tarball", "http_status": 200, "extracted": False, "error": str(exc)}
 
-    (gh_pages_dir / "last-history").mkdir(parents=True, exist_ok=True)
+    _promote(staging, gh_pages_dir)
     return {"status": "ok", "http_status": 200, "extracted": True}
 
 
