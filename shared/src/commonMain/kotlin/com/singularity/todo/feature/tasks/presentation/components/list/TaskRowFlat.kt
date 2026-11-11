@@ -83,10 +83,10 @@ fun TaskRowFlat(
                 Modifier
                     // TestTags.taskItem lives here, not only on TaskCard: the agenda renders this flat
                     // variant, so a tag on the card alone left every agenda row unaddressable by UI
-                    // automation. The tag is applied outside the indent padding so the same title
-                    // always yields the same tag regardless of nesting depth, and it covers the row
-                    // alone — the divider below it separates two rows and is not part of either,
-                    // so a height measured on the tagged node is the row's own height.
+                    // automation. The tag covers the row alone — the divider below it separates two
+                    // rows and is not part of either, so a height measured on the tagged node is the
+                    // row's own height. It sits inside the indent padding: an indented child row's
+                    // tagged box starts at its text column, not at the row's left edge.
                     .testTag(TestTags.taskItem(task.title))
                     .combinedClickable(
                         interactionSource = interactionSource,
