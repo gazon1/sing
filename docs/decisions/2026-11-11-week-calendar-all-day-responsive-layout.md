@@ -77,13 +77,17 @@ spills into the next day fails the test.
    icon leave roughly 40 dp — about five characters — for the title. Below that
    the chip is a fragment, not a title.
 
-2. **A narrow week column shows up to two task markers, each a full-column
-   width by 48 dp target.** The visual is an 8 dp dot; the target is the column's
-   width by the project's 48 dp minimum. A 48 dp-wide target does not fit a
-   ~43 dp column, and a shorter one fails the touch-target gate. Two rows cost
-   about 96 dp; the rest sit behind a `+N` label. The markers stay task controls,
-   so per-task navigation is not lost. Month cells keep the existing 8 dp dot in
-   a 48 dp box unchanged: at ~51 dp the square fits.
+2. **A narrow week column shows up to two task markers whose layout box is the
+   column's width by 48 dp.** The visual is an 8 dp dot. This is **not** a
+   48 × 48 dp layout target and this decision does not claim one: at 360 dp the
+   column is ~43.4 dp, and a 48 dp-wide slot would overlap the neighbouring day.
+   Compose expands a `clickable`'s pointer bounds to the platform minimum,
+   centred, so the pointer target reaches slightly into the neighbouring
+   columns; the semantics bounds remain the laid-out ~43.4 × 48 dp. It is the
+   widest target the geometry allows, and the date header remains a full-width
+   route to the day. Two rows cost about 96 dp; the rest sit behind a `+N`
+   label. Month cells keep the existing 8 dp dot in a 48 dp box unchanged: at
+   ~51 dp the square fits.
 
 3. **The date header and the overflow label open that date in DAY view.** A new
    `CalendarIntent.OpenDay(date)` sets `viewMode = DAY` and `anchor = date`. It
@@ -130,11 +134,14 @@ two real widths (360 dp, 600 dp).
 measured limitation rather than an assumption. The limitation is the 48 dp
 layout reservation, which is wider than the ~43 dp column it must fit. The
 adaptation keeps the dot but makes its row the column's width and 48 dp tall:
-that fits without spilling, meets the touch-target minimum, and leaves the
-marker a task control. The cost is height, so only two are shown; the rest are
-reachable through the `+N` label and the day view. Making the cell itself the
-day action was rejected because it took per-task navigation away from every
-marker in the column.
+the height meets the minimum, the width is the most the column can give without
+spilling into its neighbour, and the marker stays a task control. The width is
+below 48 dp, so the layout is not a 48 × 48 target; only Compose's pointer
+expansion makes the hit region reach the platform minimum, and that expansion
+is not measured on a device here. The cost is height, so only two are shown;
+the rest are reachable through the `+N` label and the day view. Making the cell
+itself the day action was rejected because it took per-task navigation away
+from every marker in the column.
 
 ## Consequences
 
@@ -149,8 +156,13 @@ marker in the column.
 - `MoreTasksLabel` gains `compact` and is single-line everywhere.
 - Android at 360×800 dp was not reproduced on an emulator in this change; the
   measurement uses the same shared composables in the desktop Compose harness.
-  That is the remaining verification gap before closing the tablet/phone
-  screenshot criterion.
+  The narrow marker's pointer expansion and semantics bounds on a device are
+  the remaining verification gap, as are the phone/tablet screenshots.
+- The narrow marker's layout target is ~43.4 × 48 dp, not 48 × 48 dp. The
+  desktop test asserts the height and the "stays inside its column" bounds; it
+  cannot observe the platform pointer expansion.
+- Weekday and `+N` strings remain the app's hardcoded English; the Russian
+  coverage belongs to the commonMain string migration (#1635).
 - #2737 implements the rest of the acceptance criteria (Maestro/screenshot
   coverage, Russian locale flows) on top of this decision.
 

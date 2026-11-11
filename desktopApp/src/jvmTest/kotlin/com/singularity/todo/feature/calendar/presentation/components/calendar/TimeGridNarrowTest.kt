@@ -16,6 +16,7 @@ import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.clickTagFirst
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.countNodes
+import com.singularity.todo.test.helpers.countNodesWithText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfTagAt
 import kotlinx.collections.immutable.ImmutableList
@@ -81,6 +82,7 @@ class TimeGridNarrowTest {
                             dates = week,
                             tasksByDate = tasksFor(),
                             today = monday,
+                            onDayClick = {},
                         )
                     }
                 }
@@ -89,10 +91,12 @@ class TimeGridNarrowTest {
             val cellWidth = weekDayWidth(unclippedBoundsOfTagAt(TestTags.CALENDAR_DAY_CELL, index = 0))
             assertEquals(43.4f, cellWidth.value, 1.5f, "measured week-column width at 360 dp")
 
-            assertTrue(
-                countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true) > 0,
-                "a 43 dp column should render compact markers",
+            assertEquals(
+                14,
+                countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true),
+                "two markers per day, seven days",
             )
+            assertEquals(7, countNodesWithText("+3"), "five tasks, two shown: one +3 per day")
             assertTextNotExists("Событие 1 дня 12")
         }
 
@@ -106,6 +110,7 @@ class TimeGridNarrowTest {
                             dates = week,
                             tasksByDate = tasksFor(),
                             today = monday,
+                            onDayClick = {},
                         )
                     }
                 }
@@ -119,6 +124,7 @@ class TimeGridNarrowTest {
                 countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true),
                 "a 77.7 dp column should keep title chips, not markers",
             )
+            assertEquals(7, countNodesWithText("+2 more"), "five tasks, three chips: one +2 per day")
             assertTextDisplayed("Событие 1 дня 12")
         }
 
@@ -133,6 +139,7 @@ class TimeGridNarrowTest {
                             dates = fourDays.toImmutableList(),
                             tasksByDate = tasksFor(fourDays),
                             today = monday,
+                            onDayClick = {},
                         )
                     }
                 }
@@ -141,6 +148,7 @@ class TimeGridNarrowTest {
             val cellWidth = weekDayWidth(unclippedBoundsOfTagAt(TestTags.CALENDAR_DAY_CELL, index = 0))
             assertEquals(76f, cellWidth.value, 1.5f, "measured four-day column at 360 dp")
             assertEquals(0, countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true))
+            assertEquals(4, countNodesWithText("+2 more"), "five tasks, three chips: one +2 per day")
             assertTextDisplayed("Событие 1 дня 12")
         }
 
@@ -165,6 +173,7 @@ class TimeGridNarrowTest {
                                         ),
                                 ),
                             today = monday,
+                            onDayClick = {},
                         )
                     }
                 }
@@ -175,8 +184,26 @@ class TimeGridNarrowTest {
                 countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true),
                 "one event on Monday is one marker; the other six days are empty",
             )
-            assertTextNotExists("+1")
+            assertEquals(0, countNodesWithText("+1"), "one event has nothing to overflow")
             assertTextNotExists("Единственное событие")
+        }
+
+    @Test
+    fun `a multi-day grid without a day action still caps the column`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            // The cap comes from the view mode, not from whether a callback was
+            // supplied: omitting onDayClick must not turn a week into a day view.
+            setContent {
+                ProvideCalendarPalette {
+                    MaterialTheme {
+                        TimeGridView(dates = week, tasksByDate = tasksFor(), today = monday)
+                    }
+                }
+            }
+
+            assertEquals(14, countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true))
+            assertEquals(7, countNodesWithText("+3"))
+            assertTextNotExists("Событие 1 дня 12")
         }
 
     @Test
@@ -185,12 +212,17 @@ class TimeGridNarrowTest {
             setContent {
                 ProvideCalendarPalette {
                     MaterialTheme {
-                        TimeGridView(dates = week, tasksByDate = tasksFor(), today = monday)
+                        TimeGridView(
+                            dates = week,
+                            tasksByDate = tasksFor(),
+                            today = monday,
+                            onDayClick = {},
+                        )
                     }
                 }
             }
             // 69.1 dp per day.
-            assertTrue(countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true) > 0)
+            assertEquals(14, countNodes(TestTags.CALENDAR_ALL_DAY_MARKER, useUnmergedTree = true))
         }
 
     @Test
@@ -199,7 +231,12 @@ class TimeGridNarrowTest {
             setContent {
                 ProvideCalendarPalette {
                     MaterialTheme {
-                        TimeGridView(dates = week, tasksByDate = tasksFor(), today = monday)
+                        TimeGridView(
+                            dates = week,
+                            tasksByDate = tasksFor(),
+                            today = monday,
+                            onDayClick = {},
+                        )
                     }
                 }
             }
@@ -208,12 +245,17 @@ class TimeGridNarrowTest {
         }
 
     @Test
-    fun `a compact marker stays inside its own day column`() =
+    fun `a compact marker is 48 dp tall, as wide as its column, and stays inside it`() =
         runIsolatedComposeTest(width = 360, height = 800) {
             setContent {
                 ProvideCalendarPalette {
                     MaterialTheme {
-                        TimeGridView(dates = week, tasksByDate = tasksFor(), today = monday)
+                        TimeGridView(
+                            dates = week,
+                            tasksByDate = tasksFor(),
+                            today = monday,
+                            onDayClick = {},
+                        )
                     }
                 }
             }
@@ -226,7 +268,16 @@ class TimeGridNarrowTest {
                     useUnmergedTree = true,
                 )
             val cellWidth = weekDayWidth(cell)
+            val markerHeight = marker.bottom - marker.top
 
+            // The layout target is the column's width by the 48 dp minimum. It is
+            // not 48 x 48: a 48 dp-wide slot would overlap the neighbouring day.
+            // Compose expands a clickable's pointer bounds to the platform
+            // minimum, centred; the semantics bounds stay the laid-out size.
+            assertTrue(
+                markerHeight >= 48.dp,
+                "the marker is $markerHeight tall, below the 48 dp minimum",
+            )
             assertTrue(
                 weekDayWidth(marker) <= cellWidth + 0.5.dp,
                 "the marker reserved ${weekDayWidth(marker)} in a $cellWidth column — it spills into the next day",
@@ -338,7 +389,12 @@ class TimeGridNarrowTest {
             setContent {
                 ProvideCalendarPalette {
                     MaterialTheme {
-                        TimeGridView(dates = week, tasksByDate = tasksFor(), today = monday)
+                        TimeGridView(
+                            dates = week,
+                            tasksByDate = tasksFor(),
+                            today = monday,
+                            onDayClick = {},
+                        )
                     }
                 }
             }

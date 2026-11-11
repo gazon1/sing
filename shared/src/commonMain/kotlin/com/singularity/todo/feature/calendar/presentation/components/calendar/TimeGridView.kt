@@ -135,6 +135,9 @@ fun TimeGridView(
                 tasksByDate = tasksByDate,
                 selectedTaskId = selectedTaskId,
                 compact = compactDays,
+                // The view mode decides the cap; whether a day action was
+                // supplied only decides whether the header and +N navigate.
+                showAll = dates.size == 1,
                 onTaskClick = { task ->
                     scope.launch { haptic.perform() }
                     onTaskClick(task)
@@ -197,6 +200,7 @@ private fun AllDayStrip(
     tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>,
     selectedTaskId: String?,
     compact: Boolean,
+    showAll: Boolean,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onOpenDay: ((LocalDate) -> Unit)?,
     palette: CalendarPalette,
@@ -220,6 +224,7 @@ private fun AllDayStrip(
                 tasks = allDayTasksByDate[date] ?: persistentListOf(),
                 selectedTaskId = selectedTaskId,
                 compact = compact,
+                showAll = showAll,
                 onTaskClick = onTaskClick,
                 onOpenDay = onOpenDay?.let { open -> { open(date) } },
                 palette = palette,
@@ -320,13 +325,12 @@ private fun AllDayCell(
     tasks: ImmutableList<CalendarTaskUi>,
     selectedTaskId: String?,
     compact: Boolean,
+    showAll: Boolean,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onOpenDay: (() -> Unit)?,
     palette: CalendarPalette,
     modifier: Modifier = Modifier,
 ) {
-    // No day-open action means this is the single-day view: the complete list.
-    val showAll = onOpenDay == null
     val visible =
         remember(tasks, showAll, compact) {
             when {

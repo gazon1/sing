@@ -19,6 +19,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -273,6 +274,16 @@ fun DesktopComposeUiTest.countNodes(
     tag: String,
     useUnmergedTree: Boolean = false,
 ): Int = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree).fetchSemanticsNodes().size
+
+/**
+ * How many nodes carry [text] right now.
+ *
+ * The counterpart of [countNodes] for text that repeats: one `+N` label per day
+ * column is several nodes, and `onNodeWithText` refuses to choose. It is a
+ * count, not an assertion — the caller says what the number means.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.countNodesWithText(text: String): Int = onAllNodesWithText(text).fetchSemanticsNodes().size
 
 /**
  * Whether the checkbox with [testTag] reports ToggleableState.On right now.
