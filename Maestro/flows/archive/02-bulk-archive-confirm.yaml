@@ -1,0 +1,96 @@
+# The bulk archive lives in the Archive screen's overflow and confirms first.
+#
+# Covers: complete a task -> Archive -> overflow -> confirmation -> Cancel writes
+# nothing -> Confirm moves the task to the archive.
+#
+# The action used to be a full-width button. This flow pins the replacement and
+# the two outcomes that matter: a cancel must leave the task in the live list,
+# and a confirm must put it in the archive. See
+# docs/decisions/2026-11-11-archive-bulk-action-lives-in-the-overflow.md.
+appId: com.singularity.todo
+name: archive-bulk-confirm
+tags:
+  - smoke
+  - archive
+---
+- runFlow: ../../helpers/seed-task.yaml
+# Complete it first: the sweep only takes completed tasks.
+- longPressOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_context_menu_sheet
+    timeout: 8000
+- tapOn:
+    id: task_action_mark_as_completed
+- extendedWaitUntil:
+    visible:
+      id: task_checkbox_buy_milk
+      checked: true
+    timeout: 8000
+# Open the Archive screen from the menu sheet.
+- runFlow: ../../helpers/open-archive.yaml
+- extendedWaitUntil:
+    visible:
+      id: archive_empty
+    timeout: 8000
+# The action is in the overflow, not in the content area.
+- assertNotVisible: "Archive completed tasks (tap to archive all)"
+- tapOn:
+    id: archive_overflow
+- extendedWaitUntil:
+    visible:
+      id: archive_bulk_action
+    timeout: 5000
+- tapOn:
+    id: archive_bulk_action
+- extendedWaitUntil:
+    visible:
+      id: dialog_confirm
+    timeout: 8000
+# Cancel: the task is still a completed live task.
+- tapOn:
+    id: dialog_dismiss
+- extendedWaitUntil:
+    notVisible:
+      id: dialog_confirm
+    timeout: 8000
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
+# Confirm: the task moves to the archive.
+- runFlow: ../../helpers/open-archive.yaml
+- extendedWaitUntil:
+    visible:
+      id: archive_empty
+    timeout: 8000
+- tapOn:
+    id: archive_overflow
+- extendedWaitUntil:
+    visible:
+      id: archive_bulk_action
+    timeout: 5000
+- tapOn:
+    id: archive_bulk_action
+- extendedWaitUntil:
+    visible:
+      id: dialog_confirm
+    timeout: 8000
+- tapOn:
+    id: dialog_confirm
+# The success report is a modal result dialog; dismiss it before looking for
+# the row, because its window covers the list.
+- extendedWaitUntil:
+    visible:
+      id: result_dialog_confirm
+    timeout: 8000
+- assertVisible: "Moved 1 task to archive"
+- tapOn:
+    id: result_dialog_confirm
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000

@@ -81,6 +81,11 @@ class TaskRepositoryImpl(
             taskDao.withExtras(uid, taskDao.watchActive(uid.value))
         }
 
+    override fun observeArchivableCount(): Flow<Int> =
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.watchArchivableCountForUser(uid.value)
+        }
+
     override fun observe(id: TaskId): Flow<Task?> =
         currentUser.observeForCurrentUser { uid ->
             combine(

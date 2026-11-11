@@ -23,6 +23,7 @@ import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeChecklistRepository
@@ -584,7 +585,9 @@ class ApplyProposalItemUseCaseTest {
 
             assertFailsWith<CancellationException> { useCase.confirm(id, user) }
 
-            val written = tasks.observeAll().first().filter { it.title == "Pick up milk" }
+            // The row survives in the trash: production's `observeAll()` is
+            // `watchActive`, so an archived row is read through the trash filter.
+            val written = tasks.observeByFilter(TaskFilter.Trash).first().filter { it.title == "Pick up milk" }
             assertEquals(1, written.size, "the row that was written is still there")
             assertNotNull(
                 written.single().archivedAt,

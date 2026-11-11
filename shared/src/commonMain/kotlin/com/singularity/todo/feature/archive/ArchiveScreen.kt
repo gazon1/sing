@@ -4,23 +4,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -31,6 +33,7 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -38,6 +41,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.nav.AppDestination
@@ -49,7 +53,6 @@ import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.toImmutableSet
 import org.koin.compose.viewmodel.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("LongMethod")
 fun ArchiveScreen(
@@ -61,13 +64,10 @@ fun ArchiveScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Archive") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+            ArchiveTopBar(
+                state = state,
+                onBack = onBack,
+                onArchiveCompleted = { viewModel.onIntent(ArchiveIntent.ArchiveCompletedTasks) },
             )
         },
     ) { padding ->
@@ -78,18 +78,6 @@ fun ArchiveScreen(
                     .padding(padding)
                     .padding(horizontal = 16.dp),
         ) {
-            val refreshing = state.let { it is ArchiveUiState.Content && it.refreshing }
-            Button(
-                onClick = { viewModel.onIntent(ArchiveIntent.Refresh) },
-                enabled = !refreshing,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (refreshing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                } else {
-                    androidx.compose.material3.Text("Archive completed tasks (tap to archive all)")
-                }
-            }
             RefreshableContent {
                 when (val s = state) {
                     ArchiveUiState.Loading -> {
@@ -109,7 +97,7 @@ fun ArchiveScreen(
                         if (s.tasks.isEmpty()) {
                             EmptyState(
                                 title = "Archive is empty",
-                                subtitle = "Tap the button above to archive completed tasks",
+                                subtitle = "Completed tasks you archive will appear here",
                                 testTag = TestTags.ARCHIVE_EMPTY,
                             )
                         } else {
@@ -158,9 +146,86 @@ fun ArchiveScreen(
     )
 }
 
+/**
+ * The archive top bar.
+ *
+ * The bulk action lives in the overflow rather than as a full-width button: it is
+ * a secondary, destructive-in-effect sweep, not the screen's primary job. The bar
+ * publishes its action row to the Android shell (see [TopAppBar]), so the same
+ * menu is drawn by the shell on Android and by the bar itself on desktop.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ArchiveTopBar(
+    state: ArchiveUiState,
+    onBack: () -> Unit,
+    onArchiveCompleted: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
+    val content = state as? ArchiveUiState.Content
+    val eligible = content?.eligibleCount ?: 0
+    val archiving = content?.archiving == true
+
+    TopAppBar(
+        title = { Text("Archive") },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        },
+        actions = {
+            Box {
+                IconButton(
+                    onClick = { menuOpen = true },
+                    modifier = Modifier.testTag(TestTags.ARCHIVE_OVERFLOW),
+                ) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More")
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                    // Renders in its own popup window — mapTestTagsAsResourceIds required
+                    // so Maestro id: selectors can find items inside the menu.
+                    modifier = Modifier.mapTestTagsAsResourceIds(),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Archive completed tasks ($eligible)") },
+                        onClick = {
+                            menuOpen = false
+                            confirming = true
+                        },
+                        enabled = eligible > 0 && !archiving,
+                        modifier = Modifier.testTag(TestTags.ARCHIVE_BULK_ACTION),
+                    )
+                }
+            }
+        },
+    )
+
+    // The count can fall to zero while the dialog is open — another device archived
+    // the same work. Closing it is the honest answer: there is nothing left to
+    // confirm, and a "0 tasks" dialog would name an operation nobody can perform.
+    if (confirming && eligible > 0) {
+        ConfirmActionDialog(
+            title = "Archive completed tasks?",
+            text =
+                "Move $eligible completed ${if (eligible == 1) "task" else "tasks"} to Archive? " +
+                    "They leave active lists and can be restored individually from Archive.",
+            confirmButtonText = if (eligible == 1) "Archive 1 task" else "Archive $eligible tasks",
+            onConfirm = {
+                confirming = false
+                onArchiveCompleted()
+            },
+            onDismiss = { confirming = false },
+        )
+    }
+}
+
 private fun ArchiveUiEvent.toNotification(): Notification =
     when (this) {
         is ArchiveUiEvent.Archived -> Notification.Text(title = "Archived", text = message)
+        ArchiveUiEvent.NothingToArchive -> Notification.Text(title = "Archive", text = "Nothing to archive")
         is ArchiveUiEvent.Error -> Notification.Error(message)
     }
 
@@ -170,17 +235,6 @@ private fun ArchiveUiEvent.toNotification(): Notification =
 private fun ArchiveContentPreview(state: ArchiveUiState) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            val refreshing = state.let { it is ArchiveUiState.Content && it.refreshing }
-            Button(
-                onClick = noopClick,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (refreshing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                } else {
-                    androidx.compose.material3.Text("Archive completed tasks (tap to archive all)")
-                }
-            }
             when (state) {
                 ArchiveUiState.Loading -> {
                     LoadingIndicator()
@@ -194,7 +248,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                     if (state.tasks.isEmpty()) {
                         EmptyState(
                             title = "Archive is empty",
-                            subtitle = "Tap the button above to archive completed tasks",
+                            subtitle = "Completed tasks you archive will appear here",
                             testTag = TestTags.ARCHIVE_EMPTY,
                         )
                     } else {

@@ -608,6 +608,11 @@ private class FakeTaskDao(
                 .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
+    override fun watchArchivableCountForUser(userId: String): Flow<Int> =
+        store.map { map ->
+            map.values.count { t -> t.userId == userId && t.completedAt != null && t.archivedAt == null }
+        }
+
     override fun watchById(id: String): Flow<TaskEntity?> = store.map { it[id] }
 
     override fun watchByIdForUser(

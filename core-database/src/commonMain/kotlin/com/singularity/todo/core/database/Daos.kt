@@ -770,6 +770,23 @@ interface TaskDao {
     ): Int
 
     /**
+     * The number of rows [archiveCompletedForUser] would move: completed and not
+     * archived, for one user.
+     *
+     * A projection rather than a read of the rows. The Archive screen needs one
+     * number to label its bulk action and to refuse an empty sweep; loading every
+     * live task with its tags and blocking edges to count the completed ones pays
+     * for rows the count never shows.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM tasks
+        WHERE user_id = :userId AND completed_at IS NOT NULL AND archived_at IS NULL
+        """,
+    )
+    fun watchArchivableCountForUser(userId: String): Flow<Int>
+
+    /**
      * Non-suspend Flow of all tag cross-references for the given [userId].
      * Room emits a new collection whenever any row changes.
      */

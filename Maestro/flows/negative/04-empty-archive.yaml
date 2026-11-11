@@ -7,18 +7,15 @@ tags:
   - negative
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- scrollUntilVisible:
-    element:
-      id: menu_archive
-    direction: DOWN
-    timeout: 5000
-- tapOn:
-    id: menu_archive
+- runFlow: ../../helpers/open-archive.yaml
 - extendedWaitUntil:
     visible: "Archive is empty"
     timeout: 8000
+# The bulk action moved into the overflow. With nothing completed it stays
+# discoverable; the desktop flow pins that it is disabled.
+- tapOn:
+    id: archive_overflow
+- extendedWaitUntil:
+    visible:
+      id: archive_bulk_action
+    timeout: 5000

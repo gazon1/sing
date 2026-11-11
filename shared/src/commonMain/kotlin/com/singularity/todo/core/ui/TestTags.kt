@@ -791,6 +791,12 @@ object TestTags {
     /** "Archive is empty" empty state title on the archive list screen. */
     const val ARCHIVE_EMPTY = "archive_empty"
 
+    /** The overflow button in the archive screen's top bar. */
+    const val ARCHIVE_OVERFLOW = "archive_overflow"
+
+    /** The bulk "archive completed tasks" item in the archive overflow menu. */
+    const val ARCHIVE_BULK_ACTION = "archive_bulk_action"
+
     /** "No notes yet" empty state title on the notes list screen. */
     const val NOTES_LIST_EMPTY = "notes_list_empty"
 
