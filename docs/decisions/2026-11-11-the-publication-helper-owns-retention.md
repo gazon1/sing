@@ -75,14 +75,18 @@ that names them.
 The manifest states its own invariants — the identity key matches the record, the
 population matches the namespace, `latest` is the record that is stored — and a
 manifest that breaks one of them is refused with the reason. Unknown fields are
-refused instead of dropped, a manifest of an unsupported schema version is
-refused instead of migrated, and the integers are strict.
+refused instead of dropped, and the integers are strict.
 
 The Pages branch holds the only copy of the publication state. A manifest that is
 repaired in place hides the damage: the next run publishes from a state that
 nobody has seen. An error stops the publication and names the file and the field.
 
-Schema version 1 was never published, so it is refused rather than migrated.
+A manifest of an older schema is migrated, explicitly and separately from
+validation: schema version 1 had no `population` field, because one manifest
+held the whole site and each record named its own population. A version 1
+document is split into the namespaces it names, and the records of one
+population become that namespace's manifest. A version the migration does not
+know is refused, never reinterpreted.
 
 ## 3. One report-path policy
 
@@ -100,9 +104,18 @@ fetch leaves the destination as it was. The destination is emptied only in the o
 case where emptiness is the correct state: the branch does not exist yet.
 
 The tarball is accepted only if it holds regular files and directories, at most
-20 000 members and at most 2 GiB, and only if no member path leaves the tree. A
+500 000 members and at most 4 GiB, and only if no member path leaves the tree. A
 link is refused: the history of this branch is a tree of reports, and a link is a
 way out of the tree it is unpacked into.
+
+The caps are sized against the branch, not against a guess. The branch holds the
+legacy root-level reports (~25 000 files) plus the retention window: twenty
+reports per population, ~4 900 files each — about 220 000 files and 1.2 GB, and
+bounded there by the retention the helper owns. A cap that normal operation
+reaches is not a safety feature; it is a pipeline that fails on the day the
+history grows past it. That is what a 20 000 member cap was: the branch held
+25 249 members, and the first publication after this change would have failed
+on real data.
 
 ## 5. The publication state is written as one unit
 
@@ -149,8 +162,13 @@ left alone: the helper does not delete history it cannot explain.
 - Report directories the manifest does not name are no longer removed by the
   prune. The number of directories in a population namespace can therefore be
   larger than the window; the window counts publications, not directories.
-- The tarball limits are fixed numbers in the helper. A history that grows past
-  them needs a new number and a reason, not a bigger constant.
+- The tarball limits are fixed numbers in the helper, sized against the branch's
+  steady state (~220 000 files, 1.2 GB). A history that grows past them needs a
+  new number and a reason, not a bigger constant.
+- A schema version 1 manifest is migrated rather than refused. It was never
+  published on this branch, so the migration runs on nothing today; it exists
+  because the schema changed once already and a document of the old shape must
+  not be silently reinterpreted as the current one.
 - The legacy root-level reports on the `gh-pages` branch are not touched by any
   of this. They are published URLs, and removing them is a separate decision.
 
