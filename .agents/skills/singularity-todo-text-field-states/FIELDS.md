@@ -59,6 +59,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/settings/screens/WorkScheduleSettingsScreen.kt` | anchored | the time |
 | `feature/tags/components/AddTagDialog.kt` | local | the tag's name |
 | `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | anchored | the interval amount, the day of month |
+| `feature/tasks/presentation/components/detail/RelatedTaskPickerSheet.kt` | local | the search query — the sheet owns it and searches on demand |
 | `feature/tasks/presentation/components/detail/SubtasksSection.kt` | local | the new subtask |
 | `feature/tasks/presentation/components/detail/TaskDetailExtraSections.kt` | local | the new checklist item |
 | `feature/proposals/presentation/components/ProposalCard.kt` | local | the rejection reason |

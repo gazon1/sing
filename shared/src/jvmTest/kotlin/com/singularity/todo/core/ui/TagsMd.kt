@@ -296,6 +296,18 @@ object TagsMd {
                 DynamicMeta(fnName, "Tasks", "blocks", "Kind-of-relation chips on one dependency row")
             }
 
+            "relatedTaskItem" -> {
+                DynamicMeta(fnName, "Tasks", "01ABC...", "Rows in the related-tasks section")
+            }
+
+            "relatedTaskRemove" -> {
+                DynamicMeta(fnName, "Tasks", "01ABC...", "Remove buttons for related tasks")
+            }
+
+            "relatedTaskCandidate" -> {
+                DynamicMeta(fnName, "Tasks", "01ABC...", "Candidate rows in the related-task picker")
+            }
+
             "subtaskItem" -> {
                 DynamicMeta(fnName, "Tasks", "Child task one", "Subtask list rows")
             }

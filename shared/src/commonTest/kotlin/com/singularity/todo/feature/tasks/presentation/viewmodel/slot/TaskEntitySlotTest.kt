@@ -48,16 +48,21 @@ class TaskEntitySlotTest {
         }
 
     @Test
-    fun `available tasks exclude the task itself and trashed tasks`() =
+    fun `related tasks resolve current relations`() =
         runTest {
             val fakes = SlotFakes()
             fakes.taskRepo.seed(
                 task("t1"),
-                task("t2"),
-                // archivedAt != null is what isTrashed derives from
-                task("t3", title = "archived").copy(archivedAt = Clock.System.now()),
+                task("t2", title = "Dep"),
+                task("t3", title = "Follow"),
             )
-            val source = TaskSource(task("t1"))
+            val source =
+                TaskSource(
+                    task("t1").copy(
+                        blockedBy = setOf(TaskId("t2")),
+                        followsUp = setOf(TaskId("t3")),
+                    ),
+                )
             val slot =
                 TaskEntitySlot(
                     taskId = TaskId("t1"),
@@ -68,12 +73,36 @@ class TaskEntitySlotTest {
                 ) {}
             runCurrent()
 
-            val available =
-                slot.state.value.availableTasks
+            val related =
+                slot.state.value.relatedTasks
                     .map { it.id.value }
-            assertTrue("t1" !in available, "the task must not be offered as its own dependency")
-            assertTrue("t3" !in available, "trashed tasks must not be offered")
-            assertTrue("t2" in available)
+                    .toSet()
+            assertEquals(setOf("t2", "t3"), related)
+        }
+
+    @Test
+    fun `related tasks clear when relations are removed`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"), task("t2", title = "Dep"))
+            val source = TaskSource(task("t1").copy(blockedBy = setOf(TaskId("t2"))))
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
+            assertEquals(1, slot.state.value.relatedTasks.size)
+
+            source.emit(task("t1"))
+            runCurrent()
+            assertTrue(
+                slot.state.value.relatedTasks
+                    .isEmpty(),
+            )
         }
 
     @Test

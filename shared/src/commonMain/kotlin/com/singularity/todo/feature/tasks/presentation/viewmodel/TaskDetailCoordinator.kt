@@ -447,7 +447,7 @@ class TaskDetailCoordinator(
                     subtasks = childrenState.subtasks.toImmutableList(),
                     blockedBy = task.blockedBy.toImmutableSet(),
                     followsUp = task.followsUp.toImmutableSet(),
-                    availableTasks = entityState.availableTasks.toImmutableList(),
+                    relatedTasks = entityState.relatedTasks.toImmutableList(),
                     linkedNotes = backlinkState.notes.toImmutableList(),
                     linkedTasks = backlinkState.tasks.toImmutableList(),
                     logbookEntries = logState.allEntries.toImmutableList(),
