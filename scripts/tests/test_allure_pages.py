@@ -300,7 +300,6 @@ class AllurePagesTest(unittest.TestCase):
             ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
         self.assertEqual(ap.manifest_path(self.site / "fast").read_text(encoding="utf-8"), before)
 
-    # ── Publish tree ──────────────────────────────────────────────────────────
 
     def test_publish_tree_validation_rejects_git_and_temp_archives(self):
         self.make_report(self.site, "fast", "10")
@@ -526,6 +525,16 @@ class PublicationContractTest(unittest.TestCase):
                 ap.safe_report_path(bad)
         self.assertEqual(ap.safe_report_path("10"), "10")
         self.assertEqual(ap.safe_report_path("2026-11-11_run.1"), "2026-11-11_run.1")
+
+    def test_the_tarball_caps_sit_above_the_published_branch(self):
+        # The branch holds the legacy root-level reports (~25 000 files) plus
+        # the retention window: twenty reports per population, ~4 900 files
+        # each. A cap below that is a pipeline that fails on the day the
+        # history grows past it, which is what 20 000 members did — the branch
+        # holds 25 249 members today.
+        self.assertGreater(ap.MAX_TAR_MEMBERS, 25_000 + 2 * 20 * 5_000)
+        self.assertGreater(ap.MAX_TAR_BYTES, 2 * 1024 * 1024 * 1024)
+
 
 
 if __name__ == "__main__":

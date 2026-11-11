@@ -59,11 +59,18 @@ REPORTS_PER_POPULATION = 20
 REPORT_PATH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 # What a fetched history tarball may hold. The tarball is a copy of a branch
-# this repository published: a few thousand files, a few hundred megabytes.
-# A tarball that holds more is not one, and unpacking it is how a disk gets
-# filled.
-MAX_TAR_MEMBERS = 20_000
-MAX_TAR_BYTES = 2 * 1024 * 1024 * 1024
+# this repository published, so its size is bounded by the retention window:
+# twenty reports per population (~4 900 files each), plus the legacy
+# root-level reports that are never removed. That is ~220 000 files and
+# ~1.2 GB today and it stops growing there.
+#
+# The caps sit well above that steady state. A cap that normal operation
+# reaches is not a safety feature: it is a pipeline that fails on the day
+# the history grows past it, which is what 20 000 members did — the branch
+# holds 25 249 today. A tarball far past these numbers is not one, and
+# unpacking it is how a disk gets filled.
+MAX_TAR_MEMBERS = 500_000
+MAX_TAR_BYTES = 4 * 1024 * 1024 * 1024
 
 
 class PublishError(Exception):
