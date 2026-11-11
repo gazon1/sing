@@ -91,6 +91,10 @@ have to be reconciled somewhere — which is the defect this decision is about.
   the same intent the sheet uses, so there is one filtering implementation.
 - The sheet's Apply is `initialFilter.copy(facets…)`: the parts of the query the
   sheet does not edit are carried over, not dropped.
+- The no-results state offers a **clear-query** action of its own, and it is the
+  field's clear: the button calls the field's `clearText()`, so there is one way
+  to empty the field and two ways to ask for it. The field's trailing clear
+  button stays where it is; the empty state's button is the labelled one.
 - The **project badge** lookup is a ViewModel-side subscription
   (`projectRepo.observeAllIncludingClosed()`, one per screen, resolved once per
   build) and lives in `SearchUiState.projectsById`. It is not in the search
@@ -118,6 +122,18 @@ currently *doing* with it. When the user edits the field again, the text is
 parsed as always and the filter comes back — which is the behaviour a user
 expects.
 
+The clear-query affordance is a second *way to ask*, not a second *way to
+clear*. The field already has a trailing clear button, and the issue asks that
+the no-results state not duplicate it unnecessarily. Two readings of that were
+weighed: leave the empty state without an action and rely on the field's
+button, or give the empty state a labelled button. The first leaves the user
+looking at an explanation of why nothing matched, with the way out in a small
+glyph at the top of the screen — the opposite end of the screen from where the
+attention is. The second puts the way out under the explanation, in the words
+the user is already reading. The duplication is of the *affordance*, not of the
+behaviour: the button calls the field's own `clearText()`, so the field cannot
+be emptied in two different ways and the two buttons cannot disagree.
+
 ## Consequences
 
 - `SearchIntent.OnApplyFilter(null)` no longer compiles. Every call site is a
@@ -132,6 +148,10 @@ expects.
   predicate, and the results the constraints had hidden come back.
 - The search path still does not read the projects table; the badge costs one
   subscription per screen, not a lookup per row.
+- The no-results state shows a clear-query button beside the field's own
+  trailing clear button. Both go through the field's clear — one `OnQueryChange`
+  with the empty text — so they cannot disagree; a test asserts the empty
+  state's button produces exactly that intent.
 
 ## Links
 
