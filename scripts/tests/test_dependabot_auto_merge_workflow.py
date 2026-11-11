@@ -19,8 +19,14 @@ whole batch died:
 
 The workflow's shell lives inside YAML, so the tests extract the `run:` script
 of a named step and run it with bash against a throwaway directory: a fake `gh`
-on PATH answers the API calls the workflow actually makes, `jq` is the real one
-when the machine has it, and the clock is a fake.
+on PATH answers the API calls the workflow actually makes, a stand-in for `jq`
+answers the two filters the workflow applies, and the clock is a fake.
+
+The stand-in for `jq` is installed on every machine, not only on one that has
+no `jq` of its own: the workflow calls `jq -r '<filter>'`, and a stand-in that
+only ever works where the real `jq` is missing is a stand-in nobody runs. The
+fake `gh` looks its own `jq` up in the system directories alone, so the filter
+it hands to it is still evaluated by the real `jq` when the machine has one.
 
 The clock is a fake for a reason: the `checks` step polls until a deadline of
 thirty minutes, sleeping twenty seconds a round, so a pull request whose gate
@@ -119,8 +125,18 @@ def _check_runs(sha):
 def _apply_jq(expression, payload):
     """The `--jq` of `gh api`, applied the way `gh` applies it."""
     text = json.dumps(payload)
+    # The real `jq`, not the stand-in: the stand-in is there for the workflow's
+    # own filters, and this filter is one the stand-in does not know.
+    environment = dict(os.environ)
+    environment['PATH'] = os.environ.get('FAKE_GH_SYSTEM_PATH', environment.get('PATH', ''))
     try:
-        jq = subprocess.run(['jq', '-r', expression], input=text, capture_output=True, text=True)
+        jq = subprocess.run(
+            ['jq', '-r', expression],
+            input=text,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
     except FileNotFoundError:
         jq = None
     if jq is not None and jq.returncode == 0:
@@ -200,13 +216,18 @@ else
 fi
 '''
 
-#: The stand-in for `jq`, used only on a machine that has no `jq` of its own.
-#: It understands the two filters the workflow applies to the pull request.
+#: The stand-in for `jq`. The workflow calls it as `jq -r '<filter>'`, so the
+#: filter is the last argument and the flags before it are ignored. It
+#: understands the two filters the workflow applies to the pull request.
 MINI_JQ = '''#!/usr/bin/env python3
 import json
 import sys
 
-expression = sys.argv[1]
+arguments = [argument for argument in sys.argv[1:] if not argument.startswith('-')]
+if not arguments:
+    sys.stderr.write('mini jq: no filter\\n')
+    sys.exit(2)
+expression = arguments[-1]
 payload = json.load(sys.stdin)
 if expression.startswith('.mergeable_state'):
     print(payload.get('mergeable_state') or 'unknown')
@@ -336,8 +357,10 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
 
         self._write_stub('gh', FAKE_GH)
         self._write_stub('date', FAKE_DATE)
-        if shutil.which('jq') is None:
-            self._write_stub('jq', MINI_JQ)
+        # The stand-in for `jq` is installed on every machine, so the workflow's
+        # own filters are exercised here and not only where `jq` happens to be
+        # missing.
+        self._write_stub('jq', MINI_JQ)
 
     def _write_stub(self, name: str, body: str) -> None:
         stub = self.stubs / name
@@ -371,6 +394,9 @@ class DependabotAutoMergeWorkflowTest(unittest.TestCase):
         env['GITHUB_STEP_SUMMARY'] = str(self.summary)
         env['FAKE_GH_STATE'] = str(self.state)
         env['FAKE_DATE_STATE'] = str(self.tmp / 'date-state')
+        # The fake `gh` looks its `jq` up in the system directories alone: the
+        # stub directory holds the stand-in for the workflow's own filters.
+        env['FAKE_GH_SYSTEM_PATH'] = SYSTEM_PATH
         try:
             return subprocess.run(
                 ['bash', str(path)],
