@@ -452,10 +452,15 @@ def attach_evidence(result: dict, report: pathlib.Path, out: pathlib.Path, findi
                 # The cut leaves half a line at the top; a log that starts
                 # mid-line reads as corruption.
                 text = text.split("\n", 1)[1]
+            payload = text.encode("utf-8")
+            if len(payload) > MAX_LOGCAT_BYTES:
+                # An invalid byte became a three-byte replacement character, so the
+                # re-encoded tail can be three times the cut. The cap is the promise,
+                # so it is applied to the bytes that are written; the cut lands on a
+                # character boundary, because half a character is corruption.
+                payload = payload[:MAX_LOGCAT_BYTES].decode("utf-8", errors="ignore").encode("utf-8")
             attachments.append(
-                write_attachment(
-                    out, result["uuid"], "txt", text.encode("utf-8"), "device logcat (tail)", "text/plain"
-                )
+                write_attachment(out, result["uuid"], "txt", payload, "device logcat (tail)", "text/plain")
             )
     return attachments
 

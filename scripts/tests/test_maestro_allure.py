@@ -1212,6 +1212,27 @@ class EvidenceTest(unittest.TestCase):
             self.assertTrue(text.endswith("newest\n"))
             self.assertLessEqual(tail["size"], mod.MAX_LOGCAT_BYTES)
 
+    def test_the_logcat_attachment_stays_within_the_cap_when_the_bytes_are_not_utf8(self) -> None:
+        # An invalid byte becomes U+FFFD, which is three bytes of UTF-8, so the
+        # re-encoded tail can be three times the cut. The cap is the promise.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flow = "Maestro/flows/tasks/01-create.yaml"
+            write_flow(root, flow, "tasks-create", ["smoke"])
+            shard = write_shard(root, "s1")
+            write_report(shard, flow, "tasks-create", status="ERROR", failure="Assertion is false")
+            write_evidence(shard, flow)
+            stem = pathlib.PurePosixPath(flow).stem
+            (shard / stem / f"{stem}_logcat.txt").write_bytes(b"\xff\xfe" * (mod.MAX_LOGCAT_BYTES // 2))
+            out = root / "out"
+            self.convert(root, shard, flow, out)
+            result = results(out)["Maestro/flows/tasks/01-create.yaml"]
+            tail = next(a for a in result["attachments"] if a["type"] == "text/plain")
+            payload = (out / tail["source"]).read_bytes()
+            self.assertLessEqual(len(payload), mod.MAX_LOGCAT_BYTES)
+            self.assertEqual(len(payload), tail["size"])
+            self.assertIn("\ufffd", payload.decode("utf-8"))
+
     def test_the_evidence_of_a_duplicated_flow_is_attached_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
