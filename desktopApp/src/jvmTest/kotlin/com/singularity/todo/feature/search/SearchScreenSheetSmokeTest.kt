@@ -17,9 +17,12 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.longClickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.scrollToTag
+import com.singularity.todo.test.helpers.scrollableBoundsOfTag
+import com.singularity.todo.test.helpers.windowBoundsOfTag
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -51,16 +54,14 @@ class SearchScreenSheetSmokeTest {
 
     @Test
     fun `filter sheet opens from the top bar and its actions can be reached`() =
-        // A ModalBottomSheet is drawn in its own window, about 1080 px tall, and it
-        // does not follow the test window. At the default 768 px height the sheet's
-        // Apply and Cancel buttons are composed below it and cannot be pressed.
+        // A ModalBottomSheet is drawn in its own window and does not follow the
+        // test window. The sheet is bounded by that window — its body is
+        // measured against it and scrolls — so a window tall enough for the
+        // whole sheet shows the actions without a scroll, which is what this
+        // test looks at. The short-window case, where the body has to be
+        // scrolled, is the next test.
         //
-        // The window is 360 px wide — the width the issue reports — and tall enough
-        // for the whole sheet, because on the desktop the sheet is sized to its
-        // content and hangs below the window when the content is taller than the
-        // window. On Android the sheet is bounded by the window and its body
-        // scrolls; the scroll-into-view at 360 dp is covered by the Maestro flow
-        // `search-filter-sheet-reachability` and by the device measurement.
+        // The window is 360 px wide — the width the issue reports.
         runIsolatedComposeTest(width = 360, height = 2400) {
             setContent {
                 SearchScreenContent(
@@ -90,6 +91,12 @@ class SearchScreenSheetSmokeTest {
         // thing in the scrollable body, so a user who cannot scroll the body
         // cannot reach Apply or Cancel at all — that is the defect this
         // exercises.
+        //
+        // The sheet on the desktop is a window of its own, and it used to settle
+        // half-expanded: measured in this window its body sat at y=432..1152, so
+        // half of it was below the window's bottom edge and the switches in its
+        // lower half were drawn off-screen. It now opens expanded and its body
+        // fits inside the window (y=48..768).
         runIsolatedComposeTest(width = 360, height = 768) {
             setContent {
                 SearchScreenContent(
@@ -100,6 +107,20 @@ class SearchScreenSheetSmokeTest {
             }
 
             clickContentDescription("Filter")
+
+            // The sheet's body is inside the window it is drawn in. A body that
+            // hangs out of the window is a sheet whose lower half — the actions
+            // among them — is drawn where no one can reach it.
+            val body = scrollableBoundsOfTag(TestTags.SearchFilter.PINNED_SWITCH)
+            val window = windowBoundsOfTag(TestTags.SearchFilter.PINNED_SWITCH)
+            assertTrue(
+                body.top.value >= window.top.value && body.bottom.value <= window.bottom.value,
+                "the sheet's body $body hangs out of the window $window",
+            )
+
+            // A switch from the lower half of the body is on screen without a
+            // scroll: it used to be drawn below the window's edge.
+            assertTagDisplayed(TestTags.SearchFilter.PINNED_SWITCH)
 
             // Scrolling the body brings the actions into the window. Without a
             // scrollable ancestor this throws naming the missing ancestor, which
