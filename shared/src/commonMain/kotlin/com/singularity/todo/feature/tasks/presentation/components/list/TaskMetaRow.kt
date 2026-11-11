@@ -64,10 +64,11 @@ fun TaskMetaRow(
     modifier: Modifier = Modifier,
 ) {
     // One fact, four sources: the row shows nothing when there is nothing to show.
-    // The repeat badge is a marking now, so `markings.isNotEmpty()` covers it.
+    // The repeat badge is a marking now, so the marks cover it — but only the
+    // ones the row draws: a mark the row says another way leaves an empty line.
     val hasSomethingToShow =
         dueLabel != null || project != null ||
-            markings.isNotEmpty() || seriesDates != null
+            visibleMarkings(markings).isNotEmpty() || seriesDates != null
     if (!hasSomethingToShow) return
 
     val isOverdue = TaskMarking.Overdue in markings
