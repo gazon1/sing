@@ -11,6 +11,8 @@
 # The second half is the one that can lie: the search runs the parsed query,
 # so a "clear filters" action that only cleared the displayed filter would
 # leave the results empty. The flow asserts the results come back.
+#
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: search-no-results-recovery
 tags:
@@ -76,9 +78,11 @@ tags:
 # active, so nothing is left.
 - tapOn:
     text: "Filter"
+# The sheet opens at half height on a 360 dp phone: the status chips are in
+# the first screenful of it, the actions are at its end.
 - extendedWaitUntil:
     visible:
-      id: search_filter_pinned_switch
+      text: "Status"
     timeout: 8000
 - tapOn:
     text: "Completed"

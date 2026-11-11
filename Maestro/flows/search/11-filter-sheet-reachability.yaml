@@ -8,6 +8,8 @@
 #
 # The flow asserts the two things a reachability claim needs: the actions are
 # in the tree after the body is scrolled to the end, and they can be pressed.
+#
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: search-filter-sheet-reachability
 tags:
@@ -32,10 +34,24 @@ tags:
 # Open the filter sheet via the Tune icon (matched through its accessibility label).
 - tapOn:
     text: "Filter"
-- extendedWaitUntil:
-    visible:
+# The sheet opens at half height on a 360 dp phone: the body scrolls, and the
+# content below the fold is reached by scrolling the sheet, not by waiting.
+- scrollUntilVisible:
+    element:
       id: search_filter_pinned_switch
+    direction: DOWN
     timeout: 8000
+- assertVisible:
+    id: search_filter_pinned_switch
+
+# The last chip row is reachable too — the sort chips sit below the switches.
+- scrollUntilVisible:
+    element:
+      text: "Descending"
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    text: "Descending"
 
 # Scroll the sheet's body to the end: the actions are the last thing in it.
 - scrollUntilVisible:

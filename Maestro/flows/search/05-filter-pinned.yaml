@@ -2,7 +2,7 @@
 #
 # Two tasks exist: one pinned, one not. The test opens the filter sheet
 # and toggles pinned-only on/off.
-# прогнан на устройстве: нет (2026-10-23) — прогон на устройстве не выполнялся
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: search-filter-pinned
 tags:
@@ -88,9 +88,12 @@ tags:
 # Open filter sheet via Tune icon (matched through its accessibility label).
 - tapOn:
     text: "Filter"
-- extendedWaitUntil:
-    visible:
+# The sheet opens at half height on a 360 dp phone: the switch is below the
+# fold, and the sheet's body is the thing that scrolls.
+- scrollUntilVisible:
+    element:
       id: search_filter_pinned_switch
+    direction: DOWN
     timeout: 8000
 
 # Toggle pinned filter on.
