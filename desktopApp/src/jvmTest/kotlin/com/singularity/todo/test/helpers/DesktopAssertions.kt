@@ -19,6 +19,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -269,7 +270,20 @@ fun DesktopComposeUiTest.awaitContentDescription(desc: String) =
  * Does not wait — captures the count at call time.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.countNodes(tag: String): Int = onAllNodesWithTag(tag).fetchSemanticsNodes().size
+fun DesktopComposeUiTest.countNodes(
+    tag: String,
+    useUnmergedTree: Boolean = false,
+): Int = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree).fetchSemanticsNodes().size
+
+/**
+ * How many nodes carry [text] right now.
+ *
+ * The counterpart of [countNodes] for text that repeats: one `+N` label per day
+ * column is several nodes, and `onNodeWithText` refuses to choose. It is a
+ * count, not an assertion — the caller says what the number means.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.countNodesWithText(text: String): Int = onAllNodesWithText(text).fetchSemanticsNodes().size
 
 /**
  * Whether the checkbox with [testTag] reports ToggleableState.On right now.
@@ -426,6 +440,22 @@ fun DesktopComposeUiTest.touchBoundsOfTagInUnmergedTree(tag: String): DpRect {
         )
     }
 }
+
+/**
+ * The unclipped bounds of the [index]th node with [tag].
+ *
+ * The indexed counterpart of [unclippedBoundsOfTag] for a tag that repeats —
+ * seven day columns, a list of markers. The [useUnmergedTree] flag is for a tag
+ * that lives under a merging ancestor (a `clickable` cell): the merged tree
+ * reports the ancestor, and only the unmerged tree still has the child's own
+ * bounds.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfTagAt(
+    tag: String,
+    index: Int,
+    useUnmergedTree: Boolean = false,
+): DpRect = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree)[index].getUnclippedBoundsInRoot()
 
 /**
  * The unclipped bounds of the node with content description [desc], in root

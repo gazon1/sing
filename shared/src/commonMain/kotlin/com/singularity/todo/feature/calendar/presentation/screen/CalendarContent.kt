@@ -193,6 +193,7 @@ private fun CalendarGrid(
                 today = loadedState.today,
                 selectedTaskId = loadedState.selectedTaskId,
                 onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
+                onDayClick = { date -> onIntent(CalendarIntent.OpenDay(date)) },
                 modifier = Modifier.fillMaxSize(),
             )
         }
