@@ -71,7 +71,8 @@ desktop harness had, fixed a day earlier by
   `OnboardingSettingsRepository` to the existing
   `FakeOnboardingSettingsRepository(initialSeenVersion = SpotlightContent.VERSION)`:
   the E2E build starts as a user who has finished the tour, so no overlay covers
-  the screen a flow is about.
+  the screen a flow is about. The bound record ignores `resetSpotlight()`, so
+  "Show tips again" cannot put the tour back in an E2E run.
 - `SingularityApp.extraKoinModules()` loads it next to `testAuthModule()` when
   `TEST_AUTH_BYPASS` is set. Both are loaded after `startKoin` with
   `allowOverride = true`, so the onboarding binding wins last-definition-wins over
@@ -97,16 +98,28 @@ is not in the accessibility tree, so the first flow of a run would still be
 measured in the wrong state. The app-side binding has no race: the tour is never
 eligible.
 
+**Replaying the tour in an E2E build is not desirable.** "Show tips again" resets
+the record and asks the tour to appear; the fake does both, and the DataStore-backed
+record does both. In an E2E run that would put the first-run scrim back over the
+screen the flow is about, and the scrim is what prunes the agenda out of the
+accessibility tree — the failure this decision exists to remove, one settings tap
+later. The E2E record therefore ignores `resetSpotlight()`: the tour is not on
+screen in an E2E build, and it does not come back on demand. The release build is
+untouched.
+
 ## Consequences
 
-- The E2E build never shows the first-run tour. A flow that wants the tour has to
-  ask for it, exactly as in the desktop harness.
+- The E2E build never shows the first-run tour, and it does not come back on
+  demand: "Show tips again" is inert there. A flow that wants the tour has to
+  bring its own record, exactly as in the desktop harness.
 - The debug build carries the same behaviour, because the debug build is the E2E
   build (`TEST_AUTH_BYPASS` defaults to on there). A developer who wants the
   tour as a user sees it builds without the bypass (`-PTEST_AUTH_BYPASS=false`).
-- "Show tips again" in the E2E build reaches the DataStore-backed record, not
-  the in-memory one, so the tour does not come back on demand there. The release
-  build is unaffected.
+- The binding is guarded twice: `TestOnboardingModuleTest` (the JVM lane cannot
+  reach the module, so the test lives in `androidHostTest`) proves the record
+  says the tour is seen and that a reset neither clears it nor asks for a
+  replay; `E2eOnboardingWiringTest` proves the application loads the module at
+  all, and loads it under the `TEST_AUTH_BYPASS` condition.
 - The cause is recorded in `config/docs/maestro-debt.yaml` under issue #2819, so
   a run that reports it again is a regression with an owner rather than a new
   cause nobody agreed to carry.
@@ -120,6 +133,8 @@ eligible.
 ## Links
 
 - `shared/src/androidMain/kotlin/com/singularity/todo/test/stubs/TestOnboardingModule.android.kt`
+- `shared/src/androidHostTest/kotlin/com/singularity/todo/test/stubs/TestOnboardingModuleTest.kt`
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/E2eOnboardingWiringTest.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/onboarding/SpotlightOverlay.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/onboarding/SpotlightTourController.kt`

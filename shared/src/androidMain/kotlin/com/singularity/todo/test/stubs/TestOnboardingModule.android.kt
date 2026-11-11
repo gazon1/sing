@@ -3,6 +3,7 @@ package com.singularity.todo.test.stubs
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.test.fakes.FakeOnboardingSettingsRepository
+import kotlinx.coroutines.flow.Flow
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -26,7 +27,30 @@ import org.koin.dsl.module
  */
 fun testOnboardingModule(): Module =
     module {
-        single<OnboardingSettingsRepository> {
-            FakeOnboardingSettingsRepository(initialSeenVersion = SpotlightContent.VERSION)
-        }
+        single<OnboardingSettingsRepository> { E2eOnboardingSettingsRepository() }
     }
+
+/**
+ * The E2E build's onboarding record: the tour is seen, and it stays seen.
+ *
+ * The fake's own `resetSpotlight()` clears the version and asks for a replay, which is
+ * what the product's "Show tips again" is supposed to do. In the E2E build that would
+ * put the first-run scrim back over the screen every flow is about, and the scrim is
+ * what prunes the agenda out of the accessibility tree — the very failure this
+ * binding exists to remove. So the reset is inert here: the tour is never on screen
+ * in the E2E build, and a flow that wants it has to bring its own record.
+ *
+ * The release build is untouched: it uses the DataStore-backed repository, where the
+ * same action still replays the tour.
+ */
+private class E2eOnboardingSettingsRepository : OnboardingSettingsRepository {
+    private val store = FakeOnboardingSettingsRepository(initialSeenVersion = SpotlightContent.VERSION)
+
+    override val seenSpotlightVersion: Flow<Int> = store.seenSpotlightVersion
+
+    override val spotlightReplayRequests: Flow<Unit> = store.spotlightReplayRequests
+
+    override suspend fun markSpotlightSeen(version: Int) = store.markSpotlightSeen(version)
+
+    override suspend fun resetSpotlight() = Unit
+}
