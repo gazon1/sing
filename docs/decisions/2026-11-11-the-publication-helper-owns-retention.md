@@ -1,0 +1,166 @@
+---
+title: The publication helper owns retention, and it writes the publication state as one unit
+date: 2026-11-11
+status: accepted
+tags: [ci, allure, github-pages]
+---
+
+# Context
+
+Issue [#2774](https://github.com/gazon1/sing/issues/2774) asks for the Allure Pages
+publication helper (`scripts/ci/allure_pages.py`) to become a small, safe publisher.
+The publication contract it implements was agreed in
+`docs/decisions/allure-publication-latest-history-and-retention.md`; this record
+covers the parts of it that the contract left to the implementation: who owns
+retention, what a damaged manifest means, what a report path may be, and how the
+helper writes to disk.
+
+Four problems made the helper unsafe in the sense the issue means.
+
+1. **Retention had two owners.** The helper kept the newest 20 reports per
+   population, and `simple-elf/allure-report-action@v1.15` kept 20 as well. The
+   action prunes the population namespace itself when it holds more than
+   `keep_reports + 1` entries, and it prunes the non-numeric entries first
+   (`ls | sort -n | grep -v CNAME | head -n -N | xargs rm -rv`, and `sort -n` puts
+   non-numeric names first). `allure-manifest.json`, the population `index.html` and
+   `last-history` were therefore removed before any report was. A namespace with
+   enough history lost its manifest on every run, and the helper then published
+   against an empty manifest and kept no history at all.
+2. **A damaged manifest was repaired silently.** The loader normalized `latest` to
+   the stored record, accepted a manifest with unknown fields and dropped them on
+   the next save, accepted `schema_version: true` as `1`, and truncated a float run
+   number to an integer.
+3. **Paths were joined without a policy.** A report path was only checked for
+   emptiness, so a manifest could name `../escape` and the helper would join it
+   into the publish tree.
+4. **The filesystem was written as if it could not fail.** The bootstrap wiped the
+   destination before it unpacked the fetched history, the tarball could hold links,
+   devices and any number of bytes, and the manifest, the population index and the
+   root index were written one after another: a failure in the middle left a state
+   that recorded one thing and showed another.
+
+The pipeline was also broken in CI while this was written down: every publish run
+since 2026-11-10 failed, because the report action is a Docker action and leaves
+the tree it builds owned by root, while the helper runs as the runner user.
+
+# Idea
+
+For each of the four questions:
+
+1. **Retention.** Keep the action pruning and make the helper follow it, keep the
+   helper pruning and raise the action's threshold, or let one of them own the
+   window and make the other a no-op.
+2. **A damaged manifest.** Repair what can be repaired and carry on, or refuse the
+   manifest and say what is wrong with it.
+3. **A report path.** Check each path where it is used, or state one rule and make
+   every path that reaches the filesystem go through it.
+4. **Writing to disk.** Write each file as safely as it can be written on its own,
+   or write the state that means something only as a whole.
+
+# Decision
+
+## 1. The helper owns retention
+
+The helper keeps the newest 20 publications per population, as the publication
+contract requires. The report action does not prune: the workflow raises its
+`keep_reports` threshold above the number of reports the helper keeps, so the
+action's pruning never runs.
+
+A second owner of the window is a second opinion nobody asked for: the two
+disagreed about what a "report" is, and the action's answer deleted the manifest
+that names them.
+
+## 2. A manifest that does not hold together is an error
+
+The manifest states its own invariants — the identity key matches the record, the
+population matches the namespace, `latest` is the record that is stored — and a
+manifest that breaks one of them is refused with the reason. Unknown fields are
+refused instead of dropped, a manifest of an unsupported schema version is
+refused instead of migrated, and the integers are strict.
+
+The Pages branch holds the only copy of the publication state. A manifest that is
+repaired in place hides the damage: the next run publishes from a state that
+nobody has seen. An error stops the publication and names the file and the field.
+
+Schema version 1 was never published, so it is refused rather than migrated.
+
+## 3. One report-path policy
+
+A report path is one safe segment: letters, digits, `.`, `_` and `-`, starting
+with a letter or a digit. One function decides it, the model validator enforces
+it, and every path that reaches the filesystem is joined through it. A path that
+came out of a manifest therefore cannot address anything outside the namespace it
+belongs to, whether it was written by the helper or read back from the branch.
+
+## 4. A tree is replaced only by a complete replacement
+
+The fetched history is unpacked into a staging directory and promoted over the
+destination only when the whole tarball was unpacked and accepted. A failed
+fetch leaves the destination as it was. The destination is emptied only in the one
+case where emptiness is the correct state: the branch does not exist yet.
+
+The tarball is accepted only if it holds regular files and directories, at most
+20 000 members and at most 2 GiB, and only if no member path leaves the tree. A
+link is refused: the history of this branch is a tree of reports, and a link is a
+way out of the tree it is unpacked into.
+
+## 5. The publication state is written as one unit
+
+The manifest, the population index and the root index describe one state. They
+are written together, and when one of the writes fails the others are put back as
+they were. The report directories that fall out of the retention window are
+removed after the state is committed: a leftover directory is untidy, a
+half-written state is wrong.
+
+## 6. Retention is manifest-driven
+
+The manifest names what was published, so the manifest is what says what may go.
+The helper keeps the newest publications of the window, and removes the report
+directories the dropped publications named. A publication whose report directory
+is gone is dropped from the manifest instead of being kept as a record of
+something that is not there. A report directory the manifest does not name is
+left alone: the helper does not delete history it cannot explain.
+
+# Rationale
+
+- One owner per decision. Two owners of the retention window produced a manifest
+  that was deleted on a schedule neither of them had written down.
+- An error is cheaper than a silent repair. The publication state has one copy,
+  and a state that was quietly rewritten is a state nobody can reason about
+  afterwards. Refusing costs one failed run; a silent repair can cost the
+  history.
+- One rule, checked in one place, is a rule that stays true. A path is joined in
+  several places, and a rule that each place has to remember is a rule that one
+  place will forget.
+- A tree that is replaced only by a complete replacement cannot be half
+  replaced. The window between wiping a destination and filling it is where a
+  crashed run loses history.
+- The publication state means something as a whole. A manifest that names a
+  report the index does not point at is not a state that can be published.
+
+# Consequences
+
+- The workflow passes `keep_reports: 200` to the report action and restores the
+  runner's ownership of the tree the action built. The action's pruning is
+  inert; the helper's window is the contract.
+- A manifest that does not satisfy the invariants stops the publication. That is
+  the intended behaviour, and it is a behaviour change: a manifest whose `latest`
+  did not match its stored record used to be normalized and carried on with.
+- Report directories the manifest does not name are no longer removed by the
+  prune. The number of directories in a population namespace can therefore be
+  larger than the window; the window counts publications, not directories.
+- The tarball limits are fixed numbers in the helper. A history that grows past
+  them needs a new number and a reason, not a bigger constant.
+- The legacy root-level reports on the `gh-pages` branch are not touched by any
+  of this. They are published URLs, and removing them is a separate decision.
+
+# Links
+
+- Issues: [#2774](https://github.com/gazon1/sing/issues/2774),
+  [#2775](https://github.com/gazon1/sing/issues/2775),
+  [#2776](https://github.com/gazon1/sing/issues/2776),
+  [#2777](https://github.com/gazon1/sing/issues/2777)
+- Code: `scripts/ci/allure_pages.py`, `scripts/tests/test_allure_pages.py`,
+  `.github/workflows/ci.yml`
+- Prior decisions:
+  `docs/decisions/allure-publication-latest-history-and-retention.md`
