@@ -77,10 +77,14 @@ jobs:
         run: |
           set -euo pipefail
           : > "$RUNNER_TEMP/mergeable.txt"
+          # The pull requests that are not even candidates: they are reported in
+          # the job summary, so a run that merged nothing says why.
+          : > "$RUNNER_TEMP/skipped.txt"
           while read -r number; do
             [ -n "$number" ] || continue
             bump="$(python3 scripts/dependabot_bump.py "$RUNNER_TEMP/description-${number}.md")" || {
               decision="$(python3 scripts/dependency_decision.py --pull-request "$RUNNER_TEMP/description-${number}.md")"
+              echo "${number} ${decision}" >> "$RUNNER_TEMP/skipped.txt"
               case "$decision" in
                 none)
                   echo "::notice::#${number} is not a patch and not a minor, and no decision is recorded"
@@ -108,12 +112,58 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( $(date +%s) + 1800 ))
+
+          # The summary of what happened to every candidate. Three groups, and
+          # no fourth: merged, excluded, waiting. A run that merged nothing
+          # used to finish successfully and say nothing about why — the pull
+          # requests it did not merge were the interesting part.
+          write_summary() {
+            {
+              echo "## Dependabot auto-merge"
+              echo
+              echo "### Excluded — conflicts"
+              if [ -s "$RUNNER_TEMP/conflicted.txt" ]; then
+                while read -r number; do
+                  [ -n "$number" ] || continue
+                  echo "- #${number} has conflicts and cannot be merged"
+                done < "$RUNNER_TEMP/conflicted.txt"
+              else
+                echo "- none"
+              fi
+              echo
+              echo "### Excluded — not a patch or a minor bump"
+              if [ -s "$RUNNER_TEMP/skipped.txt" ]; then
+                while read -r number decision; do
+                  [ -n "$number" ] || continue
+                  echo "- #${number} — ${decision}"
+                done < "$RUNNER_TEMP/skipped.txt"
+              else
+                echo "- none"
+              fi
+              echo
+              echo "### Waiting for a green CI gate"
+              if [ -s "$RUNNER_TEMP/waiting.txt" ]; then
+                while read -r number; do
+                  [ -n "$number" ] || continue
+                  echo "- #${number}"
+                done < "$RUNNER_TEMP/waiting.txt"
+              else
+                echo "- none"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
           while true; do
             waiting=0
             # The green pull requests of THIS round, with the head commit that
             # was green. The file is rebuilt every round: a pull request that
             # was green and is no longer must not be merged.
             : > "$RUNNER_TEMP/green.txt"
+            # The two ways a candidate is not merged are kept apart: one is
+            # excluded (it has conflicts, and no gate will ever turn it green),
+            # the other is waiting (it may still turn green).
+            : > "$RUNNER_TEMP/conflicted.txt"
+            : > "$RUNNER_TEMP/waiting.txt"
             while read -r number; do
               [ -n "$number" ] || continue
               # The pull request is read once: the mergeable state and the head
@@ -126,11 +176,18 @@ jobs:
                   # not going to un-conflict itself. It is left out of the
                   # merge list instead of being handed to `gh pr merge`, which
                   # would answer 405 and abort the whole step.
-                  echo "::error::#${number} has conflicts - cannot be merged"
+                  #
+                  # A warning, not an error: the run handles it and the job
+                  # summary says which pull request it was. An error annotation
+                  # on a run that ends successfully is a report of a failure
+                  # that did not happen.
+                  echo "::warning::#${number} has conflicts - it is excluded from this run"
+                  echo "$number" >> "$RUNNER_TEMP/conflicted.txt"
                   continue
                   ;;
                 blocked|unknown|behind)
                   echo "#${number}: mergeable_state is '$state' - waiting"
+                  echo "$number" >> "$RUNNER_TEMP/waiting.txt"
                   waiting=1
                   continue
                   ;;
@@ -152,6 +209,7 @@ jobs:
                   ;;
                 *)
                   echo "#${number}: the CI gate check-run is '$conclusion' - waiting"
+                  echo "$number" >> "$RUNNER_TEMP/waiting.txt"
                   waiting=1
                   ;;
               esac
@@ -159,9 +217,11 @@ jobs:
             if [ "$waiting" -eq 0 ]; then
               cp "$RUNNER_TEMP/green.txt" "$RUNNER_TEMP/merge-now.txt"
               echo "merging: $(tr '\n' ' ' < "$RUNNER_TEMP/merge-now.txt")"
+              write_summary
               exit 0
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
+              write_summary
               echo "::error::the CI gate check-run did not become green in time"
               exit 1
             fi
@@ -182,15 +242,41 @@ jobs:
           # single unmergeable pull request used to abort the step, and every
           # pull request after it was never merged.
           failed=0
+          : > "$RUNNER_TEMP/merged.txt"
+          : > "$RUNNER_TEMP/unmerged.txt"
           while read -r number head; do
             [ -n "$number" ] || continue
             # The head commit is pinned: the merge only happens if the pull
             # request still stands on the commit that was verified.
             if gh pr merge "$number" --squash --delete-branch --match-head-commit "$head"; then
               echo "#${number} is merged"
+              echo "${number} ${head}" >> "$RUNNER_TEMP/merged.txt"
             else
               echo "::error::#${number} could not be merged at ${head}"
+              echo "${number} ${head}" >> "$RUNNER_TEMP/unmerged.txt"
               failed=1
             fi
           done < "$RUNNER_TEMP/merge-now.txt"
+
+          # The last group of the summary: what was merged, and what was not.
+          {
+            echo
+            echo "### Merged"
+            if [ -s "$RUNNER_TEMP/merged.txt" ]; then
+              while read -r number head; do
+                [ -n "$number" ] || continue
+                echo "- #${number} (${head})"
+              done < "$RUNNER_TEMP/merged.txt"
+            else
+              echo "- none"
+            fi
+            if [ -s "$RUNNER_TEMP/unmerged.txt" ]; then
+              echo
+              echo "### Not merged — the merge was refused"
+              while read -r number head; do
+                [ -n "$number" ] || continue
+                echo "- #${number} (${head})"
+              done < "$RUNNER_TEMP/unmerged.txt"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"
