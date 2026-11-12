@@ -33,6 +33,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
@@ -356,7 +358,11 @@ private fun AddExistingTaskPopup(
             }
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(),
+        sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
+    ) {
         Column(
             modifier =
                 Modifier

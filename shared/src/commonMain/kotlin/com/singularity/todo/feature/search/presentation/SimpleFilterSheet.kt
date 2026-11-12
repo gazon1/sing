@@ -7,24 +7,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,12 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
+import com.singularity.todo.core.ui.components.sheet.SheetActions
+import com.singularity.todo.core.ui.components.sheet.SheetScaffold
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SortOrder
@@ -52,18 +45,28 @@ import kotlinx.collections.immutable.toImmutableSet
  *
  * Integrates into [SearchScreen] via a filter icon button in the TopAppBar.
  *
- * @param initialFilter The filter to seed the sheet's local state.
+ * The sheet is the house scaffold — [BottomSheetHost] and [SheetScaffold] — so
+ * the insets are the window's own and the action row is the last thing in the
+ * scrollable column: the chips and the Apply/Cancel pair are scrolled into
+ * view together, and neither of them can end up below the system navigation.
+ * The sheet that had its own scroll container and its own bottom padding put
+ * Apply and Cancel in a header at the top, and they left the accessibility tree
+ * as soon as the body was scrolled — measured on a 360 dp phone.
+ *
+ * @param initialFilter The filter to seed the sheet's local state, and the
+ *                filter the applied one is built from: the parts of the query
+ *                the sheet does not edit — the free text, the tags, the project
+ *                — are carried over, not dropped.
  * @param onApply Called when the user taps "Apply" with the resulting filter.
- *                Pass `null` to indicate the user wants no filter (clears active filter).
  * @param onDismiss Called when the user swipes down or taps outside.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SimpleFilterSheet(
     initialFilter: SimpleFilter?,
-    onApply: (SimpleFilter?) -> Unit,
+    onApply: (SimpleFilter) -> Unit,
     onDismiss: () -> Unit,
-    sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+    sheetState: SheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
 ) {
     // Local mutable copy — not applied until user taps "Apply".
     // The sets are persistent: the chips below take them, and a persistent set
@@ -90,81 +93,48 @@ fun SimpleFilterSheet(
         mutableStateOf(initialFilter?.sortDescending ?: false)
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        // The sheet renders into its own window, so the app-root
-        // testTagsAsResourceId never reaches the filter controls inside.
-        modifier = Modifier.mapTestTagsAsResourceIds(),
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
-        ) {
-            // ── Header ─────────────────────────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Filter",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Row {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier =
-                            Modifier
-                                .testTag(TestTags.SearchFilter.CANCEL_BUTTON)
-                                .mapTestTagsAsResourceIds(),
-                    ) {
-                        Text("Cancel")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(
-                        onClick = {
-                            val hasNonDefault =
-                                localStates != null ||
-                                    localPriorities.isNotEmpty() ||
-                                    localDue != SimpleFilter.DueCondition.NONE ||
-                                    localHasDescription != null ||
-                                    localPinned != null ||
-                                    localSortOrder != SortOrder.DUE ||
-                                    localSortDescending
-                            onApply(
-                                if (hasNonDefault) {
-                                    SimpleFilter(
-                                        states = localStates,
-                                        priorities = localPriorities,
-                                        due = localDue,
-                                        hasDescription = localHasDescription,
-                                        pinned = localPinned,
-                                        sortOrder = localSortOrder,
-                                        sortDescending = localSortDescending,
-                                    )
-                                } else {
-                                    null
-                                },
-                            )
-                        },
-                        modifier =
-                            Modifier
-                                .testTag(TestTags.SearchFilter.APPLY_BUTTON)
-                                .mapTestTagsAsResourceIds(),
-                    ) {
-                        Text("Apply")
-                    }
-                }
-            }
+    // The applied filter is the filter of the query with the sheet's facets.
+    // The free text, the tags and the project stay: they are the parts of the
+    // query the sheet does not edit, and an Apply that dropped them answered a
+    // different question than the one on the screen.
+    val appliedFilter =
+        (initialFilter ?: SimpleFilter()).copy(
+            states = localStates,
+            priorities = localPriorities,
+            due = localDue,
+            hasDescription = localHasDescription,
+            pinned = localPinned,
+            sortOrder = localSortOrder,
+            sortDescending = localSortDescending,
+        )
 
-            Spacer(modifier = Modifier.height(16.dp))
+    BottomSheetHost(onDismiss = onDismiss, sheetState = sheetState) {
+        SheetScaffold(
+            actions =
+                SheetActions(
+                    onCancel = onDismiss,
+                    onConfirm = {
+                        // Nothing to apply and nothing to keep: a query that
+                        // cannot be expressed as a filter stays as it is. An
+                        // applied filter would replace it with an empty query,
+                        // and the search would answer a question nobody asked.
+                        if (initialFilter != null || !appliedFilter.isEmpty) {
+                            onApply(appliedFilter)
+                        }
+                        onDismiss()
+                    },
+                    confirmLabel = "Apply",
+                    cancelLabel = "Cancel",
+                    testTagConfirm = TestTags.SearchFilter.APPLY_BUTTON,
+                    testTagCancel = TestTags.SearchFilter.CANCEL_BUTTON,
+                ),
+        ) {
+            Text(
+                text = "Filter",
+                style = MaterialTheme.typography.titleLarge,
+            )
+
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
 
             // ── State ──────────────────────────────────────────────────────
             SettingsSection(title = "Status") {
@@ -174,8 +144,6 @@ fun SimpleFilterSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
             // ── Priority ───────────────────────────────────────────────────
             SettingsSection(title = "Priority") {
                 PriorityChips(
@@ -184,8 +152,6 @@ fun SimpleFilterSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
             // ── Due Date ───────────────────────────────────────────────────
             SettingsSection(title = "Due") {
                 DueChips(
@@ -193,8 +159,6 @@ fun SimpleFilterSheet(
                     onSelectionChange = { localDue = it },
                 )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
 
             // ── Other ──────────────────────────────────────────────────────
             SettingsSection(title = "Other") {
@@ -211,8 +175,6 @@ fun SimpleFilterSheet(
                     onCheckedChange = { localPinned = if (it) true else null },
                 )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
 
             // ── Sort ───────────────────────────────────────────────────────
             SettingsSection(title = "Sort") {

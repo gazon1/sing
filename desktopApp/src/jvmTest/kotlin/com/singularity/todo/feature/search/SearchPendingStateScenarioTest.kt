@@ -254,6 +254,7 @@ class SearchPendingStateScenarioTest {
                     ),
                 savedSearchRepo = savedSearchRepo,
                 taskRepo = taskRepo,
+                projectRepo = projectRepo,
                 parseQuery = { input -> SingularityQueryParser(input).parse() },
                 clock = FakeClock(NOW),
                 // The screen's own dispatcher, from the fakes: the debounce has to

@@ -1,0 +1,27 @@
+# Scenario specification for SEARCH-13.
+
+id: SEARCH-13
+title: A search that matched nothing offers a way out
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task titled "RecoveryTask2026" exists and is active, so a query that asks
+  for it and a query that filters it away can both be asked.
+steps:
+  - Open the quick search from the menu sheet.
+  - Type a word nothing carries.
+  - Observe the empty result.
+  - Clear the query.
+  - Type the title of the seeded task.
+  - Open the filter sheet and ask for completed tasks only.
+  - Apply the filter.
+  - Observe the empty result.
+  - Take the filters away.
+expected: >-
+  The empty result says that nothing matched and offers the way out that fits:
+  the query can be cleared when there is no filter to take away, and the filters
+  can be taken away when the filters are what hid the result. Taking the filters
+  away brings the result back — the predicates are gone from the query that
+  runs, not just from the chip row.

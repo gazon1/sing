@@ -7,7 +7,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.config.RemoteConfigPort
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
@@ -113,7 +113,7 @@ fun WhatsNewScreen(
             clock = koinInject(),
         )
 
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden)
 
     ModalBottomSheet(
         onDismissRequest = handleDismiss,

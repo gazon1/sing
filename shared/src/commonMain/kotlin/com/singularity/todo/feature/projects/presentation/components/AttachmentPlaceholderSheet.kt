@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 
 /**
  * Placeholder sheet for project-level attachments.
@@ -23,7 +25,10 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentPlaceholderSheet(onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
+    ) {
         Column(
             modifier =
                 Modifier

@@ -25,7 +25,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +39,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.nav.Search
@@ -88,7 +88,7 @@ fun InternalLinkPickerSheet(
     onSelected: (LinkResult) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Expanded)
+    val sheetState = rememberAppSheetState(initialValue = SheetValue.Expanded)
     val queryState = rememberTextFieldState()
 
     ModalBottomSheet(

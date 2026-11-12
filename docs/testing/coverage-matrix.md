@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**137 scenarios · 88/159 claimed cells automated · 71 holes**
+**139 scenarios · 90/161 claimed cells automated · 71 holes**
 
 ## feature.agenda
 
@@ -193,6 +193,8 @@ the table carries the one-line version so a row is readable in a diff.
 | `SEARCH-09` | The result shows the word that was matched | — | ● | The result shows the word in the title as the match: the index says where the word is, and the search draws it there.… |
 | `SEARCH-10` | The contains mode finds the term in the middle of a word | ● | — | The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode… |
 | `SEARCH-11` | A pending search is not an empty answer | — | ● | While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does… |
+| `SEARCH-12` | The filter sheet's actions can be reached | ● | — | The Apply and Cancel actions are on screen above the system navigation once the body is scrolled to the end, and… |
+| `SEARCH-13` | A search that matched nothing offers a way out | ● | — | The empty result says that nothing matched and offers the way out that fits: the query can be cleared when there is no… |
 
 ## feature.settings
 

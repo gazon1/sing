@@ -772,6 +772,22 @@ object TestTags {
     /** The "Clear" button of the search field — one tap empties the query. */
     const val SEARCH_CLEAR_BUTTON = "search_clear_button"
 
+    /**
+     * The "Clear query" action of the no-results state.
+     *
+     * It is the field's own clear, reached from the empty state: the field's
+     * trailing button and this one ask the same field to empty itself.
+     */
+    const val SEARCH_CLEAR_QUERY_BUTTON = "search_clear_query_button"
+
+    /**
+     * The "Clear filters" action of the no-results state.
+     *
+     * It is offered only when the structured constraints are the reason the
+     * result set is empty.
+     */
+    const val SEARCH_CLEAR_FILTERS_BUTTON = "search_clear_filters_button"
+
     /** The progress indicator of the search screen, shown while the query is running. */
     const val SEARCH_LOADING = "search_loading"
 

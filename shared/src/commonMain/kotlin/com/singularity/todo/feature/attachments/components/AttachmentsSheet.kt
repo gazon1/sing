@@ -29,7 +29,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -43,6 +42,7 @@ import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentType
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.SelectableText
@@ -51,6 +51,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskEditorShee
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * The attachments sheet: add a link, add a file, remove an attachment.
@@ -88,9 +89,9 @@ fun AttachmentsSheet(
         //
         // See docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
         sheetState =
-            rememberBottomSheetState(
+            rememberAppSheetState(
                 initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+                enabledValues = persistentSetOf(SheetValue.Hidden, SheetValue.Expanded),
             ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

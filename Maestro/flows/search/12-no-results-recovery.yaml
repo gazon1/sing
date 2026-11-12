@@ -1,0 +1,110 @@
+# Search: the no-results state offers a way out, and the way out works.
+#
+# Two ways out, and they are different questions:
+#
+#   * A query that matched nothing has no filters to take away — the way out is
+#     to clear the query.
+#   * A query that matched nothing *because of its filters* has filters to take
+#     away — the way out is to clear them, and the free text and the search
+#     mode must survive it.
+#
+# The second half is the one that can lie: the search runs the parsed query,
+# so a "clear filters" action that only cleared the displayed filter would
+# leave the results empty. The flow asserts the results come back.
+#
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: search-no-results-recovery
+tags:
+  - search
+  - scenario:SEARCH-13
+---
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=RecoveryTask2026&due=today"
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Open quick search.
+- runFlow: ../../helpers/open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# ─── A query that matched nothing ────────────────────────────────────────────
+
+- tapOn:
+    id: search_input
+- inputText: "zzzznomatchzzzz999999"
+- extendedWaitUntil:
+    visible:
+      id: search_empty_results
+    timeout: 8000
+
+# There is no filter to take away, so only the query can be cleared.
+- assertNotVisible:
+    id: search_clear_filters_button
+- assertVisible:
+    id: search_clear_query_button
+
+# Clearing the query empties the field and brings the idle prompt back.
+- tapOn:
+    id: search_clear_query_button
+- extendedWaitUntil:
+    visible:
+      id: search_empty_placeholder
+    timeout: 8000
+- assertNotVisible:
+    id: search_empty_results
+
+# ─── A query that matched nothing because of its filters ─────────────────────
+
+- tapOn:
+    id: search_input
+- inputText: "Recovery"
+- extendedWaitUntil:
+    visible:
+      id: task_item_recoverytask2026
+    timeout: 8000
+
+# Open the filter sheet and ask for completed tasks only — the seeded task is
+# active, so nothing is left.
+#
+# The sheet opens at half height on a 360 dp phone: the status chips are in the
+# first screenful of it, the actions are at its end. The tap waits for the chip
+# it names, so the sheet needs no separate wait of its own.
+- tapOn:
+    text: "Filter"
+- tapOn:
+    text: "Completed"
+- scrollUntilVisible:
+    element:
+      id: search_filter_apply_button
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: search_filter_apply_button
+
+# The filtered search matched nothing.
+- extendedWaitUntil:
+    visible:
+      id: search_empty_results
+    timeout: 8000
+- assertVisible:
+    id: search_clear_filters_button
+
+# Taking the filters away brings the result back — the predicates are gone from
+# the query that runs, not just from the chip row.
+- tapOn:
+    id: search_clear_filters_button
+- extendedWaitUntil:
+    visible:
+      id: task_item_recoverytask2026
+    timeout: 8000

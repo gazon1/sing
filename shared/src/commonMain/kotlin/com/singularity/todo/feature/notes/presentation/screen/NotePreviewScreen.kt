@@ -42,7 +42,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +66,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.detail.ConfirmationSheet
 import com.singularity.todo.core.ui.text.SelectableTextGroup
 import com.singularity.todo.core.ui.text.rememberAppUriHandler
@@ -366,7 +366,7 @@ private fun BacklinksSheet(
     onNoteSelected: (NoteId) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,

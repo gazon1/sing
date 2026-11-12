@@ -18,7 +18,6 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +34,7 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
 import com.singularity.todo.core.attachments.annotation.TextRange
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.IntentActions
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -96,7 +96,7 @@ fun AttachmentAnnotationPanel(
 
     ModalBottomSheet(
         onDismissRequest = { onIntent(AttachmentAnnotationIntent.CloseSheet) },
-        sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+        sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
     ) {
         AnnotationSheetContent(state = content, onIntent = onIntent)
     }
