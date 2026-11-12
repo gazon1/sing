@@ -53,8 +53,8 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
-import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.components.recurrenceSentence
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -408,8 +408,11 @@ private fun FrequencySelector(
 }
 
 /**
- * The recurrence preview — displays the human-readable rule label and the
- * next occurrence based on the anchor date.
+ * The recurrence preview — the rule as a sentence, and the next occurrence
+ * based on the anchor date.
+ *
+ * The sentence is the same one the task detail row wears, so the rule reads the
+ * same in the place it is chosen and in the place it is shown.
  */
 @Composable
 private fun PreviewSection(
@@ -429,7 +432,7 @@ private fun PreviewSection(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
         Text(
-            text = label(spec),
+            text = recurrenceSentence(spec, anchorDate),
             style = MaterialTheme.typography.bodyMedium,
         )
     }

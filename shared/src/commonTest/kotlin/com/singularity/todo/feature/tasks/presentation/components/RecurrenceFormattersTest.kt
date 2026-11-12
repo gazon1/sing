@@ -24,66 +24,90 @@ class RecurrenceFormattersTest {
         day: Int,
     ) = LocalDate(y, m, day)
 
-    // ─── label ─────────────────────────────────────────────────────────────────
+    // ─── The sentence ──────────────────────────────────────────────────────────
 
     @Test
-    fun `label FROM_COMPLETION shows no arrow`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
-        assertEquals("Weekly", RecurrenceFormatters.label(spec))
+    fun `an interval reads as a sentence`() {
+        val spec = Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
+        assertEquals(
+            "Every 3 days, from the due date",
+            formatRecurrence(spec, locale(interval = "Every 3 days")),
+        )
     }
 
     @Test
-    fun `label FROM_DUE shows up arrow`() {
-        val spec = Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
-        assertEquals("↑ Weekly", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label CATCH_UP shows refresh arrow`() {
-        val spec = Interval(RecurrenceBase.CATCH_UP, 1, DateTimeUnit.WEEK)
-        assertEquals("↺ Weekly", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label 2 weeks shows amount`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 2, DateTimeUnit.WEEK)
-        assertEquals("Every 2 weeks", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label daily shows Daily`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.DAY)
-        assertEquals("Daily", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label monthly shows Monthly`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.MONTH)
-        assertEquals("Monthly", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label yearly shows Yearly`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.YEAR)
-        assertEquals("Yearly", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label Weekly shows weekday list`() {
+    fun `a weekly rule names its weekdays`() {
         val spec = Weekly(RecurrenceBase.FROM_DUE, setOf(1, 3, 5))
-        assertEquals("↑ Weekly(Mon,Wed,Fri)", RecurrenceFormatters.label(spec))
+        assertEquals(
+            "Weekly on Mon, Wed, Fri, from the due date",
+            formatRecurrence(spec, locale(weekly = "Weekly on Mon, Wed, Fri")),
+        )
     }
 
     @Test
-    fun `label Monthly shows day number`() {
+    fun `a monthly rule names its day`() {
         val spec = Monthly(RecurrenceBase.FROM_DUE, 15)
-        assertEquals("↑ Monthly(15)", RecurrenceFormatters.label(spec))
+        assertEquals(
+            "Monthly on day 15, from the due date",
+            formatRecurrence(spec, locale(monthly = "Monthly on day 15")),
+        )
     }
 
     @Test
-    fun `label Yearly shows month and day`() {
+    fun `a yearly rule names its date`() {
         val spec = Yearly(RecurrenceBase.FROM_DUE, 12, 25)
-        assertEquals("↑ Yearly(December 25)", RecurrenceFormatters.label(spec))
+        assertEquals(
+            "Yearly on Dec 25, from the due date",
+            formatRecurrence(spec, locale(yearly = "Yearly on Dec 25")),
+        )
+    }
+
+    @Test
+    fun `the base says what the rule is measured from`() {
+        val spec = Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
+        assertEquals(
+            "Every 3 days, after completion",
+            formatRecurrence(spec, locale(interval = "Every 3 days", base = "after completion")),
+        )
+        assertEquals(
+            "Every 3 days, catch-up, filling the gaps",
+            formatRecurrence(spec, locale(interval = "Every 3 days", base = "catch-up, filling the gaps")),
+        )
+    }
+
+    @Test
+    fun `the anchor date says when the series starts`() {
+        val spec = Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
+        assertEquals(
+            "Every 3 days, from the due date, starting 12 Nov 2026",
+            formatRecurrence(
+                spec,
+                locale(interval = "Every 3 days", starting = "starting 12 Nov 2026"),
+            ),
+        )
+    }
+
+    @Test
+    fun `the end date says when the series stops`() {
+        val spec =
+            Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
+                .copy(termination = RecurrenceTermination(d(2027, 1, 29)))
+        assertEquals(
+            "Every 3 days, from the due date, until 29 Jan 2027",
+            formatRecurrence(
+                spec,
+                locale(interval = "Every 3 days", until = "until 29 Jan 2027"),
+            ),
+        )
+    }
+
+    @Test
+    fun `an unbounded series has no end clause`() {
+        val spec = Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
+        assertEquals(
+            "Every 3 days, from the due date",
+            formatRecurrence(spec, locale(interval = "Every 3 days")),
+        )
     }
 
     // ─── baseLabel ──────────────────────────────────────────────────────────────
@@ -111,27 +135,28 @@ class RecurrenceFormattersTest {
         assertEquals("Next: 2026-02-01", preview)
     }
 
-    // ─── End date ──────────────────────────────────────────────────────────────
-
-    @Test
-    fun `label shows the end date so a self-stopping series explains itself`() {
-        val spec =
-            Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
-                .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
-        assertEquals("Weekly until 2026-12-31", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label is unchanged for an unbounded series`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
-        assertEquals("Weekly", RecurrenceFormatters.label(spec))
-    }
-
-    @Test
-    fun `label keeps its base marker alongside the end date`() {
-        val spec =
-            Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
-                .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
-        assertEquals("↑ Weekly until 2026-12-31", RecurrenceFormatters.label(spec))
-    }
+    /**
+     * The words the sentence is built from.
+     *
+     * A stand-in for the resource bundle: the phrases are the ones the English
+     * bundle holds, so a test says what a person reads and not what the
+     * formatter does with the words.
+     */
+    private fun locale(
+        interval: String = "Every 3 days",
+        weekly: String = "Weekly on Mon, Wed, Fri",
+        monthly: String = "Monthly on day 15",
+        yearly: String = "Yearly on Dec 25",
+        base: String = "from the due date",
+        starting: String? = null,
+        until: String? = null,
+    ) = RecurrenceLocale(
+        interval = interval,
+        weekly = weekly,
+        monthly = monthly,
+        yearly = yearly,
+        base = base,
+        starting = starting,
+        until = until,
+    )
 }

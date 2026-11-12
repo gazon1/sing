@@ -153,6 +153,7 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_TITLE_ERROR` | `task_editor_title_error` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 | `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
+| `TASK_RECURRENCE_TEXT` | `task_recurrence_text` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
 | `TimeTracking.START` | `time_tracking_start` | |
 | `TimeTracking.STOP` | `time_tracking_stop` | |

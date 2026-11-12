@@ -430,6 +430,15 @@ object TestTags {
     const val TASK_CHECKLIST_SECTION = "task_checklist_section"
 
     /**
+     * The recurrence sentence in the task detail screen.
+     *
+     * The row used to print the rule's own `toString()`, so the tag is on the
+     * sentence that replaced it: a test that says "the row does not show
+     * `Interval(`" needs to look at the text.
+     */
+    const val TASK_RECURRENCE_TEXT = "task_recurrence_text"
+
+    /**
      * The line the checklist section shows when it has no items.
      *
      * The section itself stays on screen — it carries the add-row — so the empty
