@@ -34,8 +34,9 @@ measured the fixture's branch against a ref the fixture does not have, found
 nothing, and passed a deliberately sabotaged input. The control that was
 supposed to prove the gate can fail proved instead that it could not.
 
-The scrubbing is what `scripts/pre-push-verdict.py` already did for the tree it
-judges; it lives here so that the gates and the tests have one answer.
+The scrubbing of git's own names is what `scripts/pre-push-verdict.py`
+already did for the tree it judges; both kinds of scrubbing live here so that
+the gates and the tests have one answer.
 """
 
 from __future__ import annotations
@@ -56,9 +57,14 @@ INHERITED_FROM_HOOK = ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON
 BASE_REF_ENV = "SGATE_BASE_REF"
 
 #: The variables that name something in the caller's tree: the base a change
-#: is measured against. A command that runs in another tree must not inherit
-#: them.
-INHERITED_FROM_TREE = (BASE_REF_ENV,)
+#: is measured against, and the object store the tree reads its objects from.
+#: A command that runs in another tree must not inherit them — an object store
+#: is as much another tree's as a base ref is.
+INHERITED_FROM_TREE = (
+    BASE_REF_ENV,
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+)
 
 #: The identity a commit made inside the sandbox carries. Git reads these
 #: before any configuration file, so a commit in the sandbox is attributed to
@@ -122,7 +128,11 @@ def foreign_env(env: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def sandbox_env(root: pathlib.Path) -> dict[str, str]:
-    """`tree_env`, the upward walk stops at `root`, and commits can be made.
+    """`foreign_env`, the upward walk stops at `root`, and commits can be made.
+
+    A sandbox is another tree — it has a repository of its own — so the names
+    that point at the caller's tree do not travel into it: the base a change
+    is measured against is a ref in the caller's tree, and here it is not.
 
     The ceiling is the second half of the contract: a command that does not
     find a repository of its own fails instead of finding one further up.
@@ -137,7 +147,7 @@ def sandbox_env(root: pathlib.Path) -> dict[str, str]:
     before any configuration file, the commit is attributed to the fixture
     rather than to the developer, and no configuration file is read or written.
     """
-    env = tree_env()
+    env = foreign_env(tree_env())
     env['GIT_CEILING_DIRECTORIES'] = str(root)
     env.update(SANDBOX_IDENTITY)
     return env

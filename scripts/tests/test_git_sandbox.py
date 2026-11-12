@@ -243,6 +243,15 @@ class AnotherTreeTest(unittest.TestCase):
                 self.assertNotIn('SGATE_BASE_REF', os.environ)
             self.assertEqual('origin/main', os.environ.get('SGATE_BASE_REF'))
 
+    def test_the_sandbox_environment_drops_the_base_name(self):
+        # A sandbox is another tree: it has a repository of its own, and the
+        # base a change is measured against is a ref in the caller's tree.
+        with mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/main'}):
+            env = sandbox_env(pathlib.Path('/somewhere'))
+        self.assertNotIn('SGATE_BASE_REF', env)
+        self.assertEqual('/somewhere', env.get('GIT_CEILING_DIRECTORIES'))
+        self.assertEqual('Sandbox Fixture', env.get('GIT_AUTHOR_NAME'))
+
 
 if __name__ == '__main__':
     unittest.main()

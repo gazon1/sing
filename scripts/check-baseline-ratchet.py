@@ -101,7 +101,7 @@ if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
 
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register, run
-from sgate.gatekit.refs import BASE_CANDIDATES
+from sgate.gatekit.refs import BASE_CANDIDATES, BASE_REF_ENV
 
 # Detekt baseline entries look like:
 #   <ID>RuleName:File.kt:Fqcn$signature</ID>
@@ -254,13 +254,13 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
             return "HEAD", f"HEAD (no merge-base with '{explicit}')"
         return found, f"merge-base({explicit}, HEAD) = {found[:12]}"
 
-    from_env = os.environ.get("SGATE_BASE_REF", "").strip()
+    from_env = os.environ.get(BASE_REF_ENV, "").strip()
     if from_env:
         if not ref_exists(from_env):
-            return "HEAD", f"HEAD (SGATE_BASE_REF='{from_env}' does not exist)"
+            return "HEAD", f"HEAD ({BASE_REF_ENV}='{from_env}' does not exist)"
         found = merge_base(from_env)
         if not found:
-            return "HEAD", f"HEAD (no merge-base with SGATE_BASE_REF='{from_env}')"
+            return "HEAD", f"HEAD (no merge-base with {BASE_REF_ENV}='{from_env}')"
         return found, f"merge-base({from_env}, HEAD) = {found[:12]}"
 
     for candidate in BASE_CANDIDATES:
