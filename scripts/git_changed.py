@@ -21,7 +21,7 @@ _SRC = ROOT / "scripts" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 from sgate.gatekit.gitenv import tree_env  # noqa: E402
-from sgate.gatekit.refs import NO_BASE_REF_MESSAGE, resolve_base_ref  # noqa: E402
+from sgate.gatekit.refs import NO_BASE_REF_MESSAGE, resolve_change_base_ref  # noqa: E402
 
 
 def _git(*args: str, cwd: pathlib.Path, check: bool = False) -> tuple[int, str, str]:
@@ -106,7 +106,7 @@ def changed_paths(
     cwd = pathlib.Path(cwd) if cwd is not None else root
     ps = ("--", *pathspec) if pathspec else ()
     if base is None:
-        base = resolve_base_ref(cwd=cwd, env=tree_env())
+        base = resolve_change_base_ref(cwd=cwd, env=tree_env())
 
     files: list[str] = []
     if staged_only:

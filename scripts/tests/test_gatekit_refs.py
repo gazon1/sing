@@ -6,13 +6,16 @@ Every tool that answers "what does this change touch?" needs a base, and the
 lists of candidates those tools used drifted apart — a change measured against
 `origin/main` in one tool and against `main` in another is measured against two
 different things. This module holds the answer once, and these tests hold it
-to the three properties that make it an answer:
+to the properties that make it an answer:
 
-  - the integration branch comes before the trunk, and the remote's copy comes
-    before the local branch;
+  - the ROLE comes first and the freshness second: the integration branch
+    before the trunk, and within one role the remote's copy before the local
+    branch;
   - a named base is EXCLUSIVE: a base the caller named and that is not here is
     no base, never a different ref;
-  - no base is None, and None is never "HEAD".
+  - no base is None, and None is never "HEAD";
+  - a CHANGE is never measured against itself: the resolver that answers for a
+    change steps over a candidate that points at HEAD.
 
 The fixtures write their refs with `git update-ref origin/main HEAD`, which
 lands in `.git/origin/main` — a place `for-each-ref` and `show-ref` cannot
@@ -20,7 +23,9 @@ see, and `rev-parse` resolves like any other name. A resolver that looked with
 the wrong command would answer "no base" about a repository that has one.
 """
 
+import contextlib
 import importlib.util
+import io
 import pathlib
 import subprocess
 import tempfile
@@ -28,6 +33,7 @@ import unittest
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 _MODULE = _ROOT / "scripts" / "src" / "sgate" / "gatekit" / "refs.py"
+_LOADER = _ROOT / "scripts" / "refs_loader.py"
 
 _spec = importlib.util.spec_from_file_location("gatekit_refs", _MODULE)
 _refs = importlib.util.module_from_spec(_spec)
@@ -36,6 +42,7 @@ _spec.loader.exec_module(_refs)
 from git_sandbox import no_named_base  # noqa: E402
 
 resolve_base_ref = _refs.resolve_base_ref
+resolve_change_base_ref = _refs.resolve_change_base_ref
 resolves = _refs.resolves
 BASE_CANDIDATES = _refs.BASE_CANDIDATES
 REMOTE_BASE_CANDIDATES = _refs.REMOTE_BASE_CANDIDATES
@@ -123,6 +130,88 @@ class TheChainTest(RefRepositoryTest):
         self._ref("origin/main")
         self.assertEqual("origin/dev", resolve_base_ref(cwd=self.tmp, candidates=REMOTE_BASE_CANDIDATES))
 
+    def test_the_integration_branch_wins_over_a_fresher_trunk(self):
+        """The role comes first and the freshness second.
+
+        A checkout with `origin/main` and a local `dev` — and no `origin/dev`
+        — has two answers, and only one of them can be the base. The
+        integration branch wins: the remote's copy of the trunk is not a
+        better integration branch than the local `dev`, it is a better COPY
+        of the trunk.
+        """
+        self._branch("dev")
+        self._ref("origin/main")
+        self.assertEqual("dev", resolve_base_ref(cwd=self.tmp))
+
+
+class TheChangeBaseTest(RefRepositoryTest):
+    """The base a CHANGE is measured against is never the change itself.
+
+    ## The defect this covers
+
+    A push leaves the remote-tracking copy of the pushed branch on the commit
+    that was just pushed. A push to `dev` therefore leaves `origin/dev` on
+    `HEAD`, and a resolver that answers "the integration branch" measures
+    that push against itself: the diff is empty, every gate that selects work
+    by the changed files finds nothing to do, and the run is green because it
+    measured nothing.
+
+    The change resolver steps over a candidate that points at `HEAD` and
+    takes the next one — the push to `dev` is measured against `origin/main`,
+    which is what the integration branch is measured against.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        # A second commit, so that a ref can point at a commit that is NOT the
+        # change itself. The first commit is now HEAD's parent.
+        (self.tmp / "file.txt").write_text("second", encoding="utf-8")
+        self._git("add", "-A")
+        self._git("commit", "--quiet", "-m", "second")
+        self.older = self._git("rev-parse", "HEAD~1")
+
+    def test_a_push_to_the_integration_branch_is_measured_against_the_trunk(self):
+        self._git("update-ref", "origin/dev", "HEAD")
+        self._git("update-ref", "origin/main", self.older)
+        self.assertEqual("origin/main", resolve_change_base_ref(cwd=self.tmp))
+
+    def test_the_plain_resolver_answers_the_branch_the_push_went_to(self):
+        """The two resolvers answer two different questions.
+
+        The plain one answers "which ref is this checkout's trunk?" — and the
+        trunk of a push to `dev` is `dev`. The change one answers "which ref
+        is this change measured against?", and it refuses the branch the
+        change was pushed to.
+        """
+        self._git("update-ref", "origin/dev", "HEAD")
+        self._git("update-ref", "origin/main", self.older)
+        self.assertEqual("origin/dev", resolve_base_ref(cwd=self.tmp))
+        self.assertEqual("origin/main", resolve_change_base_ref(cwd=self.tmp))
+
+    def test_a_named_base_is_taken_as_given(self):
+        # The caller named it and the caller knows whether it is the change
+        # itself: a name is an answer, not a guess.
+        self._git("update-ref", "origin/dev", "HEAD")
+        env = {BASE_REF_ENV: "origin/dev"}
+        self.assertEqual("origin/dev", resolve_change_base_ref(cwd=self.tmp, env=env))
+
+    def test_a_named_base_that_is_not_here_is_no_base(self):
+        env = {BASE_REF_ENV: "origin/dev"}
+        self.assertIsNone(resolve_change_base_ref(cwd=self.tmp, env=env))
+
+    def test_the_change_is_never_measured_against_itself(self):
+        # The local `dev` is the change itself and the trunk is not: the
+        # resolver steps over the branch the change was pushed to.
+        self._git("branch", "dev")
+        self._git("update-ref", "origin/main", self.older)
+        self.assertEqual("origin/main", resolve_change_base_ref(cwd=self.tmp))
+
+    def test_when_every_candidate_is_the_change_itself_the_first_one_answers(self):
+        # There is nothing else to measure against: the change is empty, and
+        # the caller says so rather than pretending it measured something.
+        self._git("update-ref", "origin/dev", "HEAD")
+        self.assertEqual("origin/dev", resolve_change_base_ref(cwd=self.tmp))
+
 
 class TheNamedBaseTest(RefRepositoryTest):
     """What `SGATE_BASE_REF` does."""
@@ -163,6 +252,68 @@ class TheResolverTest(RefRepositoryTest):
 
     def test_a_ref_that_is_not_there_does_not_resolve(self):
         self.assertFalse(resolves("origin/main", cwd=self.tmp))
+
+
+class TheCommandLineTest(RefRepositoryTest):
+    """The loader is also a command, and the command is the same answer.
+
+    A recipe outside the package — `just rumdl-changed`, a shell hook — needs
+    a base and cannot import the package that owns the answer. The loader is
+    the door: it prints the answer, and its exit code is the answer's.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        # A second commit, so that the trunk can point at a commit that is not
+        # the change itself.
+        (self.tmp / "file.txt").write_text("second", encoding="utf-8")
+        self._git("add", "-A")
+        self._git("commit", "--quiet", "-m", "second")
+        self.older = self._git("rev-parse", "HEAD~1")
+        self.loader = self._load_loader()
+        self._original_root = self.loader.ROOT
+        self.loader.ROOT = self.tmp
+        self.addCleanup(self._restore_root)
+
+    @staticmethod
+    def _load_loader():
+        spec = importlib.util.spec_from_file_location("refs_loader_cli", _LOADER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def _restore_root(self) -> None:
+        self.loader.ROOT = self._original_root
+
+    def _run(self, argv: list[str]) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = self.loader.main(argv)
+        return code, out.getvalue().strip() or err.getvalue().strip()
+
+    def test_it_prints_the_base_the_repository_names(self):
+        self._git("update-ref", "origin/main", self.older)
+        code, printed = self._run([])
+        self.assertEqual(0, code, printed)
+        self.assertEqual("origin/main", printed)
+
+    def test_it_fails_when_there_is_no_base(self):
+        # A caller that cannot do without a base fails loudly rather than
+        # guessing one.
+        code, printed = self._run([])
+        self.assertEqual(1, code, printed)
+        self.assertIn("base", printed.lower())
+
+    def test_the_upstream_is_a_different_question(self):
+        # The upstream of a checkout is the remote-tracking trunk; the base of
+        # a change may be a local branch. The command asks both, and the two
+        # answers are not the same.
+        self._git("branch", "main", self.older)
+        code, printed = self._run([])
+        self.assertEqual(0, code, printed)
+        self.assertEqual("main", printed)
+        code, printed = self._run(["--upstream"])
+        self.assertEqual(1, code, printed)
 
 
 class TheChainIsReachableTest(unittest.TestCase):

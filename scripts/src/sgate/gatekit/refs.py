@@ -30,9 +30,34 @@ everything.
 
 The order
 ---------
-`dev` comes before `main`, and the remote-tracking copy comes before the local
-branch: the remote's copy of the trunk is fresher than the local one, and the
-trunk a change is based on is the integration branch while it exists.
+The ROLE comes first and the freshness second. `dev` comes before `main`
+whatever else is true, because the trunk a change is based on is the
+integration branch while it exists and the release branch after it. Within one
+role the remote-tracking copy comes before the local branch: the remote's copy
+is the branch as the world sees it, and the local branch is the branch as this
+checkout last had it.
+
+The two rules can disagree — a checkout with `origin/main` and a local `dev`
+has both, and only one of them can be the answer. The role wins: `dev` is the
+integration branch, and a change based on the integration branch is measured
+against it. The remote's copy of `main` is not a better integration branch
+than the local `dev`; it is a better *copy of the trunk*.
+
+The change and the base
+-----------------------
+Two questions, two answers, and confusing them is how a change ends up
+measured against itself:
+
+  * "which ref is this checkout's trunk?" — `resolve_base_ref`. A tool that
+    asks about the upstream of a checkout asks this.
+  * "which ref is THIS CHANGE measured against?" — `resolve_change_base_ref`.
+    A tool that asks what a change touches asks this.
+
+The second refuses a base that points at the change itself. A push to `dev`
+leaves `origin/dev` on the commit that was just pushed, so a chain that
+answers "the integration branch" would measure that push against itself and
+call the result "no change". The change resolver steps over a candidate that
+points at `HEAD` and takes the next one.
 
 The fallback
 ------------
@@ -136,23 +161,23 @@ REMOTE_BASE_CANDIDATES = (
 
 #: The refs a change is measured against, in order.
 #:
-#: The remote-tracking copy of the trunk first, then the local branches — a
-#: clone with no remote at all still has a branch, and a change measured
-#: against nothing is measured against everything.
+#: The role comes first: the integration branch, then the trunk. Within a
+#: role the remote-tracking copy comes before the local branch — the remote's
+#: copy is the branch as the world sees it.
 #:
 #: The short names are enough: git resolves `origin/dev` to the remote-tracking
 #: ref and `dev` to the local branch, so the fully qualified spellings would
 #: never be reached.
 BASE_CANDIDATES = (
     "origin/dev",
-    "origin/main",
     "dev",
+    "origin/main",
     "main",
 )
 
 
-def resolves(ref: str, cwd=None, env=None) -> bool:
-    """Whether `ref` names a commit in this repository.
+def commit_of(ref: str, cwd=None, env=None) -> str | None:
+    """The commit `ref` names, or None when it names none.
 
     The ref is read the way git reads it: `git rev-parse --verify --quiet
     <ref>^{commit}`. Not `for-each-ref`, not `show-ref` — those do not see a
@@ -172,7 +197,14 @@ def resolves(ref: str, cwd=None, env=None) -> bool:
         text=True,
         check=False,
     )
-    return result.returncode == 0
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def resolves(ref: str, cwd=None, env=None) -> bool:
+    """Whether `ref` names a commit in this repository."""
+    return commit_of(ref, cwd=cwd, env=env) is not None
 
 
 def resolve_base_ref(cwd=None, env=None, candidates=None) -> str | None:
@@ -191,6 +223,10 @@ def resolve_base_ref(cwd=None, env=None, candidates=None) -> str | None:
     did not resolve. None is not "measure against HEAD" — a tool that has no
     base says so, and a tool that must measure against something measures
     against everything.
+
+    This answers "which ref is this checkout's trunk?". A tool that asks what
+    a CHANGE touches wants `resolve_change_base_ref` instead: it steps over a
+    candidate that points at the change itself.
     """
     effective = os.environ if env is None else env
     explicit = effective.get(BASE_REF_ENV, "").strip()
@@ -205,11 +241,59 @@ def resolve_base_ref(cwd=None, env=None, candidates=None) -> str | None:
     return None
 
 
+def resolve_change_base_ref(cwd=None, env=None, candidates=None) -> str | None:
+    """The ref THIS CHANGE is measured against, or None when there is none.
+
+    The difference from `resolve_base_ref` is one rule: a base that points at
+    the change itself is not a base.
+
+    A push leaves the remote-tracking copy of the pushed branch on the commit
+    that was just pushed. A push to `dev` therefore leaves `origin/dev` on
+    `HEAD`, and a chain that answers "the integration branch" measures that
+    push against itself — the diff is empty, every gate that selects work by
+    the changed files finds nothing to do, and the run is green because it
+    measured nothing. That is the vacuous comparison this resolver exists to
+    prevent.
+
+    So the chain steps over a candidate that points at `HEAD` and takes the
+    next one: a push to `dev` is measured against `origin/main`, which is what
+    the integration branch is measured against. When every candidate points at
+    `HEAD` there is nothing else to measure against, and the first of them is
+    the answer — the change is empty, and the caller says so rather than
+    pretending it measured something.
+
+    A NAMED base is exclusive and is taken as given: the caller named it, and
+    the caller knows whether it is the change itself. A name that does not
+    resolve is no base at all — never a different ref, and never `HEAD`.
+
+    *candidates* is the chain to answer from; it defaults to
+    `BASE_CANDIDATES`.
+    """
+    effective = os.environ if env is None else env
+    explicit = effective.get(BASE_REF_ENV, "").strip()
+    if explicit:
+        return explicit if resolves(explicit, cwd=cwd, env=env) else None
+
+    head = commit_of("HEAD", cwd=cwd, env=env)
+    change_itself = None
+    for candidate in BASE_CANDIDATES if candidates is None else candidates:
+        commit = commit_of(candidate, cwd=cwd, env=env)
+        if commit is None:
+            continue
+        if head is None or commit != head:
+            return candidate
+        if change_itself is None:
+            change_itself = candidate
+    return change_itself
+
+
 __all__ = [
     "BASE_CANDIDATES",
     "BASE_REF_ENV",
     "NO_BASE_REF_MESSAGE",
     "REMOTE_BASE_CANDIDATES",
+    "commit_of",
     "resolve_base_ref",
+    "resolve_change_base_ref",
     "resolves",
 ]

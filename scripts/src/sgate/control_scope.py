@@ -40,7 +40,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from sgate.gatekit.gitenv import tree_env  # noqa: E402
-from sgate.gatekit.refs import BASE_CANDIDATES, resolve_base_ref  # noqa: E402
+from sgate.gatekit.refs import BASE_CANDIDATES, resolve_change_base_ref  # noqa: E402
 
 #: The refs the change is measured against, in order. The first one that
 #: resolves wins; the integration branch is the branch a pull request is
@@ -95,7 +95,7 @@ def _base_ref() -> str | None:
     and otherwise the chain — the integration branch while it exists, the
     trunk after it.
     """
-    return resolve_base_ref(cwd=ROOT, env=tree_env(), candidates=BASE_CANDIDATES)
+    return resolve_change_base_ref(cwd=ROOT, env=tree_env(), candidates=BASE_CANDIDATES)
 
 
 def changed_files() -> set[str] | None:

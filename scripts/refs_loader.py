@@ -60,3 +60,10 @@ BASE_CANDIDATES = load_refs().BASE_CANDIDATES
 
 #: The ref this change is measured against, or None when there is none.
 resolve_base_ref = load_refs().resolve_base_ref
+
+#: The ref THIS CHANGE is measured against, or None when there is none.
+#:
+#: The difference matters: this one steps over a candidate that points at the
+#: change itself, so a push is never measured against the branch it was
+#: pushed to.
+resolve_change_base_ref = load_refs().resolve_change_base_ref

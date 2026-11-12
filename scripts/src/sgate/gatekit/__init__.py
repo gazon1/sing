@@ -43,6 +43,7 @@ from sgate.gatekit.refs import (
     NO_BASE_REF_MESSAGE,
     REMOTE_BASE_CANDIDATES,
     resolve_base_ref,
+    resolve_change_base_ref,
 )
 from sgate.gatekit.tables import (
     TableRule,
@@ -91,6 +92,7 @@ __all__ = [
     "modules",
     "names_of",
     "resolve_base_ref",
+    "resolve_change_base_ref",
     "rows_at_header",
     "rows_matching",
     "table_rows",

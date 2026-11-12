@@ -82,7 +82,7 @@ _SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from refs_loader import NO_BASE_REF_MESSAGE, resolve_base_ref  # noqa: E402
+from refs_loader import NO_BASE_REF_MESSAGE, resolve_change_base_ref  # noqa: E402
 
 CLEAN = 0
 COMPILE_FAILED = 1
@@ -308,7 +308,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument(
         '--base',
-        default=resolve_base_ref(cwd=ROOT),
+        default=resolve_change_base_ref(cwd=ROOT),
         help=(
             'What the change is measured against (default: the integration branch, '
             'then the trunk).'
