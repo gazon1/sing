@@ -2,6 +2,8 @@ package com.singularity.todo.feature.agenda.presentation.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
@@ -9,6 +11,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.LocalAgendaRouteHolder
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
@@ -56,6 +59,20 @@ fun AgendaNavGraph(
                 onExitGraph = onExitGraph,
             )
         }
+
+    // The route this graph is on, published to the shell above it. The shell draws
+    // the button over the agenda, and it sits outside this graph: it can see the
+    // graph as one destination, but not the route inside it. Without this, every
+    // screen inside the agenda got the button of the tab the agenda opened with —
+    // including the saved-view screens, which carry no shell button and draw
+    // their own, and the shell's button was drawn on top of that one.
+    val routeHolder = LocalAgendaRouteHolder.current
+    val currentRoute = stack.lastOrNull() ?: start
+    SideEffect { routeHolder?.publish(currentRoute) }
+    DisposableEffect(routeHolder) {
+        onDispose { routeHolder?.clear() }
+    }
+
     CompositionLocalProvider(
         LocalAgendaNavigator provides navigator,
     ) {

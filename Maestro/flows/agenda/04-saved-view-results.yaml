@@ -8,6 +8,8 @@
 # 4. Tap the "My Active Tasks" card → SavedAgendaResults screen.
 # 5. Verify the view's title in the top bar.
 # 6. Verify the seeded task appears (matches the Active-tasks filter).
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-saved-view-results
 tags:
@@ -27,8 +29,15 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: agenda_save_current_button
+      id: agenda_overflow_button
     timeout: 8000
+# Save-current lives in the agenda bar's overflow menu.
+- tapOn:
+    id: agenda_overflow_button
+- extendedWaitUntil:
+    visible:
+      id: agenda_save_current_button
+    timeout: 5000
 - tapOn:
     id: agenda_save_current_button
 - extendedWaitUntil:
@@ -42,22 +51,22 @@ tags:
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
-# Save keeps the editor open (it does not pop) and clears the draft's dirty
-# flag, so the discard guard has nothing to guard and back goes straight out.
-# The guard only appears while the draft has unsaved edits — see
-# 03-saved-views-crud.yaml, which renames without saving and does get it.
+# Save pops the editor: SaveSuccess maps to Notification.NavigateBack
+# (SavedAgendaScreen.kt), and the desktop twin pins that contract on
+# SavedAgendaCreateFlowTest. An earlier version of this flow assumed the
+# editor stayed open and tapped the top-bar arrow to leave it — an arrow that
+# is not on the agenda screen at all (the shell draws `shell_back_button`
+# there), so the flow died on "Element not found: top_bar_back_button".
+# Assert the pop instead.
 #
 # No `hideKeyboard` here: the keyboard was already hidden above, and a
 # `hideKeyboard` with nothing to hide is a BACK keypress — which the editor
 # reads as "dismiss me". Measured on a real phone (2026-10-28). See
 # docs/decisions/2026-10-28-the-keyboard-was-already-down.md.
-- scrollUntilVisible:
-    element:
-      id: top_bar_back_button
-    direction: UP
-    timeout: 8000
-- tapOn:
-    id: top_bar_back_button
+- extendedWaitUntil:
+    notVisible:
+      id: saved_agenda_name_input
+    timeout: 5000
 - extendedWaitUntil:
     visible:
       id: agenda_saved_views_button

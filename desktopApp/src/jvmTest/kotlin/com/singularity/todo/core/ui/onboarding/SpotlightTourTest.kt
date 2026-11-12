@@ -128,7 +128,7 @@ private fun SpotlightTourHost(store: OnboardingSettingsRepository) {
                 modifier =
                     Modifier
                         .size(48.dp)
-                        .spotlightAnchor(SpotlightAnchorId.SaveCurrent, tour.registry),
+                        .spotlightAnchor(SpotlightAnchorId.AgendaOverflow, tour.registry),
             )
         }
 

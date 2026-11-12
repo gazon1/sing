@@ -21,7 +21,9 @@ ${SETTINGS_TAB} tab
 ${TASK_ID} item
 agenda_grouping_day button
 agenda_grouping_week button
-agenda_save_current_button button
+agenda_multi_date_button menu
+agenda_overflow_button button
+agenda_save_current_button menu
 agenda_saved_views_button button
 agenda_section_blocked item
 agenda_section_no_date item
@@ -92,6 +94,8 @@ menu_search menu
 menu_settings menu
 menu_sheet menu
 menu_statistics menu
+multi_date_picker_cancel button
+multi_date_picker_month_title text
 nav_tab_inbox tab
 nav_tab_today shell
 note_action_edit button
@@ -102,6 +106,7 @@ note_item_by_title_${RUN_ID}_alpha item
 note_item_by_title_${RUN_ID}_meeting_notes item
 note_item_by_title_link_source item
 notes_quick_add_input field
+onboarding_spotlight_card dialog
 overflow_archive menu
 overflow_delete menu
 overflow_restore menu

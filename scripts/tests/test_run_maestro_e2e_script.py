@@ -15,10 +15,26 @@ import contextlib
 import importlib.util
 import io
 import pathlib
+import subprocess
 import tempfile
 import unittest
+import unittest.mock
 
 SCRIPT = pathlib.Path(__file__).resolve().parent.parent / "run-maestro-e2e.py"
+
+#: What an API 35 phone prints for the resumed activity — measured on a
+#: realme RMX3938 (0O65321F32204DD5). There is no ``topResumedActivity`` line
+#: on this device at all.
+API_35_DUMP = (
+    "  ResumedActivity: ActivityRecord{5a1b95b u0 "
+    "com.singularity.todo/.MainActivity t3273 d0}\n"
+)
+
+#: The shape older Android versions print.
+LEGACY_DUMP = (
+    "  topResumedActivity=ActivityRecord{8f3 u0 "
+    "com.singularity.todo/.MainActivity t42}\n"
+)
 
 
 def _load_script():
@@ -113,6 +129,75 @@ class CleanupScopeParityTest(unittest.TestCase):
             if param.name == "maestro_cleanup"
         )
         self.assertEqual(default.default, "all")
+
+
+class AppReadinessTest(unittest.TestCase):
+    """The readiness check must be able to answer.
+
+    It had a copy of the runner's resumed-activity rule, and the copy knew
+    only the ``topResumedActivity=`` shape — the one a modern device does not
+    print. It also ran before anything had launched the app, so it could never
+    pass: it was a ninety-second sleep per shard that ended in "App not
+    confirmed ready".
+    """
+
+    def setUp(self):
+        self.mod = _load_script()
+
+    @staticmethod
+    def _completed(stdout: str = "", returncode: int = 0):
+        return subprocess.CompletedProcess(
+            args=[], returncode=returncode, stdout=stdout, stderr="",
+        )
+
+    def test_the_matcher_is_the_runner_s_own(self):
+        """One rule, one owner: the driver borrows the runner's matcher."""
+        from emulator.maestro import _device
+
+        self.assertIs(self.mod.resumed_activity_line, _device.resumed_activity_line)
+        self.assertFalse(hasattr(self.mod, "_top_resumed_activity"))
+
+    def test_the_api_35_shape_is_recognised(self):
+        with unittest.mock.patch.object(
+            self.mod, "try_run", return_value=self._completed(API_35_DUMP),
+        ):
+            self.assertTrue(self.mod.wait_for_app_ready("serial", timeout=5))
+
+    def test_the_legacy_shape_is_recognised(self):
+        with unittest.mock.patch.object(
+            self.mod, "try_run", return_value=self._completed(LEGACY_DUMP),
+        ):
+            self.assertTrue(self.mod.wait_for_app_ready("serial", timeout=5))
+
+    def test_another_app_in_front_is_not_the_app(self):
+        dump = (
+            "  ResumedActivity: ActivityRecord{99 u0 "
+            "com.android.settings/.Settings t1 d0}\n"
+        )
+        with unittest.mock.patch.object(
+            self.mod, "try_run", return_value=self._completed(dump),
+        ), unittest.mock.patch.object(self.mod.time, "sleep"):
+            self.assertFalse(self.mod.wait_for_app_ready("serial", timeout=1))
+
+    def test_the_app_is_started_before_the_wait(self):
+        """The check asks whether the app is up; the app has to be started."""
+        calls: list[list[str]] = []
+
+        def fake(args, **kwargs):
+            calls.append(args)
+            if "dumpsys" in args:
+                return self._completed(API_35_DUMP)
+            return self._completed()
+
+        with unittest.mock.patch.object(self.mod, "try_run", side_effect=fake):
+            self.assertTrue(self.mod.ensure_app_ready("serial", timeout=5))
+
+        started = [c for c in calls if "am" in c and "start" in c]
+        self.assertTrue(started, calls)
+        self.assertLess(
+            calls.index(started[0]),
+            next(i for i, c in enumerate(calls) if "dumpsys" in c),
+        )
 
 
 if __name__ == "__main__":

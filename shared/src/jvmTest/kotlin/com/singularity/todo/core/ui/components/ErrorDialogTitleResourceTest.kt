@@ -1,8 +1,8 @@
 package com.singularity.todo.core.ui.components
 
+import com.singularity.todo.core.ui.bundleString
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -57,26 +57,5 @@ class ErrorDialogTitleResourceTest {
     }
 
     /** The heading's text in one language, or `""` when the bundle does not define it. */
-    private fun headingIn(language: String): String {
-        val bundle =
-            File(repositoryRoot(), "shared/src/commonMain/composeResources/$language/strings.xml")
-        assertTrue(bundle.isFile, "expected the resource bundle at ${bundle.path}")
-        return Regex("""<string\s+name="error"\s*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
-            .find(bundle.readText())
-            ?.groupValues
-            ?.get(1)
-            ?.trim()
-            .orEmpty()
-    }
-
-    /**
-     * The checkout root, found by walking up from the working directory.
-     *
-     * The JVM does not start at a fixed depth — Gradle starts it in the module's own
-     * directory — so the marker is a file only the root has.
-     */
-    private fun repositoryRoot(): File =
-        generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }
-            .firstOrNull { File(it, "settings.gradle.kts").isFile }
-            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun headingIn(language: String): String = bundleString(language, "error")
 }

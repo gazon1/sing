@@ -1,0 +1,31 @@
+# Dismisses the first-run spotlight tour when it is on screen.
+#
+# The tour dims the agenda and swallows every tap under the scrim, so a flow
+# that drives the agenda never reaches its rows: the list is simply not there
+# while the tour is up. A flow that asserts on a task row or a section header
+# fails on "No visible element found", which says nothing about the app.
+#
+# The tour is armed on a device that has never seen it, and dismissing it
+# records that it was seen — so this is a one-time dismissal per device. A
+# device that has already seen the tour has nothing to dismiss, and the
+# conditional is what says so: the step runs when the card is up and is
+# skipped when it is not.
+#
+# The wait afterwards is the same in both cases. "The card is gone" is true
+# immediately when there never was one, so the wait cannot fail on a device
+# that has seen the tour; and when there was one, it waits for the dismissal
+# to take effect rather than assuming it did.
+appId: com.singularity.todo
+name: skip-spotlight
+---
+- runFlow:
+    when:
+      visible:
+        id: onboarding_spotlight_card
+    commands:
+      - tapOn:
+          id: onboarding_spotlight_skip
+- extendedWaitUntil:
+    notVisible:
+      id: onboarding_spotlight_card
+    timeout: 8000

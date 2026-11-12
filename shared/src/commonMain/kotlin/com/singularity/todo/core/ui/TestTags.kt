@@ -554,14 +554,32 @@ object TestTags {
 
     /**
      * The top-bar button that opens the date picker for a task on several days.
+     *
+     * It is a row of the top bar's overflow menu, so it exists in the tree only
+     * while the menu is open.
      */
     const val AGENDA_MULTI_DATE_BUTTON = "agenda_multi_date_button"
+
+    /**
+     * The top bar's overflow button (⋮).
+     *
+     * It opens the menu that holds the agenda's infrequent actions. It is the
+     * trigger the user can always see — the actions it holds are not on the bar.
+     */
+    const val AGENDA_OVERFLOW_BUTTON = "agenda_overflow_button"
 
     /**
      * The button of the selection bar that merges the two series the selection
      * spans. It is there only when the selection does span two.
      */
     const val AGENDA_MERGE_SERIES_BUTTON = "agenda_merge_series_button"
+
+    /**
+     * The agenda's "save the current view" action.
+     *
+     * It is a row of the top bar's overflow menu, so it exists in the tree only
+     * while the menu is open.
+     */
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
 
     /**
@@ -1096,6 +1114,18 @@ object TestTags {
         const val OK = "dialog_date_picker_ok"
         const val CANCEL = "dialog_date_picker_cancel"
         const val CLEAR = "dialog_date_picker_clear"
+
+        /**
+         * The sheet's "Today" chip — the app's own shortcut to the current date.
+         *
+         * The Material3 day grid offers no handle a test can hold: a day cell
+         * carries only the library's date description, and the grid composes the
+         * cells that fit on screen, so a flow that reads a day out of that
+         * description depends on the device's language and on the screen's
+         * height. The chip is app-owned and always on top of the sheet, so a flow
+         * that wants "today" taps this and gets the same date the grid would give.
+         */
+        const val TODAY = "dialog_date_picker_today"
 
         /**
          * The sheet body itself, as opposed to its action row.

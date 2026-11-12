@@ -43,6 +43,8 @@ _added = str(SCRIPTS_SRC) not in sys.path
 if _added:
     sys.path.insert(0, str(SCRIPTS_SRC))
 from emulator.maestro._flow import suite_selection  # noqa: E402
+from emulator.maestro._device import resumed_activity_line  # noqa: E402
+from emulator.maestro._types import APP_ID  # noqa: E402
 from emulator._startup import prepare_device  # noqa: E402
 
 if _added:
@@ -155,42 +157,48 @@ def adb_install(serial: str, apk_path: Path) -> bool:
     return True
 
 
-def _top_resumed_activity(out: str | None) -> str:
-    """The line the system reports as the resumed activity, or "".
+def launch_app(serial: str) -> bool:
+    """Bring the app to the front, so that "is it ready?" has an answer.
 
-    `dumpsys activity activities` prints, on a modern Android:
+    Nothing in this script has launched the app before the readiness check:
+    the flows launch it themselves (`launch-clean.yaml`), and they run *after*
+    the check. A wait for a resumed activity that asks whether the app is
+    running cannot pass while the app is not running — it can only time out,
+    which is what it did, once a minute, on every shard.
 
-        topResumedActivity=ActivityRecord{8f3 u0 com.singularity.todo/.MainActivity t42}
-
-    The activity id is *inside* the record, not right after the `=`. A matcher
-    that expects `topResumedActivity=.com.…` never matches anything — which is
-    how this check came to be a 90-second sleep that always ended in "ready".
+    Starting the app here is cheap and it is what the check was reaching for:
+    the installed APK either comes up or it does not, and the shard learns
+    which before it spends minutes driving flows against a dead app.
     """
-    if not out:
-        return ""
-    for line in out.splitlines():
-        if "topResumedActivity" in line:
-            return line.strip()
-    return ""
+    cp = try_run(
+        ["adb", "-s", serial, "shell", "am", "start", "-W", "-n", f"{APP_ID}/.MainActivity"],
+        timeout=60,
+    )
+    return cp is not None and cp.returncode == 0
 
 
 def wait_for_app_ready(serial: str, timeout: int = 90) -> bool:
-    """Poll dumpsys until MainActivity is top-resumed.
+    """Poll dumpsys until MainActivity is the resumed activity.
 
     Returns what it found. The previous version returned True on timeout and
     the caller printed "App ready." either way, so a run in which the app never
     came up said the very same thing as a run in which it did.
+
+    The line is read by the runner's own matcher
+    (`emulator.maestro._device.resumed_activity_line`): a second copy of that
+    rule is how the check came to be a 90-second sleep that always ended in
+    "not ready" — the copy only knew the `topResumedActivity=` shape, and a
+    modern device prints `ResumedActivity:` instead.
     """
     deadline = time.monotonic() + timeout
-    app_id = "com.singularity.todo/.MainActivity"
     last_line = ""
     while time.monotonic() < deadline:
         out = try_run(
             ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
             timeout=5,
         )
-        last_line = _top_resumed_activity(out.stdout if out else None)
-        if last_line and app_id in last_line:
+        last_line = resumed_activity_line(out.stdout if out else None)
+        if last_line and f"{APP_ID}/.MainActivity" in last_line:
             return True
         time.sleep(1)
     sys.stderr.write(
@@ -198,6 +206,21 @@ def wait_for_app_ready(serial: str, timeout: int = 90) -> bool:
         f"last resumed activity: {last_line or '(unknown)'}\n"
     )
     return False
+
+
+def ensure_app_ready(serial: str, timeout: int = 90) -> bool:
+    """Start the app and wait until it is in front. True when it came up.
+
+    The start comes first, and that order is the whole point: nothing before
+    this call has launched the app, and the flows launch it themselves *after*
+    this check. A wait that asks whether the app is running cannot pass while
+    the app is not running, so it can only time out.
+    """
+    if not launch_app(serial):
+        sys.stderr.write(
+            "WARNING: the app did not start; the readiness check cannot pass\n"
+        )
+    return wait_for_app_ready(serial, timeout=timeout)
 
 
 # ── Maestro run ───────────────────────────────────────────────────────────────
@@ -352,8 +375,11 @@ def main(argv: list[str] | None = None) -> int:
     prepare_device(device)
 
     # ── Wait for app ready ──────────────────────────────────────────────────
+    # The app is started first: the check asks whether the app is up, and
+    # nothing before this point has started it — the flows do that themselves,
+    # after this check. See ensure_app_ready.
     print(f"{YELLOW}Waiting for app to be ready...{_col('0', '')}", flush=True)
-    if wait_for_app_ready(device):
+    if ensure_app_ready(device):
         print(f"{GREEN}App ready.{_col('0', '')}", flush=True)
     else:
         # Not fatal: the flows' own `extendedWaitUntil` on the agenda shell is

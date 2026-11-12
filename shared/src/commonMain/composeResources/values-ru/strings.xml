@@ -45,6 +45,11 @@
     <string name="menu_restore">Восстановить</string>
     <string name="menu_archive">Архивировать</string>
     <string name="menu_delete">Удалить</string>
+    <!-- The agenda top bar; the same rows as in values/strings.xml. -->
+    <string name="agenda_saved_views">Сохранённые подборки</string>
+    <string name="agenda_save_current">Сохранить текущую подборку</string>
+    <string name="agenda_multi_date">Задача на несколько дат</string>
+    <string name="agenda_more_actions">Другие действия</string>
     <!-- Date parts for the task editor's due-date row; the same short forms the
          agenda list uses, so one date reads the same on both screens. -->
     <string name="weekday_short_mon">Пн</string>

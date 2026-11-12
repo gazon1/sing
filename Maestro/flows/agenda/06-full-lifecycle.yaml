@@ -2,13 +2,16 @@
 # rename → results → delete → empty.
 #
 # Mirrors desktop SavedViewsFlowTest + SavedAgendaEditFlowTest + the MR-1 fixes:
-# Save navigates back to the list (the "Save spins forever" regression), and the
-# list-level Delete is immediate while edit-mode Delete raises the confirm
-# dialog ("Delete view?" → dialog_confirm).
+# Save navigates back to the list (the "Save spins forever" regression), and
+# both the list-level Delete and the edit-mode Delete raise the confirm dialog
+# ("Delete view?" → dialog_confirm).
 #
-# Note: the card's overflow menu (⋮) is text-only — no testTag — so the menu is
-# opened with a text selector, and menu items are matched by their visible
-# labels ("Edit", "Delete").
+# The card's overflow menu (⋮) carries a testTag of its own
+# (saved_agenda_overflow_button), and so do its rows (saved_agenda_menu_edit,
+# saved_agenda_menu_delete) — an earlier version of this flow opened the menu
+# with a text selector, because the tags did not exist yet.
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-full-lifecycle
 tags:
@@ -32,8 +35,15 @@ tags:
     visible:
       id: saved_agenda_name_input
     timeout: 5000
+# The name field comes pre-filled ("All"), and the tap that focuses it lands
+# where the tap is — in the middle of the text, if the text is long enough. So
+# the caret is put past the text (where the caret can only go to the end) and
+# the field is cleared, before the name is typed. Without this the typed name
+# lands inside the old one and the card's id — the slug of the name — is not
+# the id the flow asserts on.
 - tapOn:
     id: saved_agenda_name_input
+    point: "95%,50%"
 - eraseText
 - inputText: "${RUN_ID} Journey View"
 - hideKeyboard
@@ -76,8 +86,11 @@ tags:
     visible:
       id: saved_agenda_name_input
     timeout: 5000
+# The same caret business as above: the field holds the old name, and the tap
+# that focuses it would leave the caret inside it.
 - tapOn:
     id: saved_agenda_name_input
+    point: "95%,50%"
 - eraseText
 - inputText: "${RUN_ID} Journey Renamed"
 - hideKeyboard
@@ -98,7 +111,12 @@ tags:
       id: saved_agenda_card_${RUN_ID}_journey_renamed
     timeout: 8000
 
-# ── 5. Overflow menu → Delete (immediate, no confirm on the list) ───────
+# ── 5. Overflow menu → Delete → confirm → the list is empty again ─────────
+# The list-side Delete asks first: the card's Delete opens the "Delete view?"
+# confirmation (SavedAgendaListScreen → SavedAgendaDialog.Delete), and only
+# `dialog_confirm` performs the delete. An earlier version of this flow
+# assumed the delete was immediate and waited for the empty state while the
+# dialog was still up.
 - tapOn:
     id: saved_agenda_overflow_button
 - extendedWaitUntil:
@@ -107,6 +125,12 @@ tags:
     timeout: 5000
 - tapOn:
     id: saved_agenda_menu_delete
+- extendedWaitUntil:
+    visible:
+      id: dialog_title_delete_view
+    timeout: 8000
+- tapOn:
+    id: dialog_confirm
 - extendedWaitUntil:
     visible:
       id: saved_agenda_empty_title

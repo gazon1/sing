@@ -5,7 +5,7 @@
 # the overdue section is auto-collapsed with an accurate count and an explicit
 # expand affordance, and the full Overdue destination contains all overdue tasks.
 #
-# прогнан на устройстве: да (2026-11-10)
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-large-overdue
 tags:

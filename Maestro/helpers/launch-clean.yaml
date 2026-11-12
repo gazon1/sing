@@ -21,6 +21,10 @@
 #
 # To exercise the auth screen (auth guard after a fresh install), use a flow
 # that clears state explicitly and drives the sign-in step with real credentials.
+#
+# The first-run spotlight tour is dismissed here as well: it covers the agenda
+# and swallows the taps under its scrim, so a flow that drives the agenda would
+# otherwise drive an empty screen. See `skip-spotlight.yaml`.
 appId: com.singularity.todo
 name: launch-clean
 onFlowComplete:
@@ -45,3 +49,8 @@ onFlowComplete:
     visible:
       id: nav_tab_today
     timeout: 30000
+# The first-run spotlight tour dims the agenda and swallows the taps under its
+# scrim, so a flow that drives the agenda never reaches its rows. The tour is
+# dismissed here, once per device: a device that has seen it has nothing to
+# dismiss, and the helper's conditional is what says so.
+- runFlow: skip-spotlight.yaml

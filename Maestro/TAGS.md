@@ -167,6 +167,7 @@ non-alphanumeric characters with `_`.
 | `AGENDA_GROUPING_WEEK` | `agenda_grouping_week` | |
 | `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
+| `AGENDA_OVERFLOW_BUTTON` | `agenda_overflow_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
@@ -300,6 +301,7 @@ non-alphanumeric characters with `_`.
 | `DatePicker.CLEAR` | `dialog_date_picker_clear` | |
 | `DatePicker.OK` | `dialog_date_picker_ok` | |
 | `DatePicker.SHEET` | `dialog_date_picker_sheet` | |
+| `DatePicker.TODAY` | `dialog_date_picker_today` | |
 | `Dialog.CONFIRM` | `dialog_confirm` | |
 | `Dialog.DISMISS` | `dialog_dismiss` | |
 
@@ -528,6 +530,27 @@ use the expanded string directly).
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
 <!-- GENERATED:END -->
+
+## Agenda top-bar overflow (rows that live in a menu)
+
+`AGENDA_SAVE_CURRENT_BUTTON` and `AGENDA_MULTI_DATE_BUTTON` are rows of the agenda
+bar's overflow menu, not buttons on the bar. A flow that wants one of them opens
+the menu first:
+
+```yaml
+- tapOn:
+    id: agenda_overflow_button
+- extendedWaitUntil:
+    visible:
+      id: agenda_save_current_button
+    timeout: 5000
+- tapOn:
+    id: agenda_save_current_button
+```
+
+The menu is a popup window of its own, which is why the rows carry their own ids
+(`mapTestTagsAsResourceIds` on the `DropdownMenu`) — the bar's own
+`testTagsAsResourceId` does not reach them.
 
 ## Raw-string tags (NOT via TestTags.kt)
 

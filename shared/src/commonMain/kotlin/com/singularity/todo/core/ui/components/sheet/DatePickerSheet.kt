@@ -89,25 +89,13 @@ fun DatePickerSheet(
                 ),
         ) {
             Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = false,
-                        onClick = {
-                            datePickerState.selectedDateMillis =
-                                today.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
-                        },
-                        label = { Text("Сегодня") },
-                    )
-                    FilterChip(
-                        selected = false,
-                        onClick = {
-                            val tomorrow = today.plus(DatePeriod(days = 1))
-                            datePickerState.selectedDateMillis =
-                                tomorrow.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
-                        },
-                        label = { Text("Завтра") },
-                    )
-                }
+                DateShortcutChips(
+                    today = today,
+                    onPick = { date ->
+                        datePickerState.selectedDateMillis =
+                            date.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+                    },
+                )
                 // Constrain height so the VLazyColumn inside DatePicker scrolls internally
                 // and the action buttons remain visible in the bottom sheet.
                 Box(
@@ -121,5 +109,38 @@ fun DatePickerSheet(
                 }
             }
         }
+    }
+}
+
+/**
+ * The chips that jump the picker to a nearby day.
+ *
+ * "Today" carries a test tag of its own: the Material3 day grid offers no handle
+ * a test can hold — a day cell carries only the library's date description, and
+ * the grid composes the cells that fit on screen, so a flow that reads a day out
+ * of that description depends on the device's language and on the screen's
+ * height. The chip is app-owned, always on top of the sheet, and sets the very
+ * date the grid would set.
+ */
+@Composable
+private fun DateShortcutChips(
+    today: LocalDate,
+    onPick: (LocalDate) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = false,
+            onClick = { onPick(today) },
+            label = { Text("Сегодня") },
+            modifier =
+                Modifier
+                    .testTag(TestTags.DatePicker.TODAY)
+                    .mapTestTagsAsResourceIds(),
+        )
+        FilterChip(
+            selected = false,
+            onClick = { onPick(today.plus(DatePeriod(days = 1))) },
+            label = { Text("Завтра") },
+        )
     }
 }

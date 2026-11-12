@@ -1,4 +1,6 @@
 # Agenda: the saved-views list opens and shows its empty state.
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-saved-views-open
 tags:

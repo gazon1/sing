@@ -149,11 +149,15 @@ class ShellTestTagReachabilityTest {
          * derived from the task's title (`slug`), so the list covers both a static
          * and a computed tag — the computed one is the one that breaks when a
          * title is renamed, a locale changes, or a row is rebuilt.
+         *
+         * The agenda's infrequent actions live in the overflow menu, and a menu row
+         * is only in the tree while the menu is open — so the constant tags here are
+         * the two that are always on screen: saved views and the overflow button.
          */
         val SHELL_TAGS: List<String> =
             listOf(
                 TestTags.AGENDA_SAVED_VIEWS_BUTTON,
-                TestTags.AGENDA_SAVE_CURRENT_BUTTON,
+                TestTags.AGENDA_OVERFLOW_BUTTON,
                 TestTags.taskItem(TASK_TITLE),
                 TestTags.taskCheckbox(TASK_TITLE),
             )

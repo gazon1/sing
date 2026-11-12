@@ -29,6 +29,12 @@ import com.singularity.todo.core.ui.preview.noopClick
  * @param onBack   Called when the back arrow is tapped.
  * @param modifier Standard Compose modifier.
  * @param actions  Optional trailing actions (e.g. save icon). Empty by default.
+ * @param overrideShell Whether the screen hands its title and its back arrow to the
+ *   shell's bar instead of drawing its own. Android has one bar and the shell owns
+ *   it, so a screen inside a nested graph that owns its back arrow has to publish
+ *   it: the shell cannot work out how to leave a nested graph on its own. On
+ *   desktop the shell has no bar of its own and the screen draws this one, so the
+ *   parameter changes nothing there.
  * @param content  The screen body. Receives the scaffold padding; most screens pass it through.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +44,7 @@ fun BackTopAppBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     actions: @Composable () -> Unit = {},
+    overrideShell: Boolean = false,
     content: @Composable (PaddingValues) -> Unit = { },
 ) {
     Scaffold(
@@ -45,6 +52,7 @@ fun BackTopAppBar(
             TopAppBar(
                 title = { Text(title) },
                 modifier = modifier,
+                overrideShell = overrideShell,
                 navigationIcon = {
                     IconButton(
                         onClick = onBack,

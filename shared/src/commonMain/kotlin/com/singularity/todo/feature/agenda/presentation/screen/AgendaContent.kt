@@ -19,9 +19,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.CallMerge
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +55,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LocalFabBottomSpace
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.platformVerticalScrollbar
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
@@ -77,6 +81,12 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.agenda_more_actions
+import singularity_todo.shared.generated.resources.agenda_multi_date
+import singularity_todo.shared.generated.resources.agenda_save_current
+import singularity_todo.shared.generated.resources.agenda_saved_views
 
 /**
  * Content composable for the Agenda screen.
@@ -94,9 +104,11 @@ import kotlinx.datetime.plus
  * @param onIntent Called when the user performs an action.
  * @param onMultiDateCreate Called when the user taps the "task on several days"
  *   action. The screen opens the date picker; the content only offers the entry
- *   point, so the picker is not a preview that lies about being usable.
+ *   point, so the picker is not a preview that lies about being usable. The action
+ *   lives in the top bar's overflow menu, not on the bar itself.
  * @param onSavedViewsClick Called when the user taps the saved views action.
  * @param onSaveCurrentClick Called when the user taps the save-current-agenda action.
+ *   It lives in the top bar's overflow menu, not on the bar itself.
  * @param contextMenuHost Slot for the task context menu renderer.
  * @param modifier Compose modifier.
  */
@@ -206,19 +218,11 @@ fun AgendaContent(
                     TopAppBar(
                         title = { Text(title) },
                         actions = {
-                            if (onMultiDateCreate != null) {
-                                IconButton(
-                                    onClick = onMultiDateCreate,
-                                    modifier =
-                                        Modifier
-                                            .testTag(TestTags.AGENDA_MULTI_DATE_BUTTON),
-                                ) {
-                                    Icon(
-                                        AgendaTopBarIcons.multiDate,
-                                        contentDescription = "Task on several dates",
-                                    )
-                                }
-                            }
+                            // Saved views stay directly visible: they are the action
+                            // people reach for, and the onboarding tour points at this
+                            // button. The other two live in the overflow, where a label
+                            // can say what they are — three unlabelled icons in a row
+                            // told the user nothing about any of them.
                             if (onSavedViewsClick != null) {
                                 IconButton(
                                     onClick = onSavedViewsClick,
@@ -230,22 +234,18 @@ fun AgendaContent(
                                                 spotlightRegistry,
                                             ),
                                 ) {
-                                    Icon(AgendaTopBarIcons.savedViews, contentDescription = "Saved views")
+                                    Icon(
+                                        AgendaTopBarIcons.savedViews,
+                                        contentDescription = stringResource(Res.string.agenda_saved_views),
+                                    )
                                 }
                             }
-                            if (onSaveCurrentClick != null) {
-                                IconButton(
-                                    onClick = onSaveCurrentClick,
-                                    modifier =
-                                        Modifier
-                                            .testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
-                                            .spotlightAnchorIfRegistered(
-                                                SpotlightAnchorId.SaveCurrent,
-                                                spotlightRegistry,
-                                            ),
-                                ) {
-                                    Icon(AgendaTopBarIcons.saveCurrent, contentDescription = "Save current agenda")
-                                }
+                            if (onMultiDateCreate != null || onSaveCurrentClick != null) {
+                                AgendaOverflowMenu(
+                                    onMultiDateCreate = onMultiDateCreate,
+                                    onSaveCurrentClick = onSaveCurrentClick,
+                                    spotlightRegistry = spotlightRegistry,
+                                )
                             }
                         },
                         colors =
@@ -418,6 +418,89 @@ private fun AgendaGroupingControl(
                     ),
             ) {
                 Text(label)
+            }
+        }
+    }
+}
+
+/**
+ * The agenda bar's overflow trigger and the menu it opens.
+ *
+ * The bar keeps one action visible — saved views — and the infrequent ones live
+ * here, behind a menu that can *name* them. A row without a label says nothing
+ * about what it does.
+ *
+ * The menu owns itself inside the published actions block: on Android the shell
+ * owns the only bar, so a menu drawn outside that block would be anchored to a
+ * composable the shell never renders (see `TaskDetailTopBar`'s KDoc).
+ */
+@Composable
+private fun AgendaOverflowMenu(
+    onMultiDateCreate: (() -> Unit)?,
+    onSaveCurrentClick: (() -> Unit)?,
+    spotlightRegistry: SpotlightAnchorRegistry?,
+) {
+    // Whether the menu is open. Local UI state: the menu is a gesture, not
+    // something the ViewModel or the domain has an opinion about.
+    var overflowOpen by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = { overflowOpen = true },
+            modifier =
+                Modifier
+                    .testTag(TestTags.AGENDA_OVERFLOW_BUTTON)
+                    .spotlightAnchorIfRegistered(
+                        SpotlightAnchorId.AgendaOverflow,
+                        spotlightRegistry,
+                    ),
+        ) {
+            Icon(
+                Icons.Filled.MoreVert,
+                // Not `Res.string.menu`: the desktop shell's drawer button
+                // already reads "Menu", and two buttons with the same
+                // description make every "the Menu button" selector ambiguous.
+                contentDescription = stringResource(Res.string.agenda_more_actions),
+            )
+        }
+        DropdownMenu(
+            expanded = overflowOpen,
+            onDismissRequest = { overflowOpen = false },
+            // Renders in its own popup window — mapTestTagsAsResourceIds
+            // required so Maestro id: selectors can find the items inside.
+            modifier = Modifier.mapTestTagsAsResourceIds(),
+        ) {
+            if (onMultiDateCreate != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.agenda_multi_date)) },
+                    leadingIcon = {
+                        Icon(
+                            AgendaTopBarIcons.multiDate,
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        overflowOpen = false
+                        onMultiDateCreate()
+                    },
+                    modifier = Modifier.testTag(TestTags.AGENDA_MULTI_DATE_BUTTON),
+                )
+            }
+            if (onSaveCurrentClick != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.agenda_save_current)) },
+                    leadingIcon = {
+                        Icon(
+                            AgendaTopBarIcons.saveCurrent,
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        overflowOpen = false
+                        onSaveCurrentClick()
+                    },
+                    modifier = Modifier.testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON),
+                )
             }
         }
     }

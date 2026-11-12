@@ -28,6 +28,7 @@ Maestro/flows/agenda/07-copy-to-profile.yaml
 Maestro/flows/agenda/07-large-overdue.yaml
 Maestro/flows/agenda/08-persistence-restart.yaml
 Maestro/flows/agenda/09-upcoming-timeline.yaml
+Maestro/flows/agenda/10-overflow-menu.yaml
 Maestro/flows/archive/01-restore.yaml
 Maestro/flows/archive/02-bulk-archive-confirm.yaml
 Maestro/flows/attachments/01-add-url.yaml

@@ -77,7 +77,7 @@ class SpotlightTourStateMachineTest {
         machine.startIfEligible(
             alreadySeen = false,
             force = false,
-            anchors = mapOf(SpotlightAnchorId.SaveCurrent to bounds()),
+            anchors = mapOf(SpotlightAnchorId.AgendaOverflow to bounds()),
         )
 
         assertEquals(
@@ -96,14 +96,14 @@ class SpotlightTourStateMachineTest {
             anchors =
                 mapOf(
                     SpotlightAnchorId.SavedViews to bounds(),
-                    SpotlightAnchorId.SaveCurrent to bounds(),
+                    SpotlightAnchorId.AgendaOverflow to bounds(),
                 ),
         )
 
         machine.advance(
             mapOf(
                 SpotlightAnchorId.SavedViews to bounds(),
-                SpotlightAnchorId.SaveCurrent to bounds(),
+                SpotlightAnchorId.AgendaOverflow to bounds(),
             ),
         )
         assertEquals(1, machine.index)
@@ -111,7 +111,7 @@ class SpotlightTourStateMachineTest {
         machine.advance(
             mapOf(
                 SpotlightAnchorId.SavedViews to bounds(),
-                SpotlightAnchorId.SaveCurrent to bounds(),
+                SpotlightAnchorId.AgendaOverflow to bounds(),
             ),
         )
         assertNull(machine.index, "there is no step after the last one; the tour is over")
@@ -146,7 +146,7 @@ class SpotlightTourStateMachineTest {
         val anchors =
             mapOf(
                 SpotlightAnchorId.SavedViews to bounds(),
-                SpotlightAnchorId.SaveCurrent to bounds(),
+                SpotlightAnchorId.AgendaOverflow to bounds(),
             )
         machine.startIfEligible(alreadySeen = false, force = false, anchors = anchors)
 
@@ -169,7 +169,7 @@ class SpotlightTourStateMachineTest {
     fun `every shipped step points at an anchor the app actually registers`() {
         // A step whose anchor nothing registers is skipped forever, so it would be a
         // step the user can never see and nobody would notice.
-        val known = setOf(SpotlightAnchorId.SavedViews, SpotlightAnchorId.SaveCurrent)
+        val known = setOf(SpotlightAnchorId.SavedViews, SpotlightAnchorId.AgendaOverflow)
 
         assertEquals(
             emptyList(),

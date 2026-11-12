@@ -65,13 +65,22 @@ the failure is indistinguishable from a UI regression — the assertion says the
 tab is missing, and the tab really is missing, for a reason no amount of reading
 the flow will reveal.
 
-The fix polls `dumpsys activity activities` for `topResumedActivity=…<app>/`
-with a bounded timeout (20s, `APP_RESUME_TIMEOUT`). A sleep is a guess: it fails
+The fix polls `dumpsys activity activities` for the resumed activity with a
+bounded timeout (20s, `APP_RESUME_TIMEOUT`). A sleep is a guess: it fails
 silently on a slow machine and wastes a minute on a fast one. The resumed
 activity is the condition a flow's first command actually needs, and it is
 observable, so the wait cannot pass vacuously the way a sleep can. On timeout it
 warns and runs the flow anyway — the position before the wait existed, minus the
 hang.
+
+> **Amended 2026-11-12.** This paragraph named the line as
+> `topResumedActivity=…<app>/`, and that is the shape an *older* Android
+> version prints: a phone on API 35 prints `ResumedActivity: ActivityRecord{…}`
+> and no `topResumedActivity=` at all, so the matcher never matched and the
+> wait was a slow sleep that always ended in "not resumed". The rule now reads
+> both shapes, from one owner, and the reset waits for the *main* activity
+> rather than for the package (the debug seed activity shares the package).
+> See `2026-11-12-the-runner-reads-the-resumed-activity-the-way-the-system-prints-it.md`.
 
 **A was rejected** because it pushes the cost onto every flow author and cannot
 be enforced: 22 files would each need the line, and the one that forgets is

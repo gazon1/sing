@@ -54,6 +54,7 @@ _REAL_IMPLS = {
     "adb_on": _device.adb_on,
     "reset_adb_server": maestro_device.reset_adb_server,
     "wait_for_app_resumed": maestro_device.wait_for_app_resumed,
+    "wait_for_main_activity_resumed": maestro_device.wait_for_main_activity_resumed,
     "cleanup_run_fixtures": _fixtures.cleanup_run_fixtures,
     "capture_artifacts": _artifacts.capture_artifacts,
     "git_sha": _provenance.git_sha,
@@ -170,6 +171,10 @@ class _RecordingDeps:
         return "package:/system/x"
 
     def device_alive(self, serial):
+        return True
+
+    def wait_for_main_activity_resumed(self, serial, timeout=30):
+        """The reset is done: the main activity is in front."""
         return True
 
 

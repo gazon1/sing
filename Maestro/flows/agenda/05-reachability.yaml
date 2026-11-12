@@ -5,6 +5,8 @@
 # bottom bar with nav_tab_* tags, and Plans and Pomodoro are menu destinations
 # while the Calendar is a tab but not an agenda, so only the three agenda tabs
 # are exercised here.
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-reachability
 tags:
