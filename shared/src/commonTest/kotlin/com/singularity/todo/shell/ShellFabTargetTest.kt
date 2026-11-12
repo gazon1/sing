@@ -117,12 +117,12 @@ class ShellFabTargetTest {
     fun anotherDestination_ignoresThePublishedAgendaRoute() {
         val target =
             shellFabTarget(
-                current = AppDestination.Plans,
-                topMostRoute = AppDestination.Plans,
+                current = AppDestination.Archive,
+                topMostRoute = AppDestination.Archive,
                 agendaRoute = AgendaStartRoute.SavedAgendaList,
             )
         assertEquals(
-            AppDestination.Plans,
+            AppDestination.Archive,
             target,
             "a route published by an agenda graph that is no longer on screen must not " +
                 "reclassify the destination the shell is on",
@@ -133,10 +133,10 @@ class ShellFabTargetTest {
     fun aRouteThatIsNotADestination_fallsBackToTheCurrentOne() {
         val target =
             shellFabTarget(
-                current = AppDestination.Plans,
+                current = AppDestination.Archive,
                 topMostRoute = AgendaStartRoute.Today,
                 agendaRoute = AgendaStartRoute.SavedAgendaList,
             )
-        assertEquals(AppDestination.Plans, target)
+        assertEquals(AppDestination.Archive, target)
     }
 }

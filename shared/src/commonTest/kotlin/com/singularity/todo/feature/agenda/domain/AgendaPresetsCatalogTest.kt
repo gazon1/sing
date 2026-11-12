@@ -5,9 +5,11 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.model.heldBuckets
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -117,9 +119,12 @@ class AgendaPresetsCatalogTest {
     }
 
     @Test
-    fun `Upcoming preset has 3 sections`() {
+    fun `Upcoming preset holds the whole future in one date-grouped section`() {
         val def = AgendaPresets.Upcoming
-        assertEquals(3, def.sections.size)
+        assertEquals(1, def.sections.size)
+        val section = def.sections.single()
+        assertEquals(setOf(RelativeBucket.Future), section.selector.heldBuckets())
+        assertEquals(DateGrouping.Day, section.groupBy, "the feed defaults to day headers")
     }
 
     // ─── No duplicate IDs ────────────────────────────────────────────────

@@ -26,6 +26,13 @@ B2 extension (2026-10-08): also checks gradle.properties version keys against th
 catalog, and checks plugin literals in root build.gradle.kts plugins {} against the
 catalog — the two remaining places where version literals can silently drift.
 
+2026-11-10: gradle.properties no longer holds any version — the catalog owns them
+and the build reads them through VersionCatalogsExtension. The check became a
+duplication check (the property must not exist), and a detekt↔Kotlin compatibility
+table was added: detekt refuses to run against any Kotlin it was not compiled
+with, so a bump the table does not cover is rejected here with a legible message
+instead of failing deep inside the detekt task.
+
 Pattern: mirror scripts/find-unwired-surfaces.py — --quiet for CI, positive
 control that the scan covered ≥MIN_SCAN files (vacuous green is worse than red).
 """
@@ -33,6 +40,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 EXCLUDE_PREFIXES = (
@@ -62,33 +70,94 @@ ROOT_PLUGINS_CATALOG_KEYS = {
 ROOT_PLUGINS_RE = re.compile(
     r'id\("(?P<id>[\w.\-]+)"\)\s+version\s+"(?P<version>[^"]+)"'
 )
-# B2: gradle.properties version keys that mirror the catalog.
-# Key = property name (prefixed "version."), value = catalog version key.
+# B2: gradle.properties version keys that the version catalog owns.
+# They used to live in BOTH places. A dependabot bump moves the catalog and leaves
+# the property behind, and the two then disagree — that is the mismatch that
+# red-lined main. The catalog is the single source of truth, so the property is
+# not a second source, it is a duplicate one: it must not exist.
+#
+# The rule is the PREFIX, not a list of keys: a list would only catch the three
+# versions that were there when the rule was written, and the next one to be
+# added would slip through. Every `version.*` property is a version the catalog
+# owns, and the ones this repository still uses are named here so that the
+# message can say which catalog entry the property duplicates.
+GRADLE_PROPS_FORBIDDEN_PREFIX = "version."
 GRADLE_PROPS_CATALOG_KEYS = {
     "version.kotlin": "kotlin",
     "version.kotlinSerialization": "kotlin-serialization",
     "version.kotlinxCollectionsImmutable": "kotlinxCollectionsImmutable",
 }
+# The Kotlin version each detekt build was compiled with. detekt refuses to run
+# against any other one ("detekt was compiled with Kotlin X but is currently
+# running with Y"), so a Kotlin bump that this table does not cover cannot be
+# merged as it stands.
+#
+# A detekt version that is missing here fails the gate on purpose: bumping detekt
+# is a decision that has to name the Kotlin it was built with, not a silent
+# consequence of a version range.
+DETEKT_KOTLIN_COMPATIBILITY = {
+    "2.0.0-alpha.6": "2.4.10",
+}
 GRADLE_PROPS_VERSION_RE = re.compile(
     r"^(?P<key>[^#\s][^\s=]*)\s*=\s*[\"\']?(?P<value>[\w.\-]+)[\"\']?"
 )
-VERSION_ENTRY_RE = re.compile(r"^(?P<key>\S+)\s*=\s*\"(?P<value>[^\"]+)\"")
+def _version_value(value) -> str | None:
+    """The version a catalog entry carries, or None when it carries none.
 
+    A version is written either as a string (`kotlin = "2.4.10"`) or as a table
+    with a constraint (`kotlin = { strictly = "2.4.10" }`). The strict
+    constraint decides: `prefer` is a soft wish, and a table that carries both
+    has to be compared against the strict one.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for constraint in ("strictly", "require", "prefer"):
+            candidate = value.get(constraint)
+            if isinstance(candidate, str):
+                return candidate
+    return None
 
 
 def _catalog_versions(workspace: Path) -> dict[str, str]:
-    """version key -> value, from the [versions] table of the catalog."""
+    """version key -> value, from the [versions] table of the catalog.
+
+    The catalog is TOML, and it is read as TOML. A hand-written parser reads
+    the forms its author thought of and misses the rest — a comment behind the
+    `[versions]` header, a single-quoted value — and those misses are not
+    cosmetic: a `[versions]` table the parser does not see is an empty
+    catalog, and the gate then reports the catalog as having no versions at
+    all. A catalog that is not valid TOML is a gate failure with a message,
+    not a traceback.
+    """
     catalog = workspace / "gradle" / "libs.versions.toml"
-    versions: dict[str, str] = {}
     if not catalog.is_file():
-        return versions
-    for line in catalog.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line.startswith("[") or "=" not in line:
-            continue
-        m = VERSION_ENTRY_RE.match(line)
-        if m:
-            versions[m.group("key")] = m.group("value")
+        return {}
+
+    try:
+        with catalog.open("rb") as handle:
+            data = tomllib.load(handle)
+    except tomllib.TOMLDecodeError as exc:
+        print(
+            f"ERROR: {catalog} is not valid TOML: {exc} — the gate cannot read the "
+            "catalog, so it cannot say whether the versions agree.",
+            file=sys.stderr,
+        )
+        return {}
+
+    # Only the [versions] table holds versions. The other tables hold
+    # libraries, bundles and plugins, and their entries are tables of their
+    # own — reading them as versions would make the gate compare a plugin id
+    # against a dependency version.
+    section = data.get("versions")
+    if not isinstance(section, dict):
+        return {}
+
+    versions: dict[str, str] = {}
+    for key, value in section.items():
+        text = _version_value(value)
+        if text is not None:
+            versions[key] = text
     return versions
 
 
@@ -104,7 +173,7 @@ def _settings_plugin_drift(workspace: Path):
             "the settings-plugin drift check would pass vacuously.",
             file=sys.stderr,
         )
-        return [("settings.gradle.kts", "no catalog versions to compare against")]
+        return [(settings, "no catalog versions to compare against")]
 
     out: list[tuple[Path, str]] = []
     for m in SETTINGS_PLUGIN_RE.finditer(settings.read_text(encoding="utf-8")):
@@ -131,7 +200,7 @@ def _root_plugins_drift(workspace: Path):
         return []
     versions = _catalog_versions(workspace)
     if not versions:
-        return [("build.gradle.kts", "no catalog versions to compare against")]
+        return [(root_gradle, "no catalog versions to compare against")]
 
     # Extract the plugins {} block
     content = root_gradle.read_text(encoding="utf-8")
@@ -158,14 +227,11 @@ def _root_plugins_drift(workspace: Path):
     return out
 
 
-def _gradle_properties_drift(workspace: Path):
-    """B2: gradle.properties version.* keys must equal their catalog entries."""
+def _gradle_properties_duplication(workspace: Path):
+    """The version catalog owns these versions; gradle.properties must not repeat them."""
     props = workspace / "gradle.properties"
     if not props.is_file():
         return []
-    versions = _catalog_versions(workspace)
-    if not versions:
-        return [("gradle.properties", "no catalog versions to compare against")]
 
     content = props.read_text(encoding="utf-8")
     out: list[tuple[Path, str]] = []
@@ -177,18 +243,50 @@ def _gradle_properties_drift(workspace: Path):
         if not m:
             continue
         key = m.group("key")
-        catalog_key = GRADLE_PROPS_CATALOG_KEYS.get(key)
-        if catalog_key is None:
+        if not key.startswith(GRADLE_PROPS_FORBIDDEN_PREFIX):
             continue
-        expected = versions.get(catalog_key)
-        if expected is None:
-            out.append((props, f"{key}: no `{catalog_key}` entry in the catalog"))
-        elif expected != m.group("value"):
-            out.append((
-                props,
-                f"{key}={m.group('value')} != libs.versions.toml {catalog_key}=\"{expected}\"",
-            ))
+        catalog_key = GRADLE_PROPS_CATALOG_KEYS.get(key)
+        catalog = f"libs.versions.toml {catalog_key}" if catalog_key else "libs.versions.toml"
+        out.append((
+            props,
+            f"{key}={m.group('value')} duplicates {catalog} — "
+            "the catalog is the single source of truth; delete the property",
+        ))
     return out
+
+
+def _detekt_kotlin_compatibility(workspace: Path):
+    """The catalog's Kotlin version must be one the catalog's detekt was built with."""
+    catalog = workspace / "gradle" / "libs.versions.toml"
+    versions = _catalog_versions(workspace)
+    if not versions:
+        return [(catalog, "no catalog versions to compare against")]
+
+    detekt = versions.get("detekt")
+    kotlin = versions.get("kotlin")
+    # One version without the other is not a comparison — it is a check that
+    # passes because it never ran. A renamed key used to leave the gate green
+    # while detekt and Kotlin were free to disagree.
+    missing = [name for name, value in (("detekt", detekt), ("kotlin", kotlin)) if value is None]
+    if missing:
+        return [(catalog, f"the catalog has no {' and no '.join(missing)} version — "
+                         "the detekt/Kotlin compatibility check would pass vacuously")]
+
+    expected = DETEKT_KOTLIN_COMPATIBILITY.get(detekt)
+    if expected is None:
+        return [(
+            catalog,
+            f"detekt {detekt} is not in DETEKT_KOTLIN_COMPATIBILITY — find the Kotlin "
+            "version it was compiled with and add the entry",
+        )]
+    if expected != kotlin:
+        return [(
+            catalog,
+            f"kotlin = \"{kotlin}\", but detekt {detekt} was compiled with Kotlin "
+            f"{expected} and refuses any other version — bump detekt to a build "
+            f"compiled with {kotlin} first, or keep Kotlin at {expected}",
+        )]
+    return []
 
 
 def main() -> int:
@@ -220,21 +318,29 @@ def main() -> int:
 
     violations.extend(_settings_plugin_drift(workspace))
     violations.extend(_root_plugins_drift(workspace))
-    violations.extend(_gradle_properties_drift(workspace))
+    violations.extend(_gradle_properties_duplication(workspace))
+    violations.extend(_detekt_kotlin_compatibility(workspace))
 
     if not violations:
         if not quiet:
-            print(f"OK: scanned {len(gradle_files)} files, 0 hardcoded version literals.")
+            print(
+                f"OK: scanned {len(gradle_files)} files, 0 hardcoded version literals, "
+                "no duplicated version properties, detekt and Kotlin agree."
+            )
         return 0
 
-    print(f"Found {len(violations)} hardcoded version literal(s) in {len(gradle_files)} files:")
+    print(f"Found {len(violations)} version problem(s) in {len(gradle_files)} scanned files:")
     for path, lit in violations:
         try:
             rel = path.relative_to(workspace)
         except ValueError:
             rel = path
         print(f"  {rel}: {lit}")
-    print("\nFix: add the library to gradle/libs.versions.toml and reference via libs.*")
+    print(
+        "\nFix: add the library to gradle/libs.versions.toml and reference it via "
+        "libs.*, delete the version property from gradle.properties, and — if the "
+        "message is about detekt and Kotlin — make the two versions agree."
+    )
     return 1
 
 

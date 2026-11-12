@@ -102,6 +102,16 @@ class AgendaBucketingTest {
         assertEquals(DateRange(LocalDate(1970, 1, 1), yesterday), range)
     }
 
+    // ─── Future ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `Future bucket starts tomorrow and has no practical far edge`() {
+        val tomorrow = today.plus(1, DateTimeUnit.DAY)
+        val range = RelativeBucket.Future.toDateRange(today)
+        assertEquals(tomorrow, range.from, "the Today tab owns today; the future starts tomorrow")
+        assertEquals(LocalDate(9999, 12, 31), range.to, "the open-ended bucket has no one-week or one-month cutoff")
+    }
+
     // ─── NoDate ─────────────────────────────────────────────────────────────
 
     @Test

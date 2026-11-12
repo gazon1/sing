@@ -132,14 +132,14 @@ class DeepLinkRegistryTest {
         // Two links that both match the same request: the registry must take the
         // first one, because "the best match" is not defined when two templates
         // accept the same URI.
-        val first = AlwaysMatchingLink("first", DeepLinkTarget(today, AppDestination.Plans))
+        val first = AlwaysMatchingLink("first", DeepLinkTarget(today, AppDestination.Pomodoro))
         val second = AlwaysMatchingLink("second", DeepLinkTarget(today, AppDestination.Settings))
 
         val ordered = DeepLinkRegistry(listOf(first, second))
         val reversed = DeepLinkRegistry(listOf(second, first))
 
         assertEquals(
-            DeepLinkTarget(today, AppDestination.Plans),
+            DeepLinkTarget(today, AppDestination.Pomodoro),
             ordered.resolve(DeepLinkRequest("singularity://task/t1")),
         )
         assertEquals(

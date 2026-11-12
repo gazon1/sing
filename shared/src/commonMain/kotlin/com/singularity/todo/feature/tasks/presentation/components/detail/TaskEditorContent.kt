@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
@@ -56,17 +55,13 @@ import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
-import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlin.time.Instant
@@ -112,7 +107,7 @@ import kotlin.time.Instant
  * @param isPinned Whether the task is pinned.
  * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
  * @param blockedBy IDs of tasks this task depends on.
- * @param availableTasks Tasks available for dependency selection.
+ * @param followsUp IDs of tasks this task follows up on.
  * @param bannerSections The offers the screen makes to the person — the first-run banner and
  *   the pending AI proposals. Drawn directly under the title and the description, above the
  *   attribute rows, for every task: an offer's place is the editor's decision, not a side
@@ -161,11 +156,8 @@ private fun TaskEditorContent(
     pinCallbacks: ToggleCallbacks? = null,
     estimateMinutes: Int? = null,
     estimateCallbacks: RowCallbacks<Int?>? = null,
-    blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
-    followsUp: ImmutableSet<TaskId> = persistentSetOf(),
     workflowState: TaskWorkflowState = TaskWorkflowState.Open,
     workflowStateCallbacks: RowCallbacks<TaskWorkflowState>? = null,
-    availableTasks: ImmutableList<Task> = persistentListOf(),
     checklistCount: Int = 0,
     attachmentsCount: Int = 0,
     checklistCallbacks: ChecklistCallbacks? = null,
@@ -311,38 +303,6 @@ private fun TaskEditorContent(
                     onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
                     labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
-                )
-            }
-
-            // Dependencies card
-            //
-            // Its place is with the attribute rows, after the due date: a card that led
-            // the group pushed the due date and the priority one row further down on a
-            // task that had relations, so a task's attributes sat lower because of
-            // something else on the task (#2010).
-            //
-            // Shown when there is something to pick from, not when something is
-            // already picked: a card that appears only after the first relation is
-            // added has no first click. The label says which edge means what, because
-            // "blocks" and "follows up" are different answers about the same two
-            // tasks.
-            if (availableTasks.isNotEmpty()) {
-                val relations = blockedBy + followsUp
-                val relationTitles =
-                    relations.mapNotNull { depId ->
-                        availableTasks.find { it.id == depId }?.title?.ifBlank { null }
-                    }
-                TaskAttributeCard(
-                    icon = Icons.Filled.Block,
-                    label =
-                        when {
-                            relations.isEmpty() -> "Add dependencies"
-                            relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
-                            else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
-                        },
-                    isActive = relations.isNotEmpty(),
-                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
                 )
             }
 
@@ -648,11 +608,8 @@ private fun TaskEditorScaffold(
         pinCallbacks = callbacks.pin,
         estimateMinutes = model.estimateMinutes,
         estimateCallbacks = callbacks.estimate,
-        blockedBy = model.blockedBy,
-        followsUp = model.followsUp,
         workflowState = model.workflowState,
         workflowStateCallbacks = callbacks.workflowState,
-        availableTasks = model.availableTasks,
         checklistCount = model.checklist.size,
         attachmentsCount = model.attachments.size,
         checklistCallbacks = callbacks.checklist,
@@ -712,8 +669,6 @@ private fun TaskEditorContentEmptyPreview() =
             dueDate = null,
             dueTime = null,
             onDueDateClear = null,
-            blockedBy = persistentSetOf(),
-            availableTasks = persistentListOf(),
             extraSections = null,
             bottomBar = null,
             menuItems = persistentListOf(),
@@ -739,8 +694,6 @@ private fun TaskEditorContentFilledPreview() =
             dueDate = today,
             dueTime = LocalTime(14, 30),
             onDueDateClear = {},
-            blockedBy = persistentSetOf(),
-            availableTasks = persistentListOf(),
             extraSections = null,
             bottomBar = null,
             menuItems =
@@ -771,8 +724,6 @@ private fun TaskEditorContentDarkPreview() =
             dueDate = today,
             dueTime = null,
             onDueDateClear = {},
-            blockedBy = persistentSetOf(sampleTask.id),
-            availableTasks = persistentListOf(sampleTask),
             extraSections = null,
             bottomBar = null,
             menuItems =

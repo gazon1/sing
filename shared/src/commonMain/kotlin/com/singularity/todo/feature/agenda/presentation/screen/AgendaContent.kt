@@ -30,6 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -43,7 +46,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -62,6 +64,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.presentation.state.AgendaUiState
 import com.singularity.todo.feature.agenda.presentation.state.toTaskUi
@@ -98,10 +101,6 @@ import singularity_todo.shared.generated.resources.agenda_saved_views
  *
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
- * @param horizonNote A line to show at the very end of the content, below the last
- *   section (or below the empty state). The Upcoming tab uses it to say where a task
- *   dated beyond next week is seen; every other screen leaves it `null`. See
- *   [AgendaHorizonNote].
  * @param onIntent Called when the user performs an action.
  * @param onMultiDateCreate Called when the user taps the "task on several days"
  *   action. The screen opens the date picker; the content only offers the entry
@@ -119,7 +118,6 @@ fun AgendaContent(
     state: AgendaUiState,
     title: String,
     greeting: String = "",
-    horizonNote: String? = null,
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onMultiDateCreate: (() -> Unit)? = null,
@@ -295,56 +293,16 @@ fun AgendaContent(
                 }
 
                 is AgendaUiState.Loaded -> {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(paddingValues),
-                    ) {
-                        if (!isSelectionMode && greeting.isNotEmpty()) {
-                            Text(
-                                text = greeting,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                        .testTag(TestTags.AGENDA_GREETING),
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            if (state.sections.isEmpty()) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                ) {
-                                    EmptyState(
-                                        title = "No tasks",
-                                        subtitle = "You're all caught up — nothing due in this agenda",
-                                    )
-                                    horizonNote?.let { note ->
-                                        AgendaHorizonFootnote(
-                                            note = note,
-                                            modifier = Modifier.align(Alignment.BottomCenter),
-                                        )
-                                    }
-                                }
-                            } else {
-                                AgendaList(
-                                    sections = state.sections,
-                                    isSelectionMode = isSelectionMode,
-                                    selectedTaskIds = selectedTaskIds,
-                                    collapsedSectionIds = state.collapsedSectionIds,
-                                    horizonNote = horizonNote,
-                                    onIntent = onIntent,
-                                    onOpenContextMenu = ::openContextMenu,
-                                    listState = listState,
-                                    isTodayAgenda = state.isTodayAgenda,
-                                    modifier = Modifier,
-                                )
-                            }
-                        }
-                    }
+                    AgendaLoadedBody(
+                        state = state,
+                        greeting = greeting,
+                        isSelectionMode = isSelectionMode,
+                        selectedTaskIds = selectedTaskIds,
+                        onIntent = onIntent,
+                        onOpenContextMenu = ::openContextMenu,
+                        listState = listState,
+                        modifier = Modifier.padding(paddingValues),
+                    )
                 }
             }
         }
@@ -356,6 +314,112 @@ fun AgendaContent(
     val offset = contextMenuOffset
     if (task != null && offset != null && !isSelectionMode) {
         contextMenuHost(task, offset, ::dismissContextMenu, onIntent)
+    }
+}
+
+/**
+ * The loaded agenda body: the greeting, the grouping control when the agenda
+ * has a date-grouped section, and the list or its empty state.
+ *
+ * Its own composable so [AgendaContent] keeps its top-bar and selection branches
+ * under the complexity budget: the body is a whole screen region and reads better
+ * with a name.
+ */
+@Composable
+private fun AgendaLoadedBody(
+    state: AgendaUiState.Loaded,
+    greeting: String,
+    isSelectionMode: Boolean,
+    selectedTaskIds: ImmutableSet<TaskId>,
+    onIntent: (AgendaIntent) -> Unit,
+    onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        if (!isSelectionMode && greeting.isNotEmpty()) {
+            Text(
+                text = greeting,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag(TestTags.AGENDA_GREETING),
+            )
+        }
+        val grouping = state.dateGrouping
+        if (!isSelectionMode && grouping != null) {
+            AgendaGroupingControl(grouping = grouping, onIntent = onIntent)
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            if (state.sections.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    EmptyState(
+                        title = "No tasks",
+                        subtitle = "You're all caught up — nothing due in this agenda",
+                    )
+                }
+            } else {
+                AgendaList(
+                    sections = state.sections,
+                    isSelectionMode = isSelectionMode,
+                    selectedTaskIds = selectedTaskIds,
+                    collapsedSectionIds = state.collapsedSectionIds,
+                    onIntent = onIntent,
+                    onOpenContextMenu = onOpenContextMenu,
+                    listState = listState,
+                    isTodayAgenda = state.isTodayAgenda,
+                    modifier = Modifier,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The day / week / month switch for the future feed.
+ *
+ * The chosen value names the grouping in effect and is stored per profile; the
+ * feed re-evaluates when it changes. The same group of tasks is visible under
+ * every choice — only the headers change.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AgendaGroupingControl(
+    grouping: DateGrouping,
+    onIntent: (AgendaIntent) -> Unit,
+) {
+    val options =
+        listOf(
+            DateGrouping.Day to "Day",
+            DateGrouping.Week to "Week",
+            DateGrouping.Month to "Month",
+        )
+    SingleChoiceSegmentedButtonRow(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        options.forEachIndexed { index, (value, label) ->
+            SegmentedButton(
+                selected = grouping == value,
+                onClick = { onIntent(AgendaIntent.SetDateGrouping(value)) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                modifier =
+                    Modifier.testTag(
+                        when (value) {
+                            DateGrouping.Day -> TestTags.AGENDA_GROUPING_DAY
+                            DateGrouping.Week -> TestTags.AGENDA_GROUPING_WEEK
+                            DateGrouping.Month -> TestTags.AGENDA_GROUPING_MONTH
+                        },
+                    ),
+            ) {
+                Text(label)
+            }
+        }
     }
 }
 
@@ -448,7 +512,6 @@ private fun AgendaList(
     isSelectionMode: Boolean,
     selectedTaskIds: ImmutableSet<TaskId>,
     collapsedSectionIds: ImmutableSet<String>,
-    horizonNote: String?,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     listState: LazyListState,
@@ -517,14 +580,6 @@ private fun AgendaList(
                 }
             }
         }
-
-        // The end of the list is the end of the tab: the user who scrolled past the
-        // last section is the one asking what happened to the task they cannot see.
-        horizonNote?.let { note ->
-            item(key = "agenda-horizon-note") {
-                AgendaHorizonFootnote(note = note)
-            }
-        }
     }
 }
 
@@ -579,38 +634,6 @@ private fun AgendaTaskRow(
             )
         },
     )
-}
-
-/**
- * A muted line at the end of the agenda content — the Upcoming tab's pointer to where
- * a task dated beyond next week is seen.
- *
- * It is content, not chrome: it scrolls with the list, so it cannot cover the last
- * row, and it renders below the empty state when the tab has nothing in it.
- */
-@Composable
-private fun AgendaHorizonFootnote(
-    note: String,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = note,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier =
-                Modifier
-                    .testTag(TestTags.AGENDA_HORIZON_NOTE)
-                    .widthIn(max = 640.dp),
-        )
-    }
 }
 
 @Composable

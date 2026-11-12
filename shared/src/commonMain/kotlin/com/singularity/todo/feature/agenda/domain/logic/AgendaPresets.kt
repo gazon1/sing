@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.domain.logic
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.SectionPrefill
@@ -45,15 +46,18 @@ object AgendaPresets {
      * is disjoint too (`dueDate == null`).
      *
      * The view reaches to the end of next month: "Next Month" is its last dated
-     * section. A task due after that is in no section of this view — the Calendar,
-     * the Plans timeline and a saved view with its own date range are where it is
+     * section. A task due after that is in no section of this view — the [Upcoming]
+     * tab, the Calendar and a saved view with its own date range are where it is
      * reached. The reach is decided in
-     * `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md`.
+     * `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md`, and the
+     * Upcoming merge deliberately leaves it alone (#2021 owns widening it).
      *
-     * This is the widest view there is — it holds the tasks of every other preset —
-     * so it is *not* a bottom-bar tab. The three tabs are [Inbox], [Today] and
-     * [Upcoming], and they are disjoint; this one is the seed a new saved view
-     * starts from.
+     * This is the widest *bucketed* view, not the widest view any more: [Upcoming]
+     * reaches as far as the data does. It used to hold the tasks of every other
+     * preset, and it no longer holds the far-future ones — the two surfaces answer
+     * different questions and their reaches are decided separately. It is *not* a
+     * bottom-bar tab. The three tabs are [Inbox], [Today] and [Upcoming]; this one
+     * is the seed a new saved view starts from.
      */
     val All: AgendaDefinition =
         agenda("All") {
@@ -218,80 +222,36 @@ object AgendaPresets {
         }
 
     /**
-     * What is coming up: tomorrow, the rest of this week, and next week.
+     * The complete feed of future dated tasks: tomorrow and everything after it.
      *
-     * The tab used to open with "Overdue" and "Today" as well, which made it a
-     * superset of the [Today] tab — the two showed the same rows under the same
-     * headers. It no longer repeats them: the overdue and today's tasks belong to
-     * [Today], and the undated ones to [Inbox].
+     * The tab is disjoint from [Today], which owns the overdue and today's tasks,
+     * and from [Inbox], which owns the undated ones. It used to stop at next week
+     * and leave later tasks to the retired Plans timeline; the horizon is gone, so
+     * a task due in three weeks is where a task due tomorrow is — in this tab,
+     * under its own date header.
      *
-     * "This Week" is the week bucket minus the days [Today] owns. The bucket
-     * itself spans Monday to Sunday, so it contains today and the days already
-     * gone — the `Not` is what keeps the two tabs disjoint. "This Week" and "Next
-     * Week" are disjoint ranges, so the last of them needs no `discard`; the
-     * narrower buckets above them do, for the same reason as [All].
+     * The section carries the whole future and `groupBy` turns it into one header
+     * per day, week or month — the profile's chosen grouping. Only periods that
+     * hold a task become headers, in chronological order, so the tab is a timeline
+     * rather than a calendar with six empty days between two plans. Completed tasks
+     * are not part of the feed: the tab shows work still ahead. [AgendaTabDisjointnessTest]
+     * pins that the tab neither repeats [Today] nor drops a far-future task.
      *
-     * The tab is a **horizon**, not the whole agenda: a task due further out than
-     * next week is deliberately in no tab. It is not lost — it is in the Plans
-     * timeline, in the Calendar, and in a saved view seeded from [All] — but the
-     * bottom bar answers "what is coming soon", and a task three weeks out is
-     * planned rather than coming up. [AgendaTabDisjointnessTest] pins that gap so
-     * it is not mistaken for a bug. See ADR
-     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
+     * See ADR `2026-11-11-upcoming-owns-the-whole-future`.
      */
     val Upcoming: AgendaDefinition =
         agenda("Upcoming") {
             section(
-                "tomorrow",
-                "Tomorrow",
-                Selector.DateBucket(RelativeBucket.Tomorrow),
-                order = 0,
-                discard = true,
-                prefill =
-                    SectionPrefill(
-                        "tomorrow",
-                        "Task for tomorrow",
-                        relativeDueDate = RelativeBucket.Tomorrow,
-                    ),
-            )
-            section(
-                "this_week",
-                "This Week",
+                "future",
+                "Later",
                 Selector.AllOf(
                     listOf(
-                        Selector.DateBucket(RelativeBucket.ThisWeek),
-                        // The week bucket spans Monday to Sunday, so it also holds
-                        // today and the days already gone — the days the Today tab
-                        // owns. Excluding them is what makes the two tabs disjoint.
-                        Selector.Not(
-                            Selector.AnyOf(
-                                listOf(
-                                    Selector.DateBucket(RelativeBucket.Today),
-                                    Selector.DateBucket(RelativeBucket.Overdue),
-                                ),
-                            ),
-                        ),
+                        Selector.DateBucket(RelativeBucket.Future),
+                        Selector.Not(Selector.Completed),
                     ),
                 ),
-                order = 1,
-                prefill =
-                    SectionPrefill(
-                        "this_week",
-                        "This week",
-                        relativeDueDate = RelativeBucket.ThisWeek,
-                    ),
-            )
-            section(
-                "next_week",
-                "Next Week",
-                Selector.DateBucket(RelativeBucket.NextWeek),
-                order = 2,
-                prefill =
-                    SectionPrefill(
-                        "next_week",
-                        "Next week",
-                        relativeDueDate = RelativeBucket.NextWeek,
-                    ),
+                order = 0,
+                groupBy = DateGrouping.Day,
             )
         }
 

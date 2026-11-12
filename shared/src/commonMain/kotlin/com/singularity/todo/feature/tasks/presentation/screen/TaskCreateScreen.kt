@@ -175,7 +175,7 @@ fun TaskCreateScreen(
                 isPinned = state.draft.isPinned,
                 estimateMinutes = null,
                 blockedBy = persistentSetOf(),
-                availableTasks = persistentListOf(),
+                relatedTasks = persistentListOf(),
             ),
         onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
         onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },

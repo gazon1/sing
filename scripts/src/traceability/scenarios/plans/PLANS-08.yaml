@@ -8,7 +8,7 @@ id: PLANS-08
 title: "A section header names the period it covers"
 area: feature.plans
 priority: P2
-status: confirmed
+status: deprecated
 targets: [android, desktop]
 preconditions: >-
   Tasks are due today, in a later week and in a later month.
@@ -20,3 +20,10 @@ expected: >-
   The day header names the date, the week header names the date range of that
   week, and the month header names the month and the year. Each header names
   the period that the rows beneath it belong to.
+
+# Deprecated on purpose (2026-11-11): the Plans destination was retired and its
+# useful behaviour — a chronological timeline of days that hold tasks — moved
+# into the Upcoming agenda tab. The scenarios are kept rather than deleted
+# because the screen shipped and users could see it; deleting the files would
+# leave "where did the timeline go?" unanswered in the scenario layer. The
+# surviving behaviour is carried by the Upcoming scenarios (AGENDA-09).

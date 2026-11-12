@@ -4,13 +4,11 @@
 # Inbox/Today/Upcoming are `AgendaGraph` routes, and all three get "Add task".
 # The Calendar is a `Calendar` destination, not a task list, and gets nothing.
 #
-# Plans and Pomodoro are **menu** destinations, not tabs: they left the tab bar
-# and live behind the "Menu" button (see `DestinationKind`), so the flow reaches
-# them through the menu sheet. Plans still gets "Add task" — the timeline
-# creates the work that is due, not a project. Pomodoro gets nothing. Waiting
-# for a bottom-bar tag the screen does not contain can only end in a timeout,
-# and it says nothing about the FAB — the failure would name a wait, not a
-# behaviour.
+# Pomodoro is a **menu** destination, not a tab: it lives behind the "Menu"
+# button (see `DestinationKind`), so the flow reaches it through the menu sheet.
+# Pomodoro gets nothing. Waiting for a bottom-bar tag the screen does not
+# contain can only end in a timeout, and it says nothing about the FAB — the
+# failure would name a wait, not a behaviour.
 #
 # `selected: true` is not usable here: the accessibility layer does not expose
 # the selection state on the same node that carries the test tag.
@@ -60,17 +58,8 @@ tags:
 - assertNotVisible:
     id: tasks_fab
 
-# Plans — a menu entry, and it does show the "Add task" FAB.
-- runFlow:
-    file: ../../helpers/open-menu-item.yaml
-    env:
-      ENTRY_ID: menu_plans
-      DEST_ID: plans_screen
-- assertVisible:
-    id: tasks_fab
-
 # Pomodoro — a menu entry, and it has no shell FAB. The helper waits for the
-# timer, so the FAB here is the Pomodoro screen's and not the Plans screen's.
+# timer, so the FAB here is the Pomodoro screen's.
 - runFlow:
     file: ../../helpers/open-menu-item.yaml
     env:

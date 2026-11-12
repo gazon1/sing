@@ -102,12 +102,18 @@ open class SingularityApp : Application() {
      * which overrides `AuthRepository`, `AuthGateway`, and `SupabaseClientProvider` with
      * in-memory stubs that produce a signed-in session immediately — no Supabase server
      * or network call is needed. This is for E2E smoke tests only.
+     *
+     * [com.singularity.todo.test.stubs.testOnboardingModule] rides along: the E2E build
+     * starts as a user who has already seen the spotlight tour, so its scrim does not
+     * cover the screen every flow is about.
      */
     open fun extraKoinModules(): List<Module> {
         if (BuildConfig.TEST_AUTH_BYPASS) {
             return listOf(
                 com.singularity.todo.test.stubs
                     .testAuthModule(),
+                com.singularity.todo.test.stubs
+                    .testOnboardingModule(),
             )
         }
         return emptyList()

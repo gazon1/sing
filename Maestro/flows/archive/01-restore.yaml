@@ -34,18 +34,7 @@ tags:
       id: task_item_buy_milk
     timeout: 8000
 # Open the Archive screen from the menu sheet.
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- scrollUntilVisible:
-    element:
-      id: menu_archive
-    direction: DOWN
-    timeout: 5000
-- tapOn:
-    id: menu_archive
+- runFlow: ../../helpers/open-archive.yaml
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk

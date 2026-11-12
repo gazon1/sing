@@ -17,7 +17,7 @@ targets: [android]
 preconditions: >-
   A project exists.
 steps:
-  - Open the project from the Plans tab.
+  - Open the project from the Projects section of the app menu.
 expected: >-
   The project's detail screen opens and shows a task list belonging to that
   project, initially empty.

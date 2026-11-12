@@ -35,7 +35,7 @@ IDEA renders it in gutter preview for desktop modules too.
 Added `@Preview` annotations to all screens and reusable widgets using a
 shared `core/ui/preview/PreviewSamples.kt` file:
 
-- `PreviewThemed(darkTheme, accent, useSurface)` — theme wrapper composable
+- `PreviewThemed(darkTheme, accent, fontSizeScale, useSurface)` — theme wrapper composable
 - `PreviewSamples` object — sample domain model builders (`task()`, `project()`,
   `tag()`, `note()`, `reminder()`, `attachment()`, `checklistItem()`) using
   epoch-0 `Instant` and a fixed `LocalDate(2026, 9, 6)` to avoid `Clock.System`

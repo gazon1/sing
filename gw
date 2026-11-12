@@ -20,7 +20,9 @@
 #
 # WHAT STAYS SHARED, DELIBERATELY
 #
-#   wrapper/  caches/  jdks/  -> symlinks to the real ~/.gradle
+#   wrapper/  jdks/                     -> symlinks to the real ~/.gradle
+#   caches/<entry>                      -> symlinks into the real ~/.gradle
+#   caches/<gradle-version>/<entry>     -> symlinks into the real ~/.gradle
 #
 # Re-downloading the Gradle distribution, every dependency artifact and the
 # toolchain JDK per worktree would cost gigabytes and minutes for no isolation
@@ -30,9 +32,16 @@
 # WHAT STAYS PRIVATE
 #
 #   daemon/  native/  notifications/  kotlin-profile/  .tmp/
+#   caches/<gradle-version>/cc-keystore/
 #
 # `daemon/` is the point of the exercise: it holds registry.bin, the file that
 # `--stop` reads to decide which daemons to kill.
+#
+# `cc-keystore/` is the other one, and it is a lock, not a convention: Gradle 9
+# opens the configuration cache keystore under a lock, so two worktrees sharing
+# one `caches/` also share one keystore, and the second build fails with
+# "Could not open Gradle Configuration Cache keystore." The keystore is
+# per-Gradle-version state that two worktrees must not share.
 #
 # The symlinks are created on first use and are idempotent, so there is no
 # separate setup step to remember. Set GRADLE_USER_HOME yourself (or use

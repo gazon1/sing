@@ -17,7 +17,7 @@ state *which tasks need the skill*, not summarise its contents.
 |---|---:|---|
 | `singularity-todo-adb-screen-unlock` | 97 | How to wake and unlock a physical Android device connected via adb before UI verification. |
 | `singularity-todo-adb-workflow` | 175 | Full adb workflow for UI verification on a physical Android device connected via USB. |
-| `singularity-todo-agenda-section-design` | 147 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
+| `singularity-todo-agenda-section-design` | 149 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 309 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
 | `singularity-todo-android-cli` | 187 | Use when working with Android CLI commands, Android Studio integration, or Journeys for Android app development. |
@@ -25,7 +25,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-attachments` | 413 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-auth-seam` | 115 | The auth seam of this KMP app: the AuthGateway port the domain speaks, the Supabase (KMPAuth) binding behind it, the SecureSessionManager that is the one session store, the provider session observation, and the E2E stub that replaces the whole seam in the debug build. |
 | `singularity-todo-backup` | 304 | Backup/restore pattern for the Singularity Todo KMP app. |
-| `singularity-todo-build-and-gates` | 212 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
+| `singularity-todo-build-and-gates` | 214 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
 | `singularity-todo-ci-cd` | 153 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 221 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 399 | Write-tool surface contract for Singularity Todo KMP MCP server. |
@@ -78,7 +78,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-room-multi-instance` | 150 | Cross-process SQLite access for Singularity Todo KMP. |
 | `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |
 | `singularity-todo-secure-storage` | 175 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
-| `singularity-todo-selectable-text` | 214 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
+| `singularity-todo-selectable-text` | 215 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
 | `singularity-todo-shared-ui-components` | 46 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
 | `singularity-todo-sheet-extraction` | 411 | Sheet extraction workflow for Singularity Todo. |
 | `singularity-todo-stable-json` | 177 | When adding kotlinx.serialization to a KMP project, always use StableJson instead of local `Json { . |

@@ -45,8 +45,8 @@ import kotlinx.datetime.LocalTime
  * @param isPinned Whether the task is pinned.
  * @param blockedBy Set of task IDs this task depends on.
  * @param followsUp Set of task IDs this task follows up on.
- * @param workflowState The state the user claimed for the work.
- * @param availableTasks Tasks available for dependency picker (reactive).
+ * @param relatedTasks Tasks currently related to this task, for display in task detail.
+ * @param workflowState The state the user claimed for the work; `Open` when nothing was claimed.
  */
 data class TaskEditorModel(
     val taskId: TaskId? = null,
@@ -82,7 +82,8 @@ data class TaskEditorModel(
     val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
     /** IDs of the tasks this task follows up on. */
     val followsUp: ImmutableSet<TaskId> = persistentSetOf(),
-    val availableTasks: ImmutableList<com.singularity.todo.feature.tasks.domain.model.Task> = persistentListOf(),
+    /** Tasks currently related to this task (blocked-by / follows-up), for display. */
+    val relatedTasks: ImmutableList<com.singularity.todo.feature.tasks.domain.model.Task> = persistentListOf(),
     /** Estimated time in minutes. Null means no estimate has been set. */
     val estimateMinutes: Int? = null,
     /** The state the user claimed for the work; `Open` when nothing was claimed. */

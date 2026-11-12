@@ -173,8 +173,6 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
             "calendar-tap-day-cell.yaml",
             "launch-clean.yaml",
             "open-app-menu.yaml",
-            "plans-section-gone.yaml",
-            "plans-section.yaml",
             "relaunch.yaml",
             "seed-task.yaml",
             "seed.yaml",

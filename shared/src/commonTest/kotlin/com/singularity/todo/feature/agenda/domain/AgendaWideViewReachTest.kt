@@ -6,6 +6,7 @@ import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.model.heldBuckets
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -150,13 +151,16 @@ class AgendaWideViewReachTest {
     @Test
     fun `every bucket is reachable from a preset`() {
         val sections = AgendaPresets.All.sections
+        // The open-ended bucket is the Upcoming feed's, not the wide view's: the
+        // wide view keeps its bounded reach (see #2021), so it holds every bucket
+        // but Future. Reachability is checked across presets below.
+        val expectedInWideView = RelativeBucket.entries.toSet() - RelativeBucket.Future
 
         assertEquals(
-            RelativeBucket.entries.size,
+            expectedInWideView.size,
             sections.size,
-            "the wide view holds one section per bucket — a section whose selector is " +
-                "not a plain date bucket cannot be checked this way, and a bucket with " +
-                "no section is a bucket nobody can reach",
+            "the wide view holds one section per bounded bucket — a section whose selector " +
+                "is not a plain date bucket cannot be checked this way",
         )
 
         val bucketsInWideView =
@@ -165,31 +169,41 @@ class AgendaWideViewReachTest {
                 .toSet()
 
         assertEquals(
-            RelativeBucket.entries.toSet(),
+            expectedInWideView,
             bucketsInWideView,
-            "every bucket in RelativeBucket must be reachable from a preset — the wide " +
-                "view holds one section per bucket, so a bucket no preset uses is a " +
-                "bucket nobody can reach",
+            "the wide view holds every bounded bucket; the open-ended Future bucket sits on " +
+                "the Upcoming tab",
+        )
+        assertEquals(
+            setOf(RelativeBucket.Future),
+            AgendaPresets.Upcoming.sections
+                .flatMap { it.selector.heldBuckets() }
+                .toSet(),
+            "every bucket in RelativeBucket must be reachable from a preset — a bucket no " +
+                "preset uses is a bucket nobody can reach",
         )
     }
 
     @Test
-    fun `the bottom bar tabs leave a next-month task out`() {
+    fun `only the future feed reaches a next-month task among the tabs`() {
         val task = task("next-month", LocalDate(2026, 11, 20))
-        val tabs =
+        val boundedTabs =
             listOf(
                 "Inbox" to AgendaPresets.Inbox,
                 "Today" to AgendaPresets.Today,
-                "Upcoming" to AgendaPresets.Upcoming,
             )
 
-        tabs.forEach { (name, definition) ->
+        boundedTabs.forEach { (name, definition) ->
             assertEquals(
                 emptyList(),
                 sectionsContaining(definition, task, midMonth),
-                "the $name tab does not reach the next month — the bottom bar's horizon " +
-                    "is next week, and the wide view reaches further than the bar does",
+                "the $name tab does not reach the next month — it owns undated or today's tasks",
             )
         }
+        assertEquals(
+            1,
+            sectionsContaining(AgendaPresets.Upcoming, task, midMonth).size,
+            "the Upcoming tab is the complete future feed, so a next-month task is there",
+        )
     }
 }

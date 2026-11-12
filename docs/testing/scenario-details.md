@@ -119,6 +119,34 @@ Steps:
 
 **Expected:** The saved view is still listed and still opens, so it was persisted rather than held in memory. Restarting without clearing data is what makes this a persistence check. Backup and restore are not exercised here.
 
+#### `AGENDA-09` — Upcoming groups future tasks under date headers and leaves Today out
+
+**confirmed** · P1 · `#AGENDA`
+
+**Given:** Open tasks exist with due dates tomorrow, three days out and six days out. A task due today and a task with no due date exist as controls.
+
+Steps:
+
+1. Open the Upcoming tab.
+2. Find the task due tomorrow and the header it sits under.
+3. Read the three future tasks.
+
+**Expected:** The three future tasks are listed under date headers in the Upcoming tab, and each appears once. The day/week control switches the feed to week headers and back without losing a task. The task due today is absent — the Today tab owns it — and the undated task is absent — the Inbox tab owns it.
+
+#### `AGENDA-10` — Upcoming date headers are chronological and an empty day has no header
+
+**confirmed** · P1 · `#AGENDA`
+
+**Given:** Open tasks exist with due dates tomorrow, three days out and six days out, and no task is due on the days in between. A task due today and a task with no due date exist as controls.
+
+Steps:
+
+1. Open the Upcoming tab.
+2. Read the section headers from top to bottom.
+3. Read the rows inside the first and the last section that carries a task.
+
+**Expected:** The headers name their dates and appear earliest first. There is no header for a day between them that carries no task. Each task sits under its own date and in no other section; today's and the undated tasks are absent.
+
 #### `AGENDA-STATE-01` — A saved view shows only the tasks in a chosen workflow state
 
 **confirmed** · P2 · `#AGENDA-STATE`
@@ -874,7 +902,7 @@ Steps:
 
 #### `PLANS-01` — Plans renders days in chronological order with that day's tasks
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** Tasks exist with due dates on three different days, one of them today and one of them six days out, and one day in between carries no task at all.
 
@@ -888,7 +916,7 @@ Steps:
 
 #### `PLANS-02` — A task appears in exactly one section at every granularity
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** One task has a due date inside the current horizon.
 
@@ -902,7 +930,7 @@ Steps:
 
 #### `PLANS-03` — The granularity control switches between day, week and month and names the selection
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** Tasks are due in more than one calendar month, and at least one of them falls in the current week.
 
@@ -916,7 +944,7 @@ Steps:
 
 #### `PLANS-04` — The chosen granularity is restored the next time Plans is opened
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** Plans has been opened and its granularity switched to week.
 
@@ -929,7 +957,7 @@ Steps:
 
 #### `PLANS-05` — Overdue tasks lead the timeline and never sit inside a dated section
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** One task has a due date in the past and one task is due today.
 
@@ -943,7 +971,7 @@ Steps:
 
 #### `PLANS-06` — The Plans tab no longer shows a project list
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** Two or more projects exist.
 
@@ -956,7 +984,7 @@ Steps:
 
 #### `PLANS-07` — The horizon follows the granularity
 
-**confirmed** · P1 · `#PLANS`
+**deprecated** · P1 · `#PLANS`
 
 **Given:** One task is due tomorrow and one task is due 45 days from today.
 
@@ -970,7 +998,7 @@ Steps:
 
 #### `PLANS-08` — A section header names the period it covers
 
-**confirmed** · P2 · `#PLANS`
+**deprecated** · P2 · `#PLANS`
 
 **Given:** Tasks are due today, in a later week and in a later month.
 
@@ -984,7 +1012,7 @@ Steps:
 
 #### `PLANS-09` — A task is opened from a section and a new task inherits that section's date
 
-**confirmed** · P2 · `#PLANS`
+**deprecated** · P2 · `#PLANS`
 
 **Given:** A task with a due date inside the horizon exists, and Plans is open.
 
@@ -998,7 +1026,7 @@ Steps:
 
 #### `PLANS-10` — An empty horizon shows an empty state, and undated tasks are absent from the timeline
 
-**confirmed** · P2 · `#PLANS`
+**deprecated** · P2 · `#PLANS`
 
 **Given:** No task has a due date inside the current horizon, and one task exists with no due date at all.
 
@@ -1116,7 +1144,7 @@ Steps:
 
 Steps:
 
-1. Open the project from the Plans tab.
+1. Open the project from the Projects section of the app menu.
 
 **Expected:** The project's detail screen opens and shows a task list belonging to that project, initially empty.
 

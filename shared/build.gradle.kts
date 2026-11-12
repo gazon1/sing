@@ -1065,9 +1065,10 @@ dependencies {
     coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
     androidRuntimeClasspath(libs.compose.ui.tooling)
 
-    // androidHostTest — the Android/Robolectric-capable source set. Its only content is
-    // AndroidManifest.xml; every test `testAndroidHostTest` executes comes from
-    // commonTest. That left the task green while `PlatformModule.android.kt` — the half
+    // androidHostTest — the Android/Robolectric-capable source set. It holds the
+    // Android-only tests — the ones whose code lives in `androidMain`, which the JVM
+    // lane cannot reach — and every test `testAndroidHostTest` executes from commonTest.
+    // That split once left the task green while `PlatformModule.android.kt` — the half
     // of the graph where the sync cycle shipped as a StackOverflowError at app start —
     // was resolved by nothing at all (#227).
     //
@@ -1224,6 +1225,9 @@ afterEvaluate {
             // the phone's own implementation had no test at all — and the move is
             // what makes the backup's writes atomic.
             "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
+            // The E2E build starts after the spotlight tour (#2819). The module lives
+            // in androidMain, so the JVM lane cannot reach it.
+            "com/singularity/todo/test/stubs/TestOnboardingModuleTest.class",
         )
     }
 }
@@ -1294,11 +1298,12 @@ detekt {
         "src/jvmTest/kotlin",
         "src/androidMain/kotlin",
         // `androidHostTest` is declared and configured — `androidHostTestRuntimeOnly`
-        // pulls the JUnit Vintage engine — but holds no Kotlin sources yet; only a
-        // manifest and a `.gitkeep`. The Robolectric graph test for #227 is **not
-        // written**: `SyncDiGraphResolutionTest` lives in `jvmTest` and resolves the
-        // common DI module, so it never loads the Android platform modules, which is
-        // the half that has never been resolved by a test.
+        // pulls the JUnit Vintage engine — and it holds Kotlin sources: the
+        // Android-only tests the include list above names, whose code lives in
+        // `androidMain` and is out of the JVM lane's reach. The Robolectric graph
+        // test for #227 is **not written**: `SyncDiGraphResolutionTest` lives in
+        // `jvmTest` and resolves the common DI module, so it never loads the Android
+        // platform modules, which is the half that has never been resolved by a test.
         //
         // It is listed here anyway because a source set that exists but is not scanned
         // is worse than one that does not exist: detekt reports nothing about a path it

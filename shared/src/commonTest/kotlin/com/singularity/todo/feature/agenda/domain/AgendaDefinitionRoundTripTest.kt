@@ -3,6 +3,7 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaLayout
+import com.singularity.todo.feature.agenda.domain.model.DateGrouping
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
@@ -147,5 +148,31 @@ class AgendaDefinitionRoundTripTest {
         assertEquals("Modern View", decoded.title)
         assertEquals(AgendaLayout.ListGrouped, decoded.layout)
         assertTrue(!encoded.contains("transformers"))
+    }
+
+    /**
+     * A saved view keeps the date-grouping field through the save.
+     *
+     * The field lives on the section because a saved view stores its sections and
+     * rebuilds the definition from them; a flag on the definition would be dropped.
+     * The screen may override the value with the profile's choice, but the field
+     * has to survive for the section to stay a grouped one.
+     */
+    @Test
+    fun `a date-grouped section keeps its grouping field round-trip`() {
+        val definition =
+            agenda("Future feed") {
+                section(
+                    id = "future",
+                    name = "Later",
+                    selector = Selector.DateBucket(RelativeBucket.Future),
+                    groupBy = DateGrouping.Day,
+                )
+            }
+
+        val encoded = json.encodeToString(AgendaDefinition.serializer(), definition)
+        val decoded = json.decodeFromString<AgendaDefinition>(encoded)
+
+        assertEquals(DateGrouping.Day, decoded.sections.single().groupBy, "the saved view must keep the grouping")
     }
 }

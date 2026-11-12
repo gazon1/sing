@@ -146,11 +146,9 @@ fun buildTaskContextMenu(
             label = "Set dependencies",
             enabled = actions.onSetDependencies != null,
         ) {
-            // Partial: the action fires but always with an empty set, so an existing
-            // dependency set is cleared on save. Needs DependencyPickerSheet seeded with
-            // `taskUi.blockedBy` before this item is honest.
-            //   For now, open with empty set; picker sheet will be added in a follow-up.
-            actions.onSetDependencies?.invoke(emptySet())
+            // Partial: relation editing is owned by task detail's related-tasks picker.
+            // Avoid clearing relations from the menu until a picker seeded with
+            // current relations is wired here.
             actions.onDismiss()
         }
 

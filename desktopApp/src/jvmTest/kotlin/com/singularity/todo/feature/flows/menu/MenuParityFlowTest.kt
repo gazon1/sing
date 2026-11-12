@@ -43,16 +43,12 @@ class MenuParityFlowTest {
             "the menu offers something the declared menu destinations do not, or misses one",
         )
 
-        // The Calendar is a tab and the Plans is a menu entry: the two facts are
+        // The Calendar is a tab and the Pomodoro is a menu entry: the two facts are
         // what the menu's shape is made of, and a reader of one without the other
         // cannot tell a destination that moved from one that was lost.
         assertTrue(
             AppDestination.Calendar !in AppMenu.allDestinations,
-            "the Calendar is an entry of the menu: ${AppMenu.allDestinations}",
-        )
-        assertTrue(
-            AppDestination.Plans in AppMenu.allDestinations,
-            "the Plans is not an entry of the menu: ${AppMenu.allDestinations}",
+            "the Calendar is a tab, so it is not repeated in the menu: ${AppMenu.allDestinations}",
         )
         assertTrue(
             AppDestination.Pomodoro in AppMenu.allDestinations,

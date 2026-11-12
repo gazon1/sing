@@ -9,7 +9,6 @@ import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendarSync.di.calendarSyncModule
 import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.nav.deeplink.deepLinkModule
-import com.singularity.todo.feature.plans.plansModule
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.profileModule
 import com.singularity.todo.feature.proposals.proposalModule
@@ -54,7 +53,6 @@ fun domainModule(fixedProfileId: ProfileId? = null): List<Module> =
         add(searchModule())
         add(calendarModule())
         add(agendaModule())
-        add(plansModule())
         add(deepLinkModule())
         add(proposalModule())
         add(calendarSyncModule())

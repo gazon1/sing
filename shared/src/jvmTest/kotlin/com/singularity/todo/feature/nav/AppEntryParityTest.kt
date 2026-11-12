@@ -57,7 +57,6 @@ class AppEntryParityTest {
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/CalendarEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/NotesEntries.kt",
-                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/PlansEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/ProjectsEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SearchEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SettingsEntries.kt",
@@ -80,7 +79,6 @@ class AppEntryParityTest {
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/CalendarEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/NotesEntries.kt",
-                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/PlansEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/ProjectsEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SearchEntries.kt",
                 "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SettingsEntries.kt",
@@ -121,7 +119,6 @@ class AppEntryParityTest {
          */
         val EXPECTED_DESTINATIONS =
             setOf(
-                "Plans",
                 "Pomodoro",
                 "Statistics",
                 "Calendar",

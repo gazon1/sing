@@ -66,7 +66,6 @@ non-alphanumeric characters with `_`.
 | `MENU_ATTACH_ACCOUNT` | `menu_attach_account` | |
 | `MENU_CALENDAR` | `menu_calendar` | |
 | `MENU_NOTES` | `menu_notes` | |
-| `MENU_PLANS` | `menu_plans` | |
 | `MENU_POMODORO` | `menu_pomodoro` | |
 | `MENU_PROFILES` | `menu_profiles` | |
 | `MENU_PROJECTS_COLLAPSE` | `menu_projects_collapse` | |
@@ -130,7 +129,9 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_ADD_RELATED_TASK` | `task_detail_add_related_task` | |
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
+| `TASK_DETAIL_RELATED_TASKS_SECTION` | `task_detail_related_tasks_section` | |
 | `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
@@ -161,7 +162,9 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `AGENDA_GREETING` | `agenda_greeting` | |
-| `AGENDA_HORIZON_NOTE` | `agenda_horizon_note` | |
+| `AGENDA_GROUPING_DAY` | `agenda_grouping_day` | |
+| `AGENDA_GROUPING_MONTH` | `agenda_grouping_month` | |
+| `AGENDA_GROUPING_WEEK` | `agenda_grouping_week` | |
 | `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_OVERFLOW_BUTTON` | `agenda_overflow_button` | |
@@ -181,17 +184,6 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
 | `SAVED_AGENDA_OVERFLOW_BUTTON` | `saved_agenda_overflow_button` | |
 | `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | |
-
-### Plans
-
-| Constant | Value | Where |
-|---|---|---|
-| `PLANS_EMPTY_STATE` | `plans_empty_state` | |
-| `PLANS_ERROR` | `plans_error` | |
-| `PLANS_GRANULARITY_DAY` | `plans_granularity_day` | |
-| `PLANS_GRANULARITY_MONTH` | `plans_granularity_month` | |
-| `PLANS_GRANULARITY_WEEK` | `plans_granularity_week` | |
-| `PLANS_SCREEN` | `plans_screen` | |
 
 ### Pomodoro
 
@@ -435,7 +427,9 @@ non-alphanumeric characters with `_`.
 
 | Constant | Value | Where |
 |---|---|---|
+| `ARCHIVE_BULK_ACTION` | `archive_bulk_action` | |
 | `ARCHIVE_EMPTY` | `archive_empty` | |
+| `ARCHIVE_OVERFLOW` | `archive_overflow` | |
 | `ATTACHMENTS_ADD_FILE_ROW` | `attachments_add_file_row` | |
 | `ATTACHMENTS_ADD_URL_BUTTON` | `attachments_add_url_button` | |
 | `ATTACHMENTS_PICK_FILE_BUTTON` | `attachments_pick_file_button` | |
@@ -446,7 +440,6 @@ non-alphanumeric characters with `_`.
 | `Calendar.CANCEL_SELECTION` | `calendar_cancel_selection` | |
 | `Calendar.CREATE_ON_SELECTED` | `calendar_create_on_selected` | |
 | `Calendar.SELECTION_BAR` | `calendar_selection_bar` | |
-| `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `DESKTOP_DRAWER` | `desktop_drawer` | |
 | `EDITOR_SHEET_CLOSE` | `editor_sheet_close` | |
 | `LOADING_INDICATOR` | `loading_indicator` | |
@@ -462,6 +455,9 @@ non-alphanumeric characters with `_`.
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
 | `PROPOSALS_EMPTY` | `proposals_empty` | |
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
+| `RELATED_TASK_PICKER_ADD` | `related_task_picker_add` | |
+| `RELATED_TASK_PICKER_CLEAR` | `related_task_picker_clear` | |
+| `RELATED_TASK_PICKER_SEARCH` | `related_task_picker_search` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `RESULT_DIALOG_CONFIRM` | `result_dialog_confirm` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |
@@ -504,6 +500,9 @@ use the expanded string directly).
 | `dependencyItem("Dep task")` | `"Dep task"` | `dependency_item_dep_task` | Rows in the dependency picker |
 | `dependencyVerb("blocks")` | `"blocks"` | `dependency_verb_blocks` | Kind-of-relation chips on one dependency row |
 | `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |
+| `relatedTaskCandidate("01ABC...")` | `"01ABC..."` | `related_task_candidate_01abc` | Candidate rows in the related-task picker |
+| `relatedTaskItem("01ABC...")` | `"01ABC..."` | `related_task_item_01abc` | Rows in the related-tasks section |
+| `relatedTaskRemove("01ABC...")` | `"01ABC..."` | `related_task_remove_01abc` | Remove buttons for related tasks |
 | `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
 | `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |
 | `subtaskItem("Child task one")` | `"Child task one"` | `subtask_item_child_task_one` | Subtask list rows |
@@ -519,8 +518,6 @@ use the expanded string directly).
 | `agendaSectionViewAll("Overdue")` | `"Overdue"` | `agenda_section_view_all_overdue` | The "View all" action of an agenda section header |
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
-| `plansSection("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_day_2026_09_16` | Timeline section headers |
-| `plansSectionAdd("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_add_day_2026_09_16` | The add control of a timeline section |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |

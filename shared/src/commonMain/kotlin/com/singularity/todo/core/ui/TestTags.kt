@@ -189,9 +189,6 @@ object TestTags {
     /** The proposals' entry in the menu. */
     const val MENU_PROPOSALS = "menu_proposals"
 
-    /** The Plans entry in the menu. */
-    const val MENU_PLANS = "menu_plans"
-
     /** The Pomodoro entry in the menu. */
     const val MENU_POMODORO = "menu_pomodoro"
 
@@ -316,11 +313,33 @@ object TestTags {
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
     /**
-     * Dependencies row in the task editor.
-     *
-     * The row exists even when nothing is selected: that is the only way to add the
-     * first relation, and a card hidden until something is chosen is a card that can
-     * never be chosen for the first time.
+     * Related-tasks section in task detail.
+     */
+    const val TASK_DETAIL_RELATED_TASKS_SECTION = "task_detail_related_tasks_section"
+
+    /** "Add related task" action in task detail related-tasks section. */
+    const val TASK_DETAIL_ADD_RELATED_TASK = "task_detail_add_related_task"
+
+    /** Dynamic tag for one related-task row in task detail. */
+    fun relatedTaskItem(taskId: String) = "related_task_item_${slug(taskId)}"
+
+    /** Dynamic tag for removing one related task in task detail. */
+    fun relatedTaskRemove(taskId: String) = "related_task_remove_${slug(taskId)}"
+
+    /** Search field in the related-task picker. */
+    const val RELATED_TASK_PICKER_SEARCH = "related_task_picker_search"
+
+    /** Clear-query action in the related-task picker. */
+    const val RELATED_TASK_PICKER_CLEAR = "related_task_picker_clear"
+
+    /** Confirm/add action in the related-task picker. */
+    const val RELATED_TASK_PICKER_ADD = "related_task_picker_add"
+
+    /** Dynamic tag for one candidate row in the related-task picker. */
+    fun relatedTaskCandidate(taskId: String) = "related_task_candidate_${slug(taskId)}"
+
+    /**
+     * Legacy dependency-picker row tag kept for compatibility with existing selectors.
      */
     const val TASK_EDITOR_DEPENDENCIES_ROW = "task_editor_dependencies_row"
 
@@ -357,9 +376,6 @@ object TestTags {
 
     /** "Repeats" label text inside the recurrence row of the task editor. */
     const val TASK_EDITOR_RECURRENCE_LABEL = "task_editor_recurrence_label"
-
-    /** "No tasks available" empty text in the dependency picker sheet. */
-    const val DEPENDENCY_PICKER_EMPTY = "dependency_picker_empty"
 
     /** Dynamic tag of one selectable task row in the dependency picker. */
     fun dependencyItem(taskId: String) = "dependency_item_${slug(taskId)}"
@@ -575,12 +591,14 @@ object TestTags {
      */
     const val AGENDA_GREETING = "agenda_greeting"
 
-    /**
-     * The line at the end of the Upcoming tab that says where a task dated beyond
-     * next week is seen. It is the user-facing half of the decision recorded in
-     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
-     */
-    const val AGENDA_HORIZON_NOTE = "agenda_horizon_note"
+    /** The day option of the future feed's grouping control. */
+    const val AGENDA_GROUPING_DAY = "agenda_grouping_day"
+
+    /** The week option of the future feed's grouping control. */
+    const val AGENDA_GROUPING_WEEK = "agenda_grouping_week"
+
+    /** The month option of the future feed's grouping control. */
+    const val AGENDA_GROUPING_MONTH = "agenda_grouping_month"
 
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
@@ -636,37 +654,6 @@ object TestTags {
 
     /** "View all" action of an agenda section header (e.g. full overdue list). */
     fun agendaSectionViewAll(name: String) = "agenda_section_view_all_${slug(name)}"
-
-    // ─── Plans timeline ───────────────────────────────────────────────────
-
-    /** The screen itself — the root of the timeline. */
-    const val PLANS_SCREEN = "plans_screen"
-
-    /** The granularity control: the day option. */
-    const val PLANS_GRANULARITY_DAY = "plans_granularity_day"
-
-    /** The granularity control: the week option. */
-    const val PLANS_GRANULARITY_WEEK = "plans_granularity_week"
-
-    /** The granularity control: the month option. */
-    const val PLANS_GRANULARITY_MONTH = "plans_granularity_month"
-
-    /** The empty state — nothing is scheduled inside the horizon. */
-    const val PLANS_EMPTY_STATE = "plans_empty_state"
-
-    /** The message the screen shows when the plan could not be loaded. */
-    const val PLANS_ERROR = "plans_error"
-
-    /**
-     * A timeline section header, by the section's id.
-     *
-     * The id, not the label: the label of a day section changes with the date,
-     * and a tag that moves every morning is a tag no automation can rely on.
-     */
-    fun plansSection(id: String) = "plans_section_${slug(id)}"
-
-    /** The "add a task to this section" control of a section header. */
-    fun plansSectionAdd(id: String) = "plans_section_add_${slug(id)}"
 
     // ─── Pomodoro ───────────────────────────────────────────────────────────
 
@@ -808,6 +795,12 @@ object TestTags {
 
     /** "Archive is empty" empty state title on the archive list screen. */
     const val ARCHIVE_EMPTY = "archive_empty"
+
+    /** The overflow button in the archive screen's top bar. */
+    const val ARCHIVE_OVERFLOW = "archive_overflow"
+
+    /** The bulk "archive completed tasks" item in the archive overflow menu. */
+    const val ARCHIVE_BULK_ACTION = "archive_bulk_action"
 
     /** "No notes yet" empty state title on the notes list screen. */
     const val NOTES_LIST_EMPTY = "notes_list_empty"

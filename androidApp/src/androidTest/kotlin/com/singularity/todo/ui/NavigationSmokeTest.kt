@@ -117,11 +117,11 @@ class NavigationSmokeTest : InstrumentedTestBase() {
      * Today and Upcoming all do. The Calendar does not, and neither does the
      * Pomodoro: neither is a list of tasks.
      *
-     * Plans and Pomodoro are **menu** destinations, not tabs: they left the tab
-     * bar and live behind the "Menu" button (see `DestinationKind`), so they are
-     * reached through the menu sheet. Waiting for a bottom-bar tag the screen
-     * does not contain can only end in a timeout, and it says nothing about the
-     * FAB — the failure would name a wait, not a behaviour.
+     * The menu's destinations are behind the "Menu" button (see
+     * `DestinationKind`), so they are reached through the menu sheet. Waiting for
+     * a bottom-bar tag the screen does not contain can only end in a timeout, and
+     * it says nothing about the FAB — the failure would name a wait, not a
+     * behaviour.
      *
      * This encodes the contract from `FabActionResolver` — changing the FAB behaviour
      * will make this test fail, which is the intended signal.
@@ -162,12 +162,7 @@ class NavigationSmokeTest : InstrumentedTestBase() {
             device.findObject(By.res("tasks_fab")),
         )
 
-        // Plans — a menu destination, and it does show the "Add task" FAB.
-        openMenuDestination(TestTags.MENU_PLANS)
-        device.awaitTag(TestTags.PLANS_SCREEN, "the Plans screen", TAB_TIMEOUT_MS)
-        assertNotNull("FAB should be on the Plans screen", device.findObject(By.res("tasks_fab")))
-
-        // Pomodoro — a menu destination too, and it has no FAB.
+        // Pomodoro — a menu destination, and it has no FAB.
         openMenuDestination(TestTags.MENU_POMODORO)
         // The Pomodoro screen has to be up before the FAB is judged: the FAB of
         // the screen underneath is still in the tree while the menu sheet is

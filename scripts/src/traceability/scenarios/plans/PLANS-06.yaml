@@ -9,7 +9,7 @@ id: PLANS-06
 title: "The Plans tab no longer shows a project list"
 area: feature.plans
 priority: P1
-status: confirmed
+status: deprecated
 targets: [android, desktop]
 preconditions: >-
   Two or more projects exist.
@@ -20,3 +20,10 @@ expected: >-
   The Plans tab lists tasks grouped by date and shows no project list. The
   projects appear in the menu's Projects section as a tree, so none of them has
   been lost with the list.
+
+# Deprecated on purpose (2026-11-11): the Plans destination was retired and its
+# useful behaviour — a chronological timeline of days that hold tasks — moved
+# into the Upcoming agenda tab. The scenarios are kept rather than deleted
+# because the screen shipped and users could see it; deleting the files would
+# leave "where did the timeline go?" unanswered in the scenario layer. The
+# surviving behaviour is carried by the Upcoming scenarios (AGENDA-09).

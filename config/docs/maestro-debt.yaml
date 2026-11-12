@@ -319,11 +319,11 @@ causes:
   flows: 0
   note: "Fixed by this change: the flow's caret landed inside the pre-filled name, so the typed name landed inside the old one and the card's slug was not the id the flow asserted on. The caret is now put past the text before the field is cleared. Measured 2026-11-12 (agenda suite, RMX3938/API 35); the cause is a regression guard from now on."
 - key: "Assertion is false: id: task_item_buy_milk is visible"
-  issue: 938
-  owner: unclassified
+  issue: 2723
+  owner: product
   status: accepted
   flows: 1
-  note: "The seed writes the task under an identity the agenda does not read, so the seeded row is never on the screen (#938)."
+  note: "The identity cause this key carried is fixed (#938, closed). What the key reports now is tasks/06-delete-undo: after Delete, Undo and Back the row is still archived in the database, so the undo does not put the task back (#2723)."
 - key: "Assertion is false: id: task_item_taskwithdesc<n> is visible"
   issue: 937
   owner: test
@@ -384,3 +384,12 @@ causes:
   status: accepted
   flows: 1
   note: "Measured 2026-11-09 (tasks/create-task, RMX3938/API 35); the task the flow types is not in the list afterwards. Owned by its own issue."
+
+# The causes the CI run found. The E2E build started as a user who had never seen
+# the spotlight tour, and the tour's scrim swallowed the flows' taps.
+- key: "No visible element found: id: task_item_buy_milk"
+  issue: 2819
+  owner: test
+  status: fixed
+  flows: 5
+  note: "Fixed by this change: the E2E build started as a user who had never seen the spotlight tour, so the tour's scrim swallowed the helper's tap on the Inbox tab and the seeded row was never on the screen. Measured 2026-11-11 (CI run 42998855935, PR #2804); the same first-run state was in the dumps of profile/02-isolation, smoke/03-health-drilldown and tasks/subtasks/TASK-SUB-01. The cause is a regression guard from now on."

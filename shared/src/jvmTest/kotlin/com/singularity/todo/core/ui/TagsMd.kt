@@ -44,7 +44,6 @@ object TagsMd {
             "Navigation",
             "Tasks",
             "Agenda",
-            "Plans",
             "Pomodoro",
             "Tags",
             "Notes",
@@ -296,6 +295,18 @@ object TagsMd {
                 DynamicMeta(fnName, "Tasks", "blocks", "Kind-of-relation chips on one dependency row")
             }
 
+            "relatedTaskItem" -> {
+                DynamicMeta(fnName, "Tasks", "01ABC...", "Rows in the related-tasks section")
+            }
+
+            "relatedTaskRemove" -> {
+                DynamicMeta(fnName, "Tasks", "01ABC...", "Remove buttons for related tasks")
+            }
+
+            "relatedTaskCandidate" -> {
+                DynamicMeta(fnName, "Tasks", "01ABC...", "Candidate rows in the related-task picker")
+            }
+
             "subtaskItem" -> {
                 DynamicMeta(fnName, "Tasks", "Child task one", "Subtask list rows")
             }
@@ -354,14 +365,6 @@ object TagsMd {
 
             "agendaSectionViewAll" -> {
                 DynamicMeta(fnName, "Agenda", "Overdue", "The \"View all\" action of an agenda section header")
-            }
-
-            "plansSection" -> {
-                DynamicMeta(fnName, "Plans", "day:2026-09-16", "Timeline section headers")
-            }
-
-            "plansSectionAdd" -> {
-                DynamicMeta(fnName, "Plans", "day:2026-09-16", "The add control of a timeline section")
             }
 
             "menuProjectNode" -> {
@@ -512,10 +515,6 @@ object TagsMd {
             "CHECKLIST_" to "Tasks",
             "SUBTASK" to "Tasks",
             "AGENDA_" to "Agenda",
-            // The timeline of the Plans tab: its sections, its granularity control
-            // and its empty state. A heading of its own rather than a fragment of
-            // Agenda: the plan is a feature, not a preset of the agenda's.
-            "PLANS_" to "Plans",
             "SAVED_" to "Agenda",
             "POMODORO_" to "Pomodoro",
             "TAGS_" to "Tags",

@@ -9,11 +9,11 @@ import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
-import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEntityIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskTagIntent
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,12 +62,21 @@ class TaskEntitySlot(
                     task?.projectId?.let { children.projectsRepo.observe(it) }
                         ?: flowOf(null)
                 }
-            // The picker must not offer the task as its own dependency, nor trashed tasks.
-            val availableFlow =
-                core.taskRepo
-                    .observeByFilter(TaskFilter.All)
-                    .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
             val allTags = children.tagsRepo.observeAll()
+            // Tasks this task currently relates to, for the compact section. Loaded
+            // by id so we avoid scanning the full task table (the picker searches on
+            // demand instead). combine() over a dynamic id set keeps titles reactive.
+            val relatedFlow =
+                taskFlow.flatMapLatest { task ->
+                    val ids = task?.blockedBy.orEmpty() + task?.followsUp.orEmpty()
+                    if (ids.isEmpty()) {
+                        flowOf(emptyList())
+                    } else {
+                        combine(ids.map { id -> core.taskRepo.observe(id) }) { arr ->
+                            arr.filterNotNull().sortedBy { it.title.lowercase() }
+                        }
+                    }
+                }
             // The members of the series, if the task belongs to one. A task that
             // stands alone has no series, and the flow says so without a special
             // case elsewhere.
@@ -80,15 +89,15 @@ class TaskEntitySlot(
             combine(
                 projectFlow,
                 allTags,
-                availableFlow,
+                relatedFlow,
                 taskFlow,
                 seriesFlow,
-            ) { project, tags, available, task, series ->
+            ) { project, tags, related, task, series ->
                 val taskTags = task?.tags.orEmpty()
                 TaskEntityState(
                     project = project,
                     tags = tags.filter { it.id in taskTags },
-                    availableTasks = available,
+                    relatedTasks = related.toImmutableList(),
                     seriesMembers = series,
                 )
             }.collect { _state.value = it }

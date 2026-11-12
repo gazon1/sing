@@ -1,7 +1,13 @@
 ---
-status: accepted
+status: superseded
+superseded-by: 2026-11-11-upcoming-owns-the-whole-future
 date: 2026-11-05
 ---
+
+> **Superseded (2026-11-11):** the Upcoming tab is no longer a horizon. It holds
+> every future dated task, grouped by date, and the Plans destination named here
+> is retired. See
+> [2026-11-11-upcoming-owns-the-whole-future.md](2026-11-11-upcoming-owns-the-whole-future.md).
 
 # The three agenda tabs cover a horizon, not the whole agenda
 

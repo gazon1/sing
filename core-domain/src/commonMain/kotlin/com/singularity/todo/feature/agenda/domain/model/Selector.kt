@@ -34,6 +34,16 @@ enum class RelativeBucket(override val wireName: String) : WireNamed {
     NextMonth("next_month"),
     Overdue("overdue"),
     NoDate("no_date"),
+
+    /**
+     * Everything due tomorrow or later — the open-ended bucket.
+     *
+     * Unlike the other buckets this one has no far edge: it is what the Upcoming
+     * tab holds, and that tab is the complete feed of future dated tasks. The
+     * bounds live in `RelativeBucket.toDateRange` and the matching rule in the
+     * selector matcher; both must stay "after today".
+     */
+    Future("future"),
 }
 
 /**

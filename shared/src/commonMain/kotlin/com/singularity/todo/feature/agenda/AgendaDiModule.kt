@@ -5,8 +5,10 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.feature.agenda.data.DataStoreDateGroupingSettingsRepository
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.port.DateGroupingSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.presentation.nav.AgendaDeepLink
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaDeps
@@ -48,6 +50,10 @@ fun agendaModule(): Module =
 
         single<SavedAgendaViewsRepository> { SavedAgendaViewsRepositoryImpl(get(), get(), get()) }
 
+        single<DateGroupingSettingsRepository> {
+            DataStoreDateGroupingSettingsRepository(get(), get<ProfileAwareCurrentUser>().scopedUserId)
+        }
+
         // ─── Seed store for SavedAgenda Create ────────────────────────────────
 
         singleOf(::SavedAgendaSeedStore)
@@ -70,6 +76,7 @@ fun agendaModule(): Module =
                         mergeSeries = get<MergeTaskSeriesUseCase>(),
                         workScheduleSettings = get<WorkScheduleSettingsRepository>(),
                         greetingSettings = get<GreetingSettingsRepository>(),
+                        dateGrouping = get(),
                         projectsRepository = get(),
                     ),
                 definition = definition,

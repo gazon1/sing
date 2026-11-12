@@ -48,9 +48,9 @@ internal fun shellFabTarget(
 /**
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.
  *
- * Covers every [AppDestination]. The ones that carry an action are [AppDestination.AgendaGraph]
- * (delegating to [fabActionForAgendaStart]) and [AppDestination.Plans]; the rest resolve to
- * `null`, each for the reason written beside its branch.
+ * Covers every [AppDestination]. Only [AppDestination.AgendaGraph] carries an action
+ * (delegating to [fabActionForAgendaStart]); the rest resolve to `null`, each for the
+ * reason written beside its branch.
  * The deprecated singletons `AppDestination.Inbox`/`AppDestination.Today` were removed in MR-1
  * (they were dead-code entry registrations that were never reached at runtime — the shell
  * uses AgendaGraph routes instead).
@@ -96,18 +96,6 @@ internal fun fabActionForNav3(
         // ── Destinations that carry the shell action ───────────────────────────
         is AppDestination.AgendaGraph -> {
             fabActionForAgendaStart(current.start, today, navigate)
-        }
-
-        // The plan tab creates a *task*, not a project: the timeline shows the
-        // work that is ahead, and a task due today is the piece that belongs in
-        // the first section of it.
-        AppDestination.Plans -> {
-            FabAction(
-                label = "Add task",
-                onClick = {
-                    navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
-                },
-            )
         }
 
         // ── Destinations with no shell action, each for its own reason ─────────
