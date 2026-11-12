@@ -41,8 +41,10 @@ the gates and the tests have one answer.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
+from typing import Iterator
 
 #: The variables git exports for a hook. A command that means "this
 #: repository" must not inherit them.
@@ -151,6 +153,26 @@ def sandbox_env(root: pathlib.Path) -> dict[str, str]:
     env['GIT_CEILING_DIRECTORIES'] = str(root)
     env.update(SANDBOX_IDENTITY)
     return env
+
+
+@contextlib.contextmanager
+def no_named_base() -> "Iterator[None]":
+    """The environment names no base while the fixture runs.
+
+    The name the outer tree carries is about the outer tree. A fixture's
+    repository is its own repository, and a name that is not there is not a
+    base: the fixture would be told it has none, and the chain that could
+    have answered would never be consulted.
+
+    The name is restored afterwards, so a test that names a base of its own is
+    unaffected by the order the tests run in.
+    """
+    previous = os.environ.pop(BASE_REF_ENV, None)
+    try:
+        yield
+    finally:
+        if previous is not None:
+            os.environ[BASE_REF_ENV] = previous
 
 
 if __name__ == '__main__':

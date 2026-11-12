@@ -38,6 +38,7 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import gitenv_loader  # noqa: E402
+from gitenv_loader import no_named_base  # noqa: E402
 
 #: The canonical answer, and the file it comes from.
 GITENV_PATH = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
@@ -123,6 +124,10 @@ exit 1
 
 class VerdictTest(unittest.TestCase):
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-verdict-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
@@ -256,6 +261,10 @@ class ModuleSelectionTest(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-modules-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
@@ -469,6 +478,10 @@ class FindingOwnershipTest(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-ownership-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
@@ -751,6 +764,10 @@ class BaseResolutionTest(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-base-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
@@ -902,6 +919,10 @@ class GitEnvironmentTest(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-gitenv-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
 
@@ -955,6 +976,10 @@ class PathDecodingTest(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-path-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'

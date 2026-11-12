@@ -71,6 +71,20 @@ def digest(repo):
     )
 """
 
+#: The same shape, for a command that runs in another tree.
+FOREIGN_COMPLIANT = """\
+#!/usr/bin/env python3
+import subprocess
+
+from sgate.gatekit.gitenv import foreign_env
+
+def digest(repo):
+    return subprocess.run(
+        ["git", "ls-files"], cwd=repo, capture_output=True, text=True, check=False,
+        env=foreign_env(),
+    )
+"""
+
 OWN_TREE = """\
 #!/usr/bin/env python3
 import subprocess
@@ -264,6 +278,20 @@ class GitEnvironmentRuleTest(unittest.TestCase):
     def test_a_script_that_calls_the_shared_helper_is_not_a_violation(self):
         """The helper is the one place the answer is written down."""
         self._write('reads.py', COMPLIANT)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual([], violations)
+
+    def test_a_script_that_calls_the_foreign_helper_is_not_a_violation(self):
+        """The owner answers for another tree as well as for this one.
+
+        `foreign_env()` is the owner's answer for a command that runs in
+        another tree — a fixture's repository, a control's copy of this one.
+        A script that scrubs its environment through it controls the
+        environment exactly as much as one that scrubs it through `tree_env`,
+        so the gate that watches for a script reading another tree has to
+        recognise it.
+        """
+        self._write('reads.py', FOREIGN_COMPLIANT)
         violations, _sensitive = mod.scan(self.tmp)
         self.assertEqual([], violations)
 

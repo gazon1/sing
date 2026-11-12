@@ -63,3 +63,7 @@ foreign_env = load_gitenv().foreign_env
 #: The environment of a command that runs in a sandbox: another tree, with a
 #: ceiling and an identity of its own.
 sandbox_env = load_gitenv().sandbox_env
+
+#: The environment names no base while a fixture runs: the name the outer tree
+#: carries is about the outer tree.
+no_named_base = load_gitenv().no_named_base

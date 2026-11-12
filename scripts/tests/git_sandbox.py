@@ -33,7 +33,6 @@ answered is never consulted.
 
 from __future__ import annotations
 
-import contextlib
 import os
 import pathlib
 import subprocess
@@ -46,30 +45,10 @@ from sgate.gatekit.gitenv import (  # noqa: E402,F401
     BASE_REF_ENV,
     INHERITED_FROM_HOOK,
     foreign_env,
+    no_named_base,
     sandbox_env,
     tree_env,
 )
-
-
-@contextlib.contextmanager
-def no_named_base():
-    """The environment names no base while the fixture runs.
-
-    The name the outer tree carries is about the outer tree. A fixture's
-    repository is its own repository, and a name that is not there is not a
-    base: the fixture would be told it has none, and the chain that could
-    have answered would never be consulted.
-
-    The name is restored afterwards, so a test that names a base of its own is
-    unaffected by the order the tests run in.
-    """
-    previous = os.environ.pop(BASE_REF_ENV, None)
-    try:
-        yield
-    finally:
-        if previous is not None:
-            os.environ[BASE_REF_ENV] = previous
-
 
 
 class GitCommandFailed(subprocess.CalledProcessError):

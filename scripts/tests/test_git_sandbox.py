@@ -218,6 +218,26 @@ class AnotherTreeTest(unittest.TestCase):
             env = foreign_env()
         self.assertNotIn('GIT_DIR', env)
 
+    def test_the_foreign_environment_drops_every_hook_variable(self):
+        # One of the four is not enough: a helper that drops three of them
+        # breaks in a way nobody sees — the tree is read through the wrong
+        # index, and the command reports about a tree nobody pushed.
+        with mock.patch.dict(os.environ, {
+            'GIT_DIR': '/somewhere/.git',
+            'GIT_WORK_TREE': '/somewhere',
+            'GIT_INDEX_FILE': '/somewhere/index',
+            'GIT_COMMON_DIR': '/somewhere/.git',
+        }):
+            env = foreign_env()
+        for name in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'):
+            self.assertNotIn(name, env)
+
+    def test_the_foreign_environment_does_not_mutate_the_environment_it_is_given(self):
+        given = {'SGATE_BASE_REF': 'origin/main', 'GIT_DIR': '/somewhere/.git'}
+        foreign_env(given)
+        self.assertEqual('origin/main', given['SGATE_BASE_REF'])
+        self.assertEqual('/somewhere/.git', given['GIT_DIR'])
+
     def test_the_foreign_environment_drops_both_kinds_of_name_from_a_given_environment(self):
         # The caller may hand over an environment of its own — the gate harness
         # does — and the names that point at a tree are dropped there as well.

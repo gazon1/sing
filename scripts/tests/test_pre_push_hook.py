@@ -54,6 +54,7 @@ from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
 from sgate.gatekit.gitenv import (  # noqa: E402
     INHERITED_FROM_HOOK,
     SHELL_HELPER,
+    no_named_base,
     tree_env as _clean_git_env,
 )
 
@@ -461,6 +462,10 @@ class PrePushHookTest(unittest.TestCase):
     """The hook, driven through a real push."""
 
     def setUp(self) -> None:
+        # The name the outer tree carries is about the outer tree; this
+        # fixture builds a repository of its own, and the chain that could
+        # have answered for it would never be consulted under a name.
+        self.enterContext(no_named_base())
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-hook-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
