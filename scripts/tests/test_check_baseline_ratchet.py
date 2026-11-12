@@ -26,6 +26,8 @@ import pathlib
 import tempfile
 import unittest
 
+import click.testing
+
 SCRIPT = (
     pathlib.Path(__file__).resolve().parent.parent / 'check-baseline-ratchet.py'
 )
@@ -35,6 +37,9 @@ ratchet = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ratchet)
 
 from git_sandbox import git as _git, no_named_base, sandbox_env  # noqa: E402
+
+#: The name the environment uses to name the base explicitly.
+SGATE_BASE_REF = ratchet.BASE_REF_ENV
 
 
 # A config with one disabled rule, one enabled rule, and a ruleset-level
@@ -287,17 +292,141 @@ class MergeBaseComparisonTest(unittest.TestCase):
         self.assertTrue(ok, output)
         self.assertIn('unchanged', output)
 
-    def test_no_base_branch_falls_back_to_head_and_says_so(self):
+    def test_no_base_branch_is_a_failure_rather_than_a_fallback(self):
         """A repository whose only branch is not `main` has no base to find.
 
-        The fallback is the file against itself — the very blindness this
-        change removes — so the resolution has to name it rather than take it
-        quietly.
+        The old fallback was `HEAD` — the file against itself, the very
+        blindness this change removes — and the gate reported success about a
+        comparison that never happened. There is no fallback any more: a
+        ratchet that cannot measure the branch's own growth fails.
         """
         _git('branch', '-m', 'main', 'only-branch', cwd=self.repo, env=self.env)
+        with self.assertRaises(ratchet.UnmeasurableComparison) as caught:
+            ratchet.resolve_comparison_ref(None)
+        self.assertIn('no base branch resolves', str(caught.exception))
+
+    def test_a_base_that_is_not_here_is_a_failure(self):
+        """A named base that does not exist is not a reason to measure nothing."""
+        with self.assertRaises(ratchet.UnmeasurableComparison) as caught:
+            ratchet.resolve_comparison_ref('origin/there-is-no-such-branch')
+        self.assertIn('does not exist', str(caught.exception))
+
+    def test_the_base_comes_from_the_shared_resolver(self):
+        """The ratchet has no chain of its own — it asks the owner.
+
+        A checkout with the integration branch and the trunk answers with the
+        integration branch, whichever of them is a remote copy.
+        """
+        _git('branch', 'dev', cwd=self.repo, env=self.env)
+        _git('update-ref', 'origin/main', 'HEAD', cwd=self.repo, env=self.env)
+        _git('checkout', '-b', 'feature', cwd=self.repo, env=self.env)
+        (self.baseline).write_text(self._baseline(3), encoding='utf-8')
+        self._commit('the branch grows the baseline')
         comparison_ref, label = ratchet.resolve_comparison_ref(None)
-        self.assertEqual('HEAD', comparison_ref)
-        self.assertIn('no base branch found', label)
+        self.assertNotEqual('HEAD', comparison_ref, label)
+        self.assertIn('merge-base(dev, HEAD)', label)
+
+    def test_a_base_that_carries_head_means_there_is_nothing_to_measure(self):
+        """HEAD inside the base is not a failure — it is an empty change.
+
+        The branch's work is already in the base, so there is no growth of its
+        own to find. That is a true statement about the change, not a
+        measurement that could not be made.
+        """
+        comparison_ref, label = ratchet.resolve_comparison_ref('main')
+        self.assertEqual(ratchet.head_commit(), comparison_ref)
+        self.assertIn('no commits of its own', label)
+
+
+class TheGateFailsWhenItCannotMeasureTest(unittest.TestCase):
+    """The gate's exit code, when the comparison cannot be made.
+
+    A ratchet that reports success about a comparison it could not make is
+    worse than no ratchet: it says "the baseline did not grow" about a
+    measurement that never happened.
+    """
+
+    BASELINE_REL = pathlib.Path('config/detekt/baseline-shared.xml')
+
+    def setUp(self):
+        self.enterContext(no_named_base())
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = pathlib.Path(self._tmp.name) / 'repo'
+        self.repo.mkdir()
+        self.env = sandbox_env(self.repo)
+        _git('init', '-b', 'main', cwd=self.repo, env=self.env)
+        self.baseline = self.repo / self.BASELINE_REL
+        self.baseline.parent.mkdir(parents=True, exist_ok=True)
+        self.baseline.write_text(self._baseline(2), encoding='utf-8')
+        config = self.repo / 'config' / 'detekt' / 'detekt.yml'
+        config.write_text('style:\n  active: true\n', encoding='utf-8')
+        _git('add', '-A', cwd=self.repo, env=self.env)
+        _git('commit', '-m', 'the base', cwd=self.repo, env=self.env)
+        self._original_root = ratchet.ROOT
+        ratchet.ROOT = self.repo
+        self.addCleanup(self._restore_root)
+
+    def _restore_root(self) -> None:
+        ratchet.ROOT = self._original_root
+
+    @staticmethod
+    def _baseline(entries: int) -> str:
+        body = '\n'.join(
+            f'    <ID>Rule{i}:File.kt:Fqcn$member{i}</ID>' for i in range(entries)
+        )
+        return (
+            '<?xml version="1.0" ?>\n'
+            '<SmellBaseline>\n'
+            '  <ManuallySuppressedIssues/>\n'
+            '  <CurrentIssues>\n'
+            f'{body}\n'
+            '  </CurrentIssues>\n'
+            '</SmellBaseline>\n'
+        )
+
+    def _grow_on_a_branch(self) -> None:
+        _git('checkout', '-b', 'feature', cwd=self.repo, env=self.env)
+        self.baseline.write_text(self._baseline(3), encoding='utf-8')
+        _git('add', '-A', cwd=self.repo, env=self.env)
+        _git('commit', '-m', 'the branch grows the baseline', cwd=self.repo, env=self.env)
+
+    def _run_gate(self, **env: str) -> tuple[int, str]:
+        runner = click.testing.CliRunner()
+        result = runner.invoke(
+            ratchet.cli,
+            ['--root', str(self.repo), '--baseline', str(self.baseline)],
+            env=env,
+        )
+        return result.exit_code, result.output
+
+    def test_a_named_base_that_does_not_exist_fails_the_gate(self):
+        """The regression the review asked for.
+
+        The baseline grew, the base named for the comparison does not exist,
+        and the gate says so with a non-zero exit — instead of comparing the
+        baseline with itself and calling it clean.
+        """
+        self._grow_on_a_branch()
+        code, output = self._run_gate(SGATE_BASE_REF='origin/there-is-no-such-branch')
+        self.assertNotEqual(0, code, output)
+        self.assertIn('does not exist', output)
+
+    def test_no_base_at_all_fails_the_gate(self):
+        _git('branch', '-m', 'main', 'only-branch', cwd=self.repo, env=self.env)
+        code, output = self._run_gate()
+        self.assertNotEqual(0, code, output)
+        self.assertIn('no base branch resolves', output)
+
+    def test_the_gate_is_green_when_the_comparison_can_be_made(self):
+        """The control: the gate still passes when there is nothing to complain about."""
+        _git('checkout', '-b', 'feature', cwd=self.repo, env=self.env)
+        (self.repo / 'README.md').write_text('something else\n', encoding='utf-8')
+        _git('add', '-A', cwd=self.repo, env=self.env)
+        _git('commit', '-m', 'the branch touches something else', cwd=self.repo, env=self.env)
+        code, output = self._run_gate()
+        self.assertEqual(0, code, output)
+        self.assertIn('unchanged', output)
 
 
 if __name__ == '__main__':
