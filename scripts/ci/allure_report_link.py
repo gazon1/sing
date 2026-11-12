@@ -31,6 +31,12 @@ un-published because a comment did not post. A target that cannot be reached
 — an issue number that names nothing — is recorded as failed, and the other
 targets still get their comment.
 
+The address the comment carries is the address the Pages site answers with.
+When the settings do not answer, the address is taken from the
+configuration (`--site-url`, or `ALLURE_REPORT_SITE_URL`), and when there is
+no configuration either, no comment is posted: a made-up address is a link
+that leads nowhere.
+
 Everything the helper decides is decided by pure functions; the GitHub
 access is the `gh` CLI, and the tests drive it with a fake runner.
 """
@@ -43,7 +49,7 @@ import os
 import pathlib
 import re
 import sys
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
 
 # The helpers of this directory are imported as modules, not as a package:
 # the workflow runs this file as a script, and the tests load it by path.
@@ -53,6 +59,7 @@ if str(_CI_DIR) not in sys.path:
 
 from github_api import (  # noqa: E402
     LinkError,
+    NotFound,
     Runner,
     documents as json_documents,
     gh_api,
@@ -62,6 +69,11 @@ from github_api import (  # noqa: E402
 #: The marker that finds our own comment again. It is hidden in the rendered
 #: comment and it is the only thing that identifies it.
 MARKER = "<!-- allure-report-link -->"
+
+#: The address of the published site, when it is configured on purpose:
+#: the Pages settings are asked first, and this is what is used when they
+#: do not answer.
+SITE_URL_ENV = "ALLURE_REPORT_SITE_URL"
 
 #: The account the publication workflow writes as. Only the comments of this
 #: account are ours to update: the marker is hidden, and a person who copied
@@ -137,16 +149,9 @@ def parse_closing_issues(body: str) -> list[int]:
     return sorted(numbers)
 
 
-def site_url(html_url: str | None, owner: str, repo: str) -> str:
-    """The published site's base URL.
-
-    The Pages site knows its own URL. When it does not answer, the
-    repository's own Pages URL is the fallback — it is where the report is
-    published either way.
-    """
-    if html_url:
-        return html_url.rstrip("/")
-    return f"https://{owner}.github.io/{repo}"
+def site_url(url: str) -> str:
+    """The site URL without its trailing slash."""
+    return url.rstrip("/")
 
 
 def report_links(base_url: str, population: str, run_number: str) -> tuple[str, str]:
@@ -209,20 +214,53 @@ def find_marker_comment(comments: Iterable[dict[str, Any]]) -> dict[str, Any] | 
 # ── GitHub ────────────────────────────────────────────────────────────────────
 
 
-def fetch_pages_url(repo: str, runner: Runner) -> str | None:
-    """The Pages site's own URL, or None when it does not answer.
+class PagesSite(NamedTuple):
+    """What the Pages settings say about the site.
 
-    A token that may not read the Pages settings is not a failure of the
-    comment: the fallback URL is where the report is published anyway.
+    `url` is the address the site answered with, and `status` says how
+    that address came to be known:
+
+    - `confirmed` — the settings answered with the URL of the site. The
+      site may have a custom domain and it may not; the answer is the
+      site's own, and it is right either way;
+    - `not-configured` — the settings answered, and there is no site to
+      speak of;
+    - `unavailable` — the settings did not answer. The URL of a site that
+      was never asked for is a guess, and a guess in a comment on a public
+      tracker is a link that leads nowhere.
     """
+
+    url: str | None
+    status: str
+
+
+def fetch_pages_site(repo: str, runner: Runner) -> PagesSite:
+    """The Pages site of the repository, and how it answered."""
     try:
         data = json_document(runner, [f"repos/{repo}/pages"])
+    except NotFound:
+        return PagesSite(None, "not-configured")
     except LinkError:
-        return None
+        return PagesSite(None, "unavailable")
     if isinstance(data, dict):
         url = data.get("html_url")
         if isinstance(url, str) and url:
-            return url
+            return PagesSite(site_url(url), "confirmed")
+    return PagesSite(None, "not-configured")
+
+
+def resolve_site_url(site: PagesSite, configured: str | None = None) -> str | None:
+    """The address the report is published at, or None when it is unknown.
+
+    The confirmed address of the site wins. When the site did not answer,
+    the address is taken from the configuration — the one somebody wrote
+    down on purpose — and when there is no configuration either, there is
+    no address: a link that is made up is worse than no link.
+    """
+    if site.status == "confirmed" and site.url:
+        return site.url
+    if configured:
+        return site_url(configured)
     return None
 
 
@@ -289,16 +327,26 @@ def post_report_link(
     run_number: str,
     sha: str,
     runner: Runner = gh_api,
+    configured_url: str | None = None,
 ) -> dict[str, Any]:
     """Link the published report on the merged PR and on the issues it closes."""
-    owner, _, name = repo.partition("/")
-    base = site_url(fetch_pages_url(repo, runner), owner, name)
-    run_url, latest_url = report_links(base, population, run_number)
-    body = comment_body(run_url, latest_url)
-
+    site = fetch_pages_site(repo, runner)
+    base = resolve_site_url(site, configured_url)
     pull_requests = fetch_merged_pull_requests(repo, sha, runner)
     if not pull_requests:
         return {"status": "no-pull-request", "site": base, "comments": []}
+    if base is None:
+        # The address of the site is unknown. A link that is made up is
+        # worse than no link: it is a comment on a public tracker that
+        # leads nowhere, and it cannot be taken back.
+        return {
+            "status": "no-site-url",
+            "site": None,
+            "site_status": site.status,
+            "comments": [],
+        }
+    run_url, latest_url = report_links(base, population, run_number)
+    body = comment_body(run_url, latest_url)
     pull_request = pull_requests[0]
     number = int(pull_request.get("number") or 0)
     issues = parse_closing_issues(str(pull_request.get("body") or ""))
@@ -332,6 +380,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-number", required=True)
     parser.add_argument("--sha", required=True)
     parser.add_argument("--repo", default=os.environ.get("GH_REPO", ""))
+    parser.add_argument(
+        "--site-url",
+        default=os.environ.get(SITE_URL_ENV) or None,
+        help=(
+            "the address of the published site, used when the Pages "
+            f"settings do not answer (or ${SITE_URL_ENV})"
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not args.repo or "/" not in args.repo:
@@ -343,12 +399,13 @@ def main(argv: list[str] | None = None) -> int:
             args.population,
             args.run_number,
             args.sha,
+            configured_url=args.site_url,
         )
     except LinkError as exc:
         print(f"allure-report-link error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, sort_keys=True))
-    return 1 if result.get("status") == "failed" else 0
+    return 1 if result.get("status") in {"failed", "no-site-url"} else 0
 
 
 if __name__ == "__main__":

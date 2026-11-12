@@ -24,6 +24,8 @@ class FakeGh:
         joined = " ".join(args)
         for key, message in self.errors.items():
             if key in joined:
+                if "404" in message:
+                    raise arl.NotFound(message)
                 raise arl.LinkError(message)
         for key, value in self.responses.items():
             if key in joined:
@@ -99,16 +101,7 @@ class UrlTest(unittest.TestCase):
     """The URLs the comment carries."""
 
     def test_the_pages_url_wins_and_loses_its_trailing_slash(self):
-        self.assertEqual(
-            arl.site_url("http://maxdrobin.ru/sing/", "gazon1", "sing"),
-            "http://maxdrobin.ru/sing",
-        )
-
-    def test_without_a_pages_url_the_repository_url_is_the_fallback(self):
-        self.assertEqual(
-            arl.site_url(None, "gazon1", "sing"),
-            "https://gazon1.github.io/sing",
-        )
+        self.assertEqual(arl.site_url("http://maxdrobin.ru/sing/"), "http://maxdrobin.ru/sing")
 
     def test_the_run_report_and_the_latest_report_are_both_addressed(self):
         run_url, latest_url = arl.report_links("http://maxdrobin.ru/sing", "fast", "3028")
@@ -230,6 +223,68 @@ class UpsertTest(unittest.TestCase):
         self.assertEqual(action, "created")
 
 
+class PagesSiteTest(unittest.TestCase):
+    """The address of the published site, and how it came to be known."""
+
+    def test_the_custom_domain_the_site_answers_with_is_used(self):
+        gh = FakeGh({"repos/gazon1/sing/pages": {"html_url": "http://maxdrobin.ru/sing/"}})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "confirmed")
+        self.assertEqual(arl.resolve_site_url(site), "http://maxdrobin.ru/sing")
+
+    def test_a_site_without_a_custom_domain_answers_with_its_own_url(self):
+        gh = FakeGh({"repos/gazon1/sing/pages": {"html_url": "https://gazon1.github.io/sing/"}})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "confirmed")
+        self.assertEqual(arl.resolve_site_url(site), "https://gazon1.github.io/sing")
+
+    def test_a_forbidden_api_is_not_a_site_without_a_custom_domain(self):
+        gh = FakeGh({}, errors={"repos/gazon1/sing/pages": "gh: Forbidden (HTTP 403)"})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "unavailable")
+        self.assertIsNone(arl.resolve_site_url(site))
+
+    def test_a_temporary_failure_is_not_a_site_without_a_custom_domain(self):
+        gh = FakeGh({}, errors={"repos/gazon1/sing/pages": "gh: Server Error (HTTP 502)"})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "unavailable")
+        self.assertIsNone(arl.resolve_site_url(site))
+
+    def test_a_missing_site_is_not_configured(self):
+        gh = FakeGh({}, errors={"repos/gazon1/sing/pages": "gh: Not Found (HTTP 404)"})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "not-configured")
+        self.assertIsNone(arl.resolve_site_url(site))
+
+    def test_an_answer_without_an_address_is_not_configured(self):
+        gh = FakeGh({"repos/gazon1/sing/pages": {"status": "built"}})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "not-configured")
+        self.assertIsNone(arl.resolve_site_url(site))
+
+    def test_an_answer_that_is_not_json_is_not_a_confirmed_address(self):
+        gh = FakeGh({}, errors={"repos/gazon1/sing/pages": "gh api answered with invalid JSON"})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "unavailable")
+        self.assertIsNone(arl.resolve_site_url(site))
+
+    def test_the_configured_address_is_used_when_the_settings_do_not_answer(self):
+        gh = FakeGh({}, errors={"repos/gazon1/sing/pages": "gh: Forbidden (HTTP 403)"})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(
+            arl.resolve_site_url(site, "http://maxdrobin.ru/sing/"),
+            "http://maxdrobin.ru/sing",
+        )
+
+    def test_the_confirmed_address_wins_over_the_configured_one(self):
+        gh = FakeGh({"repos/gazon1/sing/pages": {"html_url": "http://maxdrobin.ru/sing/"}})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(
+            arl.resolve_site_url(site, "https://gazon1.github.io/sing"),
+            "http://maxdrobin.ru/sing",
+        )
+
+
 class PostReportLinkTest(unittest.TestCase):
     """The whole thing, driven by a fake `gh`."""
 
@@ -266,10 +321,25 @@ class PostReportLinkTest(unittest.TestCase):
         self.assertTrue(posted)
         self.assertIn("http://maxdrobin.ru/sing/fast/3028/index.html", " ".join(posted[0]))
 
-    def test_the_fallback_url_is_used_when_the_pages_settings_do_not_answer(self):
+    def test_no_link_is_posted_when_the_site_url_is_unknown(self):
         gh = FakeGh({"commits/abc/pulls": [{"number": 42, "body": ""}]})
         result = arl.post_report_link("gazon1/sing", "full", "3027", "abc", gh)
-        self.assertEqual(result["site"], "https://gazon1.github.io/sing")
+        self.assertEqual(result["status"], "no-site-url")
+        self.assertIsNone(result["site"])
+        self.assertEqual(result["comments"], [])
+
+    def test_the_configured_url_is_used_when_the_settings_do_not_answer(self):
+        gh = FakeGh({"commits/abc/pulls": [{"number": 42, "body": ""}]})
+        result = arl.post_report_link(
+            "gazon1/sing",
+            "full",
+            "3027",
+            "abc",
+            gh,
+            configured_url="http://maxdrobin.ru/sing/",
+        )
+        self.assertEqual(result["site"], "http://maxdrobin.ru/sing")
+        self.assertEqual(result["status"], "commented")
 
     def test_an_unreachable_target_does_not_cost_the_others_their_comment(self):
         gh = FakeGh(
