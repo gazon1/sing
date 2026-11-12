@@ -44,7 +44,30 @@ class ClosingKeywordTest(unittest.TestCase):
         self.assertEqual(arl.parse_closing_issues("Refs #2828"), [])
 
     def test_a_keyword_may_close_a_list(self):
+        # GitHub closes every issue of the list: the merge of #275 closed all
+        # four issues its body named that way.
         self.assertEqual(arl.parse_closing_issues("Closes #1, #2"), [1, 2])
+
+    def test_a_colon_after_the_keyword_still_closes(self):
+        # `Closes: #10` is GitHub's own documented form.
+        self.assertEqual(arl.parse_closing_issues("Closes: #10"), [10])
+
+    def test_the_uppercase_form_closes(self):
+        self.assertEqual(arl.parse_closing_issues("CLOSES: #10"), [10])
+
+    def test_a_keyword_in_a_code_block_closes_nothing(self):
+        body = "What the body says:\n\n```\nCloses #10\n```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_a_keyword_in_an_inline_code_span_closes_nothing(self):
+        self.assertEqual(arl.parse_closing_issues("`Closes #10`"), [])
+
+    def test_a_quoted_keyword_closes_nothing(self):
+        self.assertEqual(arl.parse_closing_issues("> Closes #10"), [])
+
+    def test_a_keyword_next_to_a_code_block_still_closes(self):
+        body = "Fixes #10\n\n```\nCloses #11\n```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [10])
 
     def test_every_closing_keyword_is_recognised(self):
         for keyword in ("Closes", "Fixes", "Resolves", "close", "fixed", "resolved"):
@@ -123,7 +146,7 @@ class UpsertTest(unittest.TestCase):
 class PostReportLinkTest(unittest.TestCase):
     """The whole thing, driven by a fake `gh`."""
 
-    def test_a_scheduled_run_without_a_pull_request_comments_nothing(self):
+    def test_a_commit_without_a_pull_request_comments_nothing(self):
         gh = FakeGh({"commits/abc/pulls": []})
         result = arl.post_report_link("gazon1/sing", "fast", "3028", "abc", gh)
         self.assertEqual(result["status"], "no-pull-request")

@@ -41,10 +41,24 @@ MARKER = "<!-- allure-report-link -->"
 #: A closing keyword and the issue numbers it closes. GitHub's own set:
 #: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved. `Refs` is
 #: not one of them — it names an issue, it does not close it.
+#:
+#: The colon is GitHub's own: `Closes: #10` closes the issue just like
+#: `Closes #10` does, and so does the uppercase form. A list belongs to the
+#: keyword that names it: `Closes #1, #2` closes both — the merge of
+#: gazon1/sing#275 closed all four issues its body named that way.
 CLOSING_KEYWORDS = re.compile(
-    r"\b(?:clos(?:e[sd]?)|fix(?:e[sd]?)|resolv(?:e[sd]?))\b\s*#\d+(?:\s*,\s*#\d+)*",
+    r"\b(?:clos(?:e[sd]?)|fix(?:e[sd]?)|resolv(?:e[sd]?))\b\s*:?\s*#\d+(?:\s*,\s*#\d+)*",
     re.IGNORECASE,
 )
+
+#: The fence that opens and closes a code block.
+CODE_FENCE = re.compile(r"^\s*(?:```|~~~)")
+
+#: A quoted line: the text somebody else wrote, quoted back.
+QUOTE = re.compile(r"^\s*>")
+
+#: An inline code span.
+CODE_SPAN = re.compile(r"`[^`\n]*`")
 
 #: The runner that talks to GitHub: a list of `gh api` arguments, and the
 #: response body. The tests replace it with a fake.
@@ -58,16 +72,37 @@ class LinkError(Exception):
 # ── The decisions ─────────────────────────────────────────────────────────────
 
 
+def prose(body: str) -> str:
+    """The body without the parts that are not a statement about an issue.
+
+    A closing keyword inside a code block, inside an inline code span or in a
+    quoted line is not a closing keyword: it is an example, or the text of
+    somebody else. The helper comments on a public tracker, so a keyword that
+    only looks like one is noise, and noise is worse than a missing comment.
+    """
+    kept: list[str] = []
+    in_code = False
+    for line in (body or "").splitlines():
+        if CODE_FENCE.match(line):
+            in_code = not in_code
+            continue
+        if in_code or QUOTE.match(line):
+            continue
+        kept.append(line)
+    return CODE_SPAN.sub("", "\n".join(kept))
+
+
 def parse_closing_issues(body: str) -> list[int]:
     """The issues a pull-request body closes.
 
     Only a closing keyword counts, and only the numbers that follow it: in
     `Fixes #2729 and implements #2737` the keyword closes `#2729` and the
     other number is prose. A keyword may close a list — `Closes #1, #2` — and
-    the list belongs to that keyword alone.
+    the list belongs to that keyword alone. The colon is GitHub's own form:
+    `Closes: #10` closes the issue just like `Closes #10` does.
     """
     numbers: list[int] = []
-    for match in CLOSING_KEYWORDS.finditer(body or ""):
+    for match in CLOSING_KEYWORDS.finditer(prose(body)):
         for number in re.findall(r"#(\d+)", match.group(0)):
             value = int(number)
             if value not in numbers:
