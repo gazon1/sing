@@ -40,13 +40,18 @@ class SimpleFilterBuilder {
     private var pinned: Boolean? = null
     private var sortOrder: SortOrder = SortOrder.DUE
     private var sortDescending: Boolean = false
-    private var freeTextValue: String? = null
+    private val freeTextTerms: MutableList<String> = mutableListOf()
 
     /**
-     * Sets free-text search terms appended to the query.
+     * Adds a free-text term.
+     *
+     * One call is one term: a term is one `HasText` condition of the query it came
+     * from, and the terms are a conjunction. A quoted phrase is one term however
+     * many words it holds, and two bare words are two terms.
      */
-    fun freeText(value: String?) {
-        freeTextValue = value
+    fun freeText(term: String?) {
+        val text = term?.trim().orEmpty()
+        if (text.isNotEmpty()) freeTextTerms += text
     }
 
     /**
@@ -124,7 +129,7 @@ class SimpleFilterBuilder {
             pinned = pinned,
             sortOrder = sortOrder,
             sortDescending = sortDescending,
-            freeText = freeTextValue,
+            freeTextTerms = freeTextTerms.toList(),
         )
 }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpRect
 import kotlin.test.assertEquals
 
@@ -868,4 +869,51 @@ fun DesktopComposeUiTest.mainTreeSize(): Int =
 fun DesktopComposeUiTest.countNodesWithTagInAnyRoot(tag: String): Int =
     step("countInAnyRoot", tag) {
         onAllNodesWithTag(tag).fetchSemanticsNodes(false).size
+    }
+
+/**
+ * The bounds of the scrollable container the node with [tag] sits in.
+ *
+ * The container is the sheet's body — the column that holds the content and the
+ * action row — and *its* position is the answer to "is the sheet inside the
+ * window?". The node's own bounds cannot answer it: a node below the fold is
+ * composed at a position that says nothing about where its container is, and a
+ * sheet that hangs half out of the window still composes its whole body.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.scrollableBoundsOfTag(tag: String): DpRect {
+    val node = onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().first()
+    val container =
+        generateSequence(node) { it.parent }
+            .firstOrNull { it.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange) != null }
+            ?: error("the node with testTag '$tag' has no scrollable ancestor")
+    return container.asDpRect(density)
+}
+
+/**
+ * The bounds of the window the node with [tag] is drawn in.
+ *
+ * A sheet on the desktop is a window of its own — Material renders the
+ * `ModalBottomSheet` as a `Dialog` there — so "the window" is the node's own
+ * semantics root, not the app's main window.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.windowBoundsOfTag(tag: String): DpRect {
+    val node = onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().first()
+    var root = node
+    while (true) {
+        root = root.parent ?: break
+    }
+    return root.asDpRect(density)
+}
+
+/** The bounds of the node, in dp. */
+private fun SemanticsNode.asDpRect(density: Density): DpRect =
+    with(density) {
+        DpRect(
+            left = this@asDpRect.boundsInRoot.left.toDp(),
+            top = this@asDpRect.boundsInRoot.top.toDp(),
+            right = this@asDpRect.boundsInRoot.right.toDp(),
+            bottom = this@asDpRect.boundsInRoot.bottom.toDp(),
+        )
     }

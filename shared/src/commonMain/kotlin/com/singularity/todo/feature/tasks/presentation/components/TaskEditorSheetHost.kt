@@ -20,7 +20,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 
 /**
@@ -55,7 +55,7 @@ fun TaskEditorSheetHost(
     onClose: () -> Unit,
     onConfirm: (() -> Unit)? = null,
     testTagConfirm: String? = null,
-    sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+    sheetState: SheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
     testTag: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {

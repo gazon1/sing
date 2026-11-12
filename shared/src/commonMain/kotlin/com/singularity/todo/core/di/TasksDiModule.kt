@@ -310,6 +310,7 @@ fun tasksModule(): org.koin.core.module.Module =
                 searchUseCase = get(),
                 savedSearchRepo = get(),
                 taskRepo = get(),
+                projectRepo = get(),
                 clock = get(),
                 crashReporter = get(),
             )

@@ -53,6 +53,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.list.ProjectBadge
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
 import com.singularity.todo.feature.tasks.presentation.components.list.visibleMarkings
 import com.singularity.todo.preview.PreviewSamples
@@ -89,6 +90,10 @@ import kotlinx.datetime.LocalDate
  * @param matchRanges Where the search matched this task, if it was found by
  *   one. The card draws the range that falls in the title; a match in the
  *   description is not drawn in the title, because the title does not carry it.
+ * @param projectName The name of the project the task belongs to, drawn as
+ *   secondary metadata under the title. Null for a task that belongs to no
+ *   project — an unassigned task says nothing about a project.
+ * @param projectColor The project's ARGB colour, or null when there is no project.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -103,8 +108,20 @@ fun TaskCard(
     blockedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
     isBlocked: Boolean = false,
     markings: ImmutableSet<TaskMarking>? = null,
+    projectName: String? = null,
+    projectColor: Int? = null,
     body: @Composable RowScope.() -> Unit = {
-        DefaultTaskCardBody(task, actions, matchRanges, today, blockedTaskIds, isBlocked, markings)
+        DefaultTaskCardBody(
+            task,
+            actions,
+            matchRanges,
+            today,
+            blockedTaskIds,
+            isBlocked,
+            markings,
+            projectName,
+            projectColor,
+        )
     },
     trailing: @Composable RowScope.() -> Unit = {
         if (!touchLayout) DefaultTaskCardTrailing(task, actions)
@@ -227,6 +244,8 @@ internal fun RowScope.DefaultTaskCardBody(
     blockedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
     isBlocked: Boolean = false,
     markings: ImmutableSet<TaskMarking>? = null,
+    projectName: String? = null,
+    projectColor: Int? = null,
 ) {
     val computedMarkings: ImmutableSet<TaskMarking> =
         markings
@@ -234,7 +253,13 @@ internal fun RowScope.DefaultTaskCardBody(
     actions.onToggle?.let { onToggle ->
         ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
     }
-    TaskText(task = task, modifier = Modifier.weight(1f), matchRanges = matchRanges)
+    TaskText(
+        task = task,
+        modifier = Modifier.weight(1f),
+        matchRanges = matchRanges,
+        projectName = projectName,
+        projectColor = projectColor,
+    )
     if (task.parentTaskId != null) {
         SubtaskChip()
     }
@@ -295,6 +320,8 @@ private fun TaskText(
     task: Task,
     modifier: Modifier = Modifier,
     matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
+    projectName: String? = null,
+    projectColor: Int? = null,
 ) {
     Column(modifier = modifier) {
         Text(
@@ -310,6 +337,11 @@ private fun TaskText(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        // The project is secondary metadata: it says where the task lives, and
+        // it stays under the title so the title keeps the first word.
+        projectName?.let { name ->
+            ProjectBadge(name = name, color = projectColor)
         }
     }
 }

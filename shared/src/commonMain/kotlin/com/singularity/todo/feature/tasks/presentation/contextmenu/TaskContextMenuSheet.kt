@@ -9,12 +9,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 
@@ -53,6 +55,7 @@ fun TaskContextMenuSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
         // A modal sheet is its own Android window: the app-root
         // testTagsAsResourceId does not reach it, so the sheet's own tag and
         // every taskAction tag inside would be invisible to Maestro.

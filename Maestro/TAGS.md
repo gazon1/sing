@@ -229,6 +229,8 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `SEARCH_CLEAR_BUTTON` | `search_clear_button` | |
+| `SEARCH_CLEAR_FILTERS_BUTTON` | `search_clear_filters_button` | |
+| `SEARCH_CLEAR_QUERY_BUTTON` | `search_clear_query_button` | |
 | `SEARCH_EMPTY_PLACEHOLDER` | `search_empty_placeholder` | |
 | `SEARCH_EMPTY_RESULTS` | `search_empty_results` | |
 | `SEARCH_INPUT` | `search_input` | |

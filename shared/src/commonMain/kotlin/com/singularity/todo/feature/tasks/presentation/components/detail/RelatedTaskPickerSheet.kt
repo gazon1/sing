@@ -33,7 +33,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +60,7 @@ import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -165,7 +165,7 @@ fun RelatedTaskPickerSheet(
     searchIndex: SearchTextIndex = koinInject(),
     projectsRepo: ProjectsRepository = koinInject(),
 ) {
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Expanded)
+    val sheetState = rememberAppSheetState(initialValue = SheetValue.Expanded)
 
     val queryState = rememberTextFieldState()
     var selectedId by remember { mutableStateOf<TaskId?>(null) }

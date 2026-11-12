@@ -1,0 +1,70 @@
+# Search: the filter sheet's actions are reachable at the bottom of the sheet.
+#
+# The sheet's body is taller than the sheet, so the last chip row and the
+# Apply/Cancel pair live below the fold. They must be scrollable into view
+# above the system navigation — the sheet that put its actions in a header at
+# the top lost them from the accessibility tree as soon as the body was
+# scrolled, and they could not be tapped at all.
+#
+# The flow asserts the two things a reachability claim needs: the actions are
+# in the tree after the body is scrolled to the end, and they can be pressed.
+#
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: search-filter-sheet-reachability
+tags:
+  - search
+  - scenario:SEARCH-12
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Open quick search.
+- runFlow: ../../helpers/open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Open the filter sheet via the Tune icon (matched through its accessibility label).
+- tapOn:
+    text: "Filter"
+# The sheet opens at half height on a 360 dp phone: the body scrolls, and the
+# content below the fold is reached by scrolling the sheet, not by waiting.
+- scrollUntilVisible:
+    element:
+      id: search_filter_pinned_switch
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: search_filter_pinned_switch
+
+# The last chip row is reachable too — the sort chips sit below the switches,
+# and the actions are the last thing in the sheet's body.
+- scrollUntilVisible:
+    element:
+      id: search_filter_apply_button
+    direction: DOWN
+    timeout: 8000
+
+# Both actions are on screen, above the system navigation.
+- assertVisible:
+    id: search_filter_apply_button
+- assertVisible:
+    id: search_filter_cancel_button
+
+# And the last chip row is on screen with them: the sort section sits right
+# above the actions.
+- assertVisible:
+    text: "Descending"
+
+# And they can be pressed: Cancel closes the sheet.
+- tapOn:
+    id: search_filter_cancel_button
+- assertNotVisible:
+    id: search_filter_apply_button

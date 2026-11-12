@@ -413,6 +413,7 @@ ALLOWLIST: Set[str] = {
     "task_item_sdnodate",
     "task_item_signout_task",
     "task_item_clearsearchtask2026",
+    "task_item_recoverytask2026",
     "task_item_tasknodesc2026",
     "task_item_taskwithdesc2026",
     "task_item_unpinnedtask2026",

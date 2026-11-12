@@ -4,7 +4,7 @@
 # the filter sheet and toggles has-description on/off. Due to the Tune
 # icon having no testTag in the TopAppBar, the filter sheet is opened
 # via content description tap.
-# прогнан на устройстве: нет (2026-10-23) — прогон на устройстве не выполнялся
+# прогнан на устройстве: да (2026-11-11) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: search-filter-description
 tags:
@@ -64,14 +64,27 @@ tags:
 # Open filter sheet via the Tune icon in the top bar (no testTag — use its label).
 - tapOn:
     text: "Filter"
-- extendedWaitUntil:
-    visible:
+# The sheet opens at half height on a 360 dp phone: the switches are below the
+# fold, and the sheet's body is the thing that scrolls. The flow used to wait
+# for the switch to be visible right after the sheet opened — a wait that can
+# never pass, because the switch is not on the screen until the body is
+# scrolled.
+- scrollUntilVisible:
+    element:
       id: search_filter_has_description_switch
+    direction: DOWN
     timeout: 8000
 
 # Toggle has-description filter on.
 - tapOn:
     id: search_filter_has_description_switch
+# The actions are the last thing in the sheet's scrollable body, so they are
+# reached by scrolling — the sheet must not clip them away.
+- scrollUntilVisible:
+    element:
+      id: search_filter_apply_button
+    direction: DOWN
+    timeout: 8000
 # Apply.
 - tapOn:
     id: search_filter_apply_button
