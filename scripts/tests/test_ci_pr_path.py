@@ -544,6 +544,27 @@ class QuickJobRunsTheAffectedSubset(unittest.TestCase):
         self.assertEqual(0, (checkout[0].get("with") or {}).get("fetch-depth"))
 
 
+class TheGateToolingJobHasTheBaseTest(unittest.TestCase):
+    """The job that runs the gates against this repository needs the base.
+
+    The ratchet measures the branch's own growth against the base the
+    workflow names, and a ratchet that cannot measure is a gate that fails.
+    A shallow checkout has no `origin/main`, so the job that runs the gates
+    has to fetch the history — otherwise the failure means "the checkout did
+    not fetch" rather than "the comparison could not be made".
+    """
+
+    def test_the_gate_suite_job_checks_the_full_history_out(self):
+        jobs = _jobs()
+        checkout = [
+            step
+            for step in jobs["meta"].get("steps", []) or []
+            if isinstance(step, dict) and "checkout" in str(step.get("uses", ""))
+        ]
+        self.assertEqual(1, len(checkout))
+        self.assertEqual(0, (checkout[0].get("with") or {}).get("fetch-depth"))
+
+
 class QuickJobReportsItsOwnOutcome(unittest.TestCase):
     """The affected-test job says what happened."""
 

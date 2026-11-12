@@ -434,6 +434,15 @@ jobs:
     steps:
       - id: checkout
         uses: actions/checkout@v7
+        with:
+          # The suite runs the gates against THIS repository, and the ratchet
+          # measures the branch's own growth against the base the workflow
+          # names (`SGATE_BASE_REF`). That ref has to be in the tree: a
+          # shallow checkout has no `origin/main`, and a ratchet that cannot
+          # measure is a gate that fails — which is the right answer for a
+          # comparison that could not be made, and the wrong answer for a
+          # checkout that simply did not fetch the history.
+          fetch-depth: 0
 
       # Same action as the other jobs, one reason: the checks import `sgate`,
       # which the action installs.
