@@ -608,20 +608,25 @@ class PublicationContractTest(unittest.TestCase):
         pdir = self.tmp / "fast"
         pdir.mkdir(parents=True)
         path = ap.manifest_path(pdir)
-        for bad in (True, False, 1.0, "1", None):
+        for bad in (True, False, 1.0, "1"):
             path.write_text(
-                json.dumps({"schema_version": bad, "population": "fast", "latest": None, "publications": {}})
-                if bad is not None or True
-                else json.dumps({"population": "fast", "latest": None, "publications": {}}),
+                json.dumps({"schema_version": bad, "population": "fast", "latest": None, "publications": {}}),
                 encoding="utf-8",
             )
-            if bad is None:
-                path.write_text(
-                    json.dumps({"population": "fast", "latest": None, "publications": {}}),
-                    encoding="utf-8",
-                )
             with self.assertRaises(ap.PublishError):
                 ap.load_manifest(path, "fast")
+        path.write_text(
+            json.dumps({"schema_version": None, "population": "fast", "latest": None, "publications": {}}),
+            encoding="utf-8",
+        )
+        with self.assertRaises(ap.PublishError):
+            ap.load_manifest(path, "fast")
+        path.write_text(
+            json.dumps({"population": "fast", "latest": None, "publications": {}}),
+            encoding="utf-8",
+        )
+        with self.assertRaises(ap.PublishError):
+            ap.load_manifest(path, "fast")
 
     def test_v1_manifest_rejects_unknown_top_level_fields(self):
         pdir = self.tmp / "fast"

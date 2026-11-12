@@ -244,7 +244,7 @@ def migrate_manifest(data: dict[str, Any], population: str) -> dict[str, Any]:
     version = data.get("schema_version")
     if type(version) is bool:
         raise PublishError(f"invalid publication manifest schema_version: {version!r}")
-    if type(version) is int and not isinstance(version, bool):
+    if type(version) is int:
         if version == SCHEMA_VERSION:
             return data
         if version == 1:
@@ -276,11 +276,7 @@ def migrate_manifest(data: dict[str, Any], population: str) -> dict[str, Any]:
                 "latest": latest,
             }
         raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
-    if isinstance(version, float) and not isinstance(version, bool):
-        raise PublishError(f"invalid publication manifest schema_version: {version!r}")
-    if isinstance(version, str):
-        raise PublishError(f"invalid publication manifest schema_version: {version!r}")
-    if version is None:
+    if isinstance(version, (float, str)) or version is None:
         raise PublishError(f"invalid publication manifest schema_version: {version!r}")
     raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
 
