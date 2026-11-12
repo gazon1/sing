@@ -25,6 +25,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
@@ -32,6 +34,7 @@ import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import org.koin.compose.koinInject
 
@@ -61,7 +64,7 @@ fun ProjectPickerSheet(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable { onSelect(null) }
+                    .clickable(role = Role.Button) { onSelect(null) }
                     .padding(vertical = 12.dp, horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -146,20 +149,19 @@ private fun ProjectItem(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onSelect() }
+                .clickable(role = Role.Button) { onSelect() }
                 .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = if (isSelected) Icons.Filled.FolderOpen else Icons.Filled.Folder,
-            contentDescription = null,
+        ProjectIcon(
+            icon = project.icon,
             tint =
                 if (isSelected) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-            modifier = Modifier.size(24.dp),
+            size = 24.dp,
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
@@ -171,6 +173,8 @@ private fun ProjectItem(
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (isSelected) {
