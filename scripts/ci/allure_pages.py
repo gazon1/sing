@@ -239,32 +239,46 @@ def migrate_manifest(data: dict[str, Any], population: str) -> dict[str, Any]:
     `latest`. A version this function does not know is refused, not
     reinterpreted.
     """
+    if not isinstance(data, dict):
+        raise PublishError("malformed publication manifest: expected object")
     version = data.get("schema_version")
-    if version == SCHEMA_VERSION:
-        return data
-    if version != 1:
+    if type(version) is bool:
+        raise PublishError(f"invalid publication manifest schema_version: {version!r}")
+    if type(version) is int:
+        if version == SCHEMA_VERSION:
+            return data
+        if version == 1:
+            allowed_v1_keys = {"schema_version", "latest", "publications"}
+            unexpected = set(data.keys()) - allowed_v1_keys
+            if unexpected:
+                raise PublishError(
+                    f"invalid publication manifest: unexpected top-level fields in legacy v1 manifest: {sorted(unexpected)!r}"
+                )
+            records = data.get("publications")
+            if not isinstance(records, dict):
+                raise PublishError("malformed publication manifest: publications must be an object")
+            kept = {
+                key: value
+                for key, value in records.items()
+                if isinstance(value, dict) and value.get("population") == population
+            }
+            latest = data.get("latest")
+            if not isinstance(latest, dict) or latest.get("population") != population:
+                latest = None
+            elif _record_identity(latest) not in kept:
+                latest = None
+            if latest is None:
+                latest = _newest_publication(kept)
+            return {
+                "schema_version": SCHEMA_VERSION,
+                "population": population,
+                "publications": kept,
+                "latest": latest,
+            }
         raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
-    records = data.get("publications")
-    if not isinstance(records, dict):
-        raise PublishError("malformed publication manifest: publications must be an object")
-    kept = {
-        key: value
-        for key, value in records.items()
-        if isinstance(value, dict) and value.get("population") == population
-    }
-    latest = data.get("latest")
-    if not isinstance(latest, dict) or latest.get("population") != population:
-        latest = None
-    elif _record_identity(latest) not in kept:
-        latest = None
-    if latest is None:
-        latest = _newest_publication(kept)
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "population": population,
-        "publications": kept,
-        "latest": latest,
-    }
+    if isinstance(version, (float, str)) or version is None:
+        raise PublishError(f"invalid publication manifest schema_version: {version!r}")
+    raise PublishError(f"unsupported publication manifest schema_version: {version!r}")
 
 
 def _record_identity(record: dict[str, Any]) -> str | None:
