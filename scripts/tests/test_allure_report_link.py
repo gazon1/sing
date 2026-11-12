@@ -276,6 +276,15 @@ class PagesSiteTest(unittest.TestCase):
             "http://maxdrobin.ru/sing",
         )
 
+    def test_the_configured_address_is_used_when_the_site_is_not_configured(self):
+        gh = FakeGh({}, errors={"repos/gazon1/sing/pages": "gh: Not Found (HTTP 404)"})
+        site = arl.fetch_pages_site("gazon1/sing", gh)
+        self.assertEqual(site.status, "not-configured")
+        self.assertEqual(
+            arl.resolve_site_url(site, "http://maxdrobin.ru/sing/"),
+            "http://maxdrobin.ru/sing",
+        )
+
     def test_the_confirmed_address_wins_over_the_configured_one(self):
         gh = FakeGh({"repos/gazon1/sing/pages": {"html_url": "http://maxdrobin.ru/sing/"}})
         site = arl.fetch_pages_site("gazon1/sing", gh)

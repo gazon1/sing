@@ -252,10 +252,11 @@ def fetch_pages_site(repo: str, runner: Runner) -> PagesSite:
 def resolve_site_url(site: PagesSite, configured: str | None = None) -> str | None:
     """The address the report is published at, or None when it is unknown.
 
-    The confirmed address of the site wins. When the site did not answer,
-    the address is taken from the configuration — the one somebody wrote
-    down on purpose — and when there is no configuration either, there is
-    no address: a link that is made up is worse than no link.
+    The confirmed address of the site wins. When the site did not answer —
+    it is not configured, or the API is unavailable — the address is taken
+    from the configuration, the one somebody wrote down on purpose — and when
+    there is no configuration either, there is no address: a link that is made
+    up is worse than no link.
     """
     if site.status == "confirmed" and site.url:
         return site.url
