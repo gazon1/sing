@@ -298,4 +298,6 @@ not exist — a green answer to a question nobody asked.
   resolve against it.
 - `.githooks/pre-push` — the shell chain.
 - `docs/decisions/2026-10-25-the-suite-measures-this-checkout.md`.
+- `docs/decisions/2026-10-24-the-ratchet-measures-the-branch-growth.md` — why the ratchet
+  compares against the merge-base; its `HEAD` fallback is superseded here.
 - `docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`.

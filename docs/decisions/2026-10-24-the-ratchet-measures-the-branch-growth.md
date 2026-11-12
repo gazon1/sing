@@ -47,11 +47,16 @@ compared against.**
   history are all read from there. The gate's own checkout has the wrong history for the
   question — a control needs a branch that really grew the baseline, and only a repository of
   its own can be that branch. See `2026-10-24-the-ratchets-control-is-a-fixture`.
-- When no base branch exists — a shallow checkout, a repository with one branch — the comparison
-  falls back to `HEAD` **and the gate says so in a warning**. The fallback is the blindness this
-  change removes, so it is announced rather than taken quietly.
+- ~~When no base branch exists — a shallow checkout, a repository with one branch — the comparison
+  falls back to `HEAD` **and the gate says so in a warning**.~~ **Superseded on 2026-11-11:** the
+  fallback is gone. A ratchet that cannot measure now **fails**: a named base that is not in the
+  tree, no base at all, or no merge-base is a measurement that could not be made, and a gate that
+  reports success for a comparison it did not make is the blindness this decision set out to
+  remove. See
+  `2026-11-11-the-change-is-measured-against-the-integration-branch.md`.
 - The `static` CI job checks out with `fetch-depth: 0`, so `origin/main` exists and the comparison
-  is the real one.
+  is the real one. **The job that runs the gates against this repository does the same**
+  (2026-11-11), for the same reason: a shallow checkout has no base to measure against.
 
 The rule the comparison expresses is unchanged: a baseline may shrink, never grow. What changed is
 which side of the comparison answers the question.
@@ -82,9 +87,13 @@ branch's and only the branch's — the same definition GitHub uses for the diff 
 - The `static` job fetches the full history. That costs checkout time and buys the base reference;
   the `quick` job already pays the same price for the same reason.
 - A repository with no base branch gets a warning on every run. The warning is the honest outcome:
-  the gate is weaker there, and now says so.
+  the gate is weaker there, and now says so. **Superseded on 2026-11-11:** there is no warning
+  anymore — the gate fails, because a weaker gate that reports success is worse than no gate.
 - The gate's behaviour on `main` itself is unchanged: the merge-base of `main` and `HEAD` is
-  `HEAD`, so the comparison is the same as before.
+  `HEAD`, so the comparison is the same as before. This is still true, and it is now a *named
+  outcome* rather than an accident of the fallback: a base whose merge-base is `HEAD` means the
+  branch carries no commits of its own, so there is nothing to measure, and the gate passes
+  because there is genuinely nothing to find — not because it measured a file against itself.
 
 ## Links
 
@@ -96,3 +105,6 @@ branch's and only the branch's — the same definition GitHub uses for the diff 
   direction only.
 - `docs/decisions/2026-10-16-ci-gradle-step-cannot-fail.md` — the same family of defect: a step
   that cannot fail, and what it costs.
+- `docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md` — the
+  owner of the base ref, and the ratchet's three outcomes: measured, nothing to measure, and
+  **cannot measure** (which fails).
