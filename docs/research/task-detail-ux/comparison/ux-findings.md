@@ -231,7 +231,7 @@ Complexity: **S** ≈ one file, **M** ≈ one component + tests, **L** ≈ cross
 - **Expected result:** the detail's last card is fully visible and scrolling to the end reaches the
   bottom inset, not the nav bar.
 - **Priority:** **P1** · **Complexity:** M · **Depends on:** navigation ownership
-  (`2026-10-05-one-task-detail-screen…`).
+  (`2026-10-05-one-task-detail-screen-after-a-merge-split-the-nav-graphs`).
 
 ---
 
