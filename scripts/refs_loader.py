@@ -11,6 +11,11 @@ reaches the answer this way holds the *same* module, and not two copies of
 the same file. The gates that import the package get the same functions,
 because the file is the same file.
 
+It is also a command: `python3 scripts/refs_loader.py` prints the ref a change
+in this checkout is measured against, and exits 1 when there is none. A `just`
+recipe that needs a base takes it from there, so that no recipe carries a
+default of its own.
+
 ADR `docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`.
 """
 
@@ -67,3 +72,48 @@ resolve_base_ref = load_refs().resolve_base_ref
 #: change itself, so a push is never measured against the branch it was
 #: pushed to.
 resolve_change_base_ref = load_refs().resolve_change_base_ref
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Print the ref a change in this checkout is measured against.
+
+    A script outside the package — a `just` recipe, a shell hook — needs the
+    base and cannot import the package that owns the answer. This is the door
+    to it: the same answer, printed.
+
+    The exit code is the answer's: 0 when there is a base, 1 when there is
+    none. A caller that cannot do without a base fails loudly rather than
+    guessing one.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="refs_loader.py",
+        description="Print the ref a change in this checkout is measured against.",
+    )
+    parser.add_argument(
+        "--upstream",
+        action="store_true",
+        help=(
+            "print the upstream of this checkout (the remote-tracking trunk) "
+            "instead of the base a change is measured against"
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    if args.upstream:
+        base = resolve_base_ref(
+            cwd=ROOT,
+            candidates=load_refs().REMOTE_BASE_CANDIDATES,
+        )
+    else:
+        base = resolve_change_base_ref(cwd=ROOT)
+    if not base:
+        print(NO_BASE_REF_MESSAGE, file=sys.stderr)
+        return 1
+    print(base)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
