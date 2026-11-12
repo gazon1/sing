@@ -138,7 +138,8 @@ So there are three outcomes, and the third one is a failure:
 1. a base resolved — the comparison is made;
 2. no base resolved and the caller permits an unbased check — the check runs
    against everything, and says so;
-3. a named base that is not here, no base at all, or no merge-base between the
+3. a named base that is not here, a named base that is git's null commit (the
+   push created the branch), no base at all, or no merge-base between the
    base and `HEAD` — the ratchet cannot measure, and it **exits non-zero**.
 
 `HEAD` is not one of the answers. Measuring the baseline against `HEAD` is
@@ -178,15 +179,27 @@ base reads the same name. What the name *is* depends on what happened:
 |---|---|---|
 | Pull request | `origin/<base_ref>` | the branch the pull request targets |
 | Push to `main` | the commit the push replaced (`github.event.before`) | after the push, `origin/main` **is** the pushed commit — naming it would measure the change against itself |
+| Push to `main` that **created** the branch | git's null commit (`0000…0`) | there is no state the push replaced, so there is nothing to measure against |
 | Push to any other branch (e.g. `dev`) | `origin/main` | the change is measured against the trunk it was not pushed to |
 | Schedule or manual run | `origin/main` | there is no event to name a base |
 
 The event is named explicitly rather than left to the chain's fallback order:
 the chain cannot know whether `origin/dev` is the branch the change was just
 pushed to or the branch it was based on, and the difference is the difference
-between a real comparison and no comparison at all. The all-zeros `before` of
-a branch's first push is guarded — there is no replaced commit to name, and
-the trunk is the answer.
+between a real comparison and no comparison at all.
+
+**A push that created the branch names the null commit, and that fails closed.**
+The all-zeros `before` of a branch's first push is not a base and is not
+"the trunk is the answer" either: after such a push `origin/main` **is** the
+pushed commit, so naming the trunk would measure the commit against itself and
+report a vacuous green. The name is therefore the null commit — the payload's
+own answer to "the ref did not exist before this push" — and the null commit
+resolves to no commit at all, so the comparison cannot be made and the ratchet
+exits non-zero. That is the third outcome stated as itself: *the measurement
+could not be performed*, never the second one dressed up as itself. The rule
+lives in the resolver (`is_null_commit()`), not only in the ratchet: git accepts
+the null id as a *name* and only fails when it is asked to peel it, so the
+intent must not depend on how git was invoked.
 
 Every job still reads the same name: the name is set once, and the event
 decides what it says.
@@ -262,6 +275,10 @@ not exist — a green answer to a question nobody asked.
 - A gate that runs in another tree is given an environment without the base
   name, and so is a fixture that builds its own repository. The name is not
   banned — the tree it belongs to still gets it — but it does not travel.
+- A push that **created** the branch has no previous state to measure against,
+  and its run therefore fails the ratchet rather than passing vacuously. The
+  first push to a new branch is not measurable, and the gate says so instead of
+  naming the pushed commit as its own baseline.
 - The branch topology itself — `dev` existing, protected, and receiving the
   population split — is #2832's later phases. This decision makes the tools
   able to name it; it does not create it.
@@ -270,7 +287,7 @@ not exist — a green answer to a question nobody asked.
 
 - `scripts/src/sgate/gatekit/refs.py` — `BASE_CANDIDATES`,
   `REMOTE_BASE_CANDIDATES`, `resolve_base_ref()`,
-  `resolve_change_base_ref()`.
+  `resolve_change_base_ref()`, `NULL_COMMIT`, `is_null_commit()`.
 - `scripts/src/sgate/gatekit/gitenv.py` — the names that must not cross into
   another tree, and `foreign_env()`.
 - `scripts/refs_loader.py` — the by-path loader for hook-side scripts, and the
@@ -285,7 +302,8 @@ not exist — a green answer to a question nobody asked.
 - `scripts/tests/test_ci_pr_path.py` — the base is named once for the whole
   workflow, named per event, and never as the branch that was pushed.
 - `scripts/tests/test_check_baseline_ratchet.py` — the ratchet fails when it
-  cannot measure, and passes when there is nothing to measure.
+  cannot measure — a base that is not here, a base with no merge-base, the
+  null commit — and passes when there is nothing to measure.
 - `scripts/tests/test_checkout_state.py` — the integration branch as the
   base, the local branch that is not a base, the missing base that stays
   unknown.
