@@ -7,6 +7,8 @@
 #
 # The container rule: the first wait is on the "Tomorrow" header, which renders
 # because tomorrow's seeded task is in that section.
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-upcoming-timeline
 tags:
