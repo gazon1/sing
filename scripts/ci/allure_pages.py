@@ -223,6 +223,20 @@ def _legacy_manifest_path(population_dir: Path) -> Path:
     return population_dir / "allure-manifest.json"
 
 
+def existing_manifest_path(population_dir: Path) -> Path | None:
+    """The manifest file a population namespace carries, if it carries one.
+
+    The current state file is the dotfile. A site published before the rename
+    still carries the visible name, and it is read once (ADR 2026-11-11). A
+    namespace that has either one is published; one that has neither is not,
+    however it is asked.
+    """
+    for candidate in (manifest_path(population_dir), _legacy_manifest_path(population_dir)):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def empty_manifest(population: str) -> Manifest:
     """The manifest of a population that has not published anything yet."""
     return Manifest(schema_version=SCHEMA_VERSION, population=population)
@@ -509,8 +523,14 @@ def build_root_index(site_dir: Path, populations: Iterable[str]) -> str:
 
 
 def present_populations(site_dir: Path) -> list[str]:
-    present = [p for p in SUPPORTED_POPULATIONS if manifest_path(site_dir / p).is_file()]
-    return present
+    """The populations this site publishes.
+
+    A population counts when its namespace carries a manifest: the current
+    dotfile, or the visible name a site published before the rename still
+    has. Asking only about the dotfile made a population that was still
+    being migrated disappear from the root index and from the tree check.
+    """
+    return [p for p in SUPPORTED_POPULATIONS if existing_manifest_path(site_dir / p) is not None]
 
 
 def ensure_population_namespace(gh_pages_dir: Path, population: str) -> Path:
@@ -596,7 +616,7 @@ def validate_publish_tree(site_dir: Path, populations: Iterable[str] | None = No
         if f"{pop}/index.html" not in root_content:
             raise PublishError(f"root index.html does not link to population {pop}")
         mpath = manifest_path(pop_dir)
-        if not mpath.is_file():
+        if existing_manifest_path(pop_dir) is None:
             raise PublishError(f"publish tree missing manifest for population {pop}")
         manifest = load_manifest(mpath, pop)
         validate_population_state(pop_dir, pop, manifest)

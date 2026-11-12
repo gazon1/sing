@@ -171,6 +171,39 @@ class AllurePagesTest(unittest.TestCase):
         root = (self.site / "index.html").read_text(encoding="utf-8")
         self.assertNotIn('href="2808/index.html"', root)
 
+    def test_a_namespace_with_the_legacy_visible_manifest_is_published(self):
+        # A site published before the rename carries the visible manifest.
+        # Asking only about the dotfile made that population disappear from
+        # the root index and from the tree check.
+        pdir = self.pop_dir(self.site, "fast")
+        current = pub(run_id=7, run_number=70, population="fast", report_path="70")
+        (pdir / "allure-manifest.json").write_text(
+            ap.manifest_json(manifest_of("fast", current, {current.identity: current})),
+            encoding="utf-8",
+        )
+        self.assertEqual(ap.present_populations(self.site), ["fast"])
+
+        self.make_report(self.site, "fast", "70")
+        self.write_index(pdir, "70")
+        ap._atomic_write_text(self.site / "index.html", ap.build_root_index(self.site, ["fast"]))
+        ap.validate_publish_tree(self.site)
+
+    def test_a_namespace_without_a_manifest_is_not_published(self):
+        self.pop_dir(self.site, "fast")
+        self.assertEqual(ap.present_populations(self.site), [])
+
+    def test_the_dotfile_manifest_wins_over_the_legacy_visible_one(self):
+        pdir = self.pop_dir(self.site, "fast")
+        current = pub(run_id=7, run_number=70, population="fast", report_path="70")
+        older = pub(run_id=6, run_number=60, population="fast", report_path="60")
+        ap.save_manifest(ap.manifest_path(pdir), manifest_of("fast", current, {current.identity: current}))
+        (pdir / "allure-manifest.json").write_text(
+            ap.manifest_json(manifest_of("fast", older, {older.identity: older})),
+            encoding="utf-8",
+        )
+        manifest = ap.load_manifest(ap.manifest_path(pdir), "fast")
+        self.assertEqual(manifest.latest.run_number, 70)
+
     def test_apply_stale_does_not_regress_latest_or_indexes(self):
         self.make_report(self.site, "fast", "11")
         newer = pub(run_id=2, run_number=11, population="fast", report_path="11")
