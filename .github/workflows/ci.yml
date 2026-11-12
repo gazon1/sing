@@ -2064,7 +2064,9 @@ jobs:
       - name: Mark deploy start
         if: steps.decide.outputs.action == 'publish'
         id: deploy-start
-        run: echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
+          echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Publish Allure report to GitHub Pages
         if: steps.decide.outputs.action == 'publish'
@@ -2086,25 +2088,24 @@ jobs:
       # branch contents with the publish tree. The published branch is read
       # back and checked against the capture, so the check is against the
       # result and not against a local file.
+      #
+      # The read waits for the deployed revision first. The deploy is a
+      # push, and the API that answers the read may still be serving the
+      # previous revision for a moment after it: the CNAME of the previous
+      # revision says nothing about the revision that was published. The
+      # check waits until the branch holds the commit the deployment
+      # created, and only then reads the CNAME.
       - name: The custom domain CNAME survived the deploy
         if: steps.decide.outputs.action == 'publish'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if [ ! -f cname.expected ]; then
-            echo "the branch carried no CNAME — nothing to check"
-            exit 0
-          fi
-          for attempt in 1 2 3; do
-            if gh api "repos/${GITHUB_REPOSITORY}/contents/CNAME?ref=gh-pages" --jq '.content' \
-              | base64 -d > cname.deployed; then
-              break
-            fi
-            echo "the deployed branch does not answer yet (attempt ${attempt})"
-            sleep 3
-          done
-          cmp cname.expected cname.deployed
+          python3 scripts/ci/allure_deploy.py verify-cname \
+            --repo "${GITHUB_REPOSITORY}" \
+            --branch gh-pages \
+            --expected-file cname.expected \
+            --since "${{ steps.deploy-start.outputs.since }}"
 
       # A published report nobody is told about is a report nobody opens.
       # The comment goes on the merged PR and on the issues that PR closes.

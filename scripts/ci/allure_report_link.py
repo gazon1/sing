@@ -40,10 +40,24 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pathlib
 import re
-import subprocess
 import sys
-from typing import Any, Callable, Iterable
+from typing import Any, Iterable
+
+# The helpers of this directory are imported as modules, not as a package:
+# the workflow runs this file as a script, and the tests load it by path.
+_CI_DIR = pathlib.Path(__file__).resolve().parent
+if str(_CI_DIR) not in sys.path:
+    sys.path.insert(0, str(_CI_DIR))
+
+from github_api import (  # noqa: E402
+    LinkError,
+    Runner,
+    documents as json_documents,
+    gh_api,
+    json_document,
+)
 
 #: The marker that finds our own comment again. It is hidden in the rendered
 #: comment and it is the only thing that identifies it.
@@ -76,14 +90,6 @@ QUOTE = re.compile(r"^\s*>")
 #: An inline code span — the double-backtick form first, so a span that holds
 #: a backtick of its own is not cut in half.
 CODE_SPAN = re.compile(r"``[^`]*``|`[^`\n]*`")
-
-#: The runner that talks to GitHub: a list of `gh api` arguments, and the
-#: response body. The tests replace it with a fake.
-Runner = Callable[[list[str]], str]
-
-
-class LinkError(Exception):
-    """A failure to read from or write to GitHub."""
 
 
 # ── The decisions ─────────────────────────────────────────────────────────────
@@ -203,46 +209,6 @@ def find_marker_comment(comments: Iterable[dict[str, Any]]) -> dict[str, Any] | 
 # ── GitHub ────────────────────────────────────────────────────────────────────
 
 
-def gh_api(args: list[str]) -> str:
-    """Run `gh api` and return its response body."""
-    result = subprocess.run(
-        ["gh", "api", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise LinkError((result.stderr or "").strip() or f"gh api {' '.join(args)} failed")
-    return result.stdout
-
-
-def _documents(text: str) -> list[Any]:
-    """Every JSON document in a response body.
-
-    `gh api --paginate` answers with one JSON array per page, concatenated.
-    """
-    decoder = json.JSONDecoder()
-    documents: list[Any] = []
-    index = 0
-    while index < len(text):
-        while index < len(text) and text[index].isspace():
-            index += 1
-        if index >= len(text):
-            break
-        try:
-            document, index = decoder.raw_decode(text, index)
-        except json.JSONDecodeError as exc:
-            raise LinkError(f"gh api answered with invalid JSON: {exc}") from exc
-        documents.append(document)
-    return documents
-
-
-def _json(runner: Runner, args: list[str]) -> Any:
-    """Run the runner and read one JSON document from its answer."""
-    documents = _documents(runner(args))
-    return documents[0] if documents else None
-
-
 def fetch_pages_url(repo: str, runner: Runner) -> str | None:
     """The Pages site's own URL, or None when it does not answer.
 
@@ -250,7 +216,7 @@ def fetch_pages_url(repo: str, runner: Runner) -> str | None:
     comment: the fallback URL is where the report is published anyway.
     """
     try:
-        data = _json(runner, [f"repos/{repo}/pages"])
+        data = json_document(runner, [f"repos/{repo}/pages"])
     except LinkError:
         return None
     if isinstance(data, dict):
@@ -262,7 +228,7 @@ def fetch_pages_url(repo: str, runner: Runner) -> str | None:
 
 def fetch_merged_pull_requests(repo: str, sha: str, runner: Runner) -> list[dict[str, Any]]:
     """The pull requests the published commit belongs to."""
-    data = _json(runner, [f"repos/{repo}/commits/{sha}/pulls"])
+    data = json_document(runner, [f"repos/{repo}/commits/{sha}/pulls"])
     if not isinstance(data, list):
         return []
     return [item for item in data if isinstance(item, dict)]
@@ -270,7 +236,7 @@ def fetch_merged_pull_requests(repo: str, sha: str, runner: Runner) -> list[dict
 
 def fetch_comments(repo: str, number: int, runner: Runner) -> list[dict[str, Any]]:
     """The comments of an issue or a pull request."""
-    documents = _documents(runner([f"repos/{repo}/issues/{number}/comments", "--paginate"]))
+    documents = json_documents(runner([f"repos/{repo}/issues/{number}/comments", "--paginate"]))
     comments: list[dict[str, Any]] = []
     for document in documents:
         if isinstance(document, list):
@@ -290,7 +256,7 @@ def upsert_comment(repo: str, number: int, body: str, runner: Runner) -> str:
         and existing.get("id") is not None
         and is_our_comment(existing)
     ):
-        _json(
+        json_document(
             runner,
             [
                 "--method",
@@ -301,7 +267,7 @@ def upsert_comment(repo: str, number: int, body: str, runner: Runner) -> str:
             ],
         )
         return "updated"
-    _json(
+    json_document(
         runner,
         [
             "--method",
