@@ -33,6 +33,7 @@ import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.add_date
 import singularity_todo.shared.generated.resources.reset_date
+import singularity_todo.shared.generated.resources.someday_label
 
 /**
  * Renders the due date attribute row in the task editor.
@@ -47,6 +48,8 @@ import singularity_todo.shared.generated.resources.reset_date
  *   Pass `null` when [onDueDateClear] is also `null` (Create mode — sheet opened by default).
  * @param onDueDateClear Called when the X button is tapped. Pass `null` in Create mode
  *   (no X button is shown).
+ * @param someday Whether the task sits in the `someday` bucket. The row then reads
+ *   «Когда-нибудь» instead of a date, because a deferred task carries no date.
  */
 @Composable
 fun TaskEditorDueDateRow(
@@ -57,8 +60,10 @@ fun TaskEditorDueDateRow(
     modifier: Modifier = Modifier,
     labelTestTag: String? = null,
     dueDates: ImmutableList<LocalDate> = persistentListOf(),
+    someday: Boolean = false,
 ) {
     val dates = dueDates.ifEmpty { dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
+    val isSet = dueDate != null || someday
     Row(
         modifier =
             modifier
@@ -79,26 +84,30 @@ fun TaskEditorDueDateRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val activeTint =
-            if (dueDate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            if (isSet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         val idleTint =
-            if (dueDate != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+            if (isSet) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
             imageVector = Icons.Outlined.CalendarToday,
             contentDescription = null,
-            tint = if (dueDate != null) activeTint else idleTint,
+            tint = if (isSet) activeTint else idleTint,
             modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         val labelModifier =
-            if (labelTestTag != null) Modifier.testTag(labelTestTag) else Modifier
+            if (labelTestTag != null) {
+                Modifier.testTag(dueDateRowLabelTag(labelTestTag, dates, someday))
+            } else {
+                Modifier
+            }
         Text(
-            text = dueDateRowLabel(dueDate, dueTime, dates),
-            color = if (dueDate != null) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
+            text = dueDateRowLabel(dueDate, dueTime, dates, someday),
+            color = if (isSet) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
-            fontWeight = if (dueDate != null) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (isSet) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f).then(labelModifier),
         )
-        if (dueDate != null && onDueDateClear != null) {
+        if (isSet && onDueDateClear != null) {
             IconButton(onClick = onDueDateClear) {
                 Icon(
                     imageVector = Icons.Filled.Close,
@@ -111,6 +120,25 @@ fun TaskEditorDueDateRow(
         }
     }
 }
+
+/**
+ * The tag the row's label carries, and the state it names.
+ *
+ * The row shows three different facts — a date, the absence of a date and the
+ * «Когда-нибудь» bucket — and each of them has to be tellable apart without
+ * reading the copy: the copy is localized, so a test that matched on it would
+ * break on every device set to another language.
+ */
+private fun dueDateRowLabelTag(
+    labelTestTag: String,
+    dates: ImmutableList<LocalDate>,
+    someday: Boolean,
+): String =
+    when {
+        someday -> TestTags.TASK_EDITOR_DUE_DATE_ROW_SOMEDAY
+        dates.isEmpty() -> TestTags.TASK_EDITOR_DUE_DATE_ROW_PLACEHOLDER
+        else -> labelTestTag
+    }
 
 /**
  * The label of the due-date row, in the resource locale.
@@ -135,7 +163,11 @@ private fun dueDateRowLabel(
     date: LocalDate?,
     time: LocalTime?,
     dates: ImmutableList<LocalDate>,
+    someday: Boolean,
 ): String {
+    // A deferred task has no date to show, so the row says what the task
+    // actually is instead of an empty date.
+    if (someday) return stringResource(Res.string.someday_label)
     if (date == null) return stringResource(Res.string.add_date)
     if (dates.size > 1) return localizedDateList(dates)
     return localizedDueDateWithTime(date, time)

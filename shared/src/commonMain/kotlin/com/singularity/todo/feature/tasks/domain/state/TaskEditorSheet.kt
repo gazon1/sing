@@ -13,6 +13,24 @@ sealed interface TaskEditorSheet {
 
     data object StartTime : TaskEditorSheet
 
+    /**
+     * The deadline of the task.
+     *
+     * The same sheet as [Date], opened on the deadline instead of on the due
+     * date: the two are independent facts, and one sheet that edits both of
+     * them would need two calendars.
+     */
+    data object Deadline : TaskEditorSheet
+
+    /**
+     * The reminder of the task.
+     *
+     * A sheet of its own: a reminder is an offset before the due moment, not a
+     * date, and it needs the notification permission — none of which the date
+     * sheet has any business knowing about.
+     */
+    data object Reminder : TaskEditorSheet
+
     // ── Attribute pickers ──────────────────────────────────────────────────────
     data object Priority : TaskEditorSheet
 

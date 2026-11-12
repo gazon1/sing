@@ -38,7 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
+import com.singularity.todo.core.notifications.NotificationSettingsPort
+import com.singularity.todo.core.notifications.rememberNotificationPermissionRequester
 import com.singularity.todo.core.refresh.RefreshableContent
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
@@ -68,6 +71,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedB
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.RelatedTaskItemUi
 import com.singularity.todo.feature.tasks.presentation.components.detail.RelatedTasksSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.ReminderRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailAttachmentsSection
@@ -301,6 +305,17 @@ fun TaskDetailContent(
                         val ui = s.ui
                         val extras = s.extras
 
+                        // The notification permission and the way out of it.
+                        //
+                        // The permission state decides whether the reminder row
+                        // says «Уведомления выключены» or the offset it holds.
+                        // The settings port decides whether there is a screen to
+                        // open at all — the desktop app has none, so it offers no
+                        // action rather than one that opens nothing.
+                        val notificationPermission = rememberNotificationPermissionRequester()
+                        val notificationSettings: NotificationSettingsPort = koinInject()
+                        val canOpenNotificationSettings = notificationSettings.isSupported
+
                         val attachmentsVm: AttachmentsViewModel = koinViewModel { parametersOf(ui.task.id) }
                         val attachments by attachmentsVm.attachments.collectAsStateWithLifecycle()
                         LaunchedEffect(attachmentsVm) {
@@ -369,6 +384,24 @@ fun TaskDetailContent(
                                     // was nothing to delete from the one place that
                                     // deletes.
                                     attachments = remember(attachments) { attachments.toImmutableList() },
+                                    // The three planning facts that used to have no
+                                    // row on this screen: the deferred bucket, the
+                                    // deadline and the reminder.
+                                    //
+                                    // The deadline is the task's `endDate`, and the
+                                    // reminder's offset is read back from the stored
+                                    // reminder — the offset is not stored on the
+                                    // task, so there is no other place to read it
+                                    // from.
+                                    someday = ui.task.someday,
+                                    deadline = ui.task.endDate,
+                                    reminderOffset =
+                                        remember(ui.reminders) {
+                                            ui.reminders.firstOrNull()?.let {
+                                                ReminderOffset.fromMinutes(it.offsetMinutes)
+                                            }
+                                        },
+                                    notificationsEnabled = notificationPermission.hasPermissions,
                                 ),
                             titleSource = ui.titleSource,
                             // Nothing under the field until the title has been edited — a
@@ -435,6 +468,68 @@ fun TaskDetailContent(
                                             },
                                         ),
                                     startDate = null,
+                                    // The reminder.
+                                    //
+                                    // The sheet supplies the offset and the
+                                    // existing intents do the write — the
+                                    // reminders slot owns the scheduler and the
+                                    // capability gate. The row itself only opens
+                                    // the sheet.
+                                    reminder =
+                                        ReminderRowCallbacks(
+                                            onSet = { offset ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.SetReminder(offset),
+                                                )
+                                            },
+                                            onClear = {
+                                                coordinator.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+                                            },
+                                            onClick = { sheets.show(TaskEditorSheet.Reminder) },
+                                        ),
+                                    // The deadline — the bound by which the work
+                                    // has to be done. Independent of the due date:
+                                    // clearing one leaves the other alone.
+                                    deadline =
+                                        RowCallbacks(
+                                            onChange = { date ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.SetDeadline(date),
+                                                )
+                                            },
+                                            onClick = { sheets.show(TaskEditorSheet.Deadline) },
+                                            onClear = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.SetDeadline(null),
+                                                )
+                                            },
+                                        ),
+                                    // The `someday` bucket. The sheet owns it —
+                                    // the row does not exist on this screen.
+                                    someday =
+                                        RowCallbacks(
+                                            onChange = { deferred ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.SetSomeday(deferred),
+                                                )
+                                            },
+                                        ),
+                                    // The two ways out of a refused notification
+                                    // permission. A refusal with no way out is a
+                                    // dead end, so both are offered where the
+                                    // platform has them.
+                                    onRequestNotificationPermission =
+                                        if (notificationPermission.hasPermissions) {
+                                            null
+                                        } else {
+                                            { notificationPermission.requestPermissions() }
+                                        },
+                                    onOpenNotificationSettings =
+                                        if (canOpenNotificationSettings) {
+                                            { notificationSettings.open() }
+                                        } else {
+                                            null
+                                        },
                                     project =
                                         RowCallbacks(
                                             onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },
