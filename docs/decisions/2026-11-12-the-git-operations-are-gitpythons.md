@@ -81,12 +81,22 @@ install the manifest through `.github/actions/setup-python-tools`, so the
 dependency arrives where it is needed without a second, parallel installation
 path.
 
+**The local lint path finds the dependency itself.** The `hk` step runs
+`python3 scripts/lint-changed.py` with the python of the shell, and the system
+python has no GitPython. `scripts/lint-changed.py` therefore re-runs itself
+with the interpreter of the tooling venv — the one
+`scripts/ci/setup-local-tools.sh` installs, named after the checkout — when
+its own interpreter cannot import `git`, and names that installer when there
+is no such venv to run with.
+
 **The tree a command reads is decided in one place.** `sgate.gatekit.gitenv.own_tree_env()`
-is a context manager that sets `GIT_DIR`, `GIT_WORK_TREE`, and the index
-variable to the tree of the caller and restores the previous environment
-afterwards. Both migrated wrappers run inside it. A hook that inherits a
-`GIT_DIR` from the checkout it was invoked in therefore reads its own tree, not
-the tree of another checkout on the same machine.
+is a context manager that takes `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and
+`GIT_COMMON_DIR` out of `os.environ` for the duration of the call and puts them
+back afterwards — GitPython reads `os.environ` itself, so the names have to be
+gone from the process, not from a copy of it. Both migrated wrappers run inside
+it. A hook that inherits a `GIT_DIR` from the checkout it was invoked in
+therefore reads its own tree, not the tree of another checkout on the same
+machine.
 
 **The states git can be in are states the helpers handle.** A path that is not a
 repository, a repository without commits, a detached HEAD, a base that does not
@@ -118,7 +128,8 @@ its diff machinery, and the code is then the only thing left to say.
 
 - The scripts now need GitPython installed. It is in the manifest, so the CI
   jobs that run them install it, and a local checkout needs
-  `pip install --editable scripts/src/`.
+  `bash scripts/ci/setup-local-tools.sh` — the scoped lint re-runs itself with
+  that venv's interpreter rather than failing on the import.
 - `Repo.is_dirty()`, `Repo.untracked_files`, and the porcelain status differ
   in their details; where the porcelain bytes are the contract
   (`scripts/changed-modules.py`), the command stays.
@@ -132,7 +143,9 @@ its diff machinery, and the code is then the only thing left to say.
 - Issues: [#2853](https://github.com/gazon1/sing/issues/2853)
 - Code: `scripts/git_changed.py`, `scripts/src/sgate/control_scope.py`,
   `scripts/src/sgate/gatekit/gitenv.py`, `scripts/src/pyproject.toml`,
+  `scripts/lint-changed.py`,
   `scripts/tests/test_git_python_states.py`,
+  `scripts/tests/test_lint_changed_gitpython.py`,
   `scripts/tests/test_rumdl_changed.py`, `scripts/tests/test_control_scope.py`,
   `docs/engineering/script-tooling-audit.md`
 - Related: `2026-11-12-the-publication-says-only-what-it-verified.md`

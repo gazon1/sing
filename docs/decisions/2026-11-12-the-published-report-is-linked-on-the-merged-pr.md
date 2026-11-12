@@ -1,9 +1,19 @@
 ---
 title: The published report is linked on the merged PR and on the issues it closes
 date: 2026-11-12
-status: open
+status: superseded
 tags: [ci, allure, github-pages]
+superseded-by: 2026-11-12-the-publication-says-only-what-it-verified
 ---
+
+> **Superseded (2026-11-12):** the contract this decision describes — where the
+> link comes from and what happens when the Pages settings cannot be read — is
+> replaced by
+> [2026-11-12-the-publication-says-only-what-it-verified.md](2026-11-12-the-publication-says-only-what-it-verified.md).
+> The address of the site is no longer guessed when the settings do not answer,
+> and the comment is no longer edited when somebody else wrote it. The rest of
+> this decision — the link goes on the merged pull request and on the issues it
+> closes, and the step is advisory — still holds.
 
 # Context
 

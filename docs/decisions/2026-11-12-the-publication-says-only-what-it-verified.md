@@ -117,8 +117,9 @@ one client (`scripts/ci/github_api.py`) that the tests drive with a fake runner.
 # Consequences
 
 - The publication job reads the Pages deployments and the branch ref after the
-  deploy. The permissions it already holds (`pages: read`, `contents: read`
-  through the branch ref) are enough; no new permission is needed.
+  deploy. Reading the deployments needs the `deployments: read` scope — the API
+  answers 403 without it, and the check fails every publication. The branch ref
+  and the CNAME are read with the `contents` scope the job already holds.
 - The post-deploy check takes up to thirty seconds when the API is slow to catch
   up with the push.
 - A repository whose Pages settings cannot be read publishes its report and posts
