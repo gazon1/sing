@@ -326,6 +326,23 @@ class MergeBaseComparisonTest(unittest.TestCase):
         self.assertNotEqual('HEAD', comparison_ref, label)
         self.assertIn('merge-base(dev, HEAD)', label)
 
+    def test_a_base_with_no_merge_base_is_a_failure(self):
+        """A base that exists but shares no history with `HEAD` measures nothing.
+
+        The two histories never met, so there is no commit where the branch
+        forked from the base — and no commit whose baseline is the debt the
+        branch inherited. The comparison cannot be made, and saying "unchanged"
+        about it would be the third outcome dressed up as the second.
+        """
+        _git('checkout', '--orphan', 'unrelated', cwd=self.repo, env=self.env)
+        _git('rm', '-rf', '.', cwd=self.repo, env=self.env)
+        _git('commit', '--allow-empty', '-m', 'a history of its own',
+             cwd=self.repo, env=self.env)
+        _git('checkout', 'main', cwd=self.repo, env=self.env)
+        with self.assertRaises(ratchet.UnmeasurableComparison) as caught:
+            ratchet.resolve_comparison_ref('unrelated')
+        self.assertIn('no merge-base', str(caught.exception))
+
     def test_a_base_that_carries_head_means_there_is_nothing_to_measure(self):
         """HEAD inside the base is not a failure — it is an empty change.
 
@@ -417,6 +434,18 @@ class TheGateFailsWhenItCannotMeasureTest(unittest.TestCase):
         code, output = self._run_gate()
         self.assertNotEqual(0, code, output)
         self.assertIn('no base branch resolves', output)
+
+    def test_a_base_with_no_merge_base_fails_the_gate(self):
+        """A base that shares no history with `HEAD` cannot measure anything."""
+        self._grow_on_a_branch()
+        _git('checkout', '--orphan', 'unrelated', cwd=self.repo, env=self.env)
+        _git('rm', '-rf', '.', cwd=self.repo, env=self.env)
+        _git('commit', '--allow-empty', '-m', 'a history of its own',
+             cwd=self.repo, env=self.env)
+        _git('checkout', 'feature', cwd=self.repo, env=self.env)
+        code, output = self._run_gate(SGATE_BASE_REF='unrelated')
+        self.assertNotEqual(0, code, output)
+        self.assertIn('no merge-base', output)
 
     def test_the_gate_is_green_when_the_comparison_can_be_made(self):
         """The control: the gate still passes when there is nothing to complain about."""

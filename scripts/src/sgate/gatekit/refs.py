@@ -71,6 +71,12 @@ here, there is no base. Answering with a different ref would be answering a
 question nobody asked, and a tool that measures against a base the caller did
 not name measures against the wrong thing without saying so.
 
+A name that is git's **null commit** — the payload's way of saying "the pushed
+branch did not exist before this push" — is no base either. There is no state
+to measure against, and there is no other state to fall back to: naming the
+trunk instead would name the pushed commit, and the change would be measured
+against itself.
+
 ADR `docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md`.
 """
 
@@ -175,6 +181,28 @@ BASE_CANDIDATES = (
     "main",
 )
 
+#: Git's null object id — the name of no commit at all.
+#:
+#: GitHub's push payload uses it for `github.event.before` when the pushed ref
+#: did not exist before the push: the branch was created by that push, so
+#: there is no state it replaced. It is a name for nothing, and a base that
+#: names nothing is no base at all — not `HEAD`, not the trunk, and not a
+#: quiet substitution that makes a comparison that could not be made look like
+#: one that found nothing.
+NULL_COMMIT = "0" * 40
+
+
+def is_null_commit(ref: str) -> bool:
+    """Whether `ref` is git's null object id — the name of no commit at all.
+
+    The check is explicit rather than left to git: `git rev-parse` accepts the
+    null id as a *name* and only fails when it is asked to peel it, so a
+    resolver that reads it the wrong way would resolve a base that does not
+    exist. Naming nothing is a fact about the name, not about the repository,
+    and it is answered the same way in every repository.
+    """
+    return ref.strip().lower() == NULL_COMMIT
+
 
 def commit_of(ref: str, cwd=None, env=None) -> str | None:
     """The commit `ref` names, or None when it names none.
@@ -232,7 +260,12 @@ def resolve_base_ref(cwd=None, env=None, candidates=None) -> str | None:
     explicit = effective.get(BASE_REF_ENV, "").strip()
     if explicit:
         # An explicit name is exclusive: a base the caller named and that is
-        # not here is not a base, and the chain is not the answer to it.
+        # not here is not a base, and the chain is not the answer to it. A name
+        # that is git's null commit names nothing at all — the branch it would
+        # be the base of was created by the push, so there is no state to
+        # measure against, and there is no other state to fall back to.
+        if is_null_commit(explicit):
+            return None
         return explicit if resolves(explicit, cwd=cwd, env=env) else None
 
     for candidate in BASE_CANDIDATES if candidates is None else candidates:
@@ -264,7 +297,10 @@ def resolve_change_base_ref(cwd=None, env=None, candidates=None) -> str | None:
 
     A NAMED base is exclusive and is taken as given: the caller named it, and
     the caller knows whether it is the change itself. A name that does not
-    resolve is no base at all — never a different ref, and never `HEAD`.
+    resolve is no base at all — never a different ref, and never `HEAD`. Git's
+    null commit is no base either: it is the payload's way of saying that the
+    pushed branch did not exist before the push, so there is no state to
+    measure the change against.
 
     *candidates* is the chain to answer from; it defaults to
     `BASE_CANDIDATES`.
@@ -272,6 +308,8 @@ def resolve_change_base_ref(cwd=None, env=None, candidates=None) -> str | None:
     effective = os.environ if env is None else env
     explicit = effective.get(BASE_REF_ENV, "").strip()
     if explicit:
+        if is_null_commit(explicit):
+            return None
         return explicit if resolves(explicit, cwd=cwd, env=env) else None
 
     head = commit_of("HEAD", cwd=cwd, env=env)
@@ -291,8 +329,10 @@ __all__ = [
     "BASE_CANDIDATES",
     "BASE_REF_ENV",
     "NO_BASE_REF_MESSAGE",
+    "NULL_COMMIT",
     "REMOTE_BASE_CANDIDATES",
     "commit_of",
+    "is_null_commit",
     "resolve_base_ref",
     "resolve_change_base_ref",
     "resolves",

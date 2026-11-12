@@ -32,6 +32,12 @@ Contract:
     `HEAD`: the fallback is the file against itself, and a ratchet that
     cannot measure the branch's own growth must not report that the
     measurement was clean.
+  * A named base that is git's **null commit** — what a push payload says
+    when the pushed branch did not exist before the push — is a comparison
+    that cannot be made, and it fails like one. The branch was created by
+    that push, so it has no previous state to grow from; naming the trunk
+    instead would name the pushed commit and measure the change against
+    itself.
   * `git` is required. Without it the check fails loudly rather than skipping —
     a check that silently passes when it cannot run is the defect class this
     whole change is about.
@@ -104,7 +110,7 @@ if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
 
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register, run
-from sgate.gatekit.refs import BASE_REF_ENV, resolve_change_base_ref
+from sgate.gatekit.refs import BASE_REF_ENV, is_null_commit, resolve_change_base_ref
 
 # Detekt baseline entries look like:
 #   <ID>RuleName:File.kt:Fqcn$signature</ID>
@@ -277,6 +283,18 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
     if explicit:
         env[BASE_REF_ENV] = explicit
     named = env.get(BASE_REF_ENV, "").strip()
+
+    if named and is_null_commit(named):
+        # The null commit is the payload's way of saying that the pushed branch
+        # did not exist before the push. There is no state the branch replaced,
+        # so there is nothing to measure its growth against — and the one thing
+        # that could be named instead is the pushed commit itself, which would
+        # make the gate compare the baseline with itself and report no growth.
+        raise UnmeasurableComparison(
+            "the named base is git's null commit — the push created this branch, "
+            "so there is no previous state to measure the baseline's growth "
+            "against. The comparison cannot be made"
+        )
 
     base = resolve_change_base_ref(cwd=ROOT, env=env)
     if base is None:

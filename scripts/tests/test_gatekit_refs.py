@@ -44,9 +44,11 @@ from git_sandbox import no_named_base  # noqa: E402
 resolve_base_ref = _refs.resolve_base_ref
 resolve_change_base_ref = _refs.resolve_change_base_ref
 resolves = _refs.resolves
+is_null_commit = _refs.is_null_commit
 BASE_CANDIDATES = _refs.BASE_CANDIDATES
 REMOTE_BASE_CANDIDATES = _refs.REMOTE_BASE_CANDIDATES
 BASE_REF_ENV = _refs.BASE_REF_ENV
+NULL_COMMIT = _refs.NULL_COMMIT
 
 
 class RefRepositoryTest(unittest.TestCase):
@@ -199,6 +201,18 @@ class TheChangeBaseTest(RefRepositoryTest):
         env = {BASE_REF_ENV: "origin/dev"}
         self.assertIsNone(resolve_change_base_ref(cwd=self.tmp, env=env))
 
+    def test_the_null_commit_is_no_base(self):
+        """The payload's way of saying "the branch did not exist before".
+
+        A push that created the branch has no state to measure against, and
+        the null commit names no commit at all — so it is no base. It is NOT
+        `HEAD` and NOT the trunk: naming the trunk instead would name the
+        pushed commit, and the change would be measured against itself.
+        """
+        env = {BASE_REF_ENV: NULL_COMMIT}
+        self.assertIsNone(resolve_change_base_ref(cwd=self.tmp, env=env))
+        self.assertIsNone(resolve_base_ref(cwd=self.tmp, env=env))
+
     def test_the_change_is_never_measured_against_itself(self):
         # The local `dev` is the change itself and the trunk is not: the
         # resolver steps over the branch the change was pushed to.
@@ -252,6 +266,33 @@ class TheResolverTest(RefRepositoryTest):
 
     def test_a_ref_that_is_not_there_does_not_resolve(self):
         self.assertFalse(resolves("origin/main", cwd=self.tmp))
+
+
+class TheNullCommitTest(RefRepositoryTest):
+    """Git's null object id — the name of no commit at all.
+
+    GitHub's push payload uses it for `github.event.before` when the pushed
+    ref did not exist before the push. The name says "there was nothing there",
+    and the resolver reads it as such: a base that names nothing is no base.
+    """
+
+    def test_the_null_commit_is_recognised(self):
+        self.assertTrue(is_null_commit(NULL_COMMIT))
+        self.assertTrue(is_null_commit(f"  {NULL_COMMIT}  "))
+        self.assertTrue(is_null_commit(NULL_COMMIT.upper()))
+
+    def test_a_real_commit_is_not_the_null_commit(self):
+        self.assertFalse(is_null_commit(self._git("rev-parse", "HEAD")))
+        self.assertFalse(is_null_commit("origin/main"))
+
+    def test_the_null_commit_does_not_resolve_to_a_commit(self):
+        """`git rev-parse` accepts the null id as a NAME and fails to peel it.
+
+        That is why the resolver asks the question explicitly rather than
+        letting git answer it: a resolver that read the name without the peel
+        would resolve a base that does not exist.
+        """
+        self.assertFalse(resolves(NULL_COMMIT, cwd=self.tmp))
 
 
 class TheCommandLineTest(RefRepositoryTest):
