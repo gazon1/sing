@@ -604,6 +604,44 @@ class PublicationContractTest(unittest.TestCase):
         with self.assertRaises(ap.PublishError):
             ap.load_manifest(path, "fast")
 
+    def test_schema_version_must_be_exact_integer(self):
+        pdir = self.tmp / "fast"
+        pdir.mkdir(parents=True)
+        path = ap.manifest_path(pdir)
+        for bad in (True, False, 1.0, "1", None):
+            path.write_text(
+                json.dumps({"schema_version": bad, "population": "fast", "latest": None, "publications": {}})
+                if bad is not None or True
+                else json.dumps({"population": "fast", "latest": None, "publications": {}}),
+                encoding="utf-8",
+            )
+            if bad is None:
+                path.write_text(
+                    json.dumps({"population": "fast", "latest": None, "publications": {}}),
+                    encoding="utf-8",
+                )
+            with self.assertRaises(ap.PublishError):
+                ap.load_manifest(path, "fast")
+
+    def test_v1_manifest_rejects_unknown_top_level_fields(self):
+        pdir = self.tmp / "fast"
+        pdir.mkdir(parents=True)
+        path = ap.manifest_path(pdir)
+        fast = pub(run_id=1, run_number=10, population="fast")
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "latest": fast.model_dump(mode="json"),
+                    "publications": {fast.identity: fast.model_dump(mode="json")},
+                    "extra": "nope",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaises(ap.PublishError):
+            ap.load_manifest(path, "fast")
+
     def test_manifest_round_trip_keeps_the_agreed_format(self):
         latest = pub(run_id=1, run_number=10, population="fast", report_path="10")
         manifest = manifest_of("fast", latest)
@@ -698,6 +736,124 @@ class PublicationContractTest(unittest.TestCase):
         )
         with self.assertRaises(ap.PublishError):
             ap.cmd_validate_state(args)
+
+
+class AllurePagesIntegrationTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = pathlib.Path(self.tmp.name)
+        self.gh = self.root / "gh-pages"
+        self.site = self.root / "site"
+        self.gh.mkdir()
+        self.site.mkdir()
+
+    def make_tarball(self, files, top="repo-gh-pages"):
+        tar_path = self.root / "gh-pages.tar.gz"
+        with tarfile.open(tar_path, "w:gz") as tar:
+            for name, content in files.items():
+                data = content.encode("utf-8")
+                info = tarfile.TarInfo(name=f"{top}/{name}")
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+        return tar_path
+
+    def make_report(self, site, population="fast", path="10"):
+        pdir = pathlib.Path(site) / population
+        pdir.mkdir(parents=True, exist_ok=True)
+        (pdir / "last-history").mkdir(exist_ok=True)
+        report_dir = pdir / path
+        report_dir.mkdir(parents=True, exist_ok=True)
+        (report_dir / "index.html").write_text("<html>report</html>", encoding="utf-8")
+        return report_dir
+
+    def pub(self, run_id=100, run_number=10, run_attempt=1, event="push", sha="abc", population="fast", report_path=None):
+        if report_path is None:
+            report_path = str(run_number)
+        return ap.Publication(
+            run_id=run_id,
+            run_number=run_number,
+            run_attempt=run_attempt,
+            event=event,
+            sha=sha,
+            population=population,
+            report_path=report_path,
+        )
+
+    def test_bootstrap_then_publish_preserves_history_and_validates(self):
+        # Seed an existing gh-pages tree with a previous valid publication
+        prev_tar = self.make_tarball(
+            {"fast/5/index.html": "<html>old</html>", "fast/last-history/h.json": "{}", "fast/index.html": "redirect"},
+            top="repo-gh-pages",
+        )
+        # bootstrap from tarball into fresh gh-pages
+        res = ap.bootstrap_history_from_tarball(self.gh, prev_tar, 200)
+        self.assertEqual(res["status"], "ok")
+        self.assertTrue((self.gh / "fast" / "5" / "index.html").is_file())
+        self.assertTrue((self.gh / "fast" / "last-history").is_dir())
+
+        # prepare namespace (as workflow does)
+        prep = ap.prepare_namespace(self.gh, "fast")
+        self.assertEqual(prep["population"], "fast")
+        self.assertTrue((self.gh / "fast").is_dir())
+
+        # simulate having applied previous publication state into site
+        self.make_report(self.site, "fast", "5")
+        ap.apply_publication(self.site, self.pub(run_id=1, run_number=5, population="fast", report_path="5"))
+
+        # seed existing Pages tree into history input location (copy gh-pages history state)
+        shutil.copytree(self.gh / "fast" / "last-history", self.site / "fast" / "last-history", dirs_exist_ok=True)
+        # also copy previous report if present
+        if (self.gh / "fast" / "5").exists() and not (self.site / "fast" / "5").exists():
+            shutil.copytree(self.gh / "fast" / "5", self.site / "fast" / "5")
+
+        # apply new publication
+        self.make_report(self.site, "fast", "10")
+        result = ap.apply_publication(self.site, self.pub(run_id=2, run_number=10, population="fast", report_path="10"))
+        self.assertEqual(result["action"], "publish")
+
+        # validate resulting publish tree
+        ap.validate_publish_tree(self.site, ["fast"])
+        manifest = ap.load_manifest(ap.manifest_path(self.site / "fast"), "fast")
+        self.assertIsNotNone(manifest.latest)
+        self.assertEqual(manifest.latest.run_number, 10)
+        # previous valid report still present (kept by retention defaults)
+        self.assertTrue((self.site / "fast" / "5" / "index.html").is_file())
+        self.assertTrue((self.site / "fast" / "10" / "index.html").is_file())
+        self.assertIn("fast/index.html", (self.site / "index.html").read_text(encoding="utf-8"))
+
+    def test_failed_bootstrap_or_apply_does_not_destroy_previous_valid_tree(self):
+        # establish previous valid publication
+        self.make_report(self.site, "fast", "5")
+        ap.apply_publication(self.site, self.pub(run_id=1, run_number=5, population="fast", report_path="5"))
+        ap.validate_publish_tree(self.site, ["fast"])
+        before_manifest = ap.manifest_path(self.site / "fast").read_text(encoding="utf-8")
+        before_index = (self.site / "fast" / "index.html").read_text(encoding="utf-8")
+
+        # failed bootstrap attempt does not touch existing site
+        bad_tar = self.root / "bad.tar.gz"
+        bad_tar.write_text("not a tarball", encoding="utf-8")
+        res = ap.bootstrap_history_from_tarball(self.site, bad_tar, 200)
+        self.assertEqual(res["status"], "malformed-tarball")
+        ap.validate_publish_tree(self.site, ["fast"])
+        self.assertEqual(ap.manifest_path(self.site / "fast").read_text(encoding="utf-8"), before_manifest)
+
+        # failed apply does not make partial tree publishable or destroy previous valid tree
+        self.pop_dir_check()
+        # try to apply with missing report target
+        with self.assertRaises(ap.PublishError):
+            ap.apply_publication(self.site, self.pub(run_id=2, run_number=10, population="fast", report_path="10"))
+        ap.validate_publish_tree(self.site, ["fast"])
+        self.assertEqual(ap.manifest_path(self.site / "fast").read_text(encoding="utf-8"), before_manifest)
+        self.assertEqual((self.site / "fast" / "index.html").read_text(encoding="utf-8"), before_index)
+        self.assertTrue((self.site / "fast" / "5" / "index.html").is_file())
+
+    def pop_dir_check(self):
+        # ensure namespace exists as in real flow
+        pdir = pathlib.Path(self.site) / "fast"
+        pdir.mkdir(parents=True, exist_ok=True)
+        (pdir / "last-history").mkdir(exist_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()
