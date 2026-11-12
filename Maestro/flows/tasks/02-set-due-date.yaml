@@ -1,14 +1,11 @@
 # Task editor: set a due date from the attribute row.
 #
-# The Material3 date picker exposes its day cells only as a contentDescription
-# ("Tuesday, September 29, 2026"), and Maestro has no content-desc selector,
-# so the day is picked with a regex. The regex matches the day number as a
-# standalone number, because that is the one part of the description the app
-# does not write: the month name and the weekday are Material3's, and
-# Material3 writes them in the device's language ("Tuesday, September 29,
-# 2026" in English, "Вторник, 29 сентября 2026 г." in Russian). The 1st of the
-# month is the only day whose number stands on its own, so the match picks it
-# and nothing else, and it keeps the flow valid past the turn of the year.
+# The planning sheet owns the due date, its time, the deadline and the
+# «Когда-нибудь» preset. The date it opens on is the day's, and the flow does
+# not assert a date the app formats — the preset is picked by its tag, and the
+# row is checked for the *absence* of the placeholder instead. The day cells
+# carry their date in their testTag, but the month the sheet opens on is the
+# current one, and a flow cannot know today's date in advance.
 appId: com.singularity.todo
 name: tasks-set-due-date
 tags:
@@ -28,31 +25,28 @@ tags:
       id: task_editor_due_row
     direction: DOWN
     timeout: 8000
-# Tapping the row opens the date picker (the text "Добавить дату" may not appear in
-# the Android accessibility tree due to a Compose rendering quirk — this is a known
-# issue and not a regression from any recent change).
+# Tapping the row opens the planning sheet.
 - tapOn:
     id: task_editor_due_row
-# Wait for the date picker sheet animation to settle before interacting with it.
-- waitForAnimationToEnd:
-    timeout: 2000
-# The constrained DatePicker may clip the first few days; swipe up to reveal October 1.
-- swipe:
-    direction: UP
-    duration: 300
-# Wait for the scroll animation to settle before the day-number tap fires.
-- waitForAnimationToEnd:
-    timeout: 1000
-- tapOn:
-    text: '.*[^0-9]1[^0-9].*'
-# Tapping the day selects it; the OK button confirms. The button is addressed by
-# the testTag the sheet puts on it — the sheet maps its test tags to resource ids,
-# so they reach the accessibility tree.
-- tapOn:
-    id: dialog_date_picker_ok
-# The row switches from its placeholder to the ISO date.
 - extendedWaitUntil:
-    visible: ".*-.*-01"
+    visible:
+      id: task_scheduling_sheet
     timeout: 8000
-# No need to assertNotVisible "Add date" — the extendedWaitUntil above already
-# proves the row content changed to the ISO date format.
+# «Сегодня» — the preset that sets the date to today.
+- tapOn:
+    id: task_scheduling_today_chip
+# «Сохранить» is the only thing that writes.
+- tapOn:
+    id: task_scheduling_confirm
+- extendedWaitUntil:
+    notVisible:
+      id: task_scheduling_sheet
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_editor_due_date_row_label
+    timeout: 8000
+# The placeholder is gone: the row carries a date now. The tag names the
+# state, so the assertion does not depend on the language of the device.
+- assertNotVisible:
+    id: task_editor_due_date_row_placeholder

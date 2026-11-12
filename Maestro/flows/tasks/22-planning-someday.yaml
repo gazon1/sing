@@ -1,0 +1,44 @@
+# Task editor: put the task in the «Когда-нибудь» bucket.
+#
+# The preset sets `someday` and clears the due date — a deferred task carries
+# no date — and the row says so. The row's tag names the state, so the flow
+# can assert it without reading the copy.
+appId: com.singularity.todo
+name: tasks-planning-someday
+tags:
+  - regression
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: task_editor_due_row
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: task_editor_due_row
+- extendedWaitUntil:
+    visible:
+      id: task_scheduling_sheet
+    timeout: 8000
+- tapOn:
+    id: task_scheduling_someday_chip
+- tapOn:
+    id: task_scheduling_confirm
+- extendedWaitUntil:
+    notVisible:
+      id: task_scheduling_sheet
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_editor_due_date_row_someday
+    timeout: 8000
+# The row reads «Когда-нибудь» now, not a date.
+- assertNotVisible:
+    id: task_editor_due_date_row_placeholder
