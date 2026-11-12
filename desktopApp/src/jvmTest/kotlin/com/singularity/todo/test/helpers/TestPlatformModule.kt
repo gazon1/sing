@@ -20,6 +20,8 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
+import com.singularity.todo.core.notifications.JvmNotificationSettingsPort
+import com.singularity.todo.core.notifications.NotificationSettingsPort
 import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
@@ -332,6 +334,12 @@ private fun testOsPortModule(): Module =
         // the definition still has to exist because the gate ViewModel resolves it in a binding
         // that a flow test instantiates.
         single<CrashReportingPort> { JvmCrashReportingPort() }
+
+        // The notification settings screen is a platform fact, and the desktop has none:
+        // the JVM port reports `isSupported = false`, which is what the Task Detail reminder
+        // sheet needs to decide not to offer a settings action. The real JVM class is reused
+        // rather than re-faked — a fake could claim to open something that does not exist.
+        single<NotificationSettingsPort> { JvmNotificationSettingsPort() }
 
         // ─── Schedulers ─────────────────────────────────────────────────────────
         // NoopCalendarSyncRepository / NoopCalendarProvider are JVM-ready production

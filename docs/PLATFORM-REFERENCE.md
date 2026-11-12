@@ -54,6 +54,7 @@ port. The authority on which binding is which is the seam registry
 | `Haptic` | `createHaptic` | `AndroidHaptic` | checked |
 | `HostEnvironmentPort` | `JvmHostEnvironment` | `AndroidHostEnvironment` | checked |
 | `Notifier` | `JvmNotifier` | `AndroidNotifier` | checked |
+| `NotificationSettingsPort` | `JvmNotificationSettingsPort` | `AndroidNotificationSettingsPort` | checked |
 | `OAuthBrowser` | `JvmOAuthBrowser` | - | checked |
 | `OAuthRedirectSocket` | `JvmOAuthRedirectSocket` | - | checked |
 | `PomodoroScheduler` | - | `PomodoroAlarmScheduler` | checked |
