@@ -88,11 +88,14 @@ belongs there rather than in each flow.
 ## Consequences
 
 - The agenda flows can drive the agenda on a device that has never seen the
-  tour. Measured on a realme RMX3938 (720x1600, API 35) on 2026-11-12: all ten
-  agenda flows pass. Two of them still failed after the dismissal — the rename
-  flow's caret and the date picker's day cell — but they failed on their own
-  assertions, which is the point: the dismissal is what made them diagnosable
-  at all instead of every flow dying on the scrim.
+  tour. Measured on a realme RMX3938 (720x1600, API 35) on 2026-11-12: the
+  dismissal works — the flows reach the agenda instead of dying on the scrim.
+  Two of them still failed after the dismissal, on their own assertions: the
+  rename flow's caret and the date picker's day cell. Both were fixed in the
+  same change (the caret past the pre-filled name, and the app's own "Today"
+  chip instead of the cell's description), and the whole suite — eleven flows
+  by then — passes on the phone. The dismissal is what made those two failures
+  diagnosable at all.
 - The tour is no longer covered incidentally by the Android flows. It is
   covered by `SpotlightTourTest` and the spotlight unit tests, which bring
   their own onboarding record — the same arrangement the desktop side settled
