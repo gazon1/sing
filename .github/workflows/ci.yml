@@ -66,7 +66,9 @@ env:
   # be measured against itself, the diff would be empty, and the run would be
   # green because it measured nothing. A base that names nothing is no base,
   # and a gate that cannot measure fails rather than reporting that the
-  # measurement was clean.  #
+  # measurement was clean. A repository's first commit is bootstrapped by the
+  # procedure the ADR spells out, never by a fallback to the trunk.
+  #
   # The gates read it through `SGATE_BASE_REF` (ADR
   # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
   # and a named base is exclusive: the gates never fall back to another

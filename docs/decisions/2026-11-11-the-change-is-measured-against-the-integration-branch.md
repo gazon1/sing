@@ -213,6 +213,76 @@ lives in the resolver (`is_null_commit()`), not only in the ratchet: git accepts
 the null id as a *name* and only fails when it is asked to peel it, so the
 intent must not depend on how git was invoked.
 
+**A repository's first commit has no baseline, and the bootstrap is a procedure.**
+The first push to a branch fails the ratchet by design. That is correct — there
+is no state the branch replaced, so there is no growth to measure — but a
+repository's first commit is a lifecycle event, not a regression, and a
+lifecycle event needs a procedure rather than a surprise. There are three
+answers, and only the third one is forbidden:
+
+1. **Push the first commit while nothing measures pushes yet.** The workflow
+   names the state a push replaced; a push that replaced nothing has nothing
+   to name. The first commit therefore has to arrive either before the
+   protected workflow runs, or with the ratchet gate disabled for that one
+   run.
+2. **Or let the second push be the first measured one.** Any later push names
+   the commit it replaced, and that commit is a real baseline. The first push's
+   failure is the price of a repository that had no previous state; the second
+   push establishes the baseline and is measured against it. When there is
+   nothing to push yet, an empty commit (`git commit --allow-empty`) is enough.
+3. **Never: fall back to `origin/main`.** After the first push `origin/main`
+   **is** the pushed commit, so the fallback measures the commit against
+   itself: an empty diff, no work selected, and a green run that measured
+   nothing. The null commit is the payload's own answer to "the ref did not
+   exist before this push", and it is the only answer that does not pretend.
+
+**A base that is the change itself.** The chain steps over a candidate that
+points at `HEAD` and takes the next one — a push to `dev` is measured against
+`origin/main`. When **every** candidate that resolves points at `HEAD`, there
+is nothing else to measure against, and two situations look alike but are not:
+
+- **the trunk is at the change itself** — the work is already in the trunk, so
+  measuring the change against it finds nothing, and that "nothing" is a true
+  statement about the repository rather than a missing measurement. The trunk
+  is the answer;
+- **only the branch the push went to is at the change itself** — the trunk is
+  not in this checkout, and the state the push replaced is nowhere to be
+  found. There is no baseline here at all.
+
+The first is a base and the second is no base, and the difference is not
+cosmetic: an empty measurement is reported as "nothing to measure" and the run
+is green, so answering the second situation with the pushed branch would
+report an empty change for work that was **never measured** — a green run for
+a push that grew the baseline. So the fallback answers with the trunk and only
+with the trunk (`TRUNK_CANDIDATES`), and with nothing at all when the trunk is
+not there: a tool with no base says so, and a tool that must measure against
+something measures against everything.
+
+In CI this fallback decides nothing, because the workflow always names the
+base — the caller knows what it wants measured. The fallback is the local
+chain's answer, and it is the chain's answer only when the chain cannot
+pretend otherwise. The ratchet's label says the same thing: a base whose
+merge-base is `HEAD` is reported as *the base already holds the change*, not
+as "HEAD carries no commits of its own" — which was false whenever the base
+**was** the change.
+
+**The integration branch gets a real run before the topology changes.**
+`dev` does not exist yet, so the most important operational scenario — a push
+to `dev`, `origin/dev` on the pushed commit, the resolver stepping over it,
+`origin/main` becoming the base, the gates measuring the push's growth — is
+covered by sandboxes and not by a real run. That gap is closed by a
+requirement, not by another fixture:
+
+> When `dev` is created, its first push must be a real GitHub Actions run that
+> shows all of it: `origin/dev` on the pushed commit, the base the workflow
+> names is `origin/main`, the ratchet measures the push against the trunk
+> rather than against itself, and the affected gates select the modules the
+> push touches.
+
+Until that run exists, the scenario is **not** verified. Saying so here is
+the point: a sandbox that answers the question is not the same fact as a run
+that does.
+
 Every job still reads the same name: the name is set once, and the event
 decides what it says.
 
@@ -290,7 +360,8 @@ not exist — a green answer to a question nobody asked.
 - A push that **created** the branch has no previous state to measure against,
   and its run therefore fails the ratchet rather than passing vacuously. The
   first push to a new branch is not measurable, and the gate says so instead of
-  naming the pushed commit as its own baseline.
+  naming the pushed commit as its own baseline. A repository's first commit is
+  bootstrapped by the procedure above — not by a fallback to the trunk.
 - A base that is the change itself is a base **only** when it is the trunk: the
   work is already in the trunk, and the measurement is empty by truth. When the
   only candidate is the branch the push went to, there is no base, and the
