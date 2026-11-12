@@ -179,6 +179,26 @@ class AppReadinessTest(unittest.TestCase):
         ), unittest.mock.patch.object(self.mod.time, "sleep"):
             self.assertFalse(self.mod.wait_for_app_ready("serial", timeout=1))
 
+    def test_the_app_is_started_before_the_wait(self):
+        """The check asks whether the app is up; the app has to be started."""
+        calls: list[list[str]] = []
+
+        def fake(args, **kwargs):
+            calls.append(args)
+            if "dumpsys" in args:
+                return self._completed(API_35_DUMP)
+            return self._completed()
+
+        with unittest.mock.patch.object(self.mod, "try_run", side_effect=fake):
+            self.assertTrue(self.mod.ensure_app_ready("serial", timeout=5))
+
+        started = [c for c in calls if "am" in c and "start" in c]
+        self.assertTrue(started, calls)
+        self.assertLess(
+            calls.index(started[0]),
+            next(i for i, c in enumerate(calls) if "dumpsys" in c),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
