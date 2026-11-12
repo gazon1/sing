@@ -132,6 +132,9 @@ network; the tests drive the GitHub access with a fake `gh` runner.
   endpoint answers with the pull requests associated with the commit, and the merged
   one is the one that matters.
 - The helper needs the `gh` CLI on the runner. It is part of the runner image.
+- A cross-repository keyword (`KEYWORD owner/repo#123`) closes nothing here. The
+  job holds no permission on another repository, so the comment is one it cannot
+  place; the issue in this repository is not closed by it either.
 - The comment body is written in English and names the population; it is a link, not
   a report.
 

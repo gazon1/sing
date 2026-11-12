@@ -16,10 +16,9 @@ What it does, in order:
   comment carries a marker, and the marker is what finds it again.
 
 The workflow runs the helper for a push only. A scheduled run publishes the
-`full` population without a pull request behind it, and the commit it
-publishes is the tip of the default branch — the pull request that merged it
-is long closed, and its marker comment would be taken over by a run that has
-nothing to do with it.
+`full` population from the tip of the default branch — the pull request that
+merged that commit is long closed, and its marker comment would be taken over
+by a run that has nothing to do with it.
 
 The comment is a convenience, not a gate: the workflow runs it with
 `continue-on-error`, because a report that was published must not be

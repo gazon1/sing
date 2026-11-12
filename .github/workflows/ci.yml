@@ -1914,7 +1914,7 @@ jobs:
             echo "- gh-pages after the drop: ${after}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Measure history tree (before, advisory)
+      - name: Measure history tree (advisory)
         if: ${{ always() }}
         run: |
           python3 scripts/ci/allure_pages.py measure --path gh-pages || true
@@ -2111,11 +2111,10 @@ jobs:
       # A comment that does not post must not un-publish the report, so the
       # step may fail without failing the job.
       #
-      # A push only: a scheduled run publishes the `full` population without
-      # a pull request behind it, and the commit it publishes is the tip of
-      # the default branch. The pull request that merged that commit is long
-      # closed, and its marker comment would be taken over by a run that has
-      # nothing to do with it.
+      # A push only: a scheduled run publishes the tip of the default
+      # branch. The pull request that merged that commit is long closed, and
+      # its marker comment would be taken over by a run that has nothing to
+      # do with it.
       - name: Link the report on the merged PR and on the issues it closes
         if: steps.decide.outputs.action == 'publish' && github.event_name == 'push'
         continue-on-error: true
