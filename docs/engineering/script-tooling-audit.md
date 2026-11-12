@@ -57,8 +57,8 @@ Two heaviest gates carry **57 % of all gate time**: `declared dependencies are u
 (the `sgate` figure includes its 24 command modules).
 
 Entry points installed by `scripts/src/pyproject.toml`: `sgate`, `ensure-emulator`,
-`run-maestro`. All five runtime dependencies (`click`, `loguru`, `rich`, `pyyaml`,
-`pydantic`) are in use.
+`run-maestro`. All six runtime dependencies (`click`, `loguru`, `rich`, `pyyaml`,
+`pydantic`, `GitPython`) are in use.
 
 ### The 38 gate-shaped scripts
 

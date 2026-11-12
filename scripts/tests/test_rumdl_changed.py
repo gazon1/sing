@@ -40,23 +40,16 @@ def _init_repo(td):
 
 
 class GitChangedTest(unittest.TestCase):
-    def test_staged_only_uses_cached(self):
-        calls = []
-
-        def fake_git(*args, cwd=None, check=False):
-            calls.append(args)
-            return 0, "a.md\0b.md\0", ""
-
+    def test_staged_only_reads_the_index_and_not_the_working_tree(self):
         with tempfile.TemporaryDirectory() as td:
-            root = pathlib.Path(td)
-            (root / "a.md").write_text("x")
-            (root / "b.md").write_text("x")
-            with mock.patch.object(git_changed, "_git", side_effect=fake_git):
-                out = git_changed.changed_paths(
-                    "origin/main", pathspec=("*.md",), staged_only=True, root=root, cwd=root
-                )
-        self.assertIn("--cached", calls[0])
-        self.assertEqual(out, ["a.md", "b.md"])
+            root = _init_repo(td)
+            (root / "staged.md").write_text("x")
+            _git(root, "add", "staged.md")
+            (root / "untracked.md").write_text("u")
+            out = git_changed.changed_paths(
+                "origin/main", pathspec=("*.md",), staged_only=True, root=root, cwd=root
+            )
+        self.assertEqual(out, ["staged.md"])
 
     def test_branchwide_uses_merge_base_and_untracked(self):
         with tempfile.TemporaryDirectory() as td:
@@ -70,23 +63,38 @@ class GitChangedTest(unittest.TestCase):
             out = git_changed.changed_paths(base, pathspec=("*.md",), root=root, cwd=root)
         self.assertEqual(sorted(out), ["a.md", "b.md"])
 
-    def test_dedupes_and_filters_missing(self):
+    def test_a_path_that_is_no_longer_on_disk_is_filtered_out(self):
         with tempfile.TemporaryDirectory() as td:
-            root = pathlib.Path(td)
+            root = _init_repo(td)
             (root / "a.md").write_text("x")
+            _git(root, "add", "a.md")
+            (root / "a.md").unlink()  # staged, but the file is gone from the tree
+            out = git_changed.changed_paths(
+                "origin/main", staged_only=True, root=root, cwd=root
+            )
+        self.assertEqual(out, [])
 
-            def fake_git(*args, cwd=None):
-                if args[0] == "merge-base":
-                    return 0, "base\n", ""
-                if args[0] == "diff":
-                    return 0, "a.md\0missing.md\0a.md\0", ""
-                if args[0] == "ls-files":
-                    return 0, "a.md\0", ""
-                return 1, "", ""
+    def test_a_rename_is_reported_under_its_new_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = _init_repo(td)
+            (root / "old.md").write_text("x")
+            _git(root, "add", "old.md")
+            _git(root, "commit", "-m", "add", "-q")
+            base = _git(root, "rev-parse", "HEAD").stdout.strip()
+            _git(root, "mv", "old.md", "new.md")
+            out = git_changed.changed_paths(base, pathspec=("*.md",), root=root, cwd=root)
+        self.assertEqual(out, ["new.md"])
 
-            with mock.patch.object(git_changed, "_git", side_effect=fake_git):
-                out = git_changed.changed_paths("origin/main", root=root, cwd=root)
-        self.assertEqual(out, ["a.md"])
+    def test_a_deleted_file_is_not_a_change_to_lint(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = _init_repo(td)
+            (root / "gone.md").write_text("x")
+            _git(root, "add", "gone.md")
+            _git(root, "commit", "-m", "add", "-q")
+            base = _git(root, "rev-parse", "HEAD").stdout.strip()
+            (root / "gone.md").unlink()
+            out = git_changed.changed_paths(base, pathspec=("*.md",), root=root, cwd=root)
+        self.assertEqual(out, [])
 
     def test_unavailable_base_fails_by_default(self):
         with tempfile.TemporaryDirectory() as td:

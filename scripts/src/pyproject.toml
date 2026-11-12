@@ -13,6 +13,9 @@ dependencies = [
     "rich>=13.0",
     "pyyaml>=6.0",
     "pydantic>=2.0",
+    # The git operations of the gate tooling (the merge base, the diffs, the
+    # untracked files) are GitPython's, not a hand-written `git` wrapper.
+    "GitPython==3.1.44",
 ]
 
 [project.scripts]

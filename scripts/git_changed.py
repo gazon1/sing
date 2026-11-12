@@ -2,17 +2,29 @@
 """Shared helpers for "files this change touches" (lint-changed, compile-changed).
 
 Branch-wide (default): compare merge-base(<base>, HEAD) to the working tree
-(tracked staged+unstaged) via ``git diff <merge-base> --``, plus untracked files.
-Staged-only: ``git diff --cached``. Paths are NUL-delimited; output is deduped
-and filtered to existing files.
+(tracked staged+unstaged), plus untracked files. Staged-only: the index against
+HEAD. The git work is GitPython's; the paths are deduped and filtered to
+existing files.
+
+The paths are relative to the repository root, and the repository is the one
+this directory belongs to — not the one a hook exports through `GIT_DIR`.
 """
 
 from __future__ import annotations
 
 import pathlib
-import subprocess
 import sys
-from typing import Sequence
+from typing import Iterable, Sequence
+
+from git import (
+    INDEX,
+    Commit,
+    GitCommandError,
+    InvalidGitRepositoryError,
+    NoSuchPathError,
+    Repo,
+)
+from git.diff import Diff
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -20,42 +32,66 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SRC = ROOT / "scripts" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
-from sgate.gatekit.gitenv import tree_env  # noqa: E402
+from sgate.gatekit.gitenv import own_tree_env  # noqa: E402
+
+#: The change types `git diff --diff-filter=ACMR` keeps: added, copied,
+#: modified and renamed. A deletion is not a file to lint.
+KEPT_CHANGE_TYPES = frozenset({"A", "C", "M", "R"})
 
 
-def _git(*args: str, cwd: pathlib.Path, check: bool = False) -> tuple[int, str, str]:
-    p = subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        env=tree_env(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if check and p.returncode != 0:
-        raise subprocess.CalledProcessError(p.returncode, ["git", *args], p.stdout, p.stderr)
-    return p.returncode, p.stdout, p.stderr
+def _open_repo(cwd: pathlib.Path) -> Repo:
+    """The repository this directory belongs to."""
+    try:
+        return Repo(cwd, search_parent_directories=True)
+    except (InvalidGitRepositoryError, NoSuchPathError) as exc:
+        raise RuntimeError(f"changed-files: {cwd} is not inside a git repository: {exc}") from exc
 
 
-def _zsplit(stdout: str) -> list[str]:
-    return [x for x in stdout.split("\0") if x]
+def _head_commit(repo: Repo) -> Commit:
+    """The commit HEAD points at."""
+    try:
+        return repo.head.commit
+    except ValueError as exc:  # an empty repository has no commit
+        raise RuntimeError(f"changed-files: the repository has no commits yet: {exc}") from exc
 
 
-def _merge_base(base: str, cwd: pathlib.Path) -> str:
-    code, out, err = _git("merge-base", base, "HEAD", cwd=cwd)
-    if code != 0:
-        detail = (err or out).strip()
+def _detail(exc: GitCommandError) -> str:
+    """What git said, without GitPython's wrapper around it.
+
+    GitPython puts the reason into `stderr` for the commands it runs through
+    its own plumbing, and leaves it empty for the ones that go through the
+    raw diff machinery. An empty reason is no reason: the exit code is what
+    is left, and it goes into the message instead of a blank.
+    """
+    text = exc.stderr or exc.stdout or ""
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", errors="replace")
+    _, _, tail = text.strip().rpartition("stderr:")
+    detail = (tail or text).strip().strip("'")
+    return detail or f"git exited with code {exc.status}"
+
+
+def _merge_base(repo: Repo, base: str) -> str:
+    """The commit the base branch and HEAD share."""
+    try:
+        bases = repo.merge_base(base, "HEAD")
+    except GitCommandError as exc:
+        detail = _detail(exc)
         msg = f"changed-files: cannot resolve merge-base for '{base}'"
         if detail:
             msg += f": {detail}"
         msg += " (fetch the base, or pass --base)"
+        raise RuntimeError(msg) from exc
+    if not bases:
+        msg = f"changed-files: cannot resolve merge-base for '{base}'"
+        msg += " (fetch the base, or pass --base)"
         raise RuntimeError(msg)
-    return out.strip()
+    return bases[0].hexsha
 
 
-def _resolve_base(base: str, cwd: pathlib.Path, require_base: bool) -> str | None:
+def _resolve_base(repo: Repo, base: str, require_base: bool) -> str | None:
     try:
-        return _merge_base(base, cwd)
+        return _merge_base(repo, base)
     except RuntimeError as exc:
         if require_base:
             raise
@@ -65,6 +101,31 @@ def _resolve_base(base: str, cwd: pathlib.Path, require_base: bool) -> str | Non
             file=sys.stderr,
         )
         return None
+
+
+def _diff(commit: Commit, other, pathspec: Sequence[str], what: str) -> Iterable[Diff]:
+    """The diff between a commit and *other* (the index, or the working tree)."""
+    try:
+        return commit.diff(other, paths=list(pathspec) or None)
+    except GitCommandError as exc:
+        raise RuntimeError(f"changed-files: git diff failed for {what}: {_detail(exc)}") from exc
+
+
+def _paths_of(diff: Iterable[Diff]) -> list[str]:
+    """The paths a diff touches, keeping the change types ACMR keeps."""
+    return [
+        entry.b_path
+        for entry in diff
+        if entry.change_type in KEPT_CHANGE_TYPES and entry.b_path
+    ]
+
+
+def _untracked_paths(repo: Repo, pathspec: Sequence[str]) -> list[str]:
+    """The files git does not track yet."""
+    if not pathspec:
+        return list(repo.untracked_files)
+    raw = repo.git.ls_files("--others", "--exclude-standard", "-z", "--", *pathspec)
+    return [part for part in raw.split("\0") if part]
 
 
 def changed_paths(
@@ -78,40 +139,34 @@ def changed_paths(
 ) -> list[str]:
     """Paths this change touches, deduped, existing.
 
-    *staged_only* — staged (cached) files only.
-    *pathspec* — git pathspecs appended after ``--`` (e.g. ``("*.md",)``).
+    *staged_only* — staged (index against HEAD) files only.
+    *pathspec* — git pathspecs, e.g. ``("*.md",)``.
     *require_base* — when True (default), an unresolvable merge-base is an error;
       when False, explicitly falls back to working-tree-only scope.
 
-    Branch-wide uses ``git merge-base`` + ``git diff <merge-base>`` (working tree vs
-    merge-base, covering staged+unstaged tracked changes) plus untracked files.
+    Branch-wide uses ``git merge-base`` + the diff between that commit and the
+    working tree (covering staged+unstaged tracked changes) plus untracked files.
     """
     root = pathlib.Path(root) if root is not None else (pathlib.Path(cwd) if cwd is not None else ROOT)
     cwd = pathlib.Path(cwd) if cwd is not None else root
-    ps = ("--", *pathspec) if pathspec else ()
+    paths = list(pathspec)
 
     files: list[str] = []
-    if staged_only:
-        code, out, _ = _git("diff", "--name-only", "--diff-filter=ACMR", "-z", "--cached", *ps, cwd=cwd)
-        if code == 0:
-            files.extend(_zsplit(out))
-    else:
-        merge_base = _resolve_base(base, cwd, require_base)
-        if merge_base is None:
-            code, out, _ = _git("diff", "--name-only", "--diff-filter=ACMR", "-z", "HEAD", *ps, cwd=cwd)
-            if code == 0:
-                files.extend(_zsplit(out))
+    with own_tree_env():
+        repo = _open_repo(cwd)
+        if staged_only:
+            commit = _head_commit(repo)
+            files.extend(_paths_of(_diff(commit, INDEX, paths, "the staged changes")))
         else:
-            code, out, err = _git(
-                "diff", "--name-only", "--diff-filter=ACMR", "-z", merge_base, *ps, cwd=cwd
-            )
-            if code != 0:
-                detail = (err or out).strip()
-                raise RuntimeError(f"changed-files: git diff failed for merge-base {merge_base}: {detail}")
-            files.extend(_zsplit(out))
-        code, out, _ = _git("ls-files", "--others", "--exclude-standard", "-z", *ps, cwd=cwd)
-        if code == 0:
-            files.extend(_zsplit(out))
+            merge_base = _resolve_base(repo, base, require_base)
+            if merge_base is None:
+                commit = _head_commit(repo)
+                what = "HEAD"
+            else:
+                commit = repo.commit(merge_base)
+                what = f"merge-base {merge_base}"
+            files.extend(_paths_of(_diff(commit, None, paths, what)))
+            files.extend(_untracked_paths(repo, paths))
 
     seen: set[str] = set()
     out_files: list[str] = []
@@ -122,3 +177,6 @@ def changed_paths(
         if (root / rel).is_file():
             out_files.append(rel)
     return out_files
+
+
+__all__ = ["KEPT_CHANGE_TYPES", "changed_paths"]
