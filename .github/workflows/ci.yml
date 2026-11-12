@@ -1917,6 +1917,30 @@ jobs:
           allure_results: build/allure-results-merged
           subfolder: ${{ env.TEST_POPULATION }}
           report_name: Allure report (${{ env.TEST_POPULATION }})
+          # The action prunes the population namespace itself once it holds
+          # more than keep_reports+1 entries, and it prunes the non-numeric
+          # entries first: the manifest, the population index and last-history
+          # go before any report does. The helper owns retention, so the
+          # action must not prune.
+          #
+          # The threshold counts entries, not reports: the report folders, the
+          # manifest, the population index and last-history, and any folder
+          # the manifest does not name — which the helper deliberately leaves
+          # alone. The helper keeps 20 publications, so the namespace holds
+          # about 23 entries, and no number of publications reaches the
+          # threshold below. Anything in the same ballpark as the helper's
+          # window would be a second owner of that window, one number away
+          # from deleting the manifest.
+          keep_reports: 100000
+
+      - name: Restore runner ownership of the generated tree
+        # The action is a Docker action: it runs as root and leaves
+        # everything it creates under allure-history/ and gh-pages/ owned by
+        # root. The helper runs as the runner user and cannot write there,
+        # which is why every publish run died with a PermissionError on the
+        # population index.
+        if: steps.decide.outputs.action == 'publish'
+        run: sudo chown -R "$(id -u):$(id -g)" allure-history gh-pages
 
       - name: Record build duration
         if: steps.decide.outputs.action == 'publish'
@@ -1924,13 +1948,6 @@ jobs:
         env:
           T0: ${{ steps.build-start.outputs.ts }}
         run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
-
-      # `simple-elf/allure-report-action` is a Docker action, so it writes
-      # `allure-history/` as root. Every later step runs as the runner user and
-      # the first write into that tree would fail with EACCES.
-      - name: Take ownership of the report tree
-        if: steps.decide.outputs.action == 'publish'
-        run: sudo chown -R "$(id -u):$(id -g)" allure-history
 
       # The report action copies `gh-pages` into `allure-history` and then
       # prunes that copy. Restore the manifest from the tree `decide` read so
