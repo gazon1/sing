@@ -136,9 +136,12 @@ class FailingGitCommandTest(unittest.TestCase):
                 git_changed.changed_paths(base, root=root, cwd=root)
         message = str(caught.exception)
         self.assertIn("git diff failed", message)
-        # The reason git gave is empty for this command, so the exit code is
-        # what is left — and a red run has to carry one of the two.
-        self.assertIn("128", message)
+        # A red run has to carry a reason: the one git gave, or — when git
+        # gave none — the exit code it left behind.
+        self.assertTrue(
+            "128" in message or "index" in message,
+            f"the failure carries no reason: {message}",
+        )
 
 
 class DirtyWorkingTreeTest(unittest.TestCase):

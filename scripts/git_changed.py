@@ -58,10 +58,10 @@ def _head_commit(repo: Repo) -> Commit:
 def _detail(exc: GitCommandError) -> str:
     """What git said, without GitPython's wrapper around it.
 
-    GitPython puts the reason into `stderr` for the commands it runs through
-    its own plumbing, and leaves it empty for the ones that go through the
-    raw diff machinery. An empty reason is no reason: the exit code is what
-    is left, and it goes into the message instead of a blank.
+    GitPython puts the reason into `stderr`, and the raw diff machinery is
+    no longer the exception it used to be. An empty reason is no reason:
+    the exit code is what is left, and it goes into the message instead of
+    a blank.
     """
     text = exc.stderr or exc.stdout or ""
     if isinstance(text, bytes):

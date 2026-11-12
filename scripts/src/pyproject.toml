@@ -15,7 +15,7 @@ dependencies = [
     "pydantic>=2.0",
     # The git operations of the gate tooling (the merge base, the diffs, the
     # untracked files) are GitPython's, not a hand-written `git` wrapper.
-    "GitPython==3.1.44",
+    "GitPython==3.2.1",
 ]
 
 [project.scripts]

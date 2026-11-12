@@ -74,7 +74,7 @@ reads `git worktree list --porcelain`, whose format GitPython does not expose.
 The remaining scripts run one git command each, for their own purpose, and
 their behaviour is not changed.
 
-**GitPython is a dependency of the project, pinned.** `GitPython==3.1.44` is
+**GitPython is a dependency of the project, pinned.** `GitPython==3.2.1` is
 declared in the existing manifest, `scripts/src/pyproject.toml`, next to the
 other runtime dependencies of the scripts. The CI jobs that run the scripts
 install the manifest through `.github/actions/setup-python-tools`, so the
