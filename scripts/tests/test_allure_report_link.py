@@ -66,6 +66,16 @@ class ClosingKeywordTest(unittest.TestCase):
     def test_a_keyword_in_an_inline_code_span_closes_nothing(self):
         self.assertEqual(arl.parse_closing_issues("`Closes #10`"), [])
 
+    def test_a_keyword_in_a_double_backtick_span_closes_nothing(self):
+        self.assertEqual(arl.parse_closing_issues("``Closes #10``"), [])
+
+    def test_a_keyword_on_another_line_closes_nothing(self):
+        # GitHub reads a keyword and its number on one line.
+        self.assertEqual(arl.parse_closing_issues("Closes\n#10"), [])
+
+    def test_the_number_zero_names_no_issue(self):
+        self.assertEqual(arl.parse_closing_issues("Closes #0"), [])
+
     def test_a_quoted_keyword_closes_nothing(self):
         self.assertEqual(arl.parse_closing_issues("> Closes #10"), [])
 

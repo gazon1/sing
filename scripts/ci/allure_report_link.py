@@ -54,7 +54,7 @@ MARKER = "<!-- allure-report-link -->"
 #: keyword that names it: `Closes #1, #2` closes both — the merge of
 #: gazon1/sing#275 closed all four issues its body named that way.
 CLOSING_KEYWORDS = re.compile(
-    r"\b(?:clos(?:e[sd]?)|fix(?:e[sd]?)|resolv(?:e[sd]?))\b\s*:?\s*#\d+(?:\s*,\s*#\d+)*",
+    r"\b(?:clos(?:e[sd]?)|fix(?:e[sd]?)|resolv(?:e[sd]?))\b[ \t]*:?[ \t]*#\d+(?:[ \t]*,[ \t]*#\d+)*",
     re.IGNORECASE,
 )
 
@@ -64,8 +64,9 @@ CODE_FENCE = re.compile(r"^\s*(?:```|~~~)")
 #: A quoted line: the text somebody else wrote, quoted back.
 QUOTE = re.compile(r"^\s*>")
 
-#: An inline code span.
-CODE_SPAN = re.compile(r"`[^`\n]*`")
+#: An inline code span — the double-backtick form first, so a span that holds
+#: a backtick of its own is not cut in half.
+CODE_SPAN = re.compile(r"``[^`]*``|`[^`\n]*`")
 
 #: The runner that talks to GitHub: a list of `gh api` arguments, and the
 #: response body. The tests replace it with a fake.
@@ -107,12 +108,16 @@ def parse_closing_issues(body: str) -> list[int]:
     other number is prose. A keyword may close a list — `Closes #1, #2` — and
     the list belongs to that keyword alone. The colon is GitHub's own form:
     `Closes: #10` closes the issue just like `Closes #10` does.
+
+    A keyword closes what is on its own line: `Closes` at the end of a line
+    and `#10` at the start of the next one are two statements, not one.
     """
     numbers: list[int] = []
     for match in CLOSING_KEYWORDS.finditer(prose(body)):
         for number in re.findall(r"#(\d+)", match.group(0)):
             value = int(number)
-            if value not in numbers:
+            # Issue numbers start at one; `#0` names nothing.
+            if value > 0 and value not in numbers:
                 numbers.append(value)
     return sorted(numbers)
 
