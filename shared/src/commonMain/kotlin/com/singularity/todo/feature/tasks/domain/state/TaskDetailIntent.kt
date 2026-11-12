@@ -70,7 +70,20 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskDraftIntent
 
-        data object ToggleSomeday : Domain, TaskEntityIntent
+        data object ToggleSomeday : Domain, TaskSchedulingIntent
+
+        /**
+         * Puts the task into the `someday` bucket, or takes it out of it.
+         *
+         * The explicit form of [ToggleSomeday]: the screen knows whether the task is
+         * deferred, and a toggle applied to a stale state flips the wrong way.
+         *
+         * `someday` and the due date are exclusive — `someday` means *no date* — so
+         * the slot clears the date when the task is deferred.
+         */
+        data class SetSomeday(val deferred: Boolean) :
+            Domain,
+            TaskSchedulingIntent
 
         data class SetKind(val kind: TaskKind) :
             Domain,
@@ -80,19 +93,31 @@ sealed interface TaskDetailIntent : MviIntent {
 
         data class SetDueDate(val date: LocalDate?) :
             Domain,
-            TaskEntityIntent
+            TaskSchedulingIntent
 
         data class SetDueTime(val time: LocalTime?) :
             Domain,
-            TaskEntityIntent
+            TaskSchedulingIntent
+
+        /**
+         * The deadline — the bound by which the work has to be done.
+         *
+         * Written to `Task.endDate`, the field the domain already has for the end of
+         * the work's window. The reminder and the deadline are independent facts:
+         * clearing the due date leaves the deadline alone, and clearing the deadline
+         * leaves the reminder alone.
+         */
+        data class SetDeadline(val date: LocalDate?) :
+            Domain,
+            TaskSchedulingIntent
 
         data class SetStartDate(val date: LocalDate?) :
             Domain,
-            TaskEntityIntent
+            TaskSchedulingIntent
 
         data class SetStartTime(val time: LocalTime?) :
             Domain,
-            TaskEntityIntent
+            TaskSchedulingIntent
 
         data class SetPriority(val priority: TaskPriority) :
             Domain,

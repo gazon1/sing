@@ -13,6 +13,8 @@ import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -225,6 +227,181 @@ class TaskEntitySlotTest {
             assertNull(
                 fakes.taskRepo.tasks.value["t1"]
                     ?.dueDate,
+            )
+        }
+
+    // ─── The planning facts: date, time, deadline, someday ──────────────────
+    //
+    // The scheduling surface keeps these four apart, and the rules about which
+    // of them a change touches are the ones the ADR states. They are the rules
+    // a user cannot see, so they are the rules worth a test.
+
+    @Test
+    fun `clearing the due date clears the time with it and keeps the deadline`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(
+                task("t1").copy(
+                    dueDate = LocalDate(2026, 9, 27),
+                    dueTime = LocalTime(14, 30),
+                    endDate = LocalDate(2026, 9, 30),
+                ),
+            )
+            val source =
+                TaskSource(
+                    task("t1").copy(
+                        dueDate = LocalDate(2026, 9, 27),
+                        dueTime = LocalTime(14, 30),
+                        endDate = LocalDate(2026, 9, 30),
+                    ),
+                )
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
+            runCurrent()
+
+            val written = fakes.taskRepo.tasks.value["t1"]
+            assertNull(written?.dueDate, "the date must be gone")
+            assertNull(
+                written?.dueTime,
+                "a time without a date is not a moment — it goes with the date",
+            )
+            assertEquals(
+                LocalDate(2026, 9, 30),
+                written?.endDate,
+                "the deadline is a bound of its own — clearing the date must not erase it",
+            )
+        }
+
+    @Test
+    fun `setting a date takes the task out of the someday bucket`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1").copy(someday = true))
+            val source = TaskSource(task("t1").copy(someday = true))
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetDueDate(LocalDate(2026, 9, 27)))
+            runCurrent()
+
+            assertEquals(
+                false,
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.someday,
+                "a dated task is not a deferred one",
+            )
+        }
+
+    @Test
+    fun `the someday preset clears the date and the time and keeps the deadline`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(
+                task("t1").copy(
+                    dueDate = LocalDate(2026, 9, 27),
+                    dueTime = LocalTime(14, 30),
+                    endDate = LocalDate(2026, 9, 30),
+                ),
+            )
+            val source =
+                TaskSource(
+                    task("t1").copy(
+                        dueDate = LocalDate(2026, 9, 27),
+                        dueTime = LocalTime(14, 30),
+                        endDate = LocalDate(2026, 9, 30),
+                    ),
+                )
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetSomeday(true))
+            runCurrent()
+
+            val written = fakes.taskRepo.tasks.value["t1"]
+            assertEquals(true, written?.someday)
+            assertNull(written?.dueDate, "`someday` means no date")
+            assertNull(written?.dueTime)
+            assertEquals(
+                LocalDate(2026, 9, 30),
+                written?.endDate,
+                "the deadline is not the date — it stays",
+            )
+        }
+
+    @Test
+    fun `the deadline is written on its own field`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val source = TaskSource(task("t1"))
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetDeadline(LocalDate(2026, 9, 30)))
+            runCurrent()
+
+            assertEquals(
+                LocalDate(2026, 9, 30),
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.endDate,
+            )
+        }
+
+    @Test
+    fun `clearing the deadline leaves the due date alone`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1").copy(dueDate = LocalDate(2026, 9, 27)))
+            val source = TaskSource(task("t1").copy(dueDate = LocalDate(2026, 9, 27)))
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetDeadline(null))
+            runCurrent()
+
+            val written = fakes.taskRepo.tasks.value["t1"]
+            assertNull(written?.endDate)
+            assertEquals(
+                LocalDate(2026, 9, 27),
+                written?.dueDate,
+                "the deadline and the due date are facts of their own",
             )
         }
 

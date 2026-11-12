@@ -12,6 +12,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEntityIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskSchedulingIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskTagIntent
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -109,20 +110,12 @@ class TaskEntitySlot(
             taskFlow.value
                 ?: return
         when (intent) {
-            is TaskDetailIntent.Domain.SetDueDate -> {
-                mutate(task, intent) { copy(dueDate = intent.date) }
+            is TaskSchedulingIntent -> {
+                handleSchedulingIntent(task, intent)
             }
 
-            is TaskDetailIntent.Domain.SetDueTime -> {
-                mutate(task, intent) { copy(dueTime = intent.time) }
-            }
-
-            is TaskDetailIntent.Domain.SetStartDate -> {
-                mutate(task, intent) { copy(startDate = intent.date) }
-            }
-
-            is TaskDetailIntent.Domain.SetStartTime -> {
-                mutate(task, intent) { copy(startTime = intent.time) }
+            is TaskTagIntent -> {
+                handleTagIntent(task, intent)
             }
 
             is TaskDetailIntent.Domain.SetPriority -> {
@@ -137,29 +130,12 @@ class TaskEntitySlot(
                 mutate(task, intent) { copy(projectId = intent.projectId) }
             }
 
-            is TaskDetailIntent.Domain.SetTags,
-            is TaskDetailIntent.Domain.RemoveTag,
-            is TaskDetailIntent.Domain.RestoreTag,
-            -> {
-                handleTagIntent(task, intent)
-            }
-
             is TaskDetailIntent.Domain.SetKind -> {
                 mutate(
                     task,
                     intent,
                     "Failed to set kind",
                 ) { copy(kind = intent.kind) }
-            }
-
-            // `data object` branches are equality checks, not type checks, so the
-            // smart cast does not happen: the object is named explicitly.
-            TaskDetailIntent.Domain.ToggleSomeday -> {
-                mutate(
-                    task,
-                    TaskDetailIntent.Domain.ToggleSomeday,
-                    "Failed to set someday",
-                ) { copy(someday = !someday) }
             }
 
             TaskDetailIntent.Domain.TogglePinned -> {
@@ -195,6 +171,77 @@ class TaskEntitySlot(
 
             TaskDetailIntent.Domain.DetachFromSeries -> {
                 detachFromSeries(task)
+            }
+        }
+    }
+
+    /**
+     * Handles the intents that write *when* the work happens.
+     *
+     * They live together because they are one decision — when this task is due —
+     * and because two of them are exclusive: `someday` means *no date*, so a
+     * deferred task carries neither a due date nor a due time.
+     */
+    private fun handleSchedulingIntent(
+        task: Task,
+        intent: TaskSchedulingIntent,
+    ) {
+        when (intent) {
+            is TaskDetailIntent.Domain.SetDueDate -> {
+                mutate(task, intent) {
+                    copy(
+                        dueDate = intent.date,
+                        // The date and its time are one fact: a time without a date
+                        // is not a moment. Clearing the date clears the time with it.
+                        dueTime = if (intent.date == null) null else dueTime,
+                        // `someday` means "no date", so a task that carries a date is
+                        // not a deferred one — and clearing the date does not quietly
+                        // move the task into the someday bucket.
+                        someday = false,
+                    )
+                }
+            }
+
+            is TaskDetailIntent.Domain.SetDueTime -> {
+                mutate(task, intent) { copy(dueTime = intent.time) }
+            }
+
+            is TaskDetailIntent.Domain.SetDeadline -> {
+                mutate(task, intent) { copy(endDate = intent.date) }
+            }
+
+            is TaskDetailIntent.Domain.SetStartDate -> {
+                mutate(task, intent) { copy(startDate = intent.date) }
+            }
+
+            is TaskDetailIntent.Domain.SetStartTime -> {
+                mutate(task, intent) { copy(startTime = intent.time) }
+            }
+
+            is TaskDetailIntent.Domain.SetSomeday -> {
+                mutate(
+                    task,
+                    intent,
+                    "Failed to set someday",
+                ) {
+                    copy(
+                        someday = intent.deferred,
+                        // The two are exclusive: a deferred task has no date, and a
+                        // dated task is not deferred.
+                        dueDate = if (intent.deferred) null else dueDate,
+                        dueTime = if (intent.deferred) null else dueTime,
+                    )
+                }
+            }
+
+            // `data object` branches are equality checks, not type checks, so the
+            // smart cast does not happen: the object is named explicitly.
+            TaskDetailIntent.Domain.ToggleSomeday -> {
+                mutate(
+                    task,
+                    TaskDetailIntent.Domain.ToggleSomeday,
+                    "Failed to set someday",
+                ) { copy(someday = !someday) }
             }
         }
     }

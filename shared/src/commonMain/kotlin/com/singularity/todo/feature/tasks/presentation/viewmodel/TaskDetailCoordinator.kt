@@ -527,6 +527,7 @@ class TaskDetailCoordinator(
 
             is TaskDetailIntent.Domain.SetDueDate,
             is TaskDetailIntent.Domain.SetDueTime,
+            is TaskDetailIntent.Domain.SetDeadline,
             is TaskDetailIntent.Domain.SetStartDate,
             is TaskDetailIntent.Domain.SetStartTime,
             is TaskDetailIntent.Domain.SetPriority,
@@ -537,6 +538,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.RestoreTag,
             is TaskDetailIntent.Domain.SetKind,
             is TaskDetailIntent.Domain.ToggleSomeday,
+            is TaskDetailIntent.Domain.SetSomeday,
             is TaskDetailIntent.Domain.TogglePinned,
             is TaskDetailIntent.Domain.SetRecurrence,
             is TaskDetailIntent.Domain.SetDependencies,
