@@ -140,12 +140,57 @@ def gradle_install_debug(serial: str) -> subprocess.CompletedProcess:
     )
 
 
+#: The two shapes the system prints the resumed activity in. The first is the
+#: global answer, the second is what an older Android version prints.
+_RESUMED_LINE_MARKERS = ("ResumedActivity:", "topResumedActivity=")
+
+
+def resumed_activity_line(out: str | None) -> str:
+    """The line the system reports as the resumed activity, or "".
+
+    `dumpsys activity activities` prints the resumed activity in one of two
+    shapes, and which one you get depends on the Android version:
+
+        topResumedActivity=ActivityRecord{8f3 u0 com.singularity.todo/.MainActivity t42}
+        ResumedActivity: ActivityRecord{5a1b95b u0 com.singularity.todo/.MainActivity t3273 d0}
+
+    The second one is what an API 35 phone prints, and it has no
+    `topResumedActivity` in it at all. A matcher that looks for
+    `topResumedActivity=` therefore never matches on a modern device, and the
+    wait it guards turns into a fixed sleep that always ends in "not resumed".
+
+    The activity id is *inside* the record, not right after the `=`: that is the
+    second way this line is read wrong.
+
+    The dump also holds a *task list* with a `Resumed:` line per task, and the
+    header above it ("Resumed activities in task display areas"). That one
+    spells itself differently — `Resumed:` — so the markers below do not match
+    it, and the answer is the line that names the resumed activity outright.
+    """
+    if not out:
+        return ""
+    lines = [line.strip() for line in out.splitlines()]
+    for marker in _RESUMED_LINE_MARKERS:
+        for stripped in lines:
+            if marker in stripped:
+                return stripped
+    return ""
+
+
 def wait_for_app_resumed(serial: str, timeout: int = 20) -> bool:
-    """Poll dumpsys activity until the main activity is top-resumed."""
+    """Poll dumpsys activity until the app is in front.
+
+    "The app is in front" is a statement about the *package*: the debug seed
+    activity — which the runner drives the content reset through — belongs to
+    the same app id as the main activity, so this waiter answers true for it
+    too. That is what makes this answer too weak to guard the content reset,
+    and why :func:`wait_for_main_activity_resumed` exists.
+    """
     waited = 0
     while waited < timeout:
         out = adb_on(serial, "shell", "dumpsys", "activity", "activities", timeout=5) or ""
-        if f"topResumedActivity=.{APP_ID}/" in out or f"topResumedActivity={APP_ID}/" in out:
+        line = resumed_activity_line(out)
+        if line and f"{APP_ID}/" in line:
             return True
         time.sleep(1)
         waited += 1
@@ -163,14 +208,23 @@ def wait_for_main_activity_resumed(serial: str, timeout: int = 30) -> bool:
     through. The tables the reset empties last are then simply not empty, and
     the next flow sees the previous flow's rows.
 
-    The main activity is the signal that the reset *is* done: the seed
-    activity brings the main activity up and finishes itself only after the
-    reset returned.
+    The main activity is the signal that the reset thread has *ended*: the seed
+    activity brings the main activity up in the ``finally`` of its seeding
+    thread, so the main activity is in front only after that thread returned.
+    It says nothing about whether the reset itself succeeded — a seeding thread
+    that threw still brings the app up — so this is "the reset is over", not
+    "the reset worked".
+
+    The wait reads the resumed activity the way the system prints it — see
+    ``resumed_activity_line``. The older shape of that line
+    (`topResumedActivity=ActivityRecord{…}`) is read too, so the wait works on
+    the Android versions that print it.
     """
     waited = 0
     while waited < timeout:
         out = adb_on(serial, "shell", "dumpsys", "activity", "activities", timeout=5) or ""
-        if f"topResumedActivity=.{APP_ID}/.MainActivity" in out:
+        line = resumed_activity_line(out)
+        if line and (f"{APP_ID}/.MainActivity" in line or f"{APP_ID}.MainActivity" in line):
             return True
         time.sleep(1)
         waited += 1

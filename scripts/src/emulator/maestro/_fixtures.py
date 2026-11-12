@@ -4,10 +4,17 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+from loguru import logger as _logger
+
+from emulator._loguru import setup_logger
 from emulator.maestro._types import APP_ID
 
 if TYPE_CHECKING:  # pragma: no cover — import cycle guard, annotations only
     from emulator.maestro._types import DeviceDeps
+
+# idempotent; uses the shared logger configured by the first module to import it.
+setup_logger(is_ci=False)
+logger = _logger
 
 
 def reset_session(serial: str, deps: "DeviceDeps") -> None:
@@ -92,4 +99,14 @@ def cleanup_run_fixtures(
     # killed the reset half way through on a slow device, and the tables the
     # reset empties last (the saved agenda views) stayed populated: the next
     # flow then asserted an empty list and found the previous flow's row.
-    deps.wait_for_main_activity_resumed(serial)
+    #
+    # The wait answers "the reset thread has ended", not "the reset worked" —
+    # a seeding thread that threw still brings the app up. So a false answer
+    # is not a failed reset; it means the app never came up, and the flow that
+    # follows would run against whatever was on the screen. Say so instead of
+    # letting the next step read the answer as a clean fixture.
+    if not deps.wait_for_main_activity_resumed(serial):
+        logger.warning(
+            "the app did not come up after the content reset — "
+            "the next flow may run against the previous flow's rows",
+        )
