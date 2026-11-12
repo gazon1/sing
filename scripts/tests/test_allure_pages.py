@@ -564,6 +564,19 @@ class AllurePagesTest(unittest.TestCase):
         self.assertEqual(result["removed_reports"], [])
         self.assertTrue((self.site / "2808").is_dir())
 
+    def test_drop_legacy_root_keeps_the_cname_and_the_root_index(self):
+        # The custom domain file and the index that names what is published
+        # are not the legacy root: a dropped CNAME takes the custom domain
+        # with it, and a dropped index names nothing.
+        (self.site / "CNAME").write_text("maxdrobin.ru\n", encoding="utf-8")
+        (self.site / "index.html").write_text("<html>index</html>", encoding="utf-8")
+        (self.site / "2807").mkdir()
+
+        ap.drop_legacy_root(self.site)
+
+        self.assertTrue((self.site / "CNAME").is_file())
+        self.assertTrue((self.site / "index.html").is_file())
+
     def test_the_root_index_stops_linking_the_dropped_legacy_reports(self):
         legacy = self.site / "2807"
         legacy.mkdir()
