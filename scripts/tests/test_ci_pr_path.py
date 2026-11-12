@@ -687,12 +687,150 @@ class OneBaseRefForTheWholeWorkflow(unittest.TestCase):
         On a push the branch that was pushed IS the change, and a change
         measured against itself is measured against nothing: the ratchet
         compares the baseline with itself and reports no growth. The name is
-        therefore the pull request's target branch, and on a push it stays
-        empty — the chain in `sgate.gatekit.refs` answers then.
+        therefore never the branch that was pushed — on a pull request it is
+        the target branch, and on a push it is the state the push replaced.
         """
         value = (_workflow().get("env") or {}).get("SGATE_BASE_REF", "")
         self.assertIn("github.base_ref", value)
         self.assertNotIn("github.ref_name", value)
+
+
+class _Namespace:
+    """The GitHub context, as far as the base expression reads it.
+
+    A key that is not there is null rather than an error — that is what
+    GitHub does, and the expression leans on it: `github.event.before` does
+    not exist on a scheduled run.
+    """
+
+    def __init__(self, values: dict) -> None:
+        self._values = values
+
+    def __getattr__(self, name: str):
+        value = self._values.get(name)
+        if isinstance(value, dict):
+            return _Namespace(value)
+        return value
+
+
+def _format(template: str, *args) -> str:
+    """GitHub's `format`, which is `str.format` under another name."""
+    return template.format(*args)
+
+
+def _evaluate(expression: str, context: dict) -> str:
+    """Evaluate the workflow's base expression the way GitHub evaluates it.
+
+    GitHub's `&&` and `||` return an OPERAND rather than a boolean, and
+    Python's `and` and `or` do the same — so the translation is faithful for
+    the shape of expression the workflow uses. The alternative, asserting on
+    the string, would pin the text and not the behaviour: the defect this
+    guards against is a push measured against the branch it was pushed to,
+    and only the behaviour says whether that happens.
+    """
+    stripped = expression.strip()
+    if stripped.startswith("${{") and stripped.endswith("}}"):
+        stripped = stripped[3:-2]
+    translated = stripped.replace("&&", " and ").replace("||", " or ")
+    namespace = {"__builtins__": {}, "format": _format}
+    value = eval(translated, namespace, {"github": _Namespace(context)})  # noqa: S307
+    return value or ""
+
+
+class TheBaseIsNamedPerEventTest(unittest.TestCase):
+    """The base of a change depends on the event that produced it.
+
+    ## The defect this covers
+
+    The workflow named the base for a pull request only. On a push the name
+    was empty, the chain in `sgate.gatekit.refs` answered, and the chain's
+    first candidate after the push to `dev` is `origin/dev` — which the push
+    itself left on the commit that was pushed. The comparison was then the
+    change against itself: an empty diff, no work selected, and a run that
+    was green because it measured nothing.
+
+    So the name is event-aware: a pull request names the branch it targets,
+    a push to the trunk names the commit it replaced, and a push to any
+    other branch names the trunk that branch integrates toward.
+    """
+
+    ZERO_SHA = "0" * 40
+
+    def _expression(self) -> str:
+        return (_workflow().get("env") or {}).get("SGATE_BASE_REF", "")
+
+    def _base_for(self, **context) -> str:
+        return _evaluate(self._expression(), context)
+
+    def test_a_pull_request_names_the_branch_it_targets(self):
+        base = self._base_for(
+            event_name="pull_request",
+            base_ref="main",
+            ref="refs/pull/2852/merge",
+            event={"before": "abc123"},
+        )
+        self.assertEqual("origin/main", base)
+
+    def test_a_push_to_the_trunk_names_the_commit_it_replaced(self):
+        """`origin/main` IS the pushed commit after the push.
+
+        Naming it would measure the push against itself, so the push is
+        measured against the state it replaced.
+        """
+        base = self._base_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/main",
+            event={"before": "abc123"},
+        )
+        self.assertEqual("abc123", base)
+
+    def test_a_push_to_another_branch_names_the_trunk(self):
+        """The integration branch is measured against the trunk it integrates toward."""
+        base = self._base_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/dev",
+            event={"before": "abc123"},
+        )
+        self.assertEqual("origin/main", base)
+
+    def test_a_push_that_created_the_branch_names_the_trunk(self):
+        """A branch that did not exist before the push has no state to replace."""
+        base = self._base_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/main",
+            event={"before": self.ZERO_SHA},
+        )
+        self.assertEqual("origin/main", base)
+
+    def test_a_scheduled_run_names_the_trunk(self):
+        base = self._base_for(
+            event_name="schedule",
+            base_ref="",
+            ref="refs/heads/main",
+            event={},
+        )
+        self.assertEqual("origin/main", base)
+
+    def test_no_push_names_the_branch_that_was_pushed(self):
+        """The one shape that must never come out of the expression.
+
+        A scheduled run is not a push: it has no change at all, and the trunk
+        it runs on is the trunk it is measured against.
+        """
+        pushed_to_main = self._base_for(
+            event_name="push", base_ref="", ref="refs/heads/main", event={"before": "abc"}
+        )
+        self.assertNotEqual("main", pushed_to_main)
+        self.assertNotEqual("origin/main", pushed_to_main)
+
+        pushed_to_dev = self._base_for(
+            event_name="push", base_ref="", ref="refs/heads/dev", event={"before": "abc"}
+        )
+        self.assertNotEqual("dev", pushed_to_dev)
+        self.assertNotEqual("origin/dev", pushed_to_dev)
 
 
 def _filters(changes_job: dict) -> dict:

@@ -34,17 +34,34 @@ permissions:
 
 env:
   # The ref every gate in this workflow measures a change against, named once
-  # for the whole workflow. On a pull request it is the branch the pull
-  # request targets. On a push there is no such branch — the branch that was
-  # pushed is the change itself, and a change measured against itself is
-  # measured against nothing — so the name stays empty and the chain in
-  # `sgate.gatekit.refs` answers: the integration branch, then the trunk.
+  # for the whole workflow.
+  #
+  # The name is EVENT-AWARE, because the base of a change depends on what the
+  # event is:
+  #
+  #   pull request         → the branch the pull request targets
+  #   push to `main`       → the commit the push replaced
+  #   push to any other    → the trunk that branch integrates toward
+  #   schedule / manual    → the trunk the run is about
+  #
+  # A push to `main` is measured against the state it replaced rather than
+  # against `origin/main`: after the push, `origin/main` IS the pushed commit,
+  # and a change measured against itself is measured against nothing — every
+  # gate that selects work by the changed files finds nothing to do, and the
+  # run is green because it measured nothing. That is the vacuous comparison
+  # this base naming exists to prevent.
+  #
+  # A push to the integration branch is measured against the trunk, because
+  # that is what the integration branch is measured against. The resolver in
+  # `sgate.gatekit.refs` steps over a candidate that points at the change
+  # itself as well, so no branch is ever measured against itself even when
+  # nothing is named here.
   #
   # The gates read it through `SGATE_BASE_REF` (ADR
   # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
   # and a named base is exclusive: the gates never fall back to another
   # branch, so every gate in a run compares against the same thing.
-  SGATE_BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) }}
+  SGATE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || 'origin/main' }}
 
 
 jobs:
