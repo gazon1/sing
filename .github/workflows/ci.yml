@@ -2066,8 +2066,14 @@ jobs:
       # The comment goes on the merged PR and on the issues that PR closes.
       # A comment that does not post must not un-publish the report, so the
       # step may fail without failing the job.
+      #
+      # A push only: a scheduled run publishes the `full` population without
+      # a pull request behind it, and the commit it publishes is the tip of
+      # the default branch. The pull request that merged that commit is long
+      # closed, and its marker comment would be taken over by a run that has
+      # nothing to do with it.
       - name: Link the report on the merged PR and on the issues it closes
-        if: steps.decide.outputs.action == 'publish'
+        if: steps.decide.outputs.action == 'publish' && github.event_name == 'push'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

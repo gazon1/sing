@@ -8,13 +8,18 @@ closes do not. This helper carries the URL from the publication to them.
 What it does, in order:
 
 - find the pull request the published commit belongs to
-  (`GET /repos/{owner}/{repo}/commits/{sha}/pulls`); a scheduled run has no
-  pull request, and the helper does nothing then;
+  (`GET /repos/{owner}/{repo}/commits/{sha}/pulls`);
 - read the issues that PR closes, from the closing keywords in its body;
 - post one comment on the PR and on each of those issues, with the exact run
   report and the latest report of the population;
 - update that comment on the next run instead of adding another one: the
   comment carries a marker, and the marker is what finds it again.
+
+The workflow runs the helper for a push only. A scheduled run publishes the
+`full` population without a pull request behind it, and the commit it
+publishes is the tip of the default branch — the pull request that merged it
+is long closed, and its marker comment would be taken over by a run that has
+nothing to do with it.
 
 The comment is a convenience, not a gate: the workflow runs it with
 `continue-on-error`, because a report that was published must not be
