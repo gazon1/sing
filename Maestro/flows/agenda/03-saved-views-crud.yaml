@@ -4,6 +4,8 @@
 # name with the agenda's title ("Today"), so the field must be cleared before
 # typing — inputText appends. Saving returns to the agenda, not to the list.
 # Delete is only offered in edit mode, which is what the second half exercises.
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-saved-views-crud
 tags:

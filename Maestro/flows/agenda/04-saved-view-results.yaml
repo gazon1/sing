@@ -8,6 +8,8 @@
 # 4. Tap the "My Active Tasks" card → SavedAgendaResults screen.
 # 5. Verify the view's title in the top bar.
 # 6. Verify the seeded task appears (matches the Active-tasks filter).
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-saved-view-results
 tags:

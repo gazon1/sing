@@ -5,6 +5,8 @@
 # tab the overdue and today's ones, the Upcoming tab what is coming. So dating a
 # task moves it out of the inbox and into one of the other two.
 # Section headers render as "<Section>  ·  <count>".
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-smart-lists
 tags:

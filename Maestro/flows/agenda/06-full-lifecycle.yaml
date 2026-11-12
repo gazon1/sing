@@ -10,6 +10,8 @@
 # (saved_agenda_overflow_button), and so do its rows (saved_agenda_menu_edit,
 # saved_agenda_menu_delete) — an earlier version of this flow opened the menu
 # with a text selector, because the tags did not exist yet.
+#
+# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: agenda-full-lifecycle
 tags:
