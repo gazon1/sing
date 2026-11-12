@@ -58,6 +58,14 @@ OTHER_APP_DUMP = """\
   ResumedActivity: ActivityRecord{99 u0 com.android.settings/.Settings t1 d0}
 """
 
+#: `dumpsys activity` prints the resumed activity at the top level under a
+#: *different* field name. It is a different field, and a different question:
+#: this function answers "which line names the resumed activity", not "which
+#: field of the dump mentions one".
+M_RESUMED_DUMP = """\
+  mResumedActivity: ActivityRecord{5a1b95b u0 com.singularity.todo/.MainActivity t3273 d0}
+"""
+
 
 class TheResumedLineTest(unittest.TestCase):
     """The line is read out of the dump, not guessed at."""
@@ -84,6 +92,20 @@ class TheResumedLineTest(unittest.TestCase):
         would read the task list's entry, which is not the top of the stack.
         """
         line = _device.resumed_activity_line(API_35_DUMP)
+        self.assertTrue(line.startswith("ResumedActivity:"), line)
+
+    def test_a_differently_named_field_is_not_the_answer(self) -> None:
+        """`mResumedActivity:` is a different field of a different dump.
+
+        The markers are anchored on the left, so a field whose name merely
+        *ends* in "ResumedActivity:" cannot be mistaken for the answer.
+        """
+        self.assertEqual(_device.resumed_activity_line(M_RESUMED_DUMP), "")
+
+    def test_the_global_line_wins_over_the_legacy_one(self) -> None:
+        """When a dump carries both shapes, the explicit one is the answer."""
+        dump = LEGACY_DUMP + API_35_DUMP
+        line = _device.resumed_activity_line(dump)
         self.assertTrue(line.startswith("ResumedActivity:"), line)
 
 

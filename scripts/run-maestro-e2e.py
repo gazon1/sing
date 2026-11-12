@@ -43,6 +43,8 @@ _added = str(SCRIPTS_SRC) not in sys.path
 if _added:
     sys.path.insert(0, str(SCRIPTS_SRC))
 from emulator.maestro._flow import suite_selection  # noqa: E402
+from emulator.maestro._device import resumed_activity_line  # noqa: E402
+from emulator.maestro._types import APP_ID  # noqa: E402
 from emulator._startup import prepare_device  # noqa: E402
 
 if _added:
@@ -155,42 +157,28 @@ def adb_install(serial: str, apk_path: Path) -> bool:
     return True
 
 
-def _top_resumed_activity(out: str | None) -> str:
-    """The line the system reports as the resumed activity, or "".
-
-    `dumpsys activity activities` prints, on a modern Android:
-
-        topResumedActivity=ActivityRecord{8f3 u0 com.singularity.todo/.MainActivity t42}
-
-    The activity id is *inside* the record, not right after the `=`. A matcher
-    that expects `topResumedActivity=.com.…` never matches anything — which is
-    how this check came to be a 90-second sleep that always ended in "ready".
-    """
-    if not out:
-        return ""
-    for line in out.splitlines():
-        if "topResumedActivity" in line:
-            return line.strip()
-    return ""
-
-
 def wait_for_app_ready(serial: str, timeout: int = 90) -> bool:
-    """Poll dumpsys until MainActivity is top-resumed.
+    """Poll dumpsys until MainActivity is the resumed activity.
 
     Returns what it found. The previous version returned True on timeout and
     the caller printed "App ready." either way, so a run in which the app never
     came up said the very same thing as a run in which it did.
+
+    The line is read by the runner's own matcher
+    (`emulator.maestro._device.resumed_activity_line`): a second copy of that
+    rule is how the check came to be a 90-second sleep that always ended in
+    "not ready" — the copy only knew the `topResumedActivity=` shape, and a
+    modern device prints `ResumedActivity:` instead.
     """
     deadline = time.monotonic() + timeout
-    app_id = "com.singularity.todo/.MainActivity"
     last_line = ""
     while time.monotonic() < deadline:
         out = try_run(
             ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
             timeout=5,
         )
-        last_line = _top_resumed_activity(out.stdout if out else None)
-        if last_line and app_id in last_line:
+        last_line = resumed_activity_line(out.stdout if out else None)
+        if last_line and f"{APP_ID}/.MainActivity" in last_line:
             return True
         time.sleep(1)
     sys.stderr.write(

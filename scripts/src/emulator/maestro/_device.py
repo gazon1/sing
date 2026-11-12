@@ -142,7 +142,15 @@ def gradle_install_debug(serial: str) -> subprocess.CompletedProcess:
 
 #: The two shapes the system prints the resumed activity in. The first is the
 #: global answer, the second is what an older Android version prints.
-_RESUMED_LINE_MARKERS = ("ResumedActivity:", "topResumedActivity=")
+#:
+#: The pattern behind each shape is anchored on the left: the marker may not be
+#: the tail of a longer field name. `mResumedActivity:` is a different field
+#: (it is what `dumpsys activity` prints at the top level), and matching it
+#: here would answer a question this function was not asked.
+_RESUMED_LINE_MARKERS = (
+    re.compile(r"(?<![\w.])ResumedActivity:"),
+    re.compile(r"(?<![\w.])topResumedActivity="),
+)
 
 
 def resumed_activity_line(out: str | None) -> str:
@@ -170,9 +178,9 @@ def resumed_activity_line(out: str | None) -> str:
     if not out:
         return ""
     lines = [line.strip() for line in out.splitlines()]
-    for marker in _RESUMED_LINE_MARKERS:
+    for pattern in _RESUMED_LINE_MARKERS:
         for stripped in lines:
-            if marker in stripped:
+            if pattern.search(stripped):
                 return stripped
     return ""
 
