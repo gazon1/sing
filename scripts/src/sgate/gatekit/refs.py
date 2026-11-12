@@ -59,6 +59,14 @@ answers "the integration branch" would measure that push against itself and
 call the result "no change". The change resolver steps over a candidate that
 points at `HEAD` and takes the next one.
 
+There is one exception, and it is the trunk: a trunk at the change itself
+means the work is already in the trunk, so the measurement against it is empty
+by truth rather than by default. A candidate that is only the branch the push
+went to says nothing like that — it says "the push landed here" — and when it
+is the only candidate there is no baseline in this checkout at all. That is no
+base, and a tool with no base says so rather than reporting an empty change
+for work it never measured.
+
 The fallback
 ------------
 A repository that has no `dev` branch yet must still measure its changes
@@ -181,6 +189,18 @@ BASE_CANDIDATES = (
     "main",
 )
 
+#: The candidates that can hold the work a change carries — the trunk.
+#:
+#: A candidate that points at the change itself is not a base, and the one
+#: exception is the trunk at the change itself: the work is already in the
+#: trunk, so measuring the change against it is empty by truth. The branch the
+#: push went to cannot say that — it says "the push landed here" — and it is
+#: not in this list.
+TRUNK_CANDIDATES = (
+    "origin/main",
+    "main",
+)
+
 #: Git's null object id — the name of no commit at all.
 #:
 #: GitHub's push payload uses it for `github.event.before` when the pushed ref
@@ -290,10 +310,22 @@ def resolve_change_base_ref(cwd=None, env=None, candidates=None) -> str | None:
 
     So the chain steps over a candidate that points at `HEAD` and takes the
     next one: a push to `dev` is measured against `origin/main`, which is what
-    the integration branch is measured against. When every candidate points at
-    `HEAD` there is nothing else to measure against, and the first of them is
-    the answer — the change is empty, and the caller says so rather than
-    pretending it measured something.
+    the integration branch is measured against.
+
+    When EVERY candidate that resolves points at `HEAD` there is nothing else
+    to measure against, and two situations look alike but are not:
+
+    * the **trunk** is at the change itself — the work is already in the
+      trunk, so the measurement against it is empty by truth, and the trunk is
+      the answer;
+    * only the **branch the push went to** is at the change itself — the trunk
+      is not in this checkout, and the state that push replaced is nowhere to
+      be found. There is no baseline here at all, so there is no base: a tool
+      with no base says so, and a tool that must measure against something
+      measures against everything.
+
+    The second answer would report an empty change for work that was never
+    measured, and an empty change is a green run.
 
     A NAMED base is exclusive and is taken as given: the caller named it, and
     the caller knows whether it is the change itself. A name that does not
@@ -313,16 +345,16 @@ def resolve_change_base_ref(cwd=None, env=None, candidates=None) -> str | None:
         return explicit if resolves(explicit, cwd=cwd, env=env) else None
 
     head = commit_of("HEAD", cwd=cwd, env=env)
-    change_itself = None
+    trunk_at_the_change = None
     for candidate in BASE_CANDIDATES if candidates is None else candidates:
         commit = commit_of(candidate, cwd=cwd, env=env)
         if commit is None:
             continue
         if head is None or commit != head:
             return candidate
-        if change_itself is None:
-            change_itself = candidate
-    return change_itself
+        if trunk_at_the_change is None and candidate in TRUNK_CANDIDATES:
+            trunk_at_the_change = candidate
+    return trunk_at_the_change
 
 
 __all__ = [
@@ -331,6 +363,7 @@ __all__ = [
     "NO_BASE_REF_MESSAGE",
     "NULL_COMMIT",
     "REMOTE_BASE_CANDIDATES",
+    "TRUNK_CANDIDATES",
     "commit_of",
     "is_null_commit",
     "resolve_base_ref",

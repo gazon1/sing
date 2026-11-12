@@ -274,10 +274,10 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
     cannot measure must not report that the measurement was clean. So the
     gate fails, and says which of the three it was.
 
-    The one case that is NOT a failure is a base that resolves to HEAD
-    itself: the branch carries no commits of its own — its work is already in
-    the base — so there is nothing to measure, and that is a true statement
-    rather than a missing one.
+    The one case that is NOT a failure is a base whose merge-base IS `HEAD`:
+    the base already holds the change — it is the change, or it contains it —
+    so there is nothing to measure, and that is a true statement rather than a
+    missing one.
     """
     env = dict(os.environ)
     if explicit:
@@ -317,7 +317,7 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
 
     label = f"merge-base({base}, HEAD) = {found[:12]}"
     if found == head_commit():
-        label += " — HEAD carries no commits of its own, so there is nothing to measure"
+        label += " — the base already holds the change, so there is nothing to measure"
     return found, label
 
 

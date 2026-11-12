@@ -15,7 +15,10 @@ to the properties that make it an answer:
     no base, never a different ref;
   - no base is None, and None is never "HEAD";
   - a CHANGE is never measured against itself: the resolver that answers for a
-    change steps over a candidate that points at HEAD.
+    change steps over a candidate that points at HEAD. The one exception is the
+    TRUNK at the change itself — the work is already in the trunk there, so the
+    measurement is empty by truth — and the branch the push went to is not that
+    exception: when it is the only candidate, there is no base at all.
 
 The fixtures write their refs with `git update-ref origin/main HEAD`, which
 lands in `.git/origin/main` — a place `for-each-ref` and `show-ref` cannot
@@ -161,6 +164,21 @@ class TheChangeBaseTest(RefRepositoryTest):
     The change resolver steps over a candidate that points at `HEAD` and
     takes the next one — the push to `dev` is measured against `origin/main`,
     which is what the integration branch is measured against.
+
+    ## The one exception, and what it is not
+
+    When EVERY candidate points at `HEAD` there is nothing else to measure
+    against, and two situations look alike but are not:
+
+    * the trunk is at the change itself — the work is already in the trunk, so
+      the measurement against it is empty by truth;
+    * only the branch the push went to is at the change itself — the trunk is
+      not in this checkout, and the state the push replaced is nowhere to be
+      found. There is no baseline here at all.
+
+    The second one is no base. Answering it with the pushed branch would
+    report an empty change for work that was never measured, and an empty
+    change is a green run.
     """
 
     def setUp(self) -> None:
@@ -220,11 +238,44 @@ class TheChangeBaseTest(RefRepositoryTest):
         self._git("update-ref", "origin/main", self.older)
         self.assertEqual("origin/main", resolve_change_base_ref(cwd=self.tmp))
 
-    def test_when_every_candidate_is_the_change_itself_the_first_one_answers(self):
-        # There is nothing else to measure against: the change is empty, and
-        # the caller says so rather than pretending it measured something.
+    def test_when_the_only_candidate_is_the_change_itself_there_is_no_base(self):
+        """The branch the push went to is not a baseline, and it is not one
+        because it says nothing about the work.
+
+        `origin/dev` points at `HEAD` because the push landed there. The trunk
+        is not in this checkout, so there is no state to measure the change
+        against — and answering with the pushed branch would report an empty
+        change for work that was never measured. An empty change is a green
+        run, so the answer is no base.
+        """
         self._git("update-ref", "origin/dev", "HEAD")
-        self.assertEqual("origin/dev", resolve_change_base_ref(cwd=self.tmp))
+        self.assertIsNone(resolve_change_base_ref(cwd=self.tmp))
+
+    def test_the_trunk_at_the_change_itself_is_the_base(self):
+        """The trunk CAN hold the work, and then the measurement is empty by truth.
+
+        The trunk at `HEAD` means the work is already in the trunk: measuring
+        the change against it finds nothing, and that "nothing" is a true
+        statement about the repository rather than a missing measurement.
+        """
+        self._git("update-ref", "origin/dev", "HEAD")
+        self._git("update-ref", "origin/main", "HEAD")
+        self.assertEqual("origin/main", resolve_change_base_ref(cwd=self.tmp))
+
+    def test_a_candidate_that_holds_the_work_always_wins_over_the_pushed_branch(self):
+        """The fallback never preempts a real measurement.
+
+        A candidate that is not the change itself is the answer, whatever the
+        order of the chain: the work it holds is work that has to be measured.
+        """
+        self._git("update-ref", "origin/dev", "HEAD")
+        self._git("update-ref", "origin/main", self.older)
+        base = resolve_change_base_ref(cwd=self.tmp)
+        self.assertEqual("origin/main", base)
+        self.assertNotEqual(
+            self._git("rev-parse", "HEAD"),
+            self._git("rev-parse", base),
+        )
 
 
 class TheNamedBaseTest(RefRepositoryTest):

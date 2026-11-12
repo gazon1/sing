@@ -352,7 +352,21 @@ class MergeBaseComparisonTest(unittest.TestCase):
         """
         comparison_ref, label = ratchet.resolve_comparison_ref('main')
         self.assertEqual(ratchet.head_commit(), comparison_ref)
-        self.assertIn('no commits of its own', label)
+        self.assertIn('the base already holds the change', label)
+
+    def test_the_trunk_at_the_change_itself_is_an_empty_change(self):
+        """The trunk AT the change is the one case where the base is the change.
+
+        The work is already in the trunk, so the measurement against it finds
+        nothing — and that "nothing" is a true statement about the
+        repository, not a measurement that could not be made. The difference
+        matters: the branch the push went to says only "the push landed here",
+        and it is not a base at all (see
+        `test_a_pushed_branch_that_is_the_only_candidate_fails_the_gate`).
+        """
+        comparison_ref, label = ratchet.resolve_comparison_ref(None)
+        self.assertEqual(ratchet.head_commit(), comparison_ref)
+        self.assertIn('the base already holds the change', label)
 
 
 class TheGateFailsWhenItCannotMeasureTest(unittest.TestCase):
@@ -446,6 +460,32 @@ class TheGateFailsWhenItCannotMeasureTest(unittest.TestCase):
         code, output = self._run_gate(SGATE_BASE_REF='unrelated')
         self.assertNotEqual(0, code, output)
         self.assertIn('no merge-base', output)
+
+    def test_a_pushed_branch_that_is_the_only_candidate_fails_the_gate(self):
+        """The self-reference that must not hide unmeasured work.
+
+        The push landed on `dev`, so `origin/dev` is the pushed commit — and
+        the trunk is not in this checkout. There is no baseline here at all:
+        the state the push replaced is nowhere to be found, and the only
+        candidate is the change itself.
+
+        Answering with it would compare the baseline with itself and report
+        "unchanged" — a green run for a push that grew the baseline, which is
+        the failure this whole change exists to remove. So the gate says it
+        cannot measure, and exits non-zero.
+        """
+        _git('checkout', '-b', 'dev', cwd=self.repo, env=self.env)
+        self.baseline.write_text(self._baseline(3), encoding='utf-8')
+        _git('add', '-A', cwd=self.repo, env=self.env)
+        _git('commit', '-m', 'the push grows the baseline', cwd=self.repo, env=self.env)
+        # The trunk is not in this checkout, and the push left the only
+        # candidate — the branch it landed on — on the pushed commit.
+        _git('branch', '-D', 'main', cwd=self.repo, env=self.env)
+        _git('update-ref', 'origin/dev', 'HEAD', cwd=self.repo, env=self.env)
+        code, output = self._run_gate()
+        self.assertNotEqual(0, code, output)
+        self.assertIn('no base branch resolves', output)
+        self.assertNotIn('unchanged', output)
 
     def test_the_gate_is_green_when_the_comparison_can_be_made(self):
         """The control: the gate still passes when there is nothing to complain about."""

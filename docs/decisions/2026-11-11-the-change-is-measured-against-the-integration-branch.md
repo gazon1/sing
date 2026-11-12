@@ -97,9 +97,9 @@ answers *"which ref is this checkout's trunk?"* and takes the chain as it
 stands. `resolve_change_base_ref()` answers *"which ref is this change
 measured against?"* and steps over a candidate that points at `HEAD`: the
 change resolver is what the change-measuring tools use. When every candidate
-points at `HEAD` there is nothing else to measure against, and the first of
-them is the answer — the change is empty, and the caller says so rather than
-pretending it measured something.
+points at `HEAD` there is nothing else to measure against, and the only answer
+that can say so honestly is the trunk — see *"A base that is the change
+itself"* below.
 
 **A named base is exclusive, and is taken as given.** `SGATE_BASE_REF` names the
 base for callers that know better. The caller named it, and the caller knows
@@ -279,6 +279,11 @@ not exist — a green answer to a question nobody asked.
   and its run therefore fails the ratchet rather than passing vacuously. The
   first push to a new branch is not measurable, and the gate says so instead of
   naming the pushed commit as its own baseline.
+- A base that is the change itself is a base **only** when it is the trunk: the
+  work is already in the trunk, and the measurement is empty by truth. When the
+  only candidate is the branch the push went to, there is no base, and the
+  tools that must measure against something say so instead of reporting an
+  empty change for work that was never measured.
 - The branch topology itself — `dev` existing, protected, and receiving the
   population split — is #2832's later phases. This decision makes the tools
   able to name it; it does not create it.
@@ -286,7 +291,7 @@ not exist — a green answer to a question nobody asked.
 ## Links
 
 - `scripts/src/sgate/gatekit/refs.py` — `BASE_CANDIDATES`,
-  `REMOTE_BASE_CANDIDATES`, `resolve_base_ref()`,
+  `REMOTE_BASE_CANDIDATES`, `TRUNK_CANDIDATES`, `resolve_base_ref()`,
   `resolve_change_base_ref()`, `NULL_COMMIT`, `is_null_commit()`.
 - `scripts/src/sgate/gatekit/gitenv.py` — the names that must not cross into
   another tree, and `foreign_env()`.
@@ -297,13 +302,16 @@ not exist — a green answer to a question nobody asked.
 - `scripts/src/sgate/commands/checkout_state.py` — `_upstream_ref()`, the
   three-valued `differs`.
 - `scripts/tests/test_gatekit_refs.py` — the chain, the exclusive named base,
-  the resolver's command, the role before the freshness, and the change that
-  is never measured against itself.
+  the resolver's command, the role before the freshness, the change that is
+  never measured against itself, and the one exception that is the trunk.
 - `scripts/tests/test_ci_pr_path.py` — the base is named once for the whole
-  workflow, named per event, and never as the branch that was pushed.
+  workflow, named per event, and never as the branch that was pushed; every
+  event of the mapping is pinned, and so is what happens when the name it
+  produces is not in the checkout.
 - `scripts/tests/test_check_baseline_ratchet.py` — the ratchet fails when it
   cannot measure — a base that is not here, a base with no merge-base, the
-  null commit — and passes when there is nothing to measure.
+  null commit, the pushed branch that is the only candidate — and passes when
+  there is nothing to measure.
 - `scripts/tests/test_checkout_state.py` — the integration branch as the
   base, the local branch that is not a base, the missing base that stays
   unknown.
