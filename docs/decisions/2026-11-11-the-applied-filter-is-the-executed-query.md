@@ -109,9 +109,13 @@ filter *is* the query from the moment it is applied.
 
 The field text stays the user's text. Nothing rewrites it, so the "clear
 filters" action cannot clear the query as a side effect — the requirement the
-issue states explicitly — and the saved-search serialization keeps working
-unchanged, because a saved search stores the text and the text is still what
-the user typed.
+issue states explicitly.
+
+The saved-search serialization keeps working unchanged: a saved search is
+still one string of query text. *Which* query that string carries after a
+filter action is settled by
+`2026-11-12-a-saved-search-carries-the-query-that-runs.md` — the query that
+runs, which after a filter action is not the text in the field.
 
 The cost is real and is accepted deliberately: after "clear filters" the field
 still reads `priority:high` while the search runs the free text alone. The
@@ -140,7 +144,9 @@ be emptied in two different ways and the two buttons cannot disagree.
   call site that had to say what it means.
 - The field's text and the executed query can differ after a filter action. The
   no-results state is the one place this is visible, and it says so in words
-  ("Nothing matched with these filters.").
+  ("Nothing matched with these filters."). A saved search carries the query
+  that runs, so that the difference does not come back when it is loaded — see
+  ADR `2026-11-12-a-saved-search-carries-the-query-that-runs.md`.
 - The free text survives a filter action, so a query of `"milk"` plus a
   priority filter still searches for `milk` when the filter is applied.
 - The ViewModel test proves the executed query changes: after clearing the
