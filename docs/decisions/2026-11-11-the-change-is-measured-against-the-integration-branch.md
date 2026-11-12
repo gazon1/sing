@@ -94,7 +94,10 @@ is not there, and because a named base is exclusive, the tree that has no base
 of its own would be told it has none, and the chain that could have answered
 would never be consulted. `scripts/src/sgate/gatekit/gitenv.py` owns the
 answer to "which names must not cross into another tree" — git's hook
-variables and this one — and the control harness and the test fixtures use it.
+variables, this one, and the object-store names that point at another tree's
+objects as plainly as a base ref points at another tree's commits — and the
+control harness, the sandbox and the test fixtures all take their environment
+from that owner instead of spelling the names out a second time.
 
 **The ratchet keeps its announced fallback.** `scripts/check-baseline-ratchet.py`
 has a base of its own to compare with, and a named base that is not here leaves
