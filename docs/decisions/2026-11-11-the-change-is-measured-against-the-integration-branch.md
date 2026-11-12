@@ -54,10 +54,11 @@ the chain names the integration branch before the trunk.
 
 **Two chains, and the difference matters.** `REMOTE_BASE_CANDIDATES` holds
 the **remote-tracking** copies only (`origin/dev`, then `origin/main`).
-`BASE_CANDIDATES` holds those plus the local branches (`dev`, then `main`) —
-the short names, because git resolves `origin/dev` to the remote-tracking ref
-and `dev` to the local branch, so the fully qualified spellings would never be
-reached.
+`BASE_CANDIDATES` holds the remote copies and the local branches in **role
+order** — the integration branch first (`origin/dev`, then `dev`), the trunk
+after it (`origin/main`, then `main`) — the short names, because git resolves
+`origin/dev` to the remote-tracking ref and `dev` to the local branch, so the
+fully qualified spellings would never be reached.
 
 A tool that asks *"what is this checkout carrying, compared with the trunk it
 is based on?"* uses the remote chain: a local branch is not an upstream, and
@@ -71,20 +72,46 @@ nothing is measured against everything. That is `scripts/git_changed.py`,
 `scripts/changed-modules.py`, `scripts/test-impact-map.py`,
 `scripts/check-baseline-ratchet.py` and `sgate.control_scope`.
 
-**`dev` comes before `main` everywhere.** The trunk a change is based on is
-the integration branch while it exists. `origin/main` stays in the chain so
-that a repository which has no `dev` branch yet still measures its changes
-against something — Phase 1 of #2832 lands before the branch does.
+**The role comes first and the freshness second.** `dev` comes before `main`
+whatever else is true, because the trunk a change is based on is the
+integration branch while it exists and the release branch after it. Within one
+role the remote's copy comes before the local branch: the remote's copy is the
+branch as the world sees it, and the local branch is the branch as this
+checkout last had it.
 
-**A named base is exclusive.** `SGATE_BASE_REF` names the base for callers
-that know better. When it names a ref that is **not here**, there is **no
-base** — the chain is not consulted. Answering with a different ref would be
-answering a question nobody asked, and a tool that measures against a base
-the caller did not name measures against the wrong thing without saying so.
-The tools therefore carry **no second answer**: no tool falls back to
-`origin/main` when the owner has none, because that fallback is either dead
-(the owner already tried `origin/main`) or wrong (it answers a question the
-caller did not ask). A tool with no base says so.
+The two rules can disagree — a checkout with `origin/main` and a local `dev`
+has both, and only one of them can be the answer — and the **role wins**. The
+remote's copy of `main` is not a better integration branch than the local
+`dev`; it is a better *copy of the trunk*. A change based on the integration
+branch is measured against the integration branch.
+
+**A change is never measured against itself.** A push leaves the
+remote-tracking copy of the pushed branch on the commit that was just pushed.
+A push to `dev` therefore leaves `origin/dev` on `HEAD`, and a chain that
+answers "the integration branch" measures that push against itself: the diff
+is empty, every gate that selects work by the changed files finds nothing to
+do, and the run is green because it measured nothing.
+
+So there are two resolvers, and they answer two questions. `resolve_base_ref()`
+answers *"which ref is this checkout's trunk?"* and takes the chain as it
+stands. `resolve_change_base_ref()` answers *"which ref is this change
+measured against?"* and steps over a candidate that points at `HEAD`: the
+change resolver is what the change-measuring tools use. When every candidate
+points at `HEAD` there is nothing else to measure against, and the first of
+them is the answer — the change is empty, and the caller says so rather than
+pretending it measured something.
+
+**A named base is exclusive, and is taken as given.** `SGATE_BASE_REF` names the
+base for callers that know better. The caller named it, and the caller knows
+whether it is the change itself: a name is an answer, not a guess. When it
+names a ref that is **not here**, there is **no base** — the chain is not
+consulted. Answering with a different ref would be answering a question nobody
+asked, and a tool that measures against a base the caller did not name
+measures against the wrong thing without saying so. The tools therefore carry
+**no second answer**: no tool falls back to `origin/main` when the owner has
+none, because that fallback is either dead (the owner already tried
+`origin/main`) or wrong (it answers a question the caller did not ask). A tool
+with no base says so.
 
 **A named base travels with the tree it names.** `SGATE_BASE_REF` names a ref
 in the tree the caller is in, so it is true here and says nothing about
@@ -99,12 +126,28 @@ objects as plainly as a base ref points at another tree's commits — and the
 control harness, the sandbox and the test fixtures all take their environment
 from that owner instead of spelling the names out a second time.
 
-**The ratchet keeps its announced fallback.** `scripts/check-baseline-ratchet.py`
-has a base of its own to compare with, and a named base that is not here leaves
-it comparing against `HEAD` — announced, in the label it prints
-(`HEAD (SGATE_BASE_REF='…' does not exist)`). It does not consult the chain
-either: the fallback is `HEAD` and it is said out loud, not another ref
-answered for.
+**The ratchet fails when it cannot measure.** `scripts/check-baseline-ratchet.py`
+answers "is the baseline still true?" — and the answer is about a *comparison*,
+not about a file. It asks the same owner for its base as every other
+change-measuring tool: a named base is exclusive, and otherwise the chain
+answers. But there is one thing a ratchet may not do, and it is what a warning
+amounts to: report success for a measurement it did not make.
+
+So there are three outcomes, and the third one is a failure:
+
+1. a base resolved — the comparison is made;
+2. no base resolved and the caller permits an unbased check — the check runs
+   against everything, and says so;
+3. a named base that is not here, no base at all, or no merge-base between the
+   base and `HEAD` — the ratchet cannot measure, and it **exits non-zero**.
+
+`HEAD` is not one of the answers. Measuring the baseline against `HEAD` is
+measuring the file against itself: the diff is empty, the baseline cannot
+grow unnoticed, and the tool reports the success of a comparison that never
+happened. A base whose merge-base *is* `HEAD` is a different fact and is not
+a failure: `HEAD` carries no commits of its own, so the change is empty and
+there is nothing to measure — that is an honest zero, not an impossible
+measurement.
 
 **No base is `None`, and `None` is never `HEAD`.** `sgate checkout-state`
 keeps its three-valued answer: `git diff --quiet` exits 1 when the files
@@ -123,15 +166,30 @@ command would answer "no base" about a repository that has one.
 **Hook-side code reaches the answer by path.** `scripts/refs_loader.py`
 loads the module the way `scripts/gitenv_loader.py` already loads
 `gitenv.py`: the `sgate` package imports `click` and `loguru`, and the
-pre-push hook runs where neither is guaranteed.
+pre-push hook runs where neither is guaranteed. The same file carries a
+command line, so a recipe outside the package can ask the owner for a base
+instead of naming one of its own.
 
-**CI names the base once for the whole workflow.** The workflow sets
-`SGATE_BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) }}`
-— the branch the pull request targets, and on a push **nothing**: the branch
-that was pushed is the change itself, and a change measured against itself is
-measured against nothing. The name is therefore empty on a push, and the chain
-answers there. Every job that reads the base reads the same name, and a named
-base never falls back to another branch.
+**CI names the base once for the whole workflow, and it names it per event.**
+The workflow sets `SGATE_BASE_REF` in one place, and every job that reads the
+base reads the same name. What the name *is* depends on what happened:
+
+| Event | Named base | Why |
+|---|---|---|
+| Pull request | `origin/<base_ref>` | the branch the pull request targets |
+| Push to `main` | the commit the push replaced (`github.event.before`) | after the push, `origin/main` **is** the pushed commit — naming it would measure the change against itself |
+| Push to any other branch (e.g. `dev`) | `origin/main` | the change is measured against the trunk it was not pushed to |
+| Schedule or manual run | `origin/main` | there is no event to name a base |
+
+The event is named explicitly rather than left to the chain's fallback order:
+the chain cannot know whether `origin/dev` is the branch the change was just
+pushed to or the branch it was based on, and the difference is the difference
+between a real comparison and no comparison at all. The all-zeros `before` of
+a branch's first push is guarded — there is no replaced commit to name, and
+the trunk is the answer.
+
+Every job still reads the same name: the name is set once, and the event
+decides what it says.
 
 ## Rationale
 
@@ -177,19 +235,27 @@ not exist — a green answer to a question nobody asked.
   would be two bases, and the report would answer about a checkout that
   never existed.
 - The pre-push hook carries the same chain in shell
-  (`refs/remotes/<remote>/dev`, `refs/remotes/<remote>/main`, then the
-  short names), because the hook cannot import the package.
+  (`refs/remotes/<remote>/dev`, `dev`, then `refs/remotes/<remote>/main`,
+  `main`), because the hook cannot import the package. The shell chain is in
+  the same **role order** as the owner: the integration branch first, the
+  trunk after it, and the remote's copy before the local branch within one
+  role.
 - `scripts/git_changed.py`'s default changed from the literal `"origin/main"`
   to `None`, resolved at call time: a default evaluated at import time would
   run git at import.
 - The tools that ask "what does this change touch?" no longer carry a base of
   their own. `LINT_BASE` and `COMPILE_CHANGED_BASE` are gone, and so is the
   `origin/main` tail: `SGATE_BASE_REF` and `--base` are the two ways to name a
-  base, and the owner is the third answer that costs no configuration. The
-  `rumdl-changed` recipe keeps a knob of its own, under the name that says
-  what it is for: `RUMDL_BASE`.
+  base, and the owner is the third answer that costs no configuration.
+- The `rumdl-changed` recipes ask the owner for their default through
+  `scripts/refs_loader.py`, and keep `RUMDL_BASE` for the case where the
+  caller knows better. There is no second default left to drift: the recipe
+  names a base only when a person named it.
 - A tool that asks "what does this change touch?" and finds no base measures
-  against **everything** rather than against `HEAD` — the safe direction.
+  against **everything** rather than against `HEAD` — the safe direction. The
+  ratchet is the exception, and it is the exception on purpose: it is the one
+  tool whose answer *is* the comparison, so it cannot have one without a base
+  and fails instead of answering about a comparison it did not make.
 - `config/hooks/pre-push.json` records the hook's base chain, and
   `scripts/check-hook-gates.py` verifies code and JSON in both directions, so
   the record and the hook cannot drift.
@@ -203,16 +269,23 @@ not exist — a green answer to a question nobody asked.
 ## Links
 
 - `scripts/src/sgate/gatekit/refs.py` — `BASE_CANDIDATES`,
-  `REMOTE_BASE_CANDIDATES`, `resolve_base_ref()`, `resolves()`.
+  `REMOTE_BASE_CANDIDATES`, `resolve_base_ref()`,
+  `resolve_change_base_ref()`.
 - `scripts/src/sgate/gatekit/gitenv.py` — the names that must not cross into
   another tree, and `foreign_env()`.
-- `scripts/refs_loader.py` — the by-path loader for hook-side scripts.
+- `scripts/refs_loader.py` — the by-path loader for hook-side scripts, and the
+  command line that answers "which base?" for recipes outside the package.
+- `scripts/check-baseline-ratchet.py` — the three outcomes, and the failure
+  that is not a warning.
 - `scripts/src/sgate/commands/checkout_state.py` — `_upstream_ref()`, the
   three-valued `differs`.
 - `scripts/tests/test_gatekit_refs.py` — the chain, the exclusive named base,
-  the resolver's command.
+  the resolver's command, the role before the freshness, and the change that
+  is never measured against itself.
 - `scripts/tests/test_ci_pr_path.py` — the base is named once for the whole
-  workflow, and never as the branch that was pushed.
+  workflow, named per event, and never as the branch that was pushed.
+- `scripts/tests/test_check_baseline_ratchet.py` — the ratchet fails when it
+  cannot measure, and passes when there is nothing to measure.
 - `scripts/tests/test_checkout_state.py` — the integration branch as the
   base, the local branch that is not a base, the missing base that stays
   unknown.
