@@ -60,6 +60,11 @@ Entry points installed by `scripts/src/pyproject.toml`: `sgate`, `ensure-emulato
 `run-maestro`. All six runtime dependencies (`click`, `loguru`, `rich`, `pyyaml`,
 `pydantic`, `GitPython`) are in use.
 
+GitPython reaches the local hooks through the tooling venv: `scripts/lint-changed.py`
+re-runs itself with the venv's interpreter when the `python3` of the shell has no
+`git` module, and names `scripts/ci/setup-local-tools.sh` when there is no such
+venv to run with.
+
 ### The 38 gate-shaped scripts
 
 `scripts/check-*.py`, `find-unwired-surfaces.py` and `measure-flake-rate.py` — 38 files

@@ -40,6 +40,7 @@ Exit code: 0 when there is nothing to report, 1 when there is a finding.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import pathlib
 import shutil
@@ -47,7 +48,56 @@ import subprocess
 import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
+
+
+def tooling_venv() -> pathlib.Path:
+    """The tooling venv of this checkout — the one that has GitPython.
+
+    The installer names the venv after the checkout
+    (`scripts/ci/setup-local-tools.sh`), and `SINGULARITY_TOOLS_VENV` says
+    where it puts it when the default place is not wanted.
+    """
+    override = os.environ.get("SINGULARITY_TOOLS_VENV")
+    if override:
+        return pathlib.Path(override)
+    return pathlib.Path.home() / ".venvs" / f"singularity-todo-{ROOT.name}"
+
+
+def gitpython_is_importable() -> bool:
+    """Whether the interpreter running this script can import GitPython."""
+    return importlib.util.find_spec("git") is not None
+
+
+def ensure_gitpython() -> None:
+    """Make sure the interpreter that runs this script has GitPython.
+
+    GitPython is a dependency of the tooling venv (`scripts/src/pyproject.toml`),
+    not of the system python. The local hook runs `python3 scripts/lint-changed.py`
+    with whatever python the shell has, so on a machine where the venv is not on
+    PATH the import of `git` fails before the lint even starts. The venv that
+    `scripts/ci/setup-local-tools.sh` installs is the one that has it, so this
+    re-runs the script with that interpreter instead of failing on an import.
+    """
+    if gitpython_is_importable():
+        return
+    venv = tooling_venv()
+    venv_python = venv / "bin" / "python"
+    already_inside = pathlib.Path(sys.prefix).resolve() == venv.resolve()
+    if venv_python.exists() and not already_inside:
+        os.execv(
+            str(venv_python),
+            [str(venv_python), str(pathlib.Path(__file__).resolve()), *sys.argv[1:]],
+        )
+    raise SystemExit(
+        "lint-changed.py needs GitPython, which lives in the tooling venv:\n"
+        "    bash scripts/ci/setup-local-tools.sh\n"
+        f'    export PATH="{venv / "bin"}:$PATH"'
+    )
+
+
 sys.path.insert(0, str(ROOT / "scripts"))
+
+ensure_gitpython()
 
 from git_changed import changed_paths as _changed_paths  # noqa: E402
 
