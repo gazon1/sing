@@ -128,6 +128,32 @@ class WaitTest(unittest.TestCase):
         self.assertEqual(state["expected"], "bbb")
         self.assertEqual(state["sha"], "aaa")
 
+    def test_the_attempts_that_were_needed_are_reported(self):
+        gh = FakeGh(
+            {
+                "deployments": [_deployment("bbb")],
+                "git/ref/heads/gh-pages": (_branch("aaa"), _branch("bbb")),
+            }
+        )
+        state = ad.wait_for_deployed_revision(
+            "gazon1/sing", "gh-pages", gh, attempts=5, sleep=lambda _: None
+        )
+        self.assertEqual(state["status"], "reached")
+        self.assertEqual(state["attempts"], 2)
+
+    def test_a_wait_that_was_asked_for_nothing_still_makes_one_attempt(self):
+        gh = FakeGh(
+            {
+                "deployments": [_deployment("bbb")],
+                "git/ref/heads/gh-pages": _branch("aaa"),
+            }
+        )
+        state = ad.wait_for_deployed_revision(
+            "gazon1/sing", "gh-pages", gh, attempts=0, sleep=lambda _: None
+        )
+        self.assertEqual(state["status"], "stale")
+        self.assertEqual(state["attempts"], 1)
+
     def test_a_branch_without_a_deployment_is_stale(self):
         gh = FakeGh({"git/ref/heads/gh-pages": _branch("aaa")})
         state = ad.wait_for_deployed_revision(
@@ -173,6 +199,13 @@ class CnameTest(unittest.TestCase):
         gh = self._gh(None)
         result = ad.verify_cname("gazon1/sing", "gh-pages", None, gh, sleep=lambda _: None)
         self.assertEqual(result["status"], "not-expected")
+
+    def test_a_branch_without_a_cname_is_not_asked_about_the_deployment(self):
+        gh = self._gh(None)
+        result = ad.verify_cname("gazon1/sing", "gh-pages", None, gh, sleep=lambda _: None)
+        self.assertEqual(result["status"], "not-expected")
+        self.assertEqual(result["attempts"], 0)
+        self.assertEqual(gh.calls, [])
 
     def test_a_branch_that_never_catches_up_is_stale_and_not_a_missing_cname(self):
         gh = FakeGh(

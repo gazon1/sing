@@ -164,7 +164,9 @@ def wait_for_deployed_revision(
     """
     expected: str | None = None
     published: str | None = None
+    made = 0
     for attempt in range(1, max(1, attempts) + 1):
+        made = attempt
         deployment = newest_deployment(fetch_deployments(repo, runner), since)
         expected = str((deployment or {}).get("sha") or "") or None
         published = fetch_branch_sha(repo, branch, runner)
@@ -173,7 +175,7 @@ def wait_for_deployed_revision(
                 "status": "reached",
                 "sha": published,
                 "expected": expected,
-                "attempts": attempt,
+                "attempts": made,
             }
         if attempt < attempts:
             sleep(delay)
@@ -181,7 +183,7 @@ def wait_for_deployed_revision(
         "status": "stale",
         "sha": published,
         "expected": expected,
-        "attempts": attempts,
+        "attempts": made,
     }
 
 
@@ -213,8 +215,22 @@ def verify_cname(
     delay: float = DEFAULT_DELAY,
     sleep: Any = time.sleep,
 ) -> dict[str, Any]:
-    """The CNAME of the deployed revision, and what it says about the capture."""
+    """The CNAME of the deployed revision, and what it says about the capture.
+
+    The capture answers one question before anything is read: was there a
+    CNAME at all? A branch that carried none has nothing the deploy could
+    have taken with it, and nothing to compare — the check answers that from
+    the capture and stops, without waiting for a revision that would only
+    confirm what the capture already said.
+    """
     runner = runner if runner is not None else gh_api
+    if expected is None:
+        return {
+            "status": "not-expected",
+            "expected": None,
+            "deployed": None,
+            "attempts": 0,
+        }
     state = wait_for_deployed_revision(
         repo,
         branch,
