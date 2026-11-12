@@ -510,6 +510,59 @@ class AllurePagesTest(unittest.TestCase):
         self.assertGreater(stats["files"], 0)
         self.assertGreater(stats["bytes"], 0)
 
+    # ── The legacy root ───────────────────────────────────────────────────────
+
+    def test_drop_legacy_root_removes_the_legacy_reports_and_the_shared_history(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        (self.site / "last-history").mkdir()
+        (self.site / "last-history" / "widgets.json").write_text("{}", encoding="utf-8")
+        self.make_report(self.site, "fast", "10")
+
+        result = ap.drop_legacy_root(self.site)
+
+        self.assertEqual(result["removed_reports"], ["2807"])
+        self.assertTrue(result["removed_history"])
+        self.assertGreater(result["removed_files"], 0)
+        self.assertGreater(result["removed_bytes"], 0)
+        self.assertFalse(legacy.exists())
+        self.assertFalse((self.site / "last-history").exists())
+        # The population namespace is not the legacy root.
+        self.assertTrue((self.site / "fast" / "10").is_dir())
+        self.assertTrue((self.site / "fast" / "last-history").is_dir())
+
+    def test_drop_legacy_root_is_idempotent(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        self.assertEqual(ap.drop_legacy_root(self.site)["removed_reports"], ["2807"])
+        second = ap.drop_legacy_root(self.site)
+        self.assertEqual(second["removed_reports"], [])
+        self.assertFalse(second["removed_history"])
+
+    def test_drop_legacy_root_leaves_a_folder_that_is_not_a_report(self):
+        (self.site / "2808").mkdir()
+        result = ap.drop_legacy_root(self.site)
+        self.assertEqual(result["removed_reports"], [])
+        self.assertTrue((self.site / "2808").is_dir())
+
+    def test_the_root_index_stops_linking_the_dropped_legacy_reports(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        self.assertIn('href="2807/index.html"', (self.site / "index.html").read_text(encoding="utf-8"))
+
+        ap.drop_legacy_root(self.site)
+        self.make_report(self.site, "fast", "11")
+        ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
+
+        root = (self.site / "index.html").read_text(encoding="utf-8")
+        self.assertIn('href="fast/index.html"', root)
+        self.assertNotIn('href="2807/index.html"', root)
+
 
 class PublicationContractTest(unittest.TestCase):
     """The contracts: what a publication and a manifest may contain."""

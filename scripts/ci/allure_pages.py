@@ -670,6 +670,46 @@ def _remove_reports(population_dir: Path, report_paths: Iterable[str]) -> list[s
     return removed
 
 
+def drop_legacy_root(site_dir: Path) -> dict[str, Any]:
+    """Remove the root-level reports and history the legacy layout left.
+
+    The legacy layout published every report at the root of the branch and
+    kept one shared history there. The population layout publishes inside a
+    namespace, so the root copies are dead weight: the report action copies
+    the whole tree into the publish tree on every run, and nothing ever
+    removes them. The publication contract calls legacy root URLs legacy-only
+    — they may disappear.
+
+    Idempotent: a tree that carries no legacy root is left as it is, and the
+    populations are not touched.
+    """
+    empty = {"removed_reports": [], "removed_history": False, "removed_files": 0, "removed_bytes": 0}
+    if not site_dir.is_dir():
+        return empty
+    removed: list[str] = []
+    files = 0
+    size = 0
+    for name in legacy_report_dirs(site_dir):
+        stats = tree_stats(site_dir / name)
+        shutil.rmtree(site_dir / name)
+        removed.append(name)
+        files += stats["files"]
+        size += stats["bytes"]
+    history = site_dir / "last-history"
+    removed_history = history.is_dir()
+    if removed_history:
+        stats = tree_stats(history)
+        shutil.rmtree(history)
+        files += stats["files"]
+        size += stats["bytes"]
+    return {
+        "removed_reports": removed,
+        "removed_history": removed_history,
+        "removed_files": files,
+        "removed_bytes": size,
+    }
+
+
 def reconcile_population(site_dir: Path, population: str) -> None:
     """Ensure population/root indexes reflect recorded latest without promoting new runs."""
     _population(population)
@@ -972,6 +1012,12 @@ def cmd_measure(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_drop_legacy_root(args: argparse.Namespace) -> int:
+    result = drop_legacy_root(Path(args.site_dir))
+    _print_json(result)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1020,6 +1066,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_measure = sub.add_parser("measure", help="report file count and byte size of a directory tree")
     p_measure.add_argument("--path", required=True)
     p_measure.set_defaults(func=cmd_measure)
+
+    p_drop = sub.add_parser(
+        "drop-legacy-root",
+        help="remove the root-level reports and history the legacy layout left behind",
+    )
+    p_drop.add_argument("--site-dir", required=True)
+    p_drop.set_defaults(func=cmd_drop_legacy_root)
 
     return parser
 

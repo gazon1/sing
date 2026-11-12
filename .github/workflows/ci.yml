@@ -1871,6 +1871,25 @@ jobs:
         if: ${{ always() }}
         run: rm -f history.tar.gz
 
+      # The legacy layout published every report at the root of the branch
+      # and kept one shared history there. The population layout publishes
+      # inside a namespace, and the report action copies the whole tree into
+      # the publish tree — so the root copies were carried into every
+      # publication and never removed. The publication contract calls
+      # legacy root URLs legacy-only: they may disappear.
+      - name: Drop the legacy root reports
+        run: |
+          set -euo pipefail
+          before=$(python3 scripts/ci/allure_pages.py measure --path gh-pages)
+          result=$(python3 scripts/ci/allure_pages.py drop-legacy-root --site-dir gh-pages)
+          after=$(python3 scripts/ci/allure_pages.py measure --path gh-pages)
+          echo "$result"
+          {
+            echo "- legacy root drop: ${result}"
+            echo "- gh-pages before the drop: ${before}"
+            echo "- gh-pages after the drop: ${after}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Measure history tree (before, advisory)
         if: ${{ always() }}
         run: |
