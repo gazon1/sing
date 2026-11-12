@@ -18,6 +18,16 @@ apart, because they are three different things: a stale revision (the
 branch is not the one that was deployed), a CNAME that is gone (the
 deploy dropped it), and an API that did not answer (nothing was read at
 all).
+
+Which deployment is the one of this publication is decided by its
+identifier, not by the moment it was created. The API answers `created_at`
+with a second of precision, and the previous publication may have
+finished in the very second this one started — so a deployment that is
+"the newest one created since the deploy started" may be the previous
+one, and a check that read it would prove something about the wrong
+revision. The identifiers of the deployments that existed before the
+publish are therefore captured first, and the deployment of this
+publication is the one whose identifier the capture does not name.
 """
 
 from __future__ import annotations
@@ -52,11 +62,19 @@ DEFAULT_BRANCH = "gh-pages"
 #: The file the custom domain lives in.
 CNAME = "CNAME"
 
+#: How many deployments the API is asked for. The snapshot and the check
+#: after the deploy have to see the same deployments, so both ask for the
+#: same number — and the check needs the window to hold the deployment of
+#: this publication, so the window is wider than one.
+DEPLOYMENTS_PAGE = 30
+
 #: How many times the check reads the branch before it gives up, and how
-#: long it waits between two reads. Ten reads at three seconds apart give
-#: the API half a minute to catch up with the push.
-DEFAULT_ATTEMPTS = 10
-DEFAULT_DELAY = 3.0
+#: long it waits between two reads. The deployment of this publication
+#: appears in the API some seconds after the push, and the branch catches
+#: up with it a moment later, so the wait has to outlast both: twenty
+#: reads at five seconds apart give the API a minute and a half.
+DEFAULT_ATTEMPTS = 20
+DEFAULT_DELAY = 5.0
 
 
 # ── GitHub ────────────────────────────────────────────────────────────────────
@@ -67,7 +85,7 @@ def fetch_deployments(repo: str, runner: Runner) -> list[dict[str, Any]]:
     try:
         data = json_document(
             runner,
-            [f"repos/{repo}/deployments?environment=github-pages&per_page=10"],
+            [f"repos/{repo}/deployments?environment=github-pages&per_page={DEPLOYMENTS_PAGE}"],
         )
     except NotFound:
         return []
@@ -87,26 +105,56 @@ def _moment(value: Any) -> datetime | None:
         return None
 
 
+def deployment_ids(deployments: list[dict[str, Any]]) -> set[str]:
+    """The identifiers of the deployments, as strings.
+
+    The identifier is what tells two deployments apart. The API answers
+    `created_at` with a second of precision, so the moment a deployment was
+    created cannot: two publications may start in the same second.
+    """
+    identifiers: set[str] = set()
+    for deployment in deployments:
+        identifier = deployment.get("id")
+        if identifier is None:
+            continue
+        identifiers.add(str(identifier))
+    return identifiers
+
+
+def read_snapshot_ids(path: str) -> set[str]:
+    """The identifiers the snapshot names."""
+    document = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    if not isinstance(document, list):
+        raise ValueError(f"{path} does not hold a list of deployment identifiers")
+    return {str(identifier) for identifier in document}
+
+
 def newest_deployment(
     deployments: list[dict[str, Any]],
-    since: str | None = None,
+    known_ids: set[str],
 ) -> dict[str, Any] | None:
-    """The deployment that is the newest one of the given moment onwards.
+    """The deployment that the publication created.
 
-    The deployment of the publication that is being verified is the newest
-    one that was created after the deploy started. The deployments of the
-    earlier publications are older than that, and their commit is not the
-    commit this run published.
+    The deployments that existed before the publication are the ones the
+    snapshot names: the deployment of this publication is the newest one
+    whose identifier the snapshot does not name.
+
+    A moment cannot tell them apart — the API answers `created_at` with a
+    second of precision, and the previous publication may have finished in
+    the very second this one started, so "the newest deployment created
+    since the deploy started" may be the previous one. A deployment that
+    carries no identifier cannot be told apart either, so it is not a
+    candidate.
     """
-    floor = _moment(since)
     candidates = []
     for deployment in deployments:
         sha = str(deployment.get("sha") or "")
         if not sha:
             continue
-        created = _moment(deployment.get("created_at"))
-        if floor is not None and (created is None or created < floor):
+        identifier = deployment.get("id")
+        if identifier is None or str(identifier) in known_ids:
             continue
+        created = _moment(deployment.get("created_at"))
         candidates.append((created or datetime.min.replace(tzinfo=timezone.utc), deployment))
     if not candidates:
         return None
@@ -150,7 +198,7 @@ def wait_for_deployed_revision(
     repo: str,
     branch: str,
     runner: Runner,
-    since: str | None = None,
+    known_ids: set[str],
     attempts: int = DEFAULT_ATTEMPTS,
     delay: float = DEFAULT_DELAY,
     sleep: Any = time.sleep,
@@ -167,7 +215,7 @@ def wait_for_deployed_revision(
     made = 0
     for attempt in range(1, max(1, attempts) + 1):
         made = attempt
-        deployment = newest_deployment(fetch_deployments(repo, runner), since)
+        deployment = newest_deployment(fetch_deployments(repo, runner), known_ids)
         expected = str((deployment or {}).get("sha") or "") or None
         published = fetch_branch_sha(repo, branch, runner)
         if expected and published and expected == published:
@@ -209,8 +257,8 @@ def verify_cname(
     repo: str,
     branch: str,
     expected: str | None,
+    known_ids: set[str],
     runner: Runner | None = None,
-    since: str | None = None,
     attempts: int = DEFAULT_ATTEMPTS,
     delay: float = DEFAULT_DELAY,
     sleep: Any = time.sleep,
@@ -235,7 +283,7 @@ def verify_cname(
         repo,
         branch,
         runner,
-        since=since,
+        known_ids,
         attempts=attempts,
         delay=delay,
         sleep=sleep,
@@ -263,9 +311,30 @@ def _expected_cname(path: str | None) -> str | None:
     return captured.read_text(encoding="utf-8")
 
 
+def _snapshot_ids(path: str | None) -> set[str]:
+    """The identifiers of the deployments that existed before the publish.
+
+    A snapshot that cannot be read is a snapshot that names nothing, and a
+    snapshot that names nothing makes every deployment a candidate — the
+    race the snapshot was taken to end. The check therefore refuses to run
+    without one.
+    """
+    if not path:
+        raise ValueError("no deployment snapshot was given")
+    return read_snapshot_ids(path)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+
+    snapshot = commands.add_parser(
+        "snapshot-deployments",
+        help="record the identifiers of the Pages deployments that exist now",
+    )
+    snapshot.add_argument("--repo", required=True)
+    snapshot.add_argument("--output", required=True)
+
     verify = commands.add_parser(
         "verify-cname",
         help="wait for the deployed revision and check its CNAME",
@@ -273,17 +342,39 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--repo", required=True)
     verify.add_argument("--branch", default=DEFAULT_BRANCH)
     verify.add_argument("--expected-file", default=None)
-    verify.add_argument("--since", default=None)
+    verify.add_argument(
+        "--snapshot-file",
+        default=None,
+        help="the file the snapshot of the pre-publish deployments was written to",
+    )
     verify.add_argument("--attempts", type=int, default=DEFAULT_ATTEMPTS)
     verify.add_argument("--delay", type=float, default=DEFAULT_DELAY)
     args = parser.parse_args(argv)
+
+    if args.command == "snapshot-deployments":
+        try:
+            identifiers = sorted(deployment_ids(fetch_deployments(args.repo, gh_api)))
+        except LinkError as exc:
+            print(f"allure-deploy error: {exc}", file=sys.stderr)
+            print(json.dumps({"status": "api-error", "error": str(exc)}, sort_keys=True))
+            return 1
+        pathlib.Path(args.output).write_text(json.dumps(identifiers), encoding="utf-8")
+        print(json.dumps({"status": "snapshot", "count": len(identifiers)}, sort_keys=True))
+        return 0
+
+    try:
+        known_ids = _snapshot_ids(args.snapshot_file)
+    except (OSError, ValueError) as exc:
+        print(f"allure-deploy error: {exc}", file=sys.stderr)
+        print(json.dumps({"status": "no-snapshot", "error": str(exc)}, sort_keys=True))
+        return 1
 
     try:
         result = verify_cname(
             args.repo,
             args.branch,
             _expected_cname(args.expected_file),
-            since=args.since,
+            known_ids,
             attempts=args.attempts,
             delay=args.delay,
         )

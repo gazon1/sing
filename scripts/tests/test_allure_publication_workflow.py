@@ -193,7 +193,14 @@ class PostDeployCheckTest(unittest.TestCase):
     def test_the_check_waits_for_the_deployed_revision(self):
         run = _run_of("The custom domain CNAME survived the deploy")
         self.assertIn("allure_deploy.py verify-cname", run)
-        self.assertIn("--since", run)
+
+    def test_the_check_names_the_deployment_by_its_identifier(self):
+        # The deployment of this publication is the one whose identifier the
+        # snapshot taken before the deploy does not name. A moment cannot do
+        # that: the API answers `created_at` with a second of precision.
+        run = _run_of("The custom domain CNAME survived the deploy")
+        self.assertIn("--snapshot-file deployments.before.json", run)
+        self.assertNotIn("--since", run)
 
     def test_the_check_is_about_the_branch_that_was_published(self):
         run = _run_of("The custom domain CNAME survived the deploy")
@@ -203,11 +210,19 @@ class PostDeployCheckTest(unittest.TestCase):
         run = _run_of("The custom domain CNAME survived the deploy")
         self.assertIn("--expected-file cname.expected", run)
 
+    def test_the_deployments_are_snapshotted_before_the_deploy(self):
+        snapshot = _index_of("Snapshot the Pages deployments")
+        deploy = _index_of("Publish Allure report to GitHub Pages")
+        self.assertLess(snapshot, deploy)
+        run = _run_of("Snapshot the Pages deployments")
+        self.assertIn("allure_deploy.py snapshot-deployments", run)
+        self.assertIn("--output deployments.before.json", run)
+
     def test_the_deploy_start_is_marked_before_the_deploy(self):
         mark = _index_of("Mark deploy start")
         deploy = _index_of("Publish Allure report to GitHub Pages")
         self.assertLess(mark, deploy)
-        self.assertIn("since=", _run_of("Mark deploy start"))
+        self.assertIn("ts=", _run_of("Mark deploy start"))
 
     def test_the_check_is_bound_to_the_publication_that_is_verified(self):
         condition = _condition_of("The custom domain CNAME survived the deploy")

@@ -2066,12 +2066,28 @@ jobs:
         run: |
           python3 scripts/ci/allure_pages.py measure --path allure-history
 
+      # The deploy replaces the branch with the publish tree, and the check
+      # after it has to tell the deployment of *this* publication from the
+      # deployments of the earlier ones. A moment cannot do that: the API
+      # answers `created_at` with a second of precision, and the previous
+      # publication may have finished in the very second this one starts.
+      # The identifiers of the deployments that exist now are recorded
+      # before the deploy, and the deployment of this publication is the
+      # one whose identifier the record does not name.
+      - name: Snapshot the Pages deployments
+        if: steps.decide.outputs.action == 'publish'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/allure_deploy.py snapshot-deployments \
+            --repo "${GITHUB_REPOSITORY}" \
+            --output deployments.before.json
+
       - name: Mark deploy start
         if: steps.decide.outputs.action == 'publish'
         id: deploy-start
-        run: |
-          echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
-          echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+        run: echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
 
       - name: Publish Allure report to GitHub Pages
         if: steps.decide.outputs.action == 'publish'
@@ -2100,6 +2116,11 @@ jobs:
       # revision says nothing about the revision that was published. The
       # check waits until the branch holds the commit the deployment
       # created, and only then reads the CNAME.
+      #
+      # The deployment it waits for is named by its identifier, not by the
+      # moment it was created: the snapshot taken before the deploy holds
+      # the identifiers that existed then, and the deployment of this
+      # publication is the one the snapshot does not name.
       - name: The custom domain CNAME survived the deploy
         if: steps.decide.outputs.action == 'publish'
         env:
@@ -2110,7 +2131,7 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --branch gh-pages \
             --expected-file cname.expected \
-            --since "${{ steps.deploy-start.outputs.since }}"
+            --snapshot-file deployments.before.json
 
       # A published report nobody is told about is a report nobody opens.
       # The comment goes on the merged PR and on the issues that PR closes.

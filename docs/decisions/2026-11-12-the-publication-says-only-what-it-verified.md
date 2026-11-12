@@ -59,11 +59,21 @@ several of our own comments carry the marker, the newest one wins — by
 answered in. A comment of a person (or of another bot) is never edited: the helper
 posts a new comment beside it.
 
-**The check after the deploy waits for the deployed revision.** The workflow marks
-the moment the deploy starts, and the helper reads the Pages deployments created
-after that moment to learn the commit the deployment published. It then reads
-`refs/heads/gh-pages` until the branch holds that commit — ten reads at three
-seconds apart — and only then reads the CNAME of the branch.
+**The check after the deploy waits for the deployed revision.** Before the publish,
+the workflow records the identifiers of the Pages deployments that exist; the
+helper then reads the Pages deployments and looks for the one whose identifier
+the record does not name — that one is the deployment of this publication. It
+then reads `refs/heads/gh-pages` until the branch holds that deployment's
+commit — twenty reads at five seconds apart — and only then reads the CNAME of
+the branch.
+
+The deployment is named by its identifier and not by the moment it was created:
+the API answers `created_at` with a second of precision, so the previous
+publication may have finished in the very second this one started, and a
+deployment "created since the deploy started" may be the previous one. A
+snapshot that cannot be read is a snapshot that names nothing, and a snapshot
+that names nothing would make every deployment a candidate — the check refuses
+to run without one.
 
 **The failures are told apart.** `stale` — the branch is not the revision that was
 deployed, and the CNAME of that revision proves nothing. `missing` — the CNAME was
@@ -120,8 +130,9 @@ one client (`scripts/ci/github_api.py`) that the tests drive with a fake runner.
   deploy. Reading the deployments needs the `deployments: read` scope — the API
   answers 403 without it, and the check fails every publication. The branch ref
   and the CNAME are read with the `contents` scope the job already holds.
-- The post-deploy check takes up to thirty seconds when the API is slow to catch
-  up with the push.
+- The post-deploy check takes up to a minute and a half when the API is slow to
+  catch up with the push: the deployment appears in the API some seconds after
+  the push, and the branch catches up with it a moment later.
 - A repository whose Pages settings cannot be read publishes its report and posts
   no link, unless `ALLURE_REPORT_SITE_URL` is set. That is a configuration the
   repository does not set today: the settings answer for `gazon1/sing`.
