@@ -119,6 +119,7 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 from gitenv_loader import load_gitenv  # noqa: E402
+from refs_loader import REMOTE_BASE_CANDIDATES, resolve_base_ref  # noqa: E402
 
 
 #: How a path that is not valid UTF-8 is read.
@@ -242,12 +243,6 @@ def is_wide_path(path: str) -> bool:
         return True
     return path.rsplit('/', 1)[-1] in VERDICT_WIDE_FILES
 
-#: Where the change is measured against when the push does not name a base.
-#: The trunk's remote-tracking ref: a branch that does not exist on the remote
-#: yet is still a change *against the trunk*, and measuring it against nothing
-#: would judge the whole repository — every module, for a one-line change.
-DEFAULT_BASE = "origin/main"
-
 #: The Gradle command the hook uses. ./gw, not ./gradlew: a worktree-private
 #: GRADLE_USER_HOME, so a push in one worktree cannot kill the daemons of
 #: another (ADR 2026-10-04-gradle-daemon-isolation.md).
@@ -321,7 +316,8 @@ def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
 def default_base(tree: pathlib.Path) -> str | None:
     """The ref the change is measured against when the push does not name one.
 
-    The trunk's remote-tracking ref (`origin/main`), and nothing else.
+    The trunk's remote-tracking ref — the integration branch while it exists,
+    the trunk after it — and nothing else.
 
     The branch's own upstream is **not** a base for this verdict. The verdict
     answers "does this push carry a finding of its own", and the base of that
@@ -343,21 +339,12 @@ def default_base(tree: pathlib.Path) -> str | None:
          a one-line change;
       2. nothing — and then every module is judged and every finding counts as
          the push's own, the safe direction.
+
+    A local branch is not an answer either: the local `main` of a checkout
+    that never fetched is the checkout's own branch, and a push measured
+    against it measures the push against itself.
     """
-    return DEFAULT_BASE if _rev_parse(tree, DEFAULT_BASE) else None
-
-
-def _rev_parse(tree: pathlib.Path, ref: str) -> str | None:
-    """The sha a ref points at, or None when the ref does not exist here."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", ref],
-        cwd=tree,
-        env=tree_env(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.stdout.strip() or None if result.returncode == 0 else None
+    return resolve_base_ref(cwd=tree, env=tree_env(), candidates=REMOTE_BASE_CANDIDATES)
 
 
 def module_of(task: str) -> str:

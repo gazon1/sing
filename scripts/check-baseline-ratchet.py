@@ -22,13 +22,22 @@ baseline purge: ratchet, don't purge.
 
 Contract:
   * Baseline file is compared against its state at the **merge-base** with the
-    base branch — the commit where this branch forked from `main`. A PR that
-    grows the baseline fails, naming the delta.
-  * The base branch is `origin/main`, then `main`; `--base` and
-    `SGATE_BASE_REF` override that. When neither exists (a shallow checkout,
-    a single-branch repository) the comparison falls back to `HEAD` and the
-    gate says so — the fallback is the file against itself, and that has to be
-    visible rather than silent.
+    base branch — the commit where this branch forked from the trunk. A PR
+    that grows the baseline fails, naming the delta.
+  * The base branch is resolved by the one owner of that question
+    (`sgate.gatekit.refs`): `--base` and `SGATE_BASE_REF` name it, and
+    otherwise the chain answers — the integration branch, then the trunk.
+  * When the comparison cannot be made — a named base that is not here, no
+    base at all, no merge-base — the gate FAILS. There is no fallback to
+    `HEAD`: the fallback is the file against itself, and a ratchet that
+    cannot measure the branch's own growth must not report that the
+    measurement was clean.
+  * A named base that is git's **null commit** — what a push payload says
+    when the pushed branch did not exist before the push — is a comparison
+    that cannot be made, and it fails like one. The branch was created by
+    that push, so it has no previous state to grow from; naming the trunk
+    instead would name the pushed commit and measure the change against
+    itself.
   * `git` is required. Without it the check fails loudly rather than skipping —
     a check that silently passes when it cannot run is the defect class this
     whole change is about.
@@ -101,6 +110,7 @@ if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
 
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register, run
+from sgate.gatekit.refs import BASE_REF_ENV, is_null_commit, resolve_change_base_ref
 
 # Detekt baseline entries look like:
 #   <ID>RuleName:File.kt:Fqcn$signature</ID>
@@ -126,6 +136,16 @@ _ACTIVE_FALSE_RE = re.compile(r"^\s+active:\s*false\s*$")
 
 class GitUnavailable(RuntimeError):
     """Raised when git is not available or the git command fails."""
+
+
+class UnmeasurableComparison(RuntimeError):
+    """Raised when the comparison this gate exists to make cannot be made.
+
+    A ratchet that cannot measure reports success is worse than a ratchet
+    that is absent: it says "the baseline did not grow" about a comparison
+    that never happened. The two are different claims, and only one of them
+    is true.
+    """
 
 
 def disabled_rules(config_text: str) -> dict[str, int]:
@@ -183,18 +203,9 @@ def git_show(path: Path, rev: str = "HEAD") -> str | None:
     return out.stdout
 
 
-#: The refs the base branch is looked for under, in the order they are tried.
-#:
-#: `origin/main` first: a working copy that has a remote is the normal case, and
-#: the remote's main is the branch the pull request targets. `main` after it, for
-#: the checkout that has no remote — a fixture, or a clone whose remote was
-#: removed.
-_BASE_CANDIDATES = (
-    "origin/main",
-    "main",
-    "refs/remotes/origin/main",
-    "refs/heads/main",
-)
+#: The refs the base branch is looked for under, in the order they are tried,
+#: live in `sgate.gatekit.refs` — the integration branch first, then the trunk,
+#: so that every tool that measures a change measures it against the same refs.
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -210,12 +221,6 @@ def _git(*args: str) -> subprocess.CompletedProcess[str]:
         raise GitUnavailable("git not found — cannot verify the baseline ratchet") from None
 
 
-def ref_exists(ref: str) -> bool:
-    """Whether `ref` resolves to a commit in this repository."""
-    out = _git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
-    return out.returncode == 0
-
-
 def merge_base(base: str) -> str | None:
     """The commit where `base` and HEAD share their history, or None.
 
@@ -227,6 +232,14 @@ def merge_base(base: str) -> str | None:
         return None
     found = out.stdout.strip()
     return found or None
+
+
+def head_commit() -> str | None:
+    """The commit HEAD names, or None when there is none."""
+    out = _git("rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+    if out.returncode != 0:
+        return None
+    return out.stdout.strip() or None
 
 
 def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
@@ -246,40 +259,66 @@ def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
     debt the branch leaves behind. The difference is the branch's own growth,
     which is exactly what a ratchet is supposed to measure.
 
-    ## When there is no base branch
+    ## Which base
 
-    A shallow checkout has no `origin/main`, and a repository with one branch
-    has no merge-base to find. In that case the gate falls back to `HEAD` and
-    **says so**: a check that silently degrades to "compare the file with
-    itself" is the defect this change removes, so the fallback is announced
-    rather than taken quietly.
+    The base is resolved by the one owner of that question
+    (`sgate.gatekit.refs`), not by a list of this script's own: a named base
+    (`--base`, `SGATE_BASE_REF`) is exclusive, and otherwise the chain answers
+    — the integration branch, then the trunk.
+
+    ## When the comparison cannot be made
+
+    There is no fallback to `HEAD`. A base that was named and is not here, a
+    repository with no base at all, a base with no merge-base — in each of
+    those the ratchet cannot see the branch's own growth, and a gate that
+    cannot measure must not report that the measurement was clean. So the
+    gate fails, and says which of the three it was.
+
+    The one case that is NOT a failure is a base whose merge-base IS `HEAD`:
+    the base already holds the change — it is the change, or it contains it —
+    so there is nothing to measure, and that is a true statement rather than a
+    missing one.
     """
+    env = dict(os.environ)
     if explicit:
-        if not ref_exists(explicit):
-            return "HEAD", f"HEAD (the requested base '{explicit}' does not exist)"
-        found = merge_base(explicit)
-        if not found:
-            return "HEAD", f"HEAD (no merge-base with '{explicit}')"
-        return found, f"merge-base({explicit}, HEAD) = {found[:12]}"
+        env[BASE_REF_ENV] = explicit
+    named = env.get(BASE_REF_ENV, "").strip()
 
-    from_env = os.environ.get("SGATE_BASE_REF", "").strip()
-    if from_env:
-        if not ref_exists(from_env):
-            return "HEAD", f"HEAD (SGATE_BASE_REF='{from_env}' does not exist)"
-        found = merge_base(from_env)
-        if not found:
-            return "HEAD", f"HEAD (no merge-base with SGATE_BASE_REF='{from_env}')"
-        return found, f"merge-base({from_env}, HEAD) = {found[:12]}"
+    if named and is_null_commit(named):
+        # The null commit is the payload's way of saying that the pushed branch
+        # did not exist before the push. There is no state the branch replaced,
+        # so there is nothing to measure its growth against — and the one thing
+        # that could be named instead is the pushed commit itself, which would
+        # make the gate compare the baseline with itself and report no growth.
+        raise UnmeasurableComparison(
+            "the named base is git's null commit — the push created this branch, "
+            "so there is no previous state to measure the baseline's growth "
+            "against. The comparison cannot be made"
+        )
 
-    for candidate in _BASE_CANDIDATES:
-        if not ref_exists(candidate):
-            continue
-        found = merge_base(candidate)
-        if not found:
-            continue
-        return found, f"merge-base({candidate}, HEAD) = {found[:12]}"
+    base = resolve_change_base_ref(cwd=ROOT, env=env)
+    if base is None:
+        if named:
+            raise UnmeasurableComparison(
+                f"the requested base '{named}' does not exist in this checkout — "
+                "the baseline's own growth cannot be measured against it"
+            )
+        raise UnmeasurableComparison(
+            "no base branch resolves in this checkout — the baseline's own growth "
+            "cannot be measured. Fetch the integration branch or the trunk, or "
+            f"name one with {BASE_REF_ENV}"
+        )
 
-    return "HEAD", "HEAD (no base branch found — the branch's own growth is invisible)"
+    found = merge_base(base)
+    if not found:
+        raise UnmeasurableComparison(
+            f"no merge-base with '{base}' — the baseline's own growth cannot be measured"
+        )
+
+    label = f"merge-base({base}, HEAD) = {found[:12]}"
+    if found == head_commit():
+        label += " — the base already holds the change, so there is nothing to measure"
+    return found, label
 
 
 def rule_of_entry(entry: str) -> str:
@@ -344,8 +383,9 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
     help=(
         "the branch the baseline is compared against. The comparison is made "
         "against the merge-base of this branch and that one, so the delta the "
-        "gate measures is the branch's own work. Default: origin/main, then "
-        "main; SGATE_BASE_REF overrides it."
+        "gate measures is the branch's own work. Default: the integration "
+        "branch, then the trunk; SGATE_BASE_REF overrides it. A base that "
+        "does not exist here is a failure, not a fallback."
     ),
 )
 @click.option(
@@ -400,15 +440,14 @@ def cli(
     except GitUnavailable as exc:
         click.echo(f"ERROR: {exc}", err=True)
         raise ctx.exit(VALIDATION_FAILURE) from None
+    except UnmeasurableComparison as exc:
+        # The comparison this gate exists to make could not be made. That is
+        # a failure, not a warning: a ratchet that cannot measure must not
+        # report that the measurement was clean.
+        click.echo(f"ERROR: check-baseline-ratchet: {exc}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE) from None
 
     click.echo(f"check-baseline-ratchet: comparing against {comparison_label}")
-    if comparison_ref == "HEAD":
-        click.echo(
-            "check-baseline-ratchet: WARNING — no base branch to measure the "
-            "branch's own growth against. The comparison below is the working "
-            "tree against HEAD, which on a pull request is the file against "
-            "itself."
-        )
 
     failed = False
     try:

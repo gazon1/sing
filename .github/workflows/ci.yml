@@ -32,6 +32,53 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The ref every gate in this workflow measures a change against, named once
+  # for the whole workflow.
+  #
+  # The name is EVENT-AWARE, because the base of a change depends on what the
+  # event is:
+  #
+  #   pull request         → the branch the pull request targets
+  #   push to `main`       → the commit the push replaced
+  #   push to any other    → the trunk that branch integrates toward
+  #   schedule / manual    → the trunk the run is about
+  #
+  # A push to `main` is measured against the state it replaced rather than
+  # against `origin/main`: after the push, `origin/main` IS the pushed commit,
+  # and a change measured against itself is measured against nothing — every
+  # gate that selects work by the changed files finds nothing to do, and the
+  # run is green because it measured nothing. That is the vacuous comparison
+  # this base naming exists to prevent.
+  #
+  # A push to the integration branch is measured against the trunk, because
+  # that is what the integration branch is measured against. The resolver in
+  # `sgate.gatekit.refs` steps over a candidate that points at the change
+  # itself as well, so a branch is not measured against itself even when
+  # nothing is named here — the one exception is the trunk at the change
+  # itself, where the work is already in the trunk and the measurement is
+  # empty by truth.
+  #
+  # A push that CREATED the branch names the null commit — git's name for no
+  # commit at all, which is what the payload's `before` says when the branch
+  # did not exist before the push. There is no state to measure against, and
+  # naming `origin/main` instead would name the pushed commit: the branch would
+  # be measured against itself, the diff would be empty, and the run would be
+  # green because it measured nothing. A base that names nothing is no base,
+  # and a gate that cannot measure fails rather than reporting that the
+  # measurement was clean. A repository's first commit is bootstrapped by the
+  # procedure the ADR spells out, never by a fallback to the trunk.
+  #
+  # The gates read it through `SGATE_BASE_REF` (ADR
+  # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
+  # and a named base is exclusive: the gates never fall back to another
+  # branch, so every gate in a run compares against the same thing. That ADR
+  # holds the event-to-base mapping as a table, and
+  # `scripts/tests/test_ci_pr_path.py` pins every row of it — the name this
+  # expression produces, and what that name measures against when the
+  # checkout does not have it.
+  SGATE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before) || 'origin/main' }}
+
 
 jobs:
   # Path-filter detection — always runs so ci-gate can wait for it; downstream jobs
@@ -199,10 +246,11 @@ jobs:
       )
     steps:
       # The baseline ratchet compares the working tree against the merge-base
-      # with `origin/main`, so the base reference has to exist. A shallow
-      # checkout has no such ref: the comparison would fall back to `HEAD`,
-      # and on a pull request `HEAD` is the file against itself — a check that
-      # cannot see the branch's own growth is not a check.
+      # with the base named in `SGATE_BASE_REF` in the workflow, so that ref has to
+      # exist. A shallow checkout has no such ref: the comparison would fall
+      # back to `HEAD`, and on a pull request `HEAD` is the file against
+      # itself — a check that cannot see the branch's own growth is not a
+      # check.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -402,6 +450,15 @@ jobs:
     steps:
       - id: checkout
         uses: actions/checkout@v7
+        with:
+          # The suite runs the gates against THIS repository, and the ratchet
+          # measures the branch's own growth against the base the workflow
+          # names (`SGATE_BASE_REF`). That ref has to be in the tree: a
+          # shallow checkout has no `origin/main`, and a ratchet that cannot
+          # measure is a gate that fails — which is the right answer for a
+          # comparison that could not be made, and the wrong answer for a
+          # checkout that simply did not fetch the history.
+          fetch-depth: 0
 
       # Same action as the other jobs, one reason: the checks import `sgate`,
       # which the action installs.
@@ -599,10 +656,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # The map compares against `origin/main`, so the base reference has to
-          # exist. A shallow checkout has no such ref, and the tool refuses a
-          # base it cannot resolve — a comparison that could not be made is not
-          # a comparison that found nothing.
+          # The map compares against the base named in `SGATE_BASE_REF` in the workflow,
+          # so that ref has to exist. A shallow checkout has no such ref, and
+          # the tool refuses a base it cannot resolve — a comparison that could
+          # not be made is not a comparison that found nothing.
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-jvm-gradle

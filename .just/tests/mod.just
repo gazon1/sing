@@ -386,8 +386,20 @@ rumdl-changed:
         echo "rumdl is not installed — run: mise install." >&2
         exit 1
     fi
-    base="${LINT_BASE:-origin/main}"
-    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    # The base is the one the repository names for itself — `scripts/refs_loader.py`
+    # prints it — and not a default of this recipe's own. A recipe that names
+    # `origin/main` here is a second answer to a question the repository already
+    # answers, and on a branch based on the integration branch it would measure
+    # the change against the wrong trunk.
+    if [ -n "${RUMDL_BASE:-}" ]; then
+        base="$RUMDL_BASE"
+    else
+        base="$(python3 scripts/refs_loader.py)" || {
+            echo "rumdl-changed: no base to measure the change against — fetch the integration branch, or set RUMDL_BASE" >&2
+            exit 1
+        }
+    fi
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set RUMDL_BASE)" >&2; exit 1; }
     mapfile -d '' files < <(
         { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
           git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'
@@ -411,8 +423,17 @@ rumdl-changed-fix:
         echo "rumdl is not installed — run: mise install." >&2
         exit 1
     fi
-    base="${LINT_BASE:-origin/main}"
-    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    # The same base as `rumdl-changed`, and for the same reason: the repository
+    # names it once, and the recipe reads it.
+    if [ -n "${RUMDL_BASE:-}" ]; then
+        base="$RUMDL_BASE"
+    else
+        base="$(python3 scripts/refs_loader.py)" || {
+            echo "rumdl-changed: no base to measure the change against — fetch the integration branch, or set RUMDL_BASE" >&2
+            exit 1
+        }
+    fi
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set RUMDL_BASE)" >&2; exit 1; }
     mapfile -d '' files < <(
         { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
           git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'

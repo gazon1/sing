@@ -697,6 +697,39 @@ class PartFTest(unittest.TestCase):
         )
 
 
+class AnotherTreeTest(unittest.TestCase):
+    """A fixture's control does not inherit this tree's base.
+
+    The base name in the environment refers to a ref in *this* repository. A
+    fixture's copy of the repository is another tree, and the name is not
+    there — and because a named base is exclusive, the ratchet measured the
+    fixture's branch against nothing, found no growth, and passed a
+    deliberately sabotaged input.
+
+    So the control that was there to prove the gate can fail proved instead
+    that it cannot, and it did so only where the name is set: in CI, where the
+    workflow names the base once for the whole workflow. On a workstation the
+    same control passed, which is how the defect reached the remote branch.
+    """
+
+    def test_the_fixture_control_still_proves_the_gate_can_fail_with_a_base_named(self):
+        with unittest.mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/main'}):
+            errors = gw.check_fixture_gates(scope={'baseline-ratchet'})
+        self.assertEqual(
+            [],
+            errors,
+            'the control could not prove that the gate can fail: the base name '
+            'reached the fixture',
+        )
+
+    def test_a_gate_of_this_tree_still_gets_the_base_name(self):
+        # The other half of the boundary: the tree the name belongs to still
+        # gets it. The name is not banned — it is not carried across.
+        with unittest.mock.patch.dict(os.environ, {'SGATE_BASE_REF': 'origin/main'}):
+            env = gw._gate_env()
+        self.assertEqual('origin/main', env.get('SGATE_BASE_REF'))
+
+
 class ControlShapeTest(unittest.TestCase):
     """Controls are functions, not source text.
 

@@ -20,7 +20,7 @@ the formatting rules are.
 What "changed" means
 --------------------
 * the commits on this branch since the merge base with the base branch
-  (`origin/main` by default; `--base` or `$LINT_BASE` to change it), and
+  (the integration branch, then the trunk; `--base` to change it), and
 * the working tree: staged, unstaged and untracked files.
 
 The working tree is not optional. The pre-commit hook runs on changes that are
@@ -50,9 +50,10 @@ ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from git_changed import changed_paths as _changed_paths  # noqa: E402
+from refs_loader import resolve_change_base_ref  # noqa: E402
 
 
-def changed_paths(base: str, pathspec=(), staged_only: bool = False) -> list[str]:
+def changed_paths(base: str | None, pathspec=(), staged_only: bool = False) -> list[str]:
     """Wrapper so tests can monkeypatch ``ROOT`` (legacy API).
 
     lint-changed is a local scoped check; an unresolvable base falls back to the
@@ -207,8 +208,11 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
         "--base",
-        default=os.environ.get("LINT_BASE", "origin/main"),
-        help="What the change is measured against (default: origin/main).",
+        default=resolve_change_base_ref(cwd=ROOT),
+        help=(
+            "What the change is measured against (default: the integration branch, "
+            "then the trunk)."
+        ),
     )
     parser.add_argument(
         "--list",
@@ -234,7 +238,8 @@ def main(argv: list[str]) -> int:
         print("lint-changed: no changed Kotlin files — nothing to lint.")
         return 0
 
-    print(f"lint-changed: {len(files)} changed Kotlin file(s) against '{args.base}':")
+    base = args.base or "the working tree only"
+    print(f"lint-changed: {len(files)} changed Kotlin file(s) against '{base}':")
     for path in relative_paths:
         print(f"  {path}")
 

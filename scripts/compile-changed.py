@@ -71,6 +71,19 @@ import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 
+# The loader beside this script answers "which ref is this change measured
+# against". It is loaded by path, the way `scripts/changed-modules.py` is
+# loaded below: the `sgate` package imports `click` and `loguru`, and this
+# script runs where neither is guaranteed. The directory has to be on the
+# path before the loader can be imported — the hook runs this script by its
+# path, which puts the directory there on its own, and the line below makes
+# that true for a caller that loads the script by path too.
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from refs_loader import NO_BASE_REF_MESSAGE, resolve_change_base_ref  # noqa: E402
+
 CLEAN = 0
 COMPILE_FAILED = 1
 PLAN_FAILED = 2
@@ -274,7 +287,7 @@ def run_compile(tasks: list[str]) -> subprocess.CompletedProcess:
     )
 
 
-def base_exists(base: str) -> bool:
+def base_exists(base: str | None) -> bool:
     """Whether the change can be measured against the base at all.
 
     The check lives in the module graph, because the graph's own command has
@@ -282,6 +295,8 @@ def base_exists(base: str) -> bool:
     base with `HEAD`, silently drops the committed part of the change from
     every plan.
     """
+    if base is None:
+        return False
     try:
         graph = load_module_graph()
     except (OSError, RuntimeError):
@@ -293,8 +308,11 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument(
         '--base',
-        default=os.environ.get('COMPILE_CHANGED_BASE', 'origin/main'),
-        help='What the change is measured against (default: origin/main).',
+        default=resolve_change_base_ref(cwd=ROOT),
+        help=(
+            'What the change is measured against (default: the integration branch, '
+            'then the trunk).'
+        ),
     )
     parser.add_argument(
         '--list',
@@ -315,12 +333,15 @@ def main(argv: list[str]) -> int:
         return PLAN_FAILED
 
     if not base_exists(args.base):
-        print(
-            f'compile-changed: the base {args.base!r} cannot be measured against — it '
-            f'does not resolve, or it has no merge base with HEAD. The committed part '
-            f'of the change cannot be counted. Fetch it, or pass another base.',
-            file=sys.stderr,
-        )
+        if args.base is None:
+            print(f'compile-changed: {NO_BASE_REF_MESSAGE}', file=sys.stderr)
+        else:
+            print(
+                f'compile-changed: the base {args.base!r} cannot be measured against — it '
+                f'does not resolve, or it has no merge base with HEAD. The committed part '
+                f'of the change cannot be counted. Fetch it, or pass another base.',
+                file=sys.stderr,
+            )
         return PLAN_FAILED
 
     paths = graph.changed_paths(args.base)

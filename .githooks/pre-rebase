@@ -75,9 +75,10 @@ check_stale_main() {
     local upstream_name
     upstream_name="$(git rev-parse --abbrev-ref "$UPSTREAM" 2>/dev/null)" || return 0
 
-    # Only care about main-like branches
+    # Only care about main-like branches: the trunk and the integration
+    # branch are both branches a work is rebased onto.
     case "$upstream_name" in
-        main|master) ;;
+        main|master|dev) ;;
         *) return 0 ;;
     esac
 

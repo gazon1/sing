@@ -37,6 +37,17 @@ from sgate.gatekit.gradle import (
     modules,
 )
 from sgate.gatekit.paths import assert_inside, generated_path, is_inside
+from sgate.gatekit.refs import (
+    BASE_CANDIDATES,
+    BASE_REF_ENV,
+    NO_BASE_REF_MESSAGE,
+    NULL_COMMIT,
+    REMOTE_BASE_CANDIDATES,
+    TRUNK_CANDIDATES,
+    is_null_commit,
+    resolve_base_ref,
+    resolve_change_base_ref,
+)
 from sgate.gatekit.tables import (
     TableRule,
     cell_identifier,
@@ -55,8 +66,14 @@ from sgate.gatekit.kotlin import (
 
 __all__ = [
     "ADVISORY",
+    "BASE_CANDIDATES",
+    "BASE_REF_ENV",
     "BLOCKING",
     "Finding",
+    "NO_BASE_REF_MESSAGE",
+    "NULL_COMMIT",
+    "REMOTE_BASE_CANDIDATES",
+    "TRUNK_CANDIDATES",
     "advisory_findings",
     "blocking_findings",
     "build_files_of",
@@ -72,6 +89,7 @@ __all__ = [
     "generated_path",
     "has_block",
     "included_modules",
+    "is_null_commit",
     "is_inside",
     "kotlin_files",
     "link_matchers",
@@ -79,6 +97,8 @@ __all__ = [
     "module_build_files",
     "modules",
     "names_of",
+    "resolve_base_ref",
+    "resolve_change_base_ref",
     "rows_at_header",
     "rows_matching",
     "table_rows",

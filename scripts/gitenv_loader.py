@@ -49,5 +49,21 @@ def load_gitenv():
 #: The names git exports to a hook, as the owner states them.
 INHERITED_FROM_HOOK = load_gitenv().INHERITED_FROM_HOOK
 
+#: The name of the variable that names the base a change is measured against.
+BASE_REF_ENV = load_gitenv().BASE_REF_ENV
+
 #: The environment a git command runs in when its caller is a hook.
 tree_env = load_gitenv().tree_env
+
+#: The environment of a command that runs in another tree — a fixture's own
+#: repository, a control's copy of this one. The names that point at the
+#: caller's tree do not travel into it.
+foreign_env = load_gitenv().foreign_env
+
+#: The environment of a command that runs in a sandbox: another tree, with a
+#: ceiling and an identity of its own.
+sandbox_env = load_gitenv().sandbox_env
+
+#: The environment names no base while a fixture runs: the name the outer tree
+#: carries is about the outer tree.
+no_named_base = load_gitenv().no_named_base

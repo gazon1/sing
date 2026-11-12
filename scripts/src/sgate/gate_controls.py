@@ -16,6 +16,7 @@ which owns the path discipline that decides which checkout's registry is read.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -32,6 +33,33 @@ from typing import Callable
 #: `check-gate-wiring.py`, which owns the path discipline that decides which
 #: checkout's registry is read — so the root has to come from here.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+
+#: The owner of "which names must not cross into another tree", loaded by path.
+#:
+#: This module imports nothing from the project on purpose — it is loaded by
+#: `check-gate-wiring.py`, which owns the path discipline that decides which
+#: checkout's registry is read — so the owner is loaded by path as well. The
+#: name under which it is cached is the one `scripts/gitenv_loader.py` uses, so
+#: the gates and the tests hold the same module and not two copies of it.
+_GITENV_PATH = _REPO_ROOT / "scripts" / "src" / "sgate" / "gatekit" / "gitenv.py"
+_GITENV_MODULE_NAME = "sgate_gatekit_gitenv"
+
+
+def _gitenv():
+    """The owner of the git environment, loaded from its file.
+
+    @return the module `sgate.gatekit.gitenv`.
+    """
+    module = sys.modules.get(_GITENV_MODULE_NAME)
+    if module is not None:
+        return module
+    spec = importlib.util.spec_from_file_location(_GITENV_MODULE_NAME, _GITENV_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load the git environment from {_GITENV_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[_GITENV_MODULE_NAME] = module
+    spec.loader.exec_module(module)
+    return module
 
 #: A sabotage: a callable that changes the tree so a gate must fail.
 Control = Callable[[Path], None]
@@ -1323,23 +1351,17 @@ def _baseline_xml(entries: int) -> str:
 def _sandbox_env(root: Path) -> dict[str, str]:
     """An environment in which git means the repository it discovers.
 
-    Git exports `GIT_DIR` and `GIT_WORK_TREE` for the hooks it runs, and a
-    fixture that inherits them writes its commits into somebody else's
-    repository.
+    The answer is the owner's: `sgate.gatekit.gitenv` says which names must
+    not cross into another tree, and a fixture's repository is another tree —
+    the base a change is measured against is a ref in *this* tree, and here it
+    is not there.
+
+    The module is loaded by path (this file is loaded by path too), so the
+    owner is loaded by path as well: a package import would resolve to
+    whichever `sgate` is installed on the machine, which is exactly the
+    checkout this module refuses to answer for.
     """
-    env = dict(os.environ)
-    for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"):
-        env.pop(name, None)
-    env["GIT_CEILING_DIRECTORIES"] = str(root)
-    env.update(
-        {
-            "GIT_AUTHOR_NAME": "Sandbox Fixture",
-            "GIT_AUTHOR_EMAIL": "sandbox@example.com",
-            "GIT_COMMITTER_NAME": "Sandbox Fixture",
-            "GIT_COMMITTER_EMAIL": "sandbox@example.com",
-        }
-    )
-    return env
+    return _gitenv().sandbox_env(root)
 
 
 def _git(repo: Path, *args: str, env: dict[str, str]) -> None:

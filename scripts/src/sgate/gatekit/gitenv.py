@@ -1,8 +1,12 @@
 """The environment a git command runs in when its caller is a hook.
 
-Git exports `GIT_DIR` (and `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`)
-for the hooks it runs, and they point at the repository the hook is about. A
-command that means *the repository in this directory* must not inherit them:
+Two kinds of variable name the tree the caller is in, and neither travels into
+another tree.
+
+The first is git's own: git exports `GIT_DIR` (and `GIT_WORK_TREE`,
+`GIT_INDEX_FILE`, `GIT_COMMON_DIR`) for the hooks it runs, and they point at the
+repository the hook is about. A command that means *the repository in this
+directory* must not inherit them:
 
   - `git config` answers about somebody else's repository;
   - `git init` reinitialises that repository instead of creating a new one;
@@ -11,22 +15,58 @@ command that means *the repository in this directory* must not inherit them:
   - `git commit` writes this directory's tree onto the developer's branch.
 
 That last chain is not a theory: on 2026-10-23 a test fixture ran inside the
-pre-push hook, inherited the names, and committed a 12124-file deletion into
-the working repository — the same tree reached the remote `main`. See
+pre-push hook, inherited the names, and committed a 12124-file deletion into the
+working repository — the same tree reached the remote `main`. See
 `docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`.
 
-The scrubbing is what `scripts/pre-push-verdict.py` already did for the tree it
-judges; it lives here so that the gates and the tests have one answer.
+The second is `SGATE_BASE_REF`: the name of the ref a change is measured
+against. It names a ref *in the caller's tree*, so it is true here and says
+nothing about another repository. A command that runs in another tree — a
+fixture's own repository, a control's copy of this one — must not inherit it:
+the name is not there, and a base that is not there is not a base. It is not a
+missing base either: a named base is exclusive, so the tree that has no base of
+its own is told it has none, and the chain that would have answered is never
+consulted.
+
+That is not a theory either. In CI the workflow names the base once, for the
+whole workflow, and the name reached a control's fixture repository: the ratchet
+measured the fixture's branch against a ref the fixture does not have, found
+nothing, and passed a deliberately sabotaged input. The control that was
+supposed to prove the gate can fail proved instead that it could not.
+
+The scrubbing of git's own names is what `scripts/pre-push-verdict.py`
+already did for the tree it judges; both kinds of scrubbing live here so that
+the gates and the tests have one answer.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
+from typing import Iterator
 
 #: The variables git exports for a hook. A command that means "this
 #: repository" must not inherit them.
 INHERITED_FROM_HOOK = ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR')
+
+#: The variable that names the base a change is measured against.
+#:
+#: It names a ref in the tree the caller is in. The resolver in
+#: `sgate.gatekit.refs` is the only reader of it; the name lives here because
+#: this module is the owner of the question "which names must not cross into
+#: another tree".
+BASE_REF_ENV = "SGATE_BASE_REF"
+
+#: The variables that name something in the caller's tree: the base a change
+#: is measured against, and the object store the tree reads its objects from.
+#: A command that runs in another tree must not inherit them — an object store
+#: is as much another tree's as a base ref is.
+INHERITED_FROM_TREE = (
+    BASE_REF_ENV,
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+)
 
 #: The identity a commit made inside the sandbox carries. Git reads these
 #: before any configuration file, so a commit in the sandbox is attributed to
@@ -66,8 +106,35 @@ def tree_env() -> dict[str, str]:
     return env
 
 
+def foreign_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment of a command that runs in another tree.
+
+    The caller's base name is dropped: it names a ref in the caller's tree,
+    and in another tree that ref is not there. A command that kept it would be
+    told it has no base — a named base is exclusive — and the chain that could
+    have answered would never be consulted.
+
+    The names git exports for a hook are dropped as well: they point at the
+    repository the hook is about, which is the same mistake from the other
+    side.
+
+    *env* is the environment to start from; the caller's own environment when
+    it is not given.
+    """
+    base = tree_env() if env is None else dict(env)
+    for name in INHERITED_FROM_HOOK:
+        base.pop(name, None)
+    for name in INHERITED_FROM_TREE:
+        base.pop(name, None)
+    return base
+
+
 def sandbox_env(root: pathlib.Path) -> dict[str, str]:
-    """`tree_env`, the upward walk stops at `root`, and commits can be made.
+    """`foreign_env`, the upward walk stops at `root`, and commits can be made.
+
+    A sandbox is another tree — it has a repository of its own — so the names
+    that point at the caller's tree do not travel into it: the base a change
+    is measured against is a ref in the caller's tree, and here it is not.
 
     The ceiling is the second half of the contract: a command that does not
     find a repository of its own fails instead of finding one further up.
@@ -82,10 +149,30 @@ def sandbox_env(root: pathlib.Path) -> dict[str, str]:
     before any configuration file, the commit is attributed to the fixture
     rather than to the developer, and no configuration file is read or written.
     """
-    env = tree_env()
+    env = foreign_env(tree_env())
     env['GIT_CEILING_DIRECTORIES'] = str(root)
     env.update(SANDBOX_IDENTITY)
     return env
+
+
+@contextlib.contextmanager
+def no_named_base() -> "Iterator[None]":
+    """The environment names no base while the fixture runs.
+
+    The name the outer tree carries is about the outer tree. A fixture's
+    repository is its own repository, and a name that is not there is not a
+    base: the fixture would be told it has none, and the chain that could
+    have answered would never be consulted.
+
+    The name is restored afterwards, so a test that names a base of its own is
+    unaffected by the order the tests run in.
+    """
+    previous = os.environ.pop(BASE_REF_ENV, None)
+    try:
+        yield
+    finally:
+        if previous is not None:
+            os.environ[BASE_REF_ENV] = previous
 
 
 if __name__ == '__main__':

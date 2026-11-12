@@ -554,7 +554,12 @@ def _shell_sites(path: pathlib.Path, source: str) -> list[Site]:
 #: The shared helpers that do the scrubbing. A script that calls one of them
 #: controls its environment — the whole point of the helper is that the
 #: answer is written down once (``sgate.gatekit.gitenv``).
-SANCTIONED_HELPERS = ('tree_env', 'sandbox_env', 'git_sandbox')
+#:
+#: `foreign_env` belongs here for the same reason as the other two: it is the
+#: owner's answer for a command that runs in *another* tree, and a script that
+#: scrubs its environment through it controls the environment as much as a
+#: script that scrubs it through `tree_env` does.
+SANCTIONED_HELPERS = ('tree_env', 'sandbox_env', 'foreign_env', 'git_sandbox')
 
 
 def _python_neutralizes(source: str) -> bool:

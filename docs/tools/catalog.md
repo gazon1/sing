@@ -78,6 +78,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gatekit.markdown` | sgate.gates.markdown — reading the tables a document claims things in. |
 | `sgate.gatekit.paths` | where a gate is allowed to write. |
 | `sgate.gatekit.pre_push` | What the pre-push hook runs, declared once. |
+| `sgate.gatekit.refs` | Which ref is a change measured against. |
 | `sgate.gatekit.room` | the tables the Kotlin entities declare. |
 | `sgate.gatekit.rules` | sgate.gates.rules — a document-against-the-code rule that is data. |
 | `sgate.gatekit.scenarios` | the semantics of a migration, as data. |

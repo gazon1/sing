@@ -92,8 +92,10 @@ DEFAULT_REPO = "gazon1/sing"
 DEFAULT_OWNER = "gazon1"
 
 #: The branches that are never deleted, even when they have a merged pull
-#: request.
-PROTECTED_BRANCHES = frozenset({"main", "master"})
+#: request. `dev` is the integration branch: its work is merged into the trunk,
+#: and a pruner that does not know that would delete the branch the next
+#: change is based on.
+PROTECTED_BRANCHES = frozenset({"main", "master", "dev"})
 
 #: Why a branch is not deleted. The text is what the user reads, so it lives
 #: here rather than being written at the call site.

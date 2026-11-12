@@ -3,14 +3,14 @@
 Why this exists
 ---------------
 A checkout on a machine with several clones of this repository is shared
-state. It can be carrying commits that `origin/main` does not have — another
+state. It can be carrying commits that the trunk does not have — another
 session's work, or a fixture nobody meant to push — and nothing in the tree
 says so. The agent standing in that checkout finds out at the worst moment:
 when it commits, and the commit carries somebody else's 666 669 deleted lines
 with it.
 
 On 2026-10-24 that is exactly what happened. The canonical checkout carried 22
-commits that `origin/main` did not have, over a snapshot that was thousands of
+commits that the trunk did not have, over a snapshot that was thousands of
 files behind. Its `AGENTS.md` was 45165 bytes — over the project-instruction
 budget — so the harness truncated the instructions and the agent read a file
 that ended in the middle of a sentence. Neither fact was visible from inside.
@@ -32,7 +32,7 @@ current directory, and `sgate whereami` keeps answering the other question —
 
 What "not a clean base" means
 -----------------------------
-A branch that is ahead of `origin/main` is doing its job: it carries work that
+A branch that is ahead of its base is doing its job: it carries work that
 is not upstream yet, and that is the normal state of a branch. The command
 does not guess whether that work is the reader's — it lists the commits, with
 their author and date, and asks.
@@ -75,18 +75,16 @@ import click
 from sgate.commands.base import CLEAN, CONFIG_ERROR, register
 from sgate.gatekit.budget import PROJECT_INSTRUCTIONS_BUDGET, PROJECT_INSTRUCTIONS_FILE
 from sgate.gatekit.gitenv import tree_env
-
-#: The ref a checkout is compared against.
-UPSTREAM_REF = "origin/main"
+from sgate.gatekit.refs import REMOTE_BASE_CANDIDATES, resolve_base_ref
 
 #: How many carried commits are listed. A checkout carrying twenty commits
-#: that `origin/main` does not have is a report; a checkout carrying two
+#: that the trunk does not have is a report; a checkout carrying two
 #: thousand is a wall, and the count says how many there are.
 MAX_LISTED = 20
 
-#: How many commits behind `origin/main` make a checkout's base stale.
+#: How many commits behind the base make a checkout's base stale.
 #:
-#: One commit behind is ordinary: `main` moves in parallel tranches, and a
+#: One commit behind is ordinary: the trunk moves in parallel tranches, and a
 #: branch made yesterday is behind today. Many commits behind means the work
 #: will need a rebase before it merges, and the tree the agent is looking at
 #: is not the tree the work will be based on.
@@ -94,6 +92,22 @@ MAX_LISTED = 20
 #: The threshold is a judgement, and it is written down here so that it can
 #: be argued with rather than discovered.
 STALE_BASE_COMMITS = 10
+
+
+def _upstream_ref(root: pathlib.Path) -> str | None:
+    """The ref this checkout is compared against, or None when there is none.
+
+    The remote-tracking copy of the trunk, and only that: a local branch is
+    not an upstream, and a checkout measured against its own branch answers
+    nothing. The integration branch comes first while it exists, and the
+    trunk after it — a repository that has no `dev` branch yet still has a
+    trunk.
+
+    None means the base is not here, and the report says so. It never means
+    "compare with HEAD": a checkout compared with itself carries nothing, and
+    says so about a checkout that is carrying somebody else's work.
+    """
+    return resolve_base_ref(cwd=root, env=tree_env(), candidates=REMOTE_BASE_CANDIDATES)
 
 
 def _git_code(*args: str, cwd: pathlib.Path) -> int | None:
@@ -118,7 +132,7 @@ def _git(*args: str, cwd: pathlib.Path) -> str | None:
     """The output of one git command, or None when it fails.
 
     Every question this command asks is allowed to have no answer: a checkout
-    without an `origin/main`, a detached HEAD, a directory that is not a
+    without a base, a detached HEAD, a directory that is not a
     repository at all. A missing answer is reported as missing, and it is
     never an error of the command itself.
 
@@ -173,18 +187,23 @@ def _worktrees(root: pathlib.Path) -> list[dict[str, str]]:
     return entries
 
 
-def _instructions(root: pathlib.Path) -> dict[str, object]:
+def _instructions(root: pathlib.Path, upstream: str | None) -> dict[str, object]:
     """The project instructions of this checkout: their size, and their origin.
 
     `differs` is a fact about the file or it is unknown: `git diff --quiet`
     exits 1 when the files differ and 128 when the ref is not there, and a
-    missing ref is not a difference.
+    missing ref is not a difference. A base that is not here at all is the
+    same fact: the comparison is unknown, not equal.
     """
     path = root / PROJECT_INSTRUCTIONS_FILE
     if not path.is_file():
         return {"bytes": 0, "budget": PROJECT_INSTRUCTIONS_BUDGET, "fits": True, "differs": None}
     size = len(path.read_bytes())
-    code = _git_code("diff", "--quiet", UPSTREAM_REF, "--", PROJECT_INSTRUCTIONS_FILE, cwd=root)
+    code = (
+        _git_code("diff", "--quiet", upstream, "--", PROJECT_INSTRUCTIONS_FILE, cwd=root)
+        if upstream
+        else None
+    )
     differs = True if code == 1 else (False if code == 0 else None)
     return {
         "bytes": size,
@@ -196,7 +215,16 @@ def _instructions(root: pathlib.Path) -> dict[str, object]:
 
 def _state(root: pathlib.Path) -> dict[str, object]:
     """Everything the report says about one checkout."""
-    counts = _git("rev-list", "--left-right", "--count", f"{UPSTREAM_REF}...HEAD", cwd=root)
+    # One base, resolved once, and every question below is asked about it. A
+    # base that changes between two questions is two bases, and the report
+    # answers about a checkout that never existed.
+    upstream = _upstream_ref(root)
+
+    counts = (
+        _git("rev-list", "--left-right", "--count", f"{upstream}...HEAD", cwd=root)
+        if upstream
+        else None
+    )
     behind = ahead = 0
     upstream_known = counts is not None
     if counts:
@@ -205,13 +233,17 @@ def _state(root: pathlib.Path) -> dict[str, object]:
             behind, ahead = int(parts[0]), int(parts[1])
 
     carried: list[dict[str, str]] = []
-    listing = _git(
-        "log",
-        "--format=%h%x1f%an%x1f%ad%x1f%s",
-        "--date=short",
-        f"-{MAX_LISTED}",
-        f"{UPSTREAM_REF}..HEAD",
-        cwd=root,
+    listing = (
+        _git(
+            "log",
+            "--format=%h%x1f%an%x1f%ad%x1f%s",
+            "--date=short",
+            f"-{MAX_LISTED}",
+            f"{upstream}..HEAD",
+            cwd=root,
+        )
+        if upstream
+        else None
     )
     if listing:
         for line in listing.splitlines():
@@ -221,15 +253,16 @@ def _state(root: pathlib.Path) -> dict[str, object]:
                     {"sha": parts[0], "author": parts[1], "date": parts[2], "subject": parts[3]}
                 )
 
-    tree = _git("diff", "--shortstat", UPSTREAM_REF, "HEAD", cwd=root) or ""
-    upstream_date = _git("log", "-1", "--format=%cs", UPSTREAM_REF, cwd=root) or ""
+    tree = (_git("diff", "--shortstat", upstream, "HEAD", cwd=root) or "") if upstream else ""
+    upstream_date = (_git("log", "-1", "--format=%cs", upstream, cwd=root) or "") if upstream else ""
 
     return {
         "root": str(root),
         "branch": _git("rev-parse", "--abbrev-ref", "HEAD", cwd=root) or "",
         "head": (_git("rev-parse", "--short", "HEAD", cwd=root) or "")[:8],
         "headSubject": _git("log", "-1", "--format=%s", cwd=root) or "",
-        "upstream": UPSTREAM_REF,
+        "upstream": upstream or "",
+        "upstreamCandidates": list(REMOTE_BASE_CANDIDATES),
         "upstreamKnown": upstream_known,
         "upstreamDate": upstream_date,
         "behind": behind,
@@ -237,7 +270,7 @@ def _state(root: pathlib.Path) -> dict[str, object]:
         "carrying": carried,
         "tree": tree,
         "worktrees": _worktrees(root),
-        "instructions": _instructions(root),
+        "instructions": _instructions(root, upstream),
     }
 
 
@@ -271,9 +304,10 @@ def _report(state: dict[str, object]) -> str:
         if tree:
             lines.append(f"            tree vs {state['upstream']}: {tree}")
     else:
+        candidates = ", ".join(str(name) for name in state["upstreamCandidates"])
         lines.append(
-            f"upstream:   {state['upstream']} is not known here — run `git fetch origin` before "
-            f"trusting the numbers"
+            f"upstream:   no base is known here (looked for {candidates}) — run "
+            f"`git fetch origin` before trusting the numbers"
         )
 
     carried = state["carrying"]
@@ -317,8 +351,9 @@ def _report(state: dict[str, object]) -> str:
                 f"changes it on purpose; a checkout nobody owns changes it by accident"
             )
         elif differs is None:
+            base = state["upstream"] or "the base"
             lines.append(
-                f"             it cannot be compared with {state['upstream']}'s — the ref is "
+                f"             it cannot be compared with {base} — the ref is "
                 f"not here, so the comparison is unknown rather than equal"
             )
     else:
@@ -333,7 +368,7 @@ def _report(state: dict[str, object]) -> str:
     is_flag=True,
     help=(
         "Exit 1 when the base is stale (at least STALE_BASE_COMMITS behind "
-        "origin/main), or the project instructions do not fit the budget."
+        "the base), or the project instructions do not fit the budget."
     ),
 )
 def checkout_state(emit_json: bool, strict: bool) -> None:
@@ -356,7 +391,7 @@ def checkout_state(emit_json: bool, strict: bool) -> None:
     instructions = state["instructions"]
     assert isinstance(instructions, dict)
     # The strict answer is about the base, not about the commits: a branch that
-    # is ahead of `origin/main` is a branch that is doing its job. A branch
+    # is ahead of its base is a branch that is doing its job. A branch
     # that is many commits behind is a branch whose work will need a rebase
     # before it merges.
     stale_base = int(state["behind"]) >= STALE_BASE_COMMITS

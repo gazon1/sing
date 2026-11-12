@@ -22,6 +22,13 @@ with a ceiling that stops git from walking up past the fixture's own
 directory. The assertion below is the second half of the contract: the
 fixture's repository is its own repository, and the test says so when it is
 not.
+
+The base name belongs to the same family. `SGATE_BASE_REF` names the ref a
+change is measured against, and it names a ref *in the tree the caller is in*.
+A fixture builds a repository of its own, so the name the outer tree carries
+says nothing about it — and worse than nothing: a named base is exclusive, so
+the fixture is told it has no base at all and the chain that could have
+answered is never consulted.
 """
 
 from __future__ import annotations
@@ -34,7 +41,14 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
 
-from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, sandbox_env, tree_env  # noqa: E402,F401
+from sgate.gatekit.gitenv import (  # noqa: E402,F401
+    BASE_REF_ENV,
+    INHERITED_FROM_HOOK,
+    foreign_env,
+    no_named_base,
+    sandbox_env,
+    tree_env,
+)
 
 
 class GitCommandFailed(subprocess.CalledProcessError):

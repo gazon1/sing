@@ -13,8 +13,10 @@ import unittest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS / "src"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from sgate import control_scope  # noqa: E402
+from git_sandbox import no_named_base  # noqa: E402
 
 GATE_FILES = {
     "doc-dead-refs": {"scripts/check-doc-dead-refs.py", "docs/decisions/2026-09-01-a.md"},
@@ -66,6 +68,12 @@ class AffectedGatesTest(unittest.TestCase):
 
 
 class ChangedFilesTest(unittest.TestCase):
+    def setUp(self) -> None:
+        # The scope is resolved against the tree the caller is in. A base named
+        # in the environment is the caller's own answer and outranks the
+        # candidates below, so the test says what it means: no base is named.
+        self.enterContext(no_named_base())
+
     def test_an_unresolvable_base_means_no_scope(self) -> None:
         # None means "prove everything". A scope nobody can read is not a scope.
         original = control_scope.BASE_CANDIDATES
