@@ -25,18 +25,37 @@ asserts a synthetic workflow proves that the parser reads what it claims to
 read, and nothing about the workflow this repository runs.
 """
 
+import importlib.util
 import json
 import pathlib
 import re
 import sys
+import tempfile
 import unittest
 
+import click.testing
 import yaml
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS / "src"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import workflow_gradle as wg  # noqa: E402 — the path entry above is the reason
+from git_sandbox import git as _git, git_output as _git_output  # noqa: E402
+from git_sandbox import no_named_base, sandbox_env  # noqa: E402
+from sgate.gatekit.refs import (  # noqa: E402
+    BASE_REF_ENV,
+    commit_of,
+    resolve_change_base_ref,
+)
+
+#: The gate that measures the baseline's own growth. It is loaded by path for
+#: the same reason the other scripts are: the answer belongs to the file, and
+#: the file is the thing under test.
+RATCHET = SCRIPTS / "check-baseline-ratchet.py"
+_ratchet_spec = importlib.util.spec_from_file_location("check_baseline_ratchet", RATCHET)
+ratchet = importlib.util.module_from_spec(_ratchet_spec)
+_ratchet_spec.loader.exec_module(ratchet)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
@@ -816,15 +835,27 @@ class TheBaseIsNamedPerEventTest(unittest.TestCase):
         )
         self.assertEqual("origin/main", base)
 
-    def test_a_push_that_created_the_branch_names_the_trunk(self):
-        """A branch that did not exist before the push has no state to replace."""
+    def test_a_push_that_created_the_branch_names_no_previous_state(self):
+        """A branch that did not exist before the push has no state to replace.
+
+        The payload says so with the null commit — git's name for no commit at
+        all. That is what the workflow names, and it is the honest answer:
+        there is no previous state to measure the branch's growth against.
+
+        The tempting alternative was `origin/main`, and it is wrong twice over.
+        After the push `origin/main` IS the pushed commit, so the branch would
+        be measured against itself — an empty diff and a green run that
+        measured nothing. And `origin/main` is not necessarily independent of
+        the push at all.
+        """
         base = self._base_for(
             event_name="push",
             base_ref="",
             ref="refs/heads/main",
             event={"before": self.ZERO_SHA},
         )
-        self.assertEqual("origin/main", base)
+        self.assertEqual(self.ZERO_SHA, base)
+        self.assertNotEqual("origin/main", base)
 
     def test_a_scheduled_run_names_the_trunk(self):
         base = self._base_for(
@@ -852,6 +883,158 @@ class TheBaseIsNamedPerEventTest(unittest.TestCase):
         )
         self.assertNotEqual("dev", pushed_to_dev)
         self.assertNotEqual("origin/dev", pushed_to_dev)
+
+
+class TheNamedBaseIsResolvedTest(unittest.TestCase):
+    """What the workflow names, resolved against a repository that has it.
+
+    The expression test above answers *"what does the workflow name?"*. This
+    one answers *"what does that name measure against?"* — two questions, and
+    the defect lives in the gap between them. A name that resolves to the
+    pushed commit measures the change against itself: the diff is empty, every
+    gate that selects work by the changed files finds nothing to do, and the
+    run is green because it measured nothing.
+
+    So every case here is checked in the state the event leaves behind: after
+    a push to `main`, `origin/main` **is** the pushed commit; after a push to
+    `dev`, `origin/dev` is.
+    """
+
+    ZERO_SHA = "0" * 40
+    BASELINE_REL = pathlib.Path("config/detekt/baseline-shared.xml")
+
+    def setUp(self):
+        self.enterContext(no_named_base())
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = pathlib.Path(self._tmp.name) / "repo"
+        self.repo.mkdir()
+        self.env = sandbox_env(self.repo)
+        _git("init", "-b", "main", cwd=self.repo, env=self.env)
+        self.baseline = self.repo / self.BASELINE_REL
+        self.baseline.parent.mkdir(parents=True, exist_ok=True)
+        self.baseline.write_text(self._baseline(2), encoding="utf-8")
+        (self.repo / "config/detekt/detekt.yml").write_text(
+            "style:\n  active: true\n", encoding="utf-8"
+        )
+        _git("add", "-A", cwd=self.repo, env=self.env)
+        _git("commit", "-m", "the trunk", cwd=self.repo, env=self.env)
+        self.trunk = _git_output("rev-parse", "HEAD", cwd=self.repo, env=self.env)
+        # The pushed work: the commit the push carried, and HEAD after it.
+        (self.repo / "README.md").write_text("the pushed work\n", encoding="utf-8")
+        _git("add", "-A", cwd=self.repo, env=self.env)
+        _git("commit", "-m", "the pushed work", cwd=self.repo, env=self.env)
+        self.pushed = _git_output("rev-parse", "HEAD", cwd=self.repo, env=self.env)
+        self._original_root = ratchet.ROOT
+        self.addCleanup(self._restore_root)
+
+    def _restore_root(self) -> None:
+        ratchet.ROOT = self._original_root
+
+    @staticmethod
+    def _baseline(entries: int) -> str:
+        body = "\n".join(
+            f"    <ID>Rule{i}:File.kt:Fqcn$member{i}</ID>" for i in range(entries)
+        )
+        return (
+            '<?xml version="1.0" ?>\n'
+            "<SmellBaseline>\n"
+            "  <ManuallySuppressedIssues/>\n"
+            "  <CurrentIssues>\n"
+            f"{body}\n"
+            "  </CurrentIssues>\n"
+            "</SmellBaseline>\n"
+        )
+
+    def _remote(self, name: str, commit: str) -> None:
+        """Put a remote-tracking ref where the event leaves it."""
+        _git("update-ref", f"refs/remotes/{name}", commit, cwd=self.repo, env=self.env)
+
+    def _name_for(self, **context) -> str:
+        expression = (_workflow().get("env") or {}).get("SGATE_BASE_REF", "")
+        return _evaluate(expression, context)
+
+    def _resolved(self, name: str) -> str | None:
+        """The commit the named base measures against, or None when it has none."""
+        env = dict(self.env)
+        if name:
+            env[BASE_REF_ENV] = name
+        base = resolve_change_base_ref(cwd=self.repo, env=env)
+        if base is None:
+            return None
+        return commit_of(base, cwd=self.repo, env=env)
+
+    def test_a_push_to_the_trunk_is_measured_against_the_commit_it_replaced(self):
+        """After a push to `main`, `origin/main` IS the pushed commit.
+
+        The name is the state the push replaced, so the measurement is the
+        push's own growth and not the push against itself.
+        """
+        self._remote("origin/main", self.pushed)
+        name = self._name_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/main",
+            event={"before": self.trunk},
+        )
+        self.assertEqual(self.trunk, name)
+        self.assertEqual(self.trunk, self._resolved(name))
+        self.assertNotEqual(self.pushed, self._resolved(name))
+
+    def test_a_push_to_the_integration_branch_is_measured_against_the_trunk(self):
+        """`origin/dev` is the pushed branch — and it points at `HEAD`."""
+        self._remote("origin/main", self.trunk)
+        self._remote("origin/dev", self.pushed)
+        name = self._name_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/dev",
+            event={"before": self.trunk},
+        )
+        self.assertEqual("origin/main", name)
+        self.assertEqual(self.trunk, self._resolved(name))
+        self.assertNotEqual(self.pushed, self._resolved(name))
+
+    def test_a_push_that_created_the_branch_has_no_baseline_at_all(self):
+        """There is no previous state, so there is nothing to measure against.
+
+        The alternative was `origin/main`, and after such a push `origin/main`
+        is the pushed commit: the branch measured against itself, an empty
+        diff, and a run that was green because it measured nothing.
+        """
+        self._remote("origin/main", self.pushed)
+        name = self._name_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/main",
+            event={"before": self.ZERO_SHA},
+        )
+        self.assertEqual(self.ZERO_SHA, name)
+        self.assertIsNone(self._resolved(name))
+
+    def test_the_gate_fails_closed_when_the_push_created_the_branch(self):
+        """A comparison that cannot be made is a failure, not a green run.
+
+        The baseline grew in this sandbox, and the comparison the gate exists
+        to make cannot be made at all — so the gate says so with a non-zero
+        exit rather than reporting that the baseline did not grow.
+        """
+        self._remote("origin/main", self.pushed)
+        name = self._name_for(
+            event_name="push",
+            base_ref="",
+            ref="refs/heads/main",
+            event={"before": self.ZERO_SHA},
+        )
+        runner = click.testing.CliRunner()
+        result = runner.invoke(
+            ratchet.cli,
+            ["--root", str(self.repo), "--baseline", str(self.baseline)],
+            env={BASE_REF_ENV: name},
+        )
+        self.assertNotEqual(0, result.exit_code, result.output)
+        self.assertIn("null commit", result.output)
+        self.assertNotIn("unchanged", result.output)
 
 
 def _filters(changes_job: dict) -> dict:

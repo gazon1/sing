@@ -57,11 +57,20 @@ env:
   # itself as well, so no branch is ever measured against itself even when
   # nothing is named here.
   #
+  # A push that CREATED the branch names the null commit — git's name for no
+  # commit at all, which is what the payload's `before` says when the branch
+  # did not exist before the push. There is no state to measure against, and
+  # naming `origin/main` instead would name the pushed commit: the branch would
+  # be measured against itself, the diff would be empty, and the run would be
+  # green because it measured nothing. A base that names nothing is no base,
+  # and a gate that cannot measure fails rather than reporting that the
+  # measurement was clean.
+  #
   # The gates read it through `SGATE_BASE_REF` (ADR
   # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
   # and a named base is exclusive: the gates never fall back to another
   # branch, so every gate in a run compares against the same thing.
-  SGATE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || 'origin/main' }}
+  SGATE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before) || 'origin/main' }}
 
 
 jobs:
