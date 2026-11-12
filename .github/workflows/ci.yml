@@ -70,7 +70,11 @@ env:
   # The gates read it through `SGATE_BASE_REF` (ADR
   # docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md),
   # and a named base is exclusive: the gates never fall back to another
-  # branch, so every gate in a run compares against the same thing.
+  # branch, so every gate in a run compares against the same thing. That ADR
+  # holds the event-to-base mapping as a table, and
+  # `scripts/tests/test_ci_pr_path.py` pins every row of it — the name this
+  # expression produces, and what that name measures against when the
+  # checkout does not have it.
   SGATE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before) || 'origin/main' }}
 
 

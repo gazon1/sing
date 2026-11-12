@@ -777,6 +777,91 @@ def _evaluate(expression: str, context: dict) -> str:
     return value or ""
 
 
+#: The event-to-base mapping, as policy.
+#:
+#: This is the mapping the workflow's expression encodes, written down: what
+#: each event measures against, and why. It is pinned here so that a change to
+#: the expression nobody wrote down fails a test instead of shipping, and it is
+#: written down in the ADR
+#: (`docs/decisions/2026-11-11-the-change-is-measured-against-the-integration-branch.md`)
+#: so that the policy has a home outside the expression too.
+#:
+#: Each row is (event, the payload GitHub sends, the base the expression must
+#: name).
+BASE_BY_EVENT = (
+    (
+        "pull request → main",
+        {
+            "event_name": "pull_request",
+            "base_ref": "main",
+            "ref": "refs/pull/2852/merge",
+            "event": {"before": "abc123"},
+        },
+        "origin/main",
+    ),
+    (
+        "pull request → dev",
+        {
+            "event_name": "pull_request",
+            "base_ref": "dev",
+            "ref": "refs/pull/2852/merge",
+            "event": {"before": "abc123"},
+        },
+        "origin/dev",
+    ),
+    (
+        "push → main",
+        {
+            "event_name": "push",
+            "base_ref": "",
+            "ref": "refs/heads/main",
+            "event": {"before": "abc123"},
+        },
+        "abc123",
+    ),
+    (
+        "push → main (the push that created the branch)",
+        {
+            "event_name": "push",
+            "base_ref": "",
+            "ref": "refs/heads/main",
+            "event": {"before": "0" * 40},
+        },
+        "0" * 40,
+    ),
+    (
+        "push → dev",
+        {
+            "event_name": "push",
+            "base_ref": "",
+            "ref": "refs/heads/dev",
+            "event": {"before": "abc123"},
+        },
+        "origin/main",
+    ),
+    (
+        "schedule",
+        {
+            "event_name": "schedule",
+            "base_ref": "",
+            "ref": "refs/heads/main",
+            "event": {},
+        },
+        "origin/main",
+    ),
+    (
+        "manual run",
+        {
+            "event_name": "workflow_dispatch",
+            "base_ref": "",
+            "ref": "refs/heads/main",
+            "event": {},
+        },
+        "origin/main",
+    ),
+)
+
+
 class TheBaseIsNamedPerEventTest(unittest.TestCase):
     """The base of a change depends on the event that produced it.
 
@@ -860,6 +945,38 @@ class TheBaseIsNamedPerEventTest(unittest.TestCase):
     def test_a_scheduled_run_names_the_trunk(self):
         base = self._base_for(
             event_name="schedule",
+            base_ref="",
+            ref="refs/heads/main",
+            event={},
+        )
+        self.assertEqual("origin/main", base)
+
+    def test_every_event_names_the_base_the_mapping_says(self):
+        """The whole mapping, in one place.
+
+        The expression is a policy engine: it says what each event measures
+        against, and a policy nobody wrote down is a policy nobody audits.
+        Every event GitHub can send to this workflow is in the table, and the
+        table is the one in the ADR.
+        """
+        for label, context, expected in BASE_BY_EVENT:
+            with self.subTest(event=label):
+                self.assertEqual(expected, self._base_for(**context))
+
+    def test_a_pull_request_against_the_integration_branch_names_it(self):
+        """A pull request against `dev` is measured against `dev`."""
+        base = self._base_for(
+            event_name="pull_request",
+            base_ref="dev",
+            ref="refs/pull/2852/merge",
+            event={"before": "abc123"},
+        )
+        self.assertEqual("origin/dev", base)
+
+    def test_a_manual_run_names_the_trunk(self):
+        """A run a person started has no event to name a base either."""
+        base = self._base_for(
+            event_name="workflow_dispatch",
             base_ref="",
             ref="refs/heads/main",
             event={},
@@ -994,6 +1111,92 @@ class TheNamedBaseIsResolvedTest(unittest.TestCase):
         self.assertEqual("origin/main", name)
         self.assertEqual(self.trunk, self._resolved(name))
         self.assertNotEqual(self.pushed, self._resolved(name))
+
+    def test_a_pull_request_is_measured_against_the_branch_it_targets(self):
+        """Both pull-request targets, and neither of them is the change.
+
+        A pull request against `main` is measured against `main`; one against
+        `dev` is measured against `dev`. The branch the pull request comes
+        from is the change, and it is never the base.
+        """
+        self._remote("origin/main", self.trunk)
+        self._remote("origin/dev", self.trunk)
+        for target in ("main", "dev"):
+            with self.subTest(target=target):
+                name = self._name_for(
+                    event_name="pull_request",
+                    base_ref=target,
+                    ref="refs/pull/2852/merge",
+                    event={"before": "abc123"},
+                )
+                self.assertEqual(f"origin/{target}", name)
+                self.assertEqual(self.trunk, self._resolved(name))
+                self.assertNotEqual(self.pushed, self._resolved(name))
+
+    def test_a_run_without_an_event_is_measured_against_the_trunk(self):
+        """A scheduled run and a manual run have no event to name a base.
+
+        Both name the trunk, and both are measured against the state the
+        trunk is at — which, on the trunk itself, is the change: the work is
+        already in the trunk, and there is nothing to measure. That is an
+        empty change, not a missing one.
+        """
+        self._remote("origin/main", self.trunk)
+        for event_name in ("schedule", "workflow_dispatch"):
+            with self.subTest(event=event_name):
+                name = self._name_for(
+                    event_name=event_name,
+                    base_ref="",
+                    ref="refs/heads/main",
+                    event={},
+                )
+                self.assertEqual("origin/main", name)
+                self.assertEqual(self.trunk, self._resolved(name))
+
+    def test_a_name_that_is_not_here_is_no_base(self):
+        """Every name the workflow can produce, against a checkout without it.
+
+        The name is exclusive: a ref that is not here is not a base, and the
+        chain is not consulted in its place. The tools that must measure
+        against something say so instead of measuring against something else.
+        """
+        names = {
+            "pull request → main": "origin/main",
+            "pull request → dev": "origin/dev",
+            "push → main": "f" * 40,
+            "push → dev": "origin/main",
+            "schedule": "origin/main",
+            "manual run": "origin/main",
+        }
+        for label, name in names.items():
+            with self.subTest(event=label):
+                self.assertIsNone(self._resolved(name))
+
+    def test_the_gate_fails_closed_when_the_named_base_is_not_here(self):
+        """The same names, and the gate's answer to each of them.
+
+        A comparison that cannot be made is a failure, not a green run: the
+        baseline grew, the base is not here, and the gate says so with a
+        non-zero exit instead of reporting that the baseline did not grow.
+        """
+        runner = click.testing.CliRunner()
+        for label, name in (
+            ("pull request → main", "origin/main"),
+            ("pull request → dev", "origin/dev"),
+            ("push → main", "f" * 40),
+            ("push → dev", "origin/main"),
+            ("schedule", "origin/main"),
+            ("manual run", "origin/main"),
+        ):
+            with self.subTest(event=label):
+                result = runner.invoke(
+                    ratchet.cli,
+                    ["--root", str(self.repo), "--baseline", str(self.baseline)],
+                    env={BASE_REF_ENV: name},
+                )
+                self.assertNotEqual(0, result.exit_code, result.output)
+                self.assertIn("does not exist", result.output)
+                self.assertNotIn("unchanged", result.output)
 
     def test_a_push_that_created_the_branch_has_no_baseline_at_all(self):
         """There is no previous state, so there is nothing to measure against.

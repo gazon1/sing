@@ -177,16 +177,28 @@ base reads the same name. What the name *is* depends on what happened:
 
 | Event | Named base | Why |
 |---|---|---|
-| Pull request | `origin/<base_ref>` | the branch the pull request targets |
+| Pull request against `main` | `origin/main` | the branch the pull request targets |
+| Pull request against `dev` | `origin/dev` | the branch the pull request targets |
 | Push to `main` | the commit the push replaced (`github.event.before`) | after the push, `origin/main` **is** the pushed commit — naming it would measure the change against itself |
 | Push to `main` that **created** the branch | git's null commit (`0000…0`) | there is no state the push replaced, so there is nothing to measure against |
 | Push to any other branch (e.g. `dev`) | `origin/main` | the change is measured against the trunk it was not pushed to |
-| Schedule or manual run | `origin/main` | there is no event to name a base |
+| Schedule | `origin/main` | there is no event to name a base |
+| Manual run | `origin/main` | there is no event to name a base |
 
 The event is named explicitly rather than left to the chain's fallback order:
 the chain cannot know whether `origin/dev` is the branch the change was just
 pushed to or the branch it was based on, and the difference is the difference
 between a real comparison and no comparison at all.
+
+**The mapping is policy, and it is written down here.** The expression in the
+workflow is a policy engine: it says what each event measures against, and a
+policy that exists only as an expression is a policy nobody audits. The table
+above is the mapping, and it is pinned by
+`scripts/tests/test_ci_pr_path.py` — every row of it is a case there, and
+every case there checks **both** halves: the name the expression produces, and
+what that name measures against when the checkout does not have it. A name
+that is not here is no base, and the gate fails rather than measuring against
+something else.
 
 **A push that created the branch names the null commit, and that fails closed.**
 The all-zeros `before` of a branch's first push is not a base and is not
