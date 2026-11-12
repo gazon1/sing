@@ -14,13 +14,17 @@ spec.loader.exec_module(arl)
 class FakeGh:
     """A `gh api` that answers from a canned table and records its calls."""
 
-    def __init__(self, responses=None):
+    def __init__(self, responses=None, errors=None):
         self.responses = responses or {}
+        self.errors = errors or {}
         self.calls = []
 
     def __call__(self, args):
         self.calls.append(list(args))
         joined = " ".join(args)
+        for key, message in self.errors.items():
+            if key in joined:
+                raise arl.LinkError(message)
         for key, value in self.responses.items():
             if key in joined:
                 return json.dumps(value)
@@ -183,6 +187,21 @@ class PostReportLinkTest(unittest.TestCase):
         gh = FakeGh({"commits/abc/pulls": [{"number": 42, "body": ""}]})
         result = arl.post_report_link("gazon1/sing", "full", "3027", "abc", gh)
         self.assertEqual(result["site"], "https://gazon1.github.io/sing")
+
+    def test_an_unreachable_target_does_not_cost_the_others_their_comment(self):
+        gh = FakeGh(
+            {
+                "repos/gazon1/sing/pages": {"html_url": "http://maxdrobin.ru/sing/"},
+                "commits/abc/pulls": [{"number": 42, "body": "Closes #7, #999"}],
+            },
+            errors={"issues/999/comments": "HTTP 404: Not Found"},
+        )
+        result = arl.post_report_link("gazon1/sing", "fast", "3028", "abc", gh)
+        actions = {comment["target"]: comment["action"] for comment in result["comments"]}
+        self.assertEqual(actions[42], "created")
+        self.assertEqual(actions[7], "created")
+        self.assertEqual(actions[999], "failed")
+        self.assertEqual(result["status"], "commented")
 
 
 class CliTest(unittest.TestCase):

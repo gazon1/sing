@@ -23,7 +23,9 @@ nothing to do with it.
 
 The comment is a convenience, not a gate: the workflow runs it with
 `continue-on-error`, because a report that was published must not be
-un-published because a comment did not post.
+un-published because a comment did not post. A target that cannot be reached
+— an issue number that names nothing — is recorded as failed, and the other
+targets still get their comment.
 
 Everything the helper decides is decided by pure functions; the GitHub
 access is the `gh` CLI, and the tests drive it with a fake runner.
@@ -296,11 +298,19 @@ def post_report_link(
     number = int(pull_request.get("number") or 0)
     issues = parse_closing_issues(str(pull_request.get("body") or ""))
 
-    comments = [{"target": number, "action": upsert_comment(repo, number, body, runner)}]
-    for issue in issues:
-        comments.append({"target": issue, "action": upsert_comment(repo, issue, body, runner)})
+    comments: list[dict[str, Any]] = []
+    for target in [number, *issues]:
+        try:
+            action = upsert_comment(repo, target, body, runner)
+        except LinkError as exc:
+            # One unreachable target — an issue that does not exist, a number
+            # that names nothing — must not cost the other targets their
+            # comment. The report is published either way.
+            comments.append({"target": target, "action": "failed", "error": str(exc)})
+        else:
+            comments.append({"target": target, "action": action})
     return {
-        "status": "commented",
+        "status": "commented" if any(c["action"] != "failed" for c in comments) else "failed",
         "site": base,
         "pull_request": number,
         "issues": issues,
@@ -333,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"allure-report-link error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, sort_keys=True))
-    return 0
+    return 1 if result.get("status") == "failed" else 0
 
 
 if __name__ == "__main__":

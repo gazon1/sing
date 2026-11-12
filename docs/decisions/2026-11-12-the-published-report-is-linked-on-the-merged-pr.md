@@ -84,6 +84,11 @@ had.
 **A failing comment does not fail the publication.** The step runs with
 `continue-on-error`.
 
+**One unreachable target does not cost the others their comment.** A target that
+cannot be reached — an issue number that names nothing — is recorded as failed in
+the helper's own result, and the helper goes on to the next target. Only a run in
+which every target failed is a failed run.
+
 **The decisions are pure functions.** Closing-keyword parsing, URL building, the
 comment body and the choice between patching and posting are decided without a
 network; the tests drive the GitHub access with a fake `gh` runner.
