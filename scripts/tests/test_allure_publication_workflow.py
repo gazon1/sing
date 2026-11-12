@@ -108,6 +108,36 @@ class JobShapeTest(unittest.TestCase):
         self.assertEqual("read", permissions.get("pages"))
         self.assertEqual("read", permissions.get("pull-requests"))
 
+    def test_the_job_may_read_the_deployments_the_check_after_the_deploy_reads(self):
+        # The check after the deploy learns the published commit from the
+        # Pages deployments, and the API answers 403 without this scope. The
+        # scope is named in the job, the reader is named in the step: a check
+        # that reads the deployments and a job that may not read them are two
+        # halves of one contract.
+        permissions = _job().get("permissions") or {}
+        self.assertEqual("read", permissions.get("deployments"))
+        self.assertIn(
+            "scripts/ci/allure_deploy.py",
+            _run_of("The custom domain CNAME survived the deploy"),
+        )
+
+    def test_the_permissions_are_exactly_the_ones_the_publication_needs(self):
+        # The whole set, not the write scopes alone: a scope that is missing
+        # is a scope nobody notices until the API answers 403 in the middle
+        # of a publication.
+        permissions = _job().get("permissions") or {}
+        self.assertEqual(
+            {
+                "contents": "write",
+                "actions": "read",
+                "issues": "write",
+                "pages": "read",
+                "pull-requests": "read",
+                "deployments": "read",
+            },
+            permissions,
+        )
+
     def test_the_job_writes_nothing_else(self):
         permissions = _job().get("permissions") or {}
         writable = {name for name, level in permissions.items() if level == "write"}

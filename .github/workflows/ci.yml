@@ -1816,6 +1816,11 @@ jobs:
       issues: write
       pages: read
       pull-requests: read
+      # The check after the deploy reads the Pages deployments to learn the
+      # commit the deployment published: `deployments: read` is what lets it
+      # read them. Without the scope the API answers 403, and the check
+      # fails every publication.
+      deployments: read
     concurrency:
       group: allure-pages-${{ github.ref }}
       cancel-in-progress: false
