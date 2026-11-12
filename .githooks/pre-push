@@ -296,11 +296,18 @@ tree_for_sha() {
 # what the base does not have, the push brought.
 #
 # `SGATE_BASE_REF` names the base when the caller knows better (a release
-# line, a fork); the integration branch's remote-tracking ref is the fallback,
-# then the trunk's, and `main` the last one. A named base that is not here is
-# no base at all: the chain is not asked, because answering with a different
-# ref answers a question nobody asked. A push with no base at all is judged as
-# if everything in the tree were new — the safe direction.
+# line, a fork); the fallback is the chain the repository uses everywhere else
+# (`sgate.gatekit.refs`): the integration branch first — its remote-tracking
+# ref, then the local branch — and the trunk after it, in the same order. The
+# role comes first and the freshness second, and the two rules can disagree:
+# a checkout with `origin/main` and a local `dev` has both, and the
+# integration branch wins, because that is the branch a change is based on
+# while it exists.
+#
+# A named base that is not here is no base at all: the chain is not asked,
+# because answering with a different ref answers a question nobody asked. A
+# push with no base at all is judged as if everything in the tree were new —
+# the safe direction.
 resolve_base_commit() {
     local sha="$1" candidate resolved base
     local -a candidates
@@ -309,10 +316,10 @@ resolve_base_commit() {
     else
         candidates=(
             "refs/remotes/${PUSH_REMOTE_NAME}/dev"
-            "refs/remotes/${PUSH_REMOTE_NAME}/main"
             "origin/dev"
-            "origin/main"
             "dev"
+            "refs/remotes/${PUSH_REMOTE_NAME}/main"
+            "origin/main"
             "main"
         )
     fi
