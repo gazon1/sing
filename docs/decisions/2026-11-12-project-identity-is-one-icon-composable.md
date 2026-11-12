@@ -41,6 +41,9 @@ owns `size`, `tint` and selection; the resolver, fallback and glyph rendering do
 - Compact rows keep the title on one line: `maxLines = 1`, `TextOverflow.Ellipsis`.
 - An emoji is drawn as one grapheme: `maxLines = 1`, `softWrap = false`, clipped rather than
   wrapped, so a ZWJ sequence, flag, skin-tone modifier or variation selector is never split.
+- The stored value is one visual glyph: a registry key or one emoji grapheme. Arbitrary free-form
+  text is not a supported icon; because the emoji branch clips instead of wrapping, a non-glyph
+  value cannot reflow a row.
 - The menu tree's project rows are `Role.Button` with one click target; its expander stays a
   separate control with its own Expand/Collapse description.
 - Picker rows are `selectable(selected = …, role = Role.RadioButton)`, including "No project", so

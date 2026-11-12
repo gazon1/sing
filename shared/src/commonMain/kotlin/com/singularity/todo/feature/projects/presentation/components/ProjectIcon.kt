@@ -31,6 +31,11 @@ import com.singularity.todo.core.ui.TestTags
  *
  * Pass a null [contentDescription] when the row already names the project: a
  * decorative icon must not contribute a second accessible name.
+ *
+ * A stored icon is one visual glyph — a registered Material key, or an emoji
+ * grapheme (which may be several code points). Free-form text is not a
+ * supported icon: the emoji branch draws one line and clips it, so a value that
+ * is not a single glyph loses its tail rather than reflowing the row.
  */
 @Composable
 fun ProjectIcon(
