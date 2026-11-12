@@ -35,13 +35,16 @@ and a second identity model or emoji library.
 **A project is drawn through `ProjectIcon(icon = project.icon, …)` on every surface. The surface
 owns `size`, `tint` and selection; the resolver, fallback and glyph rendering do not vary.**
 
-- The icon is decorative when the row's title names the project: pass `contentDescription = null`,
-  so the accessible name is the title, not the title twice.
+- Where the row's title names the project — the menu tree and the picker — the icon is decorative:
+  pass `contentDescription = null`, so the accessible name is the title, not the title twice. The
+  project card's colour circle is outside this decision; it still passes its own description.
 - Compact rows keep the title on one line: `maxLines = 1`, `TextOverflow.Ellipsis`.
 - An emoji is drawn as one grapheme: `maxLines = 1`, `softWrap = false`, clipped rather than
   wrapped, so a ZWJ sequence, flag, skin-tone modifier or variation selector is never split.
-- Interactive project rows are `Role.Button` with one click target; a surface's own expander or
-  trailing action stays a separate control.
+- The menu tree's project rows are `Role.Button` with one click target; its expander stays a
+  separate control with its own Expand/Collapse description.
+- Picker rows are `selectable(selected = …, role = Role.RadioButton)`, including "No project", so
+  selection is announced rather than carried only by colour and a decorative tick.
 
 ## Rationale
 
@@ -68,7 +71,11 @@ owns `size`, `tint` and selection; the resolver, fallback and glyph rendering do
   the layout.
 - Hierarchy, row height and search in the picker remain out of scope (#2864, #2865, #2866).
 - Tests: `ProjectIconResolverTest` pins composed sequences and the fallback;
-  `desktopApp … ProjectIdentityTest` pins fallback, composed emoji, one-line row and `Role.Button`.
+  `desktopApp … ProjectIdentityTest` pins the fallback seam, the menu row's one-line policy, its
+  `Role.Button` and expander independence; `ProjectPickerSemanticsTest` pins `selected` on project
+  rows and "No project" and a single `onSelect` per tap; Android `ProjectIconEmojiRenderTest` pins
+  that the four composed sequences paint inside the icon box without clipping, and the compact row
+  on the platform.
 
 ## Links
 

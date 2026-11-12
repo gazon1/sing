@@ -2,6 +2,7 @@
 
 package com.singularity.todo.feature.projects.presentation.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -18,13 +19,17 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectTreeNode
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfText
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -32,9 +37,14 @@ import kotlin.time.Instant
  * The shared project-identity presentation.
  *
  * One project must show the same glyph wherever it appears, so every surface
- * draws the stored `Project.icon` through [ProjectIcon]. These tests pin the
- * contract itself: the fallback, a composed emoji, the compact row's one-line
- * policy and the row's accessible role.
+ * draws the stored `Project.icon` through [ProjectIcon]. The assertions that
+ * fail without this branch are the fallback tag, the menu row's one-line height
+ * and its `Role.Button`; the rest are regression guards for behaviour the branch
+ * inherits — the menu already drew the stored emoji, and opening a row was
+ * already independent from its expander. The platform's glyph layout is
+ * asserted by the Android `ProjectIconEmojiRenderTest`, because a desktop text
+ * node is constrained by the icon box and cannot show whether the font wrapped
+ * or split the sequence.
  *
  * Tagged `slow` + `slow:compose`: a Compose harness mounts a real window and
  * counts as slow by the tag convention.
@@ -43,7 +53,7 @@ import kotlin.time.Instant
 @Tag("slow:compose")
 class ProjectIdentityTest {
     @Test
-    fun `a project without an icon falls back to the folder`() =
+    fun `a project without an icon draws the fallback folder`() =
         runIsolatedComposeTest {
             setContent {
                 ProjectIcon(
@@ -54,11 +64,35 @@ class ProjectIdentityTest {
                 )
             }
 
+            assertTagDisplayed(TestTags.PROJECT_ICON_FALLBACK)
             assertContentDescriptionDisplayed("Project icon")
         }
 
     @Test
-    fun `a composed emoji is drawn as one sequence`() =
+    fun `a blank icon also draws the fallback folder`() =
+        runIsolatedComposeTest {
+            setContent {
+                ProjectIcon(icon = "   ", tint = Color.Black, size = 20.dp)
+            }
+
+            assertTagDisplayed(TestTags.PROJECT_ICON_FALLBACK)
+        }
+
+    @Test
+    fun `a stored glyph is not replaced by the fallback`() =
+        runIsolatedComposeTest {
+            setContent {
+                Column {
+                    ProjectIcon(icon = "🧑‍💻", tint = Color.Black, size = 20.dp)
+                    ProjectIcon(icon = "Work", tint = Color.Black, size = 20.dp)
+                }
+            }
+
+            assertTagNotExists(TestTags.PROJECT_ICON_FALLBACK)
+        }
+
+    @Test
+    fun `the stored sequence reaches the text layer`() =
         runIsolatedComposeTest {
             setContent {
                 ProjectIcon(icon = "🧑‍💻", tint = Color.Black, size = 20.dp)
@@ -73,19 +107,7 @@ class ProjectIdentityTest {
             val project = project(name = LONG_NAME, icon = "🧑‍💻")
             setContent {
                 ProjectTreeSection(
-                    state =
-                        ProjectsTreeUiState.Loaded(
-                            nodes =
-                                persistentListOf(
-                                    ProjectTreeNode(
-                                        project = project,
-                                        depth = 0,
-                                        hasChildren = false,
-                                        isExpanded = false,
-                                    ),
-                                ),
-                            sectionExpanded = true,
-                        ),
+                    state = treeOf(node(project)),
                     onToggleExpanded = {},
                     onOpenProject = {},
                 )
@@ -105,11 +127,73 @@ class ProjectIdentityTest {
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
         }
 
+    @Test
+    fun `the row opens the project and the expander only toggles`() =
+        runIsolatedComposeTest(width = 360, height = 400) {
+            var opens = 0
+            var toggles = 0
+            val project = project(name = "Parent")
+            setContent {
+                ProjectTreeSection(
+                    state = treeOf(node(project, hasChildren = true)),
+                    onToggleExpanded = { toggles++ },
+                    onOpenProject = { opens++ },
+                )
+            }
+
+            clickTag(TestTags.menuProjectExpander(project.id.value))
+            assertEquals(1, toggles, "the expander toggles the branch")
+            assertEquals(0, opens, "the expander must not open the project")
+
+            clickTag(TestTags.menuProjectNode(project.id.value))
+            assertEquals(1, toggles, "opening the row must not toggle the branch")
+            assertEquals(1, opens, "the row opens the project")
+        }
+
+    @Test
+    fun `the expander describes the action it will take`() =
+        runIsolatedComposeTest(width = 360, height = 400) {
+            val collapsed = project(name = "Collapsed", id = "p-collapsed")
+            val expanded = project(name = "Expanded", id = "p-expanded")
+            setContent {
+                Column {
+                    ProjectTreeSection(
+                        state = treeOf(node(collapsed, hasChildren = true, isExpanded = false)),
+                        onToggleExpanded = {},
+                        onOpenProject = {},
+                    )
+                    ProjectTreeSection(
+                        state = treeOf(node(expanded, hasChildren = true, isExpanded = true)),
+                        onToggleExpanded = {},
+                        onOpenProject = {},
+                    )
+                }
+            }
+
+            assertContentDescriptionDisplayed("Expand Collapsed")
+            assertContentDescriptionDisplayed("Collapse Expanded")
+        }
+
+    private fun treeOf(vararg nodes: ProjectTreeNode) =
+        ProjectsTreeUiState.Loaded(nodes = persistentListOf(*nodes), sectionExpanded = true)
+
+    private fun node(
+        project: Project,
+        hasChildren: Boolean = false,
+        isExpanded: Boolean = false,
+    ) = ProjectTreeNode(
+        project = project,
+        depth = 0,
+        hasChildren = hasChildren,
+        isExpanded = isExpanded,
+    )
+
     private fun project(
         name: String,
-        icon: String?,
+        icon: String? = null,
+        id: String = "p-1",
     ) = Project(
-        id = ProjectId.fromString("p-1"),
+        id = ProjectId.fromString(id),
         name = name,
         color = 0xFF3366FF.toInt(),
         icon = icon,

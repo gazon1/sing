@@ -838,6 +838,21 @@ object TestTags {
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
 
+    /** The picker's "No project" row. */
+    const val PROJECT_PICKER_NONE = "project_picker_none"
+
+    /** Dynamic tag of a project row in the task editor's picker: `project_picker_row_<slug>`. */
+    fun projectPickerRow(projectId: String) = "project_picker_row_${slug(projectId)}"
+
+    /**
+     * The folder a project without a stored icon is drawn with.
+     *
+     * The fallback is a `Folder` Material glyph, and no accessible name can
+     * distinguish one vector from another — so the tag is what lets a test say
+     * "the fallback was drawn", rather than "some icon was".
+     */
+    const val PROJECT_ICON_FALLBACK = "project_icon_fallback"
+
     /**
      * The dismiss control on the project editor's icon and parent picker sheets.
      *

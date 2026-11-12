@@ -10,10 +10,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Renders a project's stored icon string.
@@ -75,7 +77,7 @@ fun ProjectIcon(
                 imageVector = Icons.Filled.Folder,
                 contentDescription = contentDescription,
                 tint = tint,
-                modifier = modifier.size(size),
+                modifier = modifier.size(size).testTag(TestTags.PROJECT_ICON_FALLBACK),
             )
         }
     }
