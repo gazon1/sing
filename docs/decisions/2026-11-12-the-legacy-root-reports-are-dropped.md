@@ -22,9 +22,11 @@ purpose: "The legacy reports are not removed, and they are not migrated into a
 population namespace: they are published URLs, and rewriting them is a separate
 decision." This record is that separate decision. It replaces §7 of that record; the
 rest of it — who owns retention, what a damaged manifest means, what a report path may
-be, how the state is written — stands. The publication contract already
-allows it: legacy root URLs are legacy-only and "not guaranteed after bounded retention
-or a history reset/rebuild that does not preserve them"
+be, how the state is written — stands, and that record keeps its `accepted` status: a
+`supersedes:` edge would take the whole record out of the digest, and only one of its
+sections is replaced. The §7 of that record carries the amendment. The publication
+contract already allows it: legacy root URLs are legacy-only and "not guaranteed after
+bounded retention or a history reset/rebuild that does not preserve them"
 (`docs/decisions/2026-11-10-allure-publication-latest-history-and-retention.md` §5).
 
 The root index linked the legacy reports, so removing them without touching the index
@@ -64,9 +66,13 @@ reports reach the job summary.
 that is published, so after the drop it names the populations and no legacy report. A
 folder that is not a report is not a report and is not removed.
 
-**The `CNAME` stays.** The custom domain file is not the legacy root, and the publish
-tree is checked against the `CNAME` the branch carried before the deploy: a `CNAME`
-that is restored and then dropped takes the custom domain with it.
+**The `CNAME` stays.** The custom domain file is not the legacy root. The workflow
+captures the `CNAME` the branch carried before anything touches the tree, restores it
+into the publish tree, and checks the publish tree against the branch it is about to
+replace — two different trees, and not a file against its own copy. After the deploy
+the published branch is read back and checked against the capture: the deploy is the
+step that can drop the `CNAME`, and a `CNAME` that is dropped takes the custom domain
+with it.
 
 # Rationale
 

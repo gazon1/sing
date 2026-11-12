@@ -29,8 +29,10 @@ and for the comment to be updated on the next run instead of piling up.
    Pages settings, and fall back to the repository's own Pages URL when the settings
    cannot be read.
 2. **Which pull request.** Find it through the published commit
-   (`GET /repos/{owner}/{repo}/commits/{sha}/pulls`). A scheduled run has no pull
-   request, and the helper does nothing then.
+   (`GET /repos/{owner}/{repo}/commits/{sha}/pulls`). A scheduled run publishes the
+   tip of the default branch, and the pull request that merged that commit is long
+   closed — commenting on it would take over the marker comment of a pull request
+   that has nothing to do with the run.
 3. **Which issues.** The closing keywords in the pull request's body. `Refs` is not a
    closing keyword: it names an issue, it does not close it, and commenting on every
    issue somebody referenced would be spam.
@@ -53,12 +55,19 @@ publication job after the deploy.
 `https://<owner>.github.io/<repo>` as the fallback. A token that may not read the Pages
 settings is not a failure: the fallback is where the report is published anyway.
 
-**The pull request** is the one the published commit belongs to. A run without one — a
-scheduled run — posts nothing.
+**The pull request** is the one the published commit belongs to. The step runs for a
+push only: a push publishes the merge of a pull request, and the pull request is the
+one that caused the run. A scheduled or a dispatched run publishes the tip of the
+default branch, whose pull request is long closed; its marker comment belongs to
+that pull request, and a nightly must not take it over.
 
 **The issues** are the ones the pull request's body closes. A closing keyword closes
 the number that follows it and, optionally, a comma-separated list with it:
-`Fixes #2729 and implements #2737` closes `#2729` alone.
+`Fixes #2729 and implements #2737` closes `#2729` alone. GitHub's own forms are
+the ones the helper reads: the colon (`Closes: #10`) and the uppercase form
+(`CLOSES #10`) close just like `Closes #10`, and a keyword in a code block, in an
+inline code span or in a quoted line is an example or a quotation, not a closing
+keyword.
 
 **The comment** carries the exact run report (`<site>/<population>/<run_number>/index.html`),
 the latest report of the population (`<site>/<population>/index.html`), and the hidden
@@ -89,6 +98,10 @@ network; the tests drive the GitHub access with a fake `gh` runner.
   and `Fixes #123`.
 - One comment per target is a comment a reader can read. A marker comment that is
   updated is one; a comment per run is a wall of links that hides the one that matters.
+- A push is the only run with a pull request behind it. A scheduled run publishes the
+  tip of the default branch, and the pull request that merged it has been closed for
+  weeks; its marker comment is the record of that pull request's report, and a
+  nightly that takes it over loses the report that pull request produced.
 - The comment is a convenience, not a gate. Failing the publication because a comment
   did not post would trade a published report for an unposted comment.
 - Reading the site URL from the Pages settings keeps the link correct when the site
@@ -104,8 +117,12 @@ network; the tests drive the GitHub access with a fake `gh` runner.
   is named for a call this job makes.
 - A pull request that closes an issue gets the report link on both. The comment on the
   issue is the same body, and the same marker, so the next run updates both.
-- A scheduled run posts nothing: it has no pull request and no body to read closing
-  keywords from.
+- A scheduled or a dispatched run posts nothing: the step does not run for it. The
+  `full` population is published on a schedule, and its report is reached through the
+  root index.
+- A closing keyword in a code block, in an inline code span or in a quoted line closes
+  nothing here. A keyword that only looks like one would put a link on an issue the
+  pull request did not close, and a link on the wrong issue is spam.
 - A run whose commit belongs to several pull requests comments on the first one. The
   endpoint answers with the pull requests associated with the commit, and the merged
   one is the one that matters.
