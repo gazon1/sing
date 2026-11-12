@@ -2115,7 +2115,7 @@ jobs:
       # branch. The pull request that merged that commit is long closed, and
       # its marker comment would be taken over by a run that has nothing to
       # do with it.
-      - name: Link the report on the merged PR and on the issues it closes
+      - name: Link the report on the merged PR and on the issues it closes (advisory)
         if: steps.decide.outputs.action == 'publish' && github.event_name == 'push'
         continue-on-error: true
         env:

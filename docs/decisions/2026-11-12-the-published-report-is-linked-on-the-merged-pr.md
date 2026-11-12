@@ -82,7 +82,8 @@ site URL, next to the `contents: write` and `actions: read` the publication alre
 had.
 
 **A failing comment does not fail the publication.** The step runs with
-`continue-on-error`.
+`continue-on-error`, and it says so in its name: a soft step nobody declared is a
+step that reads as a gate.
 
 **One unreachable target does not cost the others their comment.** A target that
 cannot be reached — an issue number that names nothing — is recorded as failed in
