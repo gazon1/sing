@@ -199,6 +199,17 @@ jobs:
           [[ "$embedded" == "$VERSION" ]] \
             || { echo "::error::APK declares version '$embedded' but the tag says '$VERSION'"; exit 1; }
 
+          # The instrumented-test host is declared in src/debug so that
+          # createAndroidComposeRule can launch it in the app-under-test process.
+          # A release APK must not carry that declaration: the host is test
+          # scaffolding, and shipping it would put an unexported activity in the
+          # production manifest for no user-facing reason.
+          if "$aapt2" dump xmltree --file AndroidManifest.xml "$apk" \
+            | grep -q 'androidx.activity.ComponentActivity'; then
+            echo "::error::the release APK declares the instrumented-test host ComponentActivity"
+            exit 1
+          fi
+
           # Verify signing: the certificate SHA-256 fingerprint must match the repo
           # variable (never trust an APK you did not build to have the right key).
           #

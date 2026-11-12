@@ -258,8 +258,10 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
+| `PROJECT_PICKER_NONE` | `project_picker_none` | |
 
 ### Settings
 
@@ -521,6 +523,7 @@ use the expanded string directly).
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
+| `projectPickerRow("p-1")` | `"p-1"` | `project_picker_row_p_1` | Project rows in the task editor's picker |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
