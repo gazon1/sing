@@ -2,7 +2,9 @@ package com.singularity.todo.core.ui.components.sheet
 
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
 import kotlinx.datetime.minus
+import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
@@ -27,3 +29,36 @@ internal fun monthGridDates(anyDateInMonth: LocalDate): List<LocalDate> {
     val gridStart = firstOfMonth.minus(firstOfMonth.dayOfWeek.ordinal, DateTimeUnit.DAY)
     return (0 until 42).map { gridStart.plus(it, DateTimeUnit.DAY) } // 6 weeks × 7 days
 }
+
+/**
+ * Moves the date by whole months, keeping the day of the month where the
+ * month has one.
+ *
+ * The day is clamped rather than rolled over: stepping from 31 January forward
+ * lands on 28 (or 29) February, not on 2 or 3 March. A picker that rolled over
+ * would silently move the day the user was looking at.
+ */
+internal fun shiftMonth(
+    date: LocalDate,
+    delta: Int,
+): LocalDate {
+    val total = date.year * 12 + (date.month.number - 1) + delta
+    var newYear = total / 12
+    var newMonthIndex = total % 12
+    if (newMonthIndex < 0) {
+        newMonthIndex += 12
+        newYear -= 1
+    }
+    val newMonth = Month(newMonthIndex + 1)
+    return LocalDate(newYear, newMonth, minOf(date.day, newMonth.daysIn(newYear)))
+}
+
+/** The number of days in [month] of [year]. */
+private fun Month.daysIn(year: Int): Int =
+    when (this) {
+        Month.JANUARY, Month.MARCH, Month.MAY, Month.JULY, Month.AUGUST, Month.OCTOBER, Month.DECEMBER -> 31
+        Month.APRIL, Month.JUNE, Month.SEPTEMBER, Month.NOVEMBER -> 30
+        Month.FEBRUARY -> if (isLeapYear(year)) 29 else 28
+    }
+
+private fun isLeapYear(year: Int): Boolean = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
