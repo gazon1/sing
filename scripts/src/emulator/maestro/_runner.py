@@ -156,6 +156,13 @@ def run_one_flow(
         junit_file.unlink(missing_ok=True)
         cmd = [
             "maestro", "test", str(flow_path),
+            # The device the APK was installed on is the device the flow has to
+            # run on. Without `--device` Maestro picks one of the connected
+            # devices itself, and it picked the physical phone that happened to
+            # be attached next to the emulator: the APK went to the AVD, the
+            # flow ran on the phone, and the report said the flow failed
+            # without saying on what. Measured 2026-11-11.
+            "--device", serial,
             "--env", f"RUN_ID={run_id}",
             "--format", "JUNIT",
             "--output", str(junit_file),

@@ -110,8 +110,16 @@ class ExceptionsRegistryTest(unittest.TestCase):
         self.assertEqual('exception', findings[0].command)
 
     def test_the_repository_registry_covers_every_pixel(self):
+        """Every listed flow says why, and the registry may be empty.
+
+        The registry lists the flows that name a point in pixels. It may be
+        empty — that is the goal state, because then no flow claims a point on
+        one display. A test that demanded an entry would have failed the day
+        the last pixel-named flow was fixed, which is the day the gate did its
+        job; the coverage itself is proved by `RealTreeTest`, which fails on
+        any flow that names a pixel.
+        """
         exceptions = mod.read_exceptions(mod.EXCEPTIONS_FILE)
-        self.assertTrue(exceptions, 'the registry exists and is not empty')
         for flow_path, reason in exceptions.items():
             self.assertTrue(reason, f'{flow_path} must say why')
 

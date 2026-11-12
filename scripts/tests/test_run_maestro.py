@@ -135,6 +135,34 @@ class FilterFlowsByTagTest(unittest.TestCase):
         self.assertGreater(len(result), 0)
 
 
+def _helpers_reached_by_flows() -> set[str]:
+    """The helper files a flow reaches, directly or through another helper.
+
+    The reach is transitive on purpose: ``skip-spotlight.yaml`` is called by
+    ``launch-clean.yaml``, and every flow launches the app through that one.
+    A check that only looked at the flows directory would call that helper
+    dead while it runs on every single flow.
+    """
+    helpers = {h.name: h for h in sorted((ROOT / "Maestro/helpers").glob("*.yaml"))}
+    flows = [
+        flow.read_text(encoding="utf-8")
+        for flow in (ROOT / "Maestro/flows").rglob("*.yaml")
+    ]
+    reached: set[str] = set()
+    frontier = [name for name in helpers if any(name in text for text in flows)]
+    while frontier:
+        name = frontier.pop()
+        if name in reached:
+            continue
+        reached.add(name)
+        text = helpers[name].read_text(encoding="utf-8")
+        frontier.extend(
+            other for other in helpers
+            if other not in reached and other in text
+        )
+    return reached
+
+
 class MaestroHelpersInventoryTest(unittest.TestCase):
     """Verify the helpers/ directory is in the expected state."""
 
@@ -153,18 +181,16 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
             "session-signedin.yaml",
             "session-signedout.yaml",
             "settings-tab.yaml",
+            "skip-spotlight.yaml",
         ]
+        reached = _helpers_reached_by_flows()
         for name in live:
             helper = ROOT / "Maestro/helpers" / name
             self.assertTrue(helper.exists(), f"{name} should exist")
-            used = [
-                flow
-                for flow in (ROOT / "Maestro/flows").rglob("*.yaml")
-                if name in flow.read_text(encoding="utf-8")
-            ]
-            self.assertTrue(
-                used,
-                f"{name} is a live helper and no flow uses it",
+            self.assertIn(
+                name,
+                reached,
+                f"{name} is a live helper and no flow reaches it",
             )
 
     def test_deprecated_helpers_are_removed(self):
@@ -184,17 +210,16 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
             self.assertFalse(path.exists(), f"{name} should have been removed")
 
     def test_no_helper_is_unused(self):
-        """Every helper in the directory is called by at least one flow."""
-        for helper in sorted((ROOT / "Maestro/helpers").glob("*.yaml")):
-            used = [
-                flow
-                for flow in (ROOT / "Maestro/flows").rglob("*.yaml")
-                if helper.name in flow.read_text(encoding="utf-8")
-            ]
-            self.assertTrue(
-                used,
-                f"{helper.name} is a helper no flow uses",
-            )
+        """Every helper in the directory is reached by at least one flow."""
+        helpers = {h.name for h in sorted((ROOT / "Maestro/helpers").glob("*.yaml"))}
+        reached = _helpers_reached_by_flows()
+        for name in helpers:
+            with self.subTest(helper=name):
+                self.assertIn(
+                    name,
+                    reached,
+                    f"{name} is a helper no flow reaches, directly or through another helper",
+                )
 
     def test_conventions_lists_every_helper(self):
         """The conventions table names every helper in the directory.
@@ -282,6 +307,9 @@ def _make_deps(
     def fake_wait_for_app_resumed(s, timeout=20):
         return True
 
+    def fake_wait_for_main_activity_resumed(s, timeout=30):
+        return True
+
     def fake_cleanup_run_fixtures(serial, mode, deps):
         pass
 
@@ -311,6 +339,7 @@ def _make_deps(
         adb_on=fake_adb_on,
         reset_adb_server=lambda: None,
         wait_for_app_resumed=fake_wait_for_app_resumed,
+        wait_for_main_activity_resumed=fake_wait_for_main_activity_resumed,
         cleanup_run_fixtures=fake_cleanup_run_fixtures,
         capture_artifacts=fake_capture_artifacts,
         git_sha=fake_git_sha,
@@ -526,6 +555,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -609,6 +639,7 @@ class AcquireDeviceRegressionTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -727,6 +758,7 @@ class UnreportedFlowTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -787,6 +819,7 @@ class FixtureCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -809,6 +842,7 @@ class FixtureCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -933,6 +967,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: cleanup_calls.append(mode),
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -1020,6 +1055,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: modes.append(mode),
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -1094,6 +1130,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=fake_adb_on,
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -1159,6 +1196,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -1182,6 +1220,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
@@ -1245,6 +1284,7 @@ class SleepScreenTest(unittest.TestCase):
             adb_on=fake_adb_on,
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: True,
             cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",

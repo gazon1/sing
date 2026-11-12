@@ -112,6 +112,7 @@ def _deps(
         adb_on=lambda s, *a, **kw: "",
         reset_adb_server=lambda: None,
         wait_for_app_resumed=lambda s, timeout=20: True,
+        wait_for_main_activity_resumed=lambda s, timeout=30: True,
         cleanup_run_fixtures=lambda *a, **kw: None,
         capture_artifacts=lambda *a, **kw: None,
         git_sha=lambda deps: "abc123def456",

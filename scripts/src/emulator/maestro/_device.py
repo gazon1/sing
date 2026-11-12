@@ -150,3 +150,28 @@ def wait_for_app_resumed(serial: str, timeout: int = 20) -> bool:
         time.sleep(1)
         waited += 1
     return False
+
+
+def wait_for_main_activity_resumed(serial: str, timeout: int = 30) -> bool:
+    """Poll dumpsys activity until the *main* activity is top-resumed.
+
+    ``wait_for_app_resumed`` answers "is the app in front", which the debug
+    seed activity also satisfies — and the seed activity is exactly what runs
+    the content reset. So "the app is in front" is no proof that the reset is
+    done: the reset runs on the seed activity's own thread, and the runner's
+    next step (a force-stop, for the session reset) can kill it half way
+    through. The tables the reset empties last are then simply not empty, and
+    the next flow sees the previous flow's rows.
+
+    The main activity is the signal that the reset *is* done: the seed
+    activity brings the main activity up and finishes itself only after the
+    reset returned.
+    """
+    waited = 0
+    while waited < timeout:
+        out = adb_on(serial, "shell", "dumpsys", "activity", "activities", timeout=5) or ""
+        if f"topResumedActivity=.{APP_ID}/.MainActivity" in out:
+            return True
+        time.sleep(1)
+        waited += 1
+    return False

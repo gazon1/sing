@@ -1,0 +1,50 @@
+# Agenda: the bar's overflow menu holds the two infrequent actions.
+#
+# The bar keeps one action visible — saved views — and the two infrequent ones
+# live in an overflow menu that can *name* them: "task on several dates" and
+# "save current agenda". A row without a label says nothing about what it does,
+# which is what the three bare glyphs on the bar used to be.
+#
+# The menu renders in a popup window of its own, so its rows carry their own
+# ids (mapTestTagsAsResourceIds on the DropdownMenu): the bar's own
+# testTagsAsResourceId does not reach into it.
+appId: com.singularity.todo
+name: agenda-overflow-menu
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+# The trigger sits in the shell's bar, next to the saved-views button.
+- tapOn:
+    id: agenda_overflow_button
+# Both rows are in the menu, and both are named.
+- extendedWaitUntil:
+    visible:
+      id: agenda_multi_date_button
+    timeout: 5000
+- assertVisible:
+    id: agenda_save_current_button
+# The multi-date row opens the picker — the row is a button, not a label.
+- tapOn:
+    id: agenda_multi_date_button
+- extendedWaitUntil:
+    visible:
+      id: multi_date_picker_month_title
+    timeout: 8000
+# The sheet's actions sit below the fold on a phone, so the flow scrolls to
+# them instead of tapping a spot.
+- scrollUntilVisible:
+    element:
+      id: multi_date_picker_cancel
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: multi_date_picker_cancel
+# Cancelling closes the picker and leaves the agenda as it was.
+- extendedWaitUntil:
+    notVisible:
+      id: multi_date_picker_month_title
+    timeout: 8000
+- assertVisible:
+    id: agenda_overflow_button

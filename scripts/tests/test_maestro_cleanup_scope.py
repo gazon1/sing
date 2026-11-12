@@ -46,6 +46,7 @@ def _recording_deps(calls: list[str]) -> "object":
         adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
         reset_adb_server=lambda: None,
         wait_for_app_resumed=lambda s, timeout=20: True,
+        wait_for_main_activity_resumed=lambda s, timeout=30: True,
         cleanup_run_fixtures=lambda serial, mode, deps: None,
         capture_artifacts=lambda serial, name, artifact_dir, deps: None,
         git_sha=lambda deps: "abc123def456",
@@ -122,6 +123,55 @@ class UnknownScopeTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             _fixtures.cleanup_run_fixtures("emulator-5554", "narrow", deps)
         self.assertEqual([], calls)
+
+
+class TheWipeWaitsForTheResetTest(unittest.TestCase):
+    """The wipe waits for the reset to be *done*, not for a fixed second.
+
+    The reset runs on the debug seed activity's own thread, and the runner's
+    next step force-stops the app for the session reset. A fixed one-second
+    sleep was not enough on a slow device: the force-stop killed the reset
+    half way through, and the tables it empties last (the saved agenda views)
+    stayed populated — so the next flow asserted an empty list and found the
+    previous flow's row.
+    """
+
+    def _deps(self, calls: list[str]) -> "object":
+        from emulator._startup import Acquisition
+        from emulator._types import EXIT_OK
+        from emulator.maestro._types import DeviceDeps
+
+        return DeviceDeps(
+            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            wait_for_main_activity_resumed=lambda s, timeout=30: calls.append("waited"),
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+    def test_the_wipe_waits_for_the_main_activity_after_the_reset_link(self) -> None:
+        calls: list[str] = []
+        _fixtures.cleanup_run_fixtures("emulator-5554", "all", self._deps(calls))
+        self.assertEqual(2, len(calls), f"calls={calls}")
+        self.assertIn("todo-debug://seed?reset=content", calls[0])
+        self.assertEqual("waited", calls[1], "the reset link must come before the wait")
+
+    def test_the_wipe_does_not_sleep_a_fixed_second(self) -> None:
+        """A fixed sleep is what the bug was: it did not cover the reset."""
+        calls: list[str] = []
+        with unittest.mock.patch.object(_fixtures.time, "sleep") as slept:
+            _fixtures.cleanup_run_fixtures("emulator-5554", "all", self._deps(calls))
+        slept.assert_not_called()
 
 
 if __name__ == "__main__":

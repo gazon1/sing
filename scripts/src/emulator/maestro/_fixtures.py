@@ -86,4 +86,10 @@ def cleanup_run_fixtures(
         return
     cmd = "am start -a android.intent.action.VIEW -d todo-debug://seed?reset=content"
     deps.adb_on(serial, "shell", cmd)
-    time.sleep(1)
+    # The reset runs on the seed activity's own thread, and the next step
+    # force-stops the app for the session reset — so the wait has to be for the
+    # reset to be *done*, not for a fixed number of seconds. A fixed sleep
+    # killed the reset half way through on a slow device, and the tables the
+    # reset empties last (the saved agenda views) stayed populated: the next
+    # flow then asserted an empty list and found the previous flow's row.
+    deps.wait_for_main_activity_resumed(serial)

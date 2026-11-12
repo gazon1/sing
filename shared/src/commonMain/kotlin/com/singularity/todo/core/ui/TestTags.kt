@@ -1123,6 +1123,18 @@ object TestTags {
         const val CLEAR = "dialog_date_picker_clear"
 
         /**
+         * The sheet's "Today" chip — the app's own shortcut to the current date.
+         *
+         * The Material3 day grid offers no handle a test can hold: a day cell
+         * carries only the library's date description, and the grid composes the
+         * cells that fit on screen, so a flow that reads a day out of that
+         * description depends on the device's language and on the screen's
+         * height. The chip is app-owned and always on top of the sheet, so a flow
+         * that wants "today" taps this and gets the same date the grid would give.
+         */
+        const val TODAY = "dialog_date_picker_today"
+
+        /**
          * The sheet body itself, as opposed to its action row.
          *
          * The OK/CANCEL/CLEAR tags sit at the bottom of a scrolling column and can

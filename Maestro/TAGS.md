@@ -309,6 +309,7 @@ non-alphanumeric characters with `_`.
 | `DatePicker.CLEAR` | `dialog_date_picker_clear` | |
 | `DatePicker.OK` | `dialog_date_picker_ok` | |
 | `DatePicker.SHEET` | `dialog_date_picker_sheet` | |
+| `DatePicker.TODAY` | `dialog_date_picker_today` | |
 | `Dialog.CONFIRM` | `dialog_confirm` | |
 | `Dialog.DISMISS` | `dialog_dismiss` | |
 

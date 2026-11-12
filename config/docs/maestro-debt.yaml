@@ -36,6 +36,13 @@
 #
 # The causes the phone did not show keep the count the emulator's calibration
 # gave them: that is the debt that shrank, and the gate prints it as such.
+#
+# Three of the causes were fixed on 2026-11-12 by the agenda overflow-menu work
+# (agenda suite measured on a phone, RMX3938/API 35): the saved-view screens
+# publish their bar to the shell, so the bar's back arrow is on the screen
+# (#840); no flow reads the date picker's day cell any more (#928); and the
+# rename flow puts the caret past the pre-filled name before it clears the
+# field (#936). Each of them is a regression guard from now on.
 
 environment:
   kind: device
@@ -202,9 +209,10 @@ causes:
   note: "The flow could not reach the Backup tab, because the rail's trailing tabs are not composed until it moves; the rail scroll reaches them now (#820, #916)."
 - key: "No visible element found: id: top_bar_back_button"
   issue: 840
-  owner: unclassified
-  status: accepted
-  flows: 1
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by this change: the saved-view screens now publish their bar to the shell (`overrideShell`), so the bar's back arrow is on the screen where the flow waits for it. Measured 2026-11-12 (agenda suite, RMX3938/API 35); the cause is a regression guard from now on."
 - key: "Assertion is false: id: settings_tab_backup is visible"
   issue: 916
   owner: test
@@ -306,10 +314,10 @@ causes:
   note: "The Stagnant agenda shows no section for a task that has not moved in 22 days (#935)."
 - key: "Assertion is false: id: saved_agenda_card_r<n>_journey_renamed is visible"
   issue: 936
-  owner: unclassified
-  status: accepted
-  flows: 1
-  note: "Renaming a saved agenda view does not produce the renamed card (#936)."
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change: the flow's caret landed inside the pre-filled name, so the typed name landed inside the old one and the card's slug was not the id the flow asserted on. The caret is now put past the text before the field is cleared. Measured 2026-11-12 (agenda suite, RMX3938/API 35); the cause is a regression guard from now on."
 - key: "Assertion is false: id: task_item_buy_milk is visible"
   issue: 938
   owner: unclassified
@@ -337,9 +345,9 @@ causes:
 - key: "Element not found: Text matching regex: .*[^0-9]22[^0-9].*"
   issue: 928
   owner: test
-  status: accepted
-  flows: 1
-  note: "The date picker's day cell needs a non-digit on both sides of the day, which the device's locale does not give it (#928)."
+  status: fixed
+  flows: 0
+  note: "Fixed by this change: no flow reads the date picker's day cell any more — the app's own \"Today\" chip carries a test tag (`dialog_date_picker_today`), so the flow does not depend on the cell's locale-dependent description at all. The key keeps the day of the calibration (the gate normalises only runs of three or more digits), which is why the form is gone rather than merely moved. Measured 2026-11-12 (agenda suite, RMX3938/API 35); the cause is a regression guard from now on."
 - key: "Assertion is false: id: calendar_sync_system_enable_switch is visible"
   issue: 835
   owner: unclassified

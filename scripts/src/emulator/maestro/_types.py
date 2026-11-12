@@ -97,6 +97,7 @@ class DeviceDeps:
     adb_on: Callable[..., str | None]
     reset_adb_server: Callable[[], None]
     wait_for_app_resumed: Callable[[str, int], bool]
+    wait_for_main_activity_resumed: Callable[[str, int], bool]
     cleanup_run_fixtures: Callable[[str, str, "DeviceDeps"], None]
     capture_artifacts: Callable[[str, str, Path, "DeviceDeps"], None]
     git_sha: Callable[["DeviceDeps"], str]
@@ -158,6 +159,7 @@ def _default_device_deps() -> DeviceDeps:
         maestro_saw_device_failure,
         reset_adb_server,
         wait_for_app_resumed,
+        wait_for_main_activity_resumed,
     )
     from emulator.maestro._fixtures import cleanup_run_fixtures
     from emulator.maestro._provenance import (
@@ -185,6 +187,7 @@ def _default_device_deps() -> DeviceDeps:
             adb_on=adb_on,
             reset_adb_server=reset_adb_server,
             wait_for_app_resumed=wait_for_app_resumed,
+            wait_for_main_activity_resumed=wait_for_main_activity_resumed,
             cleanup_run_fixtures=cleanup_run_fixtures,
             capture_artifacts=capture_artifacts,
             git_sha=lambda d: _git_sha(d),
