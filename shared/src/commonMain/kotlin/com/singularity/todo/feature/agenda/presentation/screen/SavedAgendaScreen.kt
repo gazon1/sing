@@ -93,6 +93,12 @@ private fun SavedAgendaScreenBody(
             title = results.viewName,
             onBack = { navigator.back() },
             modifier = modifier,
+            // The shell's bar is the only bar on Android, and the shell cannot
+            // leave the agenda's own stack: the results screen lives inside the
+            // agenda graph, whose route the shell does not see. The screen knows
+            // how to leave it, so the screen hands its title and its back arrow
+            // to the shell.
+            overrideShell = true,
         ) { paddingValues ->
             AgendaScreen(
                 definition = results.definition,
@@ -139,6 +145,10 @@ private fun SavedAgendaScreenBody(
         title = modeHint,
         onBack = onBack,
         modifier = modifier,
+        // The editor lives inside the agenda graph and owns the way out of it
+        // (the discard guard below). The shell cannot work that out, so the
+        // editor hands its title and its back arrow to the shell's bar.
+        overrideShell = true,
     ) { paddingValues ->
         SavedAgendaContent(
             state = state,

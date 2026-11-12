@@ -1,5 +1,6 @@
 package com.singularity.todo.shell
 
+import androidx.navigation3.runtime.NavKey
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 
@@ -11,6 +12,38 @@ import com.singularity.todo.feature.nav.AppDestination
  * @param onClick navigation action to perform when FAB is clicked
  */
 data class FabAction(val label: String, val onClick: () -> Unit)
+
+/**
+ * The destination the shell's button belongs to.
+ *
+ * The shell resolves its button from the route the user is on, and for most
+ * destinations that route *is* an [AppDestination]: the top of the outer back stack
+ * says which one. The agenda graph is the exception — it is a nested graph with a
+ * stack of its own, so the shell sees the graph as a single destination and the
+ * route *inside* it is invisible to it.
+ *
+ * [agendaRoute] is the route the agenda graph published (see
+ * [com.singularity.todo.feature.nav.AgendaRouteHolder]). Without it, every screen
+ * inside the agenda got the button of the tab the agenda was opened with: the
+ * saved-view screens — which carry no shell button and draw their own — got one
+ * anyway, and it was drawn over the button they draw themselves.
+ *
+ * @param current the top-level destination, used when the top of the stack is not
+ *   a destination of its own.
+ * @param topMostRoute the top of the outer back stack.
+ * @param agendaRoute the route inside the agenda graph, or `null` when no agenda
+ *   graph is composed — the graph's own start route is used then.
+ */
+internal fun shellFabTarget(
+    current: AppDestination,
+    topMostRoute: NavKey,
+    agendaRoute: AgendaStartRoute?,
+): AppDestination =
+    when (topMostRoute) {
+        is AppDestination.AgendaGraph -> topMostRoute.copy(start = agendaRoute ?: topMostRoute.start)
+        is AppDestination -> topMostRoute
+        else -> current
+    }
 
 /**
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.

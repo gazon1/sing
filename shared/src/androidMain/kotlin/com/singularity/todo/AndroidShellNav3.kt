@@ -43,9 +43,11 @@ import com.singularity.todo.core.ui.components.LocalFabBottomSpace
 import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.core.ui.components.ShellBarTitle
+import com.singularity.todo.feature.nav.AgendaRouteHolder
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
+import com.singularity.todo.feature.nav.LocalAgendaRouteHolder
 import com.singularity.todo.feature.nav.LocalNav3State
 import com.singularity.todo.feature.nav.MENU_BUTTON_TITLE
 import com.singularity.todo.feature.nav.Nav3State
@@ -60,6 +62,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
 import com.singularity.todo.shell.MenuBottomSheet
 import com.singularity.todo.shell.ShellSearchButton
 import com.singularity.todo.shell.fabActionForNav3
+import com.singularity.todo.shell.shellFabTarget
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -113,7 +116,12 @@ fun androidShellNav3Root(
 
     // Topmost route in the current stack — determines the FAB, mirroring desktop.
     val topMostRoute: NavKey = state.topMostRoute()
-    val fabCurrent: AppDestination = topMostRoute as? AppDestination ?: current
+    // The agenda graph publishes the route inside it: the shell sits above that
+    // graph and cannot see the route it is on. Without this, the button over the
+    // saved-view screens was the button of the tab the agenda opened with, drawn
+    // over the button those screens draw themselves.
+    val agendaRouteHolder = remember { AgendaRouteHolder() }
+    val fabCurrent: AppDestination = shellFabTarget(current, topMostRoute, agendaRouteHolder.route)
 
     val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
 
@@ -200,6 +208,7 @@ fun androidShellNav3Root(
                     LocalNav3State provides state,
                     LocalScreenActions provides screenActions,
                     LocalFabBottomSpace provides fabBottomSpace,
+                    LocalAgendaRouteHolder provides agendaRouteHolder,
                 ) {
                     NavDisplay(
                         entries = navDisplayEntries,

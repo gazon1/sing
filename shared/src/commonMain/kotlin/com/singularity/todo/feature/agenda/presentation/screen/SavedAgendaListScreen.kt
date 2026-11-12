@@ -101,7 +101,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Saved Views") },
+                title = { Text("Saved Views", modifier = Modifier.testTag(TestTags.SHELL_BAR_TITLE)) },
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.back() },
@@ -110,6 +110,11 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                // Android has one bar and the shell owns it. The list lives inside
+                // the agenda graph, and the shell cannot leave that graph on its
+                // own — so the list hands its title and its back arrow to the
+                // shell instead of drawing a second bar under it.
+                overrideShell = true,
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,

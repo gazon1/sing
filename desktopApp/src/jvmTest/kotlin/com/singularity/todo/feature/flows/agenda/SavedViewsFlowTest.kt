@@ -9,6 +9,8 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionNotExists
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
@@ -75,6 +77,22 @@ class SavedViewsFlowTest {
             assertTextDisplayed("Saved Views")
             assertTextDisplayed("No saved views yet")
             assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
+        }
+
+    /**
+     * The shell's button and the screen's own button are two buttons, and they
+     * used to be in the same corner: the shell sits above the agenda's nested
+     * graph and could not see the route inside it, so it drew the button of the
+     * tab the agenda opened with — "Add task" — over the "Create view" button
+     * the saved-views list draws itself. On Android the covered button was not
+     * reachable at all, and the Maestro agenda flows stopped there.
+     */
+    @Test
+    fun the_saved_views_list_carries_no_shell_button() =
+        runDesktopAppTest {
+            clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+            assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
+            assertContentDescriptionNotExists(DesktopShell.FAB_ADD_TASK)
         }
 
     @Test
@@ -182,6 +200,34 @@ class SavedViewsFlowTest {
             // action), so menu items are matched by text AND click action.
             awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT)
             awaitTag(TestTags.SAVED_AGENDA_MENU_DELETE)
+        }
+
+    /**
+     * Deleting from the *editor* (card overflow → Edit → Delete → confirm) must
+     * also drop the card from the list the editor pops back to.
+     */
+    @Test
+    fun delete_from_the_editor_removes_the_card_from_the_list() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Editor delete task")
+            createView(koin, "Editor Delete")
+
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("editor_delete"))
+
+            // Card overflow → Edit opens the editor for the same view.
+            clickText("⋮")
+            awaitTag(TestTags.SAVED_AGENDA_MENU_EDIT).performClick()
+            awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT)
+
+            // Delete → confirm. The editor pops back to the list.
+            awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).performClick()
+            awaitTag(TestTags.Dialog.CONFIRM).performClick()
+
+            // The list is back, and the deleted view is gone from it.
+            awaitTag(TestTags.SAVED_AGENDA_CREATE_FAB)
+            awaitTagGone(TestTags.savedAgendaCard("editor_delete"))
         }
 
     // ─── Delete ─────────────────────────────────────────────────────

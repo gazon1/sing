@@ -54,9 +54,11 @@ import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.nav.AgendaRouteHolder
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
+import com.singularity.todo.feature.nav.LocalAgendaRouteHolder
 import com.singularity.todo.feature.nav.LocalNav3State
 import com.singularity.todo.feature.nav.MENU_BUTTON_TITLE
 import com.singularity.todo.feature.nav.Nav3State
@@ -114,9 +116,12 @@ fun DesktopShellNav3Root(
     // Topmost route in the current stack — determines the FAB and back arrow.
     // When a nested screen (e.g. SavedAgendaEdit) is on top, use it instead of the tab.
     val topMostRoute: NavKey = state.topMostRoute()
-    val fabCurrent: AppDestination =
-        topMostRoute as? AppDestination
-            ?: current
+    // The agenda graph publishes the route inside it: the shell sits above that
+    // graph and cannot see the route it is on. Without this, the button over the
+    // saved-view screens was the button of the tab the agenda opened with, drawn
+    // over the button those screens draw themselves.
+    val agendaRouteHolder = remember { AgendaRouteHolder() }
+    val fabCurrent: AppDestination = shellFabTarget(current, topMostRoute, agendaRouteHolder.route)
 
     // One `today` for the shell, as on Android (#91): the prefill and the tab it
     // was tapped from must not disagree across a midnight.
@@ -422,6 +427,7 @@ fun DesktopShellNav3Root(
                 CompositionLocalProvider(
                     LocalNav3State provides state,
                     LocalFabBottomSpace provides fabBottomSpace,
+                    LocalAgendaRouteHolder provides agendaRouteHolder,
                 ) {
                     NavDisplay(
                         entries = navDisplayEntries,
