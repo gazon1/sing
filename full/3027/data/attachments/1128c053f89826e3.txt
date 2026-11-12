@@ -1,0 +1,56 @@
+Semantic nodes with testTag (20 total)
+Highlighted: (none)
+
+  agenda_greeting
+    text=Good morning
+    bounds=(16,120) w=992 h=16
+  agenda_multi_date_button
+    bounds=(880,60) w=40 h=40
+  agenda_saved_views_button
+    bounds=(928,60) w=40 h=40
+  agenda_save_current_button
+    bounds=(976,60) w=40 h=40
+  nav_menu_button
+    bounds=(4,4) w=40 h=40
+  desktop_drawer
+    bounds=(0,0) w=0 h=0
+  menu_statistics
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_notes
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_aichat
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_proposals
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_search
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_archive
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_pomodoro
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_profiles
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_settings
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_ai_usage
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_attach_account
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_projects_header
+    bounds=(0,0) w=0 h=0
+  menu_projects_expand
+    bounds=(0,0) w=0 h=0
+  menu_all_projects
+    selected=false
+    bounds=(0,0) w=0 h=0
