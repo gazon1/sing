@@ -151,6 +151,79 @@ class UpsertTest(unittest.TestCase):
         ]
         self.assertEqual(arl.find_marker_comment(comments)["id"], 2)
 
+    def test_a_comment_of_a_human_is_not_ours_to_update(self):
+        comments = [{"id": 1, "body": arl.MARKER, "user": {"login": "a-human"}}]
+        self.assertIsNone(arl.find_marker_comment(comments))
+
+    def test_a_comment_of_another_bot_is_not_ours_to_update(self):
+        comments = [{"id": 1, "body": arl.MARKER, "user": {"login": "dependabot[bot]"}}]
+        self.assertIsNone(arl.find_marker_comment(comments))
+
+    def test_the_newest_of_our_own_comments_wins(self):
+        comments = [
+            {
+                "id": 2,
+                "body": arl.MARKER,
+                "created_at": "2026-11-12T10:00:00Z",
+                "user": {"login": "github-actions[bot]"},
+            },
+            {
+                "id": 3,
+                "body": arl.MARKER,
+                "created_at": "2026-11-12T11:00:00Z",
+                "user": {"login": "github-actions[bot]"},
+            },
+        ]
+        self.assertEqual(arl.find_marker_comment(comments)["id"], 3)
+
+    def test_the_choice_does_not_depend_on_the_order_the_api_answered_in(self):
+        older = {
+            "id": 2,
+            "body": arl.MARKER,
+            "created_at": "2026-11-12T10:00:00Z",
+            "user": {"login": "github-actions[bot]"},
+        }
+        newer = {
+            "id": 3,
+            "body": arl.MARKER,
+            "created_at": "2026-11-12T11:00:00Z",
+            "user": {"login": "github-actions[bot]"},
+        }
+        self.assertEqual(arl.find_marker_comment([older, newer])["id"], 3)
+        self.assertEqual(arl.find_marker_comment([newer, older])["id"], 3)
+
+    def test_a_human_comment_with_the_marker_is_never_edited(self):
+        gh = FakeGh(
+            {
+                "issues/42/comments": [
+                    {"id": 9, "body": arl.MARKER + "\nhello", "user": {"login": "a-human"}}
+                ]
+            }
+        )
+        action = arl.upsert_comment("gazon1/sing", 42, arl.comment_body("a", "b"), gh)
+        self.assertEqual(action, "created")
+        self.assertFalse(any("PATCH" in call for call in gh.calls))
+        self.assertTrue(any("--method" in call and "POST" in call for call in gh.calls))
+
+    def test_our_own_comment_is_updated_and_the_human_one_is_left_alone(self):
+        gh = FakeGh(
+            {
+                "issues/42/comments": [
+                    {"id": 9, "body": arl.MARKER + "\nhello", "user": {"login": "a-human"}},
+                    {
+                        "id": 10,
+                        "body": arl.MARKER + "\nold",
+                        "created_at": "2026-11-12T10:00:00Z",
+                        "user": {"login": "github-actions[bot]"},
+                    },
+                ]
+            }
+        )
+        action = arl.upsert_comment("gazon1/sing", 42, arl.comment_body("a", "b"), gh)
+        self.assertEqual(action, "updated")
+        self.assertTrue(any("issues/comments/10" in " ".join(call) for call in gh.calls))
+        self.assertFalse(any("issues/comments/9" in " ".join(call) for call in gh.calls))
+
     def test_a_target_without_any_comment_gets_a_new_comment(self):
         gh = FakeGh()
         action = arl.upsert_comment("gazon1/sing", 42, arl.comment_body("a", "b"), gh)

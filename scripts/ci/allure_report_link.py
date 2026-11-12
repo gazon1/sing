@@ -15,6 +15,11 @@ What it does, in order:
 - update that comment on the next run instead of adding another one: the
   comment carries a marker, and the marker is what finds it again.
 
+The comment that is updated is the one this workflow wrote: the marker is
+hidden, and a person who quoted it into a comment of their own owns that
+comment. A marked comment of somebody else is left alone, and the next run
+posts a comment of our own beside it.
+
 The workflow runs the helper for a push only. A scheduled run publishes the
 `full` population from the tip of the default branch — the pull request that
 merged that commit is long closed, and its marker comment would be taken over
@@ -43,6 +48,11 @@ from typing import Any, Callable, Iterable
 #: The marker that finds our own comment again. It is hidden in the rendered
 #: comment and it is the only thing that identifies it.
 MARKER = "<!-- allure-report-link -->"
+
+#: The account the publication workflow writes as. Only the comments of this
+#: account are ours to update: the marker is hidden, and a person who copied
+#: it into a comment of their own still owns that comment.
+BOT_LOGIN = "github-actions[bot]"
 
 #: A closing keyword and the issue numbers it closes. GitHub's own set:
 #: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved. `Refs` is
@@ -152,25 +162,42 @@ def comment_body(run_url: str, latest_url: str) -> str:
     )
 
 
-def find_marker_comment(comments: Iterable[dict[str, Any]]) -> dict[str, Any] | None:
-    """The comment that already carries the marker, if there is one.
+def is_our_comment(comment: dict[str, Any]) -> bool:
+    """Whether the comment was written by our own bot."""
+    return str((comment.get("user") or {}).get("login") or "") == BOT_LOGIN
 
-    The bot's own comment wins: a comment that carries the marker and was
-    written by somebody else is not ours to overwrite.
+
+def _comment_key(comment: dict[str, Any]) -> tuple[str, int]:
+    """The order of two comments: the newer one comes last."""
+    created = str(comment.get("created_at") or "")
+    try:
+        identifier = int(comment.get("id") or 0)
+    except (TypeError, ValueError):
+        identifier = 0
+    return created, identifier
+
+
+def find_marker_comment(comments: Iterable[dict[str, Any]]) -> dict[str, Any] | None:
+    """Our own comment that carries the marker, if there is one.
+
+    A comment that carries the marker and was written by somebody else is
+    not ours to overwrite: the marker is hidden, and a person who quoted it
+    into a comment of their own owns that comment. Such a comment leaves us
+    without a comment of our own, and the next run posts a new one.
+
+    When several of our own comments carry the marker, the newest one wins,
+    so the choice does not depend on the order the API answered in.
     """
-    marked = [
+    ours = [
         comment
         for comment in comments
-        if isinstance(comment, dict) and MARKER in (comment.get("body") or "")
+        if isinstance(comment, dict)
+        and MARKER in (comment.get("body") or "")
+        and is_our_comment(comment)
     ]
-    if not marked:
+    if not ours:
         return None
-    bots = [
-        comment
-        for comment in marked
-        if str((comment.get("user") or {}).get("login") or "").endswith("[bot]")
-    ]
-    return bots[0] if bots else marked[0]
+    return max(ours, key=_comment_key)
 
 
 # ── GitHub ────────────────────────────────────────────────────────────────────
@@ -252,9 +279,17 @@ def fetch_comments(repo: str, number: int, runner: Runner) -> list[dict[str, Any
 
 
 def upsert_comment(repo: str, number: int, body: str, runner: Runner) -> str:
-    """Post the comment, or update the one that is already there."""
+    """Post the comment, or update the one that is already there.
+
+    Only a comment of our own bot is updated. A comment somebody else wrote
+    is left alone, and a new comment is posted beside it.
+    """
     existing = find_marker_comment(fetch_comments(repo, number, runner))
-    if existing is not None and existing.get("id") is not None:
+    if (
+        existing is not None
+        and existing.get("id") is not None
+        and is_our_comment(existing)
+    ):
         _json(
             runner,
             [
