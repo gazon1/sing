@@ -97,6 +97,74 @@ class ClosingKeywordTest(unittest.TestCase):
         self.assertEqual(arl.parse_closing_issues("Closes #7\nFixes #7"), [7])
 
 
+class FencedCodeBlockTest(unittest.TestCase):
+    """Which fenced code blocks the body hides."""
+
+    def test_a_keyword_in_a_triple_backtick_block_closes_nothing(self):
+        body = "```\nCloses #123\n```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_an_inner_triple_backtick_does_not_close_a_quadruple_one(self):
+        body = "````text\n```\nCloses #123\n```\n````\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_a_quadruple_backtick_block_is_closed_by_a_quadruple_one(self):
+        body = "````\nCloses #123\n````\nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [124])
+
+    def test_a_quadruple_backtick_does_not_close_a_quintuple_one(self):
+        body = "`````\nCloses #123\n````\nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_a_tilde_fence_is_handled_like_a_backtick_fence(self):
+        body = "~~~\nCloses #123\n~~~\nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [124])
+
+    def test_a_backtick_does_not_close_a_tilde_fence(self):
+        body = "~~~\nCloses #123\n```\nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_a_fence_indented_by_four_spaces_is_not_a_fence(self):
+        # Four spaces of indent make it an indented code block, not a fence,
+        # and an indented code block is not a fenced one.
+        body = "    ```\nCloses #123\n    ```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [123])
+
+    def test_an_indented_code_block_hides_its_content(self):
+        # An indented code block is code, and the code of a block is an
+        # example rather than a statement about an issue.
+        body = "    ```\n    Closes #123\n    ```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_an_indented_line_that_continues_a_paragraph_is_prose(self):
+        body = "The plan is:\n    Closes #123\n"
+        self.assertEqual(arl.parse_closing_issues(body), [123])
+
+    def test_a_closing_fence_with_trailing_spaces_closes_the_block(self):
+        body = "```\nCloses #123\n```   \nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [124])
+
+    def test_an_unclosed_fence_hides_the_rest_of_the_body(self):
+        body = "```\nCloses #123\nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_a_keyword_after_a_correctly_closed_block_is_recognised(self):
+        body = "```\nCloses #123\n```\n\nCloses #124\n"
+        self.assertEqual(arl.parse_closing_issues(body), [124])
+
+    def test_the_helper_returns_the_text_without_the_blocks(self):
+        text = "before\n```\ninside\n```\nafter\n"
+        self.assertEqual(arl.strip_fenced_code_blocks(text), "before\nafter")
+
+    def test_the_helper_keeps_an_unclosed_block_out(self):
+        text = "before\n```\ninside\n"
+        self.assertEqual(arl.strip_fenced_code_blocks(text), "before")
+
+    def test_a_keyword_outside_the_block_survives_the_helper(self):
+        body = "Fixes #10\n\n```\nCloses #11\n```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [10])
+
+
 class UrlTest(unittest.TestCase):
     """The URLs the comment carries."""
 

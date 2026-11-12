@@ -93,8 +93,13 @@ CLOSING_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
-#: The fence that opens and closes a code block.
-CODE_FENCE = re.compile(r"^\s*(?:```|~~~)")
+#: The fence that opens a code block: three or more backticks or tildes,
+#: indented by no more than three spaces.
+FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+
+#: The fence that closes a code block: the same character, at least as long
+#: as the fence that opened it, and nothing but spaces after it.
+FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
 #: A quoted line: the text somebody else wrote, quoted back.
 QUOTE = re.compile(r"^\s*>")
@@ -107,6 +112,76 @@ CODE_SPAN = re.compile(r"``[^`]*``|`[^`\n]*`")
 # ── The decisions ─────────────────────────────────────────────────────────────
 
 
+def strip_fenced_code_blocks(text: str) -> str:
+    """The text without the fenced code blocks.
+
+    A fenced code block is opened by three or more backticks or tildes and
+    closed by a fence of the same character that is at least as long. The
+    character and the length of the opening fence are what is remembered:
+    a shorter fence of the same character does not close the block, and a
+    fence of the other character never closes it.
+
+    The block ends at the end of the text when it is never closed. There is
+    no nesting: a fence inside an open block is content of that block, the
+    way CommonMark reads it.
+    """
+    kept: list[str] = []
+    marker: str | None = None
+    length = 0
+    for line in (text or "").splitlines():
+        if marker is None:
+            match = FENCE_OPEN.match(line)
+            if match:
+                fence = match.group(1)
+                info = match.group(2)
+                # The info string of a backtick fence cannot hold a
+                # backtick: such a line is not a fence at all.
+                if fence[0] != "`" or "`" not in info:
+                    marker = fence[0]
+                    length = len(fence)
+                    continue
+            kept.append(line)
+            continue
+        match = FENCE_CLOSE.match(line)
+        if match and match.group(1)[0] == marker and len(match.group(1)) >= length:
+            marker = None
+            length = 0
+            continue
+    return "\n".join(kept)
+
+
+def strip_indented_code_blocks(text: str) -> str:
+    """The text without the indented code blocks.
+
+    Four spaces of indent make a code block, and the code of a block is an
+    example rather than a statement about an issue. The block starts where a
+    paragraph does not continue: an indented line right after a paragraph
+    continues that paragraph, and the text of a paragraph is prose even when
+    it is indented.
+    """
+    kept: list[str] = []
+    in_code = False
+    previous_blank = True
+    for line in (text or "").splitlines():
+        if not line.strip():
+            # A blank line neither starts nor ends a block of code.
+            if not in_code:
+                kept.append(line)
+            previous_blank = True
+            continue
+        indented = line[:4] == "    "
+        if in_code:
+            if indented:
+                continue
+            in_code = False
+        elif indented and previous_blank:
+            in_code = True
+            continue
+        kept.append(line)
+        previous_blank = False
+    return "\n".join(kept)
+
+
 def prose(body: str) -> str:
     """The body without the parts that are not a statement about an issue.
 
@@ -115,15 +190,8 @@ def prose(body: str) -> str:
     somebody else. The helper comments on a public tracker, so a keyword that
     only looks like one is noise, and noise is worse than a missing comment.
     """
-    kept: list[str] = []
-    in_code = False
-    for line in (body or "").splitlines():
-        if CODE_FENCE.match(line):
-            in_code = not in_code
-            continue
-        if in_code or QUOTE.match(line):
-            continue
-        kept.append(line)
+    text = strip_indented_code_blocks(strip_fenced_code_blocks(body or ""))
+    kept = [line for line in text.splitlines() if not QUOTE.match(line)]
     return CODE_SPAN.sub("", "\n".join(kept))
 
 

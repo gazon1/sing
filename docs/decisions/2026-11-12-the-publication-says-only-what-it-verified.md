@@ -93,7 +93,10 @@ is posted**: a made-up address is a link that leads nowhere.
 
 **The rest of the contract is unchanged.** The link goes on the merged pull
 request and on the issues it closes (`Closes|Fixes|Resolves` with the numbers that
-follow). The step runs on a push only, because a scheduled run publishes the tip of
+follow). A closing keyword inside a fenced code block is an example, not a closing
+keyword: a block is recognised by its opening fence and closed only by a fence of
+the same marker that is at least as long, so a fence nested in a block is ordinary
+content and a block that is never closed stays open to the end of the text. The step runs on a push only, because a scheduled run publishes the tip of
 the default branch and the pull request that merged it is long closed. The step is
 advisory (`continue-on-error`): a report that was published must not be
 un-published because a comment did not post. One unreachable target does not cost
