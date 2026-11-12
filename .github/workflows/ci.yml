@@ -1809,6 +1809,13 @@ jobs:
     permissions:
       contents: write
       actions: read
+      # The report link is posted on the merged PR and on the issues it
+      # closes: `issues: write` for the comments, `pull-requests: read` to
+      # find the PR the published commit belongs to, `pages: read` to read
+      # the URL the site is published at.
+      issues: write
+      pages: read
+      pull-requests: read
     concurrency:
       group: allure-pages-${{ github.ref }}
       cancel-in-progress: false
@@ -2041,6 +2048,25 @@ jobs:
         env:
           T0: ${{ steps.deploy-start.outputs.ts }}
         run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
+
+      # A published report nobody is told about is a report nobody opens.
+      # The comment goes on the merged PR and on the issues that PR closes.
+      # A comment that does not post must not un-publish the report, so the
+      # step may fail without failing the job.
+      - name: Link the report on the merged PR and on the issues it closes
+        if: steps.decide.outputs.action == 'publish'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/allure_report_link.py \
+            --population "$TEST_POPULATION" \
+            --run-number "$RUN_NUMBER" \
+            --sha "$SHA"
 
       - name: Record publication measurements
         if: ${{ always() }}
