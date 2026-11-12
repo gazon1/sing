@@ -156,8 +156,12 @@ would be friendlier: `SGATE_BASE_REF=origin/dev` in a repository that has no
 `dev` yet would measure against `origin/main` and keep working. But it would
 also answer silently about a different ref than the one the caller named, and
 the caller is the only one who knows which comparison was wanted. In CI the
-named base always exists, so the rule costs nothing there; in a clone without
-the branch it costs a clear "no base" instead of a wrong comparison.
+named base is the branch the pull request targets. The jobs that compare
+against it — the gate suite and the changed-modules map — check the full
+history out, so the name is there; a job with a shallow checkout does not have
+it, and the tools there say so — they measure everything — instead of
+answering about a ref that is not in the tree. In a clone without the branch
+it costs the same clear "no base".
 
 `None` is not `HEAD` for the same reason. `git diff --quiet` against a
 missing ref exits 128, and the repository already had a rule about exit
@@ -216,6 +220,9 @@ not exist — a green answer to a question nobody asked.
   into another tree.
 - `scripts/tests/test_check_gate_wiring.py` — the control that still proves the
   gate can fail when a base is named.
+- `scripts/tests/test_pre_push_verdict.py`, `scripts/tests/test_pre_push_hook.py`
+  — the fixtures that build a repository of their own, and the base they
+  resolve against it.
 - `.githooks/pre-push` — the shell chain.
 - `docs/decisions/2026-10-25-the-suite-measures-this-checkout.md`.
 - `docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`.
