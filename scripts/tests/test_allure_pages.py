@@ -332,6 +332,10 @@ class AllurePagesTest(unittest.TestCase):
         self.assertTrue(unexplained.is_dir())
 
     def test_retention_drops_a_publication_whose_report_is_gone(self):
+        # A report directory that disappears out of band — the report action
+        # prunes its namespace before the helper applies the publication —
+        # leaves a manifest entry naming something that is not there. The
+        # entry goes; the publications that are still there stay.
         self.make_report(self.site, "fast", "10")
         ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
         self.make_report(self.site, "fast", "11")
@@ -479,6 +483,19 @@ class AllurePagesTest(unittest.TestCase):
         leftovers = [p.name for p in self.root.iterdir() if p.name.startswith("allure-history-")]
         self.assertEqual(leftovers, [])
 
+    def test_the_manifest_is_invisible_to_the_listing_the_prune_uses(self):
+        # `ls` does not list dotfiles, so the listing the pinned action prunes
+        # with never names the manifest. This is the part of the property
+        # that does not depend on the shell the prune happens to run in.
+        pdir = self.pop_dir(self.site, "fast")
+        ap.save_manifest(ap.manifest_path(pdir), manifest_of("fast"))
+        listing = subprocess.run(["ls"], cwd=pdir, capture_output=True, text=True, check=True)
+        self.assertNotIn(".allure-manifest.json", listing.stdout.split())
+
+    @unittest.skipUnless(
+        sys.platform.startswith("linux"),
+        "the pinned action's prune is GNU: `head -n -N` and `xargs -r`",
+    )
     def test_manifest_survives_the_pinned_actions_retention_prune(self):
         # `simple-elf/allure-report-action` prunes its own `<population>/`
         # directory with `ls | sort -n | grep -v CNAME | head -n -N | xargs rm`.
