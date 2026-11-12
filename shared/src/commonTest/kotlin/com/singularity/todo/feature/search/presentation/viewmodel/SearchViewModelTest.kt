@@ -422,6 +422,72 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun `a query typed in full is saved as it was typed`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
+
+            // The text language says more than the filter can hold: a limit and
+            // a relative date are the user's own words, and a saved search that
+            // rewrote them would no longer be the search they asked for.
+            vm.onIntent(SearchIntent.OnQueryChange("due:3d limit:10"))
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnSaveCurrentSearch("Soon"))
+            runCurrent()
+
+            assertEquals("due:3d limit:10", fakeSavedSearchRepo.allSavedSearches[0].queryString)
+        }
+
+    @Test
+    fun `a saved search carries the query that runs, not the text that no longer says it`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk priority:high"))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            val filter = SimpleFilter(priorities = setOf(TaskPriority.High), freeTextTerms = listOf("milk"))
+            vm.onIntent(SearchIntent.OnApplyFilter(filter))
+            advanceTimeBy(400L)
+            runCurrent()
+            assertTrue(
+                vm.stateFlow.value.results.tasks
+                    .isEmpty(),
+            )
+
+            // The way out of the empty result set: the constraints go, the free
+            // text stays — and the field still reads `milk priority:high`.
+            vm.onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+            advanceTimeBy(400L)
+            runCurrent()
+            val shown = vm.stateFlow.value.results.tasks
+            assertEquals(1, shown.size)
+
+            vm.onIntent(SearchIntent.OnSaveCurrentSearch("Milk"))
+            runCurrent()
+
+            val saved = fakeSavedSearchRepo.allSavedSearches
+            assertEquals(1, saved.size)
+            // The query that is running — the free text alone — and not the text
+            // that no longer says it.
+            assertEquals("milk", saved[0].queryString)
+
+            // And loading it back gives the screen what it was showing.
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(saved[0].id))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            assertEquals(
+                shown.map { it.record.id },
+                vm.stateFlow.value.results.tasks
+                    .map { it.record.id },
+            )
+        }
+
+    @Test
     fun `OnLoadSavedSearch restores the query string and triggers search`() =
         runTest {
             fakeSavedSearchRepo.seedSavedSearch(

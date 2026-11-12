@@ -22,6 +22,7 @@ import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
 import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException
+import com.singularity.todo.feature.search.query.effectiveQueryText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.collections.immutable.ImmutableList
@@ -618,7 +619,13 @@ class SearchViewModel(
 
     private fun onSaveCurrentSearch(name: String) {
         vmScope.launch {
-            val queryString = _queryString.value.text
+            val queryString =
+                effectiveQueryText(
+                    raw = _queryString.value.text,
+                    executed = _parsedQuery.value,
+                    activeFilter = _activeFilter.value,
+                    parse = parseQuery,
+                )
             val existingId = _activeSavedSearchId.value
             val now = clock.now()
 
