@@ -2015,8 +2015,21 @@ jobs:
       - name: Preserve custom domain CNAME
         if: steps.decide.outputs.action == 'publish'
         run: |
+          set -euo pipefail
           if [ -f gh-pages/CNAME ]; then
             cp gh-pages/CNAME allure-history/CNAME
+          fi
+
+      # The custom domain lives in the CNAME file, and the deploy replaces
+      # the branch contents with the publish tree. A CNAME that is restored
+      # and then dropped takes the custom domain with it, so the publish tree
+      # is checked against the CNAME the branch carried before the deploy.
+      - name: The custom domain CNAME is still in the publish tree
+        if: steps.decide.outputs.action == 'publish'
+        run: |
+          set -euo pipefail
+          if [ -f gh-pages/CNAME ]; then
+            cmp gh-pages/CNAME allure-history/CNAME
           fi
 
       - name: Validate publication state before deploy
