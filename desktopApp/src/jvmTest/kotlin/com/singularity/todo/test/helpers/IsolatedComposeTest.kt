@@ -45,12 +45,14 @@ fun runIsolatedComposeTest(
     locale: Locale = Locale.ENGLISH,
     test: suspend DesktopComposeUiTest.() -> Unit,
 ) = runDesktopComposeUiTest(width = width, height = height) {
+    // The locale the JVM had before this mount: what goes back when the mount is
+    // done. A test that reads the Russian bundle must not leave the Russian
+    // bundle behind for the tests after it.
+    val original = Locale.getDefault()
     // Isolated component tests render real `Res.string` resources too, and those
     // resolve from the default locale on the JVM. See [useEnglishTestLocale].
     useEnglishTestLocale()
-    // The language this test reads in, for the mount that follows. English is
-    // put back below, so the suite's resting state is the same whatever this
-    // test asked for.
+    // The language this test reads in, for the mount that follows.
     useTestLocale(locale)
 
     try {
@@ -66,6 +68,9 @@ fun runIsolatedComposeTest(
         t.addSuppressed(AssertionError("Semantics tree at failure:\n$tree"))
         throw t
     } finally {
-        useEnglishTestLocale()
+        // The original locale, not English: a mount that asked for Russian put
+        // Russian here, and putting English back instead would leave the suite's
+        // global state decided by whichever mount ran last.
+        Locale.setDefault(original)
     }
 }

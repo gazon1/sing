@@ -19,6 +19,8 @@ import com.singularity.todo.test.helpers.textOfTag
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
 import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,10 +35,16 @@ import kotlin.test.assertEquals
  * rules rather than from a table in the test.
  *
  * The locale is the JVM default, because that is what the desktop app reads
- * its resources from; it is put back to English after every mount, so a test
- * that asks for Russian does not decide the locale of the tests after it.
+ * its resources from; the locale the JVM had before the mount is put back when
+ * the mount is done, so a test that asks for Russian does not decide the locale
+ * of the tests after it.
+ *
+ * The pin is on the class, not only in the build's test configuration: the
+ * locale is a property of the whole JVM, so this class is held to one thread
+ * whatever the configuration says.
  */
 @Tag("fast")
+@Execution(ExecutionMode.SAME_THREAD)
 class RecurrenceSentenceLocaleTest {
     private val due = LocalDate(2026, 11, 12)
 
