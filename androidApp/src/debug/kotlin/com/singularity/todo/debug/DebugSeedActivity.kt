@@ -63,6 +63,12 @@ import kotlin.time.Instant
  *   updated in place, so a seed that names an id that is already there renames
  *   it: a rename is a seed that owns the row and gives it another name.
  * - `project=<name>`         — seeds a project (one project with that name)
+ * - `parent=<project id>`    — hangs the seeded project below the project with
+ *   that id, for a nested fixture. The parent is named by id because the link
+ *   that seeds the child cannot know a generated id. A parent that is not
+ *   there fails the seed: nothing is written, and the activity shows the
+ *   reason instead of bringing the app up — a project that hangs below
+ *   nothing is a root, and a root is the row the Android menu lists.
  * - `projects=<count>`       — seeds that many projects at once, named
  *   `Bulk 001`, `Bulk 002`, … A profile with a hundred projects is a fixture —
  *   the menu's folded Projects section exists for it — and a hundred deep
@@ -150,8 +156,16 @@ class DebugSeedActivity :
                 runBlocking { seed(params) }
             } catch (e: Throwable) {
                 android.util.Log.e("DebugSeedActivity", "Seed failed", e)
-            } finally {
-                // Bring the real app up in every case. When the seed link arrived
+                // A failed seed does not bring the app up. The fixture the flow
+                // asked for is not there, so the flow has to fail *here* — at the
+                // seed — instead of later, on an assertion about a row that was
+                // never written. The reason is on the screen, so the failure
+                // reads without the logcat.
+                runOnUiThread { showSeedFailure(e) }
+                return@Thread
+            }
+            runOnUiThread {
+                // Bring the real app up. When the seed link arrived
                 // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
                 // just re-activates it; when the link cold-started the process, we
                 // are the only activity in the task and finishing alone would dump
@@ -168,21 +182,34 @@ class DebugSeedActivity :
                 //
                 // CLEAR_TASK clears the task, not the data: the session, the
                 // profile and everything else in the database are untouched.
-                runOnUiThread {
-                    startActivity(
-                        Intent(this, com.singularity.todo.MainActivity::class.java).apply {
-                            addFlags(
-                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                                    Intent.FLAG_ACTIVITY_CLEAR_TASK,
-                            )
-                        },
-                    )
-                    finish()
-                }
+                startActivity(
+                    Intent(this, com.singularity.todo.MainActivity::class.java).apply {
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                        )
+                    },
+                )
+                finish()
             }
         }.start()
+    }
+
+    /**
+     * The failure, on the screen.
+     *
+     * The activity stays up with the reason instead of bringing the app up: the
+     * flow waits for the app after every seed, so a seed that failed has to fail
+     * that wait — at the seed — rather than later, on an assertion about a row
+     * that was never written.
+     */
+    private fun showSeedFailure(error: Throwable) {
+        val view = android.widget.TextView(this)
+        view.text = "Seed failed: ${error.message ?: error.javaClass.simpleName}"
+        view.setPadding(48, 48, 48, 48)
+        setContentView(view)
     }
 
     /**
@@ -262,26 +289,20 @@ class DebugSeedActivity :
             }
 
             params.containsKey(SeedLinkKeys.PROJECT) -> {
-                val result =
-                    writer.writeProject(
-                        ProjectSeed(
-                            name = params[SeedLinkKeys.PROJECT]!!,
-                            color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
-                            stamp = Clock.System.now(),
-                            // A flow that has to tap a project in the menu's tree asks
-                            // for its id: a generated id is one a flow cannot write down.
-                            id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
-                            // A nested fixture names the parent by id: the child is
-                            // seeded by a link that cannot know a generated id.
-                            parentId = params[SeedLinkKeys.PARENT]?.let { ProjectId.fromString(it) },
-                        ),
-                    )
-                result.missingParent?.let { missing ->
-                    android.util.Log.w(
-                        "DebugSeedActivity",
-                        "No project with id '$missing' to hang the project below; seeding it as a root",
-                    )
-                }
+                writer.writeProject(
+                    ProjectSeed(
+                        name = params[SeedLinkKeys.PROJECT]!!,
+                        color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
+                        stamp = Clock.System.now(),
+                        // A flow that has to tap a project in the menu's tree asks
+                        // for its id: a generated id is one a flow cannot write down.
+                        id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
+                        // A nested fixture names the parent by id: the child is
+                        // seeded by a link that cannot know a generated id.
+                        parentId = params[SeedLinkKeys.PARENT]?.let { ProjectId.fromString(it) },
+                    ),
+                )
+                android.util.Log.i("DebugSeedActivity", "project '${params[SeedLinkKeys.PROJECT]}' was seeded")
             }
 
             // A profile with a hundred projects is a fixture — the menu's folded

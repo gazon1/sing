@@ -17,6 +17,7 @@ import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -222,25 +223,23 @@ class SeedWriterTest {
                 ),
             )
 
-            val child =
-                writer.writeProject(
-                    ProjectSeed(
-                        name = "Child",
-                        color = 0xFF2196F3.toInt(),
-                        stamp = stamp,
-                        id = ProjectId.fromString("child001"),
-                        parentId = ProjectId.fromString("parent01"),
-                    ),
-                )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Child",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("child001"),
+                    parentId = ProjectId.fromString("parent01"),
+                ),
+            )
 
-            assertNull(child.missingParent)
             assertEquals(ProjectId.fromString("parent01"), liveProjects("Child").single().parentId)
         }
 
     @Test
-    fun `a project seed that names a parent that is not there is written as a root and says so`() =
+    fun `a project seed that names a parent that is not there fails and writes nothing`() =
         runTest {
-            val child =
+            assertFailsWith<IllegalArgumentException> {
                 writer.writeProject(
                     ProjectSeed(
                         name = "Child",
@@ -249,11 +248,197 @@ class SeedWriterTest {
                         parentId = ProjectId.fromString("nobody01"),
                     ),
                 )
+            }
 
-            assertEquals("nobody01", child.missingParent)
-            // A parent that is not there leaves a root — and a root the Android
-            // menu lists, so the fixture has to be told about it.
-            assertNull(liveProjects("Child").single().parentId)
+            // Nothing was written: a project that hangs below nothing is a root,
+            // and a root is the row the Android menu lists — the fixture would
+            // have put a row in the menu that the flow never seeded.
+            assertEquals(emptyList(), liveProjects("Child"))
+        }
+
+    @Test
+    fun `a project seed that names a parent that is not there leaves the project where it is`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Parent",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("parent01"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Child",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("child001"),
+                    parentId = ProjectId.fromString("parent01"),
+                ),
+            )
+
+            assertFailsWith<IllegalArgumentException> {
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Child",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("child001"),
+                        parentId = ProjectId.fromString("nobody01"),
+                    ),
+                )
+            }
+
+            // The failed seed changed nothing: the project keeps the parent it
+            // had, so the hierarchy is the one the fixture meant.
+            val child = liveProjects("Child").single()
+            assertEquals(ProjectId.fromString("child001"), child.id)
+            assertEquals(ProjectId.fromString("parent01"), child.parentId)
+        }
+
+    @Test
+    fun `a project seed that names the project itself as its parent fails`() =
+        runTest {
+            assertFailsWith<IllegalArgumentException> {
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Loop",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("loop0001"),
+                        parentId = ProjectId.fromString("loop0001"),
+                    ),
+                )
+            }
+
+            assertEquals(emptyList(), liveProjects("Loop"))
+        }
+
+    @Test
+    fun `a project seed that names a descendant as its parent fails`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Top",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("top0001"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Middle",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("middle1"),
+                    parentId = ProjectId.fromString("top0001"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Bottom",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("bottom1"),
+                    parentId = ProjectId.fromString("middle1"),
+                ),
+            )
+
+            // Top below Bottom would close the loop Top → Middle → Bottom → Top.
+            assertFailsWith<IllegalArgumentException> {
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Top",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("top0001"),
+                        parentId = ProjectId.fromString("bottom1"),
+                    ),
+                )
+            }
+
+            assertNull(liveProjects("Top").single().parentId)
+        }
+
+    @Test
+    fun `a project seed that names no parent leaves the parent the row already has`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Parent",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("parent01"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Child",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("child001"),
+                    parentId = ProjectId.fromString("parent01"),
+                ),
+            )
+
+            val reseeded =
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Child",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("child001"),
+                    ),
+                )
+
+            // The same row, and still the same child of the same parent: a seed
+            // that names no parent does not move the project to the top.
+            assertEquals(SeedOutcome.Updated, reseeded.outcome)
+            val child = liveProjects("Child").single()
+            assertEquals(ProjectId.fromString("child001"), child.id)
+            assertEquals(ProjectId.fromString("parent01"), child.parentId)
+        }
+
+    @Test
+    fun `a project seed that names another parent moves the project under it`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "First",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("first001"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Second",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("second01"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Child",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("child001"),
+                    parentId = ProjectId.fromString("first001"),
+                ),
+            )
+
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Child",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("child001"),
+                    parentId = ProjectId.fromString("second01"),
+                ),
+            )
+
+            assertEquals(ProjectId.fromString("second01"), liveProjects("Child").single().parentId)
         }
 
     @Test
