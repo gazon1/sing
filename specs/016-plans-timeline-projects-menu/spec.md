@@ -6,7 +6,7 @@
 
 **Input**: User description: "Убрать скрин plans - список проектов и встроить древовидную иерархию проектов в меню. Экран plans сделать как upcoming в singularity-app.ru - прлсто последовательные секции-дни списком и в кажлой секции - задачи на этот день, гранулярность со дня можно менять на нелелю, месяц и т.д., а кнопку навигации в календарь убрать в меню"
 
-**What this changes, in one paragraph**: The Plans tab stops being a project list and becomes a chronological timeline of upcoming work — plain sequential day sections, each listing the tasks of that day, with the time bucket switchable between day, week and month. The project hierarchy moves out of the tab bar and into the app menu, where it is rendered as an expandable tree. The Calendar leaves the bottom navigation bar and becomes an entry of the menu (bottom sheet on Android, drawer on Desktop).
+**What this changes, in one paragraph**: The Plans tab stops being a project list and becomes a chronological timeline of upcoming work — plain sequential day sections, each listing the tasks of that day, with the time bucket switchable between day, week and month. The project hierarchy moves out of the tab bar and into the app menu — an expandable tree in the Desktop drawer, a list of the root projects in the Android sheet. The Calendar leaves the bottom navigation bar and becomes an entry of the menu (bottom sheet on Android, drawer on Desktop).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -82,29 +82,35 @@ one month and read the section headers each time.
 Projects are hierarchical, and the tab bar has no room for a hierarchy. The user finds them in
 the menu, where the parent-child structure is visible and can be opened up.
 
-**Why this priority**: It is the reason the project list leaves the tab bar. If the menu tree
-does not show the hierarchy, the move removes a surface without giving anything back.
+The Desktop drawer draws that hierarchy as an expandable tree. The Android menu draws the root
+projects as a list instead, and a nested project is reached from its parent's own screen — the
+decision is `docs/decisions/2026-11-12-android-menu-roots-only.md`.
 
-**Independent Test**: Create a parent project with a child project, open the menu, expand the
-parent, and read the child under it.
+**Why this priority**: It is the reason the project list leaves the tab bar. If the menu shows no
+way into the projects, the move removes a surface without giving anything back.
+
+**Independent Test**: Create a parent project with a child project, open the menu, and read the
+parent — then open the parent's screen and read the child there.
 
 **Acceptance Scenarios**:
 
-1. **Given** a project that has a child project, **When** the user opens the menu, **Then** the
-   Projects section lists the parent project and, when the parent is expanded, the child appears
-   indented under it.
-2. **Given** a project in the tree, **When** the user taps it, **Then** the project's detail
+1. **Given** a project that has a child project, **When** the user opens the menu on Desktop,
+   **Then** the Projects section lists the parent project and, when the parent is expanded, the
+   child appears indented under it.
+2. **Given** a project in the menu, **When** the user taps it, **Then** the project's detail
    screen opens.
 3. **Given** a project without children, **When** the tree renders, **Then** that project shows
    no expander control.
 4. **Given** a project created elsewhere in the app, **When** the user opens the menu, **Then**
-   the new project is in the tree without the menu needing to be reopened first.
+   the new project is in the menu without the menu needing to be reopened first.
 5. **Given** a project renamed elsewhere in the app, **When** the user opens the menu, **Then**
-   the tree shows the new name.
+   the menu shows the new name.
 6. **Given** a closed project, **When** the user opens the menu, **Then** that project is not in
-   the tree.
+   the menu.
 7. **Given** the Projects section of the menu, **When** the user looks for the full project list,
    **Then** an entry opens it.
+8. **Given** the Android menu, **When** the user opens it, **Then** the Projects section lists the
+   root projects and no child, and a nested project is reached through its parent's screen.
 
 ---
 
@@ -151,7 +157,8 @@ the menu on both platforms and look for the Calendar entry.
 - **A project whose parent was removed** has no place in the hierarchy; it is shown at the top
   level rather than disappearing.
 - **Deep hierarchies** (a project nested several levels down) must stay usable in the menu: the
-  tree cannot require scrolling to reach a node the user can see the name of.
+  Desktop tree cannot require scrolling to reach a node the user can see the name of, and the
+  Android list keeps the roots reachable without scrolling through the descendants.
 - **An empty timeline** — no task falls inside the current horizon — shows an explicit empty
   state, not a blank screen.
 - **A task that changes date while the screen is open** moves between sections without the user
@@ -162,19 +169,19 @@ the menu on both platforms and look for the Calendar entry.
 ```yaml
 scenarios:
   - id: MENU-01
-    title: The menu shows projects as an expandable tree with children indented
+    title: The Desktop menu shows the projects as an expandable tree with children indented
     area: feature.menu
     priority: P1
     status: confirmed
-    targets: [android, desktop]
+    targets: [desktop]
   - id: MENU-02
-    title: Tapping a project in the tree opens the project detail screen
+    title: Tapping a project in the menu opens the project detail screen
     area: feature.menu
     priority: P1
     status: confirmed
     targets: [android, desktop]
   - id: MENU-03
-    title: The project tree reflects creations and renames made elsewhere
+    title: The menu's project list reflects creations and renames made elsewhere
     area: feature.menu
     priority: P1
     status: confirmed
@@ -186,7 +193,7 @@ scenarios:
     status: confirmed
     targets: [android, desktop]
   - id: MENU-05
-    title: A project without children shows no expander, and a closed project is absent from the tree
+    title: A project without children shows no expander, and a closed project is absent from the menu's Projects section
     area: feature.menu
     priority: P2
     status: confirmed
@@ -197,6 +204,18 @@ scenarios:
     priority: P2
     status: confirmed
     targets: [android, desktop]
+  - id: MENU-07
+    title: The Projects section of the menu starts folded, so the menu's destinations stay reachable
+    area: feature.menu
+    priority: P1
+    status: confirmed
+    targets: [android, desktop]
+  - id: MENU-08
+    title: The Android menu lists the root projects, and a nested project is reached through its parent's screen
+    area: feature.menu
+    priority: P1
+    status: confirmed
+    targets: [android]
   - id: NAV-01
     title: The bottom navigation bar no longer holds a Calendar button
     area: feature.nav
@@ -204,7 +223,7 @@ scenarios:
     status: confirmed
     targets: [android, desktop]
   - id: NAV-02
-    title: Android and Desktop expose the same menu entries and the same project tree
+    title: Android and Desktop expose the same menu entries and the same root projects
     area: feature.nav
     priority: P2
     status: confirmed
@@ -247,22 +266,26 @@ scenarios:
 - **FR-017**: The task-row interactions available on task lists MUST remain available on the
   timeline, including completing a task and swiping a task away.
 - **FR-018**: Plans MUST show an explicit empty state when no task falls inside the current horizon.
-- **FR-019**: The menu MUST contain a Projects section that renders the user's projects as a tree.
-- **FR-020**: Projects without a parent MUST be listed at the top level of the tree, and projects
-  with a parent MUST appear under that parent, indented, when the parent is expanded.
-- **FR-021**: Every project node MUST be expandable and collapsible, and a project without children
-  MUST show no expander control.
+- **FR-019**: The menu MUST contain a Projects section that renders the user's projects — as an
+  expandable tree on Desktop, as a list of the root projects on Android
+  (`docs/decisions/2026-11-12-android-menu-roots-only.md`).
+- **FR-020**: Projects without a parent MUST be listed at the top level, and projects with a
+  parent MUST appear under that parent, indented, when the parent is expanded — on Desktop. On
+  Android the Projects section MUST list the root projects only, and a nested project MUST be
+  reachable from its parent's screen.
+- **FR-021**: On Desktop, every project node MUST be expandable and collapsible, and a project
+  without children MUST show no expander control. The Android list MUST show no expander at all.
 - **FR-022**: Tapping a project node MUST open that project's detail screen.
-- **FR-023**: The project tree MUST reflect creations, renames, moves and deletions made elsewhere
-  in the app without requiring the menu to be closed and reopened.
-- **FR-024**: Closed projects MUST NOT appear in the project tree.
+- **FR-023**: The projects in the menu MUST reflect creations, renames, moves and deletions made
+  elsewhere in the app without requiring the menu to be closed and reopened.
+- **FR-024**: Closed projects MUST NOT appear in the menu's Projects section.
 - **FR-025**: The full project list, with its search, sorting and closed projects, MUST remain
   reachable from the Projects section of the menu.
 - **FR-026**: The bottom navigation bar MUST NOT contain a Calendar button.
 - **FR-027**: The Calendar MUST be reachable as an entry of the app menu — the bottom sheet on
   Android, the navigation drawer on Desktop — and the menu MUST be its only new entry point.
 - **FR-028**: The Calendar screen's own behaviour MUST NOT change by this feature.
-- **FR-029**: Android and Desktop MUST expose the same menu entries and the same project tree.
+- **FR-029**: Android and Desktop MUST expose the same menu entries and the same root projects.
 - **FR-030**: The Upcoming view MUST remain available and unchanged by this feature.
 
 ### Requirement traceability
@@ -289,8 +312,8 @@ each one asserts.
 | FR-015 – FR-016 | PLANS-09 |
 | FR-017 | PLANS-02 |
 | FR-018 | PLANS-10 |
-| FR-019 | MENU-01, PLANS-06 |
-| FR-020 – FR-021 | MENU-01, MENU-05 |
+| FR-019 | MENU-01, MENU-08, PLANS-06 |
+| FR-020 – FR-021 | MENU-01, MENU-05, MENU-08 |
 | FR-022 | MENU-02 |
 | FR-023 | MENU-03 |
 | FR-024 | MENU-05 |
@@ -320,11 +343,12 @@ each one asserts.
 - **SC-002**: Switching granularity re-groups the visible timeline in under 1 second on a device
   holding 500 open tasks.
 - **SC-003**: A user with 30 projects nested up to three levels deep reaches any of them from the
-  menu in at most three interactions — open the menu, expand, tap.
+  menu in at most three interactions — on Desktop: open the menu, expand, tap; on Android: open
+  the menu, tap the parent, tap the child in the sub-project list.
 - **SC-004**: At every granularity, no task is rendered in more than one section; the count of
   duplicated rows is zero.
 - **SC-005**: After the change, the Android bottom navigation holds five tabs and no Calendar
-  button, and the menu holds the Calendar entry, the Projects tree and the entries it held before.
+  button, and the menu holds the Calendar entry, the Projects section and the entries it held before.
 - **SC-006**: A user who last worked in week granularity finds Plans already in week granularity
   the next time they open it.
 - **SC-007**: Plans opens and shows its first screen within 2 seconds with 500 open tasks.
@@ -342,7 +366,8 @@ each one asserts.
   available behind an entry in that same section so that search, sorting, closed projects and the
   project review are not lost.
 - The granularity choice is a per-profile preference and survives an app restart.
-- Only active projects appear in the tree; closed projects are managed from the full list.
+- Only active projects appear in the menu's Projects section; closed projects are managed from the
+  full list.
 - The visual reference for the timeline is the "upcoming" view of the app's web version
   (singularity-app.ru): plain sequential day sections, each listing the tasks of that day, with no
   grid and no calendar chrome.
@@ -350,8 +375,8 @@ each one asserts.
 
 ## Out of Scope
 
-- Editing, reordering, re-parenting or deleting projects from the menu tree. The tree navigates;
-  the project detail screen owns editing.
+- Editing, reordering, re-parenting or deleting projects from the menu. The menu navigates; the
+  project detail screen owns editing.
 - The Calendar screen's own features — its month grid, its day view, its event handling.
 - The saved agenda views and their section editor.
 - The Upcoming view's bucket structure.
@@ -376,8 +401,9 @@ each one asserts.
 - **The same task rendered in two sections** is a known failure mode in this app: the screen
   crashes instead of showing the task twice. FR-002 and FR-004 exist to make that impossible at
   every granularity, and the scenario matrix asserts it rather than assuming it.
-- **The tree and the full project list can disagree** — a project closed in the list but still
-  shown in the tree. The tree is the live view of the projects and is the one the menu shows.
+- **The menu's Projects section and the full project list can disagree** — a project closed in the
+  list but still shown in the menu. The menu is the live view of the projects and is the one the
+  user sees.
 - **Moving the Calendar out of the tab bar** leaves a screen with no tab. FR-027 keeps it one
   interaction away in the menu on both platforms; a deep link alone would not, which is why the
   menu entry is a requirement and not a convenience.
