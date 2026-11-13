@@ -58,6 +58,9 @@ import singularity_todo.shared.generated.resources.reminder_label
  * Nothing is written until «Сохранить». «Отмена» and a swipe-down write
  * nothing at all. The offset the sheet opens on is the task's current offset,
  * so the sheet shows what is already set rather than an empty choice.
+ *
+ * «Очистить» marks the removal and «Сохранить» applies it, so a cleared
+ * reminder can still be called back: the same rule the date sheet follows.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +81,11 @@ fun TaskReminderSheet(
         // The pending offset. The sheet opens on the task's current offset, so
         // the choice is *shown* rather than empty — and «Отмена» leaves it there.
         var selected by remember { mutableStateOf(currentOffset) }
+        // The pending removal. «Очистить» does not delete the reminder: it marks
+        // the removal and only «Сохранить» applies it. A sheet that deletes the
+        // moment it is cleared cannot be cancelled, and every other sheet in the
+        // app applies its change on the confirm button.
+        var removalPending by remember { mutableStateOf(false) }
         SheetScaffold(
             modifier = Modifier.testTag(TestTags.TASK_REMINDER_SHEET),
             actions =
@@ -85,18 +93,22 @@ fun TaskReminderSheet(
                     onClear =
                         if (currentOffset != null) {
                             {
-                                onClear()
-                                onDismiss()
+                                removalPending = true
+                                selected = null
                             }
                         } else {
                             null
                         },
                     onCancel = onDismiss,
                     onConfirm = {
-                        // Nothing to write when the choice was left as it was:
-                        // the offset the task already has is already there.
-                        if (selected != currentOffset) {
-                            selected?.let { onSelect(it) }
+                        when {
+                            // The removal the user asked for. It wins over the
+                            // offset: a cleared reminder has no offset.
+                            removalPending -> onClear()
+
+                            // Nothing to write when the choice was left as it was:
+                            // the offset the task already has is already there.
+                            selected != currentOffset -> selected?.let { onSelect(it) }
                         }
                         onDismiss()
                     },
@@ -134,7 +146,13 @@ fun TaskReminderSheet(
                 ReminderOptionRow(
                     offset = offset,
                     selected = offset == selected,
-                    onSelect = { selected = offset },
+                    // Picking an offset drops a pending removal: the user who
+                    // clears and then chooses a time wants that time, not the
+                    // removal.
+                    onSelect = {
+                        selected = offset
+                        removalPending = false
+                    },
                 )
             }
         }

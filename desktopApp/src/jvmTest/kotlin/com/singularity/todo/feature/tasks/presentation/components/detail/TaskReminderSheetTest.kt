@@ -18,10 +18,11 @@ import kotlin.test.assertTrue
 /**
  * The reminder sheet of the task detail.
  *
- * Two things are pinned here. The sheet has to open on the offset the task
+ * Three things are pinned here. The sheet has to open on the offset the task
  * already has — a picker that opens on nothing makes the user guess what is
- * set — and a refusal of the notification permission has to say what is wrong
- * and offer a way out.
+ * set — a refusal of the notification permission has to say what is wrong
+ * and offer a way out, and the sheet has to apply its change only on its
+ * confirm button.
  */
 @Tag("fast")
 class TaskReminderSheetTest {
@@ -87,8 +88,15 @@ class TaskReminderSheetTest {
             assertFalse(written, "a cancelled sheet writes nothing")
         }
 
+    /**
+     * «Очистить» marks the removal; «Сохранить» applies it.
+     *
+     * The sheet used to delete the reminder the moment it was cleared, so a user
+     * who changed their mind could not call it back — and every other sheet in
+     * the app applies its change on the confirm button.
+     */
     @Test
-    fun `clearing takes the reminder away`() =
+    fun `clearing and saving takes the reminder away`() =
         runIsolatedComposeTest(width = 360, height = 800) {
             var cleared = false
             setContent {
@@ -104,8 +112,31 @@ class TaskReminderSheetTest {
             }
 
             clickTag(TestTags.TASK_REMINDER_CLEAR)
+            clickTag(TestTags.TASK_REMINDER_CONFIRM)
 
-            assertTrue(cleared, "the reminder is gone")
+            assertTrue(cleared, "the reminder is gone once the sheet is saved")
+        }
+
+    @Test
+    fun `clearing and cancelling keeps the reminder`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            var cleared = false
+            setContent {
+                TaskReminderSheet(
+                    currentOffset = ReminderOffset.ONE_HOUR,
+                    notificationsEnabled = true,
+                    onSelect = {},
+                    onClear = { cleared = true },
+                    onRequestPermission = null,
+                    onOpenSettings = null,
+                    onDismiss = {},
+                )
+            }
+
+            clickTag(TestTags.TASK_REMINDER_CLEAR)
+            clickTag(TestTags.TASK_REMINDER_CANCEL)
+
+            assertFalse(cleared, "a cancelled sheet writes nothing")
         }
 
     @Test
