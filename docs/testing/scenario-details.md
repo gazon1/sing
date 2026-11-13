@@ -1891,6 +1891,24 @@ Steps:
 
 **Expected:** The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows the follow-up marking and not the blocked one; the task with four markings shows three and a count of the one it hides — a task can be more than one thing at once, and the row says so.
 
+#### `TASK-PICKER-01` — A task's project is chosen from the hierarchy, and search keeps the path
+
+**confirmed** · P1 · `#TASK-PICKER`
+
+**Given:** A task exists and its detail view is open. The user has a root project Work with a child Android and a grandchild Compose; a root project Home with a child named Notes, and Work also has a child named Notes; and a default project Inbox.
+
+Steps:
+
+1. Open the place where the task's project is chosen.
+2. Look at the list: Work, Android and Compose are drawn at increasing depth.
+3. Search for "notes".
+4. Clear the search.
+5. Tap the very top edge of the Compose row.
+6. Reopen the place where the task's project is chosen.
+7. Choose No project.
+
+**Expected:** The list draws the hierarchy with each level indented past its parent, and a tap on the Compose row assigns Compose — not its parent Android — to the task. Searching "notes" offers both Notes projects with their ancestor as context ("Work" and "Home") and no unrelated sibling, and clearing the query restores the hierarchy. Reopening the picker marks Compose as the current choice, keeps Inbox and No project as distinct system destinations (Inbox is not repeated as a project row), and choosing No project clears the task's project.
+
 #### `TASK-REC-01` — Create a daily recurring task
 
 **confirmed** · P1 · `#TASK-REC`
