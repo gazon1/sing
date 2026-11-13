@@ -13,7 +13,6 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clickTag
-import com.singularity.todo.test.helpers.clickTagByAction
 import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -111,9 +110,10 @@ class TaskDetailEmptyChildSectionsTest {
             // The same for the subtasks.
             //
             // The snackbar that the checklist item raised is still on the screen:
-            // it is drawn over the bottom of the window, and it would swallow the
-            // click on the header.
-            clickTagByAction(TestTags.SUBTASKS_SECTION)
+            // it is drawn over the bottom of the window. The editor keeps the band
+            // it takes clear, so the header is still pressed by an ordinary
+            // click.
+            clickTagScrolled(TestTags.SUBTASKS_SECTION)
             awaitTag(TestTags.SUBTASK_ADD_INPUT)
             scrollToTag(TestTags.SUBTASK_ADD_INPUT)
             typeIntoTag(TestTags.SUBTASK_ADD_INPUT, "Child task")
@@ -123,10 +123,14 @@ class TaskDetailEmptyChildSectionsTest {
 
             // The sheet offers exactly the properties that are not on the screen.
             //
-            // The `+ Ещё` row is the last row of the editor, so it is the one a
-            // snackbar covers — and the snackbar that the subtask raised is
-            // still up.
-            clickTagByAction(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+            // The `+ Ещё` row is the last row of the editor, and the snackbar that
+            // the subtask raised is drawn over the bottom of the window — over
+            // that row. The row is the only way in to the properties that are not
+            // on the screen, so it has to be reachable while the snackbar is up:
+            // the editor keeps the band the snackbar takes clear, and the row is
+            // opened with an ordinary click, the way a user opens it.
+            awaitTag(TestTags.SNACKBAR_MESSAGE)
+            clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
             awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
             awaitTag(TestTags.moreParameterRow("Attachments"))
             awaitTag(TestTags.moreParameterRow("Logbook"))

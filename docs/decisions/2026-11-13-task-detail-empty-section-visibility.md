@@ -128,6 +128,18 @@ chip.
 There is no pin: the rule "shown when it has a value" already decides visibility,
 and a second mechanism saying the same thing would be a second source of truth.
 
+### The `+ Ещё` row and the snackbar
+
+Material3's `Scaffold` draws the snackbar over the body and reserves nothing for
+it. The `+ Ещё` row is the last row of the scroll, so under a snackbar that row
+cannot be pressed — and it is the only way in to the properties that are not on
+the screen. A sheet that cannot be opened is a promise the screen does not keep.
+
+So the editor measures the band the snackbar takes and keeps it clear at the
+bottom of the scroll: the scroll ends above the snackbar, and the last row stays
+reachable while a message is up. The band is measured rather than guessed,
+because a message of another length is a band of another height.
+
 ## Rationale
 
 **The screen is a screen, not an inventory.** A title-only task spent most of its

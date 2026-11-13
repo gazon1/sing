@@ -38,9 +38,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -189,6 +195,18 @@ private fun TaskEditorContent(
     sheets: DialogState<TaskEditorSheet>,
     savedVisible: Boolean = false,
 ) {
+    // The band the snackbar takes at the bottom of the editor.
+    //
+    // Material3's `Scaffold` draws the snackbar over the content and reserves
+    // nothing for it, and the `+ Ещё` row is the last row of the scroll: under a
+    // snackbar that row cannot be pressed, and it is the only way in to the
+    // properties that are not on the screen.
+    //
+    // The band is measured rather than guessed — a message of another length is a
+    // band of another height — and reserved as the bottom of the scroll, so the
+    // scroll ends above the snackbar and the last row stays reachable.
+    var snackbarHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
     Scaffold(
         topBar = {
             TaskDetailTopBar(
@@ -199,13 +217,23 @@ private fun TaskEditorContent(
             )
         },
         bottomBar = bottomBar ?: {},
-        snackbarHost = { snackbarHost?.invoke() },
+        snackbarHost = {
+            Box(
+                modifier =
+                    Modifier.onSizeChanged {
+                        snackbarHeight = with(density) { it.height.toDp() }
+                    },
+            ) {
+                snackbarHost?.invoke()
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier =
                 Modifier
                     .padding(padding)
+                    .padding(bottom = snackbarHeight)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = TaskSpacing.screenPadding),

@@ -18,7 +18,7 @@ import com.singularity.todo.test.helpers.awaitCheckboxChecked
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickCheckbox
 import com.singularity.todo.test.helpers.clickTag
-import com.singularity.todo.test.helpers.clickTagByAction
+import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.isCheckboxChecked
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -61,8 +61,8 @@ class TaskItemIndependenceScenarioTest {
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
             // The sections are closed by default; their headers are the way in.
-            clickTagByAction(TestTags.TASK_CHECKLIST_SECTION)
-            clickTagByAction(TestTags.SUBTASKS_SECTION)
+            clickTagScrolled(TestTags.TASK_CHECKLIST_SECTION)
+            clickTagScrolled(TestTags.SUBTASKS_SECTION)
 
             // Ticking the checklist item touches the checklist item and nothing else.
             scrollToTag(TestTags.checklistItemCheckbox(id = MILK, title = MILK))

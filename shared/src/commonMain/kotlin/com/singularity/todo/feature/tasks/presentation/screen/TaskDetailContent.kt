@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +48,7 @@ import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.formatDateCount
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.detail.rememberSavedPillState
@@ -1051,7 +1051,7 @@ fun TaskDetailContent(
                         // is opened from that list instead, and the callbacks the
                         // sheet needs travel with the bundle, not with the card.
                         showAttachmentsRow = false,
-                        snackbarHost = { SnackbarHost(snackbarHostState) },
+                        snackbarHost = { TaggedSnackbarHost(snackbarHostState) },
                     )
 
                     if (showAiSheet) {

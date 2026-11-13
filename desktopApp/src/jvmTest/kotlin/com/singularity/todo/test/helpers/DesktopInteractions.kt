@@ -205,24 +205,10 @@ fun DesktopComposeUiTest.clickSettingsTab(name: String) {
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.revealMoreParameter(name: String) {
-    clickTagByAction(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+    clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
     awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
     clickTag(TestTags.moreParameterRow(name))
     awaitTagGone(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
-}
-
-/**
- * Clicks the node with [tag] through its click action, not through its coordinates.
- *
- * A snackbar is drawn over the bottom of the window, and the last row of the
- * editor is under it: a click by coordinates lands on the snackbar and the row
- * is never pressed. The click action does not go through the coordinates, so
- * the overlay cannot take the click — and the test does not have to wait for the
- * snackbar to go away.
- */
-@OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.clickTagByAction(tag: String) {
-    awaitTag(tag).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
 }
 
 /**
