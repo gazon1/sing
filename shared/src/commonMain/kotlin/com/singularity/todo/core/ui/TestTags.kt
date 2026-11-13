@@ -1019,6 +1019,12 @@ object TestTags {
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
 
+    /** "No projects match …" empty text in the project picker sheet while searching. */
+    const val PROJECT_PICKER_NO_MATCHES = "project_picker_no_matches"
+
+    /** The name filter in the task editor's project picker sheet. */
+    const val PROJECT_PICKER_SEARCH = "project_picker_search"
+
     /** The picker's "No project" row. */
     const val PROJECT_PICKER_NONE = "project_picker_none"
 
@@ -1047,6 +1053,15 @@ object TestTags {
      */
     const val PROJECT_PICKER_DISMISS = "project_picker_dismiss"
 
+    /**
+     * The "Recent" heading of the project icon picker.
+     *
+     * The section only exists while there is a history, so the tag is also how
+     * a test says "no history, no section" — the absence of the node is the
+     * assertion, and an empty heading would be the defect.
+     */
+    const val PROJECT_ICON_RECENT_SECTION = "project_icon_recent_section"
+
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
 
@@ -1064,6 +1079,23 @@ object TestTags {
 
     /** Dynamic tag of the form `project_card_<slug>`. */
     fun projectCard(name: String) = "project_card_${slug(name)}"
+
+    /**
+     * The chip on the project detail screen that says how many sub-projects the
+     * project has.
+     *
+     * On Android the menu lists the root projects only, so this chip is the way
+     * into a nested project (ADR `2026-11-12-android-menu-roots-only.md`).
+     */
+    const val PROJECT_DETAIL_CHILDREN_CHIP = "project_detail_children_chip"
+
+    /**
+     * A sub-project row in the sheet that lists a project's children.
+     *
+     * By the project's id, not by its name: two children may share a name, and a
+     * renamed child must stay reachable by the tag it was first given.
+     */
+    fun projectChildRow(projectId: String) = "project_child_row_${slug(projectId)}"
 
     /** "Tasks" section header on the project detail screen. */
     const val PROJECT_DETAIL_TASKS_HEADER = "project_detail_tasks_header"

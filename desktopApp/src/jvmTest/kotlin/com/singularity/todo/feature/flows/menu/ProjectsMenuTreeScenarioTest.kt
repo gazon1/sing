@@ -17,8 +17,9 @@ import kotlin.test.assertTrue
 /**
  * Desktop automation for the menu scenario `MENU-01` — the menu shows projects as a tree with children indented.
  *
- * The drawer is the desktop's menu, and it draws the same tree the Android
- * sheet draws: one composable, two drawings.
+ * The drawer is the desktop's menu, and it draws the tree the Android sheet
+ * does not: one section, two depths — the drawer shows the hierarchy, the sheet
+ * shows the roots (ADR `2026-11-12-android-menu-roots-only.md`).
  *
  * The projects are seeded through the repository rather than through the UI,
  * because a tree is about the arrangement of projects the user already has,

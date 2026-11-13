@@ -291,6 +291,7 @@ non-alphanumeric characters with `_`.
 
 | Constant | Value | Where |
 |---|---|---|
+| `PROJECT_DETAIL_CHILDREN_CHIP` | `project_detail_children_chip` | |
 | `PROJECT_DETAIL_EMPTY` | `project_detail_empty` | |
 | `PROJECT_DETAIL_OVERFLOW` | `project_detail_overflow` | |
 | `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | |
@@ -301,10 +302,13 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
+| `PROJECT_ICON_RECENT_SECTION` | `project_icon_recent_section` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 | `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |
 | `PROJECT_PICKER_NONE` | `project_picker_none` | |
+| `PROJECT_PICKER_NO_MATCHES` | `project_picker_no_matches` | |
+| `PROJECT_PICKER_SEARCH` | `project_picker_search` | |
 
 ### Settings
 
@@ -568,6 +572,7 @@ use the expanded string directly).
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
+| `projectChildRow("p-1")` | `"p-1"` | `project_child_row_p_1` | Sub-project rows in the sheet a project's screen opens |
 | `projectPickerRow("p-1")` | `"p-1"` | `project_picker_row_p_1` | Project rows in the task editor's picker |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |

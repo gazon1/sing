@@ -238,9 +238,6 @@ fun androidShellNav3Root(
                 onToggleSection = {
                     projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleSection)
                 },
-                onToggleExpanded = { projectId ->
-                    projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
-                },
                 onOpenProject = { projectId ->
                     menuVisible = false
                     projectsOpener.requestOpen(projectId)

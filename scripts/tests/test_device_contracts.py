@@ -27,6 +27,7 @@ from __future__ import annotations
 import collections.abc
 import inspect
 import pathlib
+import re
 import tempfile
 import typing
 import unittest
@@ -148,6 +149,9 @@ class _RecordingDeps:
         self.unscoped: list[tuple[str, ...]] = []
         #: When true, `pull` answers None the way a failed adb pull does.
         self.fail_pull = False
+        #: What `logcat -d` answers. A test that needs a seed failure in it
+        #: says so here.
+        self.logcat = "logcat output"
 
     def adb(self, *args, **kw):
         self.unscoped.append(args)
@@ -158,7 +162,7 @@ class _RecordingDeps:
         if args[:2] == ("shell", "dumpsys") and "package" in args:
             return "  versionName=1.0.0+gabc123def456"
         if args[:3] == ("shell", "logcat", "-d"):
-            return "logcat output"
+            return self.logcat
         # A faithful adb: `screencap -p <file>` and `pull` print nothing to
         # stdout, so success must not be judged by a truthy return.
         if args[:2] == ("shell", "screencap"):
@@ -246,6 +250,7 @@ class AdbArgvShapeTest(unittest.TestCase):
         self.assertTrue(any("todo-debug://seed?reset=content" in args[-1]
                             for _, args in deps.scoped))
 
+
     def test_apk_sha_from_device_is_scoped(self):
         deps = _RecordingDeps()
         self.assertEqual(_provenance.apk_sha_from_device("emulator-5554", deps),
@@ -270,6 +275,97 @@ class AdbArgvShapeTest(unittest.TestCase):
                          [("emulator-5554", ("shell", "getprop",
                                              "ro.product.model"))])
 
+
+class SeedFailureReportTest(unittest.TestCase):
+    """The reason a seed failed must reach the log, not only the artifact.
+
+    A seed that failed leaves the debug activity's own screen up with the reason
+    on it, and the app never comes up. The flow then fails on "the app is not
+    visible" — true, and useless. The reason is in the logcat, and the logcat is
+    an artifact file: nobody opens one to find out why the flow failed, and the
+    flow's own failure message cannot name a reason it never read.
+    """
+
+    _LOGCAT_WITH_FAILURE = (
+        "11-13 15:23:45.678  5678  5678 E DebugSeedActivity: "
+        "Seed failed: no project named 'nosuchparent'\n"
+        "\tat com.singularity.todo.core.seed.SeedWriter.writeProject(SeedWriter.kt:42)\n"
+    )
+
+    def _capture(self, deps: _RecordingDeps) -> list[str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            with unittest.mock.patch.object(_artifacts, "logger") as logger:
+                _artifacts.capture_artifacts(
+                    "emulator-5554", "flow-a", pathlib.Path(tmp), deps
+                )
+        return [str(call) for call in logger.error.call_args_list]
+
+    def test_the_reason_a_seed_failed_is_logged(self):
+        deps = _RecordingDeps()
+        deps.logcat = self._LOGCAT_WITH_FAILURE
+        logged = " ".join(self._capture(deps))
+        self.assertIn(
+            "no project named 'nosuchparent'",
+            logged,
+            "the reason the seed failed is in the logcat and nowhere else: the "
+            "flow's failure message says the app was not visible, which is true "
+            "and says nothing about the seed",
+        )
+
+    def test_the_flow_the_seed_failed_in_is_named(self):
+        deps = _RecordingDeps()
+        deps.logcat = self._LOGCAT_WITH_FAILURE
+        logged = " ".join(self._capture(deps))
+        self.assertIn("flow-a", logged)
+
+    def test_a_run_without_a_failed_seed_says_nothing(self):
+        deps = _RecordingDeps()
+        self.assertEqual(self._capture(deps), [])
+
+    def test_a_failed_seed_still_leaves_the_logcat_artifact(self):
+        """The report is in addition to the artifact, never instead of it."""
+        deps = _RecordingDeps()
+        deps.logcat = self._LOGCAT_WITH_FAILURE
+        with tempfile.TemporaryDirectory() as tmp:
+            _artifacts.capture_artifacts(
+                "emulator-5554", "flow-a", pathlib.Path(tmp), deps
+            )
+            self.assertTrue(
+                (pathlib.Path(tmp) / "flow-a_logcat.txt").is_file(),
+                "the logcat artifact is gone",
+            )
+
+
+class SeedFailurePrefixTest(unittest.TestCase):
+    """The prefix the app writes and the prefix the runner greps for are one.
+
+    The reason a seed failed is written by the app (``SeedFailure.PREFIX``) and
+    read by the runner's regex. They are two languages, so they cannot share a
+    constant — but they can be held to each other: if the app's prefix changes
+    and the runner's regex does not, the runner stops reporting the reason and
+    the flow's failure message names nothing again. Nothing else would notice.
+    """
+
+    _KOTLIN_PREFIX = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "shared/src/commonMain/kotlin/com/singularity/todo/core/seed/SeedFailure.kt"
+    )
+
+    def test_the_runner_recognises_the_prefix_the_app_writes(self):
+        source = self._KOTLIN_PREFIX.read_text()
+        match = re.search(r'PREFIX: String = "([^"]+)"', source)
+        self.assertIsNotNone(
+            match,
+            f"{self._KOTLIN_PREFIX} no longer declares a PREFIX constant",
+        )
+        prefix = match.group(1)
+        self.assertIsNotNone(
+            _artifacts._SEED_FAILURE.search(
+                f"11-13 15:23:45.678  5678  5678 E DebugSeedActivity: {prefix}some reason\n"
+            ),
+            "the runner's regex does not match the prefix the app writes: the "
+            "reason a seed failed would reach the logcat and nothing else",
+        )
 
 class AdbOnTest(unittest.TestCase):
     """`adb_on` itself: it must scope, and it must refuse to guess."""

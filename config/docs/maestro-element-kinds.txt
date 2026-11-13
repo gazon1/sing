@@ -89,8 +89,11 @@ menu_calendar menu
 menu_notes menu
 menu_profiles menu
 menu_project_node_bulk_001 item
+menu_project_node_child item
 menu_project_node_childless item
+menu_project_node_grandchild item
 menu_project_node_latecomer item
+menu_project_node_parent item
 menu_project_node_roadmap item
 menu_projects_collapse menu
 menu_projects_expand menu
@@ -129,6 +132,9 @@ project_card_childless item
 project_card_latecomer item
 project_card_project_alpha item
 project_card_roadmap item
+project_child_row_child item
+project_child_row_grandchild item
+project_detail_children_chip button
 project_detail_quick_add field
 project_editor_name_input field
 projects_create_button button

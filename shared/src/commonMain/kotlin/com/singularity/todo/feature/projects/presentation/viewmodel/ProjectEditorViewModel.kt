@@ -15,7 +15,10 @@ import com.singularity.todo.feature.projects.domain.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.domain.state.ProjectEditorUiState
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.RecentEmojiStore
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 
 /**
@@ -34,6 +37,7 @@ class ProjectEditorViewModel(
     private val createProject: CreateProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
     private val projectsRepo: ProjectsRepository,
+    private val recentEmojiStore: RecentEmojiStore,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectEditorUiState, ProjectEditorIntent, ProjectEditorUiEvent>(
@@ -41,6 +45,14 @@ class ProjectEditorViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
+    /**
+     * The emoji the user picked recently, for the icon picker.
+     *
+     * Read by the screen, written by this ViewModel when an icon is picked —
+     * the picker itself only draws what it is given.
+     */
+    val recentEmojis: Flow<ImmutableList<String>> = recentEmojiStore.recent
+
     init {
         if (projectId != null) {
             catchTo(
@@ -94,6 +106,9 @@ class ProjectEditorViewModel(
 
             is ProjectEditorIntent.IconChanged -> {
                 updateState { it.copy(icon = intent.icon) }
+                // The history is a convenience around the pick, so it is written
+                // after the pick was applied and never in front of it.
+                recentEmojiStore.recordPickedIcon(intent.icon)
             }
 
             is ProjectEditorIntent.DescriptionChanged -> {

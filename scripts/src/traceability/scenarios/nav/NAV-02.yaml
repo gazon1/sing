@@ -3,9 +3,15 @@
 # The two menus are drawn by different code — a bottom sheet on Android, a
 # drawer on Desktop — and they are the same menu to the user. A feature added
 # to one of them and not the other is a feature half the users do not have.
+#
+# The entries are the same on both. The *projects* are the same too, but the
+# two surfaces draw as much of the hierarchy as they can carry: the Desktop
+# drawer unfolds a project's children in place, the Android sheet lists the
+# root projects and reaches a child through its parent's own screen (ADR
+# `2026-11-12-android-menu-roots-only.md`).
 
 id: NAV-02
-title: "Android and Desktop expose the same menu entries and the same project tree"
+title: "Android and Desktop expose the same menu entries and the same root projects"
 area: feature.nav
 priority: P2
 status: confirmed
@@ -16,7 +22,9 @@ preconditions: >-
 steps:
   - "Open the menu on Android and open the drawer on Desktop."
   - "Compare the entries of the two."
-  - "Compare the project trees of the two."
+  - "Compare the root projects of the two."
 expected: >-
   Both surfaces offer the same entries — including Calendar and the Projects
-  tree — and the same projects in the same order.
+  section — and the same root projects in the same order. The Desktop drawer
+  unfolds a project's children in place; the Android sheet lists the roots
+  only, and a child is reached from its parent's own screen.

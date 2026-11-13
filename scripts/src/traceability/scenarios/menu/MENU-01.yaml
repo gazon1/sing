@@ -1,16 +1,22 @@
-# Scenario MENU-01 — the projects in the menu are a tree, not a flat list.
+# Scenario MENU-01 — the Desktop menu shows the projects as a tree.
 #
 # The indentation is the assertion. A flat list of project names would satisfy
 # a check that only counts the names, and it would lose the one thing the
 # project list had that a flat menu cannot show: which project sits under
 # which.
+#
+# The tree is the Desktop menu's drawing: the drawer has room for the whole
+# hierarchy, and the project it belongs to is right there. The Android menu is
+# a sheet, and it lists the root projects only — that is MENU-08, and the two
+# menus draw the same model in the way their own surface carries
+# (ADR `2026-11-12-android-menu-roots-only.md`).
 
 id: MENU-01
-title: "The menu shows projects as an expandable tree with children indented"
+title: "The Desktop menu shows the projects as an expandable tree with children indented"
 area: feature.menu
 priority: P1
 status: confirmed
-targets: [android, desktop]
+targets: [desktop]
 preconditions: >-
   Project A has a child project B, and project C has no children.
 steps:

@@ -1,11 +1,11 @@
 # The menu: a profile with a hundred projects.
 #
-# The tree of a hundred projects is longer than the screen, and the entries the
-# user opened the menu for are above it. So the Projects section starts folded:
+# The hundred projects are longer than the screen, and the entries the
+# user opened the menu for are above them. So the Projects section starts folded:
 # the destinations are on the screen without a scroll through projects, and the
-# tree is drawn only when the user asks for it.
+# projects are drawn only when the user asks for it.
 #
-# The way into the full list is above the tree as well — the tree is a way into
+# The way into the full list is above them as well — the section is a way into
 # the projects, not the only way.
 #
 # The seed writes the projects in one deep link, because a hundred of them
@@ -46,11 +46,11 @@ tags:
     id: menu_projects_expand
 - assertNotVisible:
     id: menu_projects_collapse
-# The tree is not rendered inline while the section is folded: the hundred
+# The projects are not rendered inline while the section is folded: the hundred
 # projects do not sit between the user and the destinations.
 - assertNotVisible:
     id: menu_project_node_bulk_001
-# Unfolding is the user's decision, and then the tree is there.
+# Unfolding is the user's decision, and then the projects are there.
 - tapOn:
     id: menu_projects_expand
 - scrollUntilVisible:

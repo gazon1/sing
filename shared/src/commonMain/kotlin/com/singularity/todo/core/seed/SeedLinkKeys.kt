@@ -20,6 +20,16 @@ object SeedLinkKeys {
     const val PROJECT = "project"
 
     /**
+     * The parent of a seeded project, by the parent's id.
+     *
+     * A project below another one is what makes the menu's hierarchy a
+     * hierarchy: the Android menu lists the root projects only, so a child is
+     * only reachable through its parent, and a fixture that cannot write a
+     * child cannot reach one either.
+     */
+    const val PARENT = "parent"
+
+    /**
      * How many projects to seed at once.
      *
      * A profile with a hundred projects is a fixture — the menu's folded
@@ -59,6 +69,7 @@ object SeedLinkKeys {
             UPDATED_AT to Kind.Modifier,
             BLOCKED_BY to Kind.Modifier,
             ID to Kind.Modifier,
+            PARENT to Kind.Modifier,
             COUNT to Kind.Modifier,
             LINK_TO to Kind.Modifier,
             SESSION to Kind.Session,

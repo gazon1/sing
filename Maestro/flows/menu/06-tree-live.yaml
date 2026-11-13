@@ -1,18 +1,18 @@
-# The menu: the tree reflects creations and renames made elsewhere.
+# The menu: the Projects section reflects creations and renames made elsewhere.
 #
-# The tree is not a snapshot: it is drawn from the profile's projects, so what
-# happened elsewhere is what the tree shows. Neither the creation nor the
+# The section is not a snapshot: it is drawn from the profile's projects, so what
+# happened elsewhere is what the menu shows. Neither the creation nor the
 # rename needs the app to be restarted, and neither needs the menu to be
 # closed and opened by the user afterwards.
 #
 # The menu is a modal sheet on Android, and a change made on another surface
 # closes it — a sheet the user cannot reach past is not a menu the user can
-# change a project behind. So the Android carrier reads the tree through a new
-# opening and checks that it is current. The liveness itself — the tree
+# change a project behind. So the Android carrier reads the section through a new
+# opening and checks that it is current. The liveness itself — the section
 # updating while the menu is open — is what the Desktop drawer's test covers,
 # where the drawer and the app share one window.
 #
-# The seeds are given the ids the projects carry, so the nodes in the tree are
+# The seeds are given the ids the projects carry, so the rows in the menu are
 # addressed by those ids rather than by the names the user reads — a name is
 # copy, and an id is not.
 appId: com.singularity.todo
@@ -27,9 +27,9 @@ tags:
     env:
       QUERY: "project=Roadmap&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
-# The section is folded by default, so the tree is unfolded before it is used.
+# The section is folded by default, so the projects are unfolded before they are used.
 - runFlow: ../../helpers/expand-projects-section.yaml
-# The tree is drawn, so the profile's projects are in it.
+# The section is drawn, so the profile's projects are in it.
 - scrollUntilVisible:
     element:
       id: menu_project_node_roadmap
@@ -47,9 +47,9 @@ tags:
     env:
       QUERY: "project=Renamed&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
-# The tree is unfolded again if the menu came back folded.
+# The section is unfolded again if the menu came back folded.
 - runFlow: ../../helpers/expand-projects-section.yaml
-# The creation is in the tree.
+# The creation is in the section.
 - scrollUntilVisible:
     element:
       id: menu_project_node_latecomer
