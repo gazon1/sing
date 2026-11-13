@@ -102,12 +102,22 @@ signalled by colour alone.
 The editor rows (priority, due date, estimate) carry
 `Modifier.heightIn(min = TaskSpacing.rowMinHeight)`, and `rowMinHeight` is
 `TouchTarget.MinSize` — 48dp. The clear-button spacer reuses the same size as
-`TaskSpacing.clearButtonSlot`. The spacing literals in `ExtraSectionCard` and the
-attachments add-row became `TaskSpacing` values (the same numbers).
+`TaskSpacing.clearButtonSlot`.
 
-The 8dp-inside-a-group / 16dp-between-groups restructure was **not** done here: it
-requires re-indenting a ~200-line block and changes the screen's rhythm, which is a
-redesign rather than a foundation.
+The rest of the screen's spacing was audited against `TaskSpacing`: every literal
+that already had a token took it (the same numbers, now named) — the first-run
+banner, the related-tasks and tags rows, the series card, the logbook marker and
+the editor's clear-button slot. Literals without a token stayed: a token per
+`dp` is a spacing system of its own, and the sheet pickers are outside the
+attribute rows this issue is about.
+
+The **group rhythm** was unified with the tokens that already exist rather than
+with a new pair: the editor column keeps `Arrangement.spacedBy(TaskSpacing.md)`
+inside a group, and a group is separated from the next one by an extra
+`TaskSpacing.md`, so the gap between groups is 24dp and the gap inside a group
+is 12dp. Re-indenting the ~200-line block into 8dp-inside / 16dp-between was
+**not** done: it changes the screen's rhythm, which is a redesign rather than a
+foundation.
 
 ### 5. Typography comes from the slots
 
@@ -115,16 +125,26 @@ The title reads `titleLarge.copy(fontWeight = SemiBold)`, the description reads
 `bodyLarge`, and the attribute card label and the three editor rows read `bodyLarge`.
 The hard-coded `16.sp` / `22.sp` are gone, so `fontSizeScale` reaches all of them.
 
-### 6. The emoji is gone, and the gate that keeps it gone
+### 6. The emoji is gone, and one icon language replaces it
 
 The subtasks header draws `Icons.Filled.Checklist`; the checklist section and the
-checklist row draw the same glyph. One icon language for the checklist affordance.
+checklist row draw the same glyph. One icon language for the checklist
+affordance: size, optical weight, alignment and tint come from the theme, which
+a typed glyph cannot do — a glyph cannot be tinted, cannot follow the light and
+dark themes, and cannot be scaled with the text.
 
-`NoEmojiInTaskIconsTest` reads every production file under `feature/tasks` with its
-comments stripped and fails on any emoji code point — **literal or escaped**, with
-surrogate pairs decoded — in the pictographic plane, the dingbats and the
-variation-selector. The escaped form is the one that came back: it survives a search
-for emoji characters and hides a pictograph behind four hex digits.
+Every icon of the Task Detail is drawn at `TaskSpacing.iconSize`, and the two
+components that carried an icon — the extra-section header and the first-run
+chip — take an `ImageVector` instead of a slot, so a call site cannot pick
+another size or another tint. The section headers wear `onSurfaceVariant`, the
+first-run chips wear `onSurface`.
+
+The requirement is kept at the level of the UI, where the icon is drawn: the
+checklist and subtasks affordances are checked for one consistent visual
+language. A source scanner that hunts for emoji code points across the feature
+is not part of this issue — that is a linting tool for the repository, not a
+foundation for a screen, and it would grow into infrastructure this change does
+not need.
 
 ## Rationale
 
@@ -142,6 +162,14 @@ The 48dp row and the token-driven spacing are a floor, not a redesign: they say 
 rows share one rhythm, and they say it through the tokens that already exist rather
 than through new literals.
 
+A global token has to hold up everywhere, not only where it was raised. The muted
+tier is read by the agenda card, the flat list row, the settings preview, the
+project badge and the checkbox border, so its audit measures the token against
+the surfaces those consumers really stand on — and the font-scale check measures
+every text the change touched (title, description, priority, estimate, due
+date, project, tags) as a *ratio* of the user's scale, so a slot that stops
+being scaled fails the build instead of passing quietly.
+
 ## Consequences
 
 - `TaskSemanticColors.priorityMeta` and the raw priority hues are still used by the
@@ -149,8 +177,9 @@ than through new literals.
   therefore signall priority differently — the list by a rimmed hue, the detail by
   shape. Unifying them is a separate change and would touch the list, which this
   issue explicitly does not.
-- The group-spacing restructure (8dp inside a group, 16dp between groups) is still
-  open.
+- The spacing of the attribute rows is unified with the existing `TaskSpacing`
+  tokens: 12dp inside a group, 24dp between groups, 48dp as the floor of a row.
+  A finer 8dp/16dp rhythm inside the editor column was deliberately left alone.
 - The before/after evidence is a set of ad-hoc captures, not a screenshot suite:
   the repository has no screenshot framework (ADR
   `2026-09-30-roborazzi-not-built-superseded.md`), and building one is issue
@@ -159,8 +188,10 @@ than through new literals.
   `TaskDetailContrastTest` and the type-scaling numbers by
   `TaskDetailFontScaleTest`.
 - `mutedTextColor` changed value for every screen that reads it, not only the task
-  detail. It is lighter than the 72% tier was and darker than the plain
-  `onSurfaceVariant` — a deliberate move towards legibility.
+  detail. It is stronger than the 72% tier was and weaker than the plain
+  `onSurfaceVariant` — a deliberate move towards legibility. The global consumers
+  (the agenda card, the flat row, the settings preview) were audited against the
+  surfaces they stand on and are pinned by `MutedTextTokenTest`.
 
 ## Links
 

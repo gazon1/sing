@@ -32,6 +32,13 @@ region and nothing more.
 | `07-subtasks-dark` | The subtasks section, blue accent, dark theme |
 | `08-detail-high-teal-light` | The detail's top, teal accent, light theme |
 | `09-priority-sheet-teal-light` | The priority sheet, teal accent, light theme |
+| `10-detail-attributes-light` | The attribute rows (state, priority, estimate, due date, reminder), blue accent, light theme |
+| `11-checklist-section-light` | The checklist section with one item, blue accent, light theme |
+
+The last two are the **current branch** (after the icon-size and spacing
+normalisation) on the device the pairs above were taken on; they have no
+"before" twin because the rows they show existed before, and the change to
+them is the rhythm and the icon size rather than a colour.
 
 ## What the pairs show
 
@@ -57,6 +64,26 @@ tinted with the theme, and the saturated block is gone.
 **The rows share one rhythm.** The "after" rows are 48dp tall at minimum and take
 their type from the typography slots, so the text scale reaches them; the
 "before" rows used literal `sp` sizes.
+
+## Measured on the device (this branch, light theme)
+
+The captures were checked **numerically**, not by eye — the agent that took them
+cannot see images, so every number below comes from the pixels of the capture
+or from the accessibility tree of the running app:
+
+| What | How it was measured | Result |
+|---|---|---|
+| One icon size for the section headers | the column profile of the header band: the drawn glyph of the "Checklist" and of the "Related tasks" icons | both span x 67–104 (38 px wide), i.e. the same glyph box at the same offset |
+| No emoji left in the icon | the chroma of every pixel of the icon region | max chroma 12/255, no saturated block — a theme-tinted vector glyph |
+| The 48dp row floor | the bounds of the clickable rows in the accessibility tree | priority 100 px, estimate 100 px, due date 152 px at density 2 (48 dp = 96 px) |
+| The priority marker on the row background | the darkest pixel of the glyph against the sampled background | 7.35:1 — the muted tier clears the 3:1 a glyph needs, and the 4.5:1 of text |
+| The section header icon on the card | the darkest pixel of the glyph against the sampled card colour | 9.37:1 |
+
+The dark captures of this round are missing: the app on that device is pinned to
+the light theme, and switching the device to night mode does not move it. The
+dark half of the palette is covered by the tests instead — all eight accents in
+both modes, in `TaskDetailContrastTest`, `TaskPriorityIconsTest` and
+`MutedTextTokenTest`.
 
 ## What is not in these files
 
