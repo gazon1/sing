@@ -13,7 +13,6 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.DpRect
@@ -30,6 +29,7 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clickTagFirst
+import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfText
 import org.junit.jupiter.api.Tag
@@ -311,9 +311,7 @@ class ProjectPickerSemanticsTest {
             awaitTag(TestTags.projectPickerRow(missing.id.value))
             awaitTag(TestTags.projectPickerRow(blank.id.value))
             waitUntil(timeoutMillis = 5_000) {
-                onAllNodesWithTag(TestTags.PROJECT_ICON_FALLBACK, useUnmergedTree = true)
-                    .fetchSemanticsNodes()
-                    .size >= 2
+                countNodes(TestTags.PROJECT_ICON_FALLBACK, useUnmergedTree = true) >= 2
             }
         }
 
