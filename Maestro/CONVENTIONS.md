@@ -85,7 +85,7 @@ The `note_editor_title_input` testTag uses `testTag(TestTags.taskAction(label))`
 
 ## Helpers
 
-Twenty helper files exist in `Maestro/helpers/`. Use them — do not duplicate
+Twenty-one helper files exist in `Maestro/helpers/`. Use them — do not duplicate
 their logic.
 
 | Helper | When to use |
@@ -108,6 +108,7 @@ their logic.
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
 | `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet from the "+ Add file" row |
+| `open-more-parameter.yaml` | Opens the task detail's `+ Ещё` sheet and picks one property from it (`PROPERTY`: `attachments`, `logbook`, `relatedtasks`, `timetracking`, `workflowstate`) — the way to reach a section that is not on the screen |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
 
 ### Waiting for what you seeded
