@@ -41,6 +41,20 @@ interface ChecklistRepository {
 
     suspend fun delete(id: ChecklistItemId): Result<Unit>
 
+    /**
+     * Rewrites the task's item order to [orderedIds], in one transaction.
+     *
+     * The order is the `sort_order` column, so a reorder is a renumber: the
+     * list this method is given is the whole list, and every id in it gets the
+     * index it holds. A list that does not name every item of the task is a
+     * caller bug — the ids it omits keep their old numbers and can tie with the
+     * renumbered ones.
+     */
+    suspend fun reorder(
+        taskId: String,
+        orderedIds: List<ChecklistItemId>,
+    ): Result<Unit>
+
     suspend fun createBatch(
         taskId: String,
         items: List<ChecklistItem>,

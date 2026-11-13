@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**140 scenarios · 90/161 claimed cells automated · 71 holes**
+**141 scenarios · 91/162 claimed cells automated · 71 holes**
 
 ## feature.agenda
 
@@ -247,6 +247,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-LOG-01` | A note written from the task logbook stays attached to the task | ● | — | The task's logbook shows the note under the title the user typed. The note is still there after the navigation… |
 | `TASK-LOG-02` | Abandoning the logbook's note editor leaves no note behind | ● | — | The task's logbook is still empty — the same empty state it showed before the editor was opened. No note row was… |
 | `TASK-MARK-01` | A task row shows every marking that applies, and counts the ones it hides | — | ● | The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows… |
+| `TASK-PICKER-01` | A task's project is chosen from the hierarchy, and search keeps the path | — | ● | The list draws the hierarchy with each level indented past its parent, and a tap on the Compose row assigns Compose —… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
 | `TASK-STATE-01` | Set a task's workflow state from the task screen | — | ● | The control shows the current state before it is opened, offers the states a task can be in, applies the chosen one,… |
 | `TASK-STATE-02` | A workflow state survives leaving and reopening the task | — | ● | The control shows "In progress" after the task is reopened, and the stored task still carries that state — the state… |

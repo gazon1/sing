@@ -3,6 +3,8 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.ChecklistMove
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -34,6 +36,7 @@ class TaskChildrenSlotTest {
         allTasks: List<Task> = emptyList(),
         onBlockedClose: (BlockedCloseRequest) -> Unit = {},
         onSaved: (String) -> Unit = {},
+        onError: (String) -> Unit = {},
         onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
         onUndoDeleteSubtask: (Task) -> Unit = {},
     ) = TaskChildrenSlot(
@@ -44,11 +47,22 @@ class TaskChildrenSlotTest {
         scope = testSlotScope(scope),
         taskFlow = source.state,
         allTasks = MutableStateFlow(allTasks),
-        onError = {},
+        onError = onError,
         onSaved = onSaved,
         onBlockedClose = onBlockedClose,
         onUndoDeleteChecklistItem = onUndoDeleteChecklistItem,
         onUndoDeleteSubtask = onUndoDeleteSubtask,
+    )
+
+    private fun checklistItem(
+        id: String,
+        title: String,
+        order: Int,
+    ) = ChecklistItem(
+        id = ChecklistItemId.fromString(id),
+        taskId = "t1",
+        title = title,
+        sortOrder = order,
     )
 
     @Test
@@ -155,7 +169,126 @@ class TaskChildrenSlotTest {
                 subtasks.size,
                 "keys=${fakes.taskRepo.tasks.value.keys} errors=$errors saved=$saved",
             )
-            assertEquals("Child", subtasks.first().title)
+            val subtask = subtasks.first()
+            assertEquals("Child", subtask.title)
+            assertEquals(
+                setOf(TaskId("t1")),
+                subtask.followsUp,
+                "a subtask must follow up on its parent so the parent is visible in its dependencies",
+            )
+            assertTrue(
+                subtask.blockedBy.isEmpty(),
+                "the parent link must not block the subtask: a blocking edge would make the subtask " +
+                    "uncompletable until the parent is closed",
+            )
+        }
+
+    @Test
+    fun `a failed subtask create leaves neither the task nor a link`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.createOverride = Result.failure(IllegalStateException("boom"))
+            val errors = mutableListOf<String>()
+            val source = TaskSource(task("t1"))
+            val slot =
+                TaskChildrenSlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    allTasks = MutableStateFlow(emptyList()),
+                    onError = { errors += it },
+                    onSaved = {},
+                    onBlockedClose = {},
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.AddSubtask("Child"))
+            runCurrent()
+
+            assertTrue(
+                fakes.taskRepo.tasks.value.values
+                    .none { it.parentTaskId == TaskId("t1") },
+                "a create that failed must not leave a subtask behind",
+            )
+            assertEquals(listOf("Add subtask failed: boom"), errors)
+        }
+
+    @Test
+    fun `adding the same subtask twice makes two rows with one parent link each`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1"))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.AddSubtask("Child"))
+            runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.AddSubtask("Child"))
+            runCurrent()
+
+            val children =
+                fakes.taskRepo.tasks.value.values
+                    .filter { it.parentTaskId == TaskId("t1") }
+            assertEquals(2, children.size, "two adds are two subtasks")
+            children.forEach { child ->
+                assertEquals(setOf(TaskId("t1")), child.followsUp, "one link per subtask, no duplicates")
+            }
+        }
+
+    @Test
+    fun `deleting a subtask keeps its parent and the follow-up link`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val source = TaskSource(task("t1"))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.AddSubtask("Child"))
+            runCurrent()
+            val child =
+                fakes.taskRepo.tasks.value.values
+                    .single { it.parentTaskId == TaskId("t1") }
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSubtask(child))
+            runCurrent()
+
+            assertNull(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.archivedAt,
+                "the parent must stay in place",
+            )
+            val deleted = fakes.taskRepo.tasks.value[child.id.value]
+            assertNotNull(deleted?.archivedAt, "the subtask is the one that was deleted")
+            assertEquals(setOf(TaskId("t1")), deleted?.followsUp, "the link is not deleted with the subtask")
+        }
+
+    @Test
+    fun `the undo brings back the subtask with its parent link`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val source = TaskSource(task("t1"))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.AddSubtask("Child"))
+            runCurrent()
+            val child =
+                fakes.taskRepo.tasks.value.values
+                    .single { it.parentTaskId == TaskId("t1") }
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSubtask(child))
+            runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.RestoreSubtask(child.id))
+            runCurrent()
+
+            val restored = fakes.taskRepo.tasks.value[child.id.value]
+            assertNull(restored?.archivedAt, "the subtask comes back from the trash")
+            assertEquals(setOf(TaskId("t1")), restored?.followsUp, "the parent link survives the undo")
         }
 
     @Test
@@ -481,5 +614,100 @@ class TaskChildrenSlotTest {
                     ?.completedAt,
             )
             assertTrue(blocked.isEmpty(), "an unblocked subtask must not raise a confirmation")
+        }
+
+    // ─── Reordering a checklist ──────────────────────────────────────────────
+
+    @Test
+    fun `moving an item down renumbers the list`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.checklistRepo.seed(
+                checklistItem("c1", "One", 0),
+                checklistItem("c2", "Two", 1),
+                checklistItem("c3", "Three", 2),
+            )
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
+            assertEquals(
+                listOf("One", "Two", "Three"),
+                slot.state.value.checklist
+                    .map { it.title },
+            )
+
+            slot.onIntent(
+                TaskDetailIntent.Domain.MoveChecklistItem(
+                    itemId = ChecklistItemId.fromString("c2"),
+                    direction = ChecklistMove.Down,
+                ),
+            )
+            runCurrent()
+
+            assertEquals(
+                listOf("One", "Three", "Two"),
+                slot.state.value.checklist
+                    .map { it.title },
+                "the list is renumbered, not just the two rows swapped",
+            )
+            assertEquals(
+                listOf(0, 1, 2),
+                slot.state.value.checklist
+                    .map { it.sortOrder },
+            )
+        }
+
+    @Test
+    fun `moving the first item up is a no-op`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.checklistRepo.seed(
+                checklistItem("c1", "One", 0),
+                checklistItem("c2", "Two", 1),
+            )
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
+
+            slot.onIntent(
+                TaskDetailIntent.Domain.MoveChecklistItem(
+                    itemId = ChecklistItemId.fromString("c1"),
+                    direction = ChecklistMove.Up,
+                ),
+            )
+            runCurrent()
+
+            assertEquals(
+                listOf("One", "Two"),
+                slot.state.value.checklist
+                    .map { it.title },
+            )
+        }
+
+    @Test
+    fun `a failed reorder is reported`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.checklistRepo.seed(
+                checklistItem("c1", "One", 0),
+                checklistItem("c2", "Two", 1),
+            )
+            fakes.checklistRepo.reorderOverride = Result.failure(IllegalStateException("boom"))
+            val errors = mutableListOf<String>()
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onError = { errors += it })
+            runCurrent()
+
+            slot.onIntent(
+                TaskDetailIntent.Domain.MoveChecklistItem(
+                    itemId = ChecklistItemId.fromString("c1"),
+                    direction = ChecklistMove.Down,
+                ),
+            )
+            runCurrent()
+
+            assertEquals(listOf("Reorder failed"), errors)
+            assertEquals(
+                listOf("One", "Two"),
+                slot.state.value.checklist
+                    .map { it.title },
+            )
         }
 }

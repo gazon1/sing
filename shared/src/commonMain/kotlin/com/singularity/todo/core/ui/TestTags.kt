@@ -621,6 +621,26 @@ object TestTags {
     /** Add/submit button of the inline add-row in the checklist section. */
     const val CHECKLIST_INLINE_ADD_BUTTON = "checklist_inline_add_button"
 
+    /** Expands a long checklist to show every item. */
+    const val CHECKLIST_SHOW_ALL = "checklist_show_all"
+
+    /**
+     * Dynamic tags of the reorder halves of a checklist row — move one step up
+     * and one step down, in the row's own namespace.
+     */
+    @Suppress("UnusedParameter")
+    fun checklistItemMoveUp(
+        id: String,
+        title: String,
+    ) = "checklist_item_move_up_${slug(title)}"
+
+    /** @see checklistItemMoveUp */
+    @Suppress("UnusedParameter")
+    fun checklistItemMoveDown(
+        id: String,
+        title: String,
+    ) = "checklist_item_move_down_${slug(title)}"
+
     /**
      * Dynamic tag of the form `checklist_item_<slug>` — one per checklist item row.
      * Derived from the item's id and title, slugified the same way as [taskItem].
@@ -664,6 +684,9 @@ object TestTags {
 
     /** Add/submit button for the subtask input row. */
     const val SUBTASK_ADD_BUTTON = "subtask_add_button"
+
+    /** Expands a long subtasks list to show every item. */
+    const val SUBTASKS_SHOW_ALL = "subtasks_show_all"
 
     /**
      * Dynamic tag of the form `subtask_item_<slug>` — one per subtask row.

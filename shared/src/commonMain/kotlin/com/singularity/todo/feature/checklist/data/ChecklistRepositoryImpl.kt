@@ -99,6 +99,19 @@ class ChecklistRepositoryImpl(
             require(rows > 0) { "Checklist item $id not found or not owned by current user" }
         }
 
+    override suspend fun reorder(
+        taskId: String,
+        orderedIds: List<ChecklistItemId>,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            dao.reorderForUser(
+                taskId = taskId,
+                orderedIds = orderedIds.map { it.value },
+                updatedAt = clock.now().toEpochMilliseconds(),
+                userId = currentUser.scopedUserId.value.value,
+            )
+        }
+
     override suspend fun createBatch(
         taskId: String,
         items: List<ChecklistItem>,

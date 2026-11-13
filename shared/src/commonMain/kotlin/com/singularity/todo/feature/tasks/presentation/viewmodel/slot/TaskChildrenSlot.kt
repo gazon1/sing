@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistMove
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -81,6 +82,10 @@ class TaskChildrenSlot(
                 deleteChecklistItem(intent)
             }
 
+            is TaskDetailIntent.Domain.MoveChecklistItem -> {
+                moveChecklistItem(intent)
+            }
+
             is TaskDetailIntent.Domain.AddSubtask -> {
                 addSubtask(intent.title)
             }
@@ -152,15 +157,44 @@ class TaskChildrenSlot(
                 .onFailure { onError("Restore failed") }
         }
 
+    /**
+     * Moves one item a step and writes the whole order back.
+     *
+     * The list is renumbered from its first row, because the order *is* the
+     * numbers: writing only the two rows that changed leaves every other row's
+     * number in place, and two rows can end up claiming one position.
+     */
+    private fun moveChecklistItem(intent: TaskDetailIntent.Domain.MoveChecklistItem) =
+        scope.launch {
+            val items = _state.value.checklist
+            val from = items.indexOfFirst { it.id == intent.itemId }
+            if (from < 0) return@launch
+            val to = if (intent.direction == ChecklistMove.Up) from - 1 else from + 1
+            if (to !in items.indices) return@launch
+            val reordered = items.toMutableList().apply { add(to, removeAt(from)) }
+            children.checklistRepository
+                .reorder(taskId.value, reordered.map { it.id })
+                .onFailure { onError("Reorder failed") }
+        }
+
     // ── Subtasks ────────────────────────────────────────────────────────────
 
     private fun addSubtask(title: String) =
         scope.launch {
             val parent = parentTask.value ?: return@launch
             if (title.isBlank()) return@launch
+            // One write: the row and the link to its parent land together, so a
+            // successful create always carries the relation. The link follows up
+            // on the parent rather than blocking on it — a subtask must stay
+            // completable before its parent.
             core
-                .createTask(CreateTaskInput(title = title.trim(), parentTaskId = parent.id))
-                .onSuccess { onSaved("Subtask added") }
+                .createTask(
+                    CreateTaskInput(
+                        title = title.trim(),
+                        parentTaskId = parent.id,
+                        followsUp = setOf(parent.id),
+                    ),
+                ).onSuccess { onSaved("Subtask added") }
                 .onFailure { onError("Add subtask failed: ${it.message}") }
         }
 

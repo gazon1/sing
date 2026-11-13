@@ -919,6 +919,11 @@ fun TaskDetailContent(
                                             onToggleExpanded = {
                                                 toggleSection(TaskOptionalProperty.Checklist)
                                             },
+                                            onMove = { id, direction ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.MoveChecklistItem(id, direction),
+                                                )
+                                            },
                                         )
                                         SubtasksSection(
                                             subtasks = ui.subtasks,
