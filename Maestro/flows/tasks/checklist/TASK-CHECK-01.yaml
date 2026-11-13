@@ -87,13 +87,16 @@ tags:
 
 # ── Add an item inline ───────────────────────────────────────────
 # The add-row of the section. Nothing opens: the item is typed where it is
-# listed.
+# listed. With the IME open the field must stay on screen and accept input
+# (UXF-03 / #2874).
 - tapOn:
     id: checklist_inline_add_input
 - inputText: "${RUN_ID} Milk"
-- hideKeyboard
+- assertVisible:
+    id: checklist_inline_add_input
 - tapOn:
     id: checklist_inline_add_button
+- hideKeyboard
 
 # slug("${RUN_ID} Milk") → "<run id>_milk"
 - extendedWaitUntil:

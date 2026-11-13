@@ -138,6 +138,7 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
 | `TASK_EDITOR_DEPENDENCIES_ROW` | `task_editor_dependencies_row` | |
+| `TASK_EDITOR_DESCRIPTION_INPUT` | `task_editor_description_input` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |

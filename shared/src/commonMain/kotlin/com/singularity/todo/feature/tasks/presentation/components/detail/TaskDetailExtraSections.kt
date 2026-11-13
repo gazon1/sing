@@ -118,6 +118,7 @@ fun TaskDetailChecklistSection(
                         modifier =
                             Modifier
                                 .weight(1f)
+                                .bringIntoViewOnFocus()
                                 .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
                         placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
