@@ -1810,12 +1810,16 @@ jobs:
       contents: write
       actions: read
       # The report link is posted on the merged PR and on the issues it
-      # closes: `issues: write` for the comments, `pull-requests: read` to
-      # find the PR the published commit belongs to, `pages: read` to read
-      # the URL the site is published at.
+      # closes: `issues: write` for the comments on the issues, `pages: read`
+      # to read the URL the site is published at.
       issues: write
       pages: read
-      pull-requests: read
+      # The comment on the merged PR is a comment on a pull request, and the
+      # token may not write it without the scope of a pull request: the API
+      # answers 403 with `issues: write` alone, and the publication says
+      # nothing about the report it published. The scope finds the PR the
+      # published commit belongs to as well.
+      pull-requests: write
       # The check after the deploy reads the Pages deployments to learn the
       # commit the deployment published: `deployments: read` is what lets it
       # read them. Without the scope the API answers 403, and the check

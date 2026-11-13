@@ -106,7 +106,20 @@ class JobShapeTest(unittest.TestCase):
         self.assertEqual("read", permissions.get("actions"))
         self.assertEqual("write", permissions.get("issues"))
         self.assertEqual("read", permissions.get("pages"))
-        self.assertEqual("read", permissions.get("pull-requests"))
+        self.assertEqual("write", permissions.get("pull-requests"))
+
+    def test_the_job_may_write_the_comment_on_the_pull_request(self):
+        # The link goes on the merged pull request, and a comment on a pull
+        # request is not a comment on an issue: the token may not write it
+        # without the scope of a pull request. The API answers 403 with
+        # `issues: write` alone, and the publication says nothing about the
+        # report it published.
+        permissions = _job().get("permissions") or {}
+        self.assertEqual("write", permissions.get("pull-requests"))
+        self.assertIn(
+            "scripts/ci/allure_report_link.py",
+            _run_of("Link the report on the merged PR and on the issues it closes (advisory)"),
+        )
 
     def test_the_job_may_read_the_deployments_the_check_after_the_deploy_reads(self):
         # The check after the deploy learns the published commit from the
@@ -132,7 +145,7 @@ class JobShapeTest(unittest.TestCase):
                 "actions": "read",
                 "issues": "write",
                 "pages": "read",
-                "pull-requests": "read",
+                "pull-requests": "write",
                 "deployments": "read",
             },
             permissions,
@@ -141,7 +154,7 @@ class JobShapeTest(unittest.TestCase):
     def test_the_job_writes_nothing_else(self):
         permissions = _job().get("permissions") or {}
         writable = {name for name, level in permissions.items() if level == "write"}
-        self.assertEqual({"contents", "issues"}, writable)
+        self.assertEqual({"contents", "issues", "pull-requests"}, writable)
 
     def test_the_job_never_administers_the_repository(self):
         permissions = _job().get("permissions") or {}
