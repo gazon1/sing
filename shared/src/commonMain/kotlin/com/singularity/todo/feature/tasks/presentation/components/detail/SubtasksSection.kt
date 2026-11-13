@@ -70,7 +70,6 @@ fun SubtasksSection(
     expanded: Boolean = false,
     onToggleExpanded: (() -> Unit)? = null,
 ) {
-    val newTitleState = rememberTextFieldState()
     val completed = subtasks.count { it.isCompleted }
     val total = subtasks.size
     // Two different expansions, kept apart. The section's own open state belongs to
@@ -121,51 +120,69 @@ fun SubtasksSection(
                 }
 
                 // Add-subtask input row — after existing items so new content stays in reading order.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        state = newTitleState,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .bringIntoViewOnFocus(revision = subtasks.size)
-                                .testTag(TestTags.SUBTASK_ADD_INPUT),
-                        placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
-                        lineLimits = TextFieldLineLimits.SingleLine,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        onKeyboardAction = {
-                            val trimmed = newTitleState.text.toString().trim()
-                            if (trimmed.isNotEmpty()) {
-                                onAddSubtask(trimmed)
-                                newTitleState.clearText()
-                            }
-                        },
-                    )
-                    IconButton(
-                        onClick = {
-                            val trimmed = newTitleState.text.toString().trim()
-                            if (trimmed.isNotEmpty()) {
-                                onAddSubtask(trimmed)
-                                newTitleState.clearText()
-                            }
-                        },
-                        modifier =
-                            Modifier
-                                .touchTarget()
-                                .size(40.dp)
-                                .testTag(TestTags.SUBTASK_ADD_BUTTON),
-                    ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = "Add subtask",
-                        )
-                    }
-                }
+                SubtaskInlineAddRow(
+                    revision = subtasks.size,
+                    onAddSubtask = onAddSubtask,
+                )
             }
         },
     )
+}
+
+/**
+ * The row that writes a new subtask — an input and a button, side by side.
+ *
+ * Its own composable so the section stays short enough to read: the row is a
+ * block of input plumbing, and the section is about the subtasks.
+ */
+@Composable
+private fun SubtaskInlineAddRow(
+    revision: Int,
+    onAddSubtask: (String) -> Unit,
+) {
+    val newTitleState = rememberTextFieldState()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            state = newTitleState,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .bringIntoViewOnFocus(revision = revision)
+                    .testTag(TestTags.SUBTASK_ADD_INPUT),
+            placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
+            lineLimits = TextFieldLineLimits.SingleLine,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            onKeyboardAction = {
+                val trimmed = newTitleState.text.toString().trim()
+                if (trimmed.isNotEmpty()) {
+                    onAddSubtask(trimmed)
+                    newTitleState.clearText()
+                }
+            },
+        )
+        IconButton(
+            onClick = {
+                val trimmed = newTitleState.text.toString().trim()
+                if (trimmed.isNotEmpty()) {
+                    onAddSubtask(trimmed)
+                    newTitleState.clearText()
+                }
+            },
+            modifier =
+                Modifier
+                    .touchTarget()
+                    .size(40.dp)
+                    .testTag(TestTags.SUBTASK_ADD_BUTTON),
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = "Add subtask",
+            )
+        }
+    }
 }
 
 // ===== Preview =====

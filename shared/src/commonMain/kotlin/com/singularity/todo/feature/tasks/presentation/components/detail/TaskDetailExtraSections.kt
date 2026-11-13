@@ -99,7 +99,6 @@ fun TaskDetailChecklistSection(
     expanded: Boolean = false,
     onToggleExpanded: (() -> Unit)? = null,
 ) {
-    val newTitleState = rememberTextFieldState()
     val completed = checklist.count { it.isCompleted }
     // Two different expansions, kept apart. The section's own open state belongs to
     // the screen, which remembers it; the long list's "show all" belongs to the
@@ -171,51 +170,69 @@ fun TaskDetailChecklistSection(
                 }
 
                 // The add row — after existing items so new content stays in reading order.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        state = newTitleState,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .bringIntoViewOnFocus(revision = checklist.size)
-                                .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
-                        placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
-                        lineLimits = TextFieldLineLimits.SingleLine,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        onKeyboardAction = {
-                            val trimmed = newTitleState.text.toString().trim()
-                            if (trimmed.isNotEmpty()) {
-                                onAddItem(trimmed)
-                                newTitleState.clearText()
-                            }
-                        },
-                    )
-                    IconButton(
-                        onClick = {
-                            val trimmed = newTitleState.text.toString().trim()
-                            if (trimmed.isNotEmpty()) {
-                                onAddItem(trimmed)
-                                newTitleState.clearText()
-                            }
-                        },
-                        modifier =
-                            Modifier
-                                .touchTarget()
-                                .size(40.dp)
-                                .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
-                    ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = "Add item",
-                        )
-                    }
-                }
+                ChecklistInlineAddRow(
+                    revision = checklist.size,
+                    onAddItem = onAddItem,
+                )
             }
         },
     )
+}
+
+/**
+ * The row that writes a new checklist item — an input and a button, side by side.
+ *
+ * Its own composable so the section stays short enough to read: the row is a
+ * block of input plumbing, and the section is about the checklist.
+ */
+@Composable
+private fun ChecklistInlineAddRow(
+    revision: Int,
+    onAddItem: (String) -> Unit,
+) {
+    val newTitleState = rememberTextFieldState()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            state = newTitleState,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .bringIntoViewOnFocus(revision = revision)
+                    .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
+            placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
+            lineLimits = TextFieldLineLimits.SingleLine,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            onKeyboardAction = {
+                val trimmed = newTitleState.text.toString().trim()
+                if (trimmed.isNotEmpty()) {
+                    onAddItem(trimmed)
+                    newTitleState.clearText()
+                }
+            },
+        )
+        IconButton(
+            onClick = {
+                val trimmed = newTitleState.text.toString().trim()
+                if (trimmed.isNotEmpty()) {
+                    onAddItem(trimmed)
+                    newTitleState.clearText()
+                }
+            },
+            modifier =
+                Modifier
+                    .touchTarget()
+                    .size(40.dp)
+                    .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = "Add item",
+            )
+        }
+    }
 }
 
 // ─── Attachments ─────────────────────────────────────────────────────────────
