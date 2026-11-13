@@ -111,6 +111,13 @@
     <string name="recurrence_from_due">from the due date</string>
     <string name="recurrence_from_completion">after completion</string>
     <string name="recurrence_catch_up">catch-up, filling the gaps</string>
-    <string name="recurrence_starting">starting %1$s</string>
-    <string name="recurrence_until">until %1$s</string>
+    <!-- The sentence itself. The order of the parts and the punctuation around
+         them are the language's, not the code's: a locale that puts the end date
+         before the start date needs a template of its own here, and not a
+         different join in Kotlin. The rule and the base are always there — every
+         rule has a base — so the templates differ only in the dates they carry. -->
+    <string name="recurrence_sentence">%1$s, %2$s</string>
+    <string name="recurrence_sentence_with_start">%1$s, %2$s, starting %3$s</string>
+    <string name="recurrence_sentence_with_end">%1$s, %2$s, until %3$s</string>
+    <string name="recurrence_sentence_with_start_and_end">%1$s, %2$s, starting %3$s, until %4$s</string>
 </resources>

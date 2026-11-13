@@ -53,8 +53,8 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
+import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tasks.presentation.components.recurrenceSentence
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -100,6 +100,9 @@ private val MONTH_NAMES =
  *
  * @param currentSpec The currently selected recurrence spec, or null for no recurrence.
  * @param anchorDate The date to use as anchor for preview (typically task's due date or today).
+ * @param dueDate The task's due date, or null when it has none. The preview says
+ *        when the series starts only when the rule hangs on this date; the anchor
+ *        above falls back to today, and today is not a date the task has.
  * @param onApply Called with the selected [RecurrenceSpec], or null to clear recurrence.
  * @param onDismiss Called when the user dismisses the sheet.
  */
@@ -108,6 +111,7 @@ private val MONTH_NAMES =
 fun RecurrencePickerSheet(
     currentSpec: RecurrenceSpec?,
     anchorDate: LocalDate,
+    dueDate: LocalDate? = null,
     onApply: (RecurrenceSpec?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -291,7 +295,7 @@ fun RecurrencePickerSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            PreviewSection(spec = spec, anchorDate = anchorDate)
+            PreviewSection(spec = spec, anchorDate = anchorDate, dueDate = dueDate)
 
             Spacer(Modifier.height(16.dp))
         }
@@ -418,6 +422,7 @@ private fun FrequencySelector(
 private fun PreviewSection(
     spec: RecurrenceSpec,
     anchorDate: LocalDate,
+    dueDate: LocalDate?,
 ) {
     Text(
         text = "Preview",
@@ -432,7 +437,7 @@ private fun PreviewSection(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
         Text(
-            text = recurrenceSentence(spec, anchorDate),
+            text = RecurrenceSentence(spec, dueDate),
             style = MaterialTheme.typography.bodyMedium,
         )
     }

@@ -37,7 +37,7 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
-import com.singularity.todo.feature.tasks.presentation.components.recurrenceSentence
+import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
 
@@ -50,12 +50,14 @@ import kotlinx.datetime.LocalDate
  * unit=DAY, termination=null)" — which is the rule's own `toString()` and says
  * nothing a person can act on. It says what repeats now.
  *
- * @param anchorDate The date the series is measured from — the task's due date.
+ * @param dueDate The task's due date. The rule hangs on it when its base says
+ *        so, and then the sentence says when the series starts; when the task
+ *        has no due date, the sentence says nothing about a start.
  */
 @Composable
 fun TaskDetailRecurrenceSection(
     recurrence: RecurrenceSpec,
-    anchorDate: LocalDate? = null,
+    dueDate: LocalDate? = null,
     modifier: Modifier = Modifier,
 ) {
     ExtraSectionCard(
@@ -63,7 +65,7 @@ fun TaskDetailRecurrenceSection(
         label = "Repeats",
         content = {
             Text(
-                text = recurrenceSentence(recurrence, anchorDate),
+                text = RecurrenceSentence(recurrence, dueDate),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.testTag(TestTags.TASK_RECURRENCE_TEXT),
             )

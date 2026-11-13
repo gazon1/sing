@@ -120,6 +120,12 @@
     <string name="recurrence_from_due">от даты выполнения</string>
     <string name="recurrence_from_completion">после выполнения</string>
     <string name="recurrence_catch_up">с заполнением пропусков</string>
-    <string name="recurrence_starting">с %1$s</string>
-    <string name="recurrence_until">до %1$s</string>
+    <!-- The sentence itself; the same keys as in values/strings.xml. The order of
+         the parts and the punctuation around them are the language's: Russian
+         says "начиная с" where English says "starting", and "до" where English
+         says "until". -->
+    <string name="recurrence_sentence">%1$s, %2$s</string>
+    <string name="recurrence_sentence_with_start">%1$s, %2$s, начиная с %3$s</string>
+    <string name="recurrence_sentence_with_end">%1$s, %2$s, до %3$s</string>
+    <string name="recurrence_sentence_with_start_and_end">%1$s, %2$s, начиная с %3$s, до %4$s</string>
 </resources>

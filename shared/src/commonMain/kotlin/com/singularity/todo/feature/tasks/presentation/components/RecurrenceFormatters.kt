@@ -42,8 +42,10 @@ import singularity_todo.shared.generated.resources.recurrence_every_years
 import singularity_todo.shared.generated.resources.recurrence_from_completion
 import singularity_todo.shared.generated.resources.recurrence_from_due
 import singularity_todo.shared.generated.resources.recurrence_monthly
-import singularity_todo.shared.generated.resources.recurrence_starting
-import singularity_todo.shared.generated.resources.recurrence_until
+import singularity_todo.shared.generated.resources.recurrence_sentence
+import singularity_todo.shared.generated.resources.recurrence_sentence_with_end
+import singularity_todo.shared.generated.resources.recurrence_sentence_with_start
+import singularity_todo.shared.generated.resources.recurrence_sentence_with_start_and_end
 import singularity_todo.shared.generated.resources.recurrence_weekly
 import singularity_todo.shared.generated.resources.recurrence_yearly
 import singularity_todo.shared.generated.resources.weekday_short_fri
@@ -84,87 +86,147 @@ object RecurrenceFormatters {
 }
 
 /**
- * The localized words one recurrence sentence is built from.
+ * The rule, as a sentence, in the app's resource locale.
  *
- * The words come from the app's string resources, so the sentence reads in the
- * resource locale. A locale is built for one rule: the plural form of "every
- * three days" belongs to the locale, and the rules for it live in the resources,
- * so the phrase is resolved while the locale is built and not while it is read.
+ * The one place a rule and a task meet: the task detail row and the picker's
+ * preview both read the sentence from here, so the same rule in the same
+ * context reads the same in both places.
+ *
+ * @param spec The rule to read.
+ * @param dueDate The task's due date — the date a rule measured from the due
+ *        date starts on. Null when the task has no due date, and then such a
+ *        rule has no start date to show.
  */
-internal data class RecurrenceLocale(
-    /** "Every 3 days". */
-    val interval: String,
-    /** "Weekly on Mon, Wed, Fri". */
-    val weekly: String,
-    /** "Monthly on day 15". */
-    val monthly: String,
-    /** "Yearly on Dec 25". */
-    val yearly: String,
-    /** "from the due date" — what the rule is measured from. */
-    val base: String,
-    /** "starting 12 Nov 2026", or null when the rule has no anchor date. */
-    val starting: String?,
-    /** "until 29 Jan 2025", or null when the series never stops. */
-    val until: String?,
-)
+@Composable
+fun RecurrenceSentence(
+    spec: RecurrenceSpec,
+    dueDate: LocalDate?,
+): String = formatRecurrence(spec, recurrenceStartDate(spec.base, dueDate))
 
 /**
- * The rule, as a sentence a person can read.
+ * The date the series is measured from — the date the "starting" clause names.
+ *
+ * The one place that decides it, because the base says what the rule hangs on:
+ *
+ * - [RecurrenceBase.FROM_DUE] — the task's due date.
+ * - [RecurrenceBase.CATCH_UP] — the task's due date too: catch-up fills the
+ *   gaps between *scheduled* occurrences, and those are measured from the due
+ *   date, not from the completion.
+ * - [RecurrenceBase.FROM_COMPLETION] — nothing. The series is measured from
+ *   every completion, so its anchor moves with every occurrence and the series
+ *   has no date it starts on. The task's completion date is the *last*
+ *   completion, not the first, and it is not what the rule hangs on.
+ *
+ * A rule with no date shows no date: the sentence says what repeats and what
+ * it is measured from, and nothing it cannot say.
+ *
+ * @param base What the rule hangs on.
+ * @param dueDate The task's due date, or null when the task has none.
+ */
+internal fun recurrenceStartDate(
+    base: RecurrenceBase,
+    dueDate: LocalDate?,
+): LocalDate? =
+    when (base) {
+        RecurrenceBase.FROM_DUE -> dueDate
+        RecurrenceBase.CATCH_UP -> dueDate
+        RecurrenceBase.FROM_COMPLETION -> null
+    }
+
+/**
+ * The unit a rule's interval is counted in.
+ */
+internal enum class RecurrenceUnit {
+    DAY,
+    WEEK,
+    MONTH,
+    YEAR,
+}
+
+/**
+ * An interval rule read as "every [count] [unit]".
+ */
+internal data class RecurrenceInterval(val count: Int, val unit: RecurrenceUnit)
+
+/**
+ * The interval of a rule, read as a count and a unit.
+ *
+ * Every date-based unit is named by what it is: seven days is a week, twelve
+ * months is a year, and anything else keeps the unit it has — three days is
+ * three days, three months is three months. The formatter used to fall back to
+ * days for a unit it did not know, so a rule stored as "every 3 months" read
+ * as "every 3 days": a wrong rule, not a rough one.
+ */
+internal fun intervalOf(interval: Interval): RecurrenceInterval =
+    when (val unit = interval.unit) {
+        is DateTimeUnit.DayBased -> {
+            if (unit.days % 7 == 0) {
+                RecurrenceInterval(interval.amount * (unit.days / 7), RecurrenceUnit.WEEK)
+            } else {
+                RecurrenceInterval(interval.amount * unit.days, RecurrenceUnit.DAY)
+            }
+        }
+
+        is DateTimeUnit.MonthBased -> {
+            if (unit.months % 12 == 0) {
+                RecurrenceInterval(interval.amount * (unit.months / 12), RecurrenceUnit.YEAR)
+            } else {
+                RecurrenceInterval(interval.amount * unit.months, RecurrenceUnit.MONTH)
+            }
+        }
+    }
+
+/**
+ * The rule, as a sentence, in the app's resource locale.
  *
  * "Every 3 days, from the due date, starting 12 Nov 2026, until 29 Jan 2025" —
  * never "Interval(base=FROM_DUE, amount=3, unit=DAY, termination=null)", which is
  * what the rule's own `toString()` says and what a person cannot read.
  *
- * The parts are in the order a person says them: what repeats, what it is
- * measured from, when it starts, when it stops.
- */
-internal fun formatRecurrence(
-    spec: RecurrenceSpec,
-    locale: RecurrenceLocale,
-): String {
-    val core =
-        when (spec) {
-            is Interval -> locale.interval
-            is Weekly -> locale.weekly
-            is Monthly -> locale.monthly
-            is Yearly -> locale.yearly
-        }
-    return listOfNotNull(core, locale.base, locale.starting, locale.until).joinToString(", ")
-}
-
-/**
- * The rule, as a sentence, in the app's resource locale.
+ * The parts are put together by the language's own template, so the word order
+ * and the punctuation are the resource's and not the code's.
  *
  * @param spec The rule to read.
- * @param anchorDate The date the series is measured from — the task's due date.
- *        Null when there is nothing to measure it from.
+ * @param startDate The date the series is measured from — see
+ *        [recurrenceStartDate]. Null when the rule has no date to show.
  */
 @Composable
-internal fun recurrenceSentence(
+internal fun formatRecurrence(
     spec: RecurrenceSpec,
-    anchorDate: LocalDate? = null,
-): String = formatRecurrence(spec, resourceRecurrenceLocale(spec, anchorDate))
+    startDate: LocalDate?,
+): String {
+    val rule = rulePhrase(spec)
+    val base = stringResource(baseResource(spec.base))
+    val start = startDate?.let { localizedShortDateWithYear(it) }
+    val end = spec.termination?.endDate?.let { localizedShortDateWithYear(it) }
+    return when {
+        start != null && end != null -> {
+            stringResource(Res.string.recurrence_sentence_with_start_and_end, rule, base, start, end)
+        }
 
+        start != null -> {
+            stringResource(Res.string.recurrence_sentence_with_start, rule, base, start)
+        }
+
+        end != null -> {
+            stringResource(Res.string.recurrence_sentence_with_end, rule, base, end)
+        }
+
+        else -> {
+            stringResource(Res.string.recurrence_sentence, rule, base)
+        }
+    }
+}
+
+/** What repeats. */
 @Composable
-private fun resourceRecurrenceLocale(
-    spec: RecurrenceSpec,
-    anchorDate: LocalDate?,
-): RecurrenceLocale =
-    RecurrenceLocale(
-        interval = intervalPhrase(spec),
-        weekly = weeklyPhrase(spec),
-        monthly = monthlyPhrase(spec),
-        yearly = yearlyPhrase(spec),
-        base = stringResource(baseResource(spec.base)),
-        starting =
-            anchorDate?.let {
-                stringResource(Res.string.recurrence_starting, localizedShortDateWithYear(it))
-            },
-        until =
-            spec.termination?.endDate?.let {
-                stringResource(Res.string.recurrence_until, localizedShortDateWithYear(it))
-            },
-    )
+private fun rulePhrase(spec: RecurrenceSpec): String =
+    when (spec) {
+        is Interval -> intervalPhrase(spec)
+        is Weekly -> weeklyPhrase(spec)
+        is Monthly -> stringResource(Res.string.recurrence_monthly, spec.dayOfMonth)
+        is Yearly -> yearlyPhrase(spec)
+    }
 
 /**
  * "Every 3 days" — the count pluralized the way the locale pluralizes it.
@@ -173,65 +235,51 @@ private fun resourceRecurrenceLocale(
  * says, "Every day" is.
  */
 @Composable
-private fun intervalPhrase(spec: RecurrenceSpec): String {
-    val interval = spec as? Interval ?: return ""
-    return if (interval.amount == 1) {
-        stringResource(singularResource(interval.unit))
+private fun intervalPhrase(interval: Interval): String {
+    val (count, unit) = intervalOf(interval)
+    return if (count == 1) {
+        stringResource(singularResource(unit))
     } else {
-        pluralStringResource(pluralResource(interval.unit), interval.amount, interval.amount)
+        pluralStringResource(pluralResource(unit), count, count)
     }
 }
 
 /** "Weekly on Mon, Wed, Fri". */
 @Composable
-private fun weeklyPhrase(spec: RecurrenceSpec): String {
-    val weekly = spec as? Weekly ?: return ""
+private fun weeklyPhrase(weekly: Weekly): String {
     // The names are read first: `joinToString` takes a function it may hold on
     // to, and a resource read is only allowed where the composition can see it.
     val names = weekly.weekdays.sorted().map { stringResource(weekdayResource(it)) }
+    // The separator is the same in both shipped locales; a locale that lists
+    // its days differently needs a resource here, and this comment is where
+    // that would be said.
     return stringResource(Res.string.recurrence_weekly, names.joinToString(", "))
-}
-
-/** "Monthly on day 15". */
-@Composable
-private fun monthlyPhrase(spec: RecurrenceSpec): String {
-    val monthly = spec as? Monthly ?: return ""
-    return stringResource(Res.string.recurrence_monthly, monthly.dayOfMonth)
 }
 
 /** "Yearly on Dec 25". */
 @Composable
-private fun yearlyPhrase(spec: RecurrenceSpec): String {
-    val yearly = spec as? Yearly ?: return ""
-    return stringResource(
+private fun yearlyPhrase(yearly: Yearly): String =
+    stringResource(
         Res.string.recurrence_yearly,
         stringResource(monthResource(yearly.month)),
         yearly.day,
     )
-}
 
-/**
- * The "every day" string for a unit.
- *
- * The picker offers no other unit, and a rule with one is not something a person
- * can be shown a sentence about, so an unknown unit falls back to the day.
- */
-private fun singularResource(unit: DateTimeUnit.DateBased): StringResource =
+/** The "every day" string for a unit. */
+private fun singularResource(unit: RecurrenceUnit): StringResource =
     when (unit) {
-        DateTimeUnit.DAY -> Res.string.recurrence_every_day
-        DateTimeUnit.WEEK -> Res.string.recurrence_every_week
-        DateTimeUnit.MONTH -> Res.string.recurrence_every_month
-        DateTimeUnit.YEAR -> Res.string.recurrence_every_year
-        else -> Res.string.recurrence_every_day
+        RecurrenceUnit.DAY -> Res.string.recurrence_every_day
+        RecurrenceUnit.WEEK -> Res.string.recurrence_every_week
+        RecurrenceUnit.MONTH -> Res.string.recurrence_every_month
+        RecurrenceUnit.YEAR -> Res.string.recurrence_every_year
     }
 
-private fun pluralResource(unit: DateTimeUnit.DateBased): PluralStringResource =
+private fun pluralResource(unit: RecurrenceUnit): PluralStringResource =
     when (unit) {
-        DateTimeUnit.DAY -> Res.plurals.recurrence_every_days
-        DateTimeUnit.WEEK -> Res.plurals.recurrence_every_weeks
-        DateTimeUnit.MONTH -> Res.plurals.recurrence_every_months
-        DateTimeUnit.YEAR -> Res.plurals.recurrence_every_years
-        else -> Res.plurals.recurrence_every_days
+        RecurrenceUnit.DAY -> Res.plurals.recurrence_every_days
+        RecurrenceUnit.WEEK -> Res.plurals.recurrence_every_weeks
+        RecurrenceUnit.MONTH -> Res.plurals.recurrence_every_months
+        RecurrenceUnit.YEAR -> Res.plurals.recurrence_every_years
     }
 
 private fun baseResource(base: RecurrenceBase): StringResource =
