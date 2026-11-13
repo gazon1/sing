@@ -5,11 +5,12 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LowPriority
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.singularity.todo.core.ui.theme.mutedTextColor
+import com.singularity.todo.core.ui.theme.mutedTextColorOf
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import androidx.compose.material.icons.outlined.Flag as OutlinedFlag
 
@@ -64,9 +65,22 @@ internal fun priorityIcon(priority: TaskPriority): ImageVector =
  * so the glyph is legible in either mode and on every accent.
  */
 @Composable
-internal fun priorityIconTint(priority: TaskPriority): Color =
+internal fun priorityIconTint(priority: TaskPriority): Color = priorityIconTintOf(MaterialTheme.colorScheme, priority)
+
+/**
+ * The pure form of [priorityIconTint]: the colour the app actually paints for
+ * [priority] under [scheme].
+ *
+ * The same shape as `mutedTextColorOf` — a test can measure the token the app
+ * paints instead of a value it typed in and hoped for, and the tint of every
+ * level can be compared against every palette without a composition around it.
+ */
+internal fun priorityIconTintOf(
+    scheme: ColorScheme,
+    priority: TaskPriority,
+): Color =
     when (priority) {
-        TaskPriority.None -> mutedTextColor()
-        TaskPriority.Low, TaskPriority.Medium -> MaterialTheme.colorScheme.onSurface
-        TaskPriority.High, TaskPriority.Urgent -> MaterialTheme.colorScheme.error
+        TaskPriority.None -> mutedTextColorOf(scheme)
+        TaskPriority.Low, TaskPriority.Medium -> scheme.onSurface
+        TaskPriority.High, TaskPriority.Urgent -> scheme.error
     }
