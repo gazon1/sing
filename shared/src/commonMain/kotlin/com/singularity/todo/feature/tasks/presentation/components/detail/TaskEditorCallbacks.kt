@@ -69,8 +69,14 @@ data class DateRowCallbacks(
 data class ReminderRowCallbacks(
     /** Sets (or replaces) the task's reminder. */
     val onSet: (ReminderOffset) -> Unit,
-    /** Removes the task's reminder. */
-    val onClear: () -> Unit,
+    /**
+     * Removes the task's reminder.
+     *
+     * Null means the row draws no ✕ — the same meaning it has in every other bundle
+     * here. A completed task is the caller that uses it: a finished task keeps its
+     * reminder, and erasing one is not an action it offers.
+     */
+    val onClear: (() -> Unit)? = null,
     /**
      * Opens the reminder editor.
      *
@@ -83,6 +89,29 @@ data class ReminderRowCallbacks(
 
 /** Callback bundle for a toggle (checkbox) attribute. */
 data class ToggleCallbacks(val onToggle: () -> Unit)
+
+// ─── Completed tasks offer no clear affordance ───────────────────────────────
+//
+// A completed task is shown, not re-planned: its rows keep their values, but the ✕
+// that erases one is not an action a finished task offers. Each `withoutClearWhen`
+// returns the same bundle with its clear callback dropped, so the row draws no ✕ —
+// the same thing null already means for these rows at their own call sites.
+
+/** This bundle's clear dropped when [completed]; the row then draws no ✕. */
+fun <T> RowCallbacks<T>.withoutClearWhen(completed: Boolean): RowCallbacks<T> =
+    if (completed) copy(onClear = null) else this
+
+/** This bundle's clear dropped when [completed]. */
+fun DateRowCallbacks.withoutClearWhen(completed: Boolean): DateRowCallbacks =
+    if (completed) copy(onClear = null) else this
+
+/** This bundle's clear dropped when [completed]. */
+fun ReminderRowCallbacks.withoutClearWhen(completed: Boolean): ReminderRowCallbacks =
+    if (completed) copy(onClear = null) else this
+
+/** This bundle's clear dropped when [completed]. */
+fun DeadlineRowCallbacks.withoutClearWhen(completed: Boolean): DeadlineRowCallbacks =
+    if (completed) copy(onClear = null) else this
 
 /**
  * Callback bundle for the deadline row.

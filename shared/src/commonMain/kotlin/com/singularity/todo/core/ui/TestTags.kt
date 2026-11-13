@@ -306,6 +306,12 @@ object TestTags {
      */
     const val TASK_DETAIL_SAVED_INDICATOR = "task_detail_saved_indicator"
 
+    /** The line under the hero that says when a completed task was completed. */
+    const val TASK_DETAIL_COMPLETED_LABEL = "task_detail_completed_label"
+
+    /** The bar's copy of the task title, shown once the hero has scrolled away. */
+    const val TASK_DETAIL_BAR_TITLE = "task_detail_bar_title"
+
     /** Confirm (✓) button in task-editor sheet hosts (recurrence picker, etc.). */
     const val SHEET_CONFIRM = "sheet_confirm"
 

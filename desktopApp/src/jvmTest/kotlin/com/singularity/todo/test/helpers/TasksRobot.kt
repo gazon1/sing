@@ -65,6 +65,14 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         priority: TaskPriority = TaskPriority.None,
         recurrence: RecurrenceSpec? = null,
         createdAt: Instant? = null,
+        /**
+         * When the task was finished, for a test that reads the completion date.
+         *
+         * Only meaningful with [completed]. Without it a completed task is finished at
+         * the seed epoch, which is fine for "is it completed" and useless for "what
+         * date does the screen say".
+         */
+        completedAt: Instant? = null,
     ): TasksRobot =
         apply {
             seed(
@@ -77,6 +85,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
                 priority = priority,
                 recurrence = recurrence,
                 createdAt = createdAt,
+                completedAt = completedAt,
             )
             assertSeeded(koin, expected = ++seeded)
         }
@@ -114,6 +123,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         priority: TaskPriority = TaskPriority.None,
         recurrence: RecurrenceSpec? = null,
         createdAt: Instant? = null,
+        completedAt: Instant? = null,
     ) {
         val n = seq++
         // The seeded task is as old as the epoch unless a test says otherwise. A test
@@ -128,7 +138,12 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
                 id = taskId,
                 title = title,
                 dueDate = dueDate,
-                completedAt = if (completed) at else null,
+                completedAt =
+                    when {
+                        completedAt != null -> completedAt
+                        completed -> at
+                        else -> null
+                    },
                 projectId = projectId,
                 tags = tagIds,
                 isPinned = isPinned,

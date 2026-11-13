@@ -124,6 +124,19 @@ fun DesktopComposeUiTest.typeIntoTag(
 }
 
 /**
+ * Puts the task title into its edit mode.
+ *
+ * The detail shows the title as text and turns it into a field when it is tapped —
+ * the document-style rule (see `TaskTitleRow`). A test that types or clears the title
+ * on the detail therefore has to tap it first; on Create the title is already a field
+ * and this is a harmless no-op.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.tapTaskTitle(tag: String = TestTags.TASK_EDITOR_TITLE_INPUT) {
+    awaitTag(tag).performClick()
+}
+
+/**
  * Waits for the input with [tag], then clears its text.
  *
  * The counterpart of [typeIntoTag] for a field that has to end up empty.
