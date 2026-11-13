@@ -138,6 +138,7 @@ non-alphanumeric characters with `_`.
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_DETAIL_RELATED_TASKS_SECTION` | `task_detail_related_tasks_section` | |
 | `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
+| `TASK_DETAIL_SECTION_ICON` | `task_detail_section_icon` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |

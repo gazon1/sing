@@ -3,12 +3,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -18,11 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.priorityIcon
+import com.singularity.todo.feature.tasks.presentation.theme.priorityIconTint
+import com.singularity.todo.feature.tasks.presentation.theme.priorityLabel
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.reset_priority
@@ -30,6 +31,10 @@ import singularity_todo.shared.generated.resources.reset_priority
 /**
  * Renders the priority attribute row in the task editor.
  * Tapping the row opens the [com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet.Priority] sheet.
+ *
+ * The row reads the level from the same glyph and the same tint the priority sheet
+ * uses, so the two are one language. The level is carried by the shape and the
+ * colour carries only one thing: whether the level is an exception.
  *
  * @param priority Current priority value.
  * @param onPriorityClick Called when the row is tapped to open the priority picker sheet.
@@ -44,10 +49,12 @@ fun TaskEditorPriorityRow(
     onPriorityClear: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val isSet = priority != TaskPriority.None
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
+                .heightIn(min = TaskSpacing.rowMinHeight)
                 .testTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
                 // No clickable() at all when the callback is null. `.clickable(onClick = {})
                 // would render the same ripple and the same pointer cursor over a row that
@@ -65,26 +72,21 @@ fun TaskEditorPriorityRow(
                 ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val hasPriority = priority != TaskPriority.None
-        val activeTint =
-            if (hasPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-        val idleTint =
-            if (hasPriority) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
-            imageVector = Icons.Filled.Flag,
+            imageVector = priorityIcon(priority),
             contentDescription = null,
-            tint = if (hasPriority) activeTint else idleTint,
+            tint = priorityIconTint(priority),
             modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         Text(
-            text = priority.label,
-            color = if (hasPriority) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 16.sp,
-            fontWeight = if (priority != TaskPriority.None) FontWeight.Medium else FontWeight.Normal,
+            text = priorityLabel(priority),
+            color = if (isSet) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (isSet) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f),
         )
-        if (priority != TaskPriority.None && onPriorityClear != null) {
+        if (isSet && onPriorityClear != null) {
             IconButton(onClick = onPriorityClear) {
                 Icon(
                     imageVector = Icons.Filled.Close,
@@ -93,17 +95,7 @@ fun TaskEditorPriorityRow(
                 )
             }
         } else {
-            Spacer(Modifier.width(48.dp))
+            Spacer(Modifier.width(TaskSpacing.clearButtonSlot))
         }
     }
 }
-
-private val TaskPriority.label: String
-    get() =
-        when (this) {
-            TaskPriority.None -> "No priority"
-            TaskPriority.Low -> "Low priority"
-            TaskPriority.Medium -> "Medium priority"
-            TaskPriority.High -> "High priority"
-            TaskPriority.Urgent -> "Urgent"
-        }

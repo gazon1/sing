@@ -298,7 +298,7 @@ private fun LogbookTimeEntryRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(TaskSpacing.sm))
         val duration = entry.durationMs?.let { formatElapsed(it) } ?: "running"
         SelectableText(
             text = "${entry.kind.name.lowercase()} · $duration",

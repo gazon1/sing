@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -70,7 +71,7 @@ fun SubtasksSection(
 
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.SUBTASKS_SECTION),
-        icon = { Text("\uD83D\uDCCB", style = MaterialTheme.typography.bodyMedium) },
+        icon = Icons.Filled.Checklist,
         label = if (subtasks.isEmpty()) "Subtasks" else "Subtasks ($completed/$total)",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

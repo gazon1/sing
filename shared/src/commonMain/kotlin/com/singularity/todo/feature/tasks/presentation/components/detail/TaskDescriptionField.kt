@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,7 +12,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
@@ -38,10 +36,8 @@ fun TaskDescriptionField(
     BasicTextField(
         state = descriptionState,
         textStyle =
-            LocalTextStyle.current.copy(
+            MaterialTheme.typography.bodyLarge.copy(
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
             ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier =
@@ -56,8 +52,7 @@ fun TaskDescriptionField(
                 Text(
                     text = stringResource(Res.string.task_description_placeholder),
                     color = placeholderTextColor(),
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp,
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             }
             innerTextField()

@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +38,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -175,9 +173,8 @@ private fun TitleFieldRow(
             )
             Spacer(modifier = Modifier.width(TaskSpacing.md))
         }
-
         val titleStyle =
-            LocalTextStyle.current.copy(
+            MaterialTheme.typography.titleLarge.copy(
                 // A completed task reads as done without looking at the checkbox:
                 // struck through and dimmed. Colour alone would not be a fact a
                 // screen reader, or an eye that cannot see the dimming, receives.
@@ -187,7 +184,6 @@ private fun TitleFieldRow(
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
-                fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
                 textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
             )
@@ -301,8 +297,7 @@ private fun RowScope.TitleEditor(
                 Text(
                     text = stringResource(Res.string.task_title_placeholder),
                     color = placeholderTextColor(),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 )
             }
             innerTextField()

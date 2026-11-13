@@ -553,6 +553,16 @@ object TestTags {
     const val FIRST_RUN_SECTION = "first_run_section"
 
     /**
+     * The leading icon of a task-detail section or chip.
+     *
+     * Every one of them is drawn the same way — one size, one tint — and this tag
+     * is what lets a test measure that they really are the same: the sections of
+     * the detail are drawn by different components, and a size that differs by one
+     * of them is invisible in the source and obvious on the screen.
+     */
+    const val TASK_DETAIL_SECTION_ICON = "task_detail_section_icon"
+
+    /**
      * The checklist bottom sheet (TaskEditorSheetHost with title "Checklist").
      *
      * Used in Maestro flows to wait for the sheet to appear before interacting

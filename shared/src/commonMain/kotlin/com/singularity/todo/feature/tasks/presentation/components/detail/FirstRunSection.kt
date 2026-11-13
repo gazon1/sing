@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -21,9 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 /**
  * First-run suggestion banner shown on newly created tasks that have no content yet.
@@ -59,21 +62,25 @@ fun FirstRunSection(
             ),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier =
+                Modifier.padding(
+                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                    vertical = TaskSpacing.md,
+                ),
         ) {
             Text(
                 text = "Quick actions",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(TaskSpacing.sm))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(TaskSpacing.sm),
             ) {
                 onWriteNote?.let { action ->
                     FirstRunChip(
-                        icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                        icon = Icons.Filled.Edit,
                         label = "Write note",
                         onClick = action,
                         modifier = Modifier.weight(1f),
@@ -81,7 +88,7 @@ fun FirstRunSection(
                 }
                 onAddChecklist?.let { action ->
                     FirstRunChip(
-                        icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
+                        icon = Icons.Filled.Checklist,
                         label = "Add checklist",
                         onClick = action,
                         modifier = Modifier.weight(1f),
@@ -89,7 +96,7 @@ fun FirstRunSection(
                 }
                 onAskAi?.let { action ->
                     FirstRunChip(
-                        icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                        icon = Icons.AutoMirrored.Filled.Chat,
                         label = "Ask AI",
                         onClick = action,
                         modifier = Modifier.weight(1f),
@@ -102,7 +109,7 @@ fun FirstRunSection(
 
 @Composable
 private fun FirstRunChip(
-    icon: @Composable () -> Unit,
+    icon: ImageVector,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -117,12 +124,20 @@ private fun FirstRunChip(
         Row(
             modifier =
                 Modifier
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .padding(horizontal = TaskSpacing.sm, vertical = 6.dp)
                     .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
-            icon()
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier =
+                    Modifier
+                        .size(TaskSpacing.iconSize)
+                        .testTag(TestTags.TASK_DETAIL_SECTION_ICON),
+            )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = label,

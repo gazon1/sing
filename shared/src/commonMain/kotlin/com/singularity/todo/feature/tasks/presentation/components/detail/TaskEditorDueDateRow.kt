@@ -3,6 +3,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,8 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.localizedDateList
 import com.singularity.todo.core.ui.components.localizedDueDateWithTime
@@ -68,6 +67,7 @@ fun TaskEditorDueDateRow(
         modifier =
             modifier
                 .fillMaxWidth()
+                .heightIn(min = TaskSpacing.rowMinHeight)
                 .testTag(TestTags.TASK_EDITOR_DUE_ROW)
                 .mapTestTagsAsResourceIds()
                 // No clickable() at all when the callback is null — see TaskEditorPriorityRow.
@@ -103,7 +103,7 @@ fun TaskEditorDueDateRow(
         Text(
             text = dueDateRowLabel(dueDate, dueTime, dates, someday),
             color = if (isSet) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 16.sp,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = if (isSet) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f).then(labelModifier),
         )
@@ -116,7 +116,7 @@ fun TaskEditorDueDateRow(
                 )
             }
         } else {
-            Spacer(Modifier.width(48.dp))
+            Spacer(Modifier.width(TaskSpacing.clearButtonSlot))
         }
     }
 }
