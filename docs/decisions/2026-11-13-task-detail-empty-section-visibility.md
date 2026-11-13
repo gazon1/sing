@@ -112,6 +112,12 @@ The sheet lists the properties that are currently hidden. Picking one:
 - opens the section, so that what was just added is the thing under the user's
   finger.
 
+The reveal is saved, not merely remembered: it survives a rotation and a trip to
+another screen and back. A screen that took the section away again after the
+user had asked for it would break the promise the sheet makes. It is not a
+property of the task, though — a task that is closed and opened again shows
+its sections by what it holds, not by what was asked for last time.
+
 It opens nothing else. A sheet that appears on top of the sheet the user just
 chose is a sheet the user cannot tell apart from the first, and every property
 has its own way in once it is on the screen — the attachments row opens the

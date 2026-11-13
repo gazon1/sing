@@ -90,6 +90,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskOptionalProperty
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskOptionalPropertySetSaver
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.hiddenOptionalProperties
@@ -364,12 +365,17 @@ fun TaskDetailContent(
                     // that is open is a way of looking at the task, not a fact about
                     // it, and nothing is written until the user writes something into
                     // it.
+                    //
+                    // Saved, not merely remembered: a rotation rebuilds the
+                    // composition from nothing, and a screen that forgets what the
+                    // user just asked for takes the section away again — the one
+                    // thing the `+ Ещё` sheet promised.
                     var revealedProperties by
-                        remember(ui.task.id) {
+                        rememberSaveable(ui.task.id, stateSaver = TaskOptionalPropertySetSaver) {
                             mutableStateOf<Set<TaskOptionalProperty>>(persistentSetOf())
                         }
                     var expandedProperties by
-                        remember(ui.task.id) {
+                        rememberSaveable(ui.task.id, stateSaver = TaskOptionalPropertySetSaver) {
                             mutableStateOf<Set<TaskOptionalProperty>>(persistentSetOf())
                         }
 
