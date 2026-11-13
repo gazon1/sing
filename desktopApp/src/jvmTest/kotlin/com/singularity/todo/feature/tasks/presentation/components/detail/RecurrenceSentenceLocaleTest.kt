@@ -85,7 +85,7 @@ class RecurrenceSentenceLocaleTest {
     @Test
     fun `a russian yearly rule names its month and its day`() {
         assertEquals(
-            "Ежегодно, дек 25, от даты выполнения",
+            "Ежегодно, 25 дек, от даты выполнения",
             rendered(Yearly(RecurrenceBase.FROM_DUE, 12, 25), null, RUSSIAN),
         )
     }
