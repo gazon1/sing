@@ -66,6 +66,11 @@ from a highlighted row.
 
 - The Android menu never draws a project below a root; a deep project is reached through its parent
   project's sub-projects, not from the menu.
+- The way down costs one list per level on Android: the menu holds the roots, a project below a
+  root is reached through its parent's sub-project list, and each level below that opens its own
+  list. A project three levels down is six taps from the menu — open the menu, tap the root, then
+  two taps per level — and the way back is the way down. Desktop is not affected: its drawer draws
+  the tree inline, so a project at any depth is the same taps away.
 - An Android menu row carries no expander; `menu_project_expander_*` exists only on Desktop. No
   Maestro flow taps a per-project expander today, so the flows keep working; a future Android flow
   must not look for one.

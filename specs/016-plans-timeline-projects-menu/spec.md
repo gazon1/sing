@@ -276,8 +276,10 @@ scenarios:
 - **FR-021**: On Desktop, every project node MUST be expandable and collapsible, and a project
   without children MUST show no expander control. The Android list MUST show no expander at all.
 - **FR-022**: Tapping a project node MUST open that project's detail screen.
-- **FR-023**: The projects in the menu MUST reflect creations, renames, moves and deletions made
-  elsewhere in the app without requiring the menu to be closed and reopened.
+- **FR-023**: The projects in the menu MUST reflect creations and renames made elsewhere in the
+  app, drawn from the profile as it is rather than from a snapshot taken when the menu was opened.
+  On Android the menu is a modal sheet, so a change made elsewhere closes it and the updated list
+  is read through the next opening.
 - **FR-024**: Closed projects MUST NOT appear in the menu's Projects section.
 - **FR-025**: The full project list, with its search, sorting and closed projects, MUST remain
   reachable from the Projects section of the menu.
@@ -343,8 +345,11 @@ each one asserts.
 - **SC-002**: Switching granularity re-groups the visible timeline in under 1 second on a device
   holding 500 open tasks.
 - **SC-003**: A user with 30 projects nested up to three levels deep reaches any of them from the
-  menu in at most three interactions — on Desktop: open the menu, expand, tap; on Android: open
-  the menu, tap the parent, tap the child in the sub-project list.
+  menu — on Desktop, where the drawer draws the tree inline, a project at any depth costs the same
+  taps once its ancestors are expanded (open the menu, expand, tap); on Android, where the menu
+  lists the root projects only, a project below a root is reached by tapping the root and then,
+  for each level below it, opening the parent's sub-project list and tapping the row in it — two
+  taps per level, so a project three levels down is six taps.
 - **SC-004**: At every granularity, no task is rendered in more than one section; the count of
   duplicated rows is zero.
 - **SC-005**: After the change, the Android bottom navigation holds five tabs and no Calendar
