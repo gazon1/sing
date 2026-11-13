@@ -3,6 +3,7 @@ package com.singularity.todo.debug
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import com.singularity.todo.R
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
@@ -128,8 +129,10 @@ import kotlin.time.Instant
  *
  * Lives in `src/debug/` — excluded from release APKs.
  * Works warm or cold: Koin is started by the Application onCreate, and after
- * seeding the activity always brings [com.singularity.todo.MainActivity] up
- * (CLEAR_TOP|SINGLE_TOP), whether it was already beneath us or not.
+ * a successful seed the activity always brings
+ * [com.singularity.todo.MainActivity] up (CLEAR_TOP|SINGLE_TOP), whether it was
+ * already beneath us or not. A seed that failed stays on its own screen with
+ * the reason on it.
  */
 class DebugSeedActivity :
     Activity(),
@@ -155,7 +158,14 @@ class DebugSeedActivity :
             try {
                 runBlocking { seed(params) }
             } catch (e: Throwable) {
-                android.util.Log.e("DebugSeedActivity", "Seed failed", e)
+                // One line with the reason in it. The message is what a runner
+                // greps for: the stack trace below it is for a reader who is
+                // already looking at the code.
+                android.util.Log.e(
+                    "DebugSeedActivity",
+                    "Seed failed: ${e.message ?: e.javaClass.simpleName}",
+                    e,
+                )
                 // A failed seed does not bring the app up. The fixture the flow
                 // asked for is not there, so the flow has to fail *here* — at the
                 // seed — instead of later, on an assertion about a row that was
@@ -204,9 +214,15 @@ class DebugSeedActivity :
      * flow waits for the app after every seed, so a seed that failed has to fail
      * that wait — at the seed — rather than later, on an assertion about a row
      * that was never written.
+     *
+     * The view carries an id, so a flow can *address* the failure instead of
+     * guessing at it: the text says what went wrong, and the id says that this
+     * is the screen that says it. A flow reads the reason off this view, and
+     * the reason it reads is the one in the failure message.
      */
     private fun showSeedFailure(error: Throwable) {
         val view = android.widget.TextView(this)
+        view.id = R.id.seed_failure_reason
         view.text = "Seed failed: ${error.message ?: error.javaClass.simpleName}"
         view.setPadding(48, 48, 48, 48)
         setContentView(view)

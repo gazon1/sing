@@ -239,16 +239,29 @@ class SeedWriterTest {
     @Test
     fun `a project seed that names a parent that is not there fails and writes nothing`() =
         runTest {
-            assertFailsWith<IllegalArgumentException> {
-                writer.writeProject(
-                    ProjectSeed(
-                        name = "Child",
-                        color = 0xFF2196F3.toInt(),
-                        stamp = stamp,
-                        parentId = ProjectId.fromString("nobody01"),
-                    ),
-                )
-            }
+            val failure =
+                assertFailsWith<IllegalArgumentException> {
+                    writer.writeProject(
+                        ProjectSeed(
+                            name = "Child",
+                            color = 0xFF2196F3.toInt(),
+                            stamp = stamp,
+                            parentId = ProjectId.fromString("nobody01"),
+                        ),
+                    )
+                }
+
+            // The failure says which parent is missing and which project wanted
+            // it: the reader is the one who has to fix the seed, and they cannot
+            // do that from "illegal argument".
+            assertTrue(
+                failure.message.orEmpty().contains("nobody01"),
+                "the failure must name the missing parent; it said ${failure.message}",
+            )
+            assertTrue(
+                failure.message.orEmpty().contains("Child"),
+                "the failure must name the project; it said ${failure.message}",
+            )
 
             // Nothing was written: a project that hangs below nothing is a root,
             // and a root is the row the Android menu lists — the fixture would
@@ -299,18 +312,23 @@ class SeedWriterTest {
     @Test
     fun `a project seed that names the project itself as its parent fails`() =
         runTest {
-            assertFailsWith<IllegalArgumentException> {
-                writer.writeProject(
-                    ProjectSeed(
-                        name = "Loop",
-                        color = 0xFF2196F3.toInt(),
-                        stamp = stamp,
-                        id = ProjectId.fromString("loop0001"),
-                        parentId = ProjectId.fromString("loop0001"),
-                    ),
-                )
-            }
+            val failure =
+                assertFailsWith<IllegalArgumentException> {
+                    writer.writeProject(
+                        ProjectSeed(
+                            name = "Loop",
+                            color = 0xFF2196F3.toInt(),
+                            stamp = stamp,
+                            id = ProjectId.fromString("loop0001"),
+                            parentId = ProjectId.fromString("loop0001"),
+                        ),
+                    )
+                }
 
+            assertTrue(
+                failure.message.orEmpty().contains("own parent"),
+                "the failure must say the project is its own parent",
+            )
             assertEquals(emptyList(), liveProjects("Loop"))
         }
 
@@ -345,19 +363,98 @@ class SeedWriterTest {
             )
 
             // Top below Bottom would close the loop Top → Middle → Bottom → Top.
-            assertFailsWith<IllegalArgumentException> {
-                writer.writeProject(
-                    ProjectSeed(
-                        name = "Top",
-                        color = 0xFF2196F3.toInt(),
-                        stamp = stamp,
-                        id = ProjectId.fromString("top0001"),
-                        parentId = ProjectId.fromString("bottom1"),
-                    ),
-                )
-            }
+            val failure =
+                assertFailsWith<IllegalArgumentException> {
+                    writer.writeProject(
+                        ProjectSeed(
+                            name = "Top",
+                            color = 0xFF2196F3.toInt(),
+                            stamp = stamp,
+                            id = ProjectId.fromString("top0001"),
+                            parentId = ProjectId.fromString("bottom1"),
+                        ),
+                    )
+                }
 
+            assertTrue(failure.message.orEmpty().contains("cycle"), "the failure must say it is a cycle")
             assertNull(liveProjects("Top").single().parentId)
+        }
+
+    @Test
+    fun `a project seed that names a descendant as its parent fails when the row is reseeded under a new id`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Top",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("top0001"),
+                ),
+            )
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Middle",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("middle1"),
+                    parentId = ProjectId.fromString("top0001"),
+                ),
+            )
+
+            // The seed names the row by its name and gives it a new id. The row
+            // answers to both ids until the seed lands: the children still point
+            // at the old one, and a cycle through it is a cycle through the
+            // project. Comparing only the new id would let Top hang below its own
+            // descendant and orphan the middle row.
+            val failure =
+                assertFailsWith<IllegalArgumentException> {
+                    writer.writeProject(
+                        ProjectSeed(
+                            name = "Top",
+                            color = 0xFF2196F3.toInt(),
+                            stamp = stamp,
+                            id = ProjectId.fromString("top0002"),
+                            parentId = ProjectId.fromString("middle1"),
+                        ),
+                    )
+                }
+
+            assertTrue(failure.message.orEmpty().contains("cycle"), "the failure must say it is a cycle")
+            assertNull(liveProjects("Top").single().parentId)
+        }
+
+    @Test
+    fun `a project seed that names the old id of its own row as its parent fails`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Loop",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("loop0001"),
+                ),
+            )
+
+            // The row is reseeded under a new id and hung below the id it still
+            // has — below itself, which is a cycle whichever id is looked at.
+            val failure =
+                assertFailsWith<IllegalArgumentException> {
+                    writer.writeProject(
+                        ProjectSeed(
+                            name = "Loop",
+                            color = 0xFF2196F3.toInt(),
+                            stamp = stamp,
+                            id = ProjectId.fromString("loop0002"),
+                            parentId = ProjectId.fromString("loop0001"),
+                        ),
+                    )
+                }
+
+            assertTrue(
+                failure.message.orEmpty().contains("own parent"),
+                "the failure must say the project is its own parent",
+            )
+            assertNull(liveProjects("Loop").single().parentId)
         }
 
     @Test

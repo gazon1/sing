@@ -273,9 +273,15 @@ class SeedWriter(
         val keeper = byId ?: byName.firstOrNull()
         // A named parent that is there wins; a seed that names none keeps the
         // parent the row already has.
+        // The project answers to two ids while the seed runs: the id the seed
+        // names, and the id the row already has. A name-matched row is
+        // rewritten to the seeded id, and the children still point at the old
+        // one — so both ids are the project, and a cycle through either of
+        // them is a cycle.
+        val ownIds = setOfNotNull(spec.id, keeper?.id)
         val parentId =
             spec.parentId?.let { parent ->
-                resolveParent(parent, projectId = spec.id ?: keeper?.id, name = spec.name, live = live)
+                resolveParent(parent, ownIds = ownIds, name = spec.name, live = live)
             } ?: keeper?.parentId
         if (keeper == null) {
             val created =
@@ -332,20 +338,25 @@ class SeedWriter(
      * unreadable. The app's own parent picker offers root projects only, so a
      * cycle can only come from a seed — which is why the seed is where it is
      * refused.
+     *
+     * The project is known under two ids while the seed runs — the id the seed
+     * names and the id the row already has — and both count as the project: a
+     * cycle through either one is a cycle, and a row that is rewritten to the
+     * seeded id leaves its children pointing at the old one.
      */
     private fun resolveParent(
         parent: ProjectId,
-        projectId: ProjectId?,
+        ownIds: Set<ProjectId>,
         name: String,
         live: List<Project>,
     ): ProjectId {
-        require(parent != projectId) { "'$name' cannot be its own parent" }
+        require(parent !in ownIds) { "'$name' cannot be its own parent" }
         val named = live.firstOrNull { it.id == parent }
         require(named != null) { "no project with id '${parent.value}' to hang '$name' below" }
         var ancestor = named.parentId
         var guard = 0
         while (ancestor != null && guard++ <= live.size) {
-            require(ancestor != projectId) {
+            require(ancestor !in ownIds) {
                 "hanging '$name' below '${named.name}' would make a cycle"
             }
             ancestor = live.firstOrNull { it.id == ancestor }?.parentId

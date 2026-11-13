@@ -16,7 +16,16 @@
 #   note=<title>              — create a note
 #   linkTo=<task title>       — link the seeded note to that task
 #   project=<name>            — create a project
-#   parent=<project id>       — hang the seeded project below the project with that id
+#   parent=<project id>       — hang the seeded project below the project with that
+#     id. The parent is named by id because the link that seeds the child cannot
+#     know a generated id. A parent that is not there fails the seed: nothing is
+#     written, and the project does not become a root — a root is the row the
+#     Android menu lists, so a fixture that silently became one would test
+#     something other than what the flow asked for. A parent that is the
+#     project itself, or that is below it, fails the seed the same way: a cycle
+#     is not a hierarchy. A failed seed leaves the seed activity's own screen up
+#     with the reason on it, and the app does not come up — the flow fails at
+#     the seed, not later on a row that was never written.
 #   projects=<count>          — create <count> projects named "Bulk 001"…
 #   profile=<name>            — create and switch to a profile
 #   session=anonymous|signedout|signedin — change the session
@@ -70,6 +79,20 @@ appId: com.singularity.todo
 name: seed
 ---
 - openLink: "todo-debug://seed?${QUERY}"
+# A seed that failed leaves the seed activity's own screen up, with the reason
+# on it, and the app never comes up. The reason is read from that screen when
+# the screen is there, so the flow fails on the reason rather than on the app
+# that was never going to arrive. When the screen is not there, the seed
+# worked and the wait below is the one that matters.
+- runFlow:
+    when:
+      visible:
+        id: seed_failure_reason
+    commands:
+      - copyTextFrom:
+          id: seed_failure_reason
+      - assertNotVisible:
+          text: "${maestro.copiedText}"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

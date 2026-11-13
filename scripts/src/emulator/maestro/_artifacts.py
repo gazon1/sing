@@ -1,6 +1,7 @@
 """maestro._artifacts — failure artifact capture (screenshot, logcat)."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,30 @@ if TYPE_CHECKING:  # pragma: no cover — import cycle guard, annotations only
 # idempotent; uses the shared logger configured by the first module to import it.
 setup_logger(is_ci=False)
 logger = _logger
+
+#: The line the debug activity logs when a seed fails.
+#:
+#: The reason is in the message of the log line, so one grep finds it: the
+#: stack trace under the line is for a reader who is already in the code.
+_SEED_FAILURE = re.compile(r"DebugSeedActivity: Seed failed: (.+)")
+
+
+def _report_seed_failure(flow_name: str, logcat: str) -> None:
+    """Say why the seed failed, in the log the reader is already reading.
+
+    A seed that failed leaves the debug activity's own screen up with the reason
+    on it, and the app never comes up. The flow then fails on "the app is not
+    visible" — true, and useless: the reason the fixture is missing is in the
+    logcat, which the capture writes next to the screenshot. Nobody opens an
+    artifact file to find out why a flow failed; the reason belongs in the log,
+    next to the failure it explains.
+    """
+    reasons = [m.group(1).strip() for m in _SEED_FAILURE.finditer(logcat)]
+    if not reasons:
+        return
+    logger.error(f"=== {flow_name}: the seed failed ===")
+    for reason in reasons[-5:]:
+        logger.error(f"Seed failed: {reason}")
 
 
 def capture_artifacts(
@@ -52,3 +77,4 @@ def capture_artifacts(
     if logcat_out:
         logcat_file.write_text(logcat_out)
         logger.info(f"Logcat: {logcat_file}")
+        _report_seed_failure(flow_name, logcat_out)
