@@ -194,15 +194,20 @@ class TaskDetailFontScaleTest {
     }
 
     @Test
-    fun `the fields stay editable at the large font scale`() {
+    fun `the title and the description stay reachable at the large font scale`() {
         val reading = readingAt(scale = 1.5f, longValues = false)
 
-        listOf("title", "description").forEach { field ->
-            assertTrue(
-                field in reading.editable,
-                "the $field stopped being editable at the large font scale",
-            )
-        }
+        // The description is a field, and it stays one.
+        assertTrue(
+            "description" in reading.editable,
+            "the description stopped being editable at the large font scale",
+        )
+        // The title is not a field until it is tapped — the detail shows the task,
+        // and the field opens on a tap. What has to survive the scale is the tap.
+        assertTrue(
+            "title" in reading.pressable,
+            "the title stopped answering a tap at the large font scale",
+        )
     }
 
     private companion object {
@@ -403,7 +408,7 @@ class TaskDetailFontScaleTest {
                     clipped = clipped,
                     rects = rects,
                     slotHeights = checkNotNull(slotHeights),
-                    pressable = ATTRIBUTE_ROWS.filter { row -> boxes.getValue(row).clickable }.toSet(),
+                    pressable = ROW_ORDER.filter { row -> boxes.getValue(row).clickable }.toSet(),
                     editable = listOf("title", "description").filter { row -> boxes.getValue(row).editable }.toSet(),
                 )
         }
