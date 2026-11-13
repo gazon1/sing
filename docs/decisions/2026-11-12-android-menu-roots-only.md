@@ -100,5 +100,5 @@ from a highlighted row.
   `feature/projects/.../nav/ProjectsOpener.kt`,
   `feature/projects/.../screen/ProjectDetailHero.kt`
 - Scenario: `scripts/src/traceability/scenarios/menu/MENU-07.yaml`; flows
-  `Maestro/flows/menu/01-projects-tree.yaml`, `03-open-project.yaml`, `05-tree-contents.yaml`,
+  `Maestro/flows/menu/01-projects-roots.yaml`, `03-open-project.yaml`, `05-tree-contents.yaml`,
   `06-tree-live.yaml`, `10-large-projects.yaml`

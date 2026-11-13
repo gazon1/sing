@@ -58,7 +58,7 @@ Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
 Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
 Maestro/flows/lifecycle/01-kill-restart-persist.yaml
 Maestro/flows/lifecycle/03-rotate-in-editor.yaml
-Maestro/flows/menu/01-projects-tree.yaml
+Maestro/flows/menu/01-projects-roots.yaml
 Maestro/flows/menu/02-calendar-entry.yaml
 Maestro/flows/menu/03-open-project.yaml
 Maestro/flows/menu/04-all-projects.yaml

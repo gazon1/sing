@@ -213,6 +213,13 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "menu_project_node_roadmap",
     "menu_project_node_childless",
     "menu_project_node_latecomer",
+    # The roots-and-their-child fixture: the parent is a root the menu lists,
+    # and the child is one that the menu does not — it is behind its parent.
+    "menu_project_node_parent",
+    "menu_project_node_child",
+    # projectChildRow(...) — a sub-project in the sheet that opens on the
+    # parent's own screen.
+    "project_child_row_child",
     # The bulk fixture — a profile with a hundred projects. The seed writes
     # them with the ids "bulk-001"…, and the flow addresses the first of them.
     "menu_project_node_bulk_001",

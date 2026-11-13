@@ -1,10 +1,10 @@
-# The menu: the tree shows what is being worked on.
+# The menu: the Projects section shows what is being worked on.
 #
-# A project without children shows no expander, so nothing in the tree invites
+# A project without children shows no expander, so nothing in the menu invites
 # an expansion that cannot happen. A closed project has left the work, and the
-# tree shows the work — so it is not in the tree at all.
+# menu shows the work — so it is not in the section at all.
 #
-# The seed is given the project's id, so the node in the tree is addressed by
+# The seed is given the project's id, so the row in the menu is addressed by
 # that id rather than by the name the user reads — a name is copy, and an id is
 # not.
 appId: com.singularity.todo
@@ -19,15 +19,15 @@ tags:
     env:
       QUERY: "project=Childless&id=childless"
 - runFlow: ../../helpers/open-app-menu.yaml
-# The section is folded by default, so the tree is unfolded before it is used.
+# The section is folded by default, so the projects are unfolded before they are used.
 - runFlow: ../../helpers/expand-projects-section.yaml
-# The tree sits at the end of the menu, below the fold.
+# The projects sit at the end of the menu, below the fold.
 - scrollUntilVisible:
     element:
       id: menu_project_node_childless
     direction: DOWN
     timeout: 8000
-# The project is in the tree. Nothing here says it has no expander: the
+# The project is in the section. Nothing here says it has no expander: the
 # expander is a child of the row, and a project without children has none.
 - assertVisible:
     id: menu_project_node_childless
