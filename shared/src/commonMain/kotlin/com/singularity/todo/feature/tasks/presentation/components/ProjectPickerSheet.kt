@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
@@ -25,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
@@ -32,6 +36,7 @@ import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import org.koin.compose.koinInject
 
@@ -56,65 +61,71 @@ fun ProjectPickerSheet(
         title = "Project",
         onClose = onDismiss,
     ) {
-        // "No project" option
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelect(null) }
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = if (selectedId == null) Icons.Filled.FolderOpen else Icons.Filled.Folder,
-                contentDescription = null,
-                tint =
-                    if (selectedId == null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "No project",
-                style = MaterialTheme.typography.bodyLarge,
-                color =
-                    if (selectedId == null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                modifier = Modifier.weight(1f),
-            )
-            if (selectedId == null) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-
-        if (activeProjects.isEmpty()) {
-            SelectableText(
-                text = "No projects yet",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(TestTags.PROJECT_PICKER_EMPTY).padding(16.dp),
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+        Column(modifier = Modifier.selectableGroup()) {
+            // "No project" option
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = selectedId == null,
+                            role = Role.RadioButton,
+                            onClick = { onSelect(null) },
+                        ).testTag(TestTags.PROJECT_PICKER_NONE)
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                items(activeProjects, key = { it.id.value }) { project ->
-                    ProjectItem(
-                        project = project,
-                        isSelected = selectedId == project.id,
-                        onSelect = { onSelect(project.id) },
+                Icon(
+                    imageVector = if (selectedId == null) Icons.Filled.FolderOpen else Icons.Filled.Folder,
+                    contentDescription = null,
+                    tint =
+                        if (selectedId == null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "No project",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color =
+                        if (selectedId == null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    modifier = Modifier.weight(1f),
+                )
+                if (selectedId == null) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
                     )
+                }
+            }
+
+            if (activeProjects.isEmpty()) {
+                SelectableText(
+                    text = "No projects yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TestTags.PROJECT_PICKER_EMPTY).padding(16.dp),
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(activeProjects, key = { it.id.value }) { project ->
+                        ProjectItem(
+                            project = project,
+                            isSelected = selectedId == project.id,
+                            onSelect = { onSelect(project.id) },
+                        )
+                    }
                 }
             }
         }
@@ -146,20 +157,20 @@ private fun ProjectItem(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onSelect() }
+                .selectable(selected = isSelected, role = Role.RadioButton, onClick = onSelect)
+                .testTag(TestTags.projectPickerRow(project.id.value))
                 .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = if (isSelected) Icons.Filled.FolderOpen else Icons.Filled.Folder,
-            contentDescription = null,
+        ProjectIcon(
+            icon = project.icon,
             tint =
                 if (isSelected) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-            modifier = Modifier.size(24.dp),
+            size = 24.dp,
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
@@ -171,6 +182,8 @@ private fun ProjectItem(
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (isSelected) {

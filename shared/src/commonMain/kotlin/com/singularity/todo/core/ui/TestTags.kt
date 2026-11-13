@@ -431,6 +431,15 @@ object TestTags {
     const val TASK_CHECKLIST_SECTION = "task_checklist_section"
 
     /**
+     * The recurrence sentence in the task detail screen.
+     *
+     * The row used to print the rule's own `toString()`, so the tag is on the
+     * sentence that replaced it: a test that says "the row does not show
+     * `Interval(`" needs to look at the text.
+     */
+    const val TASK_RECURRENCE_TEXT = "task_recurrence_text"
+
+    /**
      * The line the checklist section shows when it has no items.
      *
      * The section itself stays on screen — it carries the add-row — so the empty
@@ -549,6 +558,15 @@ object TestTags {
     const val RECURRENCE_ENDS_NEVER = "recurrence_ends_never"
     const val RECURRENCE_ENDS_ON_DATE = "recurrence_ends_on_date"
     const val RECURRENCE_END_DATE_VALUE = "recurrence_end_date_value"
+
+    /**
+     * The rule, as a sentence, in the recurrence picker's preview.
+     *
+     * The preview is the sentence the task detail row wears, so the tag is what
+     * lets a test read both and say whether they agree — and the picker's own
+     * copy is what it is on, not a sentence the test renders for itself.
+     */
+    const val RECURRENCE_PICKER_PREVIEW = "recurrence_picker_preview"
 
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
@@ -838,6 +856,21 @@ object TestTags {
 
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
+
+    /** The picker's "No project" row. */
+    const val PROJECT_PICKER_NONE = "project_picker_none"
+
+    /** Dynamic tag of a project row in the task editor's picker: `project_picker_row_<slug>`. */
+    fun projectPickerRow(projectId: String) = "project_picker_row_${slug(projectId)}"
+
+    /**
+     * The folder a project without a stored icon is drawn with.
+     *
+     * The fallback is a `Folder` Material glyph, and no accessible name can
+     * distinguish one vector from another — so the tag is what lets a test say
+     * "the fallback was drawn", rather than "some icon was".
+     */
+    const val PROJECT_ICON_FALLBACK = "project_icon_fallback"
 
     /**
      * The dismiss control on the project editor's icon and parent picker sheets.

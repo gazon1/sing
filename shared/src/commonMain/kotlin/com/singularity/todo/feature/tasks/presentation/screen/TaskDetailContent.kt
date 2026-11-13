@@ -676,6 +676,11 @@ fun TaskDetailContent(
                                         if (recurrence != null) {
                                             TaskDetailRecurrenceSection(
                                                 recurrence = recurrence,
+                                                // The rule hangs on the task's
+                                                // due date when its base says
+                                                // so, and then the sentence
+                                                // says when the series starts.
+                                                dueDate = ui.task.dueDate,
                                             )
                                         }
                                         TaskDetailChecklistSection(

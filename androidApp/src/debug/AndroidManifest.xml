@@ -6,6 +6,17 @@
       so release APKs contain no trace of it.
     -->
     <application>
+        <!--
+          The host for instrumented Compose tests. `createAndroidComposeRule`
+          launches it from the app under test's process, so the declaration has
+          to live in the app's manifest, not in the test APK's — a test-APK
+          declaration resolves to `com.singularity.todo.test` and the launch is
+          rejected as a different process.
+        -->
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false" />
+
         <activity
             android:name=".debug.DebugSeedActivity"
             android:exported="true"

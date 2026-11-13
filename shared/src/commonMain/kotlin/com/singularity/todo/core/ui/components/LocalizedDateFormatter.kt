@@ -71,6 +71,17 @@ internal fun localizedDateList(dates: ImmutableList<LocalDate>): String {
 internal fun localizedShortDate(date: LocalDate): String =
     "${date.day.toString().padStart(2, '0')} ${shortMonthName(date.month)}"
 
+/**
+ * "30 Oct 2026" — a short date that says which year it is in.
+ *
+ * The year is missing from [localizedShortDate] because the agenda's date column
+ * is a list of dates inside one year, where repeating it would be noise. A
+ * recurrence sentence is not inside a year: "starting 12 Nov 2026" bounds the
+ * series, and a bound without its year is not a bound.
+ */
+@Composable
+internal fun localizedShortDateWithYear(date: LocalDate): String = "${localizedShortDate(date)} ${date.year}"
+
 @Composable
 private fun shortMonthName(month: Month): String =
     stringResource(

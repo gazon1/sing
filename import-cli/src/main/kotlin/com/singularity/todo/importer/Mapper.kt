@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.singularity.todo.importer
 
 import com.singularity.todo.core.backup.BackupFormat
@@ -7,6 +9,7 @@ import com.singularity.todo.core.backup.NoteDto
 import com.singularity.todo.core.backup.ProjectDto
 import com.singularity.todo.core.backup.TagDto
 import com.singularity.todo.core.backup.TaskDto
+import com.singularity.todo.core.backup.TaskReminderDto
 import com.singularity.todo.core.backup.TaskTagDto
 import com.singularity.todo.core.backup.TimeEntryDto
 import com.singularity.todo.core.serialization.StableJson
@@ -16,6 +19,8 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -88,6 +93,7 @@ object Mapper {
         val tasksById = tasks.associateBy { it.id }
         val projectsById = projects.associateBy { it.id }
 
+        val taskReminders = mapTaskReminders(tasks)
         val payload =
             BackupPayload(
                 schemaVersion = BackupFormat.SCHEMA_VERSION,
@@ -106,10 +112,14 @@ object Mapper {
                 taskTags = taskTagsOf(tasks, tags.associateBy { it.id }),
                 checklistItems = mapChecklists(data.checklists, tasksById),
                 timeEntries = mapTimeEntries(data.timeStatistics, tasksById),
+                taskReminders = taskReminders.reminders,
             )
 
         val completedCandidates = tasks.count(::isLegacyCompleted)
-        return MapperResult(payload = payload, skipped = skippedCounts(data, completedCandidates))
+        return MapperResult(
+            payload = payload,
+            skipped = skippedCounts(data, completedCandidates, taskReminders.report),
+        )
     }
 }
 
@@ -291,9 +301,120 @@ private fun taskTagsOf(
         tk.tags.filter { it in tagsById }.map { tagId -> TaskTagDto(taskId = tk.id, tagId = tagId) }
     }
 
+/**
+ * Legacy task reminders as native rows.
+ *
+ * Offsets come from `task.notifies` and `task.recurrence.notifies`. Both sources are
+ * merged: the same offset for a task is one reminder (stable id), so source records
+ * that repeat an offset are counted as merged, not as extra rows.
+ *
+ * Fire time is derived from `task.start`. An absolute instant (`...T...`, with `Z` or
+ * an explicit offset) is used as-is. A date-only start is treated as UTC midnight as a
+ * deterministic base (no timezone in the source); `fireAt = base - offset`. If no base
+ * can be derived, the record is reported as missing base time instead of guessed.
+ */
+private fun mapTaskReminders(tasks: List<LegacyTask>): TaskRemindersMapping {
+    val reminders = mutableListOf<TaskReminderDto>()
+    var sourceRecords = 0
+    var imported = 0
+    var duplicatesMerged = 0
+    var missingBaseTime = 0
+    var readStateUnsupported = 0
+
+    for (task in tasks) {
+        val stamp = reminderStamp(task)
+        val base = parseReminderBaseMs(task.start)
+        val candidates = task.notifies.orEmpty() + task.recurrence?.notifies.orEmpty()
+        sourceRecords += candidates.size
+        val seen = HashSet<Int>()
+        for (offset in candidates) {
+            when {
+                base == null -> {
+                    missingBaseTime += 1
+                }
+
+                !seen.add(offset) -> {
+                    duplicatesMerged += 1
+                }
+
+                else -> {
+                    reminders.add(reminderDto(task.id, offset, base, stamp))
+                    imported += 1
+                }
+            }
+        }
+
+        if (!task.startNotifiesReaded.isNullOrEmpty()) {
+            // Legacy "read" markers identify offsets, not a fire timestamp, so the native
+            // lastFiredAt instant cannot be recovered faithfully.
+            readStateUnsupported += task.startNotifiesReaded.size
+        }
+    }
+
+    return TaskRemindersMapping(
+        reminders = reminders,
+        report =
+            ReminderImportReport(
+                sourceRecords = sourceRecords,
+                imported = imported,
+                duplicatesMerged = duplicatesMerged,
+                missingBaseTime = missingBaseTime,
+                readStateUnsupported = readStateUnsupported,
+            ),
+    )
+}
+
+private fun reminderDto(
+    taskId: String,
+    offsetMinutes: Int,
+    base: Long,
+    stamp: Long,
+): TaskReminderDto =
+    TaskReminderDto(
+        id = "$taskId:legacy-notify:$offsetMinutes",
+        taskId = taskId,
+        type = "gentle",
+        // Legacy offsets are minutes before start; native stores the same
+        // delta as a signed offset (negative = before the due moment).
+        offsetMinutes = -offsetMinutes,
+        fireAt = base - offsetMinutes * 60_000L,
+        recurringPattern = null,
+        viewId = null,
+        lastFiredAt = null,
+        createdAt = stamp,
+        updatedAt = stamp,
+    )
+
+/**
+ * Base instant for a legacy reminder. Absolute instants (with time/zone) are parsed
+ * as-is; a date-only value is treated as UTC midnight for a deterministic result.
+ */
+private fun parseReminderBaseMs(start: String?): Long? {
+    if (start.isNullOrBlank()) return null
+    if (start.contains('T')) return runCatching { Instant.parse(start).toEpochMilliseconds() }.getOrNull()
+    return runCatching { LocalDate.parse(start).atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds() }.getOrNull()
+}
+
+private fun reminderStamp(task: LegacyTask): Long =
+    task.modificatedDate.takeIf { it > 0 }
+        ?: parseReminderBaseMs(task.createdDate)
+        ?: Mapper.parseInstantMs(task.createdDate)
+        ?: 0L
+
+private data class TaskRemindersMapping(val reminders: List<TaskReminderDto>, val report: ReminderImportReport)
+
+private data class ReminderImportReport(
+    val sourceRecords: Int,
+    val imported: Int,
+    val duplicatesMerged: Int,
+    val missingBaseTime: Int,
+    val readStateUnsupported: Int,
+)
+
 private fun skippedCounts(
     data: LegacyData,
     completedCandidates: Int,
+    reminders: ReminderImportReport,
 ): Map<String, Int> =
     mapOf(
         "taskGroups" to data.taskGroups.size,
@@ -311,6 +432,11 @@ private fun skippedCounts(
         "files" to data.files.size,
         "projectTags" to data.projects.sumOf { it.tags.size },
         "completedCandidates" to completedCandidates,
+        "reminderSourceRecords" to reminders.sourceRecords,
+        "remindersImported" to reminders.imported,
+        "remindersDuplicatesMerged" to reminders.duplicatesMerged,
+        "remindersMissingBaseTime" to reminders.missingBaseTime,
+        "reminderReadStateUnsupported" to reminders.readStateUnsupported,
     )
 
 /**

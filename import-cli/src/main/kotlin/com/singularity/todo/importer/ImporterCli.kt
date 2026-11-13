@@ -72,16 +72,33 @@ class ConvertCommand : CliktCommand(name = "convert") {
         println(
             "Converted: tasks=${result.payload.tasks.size} projects=${result.payload.projects.size} " +
                 "tags=${result.payload.tags.size} notes=${result.payload.notes.size} " +
-                "checklists=${result.payload.checklistItems.size} timeEntries=${result.payload.timeEntries.size}",
+                "checklists=${result.payload.checklistItems.size} timeEntries=${result.payload.timeEntries.size} " +
+                "taskReminders=${result.payload.taskReminders.size}",
         )
         println(
             "Manifest: appVersion=${manifest.appVersion} schemaVersion=${manifest.schemaVersion} formatVersion=${manifest.formatVersion}",
         )
         println("Completed candidates (legacy checked==1): ${result.skipped["completedCandidates"]}")
         println(
+            "Reminders: source=${result.skipped["reminderSourceRecords"] ?: 0} " +
+                "imported=${result.skipped["remindersImported"] ?: 0} " +
+                "duplicatesMerged=${result.skipped["remindersDuplicatesMerged"] ?: 0} " +
+                "missingBaseTime=${result.skipped["remindersMissingBaseTime"] ?: 0} " +
+                "readStateUnsupported=${result.skipped["reminderReadStateUnsupported"] ?: 0}",
+        )
+        val notImportedKeys =
+            setOf(
+                "completedCandidates",
+                "reminderSourceRecords",
+                "remindersImported",
+                "remindersDuplicatesMerged",
+                "remindersMissingBaseTime",
+                "reminderReadStateUnsupported",
+            )
+        println(
             "Not imported: " +
                 result.skipped
-                    .filterKeys { it != "completedCandidates" }
+                    .filterKeys { it !in notImportedKeys }
                     .filterValues { it > 0 }
                     .entries
                     .joinToString(", ") { "${it.key}=${it.value}" },
@@ -105,7 +122,10 @@ class VerifyCommand : CliktCommand(name = "verify") {
         )
         println("payload schemaVersion=${payload.schemaVersion}")
         println(
-            "tasks=${payload.tasks.size} notes=${payload.notes.size} projects=${payload.projects.size} tags=${payload.tags.size} checklists=${payload.checklistItems.size} timeEntries=${payload.timeEntries.size} taskTags=${payload.taskTags.size}",
+            "tasks=${payload.tasks.size} notes=${payload.notes.size} projects=${payload.projects.size} " +
+                "tags=${payload.tags.size} checklists=${payload.checklistItems.size} " +
+                "timeEntries=${payload.timeEntries.size} taskTags=${payload.taskTags.size} " +
+                "taskReminders=${payload.taskReminders.size}",
         )
     }
 }

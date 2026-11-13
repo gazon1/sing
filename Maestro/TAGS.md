@@ -112,6 +112,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_WEEKLY` | `recurrence_option_weekly` | |
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
+| `RECURRENCE_PICKER_PREVIEW` | `recurrence_picker_preview` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
 | `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
@@ -154,6 +155,7 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_TITLE_ERROR` | `task_editor_title_error` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 | `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
+| `TASK_RECURRENCE_TEXT` | `task_recurrence_text` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
 | `TimeTracking.START` | `time_tracking_start` | |
 | `TimeTracking.STOP` | `time_tracking_stop` | |
@@ -259,8 +261,10 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
+| `PROJECT_PICKER_NONE` | `project_picker_none` | |
 
 ### Settings
 
@@ -522,6 +526,7 @@ use the expanded string directly).
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
+| `projectPickerRow("p-1")` | `"p-1"` | `project_picker_row_p_1` | Project rows in the task editor's picker |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |

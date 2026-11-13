@@ -80,4 +80,44 @@
         <item quantity="one">Series · %1$d date</item>
         <item quantity="other">Series · %1$d dates</item>
     </plurals>
+    <!-- The recurrence sentence. A rule is read, not printed: the task detail row
+         and the picker's preview both say "Every 3 days, from the due date", never
+         "Interval(base=FROM_DUE, amount=3, unit=DAY)". The count is pluralized per
+         unit, and the singular is a string of its own because "Every 1 day" is not
+         what a person says — "Every day" is. -->
+    <string name="recurrence_every_day">Every day</string>
+    <string name="recurrence_every_week">Every week</string>
+    <string name="recurrence_every_month">Every month</string>
+    <string name="recurrence_every_year">Every year</string>
+    <plurals name="recurrence_every_days">
+        <item quantity="one">Every %1$d day</item>
+        <item quantity="other">Every %1$d days</item>
+    </plurals>
+    <plurals name="recurrence_every_weeks">
+        <item quantity="one">Every %1$d week</item>
+        <item quantity="other">Every %1$d weeks</item>
+    </plurals>
+    <plurals name="recurrence_every_months">
+        <item quantity="one">Every %1$d month</item>
+        <item quantity="other">Every %1$d months</item>
+    </plurals>
+    <plurals name="recurrence_every_years">
+        <item quantity="one">Every %1$d year</item>
+        <item quantity="other">Every %1$d years</item>
+    </plurals>
+    <string name="recurrence_weekly">Weekly on %1$s</string>
+    <string name="recurrence_monthly">Monthly on day %1$d</string>
+    <string name="recurrence_yearly">Yearly on %1$s %2$d</string>
+    <string name="recurrence_from_due">from the due date</string>
+    <string name="recurrence_from_completion">after completion</string>
+    <string name="recurrence_catch_up">catch-up, filling the gaps</string>
+    <!-- The sentence itself. The order of the parts and the punctuation around
+         them are the language's, not the code's: a locale that puts the end date
+         before the start date needs a template of its own here, and not a
+         different join in Kotlin. The rule and the base are always there — every
+         rule has a base — so the templates differ only in the dates they carry. -->
+    <string name="recurrence_sentence">%1$s, %2$s</string>
+    <string name="recurrence_sentence_with_start">%1$s, %2$s, starting %3$s</string>
+    <string name="recurrence_sentence_with_end">%1$s, %2$s, until %3$s</string>
+    <string name="recurrence_sentence_with_start_and_end">%1$s, %2$s, starting %3$s, until %4$s</string>
 </resources>
