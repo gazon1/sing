@@ -2,9 +2,6 @@
 
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.onNodeWithTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -13,6 +10,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagEnabled
+import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickTag
@@ -216,10 +215,10 @@ class ChecklistAndSubtasksSectionUiTest {
                 )
             }
 
-            onNodeWithTag(TestTags.checklistItemMoveUp("c1", "Item 1")).assertIsNotEnabled()
-            onNodeWithTag(TestTags.checklistItemMoveDown("c1", "Item 1")).assertIsEnabled()
-            onNodeWithTag(TestTags.checklistItemMoveUp("c3", "Item 3")).assertIsEnabled()
-            onNodeWithTag(TestTags.checklistItemMoveDown("c3", "Item 3")).assertIsNotEnabled()
+            assertTagNotEnabled(TestTags.checklistItemMoveUp("c1", "Item 1"))
+            assertTagEnabled(TestTags.checklistItemMoveDown("c1", "Item 1"))
+            assertTagEnabled(TestTags.checklistItemMoveUp("c3", "Item 3"))
+            assertTagNotEnabled(TestTags.checklistItemMoveDown("c3", "Item 3"))
 
             clickTag(TestTags.checklistItemMoveDown("c1", "Item 1"))
             assertEquals(listOf("c1" to ChecklistMove.Down), moves)
