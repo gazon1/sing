@@ -1,9 +1,10 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.data.DataStoreProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
-import com.singularity.todo.feature.projects.data.RecentEmojiStore
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
@@ -11,6 +12,7 @@ import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.RecentEmojiStore
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
@@ -60,6 +62,7 @@ fun projectsModule(): org.koin.core.module.Module =
                 createProject = get(),
                 updateProject = get(),
                 projectsRepo = get(),
+                recentEmojiStore = get(),
                 crashReporter = get(),
             )
         }
@@ -77,6 +80,7 @@ fun projectsModule(): org.koin.core.module.Module =
                 createTaskUseCase = get(),
                 projectReminders = get(),
                 notificationsSettings = get(),
+                recentEmojiStore = get(),
                 clock = get(),
                 crashReporter = get(),
             )
@@ -111,7 +115,15 @@ fun projectsModule(): org.koin.core.module.Module =
         //
         // App-wide rather than per profile: a recently used emoji is a habit,
         // not a setting of one profile, so the key carries no profile id.
-        single { RecentEmojiStore(get()) }
+        //
+        // The scope is the store's own and lives as long as the store, so a
+        // write survives the picker that started it being closed.
+        single {
+            RecentEmojiStore(
+                dataStore = get(),
+                scope = createBackgroundScope(loggingBackgroundFailureHandler()),
+            )
+        }
 
         // ─── Shared component ViewModels ─────────────────────────────────────────
     }

@@ -49,17 +49,19 @@ class RecentEmojiHistoryTest {
     }
 
     @Test
-    fun `the bound can be given`() {
-        val history = rememberRecentEmoji(current = listOf("a", "b", "c"), emoji = "d", limit = 2)
-
-        assertEquals(listOf("d", "a"), history)
-    }
-
-    @Test
     fun `a blank emoji changes nothing`() {
         val history = rememberRecentEmoji(current = listOf("🚀", "🎯"), emoji = "  ")
 
         assertEquals(listOf("🚀", "🎯"), history)
+    }
+
+    @Test
+    fun `a blank emoji does not shorten the history either`() {
+        val current = (1..RECENT_EMOJI_LIMIT + 3).map { "emoji$it" }
+
+        val history = rememberRecentEmoji(current = current, emoji = "")
+
+        assertEquals(current, history)
     }
 
     @Test
@@ -78,6 +80,55 @@ class RecentEmojiHistoryTest {
         val family = "👨‍👩‍👧‍👦"
 
         val history = rememberRecentEmoji(current = listOf(family, "🚀"), emoji = family)
+
+        assertEquals(listOf(family, "🚀"), history)
+    }
+}
+
+/**
+ * What is read back from storage.
+ *
+ * The file on disk is not always what was written — an older version kept a
+ * longer list — so reading normalizes instead of trusting what is there.
+ */
+@Tag("fast")
+class NormalizeRecentEmojiTest {
+    @Test
+    fun `a longer history is cut to the bound`() {
+        val stored = (1..RECENT_EMOJI_LIMIT + 5).map { "emoji$it" }
+
+        val history = normalizeRecentEmoji(stored)
+
+        assertEquals(RECENT_EMOJI_LIMIT, history.size)
+        assertEquals("emoji1", history.first())
+    }
+
+    @Test
+    fun `a repeated value is shown once`() {
+        val history = normalizeRecentEmoji(listOf("🚀", "🎯", "🚀", "💡"))
+
+        assertEquals(listOf("🚀", "🎯", "💡"), history)
+    }
+
+    @Test
+    fun `the order of the first appearance is kept`() {
+        val history = normalizeRecentEmoji(listOf("🎯", "🚀", "🎯", "💡"))
+
+        assertEquals(listOf("🎯", "🚀", "💡"), history)
+    }
+
+    @Test
+    fun `a blank value is dropped`() {
+        val history = normalizeRecentEmoji(listOf("🚀", "", "   ", "🎯"))
+
+        assertEquals(listOf("🚀", "🎯"), history)
+    }
+
+    @Test
+    fun `a composed emoji stays whole`() {
+        val family = "👨‍👩‍👧‍👦"
+
+        val history = normalizeRecentEmoji(listOf(family, "🚀"))
 
         assertEquals(listOf(family, "🚀"), history)
     }

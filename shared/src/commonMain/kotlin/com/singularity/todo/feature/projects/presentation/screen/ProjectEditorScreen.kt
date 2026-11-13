@@ -61,6 +61,8 @@ import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavig
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -120,6 +122,7 @@ fun ProjectEditorContent(
     onBack: () -> Unit,
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
+    val recentEmojis by viewModel.recentEmojis.collectAsStateWithLifecycle(persistentListOf())
     val overlay = rememberOverlayState<EditorSheet>()
 
     NotificationHost(
@@ -192,6 +195,7 @@ fun ProjectEditorContent(
             IconPickerSheetHost(
                 visible = true,
                 currentIcon = state.icon,
+                recentEmojis = recentEmojis,
                 onPick = { icon ->
                     viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
                     overlay.dismissSheet()
@@ -230,6 +234,7 @@ private sealed interface EditorSheet {
 private fun IconPickerSheetHost(
     visible: Boolean,
     currentIcon: String?,
+    recentEmojis: ImmutableList<String>,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -237,6 +242,7 @@ private fun IconPickerSheetHost(
         BottomSheetHost(onDismiss = onDismiss) {
             IconPickerSheet(
                 currentIcon = currentIcon,
+                recentEmojis = recentEmojis,
                 onPick = onPick,
                 onDismiss = onDismiss,
             )

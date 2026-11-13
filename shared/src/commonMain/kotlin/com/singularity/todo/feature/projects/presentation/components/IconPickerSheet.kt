@@ -23,23 +23,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.projects.data.RecentEmojiStore
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 
 private val COMMON_EMOJIS =
     listOf(
@@ -69,36 +62,17 @@ private val COMMON_EMOJIS =
 @Composable
 fun IconPickerSheet(
     currentIcon: String?,
+    /**
+     * The emoji the user picked before, most recent first, so they can be
+     * picked again with one tap.
+     *
+     * The sheet draws what it is given: it neither reads the history nor
+     * writes it, so it stays free of both storage and DI.
+     */
+    recentEmojis: ImmutableList<String>,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
-    /**
-     * The emoji the user picked before, so they can be picked again with one tap.
-     *
-     * Resolved from the graph by default; a test hands in a store of its own.
-     */
-    recentEmojiStore: RecentEmojiStore = koinInject(),
 ) {
-    val recentEmojis by recentEmojiStore.recent.collectAsStateWithLifecycle(persistentListOf())
-    val scope = rememberCoroutineScope()
-
-    // An emoji is recorded when it is picked, so the next picker opens with it
-    // at the front. A registry key is an icon, not an emoji, and is not
-    // recorded.
-    //
-    // The record is awaited before the pick is applied: the sheet is still
-    // composed at that point, and a write cancelled by the sheet's own
-    // dismissal would lose the emoji the user just chose.
-    val pick: (String?) -> Unit = { value ->
-        if (value != null && resolveProjectIcon(value) is ResolvedProjectIcon.Emoji) {
-            scope.launch {
-                recentEmojiStore.record(value)
-                onPick(value)
-            }
-        } else {
-            onPick(value)
-        }
-    }
-
     Column(modifier = Modifier.padding(24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // The sheet is modal and picking is the only way out of it otherwise,
@@ -135,7 +109,7 @@ fun IconPickerSheet(
                             .touchTarget()
                             .size(40.dp)
                             .clip(CircleShape)
-                            .clickable { pick(key) }
+                            .clickable { onPick(key) }
                             .background(
                                 if (key == currentIcon) {
                                     MaterialTheme.colorScheme.primaryContainer
@@ -152,11 +126,11 @@ fun IconPickerSheet(
         EmojiSection(
             currentIcon = currentIcon,
             recentEmojis = recentEmojis,
-            onPick = pick,
+            onPick = onPick,
         )
 
         Spacer(Modifier.height(12.dp))
-        TextButton(onClick = { pick(null) }) { Text("None") }
+        TextButton(onClick = { onPick(null) }) { Text("None") }
 
         Spacer(Modifier.height(24.dp))
     }
@@ -228,9 +202,9 @@ private fun EmojiSection(
 /**
  * One emoji in the picker.
  *
- * The glyph is drawn as one grapheme: a composed sequence — a ZWJ family, a
- * flag, a skin-tone modifier, a variation selector — is one value and must not
- * be split across lines.
+ * The glyph is drawn the way it always was: one text in one circle. A composed
+ * sequence — a ZWJ family, a flag, a skin-tone modifier, a variation selector
+ * — is one grapheme and is drawn as one.
  */
 @Composable
 private fun EmojiChip(
@@ -240,8 +214,6 @@ private fun EmojiChip(
 ) {
     Text(
         text = emoji,
-        maxLines = 1,
-        softWrap = false,
         modifier =
             Modifier
                 .touchTarget()

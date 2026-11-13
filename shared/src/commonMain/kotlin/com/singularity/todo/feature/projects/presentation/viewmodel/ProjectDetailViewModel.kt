@@ -18,6 +18,7 @@ import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.ProjectCloseOutcome
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.RecentEmojiStore
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
@@ -32,10 +33,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -82,6 +85,7 @@ class ProjectDetailViewModel(
      * nothing anywhere, which is what `check-dead-settings` exists to name.
      */
     private val notificationsSettings: NotificationsSettingsRepository,
+    private val recentEmojiStore: RecentEmojiStore,
     val clock: Clock,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
@@ -90,6 +94,14 @@ class ProjectDetailViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
+    /**
+     * The emoji the user picked recently, for the icon picker.
+     *
+     * Read by the screen, written by this ViewModel when an icon is picked —
+     * the picker itself only draws what it is given.
+     */
+    val recentEmojis: Flow<ImmutableList<String>> = recentEmojiStore.recent
+
     // ─── UI State ───────────────────────────────────────────────────────────────
 
     // The three flows below are inputs to the state `combine` in [init], not part of
@@ -449,6 +461,9 @@ class ProjectDetailViewModel(
 
             is ProjectDetailIntent.Domain.UpdateIcon -> {
                 mutate { copy(icon = intent.icon) }
+                // The history is a convenience around the pick, so it is written
+                // after the pick was applied and never in front of it.
+                recentEmojiStore.recordPickedIcon(intent.icon)
             }
 
             is ProjectDetailIntent.Domain.UpdateParent -> {

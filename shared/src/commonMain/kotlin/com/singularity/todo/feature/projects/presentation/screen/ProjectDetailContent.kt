@@ -33,6 +33,7 @@ import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavig
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.launch
@@ -58,6 +59,7 @@ fun ProjectDetailContent(
     val sheets = rememberOverlayState<ActiveSheet>()
     val snackbarHostState = remember { SnackbarHostState() }
     val draftState by viewModel.draftState.state.collectAsStateWithLifecycle()
+    val recentEmojis by viewModel.recentEmojis.collectAsStateWithLifecycle(persistentListOf())
     val scope = rememberCoroutineScope()
 
     val actions = rememberProjectDetailActions(sheets = sheets, nav = nav, viewModel = viewModel)
@@ -163,6 +165,7 @@ fun ProjectDetailContent(
         sheets = sheets,
         content = contentState as? ProjectDetailUiState.Content,
         actions = actions,
+        recentEmojis = recentEmojis,
     )
 
     // A project whose task has an unfinished prerequisite is not closed on the
@@ -208,6 +211,7 @@ private fun ProjectDetailSheets(
     sheets: OverlayState<ActiveSheet>,
     content: ProjectDetailUiState.Content?,
     actions: ProjectDetailActions,
+    recentEmojis: ImmutableList<String>,
 ) {
     if (sheets.sheet != null) {
         BottomSheetHost(onDismiss = { sheets.dismissSheet() }) {
@@ -237,6 +241,7 @@ private fun ProjectDetailSheets(
                 parentOptions = content?.parentOptions ?: persistentListOf(),
                 tagGroups = content?.tagGroups ?: persistentListOf(),
                 inheritedTagGroupIds = content?.ui?.inheritedTagGroupIds ?: persistentSetOf(),
+                recentEmojis = recentEmojis,
                 onSheetDismiss = { sheets.dismissSheet() },
             )
         }

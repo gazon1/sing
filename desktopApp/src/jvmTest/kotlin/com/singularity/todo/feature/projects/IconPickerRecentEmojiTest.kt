@@ -8,13 +8,8 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
-import com.singularity.todo.test.helpers.newRecentEmojiStore
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,12 +19,13 @@ import kotlin.test.assertEquals
  *
  * ## What is under test
  *
- * The sheet remembers the emoji the user picked and offers the last ones back at
- * the top of the next opening — with no history there is no "Recent" section at
- * all, because an empty heading is a blank the user has to read past every time.
+ * The sheet offers the emoji the user picked before at the top of the next
+ * opening — with no history there is no "Recent" section at all, because an
+ * empty heading is a blank the user has to read past every time.
  *
- * The history itself is covered where it lives (the rule and the store); this is
- * about the sheet: what it draws, and what it records when an emoji is picked.
+ * The sheet draws the history it is given and picks what the user taps. It
+ * neither reads nor writes the history: that is the ViewModel's job, and it is
+ * why this test can hand the sheet a list and watch what it draws.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("fast")
@@ -37,15 +33,13 @@ class IconPickerRecentEmojiTest {
     @Test
     fun `the sheet has no recent section while nothing was picked`() =
         runIsolatedComposeTest {
-            val store = newRecentEmojiStore()
-
             setContent {
                 ScreenWithOwners {
                     IconPickerSheet(
                         currentIcon = null,
+                        recentEmojis = persistentListOf(),
                         onPick = {},
                         onDismiss = {},
-                        recentEmojiStore = store,
                     )
                 }
             }
@@ -56,18 +50,15 @@ class IconPickerRecentEmojiTest {
     @Test
     fun `a recently picked emoji is offered back`() =
         runIsolatedComposeTest {
-            val store = newRecentEmojiStore()
-            // Not one of the emoji the sheet offers itself, so the text below can
-            // only come from the recent row.
-            store.record("🦄")
-
             setContent {
                 ScreenWithOwners {
                     IconPickerSheet(
                         currentIcon = null,
+                        // Not one of the emoji the sheet offers itself, so the
+                        // text below can only come from the recent row.
+                        recentEmojis = persistentListOf("🦄"),
                         onPick = {},
                         onDismiss = {},
-                        recentEmojiStore = store,
                     )
                 }
             }
@@ -77,41 +68,23 @@ class IconPickerRecentEmojiTest {
         }
 
     @Test
-    fun `picking an emoji puts it in the history`() =
+    fun `picking an emoji hands the emoji back`() =
         runIsolatedComposeTest {
-            val store = newRecentEmojiStore()
-            val picked = CompletableDeferred<String?>()
+            var picked: String? = null
 
             setContent {
                 ScreenWithOwners {
                     IconPickerSheet(
                         currentIcon = null,
-                        onPick = { picked.complete(it) },
+                        recentEmojis = persistentListOf(),
+                        onPick = { picked = it },
                         onDismiss = {},
-                        recentEmojiStore = store,
                     )
                 }
             }
 
             clickText("🎯")
 
-            // The wait is real time, not the test scheduler's virtual time: the
-            // write goes to a file, and a virtual clock would expire long
-            // before the file was written.
-            waitUntil(timeoutMillis = TIMEOUT_MS) { picked.isCompleted }
-            assertEquals("🎯", picked.await(), "the emoji was picked")
-
-            val recorded =
-                withContext(Dispatchers.Default) {
-                    withTimeout(TIMEOUT_MS) {
-                        store.recent.first { it.isNotEmpty() }
-                    }
-                }
-            assertEquals(listOf("🎯"), recorded, "and it was recorded")
+            assertEquals("🎯", picked, "the emoji was picked")
         }
-
-    private companion object {
-        /** Generous upper bound; the write lands in milliseconds. */
-        const val TIMEOUT_MS = 5_000L
-    }
 }
