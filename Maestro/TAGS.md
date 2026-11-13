@@ -91,6 +91,7 @@ non-alphanumeric characters with `_`.
 | `CHECKLIST_INLINE_ADD_BUTTON` | `checklist_inline_add_button` | |
 | `CHECKLIST_INLINE_ADD_INPUT` | `checklist_inline_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
+| `CHECKLIST_SHOW_ALL` | `checklist_show_all` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
 | `LOGBOOK_EMPTY` | `logbook_empty` | |
@@ -116,6 +117,7 @@ non-alphanumeric characters with `_`.
 | `SHEET_CONFIRM` | `sheet_confirm` | |
 | `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
+| `SUBTASKS_SHOW_ALL` | `subtasks_show_all` | |
 | `SUBTASK_ADD_BUTTON` | `subtask_add_button` | |
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
 | `TASKS_FAB` | `tasks_fab` | |
@@ -541,6 +543,8 @@ use the expanded string directly).
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |
 | `checklistItemCheckbox("Item")` | `"Item"` | `checklist_item_checkbox_item` | Checklist item checkboxes |
 | `checklistItemDelete("Item")` | `"Item"` | `checklist_item_delete_item` | Checklist item delete buttons |
+| `checklistItemMoveDown("Item")` | `"Item"` | `checklist_item_move_down_item` | Checklist item move-down halves |
+| `checklistItemMoveUp("Item")` | `"Item"` | `checklist_item_move_up_item` | Checklist item move-up halves |
 | `dependencyItem("Dep task")` | `"Dep task"` | `dependency_item_dep_task` | Rows in the dependency picker |
 | `dependencyVerb("blocks")` | `"blocks"` | `dependency_verb_blocks` | Kind-of-relation chips on one dependency row |
 | `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |

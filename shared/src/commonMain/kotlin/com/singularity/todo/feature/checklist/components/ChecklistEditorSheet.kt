@@ -53,16 +53,14 @@ fun ChecklistEditorSheet(
         testTag = TestTags.CHECKLIST_SHEET,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            ChecklistAddRow(onAdd = onAdd)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             if (items.isEmpty()) {
                 SelectableText(
                     text = "No checklist items yet",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                ChecklistAddRow(onAdd = onAdd)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
@@ -88,6 +86,10 @@ fun ChecklistEditorSheet(
                             onDelete = { onDelete(item.id) },
                             tags = ChecklistRowTags.forChecklistItem(id = item.id.value, title = item.title),
                         )
+                    }
+                    item(key = "checklist_add_row") {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        ChecklistAddRow(onAdd = onAdd)
                     }
                 }
             }

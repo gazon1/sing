@@ -1,13 +1,18 @@
 package com.singularity.todo.feature.checklist.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,13 +21,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.TouchTarget
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.checklist.ChecklistMove
 
 /**
  * The test tags of one row of [ChecklistItemRow].
@@ -60,6 +70,27 @@ data class ChecklistRowTags(
             )
     }
 }
+
+/**
+ * The reorder affordance of one row.
+ *
+ * Two steps, bounded by the ends of the list: the first row cannot go up and the
+ * last cannot go down, and the button is *disabled* rather than hidden so the
+ * controls keep a stable position and the row height never jumps.
+ *
+ * The two halves share one 48 dp column (each a 48×24 target). Three full 48 dp
+ * squares — up, down, delete — beside the checkbox would leave a phone's row
+ * with barely enough width for the title.
+ */
+data class ChecklistRowReorder(
+    /** False on the first row. */
+    val canMoveUp: Boolean,
+    /** False on the last row. */
+    val canMoveDown: Boolean,
+    val moveUpTag: String,
+    val moveDownTag: String,
+    val onMove: (ChecklistMove) -> Unit,
+)
 
 /**
  * The one row widget for an item that is ticked — a checklist item or a subtask.
@@ -100,6 +131,7 @@ fun ChecklistItemRow(
     onToggle: () -> Unit,
     onDelete: (() -> Unit)? = null,
     onOpen: (() -> Unit)? = null,
+    reorder: ChecklistRowReorder? = null,
     tags: ChecklistRowTags = ChecklistRowTags.forChecklistItem(id = text, title = text),
     modifier: Modifier = Modifier,
 ) {
@@ -147,6 +179,25 @@ fun ChecklistItemRow(
                     .testTag(tags.item),
         )
 
+        if (reorder != null) {
+            Column {
+                ChecklistMoveButton(
+                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = "Move up",
+                    enabled = reorder.canMoveUp,
+                    onClick = { reorder.onMove(ChecklistMove.Up) },
+                    modifier = Modifier.testTag(reorder.moveUpTag),
+                )
+                ChecklistMoveButton(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Move down",
+                    enabled = reorder.canMoveDown,
+                    onClick = { reorder.onMove(ChecklistMove.Down) },
+                    modifier = Modifier.testTag(reorder.moveDownTag),
+                )
+            }
+        }
+
         if (onDelete != null) {
             // The delete is a direct button and not an overflow menu: the menu used
             // to hold a second action — "convert to task" — and a menu of one item
@@ -162,6 +213,43 @@ fun ChecklistItemRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * One half of a row's reorder control: a 48 dp wide, half-height target with a
+ * 20 dp glyph.
+ *
+ * Material's `IconButton` cannot be half-height: it lays its clickable out as a
+ * square. The two halves stacked make the 48×48 the control is meant to offer,
+ * without the width of two square buttons.
+ */
+@Composable
+private fun ChecklistMoveButton(
+    imageVector: ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(width = TouchTarget.MinSize, height = TouchTarget.MinSize / 2)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(
+                    onClick = onClick,
+                    enabled = enabled,
+                    role = Role.Button,
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

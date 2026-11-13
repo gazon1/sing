@@ -31,6 +31,7 @@ class CreateTaskUseCase(
                 kind = input.kind,
                 projectId = input.projectId,
                 parentTaskId = input.parentTaskId,
+                followsUp = input.followsUp,
                 tagIds = input.tagIds,
                 dueDate = input.dueDate,
                 dueTime = input.dueTime,
