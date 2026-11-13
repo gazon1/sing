@@ -17,7 +17,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -61,6 +66,8 @@ fun SubtasksSection(
     val newTitleState = rememberTextFieldState()
     val completed = subtasks.count { it.isCompleted }
     val total = subtasks.size
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val visibleSubtasks = if (!expanded && subtasks.size > 5) subtasks.take(5) else subtasks
 
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.SUBTASKS_SECTION),
@@ -74,7 +81,33 @@ fun SubtasksSection(
                         modifier = Modifier.testTag(TestTags.SUBTASKS_EMPTY_HINT),
                     )
                 }
-                // Add-subtask input row — always present so the user can add the first subtask.
+
+                visibleSubtasks.forEach { task ->
+                    ChecklistItemRow(
+                        text = task.title,
+                        checked = task.isCompleted,
+                        // Ticking a subtask completes the subtask — the task
+                        // lifecycle write, with its prerequisite guard — and
+                        // nothing else. The parent is untouched.
+                        onToggle = { onToggle(task) },
+                        onDelete = { onDelete(task) },
+                        // A subtask is a task and keeps its own screen, so its
+                        // title opens it. A checklist item has no such screen.
+                        onOpen = { onOpen(task) },
+                        tags = ChecklistRowTags.forSubtask(task.title),
+                    )
+                }
+
+                if (!expanded && subtasks.size > 5) {
+                    TextButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.testTag(TestTags.SUBTASKS_SHOW_ALL),
+                    ) {
+                        Text("Показать все ${subtasks.size}")
+                    }
+                }
+
+                // Add-subtask input row — after existing items so new content stays in reading order.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -84,7 +117,7 @@ fun SubtasksSection(
                         modifier =
                             Modifier
                                 .weight(1f)
-                                .bringIntoViewOnFocus()
+                                .bringIntoViewOnFocus(revision = subtasks.size)
                                 .testTag(TestTags.SUBTASK_ADD_INPUT),
                         placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
@@ -116,24 +149,6 @@ fun SubtasksSection(
                             contentDescription = "Add subtask",
                         )
                     }
-                }
-                // No cap: a task with fourteen subtasks shows fourteen of them.
-                // The list used to show ten and say "+4 more", which is a
-                // truncation the user cannot act on from the screen they are on.
-                subtasks.forEach { task ->
-                    ChecklistItemRow(
-                        text = task.title,
-                        checked = task.isCompleted,
-                        // Ticking a subtask completes the subtask — the task
-                        // lifecycle write, with its prerequisite guard — and
-                        // nothing else. The parent is untouched.
-                        onToggle = { onToggle(task) },
-                        onDelete = { onDelete(task) },
-                        // A subtask is a task and keeps its own screen, so its
-                        // title opens it. A checklist item has no such screen.
-                        onOpen = { onOpen(task) },
-                        tags = ChecklistRowTags.forSubtask(task.title),
-                    )
                 }
             }
         },

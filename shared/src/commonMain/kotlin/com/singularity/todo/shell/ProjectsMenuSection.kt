@@ -22,13 +22,14 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectTree
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
 
 /**
- * The menu's projects section: the tree, and the way to the full list.
+ * The menu's projects section: the projects, and the way to the full list.
  *
  * One section, drawn by both platforms: the Android sheet and the Desktop
- * drawer show the same projects, in the same order, at the same depths, under
- * the same heading, with the same way into the full list. Two drawings of one
- * section would be two sections, and their parity would depend on somebody
- * noticing the difference.
+ * drawer show the same heading, the same way into the full list, and the same
+ * projects — but not the same *depth*, on purpose. The Desktop drawer draws the
+ * tree, with its expanders; the Android sheet draws the root projects as a
+ * list (ADR `2026-11-12-android-menu-roots-only.md`). The projects are one
+ * model's; how much of the hierarchy a menu shows is that surface's decision.
  *
  * The heading, the label and the tag are the same on both surfaces, so
  * rewording one of them cannot leave the other behind.
@@ -40,8 +41,8 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
  *
  * ## The section is folded by default
  *
- * A profile with a hundred projects draws a tree longer than the screen, and
- * the tree sits below the entries the user opened the menu for. So the tree is
+ * A profile with a hundred projects draws a list longer than the screen, and
+ * the list sits below the entries the user opened the menu for. So the list is
  * folded away until the user unfolds it, and the way into the full list stays
  * next to the heading — folded or not.
  *
@@ -51,7 +52,8 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
  * @param onToggleSection Called when the user folds the section away or unfolds
  *   it.
  * @param onToggleExpanded Called with the id of the project whose expander was
- *   tapped.
+ *   tapped. `null` draws the root projects as a list, without expanders — what
+ *   the Android sheet asks for.
  * @param onOpenProject Called with the id of the project the user tapped.
  * @param onOpenAllProjects Called when the user taps the way to the full list.
  * @param headerModifier The modifier of the heading.
@@ -62,7 +64,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
 fun ProjectsMenuSection(
     state: ProjectsTreeUiState,
     onToggleSection: () -> Unit,
-    onToggleExpanded: (ProjectId) -> Unit,
+    onToggleExpanded: ((ProjectId) -> Unit)?,
     onOpenProject: (ProjectId) -> Unit,
     onOpenAllProjects: () -> Unit,
     headerModifier: Modifier = Modifier,
@@ -114,8 +116,8 @@ fun ProjectsMenuSection(
         }
     }
 
-    // The way into the full list sits above the tree, so it is reachable
-    // whether the tree is unfolded or not.
+    // The way into the full list sits above the projects, so it is reachable
+    // whether they are unfolded or not.
     NavigationDrawerItem(
         label = { Text("All projects") },
         selected = false,

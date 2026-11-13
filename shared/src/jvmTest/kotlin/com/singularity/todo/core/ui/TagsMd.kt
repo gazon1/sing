@@ -331,6 +331,14 @@ object TagsMd {
                 DynamicMeta(fnName, "Tasks", "Item", "Checklist item delete buttons")
             }
 
+            "checklistItemMoveUp" -> {
+                DynamicMeta(fnName, "Tasks", "Item", "Checklist item move-up halves")
+            }
+
+            "checklistItemMoveDown" -> {
+                DynamicMeta(fnName, "Tasks", "Item", "Checklist item move-down halves")
+            }
+
             "noteItem" -> {
                 DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)")
             }
@@ -389,6 +397,10 @@ object TagsMd {
 
             "projectPickerRow" -> {
                 DynamicMeta(fnName, "Projects", "p-1", "Project rows in the task editor's picker")
+            }
+
+            "projectChildRow" -> {
+                DynamicMeta(fnName, "Projects", "p-1", "Sub-project rows in the sheet a project's screen opens")
             }
 
             "pomodoroTaskChip" -> {

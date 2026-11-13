@@ -66,6 +66,12 @@ from a highlighted row.
 
 - The Android menu never draws a project below a root; a deep project is reached through its parent
   project's sub-projects, not from the menu.
+- The way down costs one list per level on Android: the menu holds the roots, a project below a
+  root is reached through its parent's sub-project list, and each level below that opens its own
+  list. A project three levels down is six taps from the menu — open the menu, tap the root, then
+  two taps per level — and the way back is the way down. Desktop is not affected: its drawer draws
+  the tree inline and the tree starts open, so a project at any depth is the same two taps away,
+  plus one tap to expand each ancestor the user has collapsed.
 - An Android menu row carries no expander; `menu_project_expander_*` exists only on Desktop. No
   Maestro flow taps a per-project expander today, so the flows keep working; a future Android flow
   must not look for one.
@@ -76,6 +82,10 @@ from a highlighted row.
 - Search stays in the Projects list. The menu still has none, and that is not revisited here.
 - One tree model (`ProjectTreeBuilder`) and one tree composable remain; Android draws the depth-0
   subset rather than a second list type. No new destination, no new persistence.
+- The switch between the two drawings is one nullable callback: `ProjectTreeSection` draws the depth-0
+  subset when `onToggleExpanded` is `null`, and the tree when it is not. The Android sheet passes
+  `null` and carries no expander column at all; the Desktop drawer passes its fold toggle. A list
+  has no hierarchy to show, so a hierarchy that is not drawn is not there.
 - If research later shows the back target surprises users — detail → Projects list, not detail →
   menu — the narrow change is to push the detail without the list; it is not a reason to reopen the
   roots-only decision.
@@ -84,8 +94,8 @@ from a highlighted row.
 
 ## Links
 
-- Issues: #2862, parent #2861, #2740 (fold + All projects), #2728 (nested route research),
-  #2734 (nested titles), #2735 (nested FAB)
+- Issues: #2862, parent #2861, #2864 (implements this decision), #2740 (fold + All projects),
+  #2728 (nested route research), #2734 (nested titles), #2735 (nested FAB)
 - Research: `docs/research/2862-project-navigation-comparison.md` (row heights, hit-testing,
   122/20 counts, 24dp picker indent)
 - Decisions: `2026-11-10-the-menu-projects-section-is-folded-by-default.md`,
@@ -95,6 +105,6 @@ from a highlighted row.
   `androidMain/.../AndroidShellNav3.kt`, `jvmMain/.../DesktopShellNav3.kt`,
   `feature/projects/.../nav/ProjectsOpener.kt`,
   `feature/projects/.../screen/ProjectDetailHero.kt`
-- Scenario: `scripts/src/traceability/scenarios/menu/MENU-07.yaml`; flows
-  `Maestro/flows/menu/01-projects-tree.yaml`, `03-open-project.yaml`, `05-tree-contents.yaml`,
+- Scenario: `scripts/src/traceability/scenarios/menu/MENU-07.yaml`, `MENU-08.yaml`; flows
+  `Maestro/flows/menu/01-projects-roots.yaml`, `03-open-project.yaml`, `05-tree-contents.yaml`,
   `06-tree-live.yaml`, `10-large-projects.yaml`

@@ -1,5 +1,11 @@
 package com.singularity.todo.feature.checklist
 
+/** One step of a checklist reorder, as the row's buttons ask for it. */
+enum class ChecklistMove {
+    Up,
+    Down,
+}
+
 @JvmInline
 value class ChecklistItemId private constructor(val value: String) {
     companion object {

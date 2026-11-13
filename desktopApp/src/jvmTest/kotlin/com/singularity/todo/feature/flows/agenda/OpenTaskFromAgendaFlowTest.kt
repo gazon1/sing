@@ -14,6 +14,7 @@ import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
+import com.singularity.todo.test.helpers.tapTaskTitle
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
@@ -90,6 +91,8 @@ class OpenTaskFromAgendaFlowTest {
             awaitTag(TestTags.taskItem("Existing task")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
+            // The detail shows the title as text; the field is one tap away.
+            tapTaskTitle()
             clearTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
             // The draft is seeded from the field a beat after the keystroke, so

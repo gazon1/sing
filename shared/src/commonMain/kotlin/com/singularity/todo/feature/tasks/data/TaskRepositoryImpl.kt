@@ -257,6 +257,19 @@ class TaskRepositoryImpl(
                 toInsert.tags.forEach { tagId ->
                     taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                 }
+                // The follow-up edges land in the same unit of work as the row.
+                // A task created as a child of another carries the relation from
+                // its first version, and a create that reports success has the
+                // link the caller asked for — a second write could fail after
+                // the row was already there.
+                toInsert.followsUp.forEach { depId ->
+                    taskDao.upsertDependencyForUser(
+                        toInsert.id.value,
+                        depId.value,
+                        DependencyVerb.FOLLOWS_UP.name,
+                        currentUid.value,
+                    )
+                }
                 // The push carries what the database holds. The create wrote the tags
                 // a moment ago, and the edges it did not write are the ones the
                 // database does not have — an edge the caller carried but the create
@@ -338,6 +351,16 @@ class TaskRepositoryImpl(
                     saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
                     toInsert.tags.forEach { tagId ->
                         taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
+                    }
+                    // Same transaction as the row, same reason as `create`: a
+                    // member that was asked to carry a follow-up edge carries it.
+                    toInsert.followsUp.forEach { depId ->
+                        taskDao.upsertDependencyForUser(
+                            toInsert.id.value,
+                            depId.value,
+                            DependencyVerb.FOLLOWS_UP.name,
+                            currentUid.value,
+                        )
                     }
                     // The push carries what the database holds — the row, the tags
                     // just written, and the edges the create did not write and the

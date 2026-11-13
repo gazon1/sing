@@ -1583,6 +1583,25 @@ class FakeChecklistRepository : ChecklistRepository {
             items.value = items.value.filterKeys { it != id.value }
         }
 
+    override suspend fun reorder(
+        taskId: String,
+        orderedIds: List<ChecklistItemId>,
+    ): Result<Unit> {
+        reorderOverride?.let { return it }
+        return runCatchingCancellable {
+            val updated = items.value.toMutableMap()
+            orderedIds.forEachIndexed { index, id ->
+                val item = updated[id.value] ?: return@forEachIndexed
+                if (item.taskId != taskId) return@forEachIndexed
+                updated[id.value] = item.copy(sortOrder = index)
+            }
+            items.value = updated
+        }
+    }
+
+    /** Makes the next [reorder] fail, for the error path. */
+    var reorderOverride: Result<Unit>? = null
+
     override suspend fun createBatch(
         taskId: String,
         items: List<ChecklistItem>,

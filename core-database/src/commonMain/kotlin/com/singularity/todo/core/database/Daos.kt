@@ -3,6 +3,7 @@ package com.singularity.todo.core.database
 import androidx.room3.Dao
 import androidx.room3.Insert
 import androidx.room3.Query
+import androidx.room3.Transaction
 import androidx.room3.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -1738,6 +1739,54 @@ interface ChecklistDao {
     )
     suspend fun deleteByTaskForUser(
         taskId: String,
+        userId: String,
+    ): Int
+
+    /**
+     * Renumbers the task's items to the given order, in one transaction.
+     *
+     * The read is `ORDER BY sort_order`, so the order *is* the numbers: a
+     * renumber that landed halfway would leave two rows claiming one position,
+     * and the tie is broken by rowid, which SQLite does not promise. One
+     * transaction is therefore what makes the reorder a fact rather than a
+     * guess.
+     *
+     * Ids that do not belong to [taskId] are ignored by the update, so a stale
+     * list from another screen cannot renumber this task's rows.
+     */
+    @Transaction
+    suspend fun reorderForUser(
+        taskId: String,
+        orderedIds: List<String>,
+        updatedAt: Long,
+        userId: String,
+    ) {
+        orderedIds.forEachIndexed { index, id ->
+            updateSortOrderForUser(
+                itemId = id,
+                taskId = taskId,
+                sortOrder = index,
+                updatedAt = updatedAt,
+                userId = userId,
+            )
+        }
+    }
+
+    /** One row of [reorderForUser]; scoped through the owning task's user. */
+    @Query(
+        """
+        UPDATE checklist_items
+        SET sort_order = :sortOrder, updated_at = :updatedAt
+        WHERE id = :itemId
+          AND task_id = :taskId
+          AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun updateSortOrderForUser(
+        itemId: String,
+        taskId: String,
+        sortOrder: Int,
+        updatedAt: Long,
         userId: String,
     ): Int
 

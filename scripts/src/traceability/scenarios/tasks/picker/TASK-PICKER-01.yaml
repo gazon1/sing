@@ -1,0 +1,46 @@
+# Scenario specification for TASK-PICKER-01.
+#
+# This is the cross-surface scenario for #2867: the task Project Picker is the
+# one place where a parent and its children are drawn as rows the user chooses
+# between, so it is where "a tap on a child must not activate its parent" is a
+# claim about something that exists. The Android menu no longer draws children
+# at all (ADR `2026-11-12-android-menu-roots-only.md`), and
+# `ProjectTreeSectionModeTest` proves that — there is no child row to hit there.
+#
+# The picker is commonMain, and its sheet opens its own window on desktop, which
+# the desktop tier reaches (see `SheetReachabilityTest`). So the scenario is
+# claimed on `desktop`: the same composable draws on both platforms, and the
+# JVM tier is the one that can measure its geometry.
+#
+# The task's project is read back from the repository rather than from the row:
+# a row that says "Compose" while the task still belongs to "Android" is the
+# defect this scenario exists to catch, and only the stored value can tell the
+# two apart.
+
+id: TASK-PICKER-01
+title: A task's project is chosen from the hierarchy, and search keeps the path
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task exists and its detail view is open. The user has a root project Work
+  with a child Android and a grandchild Compose; a root project Home with a
+  child named Notes, and Work also has a child named Notes; and a default
+  project Inbox.
+steps:
+  - "Open the place where the task's project is chosen."
+  - "Look at the list: Work, Android and Compose are drawn at increasing depth."
+  - 'Search for "notes".'
+  - "Clear the search."
+  - "Tap the very top edge of the Compose row."
+  - "Reopen the place where the task's project is chosen."
+  - "Choose No project."
+expected: >-
+  The list draws the hierarchy with each level indented past its parent, and a
+  tap on the Compose row assigns Compose — not its parent Android — to the task.
+  Searching "notes" offers both Notes projects with their ancestor as context
+  ("Work" and "Home") and no unrelated sibling, and clearing the query restores
+  the hierarchy. Reopening the picker marks Compose as the current choice, keeps
+  Inbox and No project as distinct system destinations (Inbox is not repeated as
+  a project row), and choosing No project clears the task's project.

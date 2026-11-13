@@ -19,6 +19,7 @@ import kotlinx.collections.immutable.persistentListOf
  * @param parentOptions Passed to [ParentPickerSheet].
  * @param tagGroups Passed to [InheritedTagGroupsSheet].
  * @param inheritedTagGroupIds Passed to [InheritedTagGroupsSheet].
+ * @param recentEmojis Passed to [IconPickerSheet]: the emoji the user picked before.
  * @param onSheetDismiss Called when any sheet is dismissed.
  */
 @Suppress("LongMethod") // Composable pattern: large when is intentional; alpha.6 changed counting model
@@ -29,6 +30,7 @@ fun ProjectDetailSheetsHost(
     parentOptions: ImmutableList<ParentOption>,
     tagGroups: ImmutableList<TagGroupOption>,
     inheritedTagGroupIds: ImmutableSet<TagGroupId>,
+    recentEmojis: ImmutableList<String>,
     onSheetDismiss: () -> Unit,
 ) {
     when (activeSheet) {
@@ -52,6 +54,7 @@ fun ProjectDetailSheetsHost(
         is ActiveSheet.PickIcon -> {
             IconPickerSheet(
                 currentIcon = currentContent?.icon,
+                recentEmojis = recentEmojis,
                 onPick = { icon ->
                     currentContent?.actions?.onUpdateIcon(icon)
                     onSheetDismiss()

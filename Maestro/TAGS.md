@@ -91,6 +91,7 @@ non-alphanumeric characters with `_`.
 | `CHECKLIST_INLINE_ADD_BUTTON` | `checklist_inline_add_button` | |
 | `CHECKLIST_INLINE_ADD_INPUT` | `checklist_inline_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
+| `CHECKLIST_SHOW_ALL` | `checklist_show_all` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
 | `LOGBOOK_EMPTY` | `logbook_empty` | |
@@ -116,6 +117,7 @@ non-alphanumeric characters with `_`.
 | `SHEET_CONFIRM` | `sheet_confirm` | |
 | `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
+| `SUBTASKS_SHOW_ALL` | `subtasks_show_all` | |
 | `SUBTASK_ADD_BUTTON` | `subtask_add_button` | |
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
 | `TASKS_FAB` | `tasks_fab` | |
@@ -131,6 +133,8 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_DETAIL_ADD_RELATED_TASK` | `task_detail_add_related_task` | |
+| `TASK_DETAIL_BAR_TITLE` | `task_detail_bar_title` | |
+| `TASK_DETAIL_COMPLETED_LABEL` | `task_detail_completed_label` | |
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_DETAIL_RELATED_TASKS_SECTION` | `task_detail_related_tasks_section` | |
 | `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
@@ -289,6 +293,7 @@ non-alphanumeric characters with `_`.
 
 | Constant | Value | Where |
 |---|---|---|
+| `PROJECT_DETAIL_CHILDREN_CHIP` | `project_detail_children_chip` | |
 | `PROJECT_DETAIL_EMPTY` | `project_detail_empty` | |
 | `PROJECT_DETAIL_OVERFLOW` | `project_detail_overflow` | |
 | `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | |
@@ -299,10 +304,13 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
+| `PROJECT_ICON_RECENT_SECTION` | `project_icon_recent_section` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 | `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |
 | `PROJECT_PICKER_NONE` | `project_picker_none` | |
+| `PROJECT_PICKER_NO_MATCHES` | `project_picker_no_matches` | |
+| `PROJECT_PICKER_SEARCH` | `project_picker_search` | |
 
 ### Settings
 
@@ -542,6 +550,8 @@ use the expanded string directly).
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |
 | `checklistItemCheckbox("Item")` | `"Item"` | `checklist_item_checkbox_item` | Checklist item checkboxes |
 | `checklistItemDelete("Item")` | `"Item"` | `checklist_item_delete_item` | Checklist item delete buttons |
+| `checklistItemMoveDown("Item")` | `"Item"` | `checklist_item_move_down_item` | Checklist item move-down halves |
+| `checklistItemMoveUp("Item")` | `"Item"` | `checklist_item_move_up_item` | Checklist item move-up halves |
 | `dependencyItem("Dep task")` | `"Dep task"` | `dependency_item_dep_task` | Rows in the dependency picker |
 | `dependencyVerb("blocks")` | `"blocks"` | `dependency_verb_blocks` | Kind-of-relation chips on one dependency row |
 | `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |
@@ -564,6 +574,7 @@ use the expanded string directly).
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
+| `projectChildRow("p-1")` | `"p-1"` | `project_child_row_p_1` | Sub-project rows in the sheet a project's screen opens |
 | `projectPickerRow("p-1")` | `"p-1"` | `project_picker_row_p_1` | Project rows in the task editor's picker |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |

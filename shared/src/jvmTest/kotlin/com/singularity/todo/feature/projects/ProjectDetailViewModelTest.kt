@@ -13,6 +13,8 @@ import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.FakePreferencesDataStore
+import com.singularity.todo.feature.projects.presentation.RecentEmojiStore
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -110,6 +112,7 @@ class ProjectDetailViewModelTest {
         projectRepo: com.singularity.todo.feature.projects.domain.port.ProjectsRepository = fakeProjectsRepo,
         fakeProjectReminders: FakeProjectRemindersRepository = this.fakeProjectReminders,
         notificationsSettings: FakeNotificationsSettingsRepository = this.fakeNotificationSettings,
+        recentEmojiStore: RecentEmojiStore = RecentEmojiStore(FakePreferencesDataStore(), scope = scope),
     ): ProjectDetailViewModel {
         val vm =
             ProjectDetailViewModel(
@@ -130,6 +133,7 @@ class ProjectDetailViewModelTest {
                 createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW), fakeCurrentUser),
                 projectReminders = fakeProjectReminders,
                 notificationsSettings = notificationsSettings,
+                recentEmojiStore = recentEmojiStore,
                 clock = FakeClock(TEST_NOW),
                 scope = AutoCloseableCoroutineScope(scope.coroutineContext),
             )

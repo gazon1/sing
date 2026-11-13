@@ -306,6 +306,12 @@ object TestTags {
      */
     const val TASK_DETAIL_SAVED_INDICATOR = "task_detail_saved_indicator"
 
+    /** The line under the hero that says when a completed task was completed. */
+    const val TASK_DETAIL_COMPLETED_LABEL = "task_detail_completed_label"
+
+    /** The bar's copy of the task title, shown once the hero has scrolled away. */
+    const val TASK_DETAIL_BAR_TITLE = "task_detail_bar_title"
+
     /** Confirm (✓) button in task-editor sheet hosts (recurrence picker, etc.). */
     const val SHEET_CONFIRM = "sheet_confirm"
 
@@ -607,6 +613,26 @@ object TestTags {
     /** Add/submit button of the inline add-row in the checklist section. */
     const val CHECKLIST_INLINE_ADD_BUTTON = "checklist_inline_add_button"
 
+    /** Expands a long checklist to show every item. */
+    const val CHECKLIST_SHOW_ALL = "checklist_show_all"
+
+    /**
+     * Dynamic tags of the reorder halves of a checklist row — move one step up
+     * and one step down, in the row's own namespace.
+     */
+    @Suppress("UnusedParameter")
+    fun checklistItemMoveUp(
+        id: String,
+        title: String,
+    ) = "checklist_item_move_up_${slug(title)}"
+
+    /** @see checklistItemMoveUp */
+    @Suppress("UnusedParameter")
+    fun checklistItemMoveDown(
+        id: String,
+        title: String,
+    ) = "checklist_item_move_down_${slug(title)}"
+
     /**
      * Dynamic tag of the form `checklist_item_<slug>` — one per checklist item row.
      * Derived from the item's id and title, slugified the same way as [taskItem].
@@ -650,6 +676,9 @@ object TestTags {
 
     /** Add/submit button for the subtask input row. */
     const val SUBTASK_ADD_BUTTON = "subtask_add_button"
+
+    /** Expands a long subtasks list to show every item. */
+    const val SUBTASKS_SHOW_ALL = "subtasks_show_all"
 
     /**
      * Dynamic tag of the form `subtask_item_<slug>` — one per subtask row.
@@ -1005,6 +1034,12 @@ object TestTags {
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
 
+    /** "No projects match …" empty text in the project picker sheet while searching. */
+    const val PROJECT_PICKER_NO_MATCHES = "project_picker_no_matches"
+
+    /** The name filter in the task editor's project picker sheet. */
+    const val PROJECT_PICKER_SEARCH = "project_picker_search"
+
     /** The picker's "No project" row. */
     const val PROJECT_PICKER_NONE = "project_picker_none"
 
@@ -1033,6 +1068,15 @@ object TestTags {
      */
     const val PROJECT_PICKER_DISMISS = "project_picker_dismiss"
 
+    /**
+     * The "Recent" heading of the project icon picker.
+     *
+     * The section only exists while there is a history, so the tag is also how
+     * a test says "no history, no section" — the absence of the node is the
+     * assertion, and an empty heading would be the defect.
+     */
+    const val PROJECT_ICON_RECENT_SECTION = "project_icon_recent_section"
+
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
 
@@ -1050,6 +1094,23 @@ object TestTags {
 
     /** Dynamic tag of the form `project_card_<slug>`. */
     fun projectCard(name: String) = "project_card_${slug(name)}"
+
+    /**
+     * The chip on the project detail screen that says how many sub-projects the
+     * project has.
+     *
+     * On Android the menu lists the root projects only, so this chip is the way
+     * into a nested project (ADR `2026-11-12-android-menu-roots-only.md`).
+     */
+    const val PROJECT_DETAIL_CHILDREN_CHIP = "project_detail_children_chip"
+
+    /**
+     * A sub-project row in the sheet that lists a project's children.
+     *
+     * By the project's id, not by its name: two children may share a name, and a
+     * renamed child must stay reachable by the tag it was first given.
+     */
+    fun projectChildRow(projectId: String) = "project_child_row_${slug(projectId)}"
 
     /** "Tasks" section header on the project detail screen. */
     const val PROJECT_DETAIL_TASKS_HEADER = "project_detail_tasks_header"

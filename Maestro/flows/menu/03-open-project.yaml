@@ -1,8 +1,8 @@
-# The menu: tapping a project in the tree opens that project's own screen.
+# The menu: tapping a project opens that project's own screen.
 #
-# The tree is a way into the project, not a summary of it.
+# The menu's Projects section is a way into the project, not a summary of it.
 #
-# The seed is given the project's id, so the node in the tree is addressed by
+# The seed is given the project's id, so the row in the menu is addressed by
 # that id rather than by the name the user reads — a name is copy, and an id is
 # not.
 appId: com.singularity.todo
@@ -17,9 +17,9 @@ tags:
     env:
       QUERY: "project=Roadmap&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
-# The section is folded by default, so the tree is unfolded before it is used.
+# The section is folded by default, so the projects are unfolded before they are used.
 - runFlow: ../../helpers/expand-projects-section.yaml
-# The tree sits at the end of the menu, below the fold.
+# The projects sit at the end of the menu, below the fold.
 - scrollUntilVisible:
     element:
       id: menu_project_node_roadmap

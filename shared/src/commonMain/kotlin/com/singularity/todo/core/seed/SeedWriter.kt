@@ -253,12 +253,36 @@ class SeedWriter(
      * owns the row with that name; an existing project with that name is updated
      * — name, colour, description and timestamps become what the seed says — and
      * the other projects with that name leave the live set.
+     *
+     * A seed that names a [ProjectSeed.parentId] puts the project below that
+     * parent; a seed that does not leaves the parent the row already has.
+     *
+     * A parent that is not there is a broken fixture, and a broken fixture
+     * that hangs below nothing becomes a root — the one row the Android menu
+     * must not show. So the seed fails instead: nothing is written, the
+     * hierarchy stays as it was, and the caller is told at once.
+     *
+     * @throws IllegalArgumentException when the named parent is not there, is
+     *   the project itself, or is one of its descendants — a cycle would make
+     *   the hierarchy unreadable.
      */
     suspend fun writeProject(spec: ProjectSeed): SeedResult<ProjectId> {
         val live = projects.observeAll().first().filter { !it.isDeleted }
         val byId = spec.id?.let { id -> live.firstOrNull { it.id == id } }
         val byName = live.filter { it.name == spec.name }
         val keeper = byId ?: byName.firstOrNull()
+        // A named parent that is there wins; a seed that names none keeps the
+        // parent the row already has.
+        // The project answers to two ids while the seed runs: the id the seed
+        // names, and the id the row already has. A name-matched row is
+        // rewritten to the seeded id, and the children still point at the old
+        // one — so both ids are the project, and a cycle through either of
+        // them is a cycle.
+        val ownIds = setOfNotNull(spec.id, keeper?.id)
+        val parentId =
+            spec.parentId?.let { parent ->
+                resolveParent(parent, ownIds = ownIds, name = spec.name, live = live)
+            } ?: keeper?.parentId
         if (keeper == null) {
             val created =
                 projects
@@ -271,6 +295,7 @@ class SeedWriter(
                             createdAt = spec.stamp,
                             updatedAt = spec.stamp,
                             userId = currentUser.current,
+                            parentId = parentId,
                         ),
                     ).getOrThrow()
             return SeedResult(id = created.id, outcome = SeedOutcome.Created)
@@ -286,6 +311,9 @@ class SeedWriter(
                         description = spec.description,
                         createdAt = spec.stamp,
                         updatedAt = spec.stamp,
+                        // A seed that names a parent moves the project under it;
+                        // a seed that does not leaves the parent alone.
+                        parentId = parentId,
                     ),
                 ).getOrThrow()
         // A seed that named only a name owns the *name*: the other rows carrying
@@ -295,6 +323,45 @@ class SeedWriter(
             byName.filter { it.id != updated.id }.forEach { projects.delete(it.id).getOrThrow() }
         }
         return SeedResult(id = updated.id, outcome = SeedOutcome.Updated)
+    }
+
+    /**
+     * The parent a seed named, or a failure.
+     *
+     * The parent has to be there: a project that hangs below nothing is a root,
+     * and a root is the one row the Android menu lists — a fixture that failed
+     * this way would put the wrong row in the menu, and the flow would assert on
+     * a project it never seeded.
+     *
+     * The parent must not be the project itself, and must not be one of its
+     * descendants: the hierarchy is walked by parent, so a cycle makes it
+     * unreadable. The app's own parent picker offers root projects only, so a
+     * cycle can only come from a seed — which is why the seed is where it is
+     * refused.
+     *
+     * The project is known under two ids while the seed runs — the id the seed
+     * names and the id the row already has — and both count as the project: a
+     * cycle through either one is a cycle, and a row that is rewritten to the
+     * seeded id leaves its children pointing at the old one.
+     */
+    private fun resolveParent(
+        parent: ProjectId,
+        ownIds: Set<ProjectId>,
+        name: String,
+        live: List<Project>,
+    ): ProjectId {
+        require(parent !in ownIds) { "'$name' cannot be its own parent" }
+        val named = live.firstOrNull { it.id == parent }
+        require(named != null) { "no project with id '${parent.value}' to hang '$name' below" }
+        var ancestor = named.parentId
+        var guard = 0
+        while (ancestor != null && guard++ <= live.size) {
+            require(ancestor !in ownIds) {
+                "hanging '$name' below '${named.name}' would make a cycle"
+            }
+            ancestor = live.firstOrNull { it.id == ancestor }?.parentId
+        }
+        return parent
     }
 
     /**
@@ -424,6 +491,11 @@ data class NoteSeed(val title: String)
  *   id is generated otherwise, and a generated id is one a flow cannot write
  *   down — so a flow that has to tap a project in the tree asks for one by
  *   name.
+ * @param parentId The id of the project this one hangs below, when the flow
+ *   needs a nested fixture. The parent is named by id because the child is
+ *   seeded by a link that cannot know a generated id. A parent that is not
+ *   there fails the seed: the project is not written at all, because a project
+ *   that hangs below nothing is a root — the one row the Android menu lists.
  */
 data class ProjectSeed(
     val name: String,
@@ -431,6 +503,7 @@ data class ProjectSeed(
     val description: String? = null,
     val stamp: Instant,
     val id: ProjectId? = null,
+    val parentId: ProjectId? = null,
 )
 
 /**

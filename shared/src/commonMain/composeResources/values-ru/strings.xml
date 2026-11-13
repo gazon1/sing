@@ -17,6 +17,7 @@
     <string name="add_estimate">Добавить оценку</string>
     <string name="reset_estimate">Сбросить оценку</string>
     <string name="task_completed">Задача выполнена</string>
+    <string name="completed_on">Выполнено %1$s</string>
     <string name="mark_task_complete">Отметить как выполненную</string>
     <string name="delete_task">Удалить задачу</string>
     <string name="task_checked">Выполнено</string>

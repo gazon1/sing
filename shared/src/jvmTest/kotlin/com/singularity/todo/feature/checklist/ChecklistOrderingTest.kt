@@ -128,4 +128,39 @@ class ChecklistOrderingTest {
                 repo.watchByTask(taskId).first().map { it.title },
             )
         }
+
+    /**
+     * A reorder is a renumber, and the numbers are what the DAO sorts by.
+     *
+     * Asserted on the read, because the order the user sees is the read: a write
+     * that claimed the order but left the numbers alone would pass a write-side
+     * assertion and fail here.
+     */
+    @Test
+    fun `reorder rewrites the order the DAO reads back`() =
+        runTest {
+            val repo = repo()
+            val taskId = "t-order"
+            repo
+                .createBatch(
+                    taskId,
+                    listOf(
+                        ChecklistItem(ChecklistItemId.generate(), taskId, "a", false, 0),
+                        ChecklistItem(ChecklistItemId.generate(), taskId, "b", false, 1),
+                        ChecklistItem(ChecklistItemId.generate(), taskId, "c", false, 2),
+                    ),
+                ).getOrThrow()
+            val order = repo.watchByTask(taskId).first().associateBy { it.title }
+
+            repo
+                .reorder(
+                    taskId,
+                    listOf(order.getValue("c").id, order.getValue("a").id, order.getValue("b").id),
+                ).getOrThrow()
+
+            assertEquals(
+                listOf("c", "a", "b"),
+                repo.watchByTask(taskId).first().map { it.title },
+            )
+        }
 }

@@ -643,7 +643,7 @@ Steps:
 
 ### feature.menu
 
-#### `MENU-01` — The menu shows projects as an expandable tree with children indented
+#### `MENU-01` — The Desktop menu shows the projects as an expandable tree with children indented
 
 **confirmed** · P1 · `#MENU`
 
@@ -657,7 +657,7 @@ Steps:
 
 **Expected:** A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a child of A rather than as another project beside it. C shows no expander control, because C has nothing to expand.
 
-#### `MENU-02` — Tapping a project in the tree opens the project detail screen
+#### `MENU-02` — Tapping a project in the menu opens the project detail screen
 
 **confirmed** · P1 · `#MENU`
 
@@ -666,11 +666,11 @@ Steps:
 Steps:
 
 1. Open the app menu.
-2. Tap the project in the Projects tree.
+2. Tap the project in the Projects section.
 
 **Expected:** The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the project screen is not covered by it.
 
-#### `MENU-03` — The project tree reflects creations and renames made elsewhere
+#### `MENU-03` — The menu's project list reflects creations and renames made elsewhere
 
 **confirmed** · P1 · `#MENU`
 
@@ -682,7 +682,7 @@ Steps:
 2. Rename the project elsewhere and create a second project elsewhere.
 3. Open the menu again.
 
-**Expected:** The tree shows the new name and shows the newly created project, and neither change needed the app to be restarted. On Desktop the tree is watched while the change happens, because the drawer and the app share one window; on Android the menu is a modal sheet, so the change made elsewhere closes it and the tree is read through the next opening.
+**Expected:** The menu's Projects section shows the new name and shows the newly created project, and neither change needed the app to be restarted. On Desktop the section is watched while the change happens, because the drawer and the app share one window; on Android the menu is a modal sheet, so the change made elsewhere closes it and the section is read through the next opening.
 
 #### `MENU-04` — The Calendar is an entry of the menu on Android and Desktop
 
@@ -698,7 +698,7 @@ Steps:
 
 **Expected:** Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in, and the calendar can be left with the usual back action.
 
-#### `MENU-05` — A project without children shows no expander, and a closed project is absent from the tree
+#### `MENU-05` — A project without children shows no expander, and a closed project is absent from the menu's Projects section
 
 **confirmed** · P2 · `#MENU`
 
@@ -708,7 +708,7 @@ Steps:
 
 1. Open the app menu and look at the Projects section.
 
-**Expected:** The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The closed project is not in the tree at all.
+**Expected:** The childless project shows no expander control, so nothing in the menu invites an expansion that cannot happen. The closed project is not in the Projects section at all.
 
 #### `MENU-06` — The full project list stays reachable from the Projects section of the menu
 
@@ -721,7 +721,7 @@ Steps:
 1. Open the app menu and look at the Projects section.
 2. Open the entry that leads to the full list.
 
-**Expected:** The full project list opens with its search and its sorting, so the tree is not the only way to work with projects.
+**Expected:** The full project list opens with its search and its sorting, so the menu's Projects section is not the only way to work with projects.
 
 #### `MENU-07` — The Projects section of the menu starts folded, so the menu's destinations stay reachable
 
@@ -735,7 +735,25 @@ Steps:
 2. Look at the Projects section.
 3. Unfold the section.
 
-**Expected:** The tree is not drawn, so the entries above it — the destinations and Settings — are reachable without scrolling through a hundred project rows. Unfolding the section draws the tree, and folding it again takes the tree off the screen.
+**Expected:** The projects are not drawn, so the entries above them — the destinations and Settings — are reachable without scrolling through a hundred project rows. Unfolding the section draws the projects, and folding it again takes them off the screen.
+
+#### `MENU-08` — The Android menu lists the root projects, and a nested project is reached through its parent's screen
+
+**confirmed** · P1 · `#MENU`
+
+**Given:** A root project A has a child project B, and B has a child project D.
+
+Steps:
+
+1. Open the app menu and look at the Projects section.
+2. Tap project A.
+3. On A's screen, open the entry that lists A's sub-projects.
+4. Tap project B there.
+5. On B's screen, open the entry that lists B's sub-projects.
+6. Tap project D there.
+7. Go back three times.
+
+**Expected:** The Projects section lists the root project A and no child: neither B nor D is in the menu. A's own screen offers an entry into its sub-projects, and that entry opens a list holding B; B's screen offers the same about D. Tapping B opens B's screen and tapping D opens D's, and each back returns to the screen before it, so the way down into the hierarchy is also the way back out of it.
 
 #### `MENU-10` — The menu offers Attach account to an anonymous session
 
@@ -766,7 +784,7 @@ Steps:
 
 **Expected:** There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly one entry.
 
-#### `NAV-02` — Android and Desktop expose the same menu entries and the same project tree
+#### `NAV-02` — Android and Desktop expose the same menu entries and the same root projects
 
 **confirmed** · P2 · `#NAV`
 
@@ -776,9 +794,9 @@ Steps:
 
 1. Open the menu on Android and open the drawer on Desktop.
 2. Compare the entries of the two.
-3. Compare the project trees of the two.
+3. Compare the root projects of the two.
 
-**Expected:** Both surfaces offer the same entries — including Calendar and the Projects tree — and the same projects in the same order.
+**Expected:** Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the same order. The Desktop drawer unfolds a project's children in place; the Android sheet lists the roots only, and a child is reached from its parent's own screen.
 
 ### feature.negative
 
@@ -1872,6 +1890,24 @@ Steps:
 3. Look at the task with four markings.
 
 **Expected:** The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows the follow-up marking and not the blocked one; the task with four markings shows three and a count of the one it hides — a task can be more than one thing at once, and the row says so.
+
+#### `TASK-PICKER-01` — A task's project is chosen from the hierarchy, and search keeps the path
+
+**confirmed** · P1 · `#TASK-PICKER`
+
+**Given:** A task exists and its detail view is open. The user has a root project Work with a child Android and a grandchild Compose; a root project Home with a child named Notes, and Work also has a child named Notes; and a default project Inbox.
+
+Steps:
+
+1. Open the place where the task's project is chosen.
+2. Look at the list: Work, Android and Compose are drawn at increasing depth.
+3. Search for "notes".
+4. Clear the search.
+5. Tap the very top edge of the Compose row.
+6. Reopen the place where the task's project is chosen.
+7. Choose No project.
+
+**Expected:** The list draws the hierarchy with each level indented past its parent, and a tap on the Compose row assigns Compose — not its parent Android — to the task. Searching "notes" offers both Notes projects with their ancestor as context ("Work" and "Home") and no unrelated sibling, and clearing the query restores the hierarchy. Reopening the picker marks Compose as the current choice, keeps Inbox and No project as distinct system destinations (Inbox is not repeated as a project row), and choosing No project clears the task's project.
 
 #### `TASK-REC-01` — Create a daily recurring task
 
