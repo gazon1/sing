@@ -18,10 +18,16 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -34,7 +40,9 @@ import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.ChecklistMove
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
+import com.singularity.todo.feature.checklist.components.ChecklistRowReorder
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
@@ -85,10 +93,13 @@ fun TaskDetailChecklistSection(
     onToggle: (ChecklistItem) -> Unit,
     onDelete: (ChecklistItemId) -> Unit,
     onAddItem: (String) -> Unit,
+    onMove: ((ChecklistItemId, ChecklistMove) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val newTitleState = rememberTextFieldState()
     val completed = checklist.count { it.isCompleted }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val visibleItems = if (!expanded && checklist.size > 5) checklist.take(5) else checklist
 
     // The section always renders, empty list or not: the add-row inside it is the
     // only way to add the first checklist item from the task screen, so a section
@@ -106,9 +117,51 @@ fun TaskDetailChecklistSection(
                         text = "No checklist items yet. Add the first one below.",
                         modifier = Modifier.testTag(TestTags.CHECKLIST_EMPTY_HINT),
                     )
+                } else {
+                    LinearProgressIndicator(
+                        progress = { if (checklist.isEmpty()) 0f else completed.toFloat() / checklist.size },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                // The add row — always present, so the first item can be added
-                // without leaving the screen.
+
+                visibleItems.forEach { item ->
+                    val index = checklist.indexOf(item)
+                    ChecklistItemRow(
+                        text = item.title,
+                        checked = item.isCompleted,
+                        onToggle = { onToggle(item) },
+                        onDelete = { onDelete(item.id) },
+                        // Reordering is a checklist-only affordance: a subtask's
+                        // order has no persisted field to restore it from, so the
+                        // subtasks section passes no onMove and shows no controls.
+                        reorder =
+                            onMove?.takeIf { checklist.size > 1 }?.let { move ->
+                                ChecklistRowReorder(
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index in 0 until checklist.lastIndex,
+                                    moveUpTag = TestTags.checklistItemMoveUp(id = item.id.value, title = item.title),
+                                    moveDownTag =
+                                        TestTags.checklistItemMoveDown(
+                                            id = item.id.value,
+                                            title = item.title,
+                                        ),
+                                    onMove = { direction -> move(item.id, direction) },
+                                )
+                            },
+                        tags = ChecklistRowTags.forChecklistItem(id = item.id.value, title = item.title),
+                    )
+                }
+
+                if (!expanded && checklist.size > 5) {
+                    TextButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.testTag(TestTags.CHECKLIST_SHOW_ALL),
+                    ) {
+                        Text("Показать все ${checklist.size}")
+                    }
+                }
+
+                // The add row — after existing items so new content stays in reading order.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -118,7 +171,7 @@ fun TaskDetailChecklistSection(
                         modifier =
                             Modifier
                                 .weight(1f)
-                                .bringIntoViewOnFocus()
+                                .bringIntoViewOnFocus(revision = checklist.size)
                                 .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
                         placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
@@ -150,18 +203,6 @@ fun TaskDetailChecklistSection(
                             contentDescription = "Add item",
                         )
                     }
-                }
-                // No cap: a task with fourteen checklist items shows fourteen of
-                // them. The list used to show ten and say "+4 more", which is a
-                // truncation the user cannot act on from the screen they are on.
-                checklist.forEach { item ->
-                    ChecklistItemRow(
-                        text = item.title,
-                        checked = item.isCompleted,
-                        onToggle = { onToggle(item) },
-                        onDelete = { onDelete(item.id) },
-                        tags = ChecklistRowTags.forChecklistItem(id = item.id.value, title = item.title),
-                    )
                 }
             }
         },

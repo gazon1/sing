@@ -816,6 +816,11 @@ fun TaskDetailContent(
                                                     TaskDetailIntent.Domain.AddChecklistItem(it),
                                                 )
                                             },
+                                            onMove = { id, direction ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.MoveChecklistItem(id, direction),
+                                                )
+                                            },
                                         )
                                         SubtasksSection(
                                             subtasks = ui.subtasks,

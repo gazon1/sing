@@ -383,6 +383,16 @@ data class CreateTaskInput(
     val kind: TaskKind = TaskKind.Task,
     val projectId: ProjectId? = null,
     val parentTaskId: TaskId? = null,
+    /**
+     * The tasks the new task follows up on.
+     *
+     * The relation is written with the row in one transaction, so a create that
+     * reports success carries the link the caller asked for. It is
+     * [Task.followsUp] and not [Task.blockedBy]: a subtask follows up on its
+     * parent without waiting for it — a blocking edge would make the subtask
+     * uncompletable until the parent is closed.
+     */
+    val followsUp: Set<TaskId> = emptySet(),
     val tagIds: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: kotlinx.datetime.LocalTime? = null,

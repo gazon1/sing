@@ -2753,6 +2753,20 @@ private class FakeChecklistDao(
         return before
     }
 
+    override suspend fun updateSortOrderForUser(
+        itemId: String,
+        taskId: String,
+        sortOrder: Int,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
+        val existing = store.value[itemId] ?: return 0
+        if (existing.taskId != taskId) return 0
+        if (tasksStore.value[taskId]?.userId != userId) return 0
+        store.update { it + (itemId to existing.copy(sortOrder = sortOrder, updatedAt = updatedAt)) }
+        return 1
+    }
+
     override suspend fun updateCompletionStatus(
         itemId: String,
         isCompleted: Boolean,

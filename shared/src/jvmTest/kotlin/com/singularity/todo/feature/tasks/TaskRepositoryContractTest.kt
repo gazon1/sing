@@ -159,6 +159,37 @@ abstract class TaskRepositoryContractTest {
         }
 
     /**
+     * The follow-up edges a task was created with are written with the row.
+     *
+     * One transaction is the point: a create that reports success has the link
+     * the caller asked for, and there is no window in which the task exists
+     * without it. The read goes through `observeByFilter`, which loads the
+     * edges the way the detail screen does — `get()` deliberately does not.
+     *
+     * The relation is `FOLLOWS_UP` and not `BLOCKS` for the caller that names a
+     * parent: a blocking edge would refuse to close the child until the parent
+     * is closed.
+     */
+    @Test
+    fun `create persists the follow-up edges the task was created with`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("parent")).getOrThrow()
+            repo
+                .create(task("child").copy(followsUp = setOf(TaskId("parent"))))
+                .getOrThrow()
+            advanceUntilIdle()
+
+            val child =
+                repo
+                    .observeByFilter(TaskFilter.All)
+                    .first()
+                    .single { it.id.value == "child" }
+            assertEquals(setOf(TaskId("parent")), child.followsUp)
+            assertTrue(child.blockedBy.isEmpty(), "a follow-up link must not become a blocker")
+        }
+
+    /**
      * A write keeps the timestamps the caller gave it.
      *
      * The seed defines a fixture's timestamps: a task stamped in the past is what

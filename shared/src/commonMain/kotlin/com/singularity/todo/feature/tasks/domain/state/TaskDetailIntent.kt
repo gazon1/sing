@@ -6,6 +6,7 @@ import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.ChecklistMove
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -180,6 +181,17 @@ sealed interface TaskDetailIntent : MviIntent {
             TaskChildrenIntent
 
         data class AddChecklistItem(val title: String) :
+            Domain,
+            TaskChildrenIntent
+
+        /**
+         * Moves a checklist item one step, as the row's reorder buttons ask.
+         *
+         * The slot renumbers the whole list rather than swapping a pair: the
+         * order *is* the numbers the rows carry, and a pair swap would leave two
+         * rows claiming one position.
+         */
+        data class MoveChecklistItem(val itemId: ChecklistItemId, val direction: ChecklistMove) :
             Domain,
             TaskChildrenIntent
 

@@ -22,14 +22,19 @@ import androidx.compose.ui.platform.LocalDensity
  * animates in after focus, so the field can be visible at the moment of focus
  * and end up hidden once the viewport shrinks. Re-requesting while focused and
  * the IME inset changes brings the field back above the keyboard.
+ *
+ * [revision] is for a field that sits *under* a list which grows: an add-row
+ * placed after its items moves down with every add, and on a phone the keyboard
+ * covers the row long before the list is full. Changing the revision while the
+ * field is focused re-requests the scroll, so the row stays in sight.
  */
-fun Modifier.bringIntoViewOnFocus(): Modifier =
+fun Modifier.bringIntoViewOnFocus(revision: Any? = null): Modifier =
     composed {
         val requester = remember { BringIntoViewRequester() }
         var isFocused by remember { mutableStateOf(false) }
         val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
 
-        LaunchedEffect(isFocused, imeBottom) {
+        LaunchedEffect(isFocused, imeBottom, revision) {
             if (isFocused) {
                 requester.bringIntoView()
             }
