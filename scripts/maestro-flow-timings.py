@@ -54,12 +54,13 @@ DEFAULT_RESULTS = ROOT / "build" / "maestro-results"
 _FLOOR_LINE = re.compile(r"^(?P<flow>\S+)\s+(?P<seconds>\d+(?:\.\d+)?)\s*$")
 
 
-def _floors() -> dict[str, float]:
+def _floors(path: pathlib.Path | None = None) -> dict[str, float]:
     """The recorded floor per flow, from the file."""
     recorded: dict[str, float] = {}
-    if not FLOOR_FILE.is_file():
+    source = path or FLOOR_FILE
+    if not source.is_file():
         return recorded
-    for line in FLOOR_FILE.read_text(encoding="utf-8").splitlines():
+    for line in source.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
@@ -122,7 +123,7 @@ def _relative(flow: str) -> str:
     return text.lstrip("./")
 
 
-def _write(floors: dict[str, float]) -> None:
+def _write(floors: dict[str, float], path: pathlib.Path | None = None) -> None:
     """Write the floor file, keeping the header and the order stable."""
     header = [
         "# The shortest time each Maestro flow has ever been measured at.",
@@ -144,8 +145,9 @@ def _write(floors: dict[str, float]) -> None:
         "",
     ]
     body = [f"{flow} {seconds:g}" for flow, seconds in sorted(floors.items())]
-    FLOOR_FILE.parent.mkdir(parents=True, exist_ok=True)
-    FLOOR_FILE.write_text("\n".join(header + body) + "\n", encoding="utf-8")
+    target = path or FLOOR_FILE
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("\n".join(header + body) + "\n", encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -158,10 +160,16 @@ def main(argv: list[str] | None = None) -> int:
         default=str(DEFAULT_RESULTS),
         help="the directory with a Maestro run's JUnit reports",
     )
+    parser.add_argument(
+        "--floor",
+        default=str(FLOOR_FILE),
+        help="the file the recorded floors are read from and written to",
+    )
     args = parser.parse_args(argv)
 
+    floor = pathlib.Path(args.floor)
     measured = _measured(pathlib.Path(args.results))
-    floors = _floors()
+    floors = _floors(floor)
 
     if args.record:
         if not measured:
@@ -185,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
             previous = floors.get(flow)
             if previous is None or elapsed < previous:
                 floors[flow] = elapsed
-        _write(floors)
+        _write(floors, floor)
         print(f"recorded {len(measured)} flow(s); the floor holds {len(floors)}")
         return 0
 
