@@ -28,6 +28,11 @@ one, and a check that read it would prove something about the wrong
 revision. The identifiers of the deployments that existed before the
 publish are therefore captured first, and the deployment of this
 publication is the one whose identifier the capture does not name.
+
+The capture is only worth taking when it read the deployments. A read that
+fails is a failure and not an empty list: a list that holds no deployment
+says that there are none, and a capture taken from it would name nothing —
+which would make every deployment a candidate again.
 """
 
 from __future__ import annotations
@@ -81,16 +86,20 @@ DEFAULT_DELAY = 5.0
 
 
 def fetch_deployments(repo: str, runner: Runner) -> list[dict[str, Any]]:
-    """The Pages deployments of the repository, newest first."""
-    try:
-        data = json_document(
-            runner,
-            [f"repos/{repo}/deployments?environment=github-pages&per_page={DEPLOYMENTS_PAGE}"],
-        )
-    except NotFound:
-        return []
+    """The Pages deployments of the repository, newest first.
+
+    A read that fails is a failure and not an answer: an empty list says
+    that there are no deployments, and the snapshot that follows must not be
+    written from a failed read — a snapshot that names nothing makes every
+    deployment a candidate, and that is the race the snapshot was taken to
+    end.
+    """
+    data = json_document(
+        runner,
+        [f"repos/{repo}/deployments?environment=github-pages&per_page={DEPLOYMENTS_PAGE}"],
+    )
     if not isinstance(data, list):
-        return []
+        raise LinkError("the deployments endpoint did not answer with a list")
     return [item for item in data if isinstance(item, dict)]
 
 

@@ -94,6 +94,15 @@ class SnapshotTest(unittest.TestCase):
         ]
         self.assertEqual(ad.deployment_ids(deployments), {"11", "12"})
 
+    def test_a_read_that_does_not_answer_is_not_an_empty_list(self):
+        """A failed read must not look like a repository without deployments."""
+
+        def gh(args):
+            raise ad.NotFound("gh: Not Found (HTTP 404)")
+
+        with self.assertRaises(ad.NotFound):
+            ad.fetch_deployments("gazon1/sing", gh)
+
 
 class NewestDeploymentTest(unittest.TestCase):
     """Which deployment belongs to the publication that is verified."""
@@ -413,6 +422,46 @@ class CliTest(unittest.TestCase):
 
     def test_a_missing_capture_file_is_not_a_failure(self):
         self.assertIsNone(ad._expected_cname("/nonexistent/cname.expected"))
+
+    def test_the_snapshot_command_refuses_a_read_that_failed(self):
+        """A snapshot that names nothing is worse than no snapshot at all."""
+
+        def gh(args):
+            raise ad.LinkError("gh: API rate limit exceeded (HTTP 403)")
+
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as folder:
+            output = pathlib.Path(folder) / "deployments.before.json"
+            with mock.patch.object(ad, "gh_api", gh), contextlib.redirect_stdout(out):
+                code = ad.main(
+                    [
+                        "snapshot-deployments",
+                        "--repo",
+                        "gazon1/sing",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            self.assertEqual(code, 1)
+            self.assertEqual(json.loads(out.getvalue())["status"], "api-error")
+            self.assertFalse(output.exists())
+
+    def test_the_snapshot_command_records_a_repository_without_deployments(self):
+        gh = FakeGh({"deployments": []})
+        with tempfile.TemporaryDirectory() as folder:
+            output = pathlib.Path(folder) / "deployments.before.json"
+            with mock.patch.object(ad, "gh_api", gh), contextlib.redirect_stdout(io.StringIO()):
+                code = ad.main(
+                    [
+                        "snapshot-deployments",
+                        "--repo",
+                        "gazon1/sing",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), [])
 
 
 if __name__ == "__main__":

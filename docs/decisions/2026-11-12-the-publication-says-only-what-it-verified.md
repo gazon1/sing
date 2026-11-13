@@ -73,7 +73,9 @@ publication may have finished in the very second this one started, and a
 deployment "created since the deploy started" may be the previous one. A
 snapshot that cannot be read is a snapshot that names nothing, and a snapshot
 that names nothing would make every deployment a candidate — the check refuses
-to run without one.
+to run without one. A read of the deployments that fails is a failure and not
+an empty list: a list that holds no deployment says that there are none, and a
+snapshot taken from it would name nothing.
 
 **The failures are told apart.** `stale` — the branch is not the revision that was
 deployed, and the CNAME of that revision proves nothing. `missing` — the CNAME was
