@@ -29,8 +29,10 @@ import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitText
+import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.clickTagFirst
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.typeIntoTag
 import com.singularity.todo.test.helpers.unclippedBoundsOfText
 import org.junit.jupiter.api.Tag
 import org.koin.compose.KoinIsolatedContext
@@ -363,6 +365,126 @@ class ProjectPickerSemanticsTest {
             clickTagFirst(TestTags.projectPickerRow(last.id.value))
 
             assertEquals(listOf<ProjectId?>(last.id), selections)
+        }
+
+    @Test
+    fun `search finds nested projects and shows ancestor path context`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val work = project(id = "p-work", name = "Work")
+            val android = project(id = "p-android", name = "Android", parentId = work.id)
+            val ui = project(id = "p-ui", name = "UI", parentId = android.id)
+            val ios = project(id = "p-ios", name = "iOS", parentId = work.id)
+            setContent { picker(repo(work, android, ui, ios), selectedId = null, onSelect = {}) }
+
+            awaitTag(TestTags.PROJECT_PICKER_SEARCH)
+            typeIntoTag(TestTags.PROJECT_PICKER_SEARCH, "ui")
+
+            awaitTag(TestTags.projectPickerRow(ui.id.value))
+            assertTextDisplayed("Work → Android")
+            assertTagNotExists(TestTags.projectPickerRow(work.id.value))
+            assertTagNotExists(TestTags.projectPickerRow(android.id.value))
+            assertTagNotExists(TestTags.projectPickerRow(ios.id.value))
+        }
+
+    @Test
+    fun `search distinguishes same-name projects under different parents`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val work = project(id = "p-work", name = "Work")
+            val home = project(id = "p-home", name = "Home")
+            val workUi = project(id = "p-work-ui", name = "UI", parentId = work.id)
+            val homeUi = project(id = "p-home-ui", name = "UI", parentId = home.id)
+            setContent { picker(repo(work, home, workUi, homeUi), selectedId = null, onSelect = {}) }
+
+            typeIntoTag(TestTags.PROJECT_PICKER_SEARCH, "ui")
+
+            awaitTag(TestTags.projectPickerRow(workUi.id.value))
+            awaitTag(TestTags.projectPickerRow(homeUi.id.value))
+            assertTextDisplayed("Work")
+            assertTextDisplayed("Home")
+        }
+
+    @Test
+    fun `search shows a no-match state and keeps system destinations selectable`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val repo = repo(ALPHA)
+            val selections = mutableListOf<ProjectId?>()
+            setContent { picker(repo, selectedId = null, onSelect = { selections += it }) }
+
+            typeIntoTag(TestTags.PROJECT_PICKER_SEARCH, "zzznomatch")
+
+            awaitTag(TestTags.PROJECT_PICKER_NO_MATCHES)
+            assertTextDisplayed("No projects match \"zzznomatch\"")
+            assertTagNotExists(TestTags.projectPickerRow(ALPHA.id.value))
+            awaitTag(TestTags.PROJECT_PICKER_NONE).assertIsSelected()
+
+            clickTagFirst(TestTags.PROJECT_PICKER_NONE)
+            assertEquals(listOf<ProjectId?>(null), selections)
+        }
+
+    @Test
+    fun `clearing the search restores the normal hierarchy`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val root = project(id = "p-root", name = "Root", sortOrder = 0)
+            val child = project(id = "p-child", name = "Child", parentId = root.id, sortOrder = 0)
+            setContent { picker(repo(root, child), selectedId = null, onSelect = {}) }
+
+            typeIntoTag(TestTags.PROJECT_PICKER_SEARCH, "child")
+            awaitTag(TestTags.projectPickerRow(child.id.value))
+            assertTagNotExists(TestTags.projectPickerRow(root.id.value))
+            assertTextDisplayed("Root")
+
+            clearTag(TestTags.PROJECT_PICKER_SEARCH)
+
+            awaitTag(TestTags.projectPickerRow(root.id.value))
+            awaitTag(TestTags.projectPickerRow(child.id.value))
+            val rootX = unclippedBoundsOfText("Root").left
+            val childX = unclippedBoundsOfText("Child").left
+            assertTrue(childX > rootX, "clearing search restores indented hierarchy")
+            assertTagNotExists(TestTags.PROJECT_PICKER_NO_MATCHES)
+        }
+
+    @Test
+    fun `search does not change selection and clearing restores the selected hierarchy row`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val root = project(id = "p-root", name = "Root", sortOrder = 0)
+            val selected = project(id = "p-selected", name = "Selected", parentId = root.id, sortOrder = 0)
+            val other = project(id = "p-other", name = "Other", sortOrder = 1)
+            val selections = mutableListOf<ProjectId?>()
+            setContent {
+                picker(
+                    repo(root, selected, other),
+                    selectedId = selected.id,
+                    onSelect = { selections += it },
+                )
+            }
+
+            awaitTag(TestTags.projectPickerRow(selected.id.value)).assertIsSelected()
+
+            typeIntoTag(TestTags.PROJECT_PICKER_SEARCH, "other")
+            awaitTag(TestTags.projectPickerRow(other.id.value))
+            assertTagNotExists(TestTags.projectPickerRow(selected.id.value))
+            assertTrue(selections.isEmpty(), "typing a query must not change selectedId")
+
+            clearTag(TestTags.PROJECT_PICKER_SEARCH)
+
+            awaitTag(TestTags.projectPickerRow(root.id.value))
+            awaitTag(TestTags.projectPickerRow(selected.id.value)).assertIsSelected()
+            assertTrue(selections.isEmpty(), "clearing a query must not change selectedId")
+        }
+
+    @Test
+    fun `searching for inbox does not duplicate it and keeps system destinations available`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val repo = repo(INBOX, ALPHA)
+            setContent { picker(repo, selectedId = INBOX.id, onSelect = {}) }
+
+            typeIntoTag(TestTags.PROJECT_PICKER_SEARCH, "inbox")
+
+            awaitTag(TestTags.PROJECT_PICKER_NO_MATCHES)
+            awaitTag(TestTags.PROJECT_PICKER_INBOX).assertIsSelected()
+            awaitTag(TestTags.PROJECT_PICKER_NONE).assertIsNotSelected()
+            assertTagNotExists(TestTags.projectPickerRow(INBOX.id.value))
+            assertTagNotExists(TestTags.projectPickerRow(ALPHA.id.value))
         }
 
     @Composable

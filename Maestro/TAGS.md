@@ -265,6 +265,8 @@ non-alphanumeric characters with `_`.
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 | `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |
 | `PROJECT_PICKER_NONE` | `project_picker_none` | |
+| `PROJECT_PICKER_NO_MATCHES` | `project_picker_no_matches` | |
+| `PROJECT_PICKER_SEARCH` | `project_picker_search` | |
 
 ### Settings
 

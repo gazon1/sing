@@ -856,6 +856,12 @@ object TestTags {
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
 
+    /** "No projects match …" empty text in the project picker sheet while searching. */
+    const val PROJECT_PICKER_NO_MATCHES = "project_picker_no_matches"
+
+    /** The name filter in the task editor's project picker sheet. */
+    const val PROJECT_PICKER_SEARCH = "project_picker_search"
+
     /** The picker's "No project" row. */
     const val PROJECT_PICKER_NONE = "project_picker_none"
 
