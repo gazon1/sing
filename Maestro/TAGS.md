@@ -112,6 +112,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_WEEKLY` | `recurrence_option_weekly` | |
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
+| `RECURRENCE_PICKER_PREVIEW` | `recurrence_picker_preview` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
 | `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
@@ -153,6 +154,7 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_TITLE_ERROR` | `task_editor_title_error` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 | `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
+| `TASK_RECURRENCE_TEXT` | `task_recurrence_text` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
 | `TimeTracking.START` | `time_tracking_start` | |
 | `TimeTracking.STOP` | `time_tracking_stop` | |

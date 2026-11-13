@@ -3,6 +3,7 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import java.util.Locale
 
 /**
  * A lightweight harness for desktop Compose UI tests that do **not** require Koin.
@@ -31,6 +32,8 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
  *   the window width is taller than the window, and the cells below the fold
  *   cannot be clicked at all.
  * @param height The height of the test window in pixels.
+ * @param locale The locale the resources are read in. English is the suite's
+ *   resting state; a test that reads the Russian bundle says so here.
  *
  * @see runDesktopAppTest
  * @see com.singularity.todo.test.helpers.IsolatedComposeTest
@@ -39,11 +42,18 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 fun runIsolatedComposeTest(
     width: Int = 1024,
     height: Int = 768,
+    locale: Locale = Locale.ENGLISH,
     test: suspend DesktopComposeUiTest.() -> Unit,
 ) = runDesktopComposeUiTest(width = width, height = height) {
+    // The locale the JVM had before this mount: what goes back when the mount is
+    // done. A test that reads the Russian bundle must not leave the Russian
+    // bundle behind for the tests after it.
+    val original = Locale.getDefault()
     // Isolated component tests render real `Res.string` resources too, and those
     // resolve from the default locale on the JVM. See [useEnglishTestLocale].
     useEnglishTestLocale()
+    // The language this test reads in, for the mount that follows.
+    useTestLocale(locale)
 
     try {
         test()
@@ -57,5 +67,10 @@ fun runIsolatedComposeTest(
             }.getOrElse { "<semantics tree unavailable: ${it.message}>" }
         t.addSuppressed(AssertionError("Semantics tree at failure:\n$tree"))
         throw t
+    } finally {
+        // The original locale, not English: a mount that asked for Russian put
+        // Russian here, and putting English back instead would leave the suite's
+        // global state decided by whichever mount ran last.
+        Locale.setDefault(original)
     }
 }
