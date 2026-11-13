@@ -154,7 +154,33 @@ class FencedCodeBlockTest(unittest.TestCase):
 
     def test_the_helper_returns_the_text_without_the_blocks(self):
         text = "before\n```\ninside\n```\nafter\n"
-        self.assertEqual(arl.strip_fenced_code_blocks(text), "before\nafter")
+        self.assertEqual(arl.strip_fenced_code_blocks(text), "before\n\nafter")
+
+    def test_the_helper_leaves_a_blank_line_where_the_block_was(self):
+        # The text before the block and the text after it are two paragraphs.
+        # Without the blank line they would be read as one, and a line of
+        # four spaces after the block would look like the continuation of
+        # the paragraph before it.
+        text = "before\n```\ninside\n```\nafter\n"
+        self.assertIn("\n\n", arl.strip_fenced_code_blocks(text))
+
+    def test_an_indented_line_after_a_fenced_block_is_code(self):
+        # The block ends the paragraph before it, so the four spaces after
+        # it start a block of code again.
+        body = "Intro\n```\ncode\n```\n    Closes #1\n"
+        self.assertEqual(arl.parse_closing_issues(body), [])
+
+    def test_the_continuation_of_a_list_item_is_prose(self):
+        # The content of a list item starts after its marker, so four
+        # spaces are a paragraph of the item and not a block of code.
+        body = "- item\n\n    Closes #2\n"
+        self.assertEqual(arl.parse_closing_issues(body), [2])
+
+    def test_a_backtick_in_the_info_string_is_not_a_fence(self):
+        # The info string of a backtick fence cannot hold a backtick: such
+        # a line opens nothing, and what follows it is prose.
+        body = "```ba`tick\nCloses #123\n```\n"
+        self.assertEqual(arl.parse_closing_issues(body), [123])
 
     def test_the_helper_keeps_an_unclosed_block_out(self):
         text = "before\n```\ninside\n"

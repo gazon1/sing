@@ -104,6 +104,12 @@ FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 #: A quoted line: the text somebody else wrote, quoted back.
 QUOTE = re.compile(r"^\s*>")
 
+#: A list item: the indent of the item, its marker, and the spaces that
+#: follow it. The content of the item starts after the marker and those
+#: spaces — and the indent of that content is what an indented code block
+#: inside the item is measured from.
+LIST_ITEM = re.compile(r"^( *)([-*+]|\d{1,9}[.)])([ \t]+)")
+
 #: An inline code span — the double-backtick form first, so a span that holds
 #: a backtick of its own is not cut in half.
 CODE_SPAN = re.compile(r"``[^`]*``|`[^`\n]*`")
@@ -124,6 +130,12 @@ def strip_fenced_code_blocks(text: str) -> str:
     The block ends at the end of the text when it is never closed. There is
     no nesting: a fence inside an open block is content of that block, the
     way CommonMark reads it.
+
+    The block leaves a blank line behind. The text before it and the text
+    after it are two paragraphs, and without the blank line they would be
+    read as one — and a line of four spaces after the block would then look
+    like the continuation of the paragraph before it instead of the code
+    block it is.
     """
     kept: list[str] = []
     marker: str | None = None
@@ -146,8 +158,22 @@ def strip_fenced_code_blocks(text: str) -> str:
         if match and match.group(1)[0] == marker and len(match.group(1)) >= length:
             marker = None
             length = 0
+            kept.append("")
             continue
     return "\n".join(kept)
+
+
+def _content_indent(item: re.Match[str]) -> int:
+    """The indent of the content of a list item.
+
+    The content of a list item starts after its marker and the spaces that
+    follow it. More than four spaces after the marker count as one, the way
+    CommonMark reads them.
+    """
+    spaces = len(item.group(3))
+    if spaces > 4:
+        spaces = 1
+    return len(item.group(1)) + len(item.group(2)) + spaces
 
 
 def strip_indented_code_blocks(text: str) -> str:
@@ -158,10 +184,16 @@ def strip_indented_code_blocks(text: str) -> str:
     paragraph does not continue: an indented line right after a paragraph
     continues that paragraph, and the text of a paragraph is prose even when
     it is indented.
+
+    The four spaces are counted from the indent of the enclosing list item:
+    the content of a list item starts after its marker, so a line that is
+    indented four spaces further than that is a paragraph of the item, not a
+    code block.
     """
     kept: list[str] = []
     in_code = False
     previous_blank = True
+    container = 0
     for line in (text or "").splitlines():
         if not line.strip():
             # A blank line neither starts nor ends a block of code.
@@ -169,14 +201,25 @@ def strip_indented_code_blocks(text: str) -> str:
                 kept.append(line)
             previous_blank = True
             continue
-        indented = line[:4] == "    "
+        indent = len(line) - len(line.lstrip(" "))
         if in_code:
-            if indented:
+            if indent >= container + 4:
                 continue
             in_code = False
-        elif indented and previous_blank:
-            in_code = True
+        elif indent >= container + 4:
+            if previous_blank:
+                in_code = True
+                continue
+            # An indented line right after a paragraph continues that
+            # paragraph, and the text of a paragraph is prose.
+            kept.append(line)
+            previous_blank = False
             continue
+        item = LIST_ITEM.match(line)
+        if item:
+            container = _content_indent(item)
+        elif indent < container:
+            container = 0
         kept.append(line)
         previous_blank = False
     return "\n".join(kept)
