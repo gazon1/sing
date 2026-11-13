@@ -42,6 +42,7 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.notifications.NotificationSettingsPort
 import com.singularity.todo.core.notifications.rememberNotificationPermissionRequester
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.ui.TestTags
@@ -304,6 +305,12 @@ fun TaskDetailContent(
                 is TaskDetailUiState.Loaded -> {
                     val ui = s.ui
                     val extras = s.extras
+
+                    // The zone the completion date is rendered in. The injected provider,
+                    // not `TimeZone.currentSystemDefault()`: the port is what the rest of
+                    // the app reads "today" through, so a screen that reached past it
+                    // would disagree with them on a simulated clock.
+                    val timeZone: TimeZone = koinInject<TimeZoneProvider>().current()
 
                     // The notification permission and the way out of it.
                     //
@@ -907,9 +914,7 @@ fun TaskDetailContent(
                             ui.task.completedAt?.let {
                                 stringResource(
                                     Res.string.completed_on,
-                                    localizedShortDateWithYear(
-                                        it.toLocalDateTime(TimeZone.currentSystemDefault()).date,
-                                    ),
+                                    localizedShortDateWithYear(it.toLocalDateTime(timeZone).date),
                                 )
                             },
                         barTitle = ui.task.title.ifBlank { null },

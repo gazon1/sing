@@ -203,12 +203,23 @@ private fun TaskEditorContent(
     taskTitle: String? = null,
     /** The «Выполнено …» line under the hero of a completed task. */
     completedLabel: String? = null,
+    /**
+     * Whether the title is a field from the first frame.
+     *
+     * Create's title is: the draft exists to take a title. The detail's is text until
+     * it is tapped — the document-style rule — so the hero reads as a title, not as a
+     * form field, and a long one ellipsises instead of scrolling inside an input.
+     */
+    alwaysEditableTitle: Boolean = false,
 ) {
     // The scroll offset and the hero's measured height live outside the Scaffold so
     // the bar can read them: the title appears in the bar only once the hero is gone,
     // and showing it before that would print the title twice on one screen.
     val scrollState = rememberScrollState()
     var heroHeightPx by remember { mutableIntStateOf(0) }
+    // A blank title is no title: a task whose title the user emptied says nothing in
+    // the bar rather than drawing an empty node there.
+    val barName = taskTitle?.ifBlank { null }
     Scaffold(
         topBar = {
             // Read inside the bar's own scope: scrolling then recomposes the bar and
@@ -219,8 +230,15 @@ private fun TaskEditorContent(
                 onAiClick = onAiClick,
                 menuItems = menuItems,
                 savedVisible = savedVisible,
+                // Owned from the first frame, not from the first scrolled pixel: taking
+                // the bar over also swaps in this screen's back arrow, and an arrow that
+                // changes identity as the user scrolls would change what back *does* —
+                // the screen's flushes the draft, the shell's does not.
                 ownsBar = ownsBar,
-                title = taskTitle.takeIf { heroScrolledOut },
+                // Empty until the hero is gone. That is the intended shape (the
+                // wireframe draws `← ⋯`), and the title is on screen in the hero, so
+                // naming it twice is the defect. `Tasks` stays the window/a11y label.
+                title = barName.takeIf { heroScrolledOut },
             )
         },
         bottomBar = bottomBar ?: {},
@@ -245,6 +263,7 @@ private fun TaskEditorContent(
                     onCheckToggle = onCheckToggle,
                     titleError = titleError,
                     completedLabel = completedLabel,
+                    alwaysEditable = alwaysEditableTitle,
                 )
 
                 // Description
@@ -619,6 +638,10 @@ fun TaskCreateEditorContent(
         sheets = sheets,
         titleError = titleError,
         snackbarHost = snackbarHost,
+        // Create's title is a field from the first frame: the draft exists to take
+        // one, and a title that must be tapped before typing is a tap between the
+        // person and the thing they opened the screen to do.
+        alwaysEditableTitle = true,
     )
 }
 
@@ -654,6 +677,7 @@ private fun TaskEditorScaffold(
     savedVisible: Boolean = false,
     completedLabel: String? = null,
     barTitle: String? = null,
+    alwaysEditableTitle: Boolean = false,
 ) {
     // The deadline is overdue when it sits before today. "Today" comes from the
     // same `now` the rest of the editor is given, so the row and the sheet that
@@ -725,6 +749,7 @@ private fun TaskEditorScaffold(
         ownsBar = barTitle != null,
         taskTitle = barTitle,
         completedLabel = completedLabel,
+        alwaysEditableTitle = alwaysEditableTitle,
     )
 
     TaskEditorSheetsHost(
