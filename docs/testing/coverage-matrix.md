@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**139 scenarios · 90/161 claimed cells automated · 71 holes**
+**140 scenarios · 90/161 claimed cells automated · 71 holes**
 
 ## feature.agenda
 
@@ -104,13 +104,14 @@ the table carries the one-line version so a row is readable in a diff.
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `MENU-01` | The menu shows projects as an expandable tree with children indented | ● | ● | A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a… |
-| `MENU-02` | Tapping a project in the tree opens the project detail screen | ● | ● | The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the… |
-| `MENU-03` | The project tree reflects creations and renames made elsewhere | ● | ● | The tree shows the new name and shows the newly created project, and neither change needed the app to be restarted. On… |
+| `MENU-01` | The Desktop menu shows the projects as an expandable tree with children indented | — | ● | A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a… |
+| `MENU-02` | Tapping a project in the menu opens the project detail screen | ● | ● | The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the… |
+| `MENU-03` | The menu's project list reflects creations and renames made elsewhere | ● | ● | The menu's Projects section shows the new name and shows the newly created project, and neither change needed the app… |
 | `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
-| `MENU-05` | A project without children shows no expander, and a closed project is absent from the tree | ● | ● | The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The… |
-| `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the tree is not the only way to work with projects. |
-| `MENU-07` | The Projects section of the menu starts folded, so the menu's destinations stay reachable | ● | ● | The tree is not drawn, so the entries above it — the destinations and Settings — are reachable without scrolling… |
+| `MENU-05` | A project without children shows no expander, and a closed project is absent from the menu's Projects section | ● | ● | The childless project shows no expander control, so nothing in the menu invites an expansion that cannot happen. The… |
+| `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the menu's Projects section is not the only way to… |
+| `MENU-07` | The Projects section of the menu starts folded, so the menu's destinations stay reachable | ● | ● | The projects are not drawn, so the entries above them — the destinations and Settings — are reachable without… |
+| `MENU-08` | The Android menu lists the root projects, and a nested project is reached through its parent's screen | ● | — | The Projects section lists the root projects — A and C — and no child: B is not in the menu. A's own screen says that… |
 | `MENU-10` | The menu offers Attach account to an anonymous session | ● | — | The menu carries an "Attach account" entry. It is the way out of the local session, so an anonymous session has to be… |
 
 ## feature.nav
@@ -118,7 +119,7 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `NAV-01` | The bottom navigation bar no longer holds a Calendar button | ● | ● | There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly… |
-| `NAV-02` | Android and Desktop expose the same menu entries and the same project tree | ● | ● | Both surfaces offer the same entries — including Calendar and the Projects tree — and the same projects in the same… |
+| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ● | ● | Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the… |
 
 ## feature.negative
 

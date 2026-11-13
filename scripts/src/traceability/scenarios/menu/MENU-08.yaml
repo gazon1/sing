@@ -1,0 +1,34 @@
+# Scenario MENU-08 — the Android menu lists the root projects.
+#
+# The menu is the way into the projects, and on Android it is a *list*: the
+# root projects, one row each. A child is not in the list — it is behind its
+# parent, and the parent's own screen says how many children it has and opens
+# them. A menu that drew the whole hierarchy would be a tree of hundreds of
+# rows in a sheet the user opens to get somewhere else (ADR
+# `2026-11-12-android-menu-roots-only.md`).
+#
+# The Desktop menu keeps the tree, and MENU-01 is its scenario: the two menus
+# draw the same model, and each draws as much of the hierarchy as its own
+# surface can carry.
+
+id: MENU-08
+title: "The Android menu lists the root projects, and a nested project is reached through its parent's screen"
+area: feature.menu
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Project A has a child project B, and project C is a root project without
+  children.
+steps:
+  - "Open the app menu and look at the Projects section."
+  - "Tap project A."
+  - "On A's screen, open the entry that lists A's sub-projects."
+  - "Tap project B there."
+  - "Go back."
+expected: >-
+  The Projects section lists the root projects — A and C — and no child: B is
+  not in the menu. A's own screen says that it has one sub-project, and that
+  entry opens a list holding B. Tapping B opens B's screen, and going back
+  returns to A's screen, so the way down into the hierarchy is also the way
+  back out of it.
