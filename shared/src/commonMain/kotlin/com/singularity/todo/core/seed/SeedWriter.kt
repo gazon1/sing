@@ -253,6 +253,9 @@ class SeedWriter(
      * owns the row with that name; an existing project with that name is updated
      * — name, colour, description and timestamps become what the seed says — and
      * the other projects with that name leave the live set.
+     *
+     * A seed that names a [ProjectSeed.parentId] puts the project below that
+     * parent; a seed that does not leaves the parent the row already has.
      */
     suspend fun writeProject(spec: ProjectSeed): SeedResult<ProjectId> {
         val live = projects.observeAll().first().filter { !it.isDeleted }
@@ -271,6 +274,7 @@ class SeedWriter(
                             createdAt = spec.stamp,
                             updatedAt = spec.stamp,
                             userId = currentUser.current,
+                            parentId = spec.parentId,
                         ),
                     ).getOrThrow()
             return SeedResult(id = created.id, outcome = SeedOutcome.Created)
@@ -286,6 +290,9 @@ class SeedWriter(
                         description = spec.description,
                         createdAt = spec.stamp,
                         updatedAt = spec.stamp,
+                        // A seed that names a parent moves the project under it;
+                        // a seed that does not leaves the parent alone.
+                        parentId = spec.parentId ?: keeper.parentId,
                     ),
                 ).getOrThrow()
         // A seed that named only a name owns the *name*: the other rows carrying
@@ -424,6 +431,9 @@ data class NoteSeed(val title: String)
  *   id is generated otherwise, and a generated id is one a flow cannot write
  *   down — so a flow that has to tap a project in the tree asks for one by
  *   name.
+ * @param parentId The id of the project this one hangs below, when the flow
+ *   needs a nested fixture. The parent is named by id because the child is
+ *   seeded by a link that cannot know a generated id.
  */
 data class ProjectSeed(
     val name: String,
@@ -431,6 +441,7 @@ data class ProjectSeed(
     val description: String? = null,
     val stamp: Instant,
     val id: ProjectId? = null,
+    val parentId: ProjectId? = null,
 )
 
 /**

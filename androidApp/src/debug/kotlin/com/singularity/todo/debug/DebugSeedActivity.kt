@@ -270,6 +270,9 @@ class DebugSeedActivity :
                         // A flow that has to tap a project in the menu's tree asks
                         // for its id: a generated id is one a flow cannot write down.
                         id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
+                        // A nested fixture names the parent by id: the child is
+                        // seeded by a link that cannot know a generated id.
+                        parentId = params[SeedLinkKeys.PARENT]?.let { ProjectId.fromString(it) },
                     ),
                 )
             }
