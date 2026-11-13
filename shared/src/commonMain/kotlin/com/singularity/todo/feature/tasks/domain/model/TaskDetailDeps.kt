@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
@@ -127,6 +128,19 @@ data class TaskSchedulingDeps(
     val reminderRepo: ReminderRepository,
     val reminderScheduler: ReminderScheduler,
     val timeZoneProvider: TimeZoneProvider,
+    /**
+     * Whether a notification can be shown *right now*.
+     *
+     * A reminder is a promise of a notification: the alarm fires and something
+     * appears. Where nothing can appear, the promise cannot be kept, and the
+     * stored row would render as a live reminder forever while no notification
+     * ever does.
+     *
+     * It is a port and not a flag because the answer changes while the app
+     * runs — the user can revoke the notification permission in the system
+     * settings and come back — and because only the platform can read it.
+     */
+    val notifier: Notifier,
 )
 
 /**

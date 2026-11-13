@@ -186,6 +186,17 @@ and in the ports table of `docs/PLATFORM-REFERENCE.md` like every other seam.
 The desktop's *reminder scheduler* gate is untouched: `TaskRemindersSlot` still
 refuses before it persists, and the sheet still shows the platform's own message.
 
+The second gate is read at the same place and for the same reason. The UI cannot be
+the only check: the sheet can be dismissed, and the permission can be revoked while
+the app runs, so `TaskRemindersSlot` asks the `Notifier` port whether a notification
+can be shown *right now* and refuses before it persists. The port is the source of
+truth — on Android it reads `POST_NOTIFICATIONS` live, on the desktop it probes
+`notify-send` — and the row is registered in
+`shared/src/jvmTest/resources/platform-seams.tsv` like every other seam.
+
+Clearing is deliberately not gated, for both gates: a reminder written before the
+permission was revoked is still the task's, and the user must be able to remove it.
+
 ## Rationale
 
 **The rows are the surface; the sheets are the editors.** A fact the user cannot see

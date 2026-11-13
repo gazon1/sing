@@ -56,6 +56,21 @@ class TaskRemindersSlot(
          * property of the desktop app and not a malformed task.
          */
         const val UNSUPPORTED_MESSAGE = "Reminders are not available on desktop — the app has no alarm scheduler here."
+
+        /**
+         * Shown when the alarm can be armed but no notification can appear.
+         *
+         * The same shape as [UNSUPPORTED_MESSAGE]: a plain message, read at the
+         * point of refusal. It is not a resource string on purpose — the read of
+         * a compose resource hops to another dispatcher, which takes the
+         * refusal off the clock the slot tests settle on, and a refusal the
+         * tests cannot see is a refusal nothing can pin down.
+         *
+         * The localized half of this fact lives where the user reads it: the
+         * reminder sheet shows its own "notifications are off" notice, with the
+         * ways out, before the user can pick an offset.
+         */
+        const val NOTIFICATIONS_OFF_MESSAGE = "A reminder needs notifications to be on"
     }
 
     private val _state = MutableStateFlow(TaskRemindersState())
@@ -89,6 +104,15 @@ class TaskRemindersSlot(
             // stored row renders as a live reminder forever while the alarm stays unarmed.
             if (!scheduling.reminderScheduler.isSupported) {
                 onError(UNSUPPORTED_MESSAGE)
+                return@launch
+            }
+            // The second gate: the platform can arm the alarm, but cannot show a
+            // notification. The alarm would fire into nothing, and the stored row
+            // would still render as a live reminder — the same lie as an unarmed
+            // alarm, one step later. The permission can be revoked while the app
+            // runs, so the answer is read per write.
+            if (!scheduling.notifier.isSupported) {
+                onError(NOTIFICATIONS_OFF_MESSAGE)
                 return@launch
             }
             val userId = core.taskRepo.currentUserId()

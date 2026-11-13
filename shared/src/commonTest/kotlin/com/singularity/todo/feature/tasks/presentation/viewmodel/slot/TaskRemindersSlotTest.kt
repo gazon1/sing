@@ -236,6 +236,62 @@ class TaskRemindersSlotTest {
             assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
             assertTrue(errors.isEmpty(), "clearing must not surface an error")
         }
+
+    /**
+     * The second gate: the platform can arm the alarm and cannot show a notification.
+     *
+     * That is the device whose owner denied `POST_NOTIFICATIONS`. The alarm would
+     * fire into nothing, and the stored row would still render as a live reminder —
+     * so the row must not be written, and the user must be told.
+     *
+     * The scheduler's own gate does not cover this case: on Android the scheduler
+     * claims it can arm alarms whatever the notification permission says, which is
+     * why this test needs its own fake.
+     */
+    @Test
+    fun `a reminder is not written when no notification can be shown`() =
+        runTest {
+            val fakes = SlotFakes(notificationsSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
+
+            assertTrue(
+                fakes.reminderRepo.reminders.value
+                    .isEmpty(),
+                "a reminder nobody can be shown must not be persisted",
+            )
+            assertTrue(
+                fakes.scheduler.scheduled.isEmpty(),
+                "nothing may be armed for a notification that cannot appear",
+            )
+            assertEquals(1, errors.size, "the user must be told, not left with silent success")
+        }
+
+    /**
+     * The refusal is about *new* reminders only. A reminder written before the
+     * permission was revoked is still the task's, and the user must be able to
+     * clear it.
+     */
+    @Test
+    fun `clearing still works when no notification can be shown`() =
+        runTest {
+            val fakes = SlotFakes(notificationsSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+            runCurrent()
+
+            assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+            assertTrue(errors.isEmpty(), "clearing must not surface an error")
+        }
 }
 
 private val DUE = kotlinx.datetime.LocalDate(2026, 10, 1)
