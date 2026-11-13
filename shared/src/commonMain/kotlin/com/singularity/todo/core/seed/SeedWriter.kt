@@ -256,12 +256,22 @@ class SeedWriter(
      *
      * A seed that names a [ProjectSeed.parentId] puts the project below that
      * parent; a seed that does not leaves the parent the row already has.
+     *
+     * A parent that is not there is a broken fixture, and a broken fixture
+     * that hangs below nothing becomes a root — the one row the Android menu
+     * must not show. So the parent is written only when it is found, and the
+     * result says which parent was missing.
      */
-    suspend fun writeProject(spec: ProjectSeed): SeedResult<ProjectId> {
+    suspend fun writeProject(spec: ProjectSeed): ProjectSeedResult {
         val live = projects.observeAll().first().filter { !it.isDeleted }
         val byId = spec.id?.let { id -> live.firstOrNull { it.id == id } }
         val byName = live.filter { it.name == spec.name }
         val keeper = byId ?: byName.firstOrNull()
+        val namedParent = spec.parentId?.let { parent -> live.firstOrNull { it.id == parent } }
+        val missingParent = spec.parentId?.takeIf { namedParent == null }?.value
+        // A named parent that is there wins; a seed that names none keeps the
+        // parent the row already has.
+        val parentId = spec.parentId?.takeIf { namedParent != null } ?: keeper?.parentId
         if (keeper == null) {
             val created =
                 projects
@@ -274,10 +284,10 @@ class SeedWriter(
                             createdAt = spec.stamp,
                             updatedAt = spec.stamp,
                             userId = currentUser.current,
-                            parentId = spec.parentId,
+                            parentId = parentId,
                         ),
                     ).getOrThrow()
-            return SeedResult(id = created.id, outcome = SeedOutcome.Created)
+            return ProjectSeedResult(id = created.id, outcome = SeedOutcome.Created, missingParent = missingParent)
         }
 
         val updated =
@@ -292,7 +302,7 @@ class SeedWriter(
                         updatedAt = spec.stamp,
                         // A seed that names a parent moves the project under it;
                         // a seed that does not leaves the parent alone.
-                        parentId = spec.parentId ?: keeper.parentId,
+                        parentId = parentId,
                     ),
                 ).getOrThrow()
         // A seed that named only a name owns the *name*: the other rows carrying
@@ -301,7 +311,7 @@ class SeedWriter(
         if (byId == null) {
             byName.filter { it.id != updated.id }.forEach { projects.delete(it.id).getOrThrow() }
         }
-        return SeedResult(id = updated.id, outcome = SeedOutcome.Updated)
+        return ProjectSeedResult(id = updated.id, outcome = SeedOutcome.Updated, missingParent = missingParent)
     }
 
     /**
@@ -480,3 +490,13 @@ data class TaskSeedResult(val id: TaskId, val outcome: SeedOutcome, val missingD
  *   to be told rather than left to time out on an assertion.
  */
 data class NoteSeedResult(val id: NoteId, val outcome: SeedOutcome, val missingLinkTarget: String? = null)
+
+/**
+ * The result of writing a seeded project.
+ *
+ * @param missingParent the id of the parent that could not be found. The project was
+ *   written without a parent, so it is a root — and a root the Android menu lists. The
+ *   flow that asked for a nested project has to be told rather than left to time out
+ *   on an assertion.
+ */
+data class ProjectSeedResult(val id: ProjectId, val outcome: SeedOutcome, val missingParent: String? = null)

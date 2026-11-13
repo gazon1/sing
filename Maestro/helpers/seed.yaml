@@ -16,6 +16,7 @@
 #   note=<title>              — create a note
 #   linkTo=<task title>       — link the seeded note to that task
 #   project=<name>            — create a project
+#   parent=<project id>       — hang the seeded project below the project with that id
 #   projects=<count>          — create <count> projects named "Bulk 001"…
 #   profile=<name>            — create and switch to a profile
 #   session=anonymous|signedout|signedin — change the session

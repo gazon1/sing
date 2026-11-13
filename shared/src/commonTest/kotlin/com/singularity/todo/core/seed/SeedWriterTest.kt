@@ -211,6 +211,52 @@ class SeedWriterTest {
         }
 
     @Test
+    fun `a project seed that names a parent hangs below it`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Parent",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("parent01"),
+                ),
+            )
+
+            val child =
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Child",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("child001"),
+                        parentId = ProjectId.fromString("parent01"),
+                    ),
+                )
+
+            assertNull(child.missingParent)
+            assertEquals(ProjectId.fromString("parent01"), liveProjects("Child").single().parentId)
+        }
+
+    @Test
+    fun `a project seed that names a parent that is not there is written as a root and says so`() =
+        runTest {
+            val child =
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Child",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        parentId = ProjectId.fromString("nobody01"),
+                    ),
+                )
+
+            assertEquals("nobody01", child.missingParent)
+            // A parent that is not there leaves a root — and a root the Android
+            // menu lists, so the fixture has to be told about it.
+            assertNull(liveProjects("Child").single().parentId)
+        }
+
+    @Test
     fun `a task seed that names an id owns it`() =
         runTest {
             val result =

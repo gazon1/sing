@@ -262,19 +262,26 @@ class DebugSeedActivity :
             }
 
             params.containsKey(SeedLinkKeys.PROJECT) -> {
-                writer.writeProject(
-                    ProjectSeed(
-                        name = params[SeedLinkKeys.PROJECT]!!,
-                        color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
-                        stamp = Clock.System.now(),
-                        // A flow that has to tap a project in the menu's tree asks
-                        // for its id: a generated id is one a flow cannot write down.
-                        id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
-                        // A nested fixture names the parent by id: the child is
-                        // seeded by a link that cannot know a generated id.
-                        parentId = params[SeedLinkKeys.PARENT]?.let { ProjectId.fromString(it) },
-                    ),
-                )
+                val result =
+                    writer.writeProject(
+                        ProjectSeed(
+                            name = params[SeedLinkKeys.PROJECT]!!,
+                            color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
+                            stamp = Clock.System.now(),
+                            // A flow that has to tap a project in the menu's tree asks
+                            // for its id: a generated id is one a flow cannot write down.
+                            id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
+                            // A nested fixture names the parent by id: the child is
+                            // seeded by a link that cannot know a generated id.
+                            parentId = params[SeedLinkKeys.PARENT]?.let { ProjectId.fromString(it) },
+                        ),
+                    )
+                result.missingParent?.let { missing ->
+                    android.util.Log.w(
+                        "DebugSeedActivity",
+                        "No project with id '$missing' to hang the project below; seeding it as a root",
+                    )
+                }
             }
 
             // A profile with a hundred projects is a fixture — the menu's folded
