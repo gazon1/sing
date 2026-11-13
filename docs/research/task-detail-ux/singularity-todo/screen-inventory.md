@@ -38,6 +38,14 @@ changes what is drawn.
 | `24-ai-actions-sheet.webp` | `AI Actions for: …` — 6 actions, the list runs past the sheet |
 | `25-search-results.webp` | Search results — the route by which rich tasks were reached |
 | `26-archive.webp` | Archive list (`Menu → Archive`) |
+| `27-long-title-hero.webp` | **After #2879.** A 90-character title: three lines, then an ellipsis; the bar is empty (`← ⋯`) while the hero is visible |
+| `28-collapsing-bar.webp` | The same task scrolled: the bar names it (`Deliberately…`), the hero is gone |
+| `29-completed-task-detail.webp` | A completed task: struck-through dimmed title, `Выполнено 13 ноя 2026`, no ✕ on the rows |
+| `30-completed-task-list.webp` | The completed task in the Today list — struck through, dimmed, for comparison with the open rows |
+
+`27`–`30` were captured on a Motorola RMX3938 at 720×1600 @320dpi (360×800 dp) with
+`docs/research/task-detail-ux/.tools/shot.sh`. They are the four states #2879 asks for:
+short/long title, open/completed, and the bar before and after the hero scrolls away.
 
 ---
 

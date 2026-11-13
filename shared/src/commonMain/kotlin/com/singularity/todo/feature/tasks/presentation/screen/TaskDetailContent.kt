@@ -42,6 +42,7 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.notifications.NotificationSettingsPort
 import com.singularity.todo.core.notifications.rememberNotificationPermissionRequester
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.ui.TestTags
@@ -50,6 +51,7 @@ import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.formatDateCount
+import com.singularity.todo.core.ui.components.localizedShortDateWithYear
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import com.singularity.todo.feature.attachments.AttachmentsIntent
@@ -102,11 +104,14 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.completed_on
 import singularity_todo.shared.generated.resources.menu_archive
 import singularity_todo.shared.generated.resources.menu_delete
 import singularity_todo.shared.generated.resources.menu_restore
@@ -300,6 +305,12 @@ fun TaskDetailContent(
                 is TaskDetailUiState.Loaded -> {
                     val ui = s.ui
                     val extras = s.extras
+
+                    // The zone the completion date is rendered in. The injected provider,
+                    // not `TimeZone.currentSystemDefault()`: the port is what the rest of
+                    // the app reads "today" through, so a screen that reached past it
+                    // would disagree with them on a simulated clock.
+                    val timeZone: TimeZone = koinInject<TimeZoneProvider>().current()
 
                     // The notification permission and the way out of it.
                     //
@@ -901,6 +912,17 @@ fun TaskDetailContent(
                                 onAiClick = { showAiSheet = true },
                             ),
                         isCompleted = ui.task.isCompleted,
+                        // A finished task says when it finished, in words. The date
+                        // comes from the task's own `completedAt` — there is no other
+                        // copy of it, and the screen does not invent one.
+                        completedLabel =
+                            ui.task.completedAt?.let {
+                                stringResource(
+                                    Res.string.completed_on,
+                                    localizedShortDateWithYear(it.toLocalDateTime(timeZone).date),
+                                )
+                            },
+                        barTitle = ui.task.title.ifBlank { null },
                         now = now,
                         // The state the rows open their sheets through. The editor renders
                         // the sheets from the same state, so the row that opens one and the

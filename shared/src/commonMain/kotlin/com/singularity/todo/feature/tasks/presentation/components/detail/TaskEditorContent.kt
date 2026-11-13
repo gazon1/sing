@@ -37,9 +37,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -186,14 +191,54 @@ private fun TaskEditorContent(
     snackbarHost: (@Composable () -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
     savedVisible: Boolean = false,
+    /**
+     * Whether this editor owns the top bar instead of the shell's destination name.
+     *
+     * The detail knows which task it shows, so its bar can carry the title once the
+     * hero scrolls away; Create has no object yet, and a feature label is the honest
+     * thing there. Owning the bar is therefore the detail's choice, not a default.
+     */
+    ownsBar: Boolean = false,
+    /** The task's title, carried by the bar once the hero has scrolled out. */
+    taskTitle: String? = null,
+    /** The «Выполнено …» line under the hero of a completed task. */
+    completedLabel: String? = null,
+    /**
+     * Whether the title is a field from the first frame.
+     *
+     * Create's title is: the draft exists to take a title. The detail's is text until
+     * it is tapped — the document-style rule — so the hero reads as a title, not as a
+     * form field, and a long one ellipsises instead of scrolling inside an input.
+     */
+    alwaysEditableTitle: Boolean = false,
 ) {
+    // The scroll offset and the hero's measured height live outside the Scaffold so
+    // the bar can read them: the title appears in the bar only once the hero is gone,
+    // and showing it before that would print the title twice on one screen.
+    val scrollState = rememberScrollState()
+    var heroHeightPx by remember { mutableIntStateOf(0) }
+    // A blank title is no title: a task whose title the user emptied says nothing in
+    // the bar rather than drawing an empty node there.
+    val barName = taskTitle?.ifBlank { null }
     Scaffold(
         topBar = {
+            // Read inside the bar's own scope: scrolling then recomposes the bar and
+            // nothing else, so the body does not re-lay-out on every pixel of scroll.
+            val heroScrolledOut = heroHeightPx > 0 && scrollState.value >= heroHeightPx
             TaskDetailTopBar(
                 onBackClick = onBack,
                 onAiClick = onAiClick,
                 menuItems = menuItems,
                 savedVisible = savedVisible,
+                // Owned from the first frame, not from the first scrolled pixel: taking
+                // the bar over also swaps in this screen's back arrow, and an arrow that
+                // changes identity as the user scrolls would change what back *does* —
+                // the screen's flushes the draft, the shell's does not.
+                ownsBar = ownsBar,
+                // Empty until the hero is gone. That is the intended shape (the
+                // wireframe draws `← ⋯`), and the title is on screen in the hero, so
+                // naming it twice is the defect. `Tasks` stays the window/a11y label.
+                title = barName.takeIf { heroScrolledOut },
             )
         },
         bottomBar = bottomBar ?: {},
@@ -205,23 +250,27 @@ private fun TaskEditorContent(
                 Modifier
                     .padding(padding)
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = TaskSpacing.screenPadding),
             verticalArrangement = Arrangement.spacedBy(TaskSpacing.md),
         ) {
-            // Title row
-            TaskTitleRow(
-                taskId = taskId,
-                titleState = titleState,
-                isCompleted = isCompleted,
-                onCheckToggle = onCheckToggle,
-                titleError = titleError,
-            )
+            Column(modifier = Modifier.onSizeChanged { heroHeightPx = it.height }) {
+                // Title row
+                TaskTitleRow(
+                    taskId = taskId,
+                    titleState = titleState,
+                    isCompleted = isCompleted,
+                    onCheckToggle = onCheckToggle,
+                    titleError = titleError,
+                    completedLabel = completedLabel,
+                    alwaysEditable = alwaysEditableTitle,
+                )
 
-            // Description
-            TaskDescriptionField(
-                descriptionState = descriptionState,
-            )
+                // Description
+                TaskDescriptionField(
+                    descriptionState = descriptionState,
+                )
+            }
 
             // The offers: the first-run banner and the pending AI proposals.
             //
@@ -506,6 +555,10 @@ private fun StartDateRow(
  * @param snackbarHost where transient failures land. `null` for an editor inside a surface
  *   that already hosts a snackbar.
  * @param savedVisible whether the top bar shows the "Saved" pill.
+ * @param completedLabel the «Выполнено …» line under the hero, for a completed task. Null
+ *   for a task still in work, and for a task whose completion date the caller does not have.
+ * @param barTitle the task's title for the bar's collapsed state. The bar reads it once the
+ *   hero has scrolled away; null means the caller does not want the bar to name the task.
  */
 @Composable
 fun TaskEditorContent(
@@ -522,6 +575,8 @@ fun TaskEditorContent(
     titleError: String? = null,
     snackbarHost: (@Composable () -> Unit)? = null,
     savedVisible: Boolean = false,
+    completedLabel: String? = null,
+    barTitle: String? = null,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -535,6 +590,8 @@ fun TaskEditorContent(
         titleError = titleError,
         snackbarHost = snackbarHost,
         savedVisible = savedVisible,
+        completedLabel = completedLabel,
+        barTitle = barTitle,
     )
 }
 
@@ -581,6 +638,10 @@ fun TaskCreateEditorContent(
         sheets = sheets,
         titleError = titleError,
         snackbarHost = snackbarHost,
+        // Create's title is a field from the first frame: the draft exists to take
+        // one, and a title that must be tapped before typing is a tap between the
+        // person and the thing they opened the screen to do.
+        alwaysEditableTitle = true,
     )
 }
 
@@ -614,11 +675,19 @@ private fun TaskEditorScaffold(
     titleError: String? = null,
     snackbarHost: (@Composable () -> Unit)? = null,
     savedVisible: Boolean = false,
+    completedLabel: String? = null,
+    barTitle: String? = null,
+    alwaysEditableTitle: Boolean = false,
 ) {
     // The deadline is overdue when it sits before today. "Today" comes from the
     // same `now` the rest of the editor is given, so the row and the sheet that
     // sets it agree on which day it is.
     val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+    // A completed task is shown, not re-planned. The rows keep their values — they
+    // are facts about the task — but the ✕ that erases one is not an affordance a
+    // finished task offers: clearing the date of work already done changes nothing
+    // a person means. Gated here, once, rather than at each row's call site.
 
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
@@ -628,36 +697,36 @@ private fun TaskEditorScaffold(
         onCheckToggle = callbacks.onCheckToggle,
         descriptionState = descriptionState,
         priority = model.priority,
-        onPriorityClear = callbacks.priority.onClear,
+        onPriorityClear = callbacks.priority.withoutClearWhen(isCompleted).onClear,
         dueDate = model.dueDate,
         dueTime = model.dueTime,
         dueDates = model.dueDates,
-        onDueDateClear = callbacks.dueDate.onClear,
+        onDueDateClear = callbacks.dueDate.withoutClearWhen(isCompleted).onClear,
         showDueDate = true,
         onPriorityClick = callbacks.priority.onClick,
         onDueDateClick = callbacks.dueDate.onClick,
         someday = model.someday,
         reminderState = model.reminderState,
         notificationsEnabled = model.notificationsEnabled,
-        reminderCallbacks = callbacks.reminder,
+        reminderCallbacks = callbacks.reminder?.withoutClearWhen(isCompleted),
         deadline = model.deadline,
         deadlineIsOverdue = isDeadlineOverdue(model.deadline, today, isCompleted),
-        deadlineCallbacks = callbacks.deadline,
+        deadlineCallbacks = callbacks.deadline?.withoutClearWhen(isCompleted),
         startDate = model.startDate,
         startTime = model.startTime,
-        startDateCallbacks = callbacks.startDate,
+        startDateCallbacks = callbacks.startDate?.withoutClearWhen(isCompleted),
         project = model.project,
         projectName = model.projectName,
         projectColor = model.projectColor,
-        projectCallbacks = callbacks.project,
+        projectCallbacks = callbacks.project?.withoutClearWhen(isCompleted),
         tags = model.tags,
-        tagsCallbacks = callbacks.tags,
+        tagsCallbacks = callbacks.tags?.withoutClearWhen(isCompleted),
         recurrence = model.recurrence,
-        recurrenceCallbacks = callbacks.recurrence,
+        recurrenceCallbacks = callbacks.recurrence?.withoutClearWhen(isCompleted),
         isPinned = model.isPinned,
         pinCallbacks = callbacks.pin,
         estimateMinutes = model.estimateMinutes,
-        estimateCallbacks = callbacks.estimate,
+        estimateCallbacks = callbacks.estimate?.withoutClearWhen(isCompleted),
         workflowState = model.workflowState,
         workflowStateCallbacks = callbacks.workflowState,
         checklistCount = model.checklist.size,
@@ -674,6 +743,13 @@ private fun TaskEditorScaffold(
         snackbarHost = snackbarHost,
         sheets = sheets,
         savedVisible = savedVisible,
+        // Owning the bar is what lets it name the task. Only the detail has a task to
+        // name, so only the detail's call supplies a title; Create leaves the shell's
+        // `Tasks` label alone rather than replacing it with an empty bar.
+        ownsBar = barTitle != null,
+        taskTitle = barTitle,
+        completedLabel = completedLabel,
+        alwaysEditableTitle = alwaysEditableTitle,
     )
 
     TaskEditorSheetsHost(
