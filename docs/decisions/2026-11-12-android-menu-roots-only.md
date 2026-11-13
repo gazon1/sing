@@ -76,6 +76,10 @@ from a highlighted row.
 - Search stays in the Projects list. The menu still has none, and that is not revisited here.
 - One tree model (`ProjectTreeBuilder`) and one tree composable remain; Android draws the depth-0
   subset rather than a second list type. No new destination, no new persistence.
+- The switch between the two drawings is one nullable callback: `ProjectTreeSection` draws the depth-0
+  subset when `onToggleExpanded` is `null`, and the tree when it is not. The Android sheet passes
+  `null` and carries no expander column at all; the Desktop drawer passes its fold toggle. A list
+  has no hierarchy to show, so a hierarchy that is not drawn is not there.
 - If research later shows the back target surprises users — detail → Projects list, not detail →
   menu — the narrow change is to push the detail without the list; it is not a reason to reopen the
   roots-only decision.
