@@ -1029,6 +1029,15 @@ object TestTags {
      */
     const val PROJECT_PICKER_DISMISS = "project_picker_dismiss"
 
+    /**
+     * The "Recent" heading of the project icon picker.
+     *
+     * The section only exists while there is a history, so the tag is also how
+     * a test says "no history, no section" — the absence of the node is the
+     * assertion, and an empty heading would be the defect.
+     */
+    const val PROJECT_ICON_RECENT_SECTION = "project_icon_recent_section"
+
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
 

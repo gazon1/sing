@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import kotlinx.collections.immutable.ImmutableList
 
 private val COMMON_EMOJIS =
     listOf(
@@ -61,6 +62,14 @@ private val COMMON_EMOJIS =
 @Composable
 fun IconPickerSheet(
     currentIcon: String?,
+    /**
+     * The emoji the user picked before, most recent first, so they can be
+     * picked again with one tap.
+     *
+     * The sheet draws what it is given: it neither reads the history nor
+     * writes it, so it stays free of both storage and DI.
+     */
+    recentEmojis: ImmutableList<String>,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -114,7 +123,11 @@ fun IconPickerSheet(
         }
 
         Spacer(Modifier.height(16.dp))
-        EmojiSection(currentIcon = currentIcon, onPick = onPick)
+        EmojiSection(
+            currentIcon = currentIcon,
+            recentEmojis = recentEmojis,
+            onPick = onPick,
+        )
 
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = { onPick(null) }) { Text("None") }
@@ -127,8 +140,33 @@ fun IconPickerSheet(
 @Composable
 private fun EmojiSection(
     currentIcon: String?,
+    recentEmojis: ImmutableList<String>,
     onPick: (String?) -> Unit,
 ) {
+    // No history, no section: an empty "Recent" heading above an empty row is
+    // a blank the user has to read past on every opening of the sheet.
+    if (recentEmojis.isNotEmpty()) {
+        Text(
+            text = "Recent",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.testTag(TestTags.PROJECT_ICON_RECENT_SECTION),
+        )
+        Spacer(Modifier.height(8.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            recentEmojis.forEach { emoji ->
+                EmojiChip(
+                    emoji = emoji,
+                    selected = emoji == currentIcon,
+                    onClick = { onPick(emoji) },
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
     Text("Emoji", style = MaterialTheme.typography.titleSmall)
     Spacer(Modifier.height(8.dp))
     FlowRow(
@@ -136,22 +174,10 @@ private fun EmojiSection(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         COMMON_EMOJIS.forEach { emoji ->
-            Text(
-                text = emoji,
-                modifier =
-                    Modifier
-                        .touchTarget()
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable { onPick(emoji) }
-                        .background(
-                            if (emoji == currentIcon) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                Color.Transparent
-                            },
-                            CircleShape,
-                        ).padding(8.dp),
+            EmojiChip(
+                emoji = emoji,
+                selected = emoji == currentIcon,
+                onClick = { onPick(emoji) },
             )
         }
     }
@@ -171,4 +197,36 @@ private fun EmojiSection(
             }
         }) { Text("Add") }
     }
+}
+
+/**
+ * One emoji in the picker.
+ *
+ * The glyph is drawn the way it always was: one text in one circle. A composed
+ * sequence — a ZWJ family, a flag, a skin-tone modifier, a variation selector
+ * — is one grapheme and is drawn as one.
+ */
+@Composable
+private fun EmojiChip(
+    emoji: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = emoji,
+        modifier =
+            Modifier
+                .touchTarget()
+                .size(40.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onClick)
+                .background(
+                    if (selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        Color.Transparent
+                    },
+                    CircleShape,
+                ).padding(8.dp),
+    )
 }
