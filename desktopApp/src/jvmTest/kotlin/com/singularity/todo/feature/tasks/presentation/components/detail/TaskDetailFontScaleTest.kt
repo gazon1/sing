@@ -365,16 +365,7 @@ class TaskDetailFontScaleTest {
                                 },
                         )
                     TaskEditorContent(
-                        model =
-                            TaskEditorModel(
-                                priority = TaskPriority.Medium,
-                                dueDate = LocalDate(2026, 3, 16),
-                                dueTime = LocalTime(14, 30),
-                                estimateMinutes = 45,
-                                project = ProjectId("project-1"),
-                                projectName = if (longValues) LONG_PROJECT else SHORT_PROJECT,
-                                tags = persistentListOf(TagId("tag-1")),
-                            ),
+                        model = editorModel(longValues),
                         titleSource = OwnedText(text = "Buy the oat milk", revision = 0),
                         descriptionSource =
                             OwnedText(
@@ -383,24 +374,7 @@ class TaskDetailFontScaleTest {
                             ),
                         onTitleChange = {},
                         onDescriptionChange = {},
-                        callbacks =
-                            TaskEditorCallbacks(
-                                onBack = {},
-                                onCheckToggle = null,
-                                priority = RowCallbacks(onChange = {}),
-                                dueDate = DateRowCallbacks(onChangeDate = {}, onChangeTime = {}),
-                                startDate = null,
-                                project = RowCallbacks(onChange = {}),
-                                tags = RowCallbacks(onChange = {}),
-                                recurrence = null,
-                                pin = null,
-                                dependencies = null,
-                                checklist = null,
-                                attachments = null,
-                                estimate = RowCallbacks(onChange = {}),
-                                onTimeEntryAdd = null,
-                                onTimeEntrySave = null,
-                            ),
+                        callbacks = editorCallbacks(),
                         now = NOW,
                         sheets = rememberDialogState<TaskEditorSheet>(),
                     )
@@ -435,6 +409,47 @@ class TaskDetailFontScaleTest {
         }
         return checkNotNull(reading) { "the editor was never mounted" }
     }
+
+    /**
+     * The task the editor shows.
+     *
+     * The values are the ones the detail carries: a priority, a date with a
+     * time, an estimate, a project and a tag. [longValues] swaps the project
+     * for a name too long for one line.
+     */
+    private fun editorModel(longValues: Boolean): TaskEditorModel =
+        TaskEditorModel(
+            priority = TaskPriority.Medium,
+            dueDate = LocalDate(2026, 3, 16),
+            dueTime = LocalTime(14, 30),
+            estimateMinutes = 45,
+            project = ProjectId("project-1"),
+            projectName = if (longValues) LONG_PROJECT else SHORT_PROJECT,
+            tags = persistentListOf(TagId("tag-1")),
+        )
+
+    /**
+     * The editor's callbacks — every row is present and none of them does
+     * anything: the measurement watches the screen, it does not drive it.
+     */
+    private fun editorCallbacks(): TaskEditorCallbacks =
+        TaskEditorCallbacks(
+            onBack = {},
+            onCheckToggle = null,
+            priority = RowCallbacks(onChange = {}),
+            dueDate = DateRowCallbacks(onChangeDate = {}, onChangeTime = {}),
+            startDate = null,
+            project = RowCallbacks(onChange = {}),
+            tags = RowCallbacks(onChange = {}),
+            recurrence = null,
+            pin = null,
+            dependencies = null,
+            checklist = null,
+            attachments = null,
+            estimate = RowCallbacks(onChange = {}),
+            onTimeEntryAdd = null,
+            onTimeEntrySave = null,
+        )
 
     /**
      * The box of the text of the named element, and the height of it as the
