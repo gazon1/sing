@@ -143,6 +143,11 @@ one client (`scripts/ci/github_api.py`) that the tests drive with a fake runner.
   deploy. Reading the deployments needs the `deployments: read` scope — the API
   answers 403 without it, and the check fails every publication. The branch ref
   and the CNAME are read with the `contents` scope the job already holds.
+- The link on the merged pull request needs the `pull-requests: write` scope. A
+  comment on a pull request is not a comment on an issue: with `issues: write`
+  alone the API answers 403, and the publication says nothing about the report
+  it published. The first real publication found this out — the report was
+  published, and the link was not posted.
 - The post-deploy check takes up to a minute and a half when the API is slow to
   catch up with the push: the deployment appears in the API some seconds after
   the push, and the branch catches up with it a moment later.
