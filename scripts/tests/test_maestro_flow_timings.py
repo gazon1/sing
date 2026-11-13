@@ -18,6 +18,7 @@ spoke about cost. Two things had to be true:
 
 import importlib.util
 import pathlib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -43,23 +44,71 @@ def _report(flow: str, seconds: float) -> str:
 class EmptyStateTest(unittest.TestCase):
     """The empty state is a state, and it is said out loud."""
 
+    def _list(self, results: pathlib.Path) -> str:
+        """`--list` against an empty floor file and the given results directory.
+
+        Both inputs are temporary. The repository's own
+        `build/maestro-results/` holds whatever the last local Maestro run
+        wrote, so a test that reads it has two different answers on two
+        different machines — it fails where Maestro has run and passes where
+        it has not. The answer has to depend on what the test handed the
+        script, and on nothing else.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            floor = tmp_path / "maestro-flow-timings.txt"
+            floor.write_text("# no floors\n", encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--list",
+                    "--floor",
+                    str(floor),
+                    "--results",
+                    str(results),
+                ],
+                cwd=mod.ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0)
+        return result.stdout
+
     def test_the_list_names_the_fallback(self):
         """A reader who does not know the fallback takes a count for a cost."""
-        import subprocess
-
-        result = subprocess.run(
-            [sys.executable, str(MODULE_PATH), "--list"],
-            cwd=mod.ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._list(pathlib.Path(tmp) / "no-reports-here")
         self.assertIn(
             "falls back to counting flows",
-            result.stdout,
+            out,
             "the empty state has to name what the comparison does without it",
         )
+
+    def test_an_empty_results_directory_is_the_same_empty_state(self):
+        """A directory that exists but holds no report is still the empty state."""
+        with tempfile.TemporaryDirectory() as tmp:
+            results = pathlib.Path(tmp) / "results"
+            results.mkdir()
+            out = self._list(results)
+        self.assertIn(
+            "falls back to counting flows",
+            out,
+            "a directory with no report in it is the empty state, not a run",
+        )
+
+    def test_a_run_is_listed_instead_of_the_empty_state(self):
+        """A measured run is a list, and the empty state's line is not in it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            results = pathlib.Path(tmp) / "results"
+            results.mkdir()
+            (results / "a.xml").write_text(
+                _report("Maestro/flows/a.yaml", 3.5), encoding="utf-8"
+            )
+            out = self._list(results)
+        self.assertIn("Maestro/flows/a.yaml", out)
+        self.assertNotIn("falls back to counting flows", out)
 
     def test_the_recorded_floors_are_empty_on_this_tree(self):
         """The file is a record, and an empty record is what it holds today."""

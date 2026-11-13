@@ -34,9 +34,12 @@ import kotlinx.collections.immutable.persistentSetOf
 /**
  * Bottom-sheet menu shown when the user taps the "Menu" bottom-bar item.
  *
- * It carries the destinations, the projects as a tree, and the way to the full
- * project list. The tree is drawn by [ProjectTreeSection], which the Desktop
- * drawer draws too — one tree, two drawings.
+ * It carries the destinations, the projects, and the way to the full project
+ * list. The projects are the **root projects as a list**: the Android menu is
+ * a launcher, and a launcher that lists 122 rows seven screens deep is not
+ * doing that job (ADR `2026-11-12-android-menu-roots-only.md`). A child is
+ * reached from its parent's own screen. The Desktop drawer draws the same
+ * section as a tree — that is the Desktop's choice, not a second model.
  *
  * Why a sheet and not a navigation destination (see reference plan §9):
  * - The user expects "today" to remain visible underneath the menu.
@@ -60,7 +63,6 @@ fun MenuBottomSheet(
     onSelect: (AppDestination) -> Unit,
     treeState: ProjectsTreeUiState,
     onToggleSection: () -> Unit,
-    onToggleExpanded: (ProjectId) -> Unit,
     onOpenProject: (ProjectId) -> Unit,
     showAttachAccount: Boolean = false,
 ) {
@@ -142,12 +144,13 @@ fun MenuBottomSheet(
                 }
 
                 // ─── Projects ─────────────────────────────────────────────────────
-                // The projects as a tree, and the way to the full list. The section
-                // is drawn by the composable the Desktop drawer draws too.
+                // The root projects, and the way to the full list. No expander:
+                // the Android menu lists the roots, and a child is reached from
+                // its parent's own screen.
                 ProjectsMenuSection(
                     state = treeState,
                     onToggleSection = onToggleSection,
-                    onToggleExpanded = onToggleExpanded,
+                    onToggleExpanded = null,
                     onOpenProject = onOpenProject,
                     onOpenAllProjects = { onSelect(AppDestination.ProjectsGraph()) },
                     headerModifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
