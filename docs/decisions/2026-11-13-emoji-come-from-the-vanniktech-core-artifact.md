@@ -49,10 +49,14 @@ concern and belongs to #2919, not to the dependency check.
 - `commonMain` resolves the dependency and both `:shared:compileAndroidMain` and
   `:shared:compileKotlinJvm` compile against it; this is the proof #2918 records.
 - The Android variant is a full AAR: it carries the library's legacy View widgets
-  (`EmojiPopup`, `EmojiEditText`, …), its resources and `appcompat`, `cardview`,
-  `recyclerview` and `com.vanniktech:ui-android`. Using only the common API does
-  not remove them from the Android build, so the app must keep drawing its own
-  Compose picker and never instantiate those widgets.
+  (`EmojiPopup`, `EmojiEditText`, …), its resources and `cardview` 1.0.0,
+  `recyclerview` 1.3.2 and `com.vanniktech:ui` → `ui-android` 0.10.0
+  (`appcompat` 1.7.1 was already on the graph through `koin-android`). Using only
+  the common API does not remove them from the Android build, so the app must keep
+  drawing its own Compose picker and never instantiate those widgets. Measured on
+  `:androidApp:debugRuntimeClasspath`: no artifact is downgraded, and
+  `mergeDebugResources` and `checkDebugDuplicateClasses` pass. JVM Desktop resolves
+  `emoji-jvm` alone, which depends on `kotlin-stdlib`.
 - `EmojiManager.categories()` and `EmojiManager.findEmoji()` are `internal`; common
   code cannot read the installed provider's catalog from the manager. The public
   routes to the data are `SearchEmojiManager.search(query)` and holding the
@@ -68,8 +72,6 @@ concern and belongs to #2919, not to the dependency check.
   interchangeable; this change does not.
 - Nothing installs a provider yet, so the library is not on any runtime path;
   `core/emoji/EmojiLibraryApi.kt` is a compile-time probe and #2919 removes it.
-- If an Android minimum or a Java floor ever moves past 0.24.1's, 0.23.0 is the
-  fallback; the version is read from the catalog, never from a literal.
 
 ## Links
 
