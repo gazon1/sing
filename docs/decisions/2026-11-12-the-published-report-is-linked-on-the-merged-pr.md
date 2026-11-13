@@ -13,7 +13,9 @@ superseded-by: 2026-11-12-the-publication-says-only-what-it-verified
 > The address of the site is no longer guessed when the settings do not answer,
 > and the comment is no longer edited when somebody else wrote it. The rest of
 > this decision — the link goes on the merged pull request and on the issues it
-> closes, and the step is advisory — still holds.
+> closes, and the step is advisory — still holds. The scopes it names are
+> corrected below: the first real publication showed that a comment on a pull
+> request needs the scope of a pull request.
 
 # Context
 
@@ -87,9 +89,12 @@ marker `<!-- allure-report-link -->`.
 the bot's own comment first — and patches it; when there is none, it posts one.
 
 **The job's permissions** are the ones this needs and no more: `issues: write` for the
-comments, `pull-requests: read` to find the pull request, `pages: read` to read the
-site URL, next to the `contents: write` and `actions: read` the publication already
-had.
+comments, `pull-requests: write` to find the pull request and to write the comment on
+it, `pages: read` to read the site URL, next to the `contents: write` and
+`actions: read` the publication already had. The scope of the pull requests was
+`read` here at first, and the first real publication answered 403 with it: a comment
+on a pull request is not a comment on an issue, and the token may not write it
+without the scope of a pull request.
 
 **A failing comment does not fail the publication.** The step runs with
 `continue-on-error`, and it says so in its name: a soft step nobody declared is a
