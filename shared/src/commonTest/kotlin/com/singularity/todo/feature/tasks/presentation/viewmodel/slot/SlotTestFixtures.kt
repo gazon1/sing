@@ -3,12 +3,15 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
+import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
@@ -260,6 +263,49 @@ internal class SlotFakes(
             }
         }
 }
+
+/**
+ * The children slot under test, with the callbacks the slot reports through.
+ *
+ * Shared by the child-slot test classes: the slot is the same in every one of
+ * them, and only the intents and the assertions differ.
+ */
+internal fun slot(
+    fakes: SlotFakes,
+    source: TaskSource,
+    scope: CoroutineScope,
+    allTasks: List<Task> = emptyList(),
+    onBlockedClose: (BlockedCloseRequest) -> Unit = {},
+    onSaved: (String) -> Unit = {},
+    onError: (String) -> Unit = {},
+    onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
+    onUndoDeleteSubtask: (Task) -> Unit = {},
+) = TaskChildrenSlot(
+    taskId = TaskId("t1"),
+    core = fakes.core(),
+    children = fakes.children(),
+    context = fakes.context(),
+    scope = testSlotScope(scope),
+    taskFlow = source.state,
+    allTasks = MutableStateFlow(allTasks),
+    onError = onError,
+    onSaved = onSaved,
+    onBlockedClose = onBlockedClose,
+    onUndoDeleteChecklistItem = onUndoDeleteChecklistItem,
+    onUndoDeleteSubtask = onUndoDeleteSubtask,
+)
+
+/** A checklist item as the slot's repository hands it over. */
+internal fun checklistItem(
+    id: String,
+    title: String,
+    order: Int,
+) = ChecklistItem(
+    id = ChecklistItemId.fromString(id),
+    taskId = "t1",
+    title = title,
+    sortOrder = order,
+)
 
 /** A task flow a slot can be driven from, standing in for the coordinator's subscription. */
 internal class TaskSource(initial: Task? = null) {
