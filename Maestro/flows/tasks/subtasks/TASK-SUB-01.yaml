@@ -71,6 +71,9 @@ tags:
 - tapOn:
     id: subtask_add_input
 - inputText: "${RUN_ID} Child task one"
+# With the IME open the field must stay on screen (UXF-03 / #2874).
+- assertVisible:
+    id: subtask_add_input
 - tapOn:
     id: subtask_add_button
 

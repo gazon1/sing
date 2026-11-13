@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
@@ -22,8 +24,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -38,6 +43,7 @@ import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.launch
 
 // ─── Recurrence ────────────────────────────────────────────────────────────────
 
@@ -72,6 +78,8 @@ fun TaskDetailChecklistSection(
 ) {
     val newTitleState = rememberTextFieldState()
     val completed = checklist.count { it.isCompleted }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
 
     // The section always renders, empty list or not: the add-row inside it is the
     // only way to add the first checklist item from the task screen, so a section
@@ -101,7 +109,12 @@ fun TaskDetailChecklistSection(
                         modifier =
                             Modifier
                                 .weight(1f)
-                                .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
+                                .bringIntoViewRequester(bringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    if (focusState.isFocused) {
+                                        scope.launch { bringIntoViewRequester.bringIntoView() }
+                                    }
+                                }.testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
                         placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

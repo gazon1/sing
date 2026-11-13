@@ -284,6 +284,7 @@ object TestTags {
      * just went past".
      */
     const val TASK_EDITOR_TITLE_ERROR = "task_editor_title_error"
+    const val TASK_EDITOR_DESCRIPTION_INPUT = "task_editor_description_input"
 
     const val TASK_EDITOR_SAVE = "task_editor_save"
 
