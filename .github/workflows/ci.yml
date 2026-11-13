@@ -1809,6 +1809,18 @@ jobs:
     permissions:
       contents: write
       actions: read
+      # The report link is posted on the merged PR and on the issues it
+      # closes: `issues: write` for the comments, `pull-requests: read` to
+      # find the PR the published commit belongs to, `pages: read` to read
+      # the URL the site is published at.
+      issues: write
+      pages: read
+      pull-requests: read
+      # The check after the deploy reads the Pages deployments to learn the
+      # commit the deployment published: `deployments: read` is what lets it
+      # read them. Without the scope the API answers 403, and the check
+      # fails every publication.
+      deployments: read
     concurrency:
       group: allure-pages-${{ github.ref }}
       cancel-in-progress: false
@@ -1871,7 +1883,43 @@ jobs:
         if: ${{ always() }}
         run: rm -f history.tar.gz
 
-      - name: Measure history tree (before, advisory)
+      # The custom domain lives in the CNAME file at the root of the branch,
+      # and the deploy replaces the branch contents with the publish tree. A
+      # CNAME that is in the branch and not in the publish tree takes the
+      # custom domain with it. The CNAME is captured before anything touches
+      # the tree, so the checks below compare the capture with the branch and
+      # the branch with the publish tree — two different trees, and not a
+      # file against its own copy.
+      - name: Capture the custom domain CNAME
+        run: |
+          set -euo pipefail
+          if [ -f gh-pages/CNAME ]; then
+            cp gh-pages/CNAME cname.expected
+            echo "the branch carries a CNAME"
+          else
+            echo "the branch carries no CNAME — the checks below have nothing to compare"
+          fi
+
+      # The legacy layout published every report at the root of the branch
+      # and kept one shared history there. The population layout publishes
+      # inside a namespace, and the report action copies the whole tree into
+      # the publish tree — so the root copies were carried into every
+      # publication and never removed. The publication contract calls
+      # legacy root URLs legacy-only: they may disappear.
+      - name: Drop the legacy root reports
+        run: |
+          set -euo pipefail
+          before=$(python3 scripts/ci/allure_pages.py measure --path gh-pages)
+          result=$(python3 scripts/ci/allure_pages.py drop-legacy-root --site-dir gh-pages)
+          after=$(python3 scripts/ci/allure_pages.py measure --path gh-pages)
+          echo "$result"
+          {
+            echo "- legacy root drop: ${result}"
+            echo "- gh-pages before the drop: ${before}"
+            echo "- gh-pages after the drop: ${after}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Measure history tree (advisory)
         if: ${{ always() }}
         run: |
           python3 scripts/ci/allure_pages.py measure --path gh-pages || true
@@ -1986,11 +2034,27 @@ jobs:
           t1=$(date +%s%N)
           echo "ns=$((t1-t0))" >> "$GITHUB_OUTPUT"
 
+      # The CNAME is restored from the capture, not from the tree the action
+      # copied: the capture is what the branch carried when it was fetched.
       - name: Preserve custom domain CNAME
         if: steps.decide.outputs.action == 'publish'
         run: |
-          if [ -f gh-pages/CNAME ]; then
-            cp gh-pages/CNAME allure-history/CNAME
+          set -euo pipefail
+          if [ -f cname.expected ]; then
+            cp cname.expected allure-history/CNAME
+          fi
+
+      # The custom domain lives in the CNAME file, and the deploy replaces the
+      # branch contents with the publish tree. A CNAME that is in the branch
+      # and not in the publish tree takes the custom domain with it, so the
+      # publish tree is checked against the branch it is about to replace.
+      - name: The custom domain CNAME is still in the publish tree
+        if: steps.decide.outputs.action == 'publish'
+        run: |
+          set -euo pipefail
+          if [ -f cname.expected ]; then
+            cmp cname.expected gh-pages/CNAME
+            cmp gh-pages/CNAME allure-history/CNAME
           fi
 
       - name: Validate publication state before deploy
@@ -2001,6 +2065,24 @@ jobs:
         if: steps.decide.outputs.action == 'publish'
         run: |
           python3 scripts/ci/allure_pages.py measure --path allure-history
+
+      # The deploy replaces the branch with the publish tree, and the check
+      # after it has to tell the deployment of *this* publication from the
+      # deployments of the earlier ones. A moment cannot do that: the API
+      # answers `created_at` with a second of precision, and the previous
+      # publication may have finished in the very second this one starts.
+      # The identifiers of the deployments that exist now are recorded
+      # before the deploy, and the deployment of this publication is the
+      # one whose identifier the record does not name.
+      - name: Snapshot the Pages deployments
+        if: steps.decide.outputs.action == 'publish'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/allure_deploy.py snapshot-deployments \
+            --repo "${GITHUB_REPOSITORY}" \
+            --output deployments.before.json
 
       - name: Mark deploy start
         if: steps.decide.outputs.action == 'publish'
@@ -2022,6 +2104,58 @@ jobs:
         env:
           T0: ${{ steps.deploy-start.outputs.ts }}
         run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
+
+      # The deploy is the step that can drop the CNAME: it replaces the
+      # branch contents with the publish tree. The published branch is read
+      # back and checked against the capture, so the check is against the
+      # result and not against a local file.
+      #
+      # The read waits for the deployed revision first. The deploy is a
+      # push, and the API that answers the read may still be serving the
+      # previous revision for a moment after it: the CNAME of the previous
+      # revision says nothing about the revision that was published. The
+      # check waits until the branch holds the commit the deployment
+      # created, and only then reads the CNAME.
+      #
+      # The deployment it waits for is named by its identifier, not by the
+      # moment it was created: the snapshot taken before the deploy holds
+      # the identifiers that existed then, and the deployment of this
+      # publication is the one the snapshot does not name.
+      - name: The custom domain CNAME survived the deploy
+        if: steps.decide.outputs.action == 'publish'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/allure_deploy.py verify-cname \
+            --repo "${GITHUB_REPOSITORY}" \
+            --branch gh-pages \
+            --expected-file cname.expected \
+            --snapshot-file deployments.before.json
+
+      # A published report nobody is told about is a report nobody opens.
+      # The comment goes on the merged PR and on the issues that PR closes.
+      # A comment that does not post must not un-publish the report, so the
+      # step may fail without failing the job.
+      #
+      # A push only: a scheduled run publishes the tip of the default
+      # branch. The pull request that merged that commit is long closed, and
+      # its marker comment would be taken over by a run that has nothing to
+      # do with it.
+      - name: Link the report on the merged PR and on the issues it closes (advisory)
+        if: steps.decide.outputs.action == 'publish' && github.event_name == 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/allure_report_link.py \
+            --population "$TEST_POPULATION" \
+            --run-number "$RUN_NUMBER" \
+            --sha "$SHA"
 
       - name: Record publication measurements
         if: ${{ always() }}
