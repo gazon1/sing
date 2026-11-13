@@ -298,6 +298,7 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
+| `PROJECT_ICON_RECENT_SECTION` | `project_icon_recent_section` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 | `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |

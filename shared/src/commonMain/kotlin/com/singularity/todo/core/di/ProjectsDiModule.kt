@@ -3,6 +3,7 @@ package com.singularity.todo.core.di
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.data.DataStoreProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
+import com.singularity.todo.feature.projects.data.RecentEmojiStore
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
@@ -105,6 +106,12 @@ fun projectsModule(): org.koin.core.module.Module =
                 crashReporter = get(),
             )
         }
+
+        // The emoji the user picked most recently, for the project icon picker.
+        //
+        // App-wide rather than per profile: a recently used emoji is a habit,
+        // not a setting of one profile, so the key carries no profile id.
+        single { RecentEmojiStore(get()) }
 
         // ─── Shared component ViewModels ─────────────────────────────────────────
     }

@@ -4,7 +4,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
+import com.singularity.todo.test.helpers.ScreenWithOwners
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.newRecentEmojiStore
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -31,13 +33,17 @@ class ProjectPickerDismissTest {
         runIsolatedComposeTest {
             var pickCalled = false
             var dismissed = false
+            val store = newRecentEmojiStore()
 
             setContent {
-                IconPickerSheet(
-                    currentIcon = null,
-                    onPick = { pickCalled = true },
-                    onDismiss = { dismissed = true },
-                )
+                ScreenWithOwners {
+                    IconPickerSheet(
+                        currentIcon = null,
+                        onPick = { pickCalled = true },
+                        onDismiss = { dismissed = true },
+                        recentEmojiStore = store,
+                    )
+                }
             }
 
             clickTag(TestTags.PROJECT_PICKER_DISMISS)
