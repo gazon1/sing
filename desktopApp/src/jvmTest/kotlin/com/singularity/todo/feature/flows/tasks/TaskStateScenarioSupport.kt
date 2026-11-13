@@ -2,7 +2,6 @@ package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -16,6 +15,7 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.revealMoreParameter
 import com.singularity.todo.test.helpers.scrollToTag
+import com.singularity.todo.test.helpers.tagExists
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
@@ -86,7 +86,7 @@ internal object TaskStateScenarioSupport {
      * back through that sheet, and from then on it is on the screen.
      */
     fun scrollToStateRow(ui: DesktopComposeUiTest) {
-        if (ui.onAllNodesWithTag(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW).fetchSemanticsNodes().isEmpty()) {
+        if (!ui.tagExists(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW)) {
             ui.revealMoreParameter("WorkflowState")
         }
         ui.scrollToTag(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW)
