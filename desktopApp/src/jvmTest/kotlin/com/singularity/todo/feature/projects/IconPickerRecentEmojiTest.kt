@@ -9,6 +9,7 @@ import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.typeIntoTag
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -83,8 +84,47 @@ class IconPickerRecentEmojiTest {
                 }
             }
 
-            clickText("🎯")
+            clickText("😀")
 
-            assertEquals("🎯", picked, "the emoji was picked")
+            assertEquals("😀", picked, "the emoji was picked")
+        }
+
+    @Test
+    fun `the search field narrows the catalog to a shortcode match`() =
+        runIsolatedComposeTest {
+            setContent {
+                ScreenWithOwners {
+                    IconPickerSheet(
+                        currentIcon = null,
+                        recentEmojis = persistentListOf(),
+                        onPick = {},
+                        onDismiss = {},
+                    )
+                }
+            }
+
+            typeIntoTag(TestTags.PROJECT_ICON_SEARCH, "rocket")
+
+            assertTextDisplayed("🚀")
+            assertTagNotExists(TestTags.PROJECT_ICON_NO_MATCHES)
+        }
+
+    @Test
+    fun `a query without a shortcode match says so`() =
+        runIsolatedComposeTest {
+            setContent {
+                ScreenWithOwners {
+                    IconPickerSheet(
+                        currentIcon = null,
+                        recentEmojis = persistentListOf(),
+                        onPick = {},
+                        onDismiss = {},
+                    )
+                }
+            }
+
+            typeIntoTag(TestTags.PROJECT_ICON_SEARCH, "zzznomatch")
+
+            assertTagDisplayed(TestTags.PROJECT_ICON_NO_MATCHES)
         }
 }

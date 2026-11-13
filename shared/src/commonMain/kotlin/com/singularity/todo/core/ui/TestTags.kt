@@ -363,11 +363,6 @@ object TestTags {
     /** Dynamic tag for one candidate row in the related-task picker. */
     fun relatedTaskCandidate(taskId: String) = "related_task_candidate_${slug(taskId)}"
 
-    /**
-     * Legacy dependency-picker row tag kept for compatibility with existing selectors.
-     */
-    const val TASK_EDITOR_DEPENDENCIES_ROW = "task_editor_dependencies_row"
-
     // The × button of a task editor's sheet.
     //
     // The sheet's × has the content description "Close", and so does the calendar
@@ -1076,6 +1071,12 @@ object TestTags {
      * assertion, and an empty heading would be the defect.
      */
     const val PROJECT_ICON_RECENT_SECTION = "project_icon_recent_section"
+
+    /** The shortcode search field of the project icon picker. */
+    const val PROJECT_ICON_SEARCH = "project_icon_search"
+
+    /** The "no emoji match" state of the project icon picker's search. */
+    const val PROJECT_ICON_NO_MATCHES = "project_icon_no_matches"
 
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"

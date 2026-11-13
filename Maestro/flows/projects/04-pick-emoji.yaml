@@ -1,0 +1,94 @@
+# Projects: browse and search the library's emoji catalog in the detail screen.
+#
+# The picker's choices come from the Vanniktech provider (#2919), so the flow
+# pins the three states the sheet has: a category grid when the query is empty,
+# the library's shortcode matches, and the no-match line. Picking an emoji has
+# to reach the project's icon and survive a reopen — the pick is only real if it
+# is persisted.
+#
+# The icon entry used here is the detail screen's "More" action. The editor's
+# icon chip is not used: the colour swatches take the full row on a phone and
+# push the chip off-screen (a pre-existing layout defect, outside #2919).
+appId: com.singularity.todo
+name: projects-pick-emoji
+tags:
+  - regression
+  - projects
+---
+- runFlow: ../../helpers/launch-clean.yaml
+# The project list is reached from the menu's Projects section.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_all_projects
+- extendedWaitUntil:
+    visible:
+      id: projects_create_button
+    timeout: 8000
+- tapOn:
+    id: projects_create_button
+- extendedWaitUntil:
+    visible:
+      id: project_editor_name_input
+    timeout: 5000
+# The project is created with its name only; the icon is picked on the detail.
+- tapOn:
+    id: project_editor_name_input
+- inputText: "Emoji Flow"
+- hideKeyboard
+- tapOn:
+    id: project_editor_save
+- extendedWaitUntil:
+    visible: "Emoji Flow"
+    timeout: 8000
+- tapOn: "Emoji Flow"
+- extendedWaitUntil:
+    visible:
+      id: project_detail_tasks_header
+    timeout: 8000
+# ── Browse: the sheet opens on the provider's first category ────────────────
+- tapOn: "More"
+- scrollUntilVisible:
+    element:
+      text: "Faces"
+    direction: DOWN
+    timeout: 5000
+# "Faces" is SmileysAndPeopleCategory's English name, straight from the
+# provider — the sheet does not keep its own category labels.
+- assertVisible: "Faces"
+# ── Search: the library's shortcode index answers "rocket" ──────────────────
+- tapOn:
+    id: project_icon_search
+- inputText: "rocket"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "🚀"
+    timeout: 5000
+- tapOn: "🚀"
+- extendedWaitUntil:
+    notVisible:
+      id: project_icon_search
+    timeout: 5000
+- assertVisible: "🚀"
+# ── No match: a query without a shortcode match says so ─────────────────────
+- tapOn: "More"
+- scrollUntilVisible:
+    element:
+      id: project_icon_search
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: project_icon_search
+- inputText: "zzznomatch"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: 'No emoji match "zzznomatch"'
+    timeout: 5000
+- tapOn:
+    id: project_picker_dismiss
+# The pick survived the sheet: the detail still draws it.
+- assertVisible: "🚀"

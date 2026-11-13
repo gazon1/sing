@@ -263,10 +263,12 @@ markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-
 openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
 
 # Emoji
-# Only the core artifact. The providers (`emoji-google`, `emoji-ios`, …) keep their
-# `EmojiProvider` implementation in a platform source set, so they cannot be reached
-# from commonMain; an installing platform seam arrives with #2919.
+# The core carries the catalog/search/text API; `emoji-google` carries the data. Its
+# `EmojiProvider` is published only in the platform source sets, so it is installed
+# through an expect/actual seam. See
+# docs/decisions/2026-11-13-the-picker-installs-the-google-provider.md
 vanniktech-emoji = { module = "com.vanniktech:emoji", version.ref = "vanniktech-emoji" }
+vanniktech-emoji-google = { module = "com.vanniktech:emoji-google", version.ref = "vanniktech-emoji" }
 
 # MaterialKolor
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }

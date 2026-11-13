@@ -191,7 +191,6 @@ class TaskDetailOfferSlotTest {
     private fun DesktopComposeUiTest.firstRowBelowTheOfferSlot(): DpRect {
         val rows =
             listOf(
-                TestTags.TASK_EDITOR_DEPENDENCIES_ROW,
                 TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW,
                 TestTags.TASK_EDITOR_PRIORITY_ROW,
             ).filter { countNodes(it) > 0 }.map { unclippedBoundsOfTag(it) }
