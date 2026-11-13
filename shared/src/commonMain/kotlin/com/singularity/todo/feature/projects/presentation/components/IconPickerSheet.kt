@@ -8,14 +8,23 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,40 +32,19 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.emoji.EmojiCatalog
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.vanniktech.emoji.EmojiCategory
 import kotlinx.collections.immutable.ImmutableList
-
-private val COMMON_EMOJIS =
-    listOf(
-        "🚀",
-        "🎯",
-        "💡",
-        "🔥",
-        "⭐",
-        "❤️",
-        "✅",
-        "📌",
-        "🏠",
-        "💼",
-        "📚",
-        "🎵",
-        "🐾",
-        "✈️",
-        "🏥",
-        "🛒",
-        "💻",
-        "🔧",
-        "🎨",
-        "📊",
-    )
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -169,18 +157,16 @@ private fun EmojiSection(
 
     Text("Emoji", style = MaterialTheme.typography.titleSmall)
     Spacer(Modifier.height(8.dp))
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        COMMON_EMOJIS.forEach { emoji ->
-            EmojiChip(
-                emoji = emoji,
-                selected = emoji == currentIcon,
-                onClick = { onPick(emoji) },
-            )
-        }
-    }
+
+    val searchState = rememberTextFieldState()
+    EmojiSearchField(searchState)
+    Spacer(Modifier.height(8.dp))
+
+    EmojiGrid(
+        query = searchState.text.toString(),
+        currentIcon = currentIcon,
+        onPick = onPick,
+    )
 
     Spacer(Modifier.height(12.dp))
     val custom = rememberTextFieldState()
@@ -198,6 +184,96 @@ private fun EmojiSection(
         }) { Text("Add") }
     }
 }
+
+@Composable
+private fun EmojiSearchField(searchState: TextFieldState) {
+    OutlinedTextField(
+        state = searchState,
+        modifier = Modifier.fillMaxWidth().testTag(TestTags.PROJECT_ICON_SEARCH),
+        placeholder = { Text("Search emoji") },
+        lineLimits = TextFieldLineLimits.SingleLine,
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            if (searchState.text.isNotEmpty()) {
+                IconButton(onClick = { searchState.clearText() }) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                }
+            }
+        },
+    )
+}
+
+/**
+ * The catalog under the search field.
+ *
+ * With no query it is the provider's categories, in the provider's order; with a
+ * query it is the library's shortcode search. The grid is bounded because a lazy
+ * grid inside the sheet's unbounded column has to be told its height.
+ */
+@Composable
+private fun EmojiGrid(
+    query: String,
+    currentIcon: String?,
+    onPick: (String?) -> Unit,
+) {
+    if (query.isBlank()) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(48.dp),
+            modifier = Modifier.fillMaxWidth().height(emojiGridHeight),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            EmojiCatalog.categories.forEach { category ->
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = category.displayName(),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                items(category.emojis) { emoji ->
+                    EmojiChip(
+                        emoji = emoji.unicode,
+                        selected = emoji.unicode == currentIcon,
+                        onClick = { onPick(emoji.unicode) },
+                    )
+                }
+            }
+        }
+        return
+    }
+
+    val results = remember(query) { EmojiCatalog.search(query) }
+    if (results.isEmpty()) {
+        Text(
+            text = "No emoji match \"$query\"",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(TestTags.PROJECT_ICON_NO_MATCHES),
+        )
+        return
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(48.dp),
+        modifier = Modifier.fillMaxWidth().height(emojiGridHeight),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        items(results) { emoji ->
+            EmojiChip(
+                emoji = emoji.unicode,
+                selected = emoji.unicode == currentIcon,
+                onClick = { onPick(emoji.unicode) },
+            )
+        }
+    }
+}
+
+private val emojiGridHeight = 240.dp
+
+/** The library's categories name themselves in the user's language, English first. */
+private fun EmojiCategory.displayName(): String = categoryNames["en"] ?: categoryNames.values.firstOrNull() ?: "Emoji"
 
 /**
  * One emoji in the picker.

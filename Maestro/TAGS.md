@@ -145,7 +145,6 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_DEADLINE_ROW` | `task_editor_deadline_row` | |
 | `TASK_EDITOR_DEADLINE_ROW_LABEL` | `task_editor_deadline_row_label` | |
 | `TASK_EDITOR_DEADLINE_ROW_PLACEHOLDER` | `task_editor_deadline_row_placeholder` | |
-| `TASK_EDITOR_DEPENDENCIES_ROW` | `task_editor_dependencies_row` | |
 | `TASK_EDITOR_DESCRIPTION_INPUT` | `task_editor_description_input` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_DATE_ROW_PLACEHOLDER` | `task_editor_due_date_row_placeholder` | |
@@ -304,7 +303,9 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
+| `PROJECT_ICON_NO_MATCHES` | `project_icon_no_matches` | |
 | `PROJECT_ICON_RECENT_SECTION` | `project_icon_recent_section` | |
+| `PROJECT_ICON_SEARCH` | `project_icon_search` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 | `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |
