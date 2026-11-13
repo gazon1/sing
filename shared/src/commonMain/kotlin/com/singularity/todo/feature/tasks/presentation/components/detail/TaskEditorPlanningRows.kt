@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.reminders.ReminderOffsetState
@@ -276,7 +275,7 @@ private fun PlanningRow(
                 )
             }
         } else {
-            Spacer(Modifier.width(48.dp))
+            Spacer(Modifier.width(TaskSpacing.clearButtonSlot))
         }
     }
 }
