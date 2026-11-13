@@ -102,7 +102,9 @@ private val MONTH_NAMES =
  * @param anchorDate The date to use as anchor for preview (typically task's due date or today).
  * @param dueDate The task's due date, or null when it has none. The preview says
  *        when the series starts only when the rule hangs on this date; the anchor
- *        above falls back to today, and today is not a date the task has.
+ *        above falls back to today, and today is not a date the task has. It has
+ *        no default: a caller that forgets it would show a rule without a start
+ *        date, and "no due date" is a thing to say out loud.
  * @param onApply Called with the selected [RecurrenceSpec], or null to clear recurrence.
  * @param onDismiss Called when the user dismisses the sheet.
  */
@@ -111,7 +113,7 @@ private val MONTH_NAMES =
 fun RecurrencePickerSheet(
     currentSpec: RecurrenceSpec?,
     anchorDate: LocalDate,
-    dueDate: LocalDate? = null,
+    dueDate: LocalDate?,
     onApply: (RecurrenceSpec?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -772,6 +774,7 @@ private fun RecurrencePickerSheetPreview() =
         RecurrencePickerSheet(
             currentSpec = null,
             anchorDate = PreviewSamples.today,
+            dueDate = null,
             onApply = { },
             onDismiss = noopClick,
         )
@@ -788,6 +791,7 @@ private fun RecurrencePickerSheetWeeklyPreview() =
                     weekdays = setOf(1, 3, 5),
                 ),
             anchorDate = PreviewSamples.today,
+            dueDate = null,
             onApply = { },
             onDismiss = noopClick,
         )

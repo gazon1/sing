@@ -75,6 +75,7 @@ class TaskDetailRecurrenceSectionTest {
             setContent {
                 TaskDetailRecurrenceSection(
                     recurrence = Weekly(RecurrenceBase.FROM_DUE, setOf(1, 3, 5)),
+                    dueDate = null,
                 )
             }
 
@@ -90,6 +91,7 @@ class TaskDetailRecurrenceSectionTest {
             setContent {
                 TaskDetailRecurrenceSection(
                     recurrence = Monthly(RecurrenceBase.FROM_DUE, 15),
+                    dueDate = null,
                 )
             }
 
@@ -105,6 +107,7 @@ class TaskDetailRecurrenceSectionTest {
             setContent {
                 TaskDetailRecurrenceSection(
                     recurrence = Yearly(RecurrenceBase.FROM_DUE, 12, 25),
+                    dueDate = null,
                 )
             }
 
@@ -138,6 +141,7 @@ class TaskDetailRecurrenceSectionTest {
             setContent {
                 TaskDetailRecurrenceSection(
                     recurrence = Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY),
+                    dueDate = null,
                 )
             }
 
@@ -185,6 +189,7 @@ class TaskDetailRecurrenceSectionTest {
             setContent {
                 TaskDetailRecurrenceSection(
                     recurrence = Interval(RecurrenceBase.CATCH_UP, 3, DateTimeUnit.DAY),
+                    dueDate = null,
                 )
             }
 
@@ -240,6 +245,7 @@ class TaskDetailRecurrenceSectionTest {
                     recurrence =
                         Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
                             .copy(termination = RecurrenceTermination(LocalDate(2027, 1, 29))),
+                    dueDate = null,
                 )
             }
 

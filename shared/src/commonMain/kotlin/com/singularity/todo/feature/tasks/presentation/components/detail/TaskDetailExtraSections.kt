@@ -52,12 +52,14 @@ import kotlinx.datetime.LocalDate
  *
  * @param dueDate The task's due date. The rule hangs on it when its base says
  *        so, and then the sentence says when the series starts; when the task
- *        has no due date, the sentence says nothing about a start.
+ *        has no due date, the sentence says nothing about a start. It has no
+ *        default: a caller that forgets it would quietly get a rule without a
+ *        start date, and "no due date" is a thing to say out loud.
  */
 @Composable
 fun TaskDetailRecurrenceSection(
     recurrence: RecurrenceSpec,
-    dueDate: LocalDate? = null,
+    dueDate: LocalDate?,
     modifier: Modifier = Modifier,
 ) {
     ExtraSectionCard(
