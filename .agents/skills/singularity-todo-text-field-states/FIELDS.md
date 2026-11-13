@@ -58,6 +58,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | local, bridged, anchored | the API key (local), the base URL (bridged), the provider and the model (anchored) |
 | `feature/settings/screens/WorkScheduleSettingsScreen.kt` | anchored | the time |
 | `feature/tags/components/AddTagDialog.kt` | local | the tag's name |
+| `feature/tasks/presentation/components/ProjectPickerSheet.kt` | local | the search query |
 | `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | anchored | the interval amount, the day of month |
 | `feature/tasks/presentation/components/detail/RelatedTaskPickerSheet.kt` | local | the search query — the sheet owns it and searches on demand |
 | `feature/tasks/presentation/components/detail/SubtasksSection.kt` | local | the new subtask |
