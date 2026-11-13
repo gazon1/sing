@@ -4,6 +4,8 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagExists
+import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTagSelected
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
@@ -192,6 +194,61 @@ class TaskSchedulingSheetTest {
 
             assertTrue(result?.someday == true, "the task is a someday one")
             assertNull(result?.dueDate, "someday means no date")
+        }
+
+    /**
+     * The calendar opens on the month of the fact the sheet is editing.
+     *
+     * It used to open on the due date's month whatever the sheet was editing,
+     * so a task with a January due date and a June deadline showed January when
+     * the user came for the deadline — and the user had to page forward to find
+     * the fact they came for.
+     */
+    @Test
+    fun `the deadline sheet opens on the month of the deadline`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            setContent {
+                TaskSchedulingSheet(
+                    dueDate = LocalDate(2026, 1, 20),
+                    dueTime = null,
+                    deadline = LocalDate(2026, 6, 15),
+                    someday = false,
+                    today = LocalDate(2026, 1, 15),
+                    initialTarget = SchedulingTarget.DEADLINE,
+                    onConfirm = {},
+                    onDismiss = {},
+                )
+            }
+
+            // The day cells are addressed by their date, so the assertion says
+            // which month is on the screen without naming a month in a language.
+            assertTagExists(TestTags.taskSchedulingDay("2026-06-15"))
+            assertTagNotExists(TestTags.taskSchedulingDay("2026-01-20"))
+        }
+
+    /**
+     * The grid edits the focused fact, so the calendar follows the focus: the
+     * deadline row brings the deadline's month.
+     */
+    @Test
+    fun `tapping the deadline row brings the deadline's month`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            setContent {
+                TaskSchedulingSheet(
+                    dueDate = LocalDate(2026, 1, 20),
+                    dueTime = null,
+                    deadline = LocalDate(2026, 6, 15),
+                    someday = false,
+                    today = LocalDate(2026, 1, 15),
+                    initialTarget = SchedulingTarget.DUE_DATE,
+                    onConfirm = {},
+                    onDismiss = {},
+                )
+            }
+
+            clickTag(TestTags.TASK_SCHEDULING_DEADLINE_ROW)
+
+            assertTagExists(TestTags.taskSchedulingDay("2026-06-15"))
         }
 
     @Test

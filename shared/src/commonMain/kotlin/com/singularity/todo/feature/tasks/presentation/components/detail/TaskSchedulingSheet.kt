@@ -255,7 +255,23 @@ fun TaskSchedulingSheet(
         remember {
             SchedulingState(dueDate, dueTime, deadline, someday, initialTarget)
         }
-    var monthAnchor by remember { mutableStateOf(dueDate ?: deadline ?: today) }
+    var monthAnchor by remember {
+        mutableStateOf(
+            // The month of the fact the sheet opens on — the deadline row opens
+            // it on the deadline, the date row on the date. A sheet that opened
+            // on the *other* date's month made the user page to the fact they
+            // came for.
+            when (initialTarget) {
+                SchedulingTarget.DUE_DATE -> dueDate
+                SchedulingTarget.DEADLINE -> deadline
+            } ?: today,
+        )
+    }
+    // The calendar follows the focus: tapping the deadline row brings the
+    // deadline's month, because the grid now edits the deadline.
+    LaunchedEffect(state.target) {
+        state.focusedDate?.let { monthAnchor = it }
+    }
     val timeState = rememberSchedulingTimeState(dueTime) { state.time = it }
 
     // The sheet opens expanded.
