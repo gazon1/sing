@@ -151,9 +151,13 @@ than through new literals.
   issue explicitly does not.
 - The group-spacing restructure (8dp inside a group, 16dp between groups) is still
   open.
-- Screenshot-based before/after evidence is not part of this change: the repository
-  has no screenshot framework (ADR `2026-09-30-roborazzi-not-built-superseded.md`),
-  and building one is issue #2887.
+- The before/after evidence is a set of ad-hoc captures, not a screenshot suite:
+  the repository has no screenshot framework (ADR
+  `2026-09-30-roborazzi-not-built-superseded.md`), and building one is issue
+  #2887. The captures live in `docs/research/2878-task-detail-attribute-rows/`,
+  and no gate asserts them — the colour numbers are pinned by
+  `TaskDetailContrastTest` and the type-scaling numbers by
+  `TaskDetailFontScaleTest`.
 - `mutedTextColor` changed value for every screen that reads it, not only the task
   detail. It is lighter than the 72% tier was and darker than the plain
   `onSurfaceVariant` — a deliberate move towards legibility.
