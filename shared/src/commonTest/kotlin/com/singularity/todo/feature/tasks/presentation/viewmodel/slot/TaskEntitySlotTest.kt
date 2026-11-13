@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -201,30 +200,6 @@ class TaskEntitySlotTest {
                 false,
                 fakes.taskRepo.tasks.value["t1"]
                     ?.isPinned,
-            )
-        }
-
-    @Test
-    fun `clear due date writes null`() =
-        runTest {
-            val fakes = SlotFakes()
-            val source = TaskSource(task("t1").copy(dueDate = kotlinx.datetime.LocalDate(2026, 9, 27)))
-            val slot =
-                TaskEntitySlot(
-                    taskId = TaskId("t1"),
-                    core = fakes.core(),
-                    children = fakes.children(),
-                    scope = testSlotScope(backgroundScope),
-                    taskFlow = source.state,
-                ) {}
-            runCurrent()
-
-            slot.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
-            runCurrent()
-
-            assertNull(
-                fakes.taskRepo.tasks.value["t1"]
-                    ?.dueDate,
             )
         }
 

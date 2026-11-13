@@ -40,7 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
+import com.singularity.todo.core.notifications.NotificationSettingsPort
+import com.singularity.todo.core.notifications.rememberNotificationPermissionRequester
 import com.singularity.todo.core.refresh.RefreshableContent
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
@@ -57,6 +60,7 @@ import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.FirstRun
+import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
@@ -65,12 +69,15 @@ import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.DeadlineRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.RelatedTaskItemUi
 import com.singularity.todo.feature.tasks.presentation.components.detail.RelatedTasksSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.ReminderRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.ScheduleCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailAttachmentsSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailChecklistSection
@@ -294,6 +301,17 @@ fun TaskDetailContent(
                     val ui = s.ui
                     val extras = s.extras
 
+                    // The notification permission and the way out of it.
+                    //
+                    // The permission state decides whether the reminder row
+                    // says «Уведомления выключены» or the offset it holds.
+                    // The settings port decides whether there is a screen to
+                    // open at all — the desktop app has none, so it offers no
+                    // action rather than one that opens nothing.
+                    val notificationPermission = rememberNotificationPermissionRequester()
+                    val notificationSettings: NotificationSettingsPort = koinInject()
+                    val canOpenNotificationSettings = notificationSettings.isSupported
+
                     val attachmentsVm: AttachmentsViewModel = koinViewModel { parametersOf(ui.task.id) }
                     val attachments by attachmentsVm.attachments.collectAsStateWithLifecycle()
                     LaunchedEffect(attachmentsVm) {
@@ -362,6 +380,29 @@ fun TaskDetailContent(
                                 // was nothing to delete from the one place that
                                 // deletes.
                                 attachments = remember(attachments) { attachments.toImmutableList() },
+                                // The three planning facts that used to have no
+                                // row on this screen: the deferred bucket, the
+                                // deadline and the reminder.
+                                //
+                                // The deadline is the task's `endDate`, and the
+                                // reminder's offset is read back from the stored
+                                // reminder — the offset is not stored on the
+                                // task, so there is no other place to read it
+                                // from.
+                                someday = ui.task.someday,
+                                deadline = ui.task.endDate,
+                                // What the app knows about the reminder. A
+                                // reminder whose offset this build does not
+                                // know is still a reminder: it is shown as
+                                // one, and it is not rewritten into the
+                                // nearest offset the app happens to offer.
+                                reminderState =
+                                    remember(ui.reminders) {
+                                        ReminderOffsetState.of(
+                                            ui.reminders.firstOrNull()?.offsetMinutes,
+                                        )
+                                    },
+                                notificationsEnabled = notificationPermission.hasPermissions,
                             ),
                         titleSource = ui.titleSource,
                         // Nothing under the field until the title has been edited — a
@@ -411,23 +452,95 @@ fun TaskDetailContent(
                                     ),
                                 dueDate =
                                     DateRowCallbacks(
-                                        onChangeDate = {
+                                        // The date and its time are facts of
+                                        // the schedule, so they are written
+                                        // through it: one write, one copy of
+                                        // the task, one place where the rules
+                                        // between the facts are applied.
+                                        onChangeDate = { date ->
                                             coordinator.onIntent(
-                                                TaskDetailIntent.Domain.SetDueDate(it),
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    dueDate = ScheduleChange.Value(date),
+                                                ),
                                             )
                                         },
-                                        onChangeTime = {
+                                        onChangeTime = { time ->
                                             coordinator.onIntent(
-                                                TaskDetailIntent.Domain.SetDueTime(it),
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    dueTime = ScheduleChange.Value(time),
+                                                ),
                                             )
                                         },
                                         onClick = { sheets.show(TaskEditorSheet.Date) },
                                         onClear = {
-                                            coordinator.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
-                                            coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(null))
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    dueDate = ScheduleChange.Value(null),
+                                                ),
+                                            )
                                         },
                                     ),
                                 startDate = null,
+                                // The reminder.
+                                //
+                                // The sheet supplies the offset and the
+                                // existing intents do the write — the
+                                // reminders slot owns the scheduler and the
+                                // capability gate. The row itself only opens
+                                // the sheet.
+                                reminder =
+                                    ReminderRowCallbacks(
+                                        onSet = { offset ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetReminder(offset),
+                                            )
+                                        },
+                                        onClear = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.Reminder) },
+                                    ),
+                                // The deadline — the bound by which the work
+                                // has to be done. Independent of the due date:
+                                // clearing one leaves the other alone.
+                                deadline =
+                                    DeadlineRowCallbacks(
+                                        onClick = { sheets.show(TaskEditorSheet.Deadline) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    deadline = ScheduleChange.Value(null),
+                                                ),
+                                            )
+                                        },
+                                    ),
+                                // The schedule — the due date and its time,
+                                // the deadline and the `someday` bucket.
+                                //
+                                // One bundle, because they are one decision
+                                // and one write: the sheet that edits them
+                                // reports what changed, and the slot applies
+                                // it to a single copy of the task.
+                                schedule =
+                                    ScheduleCallbacks(
+                                        onChange = { coordinator.onIntent(it) },
+                                    ),
+                                // The two ways out of a refused notification
+                                // permission. A refusal with no way out is a
+                                // dead end, so both are offered where the
+                                // platform has them.
+                                onRequestNotificationPermission =
+                                    if (notificationPermission.hasPermissions) {
+                                        null
+                                    } else {
+                                        { notificationPermission.requestPermissions() }
+                                    },
+                                onOpenNotificationSettings =
+                                    if (canOpenNotificationSettings) {
+                                        { notificationSettings.open() }
+                                    } else {
+                                        null
+                                    },
                                 project =
                                     RowCallbacks(
                                         onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },

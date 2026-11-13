@@ -23,6 +23,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
@@ -210,10 +211,12 @@ class TaskDetailCoordinatorTest {
                     TaskDetailIntent.Domain.ToggleComplete,
                     TaskDetailIntent.Domain.TitleChanged("T"),
                     TaskDetailIntent.Domain.DescriptionChanged("D"),
-                    TaskDetailIntent.Domain.ToggleSomeday,
                     TaskDetailIntent.Domain.SetKind(com.singularity.todo.feature.tasks.domain.model.TaskKind.Note),
-                    TaskDetailIntent.Domain.SetDueDate(kotlinx.datetime.LocalDate(2026, 10, 1)),
-                    TaskDetailIntent.Domain.SetDueTime(kotlinx.datetime.LocalTime(9, 0)),
+                    TaskDetailIntent.Domain.SetSchedule(
+                        dueDate =
+                            ScheduleChange.Value(kotlinx.datetime.LocalDate(2026, 10, 1)),
+                        dueTime = ScheduleChange.Value(kotlinx.datetime.LocalTime(9, 0)),
+                    ),
                     TaskDetailIntent.Domain.SetStartDate(kotlinx.datetime.LocalDate(2026, 9, 30)),
                     TaskDetailIntent.Domain.SetStartTime(kotlinx.datetime.LocalTime(8, 0)),
                     TaskDetailIntent.Domain.SetPriority(TaskPriority.Low),

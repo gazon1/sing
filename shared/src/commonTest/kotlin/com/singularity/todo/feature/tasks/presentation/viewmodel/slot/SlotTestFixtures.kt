@@ -33,6 +33,7 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeNotifier
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeReminderRepository
@@ -108,8 +109,16 @@ internal class RecordingReminderScheduler(override val isSupported: Boolean = tr
 internal class SlotFakes(
     /** Whether the platform scheduler claims it can arm alarms; false reproduces desktop. */
     remindersSupported: Boolean = true,
+    /**
+     * Whether a notification can be shown right now.
+     *
+     * False reproduces the device whose owner denied `POST_NOTIFICATIONS`: the alarm
+     * can be armed, and nothing can appear.
+     */
+    notificationsSupported: Boolean = true,
 ) {
     val scheduler = RecordingReminderScheduler(isSupported = remindersSupported)
+    val notifier = FakeNotifier(supported = notificationsSupported)
 
     val currentUser: ProfileAwareCurrentUser =
         FakeProfileAwareCurrentUser(
@@ -179,6 +188,7 @@ internal class SlotFakes(
             reminderRepo = reminderRepo,
             reminderScheduler = scheduler,
             timeZoneProvider = TEST_TZ,
+            notifier = notifier,
         )
 
     fun collaboration() =

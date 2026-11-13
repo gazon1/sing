@@ -1,0 +1,51 @@
+# Task editor: set a deadline from the planning group.
+#
+# The deadline is the bound by which the work has to be done. It is a fact of
+# its own: the row opens the planning sheet focused on the deadline, and the
+# «Сегодня» preset sets *that* fact — a preset that always set the due date
+# would put today's date on the screen while the deadline is what the user is
+# picking.
+#
+# The flow does not assert a date the app formats. The preset is picked by its
+# tag, and the row is checked for the absence of the placeholder.
+appId: com.singularity.todo
+name: tasks-planning-deadline
+tags:
+  - regression
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# The deadline row sits under the due-date row; scroll it into view.
+- scrollUntilVisible:
+    element:
+      id: task_editor_deadline_row
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: task_editor_deadline_row
+- extendedWaitUntil:
+    visible:
+      id: task_scheduling_sheet
+    timeout: 8000
+- tapOn:
+    id: task_scheduling_today_chip
+- tapOn:
+    id: task_scheduling_confirm
+- extendedWaitUntil:
+    notVisible:
+      id: task_scheduling_sheet
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_editor_deadline_row_label
+    timeout: 8000
+# The placeholder is gone: the row carries a deadline now. The tag names the
+# state, so the assertion does not depend on the language of the device.
+- assertNotVisible:
+    id: task_editor_deadline_row_placeholder

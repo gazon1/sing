@@ -4,6 +4,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
@@ -110,7 +111,11 @@ class TaskSeriesScopeTest {
                 )
             runCurrent()
 
-            slot.onIntent(TaskDetailIntent.Domain.SetDueDate(LocalDate(2026, 10, 6)))
+            slot.onIntent(
+                TaskDetailIntent.Domain.SetSchedule(
+                    dueDate = ScheduleChange.Value(LocalDate(2026, 10, 6)),
+                ),
+            )
             runCurrent()
 
             val dates =

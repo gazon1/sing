@@ -40,7 +40,6 @@ class TaskRemindersSlotTest {
         sourceViewId = sourceViewId,
         core = fakes.core(),
         scheduling = fakes.scheduling(),
-        context = fakes.context(),
         scope = testSlotScope(scope),
         taskFlow = source.state,
         onError = {},
@@ -55,7 +54,6 @@ class TaskRemindersSlotTest {
         taskId = TaskId("t1"),
         core = fakes.core(),
         scheduling = fakes.scheduling(),
-        context = fakes.context(),
         scope = testSlotScope(scope),
         taskFlow = source.state,
         onError = onError,
@@ -225,6 +223,138 @@ class TaskRemindersSlotTest {
     fun `clearing still works on an unsupported platform`() =
         runTest {
             val fakes = SlotFakes(remindersSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+            runCurrent()
+
+            assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+            assertTrue(errors.isEmpty(), "clearing must not surface an error")
+        }
+
+    /**
+     * The second gate: the platform can arm the alarm and cannot show a notification.
+     *
+     * That is the device whose owner denied `POST_NOTIFICATIONS`. The alarm would
+     * fire into nothing, and the stored row would still render as a live reminder —
+     * so the row must not be written, and the user must be told.
+     *
+     * The scheduler's own gate does not cover this case: on Android the scheduler
+     * claims it can arm alarms whatever the notification permission says, which is
+     * why this test needs its own fake.
+     */
+    @Test
+    fun `a reminder is not written when no notification can be shown`() =
+        runTest {
+            val fakes = SlotFakes(notificationsSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
+
+            assertTrue(
+                fakes.reminderRepo.reminders.value
+                    .isEmpty(),
+                "a reminder nobody can be shown must not be persisted",
+            )
+            assertTrue(
+                fakes.scheduler.scheduled.isEmpty(),
+                "nothing may be armed for a notification that cannot appear",
+            )
+            assertEquals(1, errors.size, "the user must be told, not left with silent success")
+        }
+
+    /**
+     * The third gate: a relative reminder counts back from the due moment, and a
+     * task without a date has no such moment.
+     *
+     * The offset used to fall back to "now", so a task without a date got a
+     * reminder that fired at once — the person who asked for "15 minutes before"
+     * got it immediately, and the row showed a live reminder for a moment they
+     * never chose.
+     */
+    @Test
+    fun `a reminder is not written when the task has no due date`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1"))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
+
+            assertTrue(
+                fakes.reminderRepo.reminders.value
+                    .isEmpty(),
+                "a reminder with nothing to count back from must not be persisted",
+            )
+            assertTrue(
+                fakes.scheduler.scheduled.isEmpty(),
+                "nothing may be armed for a moment that does not exist",
+            )
+            assertEquals(1, errors.size, "the user must be told, not left with silent success")
+        }
+
+    /**
+     * The date comes first, and only then the offset — so the refusal names the
+     * missing date rather than the offset that could not be placed.
+     */
+    @Test
+    fun `the refusal names the missing due date`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1"))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
+
+            assertEquals(
+                "A reminder needs a due date to count back from",
+                errors.single(),
+            )
+        }
+
+    /**
+     * The refusal is about *new* reminders only. A reminder written before the
+     * date was removed is still the task's, and the user must be able to
+     * clear it.
+     */
+    @Test
+    fun `clearing still works when the task has no due date`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1"))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+            runCurrent()
+
+            assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+            assertTrue(errors.isEmpty(), "clearing must not surface an error")
+        }
+
+    /**
+     * The refusal is about *new* reminders only. A reminder written before the
+     * permission was revoked is still the task's, and the user must be able to
+     * clear it.
+     */
+    @Test
+    fun `clearing still works when no notification can be shown`() =
+        runTest {
+            val fakes = SlotFakes(notificationsSupported = false)
             val source = TaskSource(task("t1").copy(dueDate = DUE))
             val errors = mutableListOf<String>()
             val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }

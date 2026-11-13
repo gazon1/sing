@@ -12,6 +12,8 @@ import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
 import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
@@ -56,44 +58,47 @@ fun TaskEditorSheetsHost(
         // opens the ordinary one. The switch is [TaskEditorModel.multiDateEnabled]
         // and not the presence of a callback: the callback says *where the result
         // goes*, the flag says *what the user is allowed to choose*.
-        is TaskEditorSheet.Date -> {
-            TaskEditorDateSheet(
+        is TaskEditorSheet.Date,
+        is TaskEditorSheet.Time,
+        is TaskEditorSheet.StartDate,
+        is TaskEditorSheet.StartTime,
+        -> {
+            TaskEditorDateSheets(
                 model = model,
                 callbacks = callbacks,
+                activeSheet = activeSheet,
                 now = now,
                 onSheetDismiss = onSheetDismiss,
             )
         }
 
-        is TaskEditorSheet.Time -> {
-            TimePickerSheet(
-                initialTime = model.dueTime,
-                onTimeSelected = { time ->
-                    callbacks.dueDate.onChangeTime.invoke(time)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
+        // ── Planning ─────────────────────────────────────────────────────────
+        //
+        // The deadline and the reminder are facts of their own, and each opens
+        // the surface that edits it: the deadline opens the planning sheet on
+        // the deadline, the reminder opens the reminder sheet.
+        is TaskEditorSheet.Deadline -> {
+            val schedule = callbacks.schedule
+            if (schedule != null) {
+                TaskSchedulingSheetHost(
+                    model = model,
+                    schedule = schedule,
+                    initialTarget = SchedulingTarget.DEADLINE,
+                    now = now,
+                    onSheetDismiss = onSheetDismiss,
+                )
+            }
         }
 
-        is TaskEditorSheet.StartDate -> {
-            DatePickerSheet(
-                initialDate = model.startDate,
-                onDateSelected = { date ->
-                    callbacks.startDate?.onChangeDate?.invoke(date)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
-        }
-
-        is TaskEditorSheet.StartTime -> {
-            TimePickerSheet(
-                initialTime = model.startTime,
-                onTimeSelected = { time ->
-                    callbacks.startDate?.onChangeTime?.invoke(time)
-                    onSheetDismiss()
-                },
+        is TaskEditorSheet.Reminder -> {
+            TaskReminderSheet(
+                currentState = model.reminderState,
+                hasDueDate = model.dueDate != null,
+                notificationsEnabled = model.notificationsEnabled,
+                onSelect = { offset -> callbacks.reminder?.onSet?.invoke(offset) },
+                onClear = { callbacks.reminder?.onClear?.invoke() },
+                onRequestPermission = callbacks.onRequestNotificationPermission,
+                onOpenSettings = callbacks.onOpenNotificationSettings,
                 onDismiss = onSheetDismiss,
             )
         }
@@ -286,6 +291,71 @@ fun TaskEditorSheetsHost(
 }
 
 /**
+ * The four date and time sheets of the editor.
+ *
+ * Extracted from the host's `when` so that the dispatcher stays a dispatcher:
+ * the four of them are one family — a date, a time, and the same two for the
+ * start of the work — and one family does not need four branches of its own in
+ * the dispatcher of every sheet the editor can open.
+ */
+@Composable
+private fun TaskEditorDateSheets(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    activeSheet: TaskEditorSheet?,
+    now: kotlin.time.Instant,
+    onSheetDismiss: () -> Unit,
+) {
+    when (activeSheet) {
+        is TaskEditorSheet.Date -> {
+            TaskEditorDateSheet(
+                model = model,
+                callbacks = callbacks,
+                now = now,
+                onSheetDismiss = onSheetDismiss,
+            )
+        }
+
+        is TaskEditorSheet.Time -> {
+            TimePickerSheet(
+                initialTime = model.dueTime,
+                onTimeSelected = { time ->
+                    callbacks.dueDate.onChangeTime.invoke(time)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
+
+        is TaskEditorSheet.StartDate -> {
+            DatePickerSheet(
+                initialDate = model.startDate,
+                onDateSelected = { date ->
+                    callbacks.startDate?.onChangeDate?.invoke(date)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
+
+        is TaskEditorSheet.StartTime -> {
+            TimePickerSheet(
+                initialTime = model.startTime,
+                onTimeSelected = { time ->
+                    callbacks.startDate?.onChangeTime?.invoke(time)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
+
+        else -> {
+            // Another sheet: the dispatcher of the host owns it.
+        }
+    }
+}
+
+/**
  * The two shapes of the date sheet.
  *
  * Extracted from the host's `when` so the choice between the multi-date and the
@@ -316,16 +386,77 @@ private fun TaskEditorDateSheet(
             maxDates = TaskSeriesPlanner.MAX_DATES,
         )
     } else {
-        DatePickerSheet(
-            initialDate = model.dueDate,
-            onDateSelected = { date ->
-                callbacks.dueDate.onChangeDate.invoke(date)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
+        val schedule = callbacks.schedule
+        if (schedule != null) {
+            TaskSchedulingSheetHost(
+                model = model,
+                schedule = schedule,
+                initialTarget = SchedulingTarget.DUE_DATE,
+                now = now,
+                onSheetDismiss = onSheetDismiss,
+            )
+        }
     }
 }
+
+/**
+ * The planning sheet, and the write it causes.
+ *
+ * The schedule is written in one go: the facts that changed, and only those. A
+ * sheet that wrote them one by one could leave the task halfway between what it
+ * was and what the user asked for — and a sheet that wrote all of them would
+ * write a fact the user never touched, which is how a deadline disappears
+ * because somebody changed a time.
+ */
+@Composable
+private fun TaskSchedulingSheetHost(
+    model: TaskEditorModel,
+    schedule: ScheduleCallbacks,
+    initialTarget: SchedulingTarget,
+    now: kotlin.time.Instant,
+    onSheetDismiss: () -> Unit,
+) {
+    TaskSchedulingSheet(
+        dueDate = model.dueDate,
+        dueTime = model.dueTime,
+        deadline = model.deadline,
+        someday = model.someday,
+        today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+        initialTarget = initialTarget,
+        onConfirm = { result ->
+            val change =
+                TaskDetailIntent.Domain.SetSchedule(
+                    dueDate = changed(result.dueDate, model.dueDate),
+                    dueTime = changed(result.dueTime, model.dueTime),
+                    deadline = changed(result.deadline, model.deadline),
+                    someday = changed(result.someday, model.someday),
+                )
+            // Nothing changed means nothing to write: the task already carries
+            // what the sheet showed.
+            if (change != UNCHANGED_SCHEDULE) {
+                schedule.onChange(change)
+            }
+            onSheetDismiss()
+        },
+        onDismiss = onSheetDismiss,
+    )
+}
+
+/**
+ * The change of a fact — or [ScheduleChange.Unchanged] when the fact did not
+ * change.
+ */
+private fun <T> changed(
+    new: T,
+    current: T,
+): ScheduleChange<T> = if (new != current) ScheduleChange.Value(new) else ScheduleChange.Unchanged
+
+/**
+ * The change that changes nothing.
+ *
+ * Every fact of the schedule is left as it is, so there is nothing to write.
+ */
+private val UNCHANGED_SCHEDULE = TaskDetailIntent.Domain.SetSchedule()
 
 /**
  * The recurrence sheet and its anchor date.

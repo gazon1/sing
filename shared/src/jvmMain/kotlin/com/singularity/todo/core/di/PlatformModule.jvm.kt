@@ -29,7 +29,9 @@ import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
+import com.singularity.todo.core.notifications.JvmNotificationSettingsPort
 import com.singularity.todo.core.notifications.JvmNotifier
+import com.singularity.todo.core.notifications.NotificationSettingsPort
 import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
@@ -322,6 +324,10 @@ fun jvmPlatformModule(applicationRoot: File): Module =
         // host rather than a constant. The scheduler's own capability is the conjunction of
         // this and systemd's, so a headless box correctly reports no reminders.
         single<Notifier> { JvmNotifier(get()) }
+
+        // The desktop has no system notification settings to open — the permission is
+        // never refused there — so the port reports that it has nothing to open.
+        single<NotificationSettingsPort> { JvmNotificationSettingsPort() }
 
         // ─── Reminder Scheduler ────────────────────────────────────────────
         // Arms one `systemd --user` transient timer per reminder. `ReminderRepository` is

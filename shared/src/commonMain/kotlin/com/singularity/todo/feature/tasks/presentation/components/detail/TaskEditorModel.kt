@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -71,6 +72,36 @@ data class TaskEditorModel(
     val dueTime: LocalTime? = null,
     val startDate: LocalDate? = null,
     val startTime: LocalTime? = null,
+    /**
+     * Whether the task sits in the `someday` bucket — "no date, not now".
+     *
+     * Exclusive with [dueDate]: a deferred task carries no date, and a dated
+     * task is not deferred. The row says «Когда-нибудь» when this is set.
+     */
+    val someday: Boolean = false,
+    /**
+     * The deadline — the bound by which the work has to be done.
+     *
+     * Independent of the due date: clearing the due date leaves the deadline
+     * alone, and clearing the deadline leaves the due date alone.
+     */
+    val deadline: LocalDate? = null,
+    /**
+     * What the app knows about the task's reminder.
+     *
+     * Three states, not two: a reminder whose offset this build does not know
+     * is still a reminder, and a nullable offset cannot say so — it would say
+     * the task has no reminder at all.
+     */
+    val reminderState: ReminderOffsetState = ReminderOffsetState.None,
+    /**
+     * Whether the app may post notifications.
+     *
+     * False on Android when the `POST_NOTIFICATIONS` permission was refused.
+     * The reminder row then says that notifications are off instead of
+     * pretending the task has no reminder.
+     */
+    val notificationsEnabled: Boolean = true,
     val project: ProjectId? = null,
     val projectName: String? = null,
     val projectColor: Int? = null,

@@ -26,7 +26,9 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
+import com.singularity.todo.core.notifications.AndroidNotificationSettingsPort
 import com.singularity.todo.core.notifications.AndroidNotifier
+import com.singularity.todo.core.notifications.NotificationSettingsPort
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.observability.AndroidFileToolCallLog
@@ -324,6 +326,10 @@ actual fun platformModule(): Module =
         // platform that binds the implementation without the interface leaves the port
         // unresolvable on that platform for anything that asks for it by type.
         single<Notifier> { get<AndroidNotifier>() }
+
+        // The way out of a refused notification permission is the platform's own
+        // settings screen — the app cannot grant the permission from inside itself.
+        single<NotificationSettingsPort> { AndroidNotificationSettingsPort(get()) }
 
         // ─── Reminder Scheduler ────────────────────────────────────────────
 

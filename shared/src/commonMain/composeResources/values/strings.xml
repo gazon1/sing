@@ -72,6 +72,36 @@
     <string name="month_short_oct">Oct</string>
     <string name="month_short_nov">Nov</string>
     <string name="month_short_dec">Dec</string>
+    <!-- The planning surface of the task detail: the due date, its time, the
+         deadline and the reminder are four independent facts, and each of them
+         says its own name and its own value. -->
+    <string name="scheduling_title">Planning</string>
+    <string name="scheduling_due_date_label">Date</string>
+    <string name="scheduling_due_time_label">Time</string>
+    <string name="scheduling_deadline_label">Deadline</string>
+    <string name="not_set">Not set</string>
+    <string name="preset_today">Today</string>
+    <string name="preset_tomorrow">Tomorrow</string>
+    <string name="someday_label">Someday</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="add_time">Add time</string>
+    <string name="clear_time">Clear time</string>
+    <string name="reminder_label">Reminder</string>
+    <string name="reminder_offset_at_due">At the due moment</string>
+    <string name="reminder_offset_15_min">15 minutes before</string>
+    <string name="reminder_offset_1_hour">1 hour before</string>
+    <string name="reminder_offset_1_day">1 day before</string>
+    <string name="notifications_disabled">Notifications are off</string>
+    <string name="reminder_unknown_offset">Reminder (unknown time)</string>
+    <string name="reminder_needs_due_date">Set a due date to use a reminder</string>
+    <string name="notification_settings_action">Open settings</string>
+    <string name="notification_permission_action">Allow notifications</string>
+    <string name="add_deadline">Add deadline</string>
+    <string name="overdue_label">Overdue</string>
+    <string name="reset_reminder">Reset reminder</string>
+    <string name="reset_deadline">Reset deadline</string>
     <plurals name="date_count">
         <item quantity="one">%1$d date</item>
         <item quantity="other">%1$d dates</item>
