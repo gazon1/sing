@@ -1,5 +1,6 @@
 package com.singularity.todo.ui
 
+import android.content.Intent
 import android.graphics.Rect
 import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
@@ -18,6 +19,9 @@ import java.util.UUID
 
 /**
  * Task Detail must keep edited fields above the IME and respect system bars (#2874).
+ *
+ * Geometry is measured from device-reported window insets and UiAutomator bounds in the
+ * same screen coordinate space. Unknown IME/system-bar state is a test failure, not a pass.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -25,49 +29,42 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
     @Test
     fun focused_task_detail_fields_stay_above_ime() {
         val intent =
-            android.content.Intent(
+            Intent(
                 ApplicationProvider.getApplicationContext(),
                 MainActivity::class.java,
             )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         try {
-            bringAppToForeground()
+            device.wakeUp()
+            runCatching { device.executeShellCommand("wm dismiss-keyguard") }
             device.awaitShell()
+            clearTaskEditorDrafts()
 
             val taskTitle = "IME ${UUID.randomUUID().toString().take(8)}"
             openCreatedTaskDetail(taskTitle)
 
-            val statusBarBottom = statusBarBottomInset()
+            val statusBarBottom = requireStatusBarBottom()
 
-            focusAndAssertAboveIme(
-                fieldTag = TestTags.TASK_EDITOR_TITLE_INPUT,
-                scrollAnchorTag = null,
-                typeText = "T",
-            )
+            focusAndAssertAboveIme(TestTags.TASK_EDITOR_TITLE_INPUT, scrollAnchorTag = null)
+            assertContentBelowStatusBar(statusBarBottom)
+
+            focusAndAssertAboveIme(TestTags.TASK_EDITOR_DESCRIPTION_INPUT, scrollAnchorTag = null)
             assertContentBelowStatusBar(statusBarBottom)
 
             focusAndAssertAboveIme(
-                fieldTag = TestTags.TASK_EDITOR_DESCRIPTION_INPUT,
-                scrollAnchorTag = null,
-                typeText = "Desc",
-            )
-            assertContentBelowStatusBar(statusBarBottom)
-
-            focusAndAssertAboveIme(
-                fieldTag = TestTags.CHECKLIST_INLINE_ADD_INPUT,
+                TestTags.CHECKLIST_INLINE_ADD_INPUT,
                 scrollAnchorTag = TestTags.TASK_CHECKLIST_SECTION,
-                typeText = "Milk",
             )
             assertContentBelowStatusBar(statusBarBottom)
 
             focusAndAssertAboveIme(
-                fieldTag = TestTags.SUBTASK_ADD_INPUT,
+                TestTags.SUBTASK_ADD_INPUT,
                 scrollAnchorTag = TestTags.SUBTASKS_SECTION,
-                typeText = "Child",
             )
             assertContentBelowStatusBar(statusBarBottom)
         } finally {
             scenario.close()
+            clearTaskEditorDrafts()
         }
     }
 
@@ -84,20 +81,19 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
         typeWithIme(taskTitle)
         hideImeIfShown()
 
-        val save =
-            device.awaitTag(
+        device
+            .awaitTag(
                 TestTags.TASK_EDITOR_SAVE,
                 "task editor save button",
                 TAB_TIMEOUT_MS,
-            )
-        save.click()
+            ).tap(TestTags.TASK_EDITOR_SAVE)
 
         val rowTag = TestTags.taskItem(taskTitle)
-        if (!findAndOpenTaskRow(rowTag)) {
-            throw AssertionError(
-                "Created task row $rowTag was not found on Today/Inbox after save. ${device.diagnostics()}",
-            )
-        }
+        val opened = findAndOpenTaskRow(rowTag)
+        assertTrue(
+            "Created task row $rowTag was not found on Today/Inbox after save. ${device.diagnostics()}",
+            opened,
+        )
 
         device.awaitTag(
             TestTags.TASK_EDITOR_TITLE_INPUT,
@@ -107,19 +103,18 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
     }
 
     private fun findAndOpenTaskRow(rowTag: String): Boolean {
-        val tabs = listOf(TODAY_TAB, "nav_tab_inbox")
-        for (tab in tabs) {
+        for (tab in listOf(TODAY_TAB, "nav_tab_inbox")) {
             runCatching { device.tapTag(tab) }
             device.waitForIdle()
             val row = findVisibleByScroll(rowTag, SCROLL_TIMEOUT_MS / 2)
             if (row != null) {
-                row.click()
+                row.tap(rowTag)
                 return true
             }
         }
         val row = device.findObject(By.res(rowTag))
         if (row != null && !row.visibleBounds.isEmpty) {
-            row.click()
+            row.tap(rowTag)
             return true
         }
         return false
@@ -140,49 +135,35 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
         return device.findObject(By.res(tag))?.takeIf { !it.visibleBounds.isEmpty }
     }
 
-    private fun bringAppToForeground() {
-        device.wakeUp()
-        runCatching { device.executeShellCommand("wm dismiss-keyguard") }
-        repeat(2) { runCatching { device.pressBack() } }
-        device.executeShellCommand("am start -n com.singularity.todo/.MainActivity")
-        device.waitForIdle()
-        SystemClock.sleep(300)
-    }
-
     private fun focusAndAssertAboveIme(
         fieldTag: String,
         scrollAnchorTag: String?,
-        typeText: String,
     ) {
         revealField(fieldTag, scrollAnchorTag)
-        clickFieldAndWaitForIme(fieldTag)
-        if (typeText.isNotEmpty()) {
-            typeWithIme(typeText)
-        }
+        clickFieldAndRequireIme(fieldTag)
 
-        assertFieldFullyAboveIme(fieldTag)
+        val imeTop = requireImeTop()
+        val bounds = requireFieldBounds(fieldTag)
+        assertFieldAboveIme(fieldTag, bounds, imeTop)
 
         // With IME open, back closes keyboard and keeps Task Detail open.
-        device.pressBack()
+        device.tapBack()
         waitForImeHidden()
         assertTaskDetailOpen()
     }
 
-    private fun clickFieldAndWaitForIme(fieldTag: String) {
+    private fun clickFieldAndRequireIme(fieldTag: String) {
         repeat(2) { attempt ->
-            val field = scrollToTag(fieldTag)
-            field.click()
-            if (awaitImeShownOrNull() != null) return
-            if (attempt == 0) {
-                // Retry once: some fields need an explicit second tap to focus/show IME.
-                SystemClock.sleep(250)
-            }
+            scrollToTag(fieldTag).tap(fieldTag)
+            if (waitForImeShown()) return
+            if (attempt == 0) SystemClock.sleep(250)
         }
-        throw AssertionError("IME did not become visible with measurable bounds for $fieldTag. ${device.diagnostics()}")
+        throw AssertionError(
+            "IME did not become visible with measurable bounds for $fieldTag. ${device.diagnostics()}",
+        )
     }
 
     private fun assertTaskDetailOpen() {
-        // Title can be scrolled offscreen after focusing lower fields; top bar remains.
         device.awaitTag(TestTags.TASK_EDITOR_MORE_MENU, "task detail remains open", TAB_TIMEOUT_MS)
     }
 
@@ -194,7 +175,6 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
             scrollToTag(scrollAnchorTag)
             val existing = device.findObject(By.res(fieldTag))
             if (existing == null || existing.visibleBounds.isEmpty) {
-                // Sections can render collapsed content; tapping the section header may reveal inputs.
                 runCatching { device.tapTag(scrollAnchorTag) }
                 device.waitForIdle()
                 SystemClock.sleep(350)
@@ -209,125 +189,176 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
         SystemClock.sleep(350)
     }
 
-    private fun assertFieldFullyAboveIme(fieldTag: String) {
+    private fun requireFieldBounds(fieldTag: String): Rect {
         val deadline = SystemClock.uptimeMillis() + BOUNDS_TIMEOUT_MS
-        var bounds = Rect()
-        var imeTop = -1
         while (SystemClock.uptimeMillis() < deadline) {
-            bounds = device.awaitTag(fieldTag, "field $fieldTag bounds", TAB_TIMEOUT_MS).visibleBounds
-            imeTop = imeTopFromWindowDump() ?: imeTop
-            if (imeTop > 0 && !bounds.isEmpty && bounds.bottom <= imeTop - IME_GAP_PX) return
+            val obj = device.findObject(By.res(fieldTag))
+            val bounds = obj?.visibleBounds
+            if (bounds != null && !bounds.isEmpty) return bounds
+            SystemClock.sleep(POLL_MS)
+        }
+        throw AssertionError("Field $fieldTag has no visible bounds. ${device.diagnostics()}")
+    }
+
+    private fun assertFieldAboveIme(
+        fieldTag: String,
+        initialBounds: Rect,
+        initialImeTop: Int,
+    ) {
+        val deadline = SystemClock.uptimeMillis() + BOUNDS_TIMEOUT_MS
+        var bounds = initialBounds
+        var imeTop = initialImeTop
+        while (SystemClock.uptimeMillis() < deadline) {
+            bounds = requireFieldBounds(fieldTag)
+            imeTop = requireImeTop()
+            if (bounds.bottom <= imeTop - IME_GAP_PX) return
             SystemClock.sleep(POLL_MS)
         }
         throw AssertionError(
-            "Expected $fieldTag to be fully above IME: fieldBottom=${bounds.bottom}, imeTop=$imeTop. " +
-                "inputShown=${device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")} " +
-                device.diagnostics(),
+            "Expected $fieldTag above IME: fieldBottom=${bounds.bottom} imeTop=$imeTop " +
+                "field=$bounds. ${device.diagnostics()}",
         )
     }
 
     private fun assertContentBelowStatusBar(statusBarBottom: Int) {
-        val title = scrollToTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        val top = title.visibleBounds.top
+        // Title/top bar are near the top; after focusing lower fields we may be scrolled down.
+        val title = scrollToTop(TestTags.TASK_EDITOR_TITLE_INPUT)
+        val titleTop = title.visibleBounds.top
         assertTrue(
-            "Task detail content overlaps status bar: titleTop=$top statusBarBottom=$statusBarBottom. " +
+            "Task detail content overlaps status bar: titleTop=$titleTop statusBarBottom=$statusBarBottom. " +
                 device.diagnostics(),
-            top >= statusBarBottom,
+            titleTop >= statusBarBottom,
+        )
+
+        val moreMenu = device.findObject(By.res(TestTags.TASK_EDITOR_MORE_MENU))?.visibleBounds
+        if (moreMenu != null && !moreMenu.isEmpty) {
+            assertTrue(
+                "Task detail top bar overlaps status bar: menuTop=${moreMenu.top} statusBarBottom=$statusBarBottom. " +
+                    device.diagnostics(),
+                moreMenu.top >= statusBarBottom,
+            )
+        }
+    }
+
+    private fun requireStatusBarBottom(): Int {
+        val dump = device.executeShellCommand("dumpsys window displays")
+        val patterns =
+            listOf(
+                Regex("""InsetsSource[^\n]*type=statusBars[^\n]*frame=\[0,0\]\[\d+,(\d+)\]"""),
+                Regex("""type=statusBars[^\n]*mInsetsHint=Insets\{left=\d+, top=(\d+),"""),
+                Regex("""statusBars=Insets\[left=\d+, top=(\d+), right=\d+, bottom=\d+\]"""),
+                Regex("""mStableFullscreen=Rect\(\d+, (\d+) - \d+, \d+\)"""),
+                Regex("""contentInsets=\[\d+,(\d+)\]"""),
+                Regex("""systemWindowInsets=\{l=\d+,t=(\d+),r=\d+,b=\d+\}"""),
+            )
+        for (regex in patterns) {
+            val value =
+                regex
+                    .findAll(dump)
+                    .mapNotNull { it.groupValues.getOrNull(1)?.toIntOrNull() }
+                    .firstOrNull { it > 0 }
+            if (value != null) return value
+        }
+        // Some devices report 0 only when truly edge-to-edge/not applicable; treat unknown as failure.
+        if (dump.contains("statusBars") || dump.contains("Insets")) {
+            throw AssertionError(
+                "Could not determine status bar bottom inset from dumpsys window displays. $dump ${device.diagnostics()}",
+            )
+        }
+        throw AssertionError(
+            "Could not read status bar insets (dumpsys window displays unavailable/empty). ${device.diagnostics()}",
         )
     }
 
-    private fun statusBarBottomInset(): Int {
-        val dump = device.executeShellCommand("dumpsys window displays")
-        Regex("""mStableFullscreen=Rect\(\d+, (\d+) - \d+, \d+\)""")
-            .find(dump)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.toIntOrNull()
-            ?.let { return it }
-        Regex("""contentInsets=\[\d+,(\d+)\]""")
-            .find(dump)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.toIntOrNull()
-            ?.let { return it }
-        return 0
-    }
-
-    private fun awaitImeShownOrNull(): Int? {
+    private fun waitForImeShown(): Boolean {
         val deadline = SystemClock.uptimeMillis() + IME_TIMEOUT_MS
         while (SystemClock.uptimeMillis() < deadline) {
-            val input = device.executeShellCommand("dumpsys input_method")
-            val imeTop = imeTopFromWindowDump()
-            if (input.contains("mInputShown=true") && imeTop != null) return imeTop
+            if (imeTopOrNull() != null) return true
             SystemClock.sleep(POLL_MS)
         }
-        return null
+        return false
     }
 
-    private fun waitForImeShown() {
-        awaitImeShownOrNull()
-            ?: throw AssertionError("IME did not become visible with measurable bounds. ${device.diagnostics()}")
+    private fun requireImeTop(): Int =
+        imeTopOrNull()
+            ?: throw AssertionError("Could not determine IME top while IME is required. ${device.diagnostics()}")
+
+    private fun imeTopOrNull(): Int? {
+        val input = device.executeShellCommand("dumpsys input_method")
+        if (!input.contains("mInputShown=true")) return null
+        val window = device.executeShellCommand("dumpsys window")
+        val displayHeight = device.displayHeight
+        Regex("""\b(?:mImeHeight|imeHeight)=(\d+)""")
+            .find(window)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?.takeIf { it >= 120 }
+            ?.let { return (displayHeight - it).coerceAtLeast(0) }
+
+        val rectTop = imeTopFromWindowRects()
+        if (rectTop != null && rectTop in (displayHeight / 4)..(displayHeight - 100)) return rectTop
+        return null
     }
 
     private fun waitForImeHidden() {
         val deadline = SystemClock.uptimeMillis() + IME_TIMEOUT_MS
         while (SystemClock.uptimeMillis() < deadline) {
             val input = device.executeShellCommand("dumpsys input_method")
-            if (!input.contains("mInputShown=true")) return
+            val window = device.executeShellCommand("dumpsys window")
+            val imeHeight =
+                Regex("""\b(?:mImeHeight|imeHeight)=(\d+)""")
+                    .find(window)
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.toIntOrNull() ?: 0
+            if (!input.contains("mInputShown=true") || imeHeight == 0) return
             SystemClock.sleep(POLL_MS)
         }
+        throw AssertionError("IME did not hide within ${IME_TIMEOUT_MS}ms. ${device.diagnostics()}")
     }
 
     private fun hideImeIfShown() {
         val input = device.executeShellCommand("dumpsys input_method")
-        if (input.contains("mInputShown=true")) {
-            device.pressBack()
+        val imeHeight =
+            Regex("""\b(?:mImeHeight|imeHeight)=(\d+)""")
+                .find(device.executeShellCommand("dumpsys window"))
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toIntOrNull() ?: 0
+        if (input.contains("mInputShown=true") || imeHeight > 0) {
+            device.tapBack()
             waitForImeHidden()
         }
     }
 
-    private fun imeTopFromWindowDump(): Int? {
+    private fun imeTopFromWindowRects(): Int? {
         val dump = device.executeShellCommand("dumpsys window windows")
         val displayHeight = device.displayHeight
         val displayWidth = device.displayWidth
         val lines = dump.lineSequence().toList()
         val imeIndex = lines.indexOfFirst { it.contains("InputMethod") && it.contains("Window{") }
+        if (imeIndex < 0) return null
+        val block = lines.drop(imeIndex).take(260).joinToString("\n")
+        val rects = Regex("""\[(\-?\d+),(\-?\d+)\]\[(\-?\d+),(\-?\d+)\]""").findAll(block)
         val candidates = mutableListOf<Int>()
-
-        if (imeIndex >= 0) {
-            val block = lines.drop(imeIndex).take(260).joinToString("\n")
-            val rects = Regex("""\[(\-?\d+),(\-?\d+)\]\[(\-?\d+),(\-?\d+)\]""").findAll(block)
-            for (match in rects) {
-                val left = match.groupValues[1].toInt()
-                val top = match.groupValues[2].toInt()
-                val right = match.groupValues[3].toInt()
-                val bottom = match.groupValues[4].toInt()
-                val width = right - left
-                val height = bottom - top
-                val plausibleKeyboard =
-                    left <= displayWidth / 4 &&
-                        width >= (displayWidth * 0.6).toInt() &&
-                        bottom >= displayHeight - 120 &&
-                        top >= displayHeight / 4 &&
-                        top <= displayHeight - 100 &&
-                        height >= 120
-                if (plausibleKeyboard) {
-                    candidates += top
-                }
-            }
+        for (match in rects) {
+            val left = match.groupValues[1].toInt()
+            val top = match.groupValues[2].toInt()
+            val right = match.groupValues[3].toInt()
+            val bottom = match.groupValues[4].toInt()
+            val width = right - left
+            val height = bottom - top
+            val plausibleKeyboard =
+                left <= displayWidth / 4 &&
+                    width >= (displayWidth * 0.6).toInt() &&
+                    bottom >= displayHeight - 120 &&
+                    top >= displayHeight / 4 &&
+                    top <= displayHeight - 100 &&
+                    height >= 120
+            if (plausibleKeyboard) candidates += top
         }
-
-        if (candidates.isNotEmpty()) return candidates.min()
-
-        val windowDump = device.executeShellCommand("dumpsys window")
-        Regex("""mImeHeight=(\d+)""").find(windowDump)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { h ->
-            if (h >= 120) return (displayHeight - h).coerceAtLeast(0)
-        }
-        Regex("""imeHeight=(\d+)""").find(windowDump)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { h ->
-            if (h >= 120) return (displayHeight - h).coerceAtLeast(0)
-        }
-
-        return null
+        return candidates.minOrNull()
     }
 
     private fun scrollToTag(tag: String): UiObject2 {
@@ -345,11 +376,29 @@ class TaskDetailImeInsetsTest : InstrumentedTestBase() {
     private fun swipeUp() {
         val w = device.displayWidth
         val h = device.displayHeight
-        val x = w / 2
-        val startY = (h * 0.72).toInt()
-        val endY = (h * 0.28).toInt()
-        device.swipe(x, startY, x, endY, 20)
+        // Finger moves up => content scrolls down (reveals lower content).
+        device.swipe(w / 2, (h * 0.72).toInt(), w / 2, (h * 0.28).toInt(), 20)
         device.waitForIdle()
+    }
+
+    private fun swipeDown() {
+        val w = device.displayWidth
+        val h = device.displayHeight
+        // Finger moves down => content scrolls up (reveals higher content).
+        device.swipe(w / 2, (h * 0.28).toInt(), w / 2, (h * 0.72).toInt(), 20)
+        device.waitForIdle()
+    }
+
+    private fun scrollToTop(tag: String): UiObject2 {
+        val deadline = SystemClock.uptimeMillis() + SCROLL_TIMEOUT_MS
+        while (SystemClock.uptimeMillis() < deadline) {
+            device.findObject(By.res(tag))?.let { obj ->
+                if (!obj.visibleBounds.isEmpty) return obj
+            }
+            swipeDown()
+            SystemClock.sleep(POLL_MS)
+        }
+        return device.awaitTag(tag, "scroll-to-top target $tag", TAB_TIMEOUT_MS)
     }
 
     private fun shellText(text: String): String =

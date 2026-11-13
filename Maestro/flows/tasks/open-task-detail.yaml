@@ -42,7 +42,26 @@ tags:
 - assertVisible:
     id: task_editor_description_input
 - hideKeyboard
+# The value must survive the keyboard closing and the screen being left/reopened.
+- assertVisible:
+    text: "Detail description"
 
+- back
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
+
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- assertVisible:
+    text: "Buy milk edited"
+- assertVisible:
+    text: "Detail description"
 - back
 - extendedWaitUntil:
     visible:

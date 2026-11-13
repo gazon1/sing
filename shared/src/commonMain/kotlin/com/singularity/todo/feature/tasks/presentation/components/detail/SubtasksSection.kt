@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
@@ -19,11 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -36,7 +31,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.launch
 
 /**
  * Section showing direct child tasks of a task.
@@ -66,8 +60,6 @@ fun SubtasksSection(
     val newTitleState = rememberTextFieldState()
     val completed = subtasks.count { it.isCompleted }
     val total = subtasks.size
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    val scope = rememberCoroutineScope()
 
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.SUBTASKS_SECTION),
@@ -91,12 +83,8 @@ fun SubtasksSection(
                         modifier =
                             Modifier
                                 .weight(1f)
-                                .bringIntoViewRequester(bringIntoViewRequester)
-                                .onFocusEvent { focusState ->
-                                    if (focusState.isFocused) {
-                                        scope.launch { bringIntoViewRequester.bringIntoView() }
-                                    }
-                                }.testTag(TestTags.SUBTASK_ADD_INPUT),
+                                .bringIntoViewOnFocus()
+                                .testTag(TestTags.SUBTASK_ADD_INPUT),
                         placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
