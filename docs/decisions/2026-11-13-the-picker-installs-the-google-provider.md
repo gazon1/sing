@@ -45,8 +45,10 @@ different behaviour.
 
 `IconPickerSheet` draws the catalog in a bounded lazy grid with one heading per
 category, and swaps it for the library's search results when the query is not
-blank. An empty result shows a "no emoji match" line. Recent emoji and custom
-emoji entry are unchanged.
+blank. An empty result shows a "no emoji match" line. The sheet's content scrolls
+vertically: on Android the sheet opens partially expanded, and without that the
+search field below the icon registry would be off the sheet. Recent emoji and
+custom emoji entry are unchanged.
 
 ## Rationale
 
@@ -62,8 +64,11 @@ used by `emojiInformation`, and `SearchEmojiManager` reads the same installation
 A second index would be a search that disagrees with the text analysis.
 
 **The provider's order is the category order.** `GoogleEmojiProvider` lists
-Smileys, Animals, Food, Activities, Travel, Objects, Symbols, Flags; that is
-deterministic and readable. There is no app-level ordering to maintain.
+eight categories, and the sheet shows the provider's English names in that
+order: Faces, Nature, Food, Activities, Places, Objects, Symbols, Flags. The
+names come from `categoryNames["en"]`, not from the class names —
+`SmileysAndPeopleCategory` is "Faces". There is no app-level ordering or label
+to maintain.
 
 **The library's two-character floor is kept, not hidden.** `SearchEmojiManager`
 returns nothing for a query shorter than two characters. The picker shows its
@@ -86,11 +91,17 @@ history and picks what the user taps; only the static list moved to the library.
   Android provider's legacy View dependencies. The app keeps drawing its own
   Compose picker and never instantiates `EmojiPopup`, `EmojiView` or
   `EmojiTextView`.
+- The provider is installed on the first access to `EmojiCatalog`, which in the
+  app is the first opening of the picker — not at process start. Nothing may
+  assume it is installed earlier: `CharSequence.emojiInformation()` throws
+  `IllegalStateException` until that access has happened, so #2920/#2921 must
+  not call it from common code that cannot guarantee the order.
 - The first opening of the picker pays for `EmojiManager.install` (the text
   scan over the whole catalog). It is a one-time, process-wide cost.
-- Tests: `EmojiCatalogTest` pins category order, empty query, a shortcode match
-  and no-match; `IconPickerRecentEmojiTest` pins the picker's browse, search and
-  no-match states.
+- Tests: `EmojiCatalogTest` pins the full category order, empty query, a
+  shortcode match and no-match; `IconPickerRecentEmojiTest` pins the picker's
+  browse, search and no-match states on Desktop; and
+  `Maestro/flows/projects/04-pick-emoji.yaml` pins the same path on Android.
 
 ## Links
 

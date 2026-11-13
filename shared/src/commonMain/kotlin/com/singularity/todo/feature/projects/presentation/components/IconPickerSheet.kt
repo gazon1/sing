@@ -17,11 +17,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -61,7 +63,10 @@ fun IconPickerSheet(
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(24.dp)) {
+    // The sheet opens partially expanded on Android, and the search field sits
+    // below the icon registry: without this the field is unreachable until the
+    // user drags the sheet up. The grid inside keeps its own bounded height.
+    Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // The sheet is modal and picking is the only way out of it otherwise,
             // so "cancel without choosing" needs a control of its own. It is the

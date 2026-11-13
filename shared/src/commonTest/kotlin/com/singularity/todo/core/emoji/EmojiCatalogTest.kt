@@ -16,11 +16,12 @@ import kotlin.test.assertTrue
 class EmojiCatalogTest {
     @Test
     fun `the catalog is the provider's categories in order`() {
-        val categories = EmojiCatalog.categories
-
-        assertTrue(categories.size >= 8, "the provider publishes its categories: ${categories.size}")
-        assertTrue(categories.all { it.emojis.isNotEmpty() }, "no category is empty")
-        assertEquals("Faces", categories.first().categoryNames["en"], "the first category is stable")
+        assertEquals(
+            listOf("Faces", "Nature", "Food", "Activities", "Places", "Objects", "Symbols", "Flags"),
+            EmojiCatalog.categories.map { it.categoryNames["en"] },
+            "the picker shows the provider's order and its English names",
+        )
+        assertTrue(EmojiCatalog.categories.all { it.emojis.isNotEmpty() }, "no category is empty")
     }
 
     @Test
