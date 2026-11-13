@@ -558,6 +558,15 @@ object TestTags {
     const val RECURRENCE_ENDS_ON_DATE = "recurrence_ends_on_date"
     const val RECURRENCE_END_DATE_VALUE = "recurrence_end_date_value"
 
+    /**
+     * The rule, as a sentence, in the recurrence picker's preview.
+     *
+     * The preview is the sentence the task detail row wears, so the tag is what
+     * lets a test read both and say whether they agree — and the picker's own
+     * copy is what it is on, not a sentence the test renders for itself.
+     */
+    const val RECURRENCE_PICKER_PREVIEW = "recurrence_picker_preview"
+
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
 

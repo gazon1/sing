@@ -439,6 +439,7 @@ private fun PreviewSection(
         Text(
             text = RecurrenceSentence(spec, dueDate),
             style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(TestTags.RECURRENCE_PICKER_PREVIEW),
         )
     }
     Text(

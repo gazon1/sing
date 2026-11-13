@@ -2,9 +2,6 @@
 
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
@@ -13,7 +10,6 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Recurrence
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
-import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
 import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.textOfTag
@@ -21,7 +17,6 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 
@@ -253,32 +248,4 @@ class TaskDetailRecurrenceSectionTest {
                 "Every 3 days, from the due date, until 29 Jan 2027",
             )
         }
-
-    // ─── The picker reads the same sentence ───────────────────────────────────
-
-    @Test
-    fun `the picker and the task detail read the rule the same way`() =
-        runIsolatedComposeTest {
-            val spec = Interval(RecurrenceBase.FROM_DUE, 3, DateTimeUnit.DAY)
-            setContent {
-                TaskDetailRecurrenceSection(recurrence = spec, dueDate = due)
-                // What the picker's preview shows: the same sentence, from the
-                // same function, for the same rule and the same task.
-                Text(
-                    text = RecurrenceSentence(spec, due),
-                    modifier = Modifier.testTag(PICKER_PREVIEW),
-                )
-            }
-
-            assertEquals(
-                textOfTag(PICKER_PREVIEW),
-                textOfTag(TestTags.TASK_RECURRENCE_TEXT),
-                "the picker and the task detail read the same rule differently",
-            )
-        }
-
-    private companion object {
-        /** Where the picker's sentence is put in this test's composition. */
-        const val PICKER_PREVIEW = "recurrence_picker_preview"
-    }
 }

@@ -112,6 +112,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_WEEKLY` | `recurrence_option_weekly` | |
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
+| `RECURRENCE_PICKER_PREVIEW` | `recurrence_picker_preview` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
 | `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
