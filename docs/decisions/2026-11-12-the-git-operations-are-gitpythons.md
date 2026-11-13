@@ -101,9 +101,9 @@ machine.
 **The states git can be in are states the helpers handle.** A path that is not a
 repository, a repository without commits, a detached HEAD, a base that does not
 exist, a repository whose index is broken, and a dirty working tree are all
-covered by tests. The failure of a git command keeps the exit code in the
-message: GitPython leaves the reason empty for the commands that go through
-its diff machinery, and the code is then the only thing left to say.
+covered by tests. The failure of a git command names what git said: GitPython
+3.2.1 fills `stderr` with the reason, and the exit code is the fallback for
+the commands that leave the reason empty.
 
 # Rationale
 
