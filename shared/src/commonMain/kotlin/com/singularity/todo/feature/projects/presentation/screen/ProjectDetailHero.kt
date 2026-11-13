@@ -30,8 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -194,6 +196,9 @@ fun ProjectMetaChipsRow(
                 onClick = actions::onOpenChildrenSheet,
                 label = { Text("${ui.childProjects.size} sub-projects") },
                 leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                // On Android the menu lists the root projects only, so this chip
+                // is the way into a nested project.
+                modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_CHILDREN_CHIP),
             )
         }
         if (ui.project.inheritedTagGroupIds.isNotEmpty()) {

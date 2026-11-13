@@ -15,8 +15,11 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.projects.domain.model.Project
 import kotlinx.collections.immutable.ImmutableList
 
@@ -34,6 +37,10 @@ fun ChildProjectsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberAppSheetState(initialValue = SheetValue.Hidden),
+        // A modal sheet lives in its own window, so the app root's
+        // `testTagsAsResourceId` mapping does not reach it: the sheet carries its
+        // own, or its tags stay invisible to an end-to-end run.
+        modifier = Modifier.mapTestTagsAsResourceIds(),
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Sub-projects", style = MaterialTheme.typography.titleMedium)
@@ -54,7 +61,10 @@ fun ChildProjectsSheet(
                                 onDismiss()
                             },
                             label = { Text(child.name) },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .testTag(TestTags.projectChildRow(child.id.value)),
                         )
                     }
                 }
