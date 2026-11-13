@@ -2,9 +2,18 @@ package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
+import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.attachments.AttachmentType
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTagTextEquals
@@ -12,8 +21,11 @@ import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.awaitText
+import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
+import com.singularity.todo.test.helpers.clickSheetClose
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
+import com.singularity.todo.test.helpers.revealMoreParameter
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -141,7 +153,193 @@ class TaskDetailEmptyChildSectionsTest {
             // Picking one puts it on the screen.
             clickTag(TestTags.moreParameterRow("Attachments"))
             awaitTag(TestTags.ATTACHMENTS_SECTION)
+
+            // And the sheet does not offer it again: the section is on the screen
+            // now, so it is not one of the properties missing from it. The rest of
+            // them are still offered.
+            clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+            awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
+            assertTagNotExists(TestTags.moreParameterRow("Attachments"))
+            awaitTag(TestTags.moreParameterRow("Logbook"))
+            awaitTag(TestTags.moreParameterRow("RelatedTasks"))
+            awaitTag(TestTags.moreParameterRow("TimeTracking"))
+            awaitTag(TestTags.moreParameterRow("WorkflowState"))
+
+            // The same for the next one.
+            clickTag(TestTags.moreParameterRow("Logbook"))
+            awaitTag(TestTags.LOGBOOK_SECTION)
+            clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+            awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
+            assertTagNotExists(TestTags.moreParameterRow("Attachments"))
+            assertTagNotExists(TestTags.moreParameterRow("Logbook"))
+            awaitTag(TestTags.moreParameterRow("RelatedTasks"))
+            awaitTag(TestTags.moreParameterRow("TimeTracking"))
+            awaitTag(TestTags.moreParameterRow("WorkflowState"))
         }
+
+    @Test
+    @DisplayName("a section with content draws itself, and takes itself away when the last item is gone")
+    fun a_section_with_content_draws_itself_and_takes_itself_away_when_the_last_item_is_gone() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            val robot = tasks(koin)
+            robot.given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Has an attachment")
+            val taskId = robot.lastTaskId!!
+
+            // The task has an attachment before its screen is ever opened.
+            seedAttachment(koin, taskId, "attachment-1")
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Has an attachment")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // A section with something in it is on the screen without anyone
+            // asking for it.
+            awaitTag(TestTags.ATTACHMENTS_SECTION)
+
+            // The header is the way into it: the section is closed, the way every
+            // section on this screen is closed until it is opened.
+            clickTagScrolled(TestTags.ATTACHMENTS_SECTION)
+            awaitText("A link")
+
+            // And it is not one of the properties the `+ Ещё` sheet offers: it is
+            // already on the screen.
+            clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+            awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
+            assertTagNotExists(TestTags.moreParameterRow("Attachments"))
+            awaitTag(TestTags.moreParameterRow("Logbook"))
+            clickSheetClose()
+            awaitTagGone(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
+
+            // The last item is gone, and the section goes with it: it has nothing
+            // left to show and nobody asked for it to be there.
+            clickContentDescriptionScrolled("Delete attachment")
+            awaitTagGone(TestTags.ATTACHMENTS_SECTION)
+
+            // So it is one of the properties the sheet offers again.
+            clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+            awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
+            awaitTag(TestTags.moreParameterRow("Attachments"))
+        }
+
+    @Test
+    @DisplayName("a section the user opened stays on the screen when its content is gone")
+    fun a_section_the_user_opened_stays_on_the_screen_when_its_content_is_gone() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            val robot = tasks(koin)
+            robot.given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Kept open")
+            val taskId = robot.lastTaskId!!
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Kept open")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The user opens the attachments section from the `+ Ещё` sheet, with
+            // nothing in it.
+            revealMoreParameter("Attachments")
+            awaitTag(TestTags.ATTACHMENTS_SECTION)
+
+            // An attachment arrives, and goes away again.
+            seedAttachment(koin, taskId, "attachment-2")
+            awaitText("A link")
+            clickContentDescriptionScrolled("Delete attachment")
+
+            // The attachment is gone — the section's title carries no count any
+            // more — and the section is still there: the user asked for it, so it
+            // is theirs even when it has nothing in it.
+            awaitText("Attachments")
+            awaitTag(TestTags.ATTACHMENTS_SECTION)
+        }
+
+    @Test
+    @DisplayName("a task with tracked time draws the time section on its own")
+    fun a_task_with_tracked_time_draws_the_time_section_on_its_own() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            val robot = tasks(koin)
+            robot.given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Has tracked time")
+            val taskId = robot.lastTaskId!!
+            val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
+
+            // A timer that was stopped, with the record it left behind.
+            koin.get<TimeTrackingRepository>().createManualEntry(
+                taskId = taskId,
+                userId = userId,
+                startedAt = TEST_CLOCK.now().toEpochMilliseconds() - 60_000,
+                endedAt = TEST_CLOCK.now().toEpochMilliseconds(),
+                kind = TimeEntryKind.Work,
+                note = null,
+            )
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Has tracked time")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // Tracked time is something to show, so the section is on the screen.
+            awaitTag(TestTags.TimeTracking.SECTION)
+
+            // And it is not one of the properties the sheet offers.
+            clickTagScrolled(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW)
+            awaitTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET)
+            assertTagNotExists(TestTags.moreParameterRow("TimeTracking"))
+        }
+
+    @Test
+    @DisplayName("a running timer draws the time section on its own")
+    fun a_running_timer_draws_the_time_section_on_its_own() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            val robot = tasks(koin)
+            robot.given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Has a running timer")
+            val taskId = robot.lastTaskId!!
+            val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
+
+            // A timer that is still running.
+            koin.get<TimeTrackingRepository>().startEntry(
+                taskId = taskId,
+                userId = userId,
+                kind = TimeEntryKind.Work,
+                source = TimeEntrySource.Timer,
+            )
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Has a running timer")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // A running timer is something to show too.
+            awaitTag(TestTags.TimeTracking.SECTION)
+        }
+
+    /**
+     * Puts one attachment on the task, the way a user would: a link with a title.
+     */
+    private suspend fun seedAttachment(
+        koin: org.koin.core.Koin,
+        taskId: TaskId,
+        id: String,
+    ) {
+        koin.get<AttachmentRepository>().create(
+            Attachment(
+                id = AttachmentId(id),
+                taskId = taskId,
+                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+                type = AttachmentType.Url,
+                url = "https://example.com/notes",
+                title = "A link",
+                createdAt = TEST_CLOCK.now(),
+                updatedAt = TEST_CLOCK.now(),
+            ),
+        )
+    }
 
     private object TestTimeZone : TimeZoneProvider {
         override fun current(): TimeZone = TEST_ZONE
