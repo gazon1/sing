@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.attachments.Attachment
-import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -87,10 +87,13 @@ data class TaskEditorModel(
      */
     val deadline: LocalDate? = null,
     /**
-     * The reminder's offset before the due moment, or null when the task has
-     * no reminder.
+     * What the app knows about the task's reminder.
+     *
+     * Three states, not two: a reminder whose offset this build does not know
+     * is still a reminder, and a nullable offset cannot say so — it would say
+     * the task has no reminder at all.
      */
-    val reminderOffset: ReminderOffset? = null,
+    val reminderState: ReminderOffsetState = ReminderOffsetState.None,
     /**
      * Whether the app may post notifications.
      *

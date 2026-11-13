@@ -11,6 +11,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -83,6 +84,41 @@ data class ReminderRowCallbacks(
 /** Callback bundle for a toggle (checkbox) attribute. */
 data class ToggleCallbacks(val onToggle: () -> Unit)
 
+/**
+ * Callback bundle for the deadline row.
+ *
+ * The deadline is one of the schedule's facts, so it is *written* through
+ * [ScheduleCallbacks]. What is left to the row is what is not a write:
+ * opening the sheet that edits it, and clearing it.
+ */
+data class DeadlineRowCallbacks(
+    /**
+     * Opens the deadline sheet.
+     *
+     * `null` — the default — lets the row open its own sheet, which is what
+     * almost every call site wants.
+     */
+    val onClick: (() -> Unit)? = null,
+    /** Clears the deadline. Null means no clear button is shown. */
+    val onClear: (() -> Unit)? = null,
+)
+
+/**
+ * Callback bundle for the schedule — the due date and its time, the deadline and
+ * the `someday` bucket.
+ *
+ * The four facts are one decision, so they are written in one go: [onChange]
+ * carries the facts that changed *and* the facts that did not, and the write
+ * lands on one copy of the task. A save that wrote them one by one could leave
+ * the task halfway between what it was and what the user asked for.
+ *
+ * `null` for the whole bundle means the surface does not offer the schedule.
+ */
+data class ScheduleCallbacks(
+    /** Writes the change of the schedule. */
+    val onChange: (TaskDetailIntent.Domain.SetSchedule) -> Unit,
+)
+
 /** Callback bundle for the checklist section. `null` means checklist row is hidden. */
 data class ChecklistCallbacks(
     val onOpen: () -> Unit,
@@ -133,14 +169,16 @@ data class TaskEditorCallbacks(
     /** Reminder row — null = hidden. */
     val reminder: ReminderRowCallbacks? = null,
     /** Deadline row — null = hidden. */
-    val deadline: RowCallbacks<LocalDate?>? = null,
+    val deadline: DeadlineRowCallbacks? = null,
     /**
-     * The `someday` bucket — null = the surface does not offer it.
+     * The schedule of the task — null = the surface does not offer it.
      *
-     * The task is deferred when this is set, and a deferred task carries no
-     * date: the two are exclusive, and the domain enforces it.
+     * The due date and its time, the deadline and the `someday` bucket are one
+     * decision, so they are written through this one bundle: a save that wrote
+     * them one by one could leave the task halfway between what it was and what
+     * the user asked for.
      */
-    val someday: RowCallbacks<Boolean>? = null,
+    val schedule: ScheduleCallbacks? = null,
     /** Start date + time row — null = hidden */
     val startDate: DateRowCallbacks?,
     /** Project row — null = hidden */

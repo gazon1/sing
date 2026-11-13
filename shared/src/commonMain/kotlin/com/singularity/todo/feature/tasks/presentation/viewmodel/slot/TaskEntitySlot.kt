@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEntityIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskSchedulingIntent
@@ -179,7 +180,7 @@ class TaskEntitySlot(
      * Handles the intents that write *when* the work happens.
      *
      * They live together because they are one decision — when this task is due —
-     * and because two of them are exclusive: `someday` means *no date*, so a
+     * and because two of the facts are exclusive: `someday` means *no date*, so a
      * deferred task carries neither a due date nor a due time.
      */
     private fun handleSchedulingIntent(
@@ -187,27 +188,8 @@ class TaskEntitySlot(
         intent: TaskSchedulingIntent,
     ) {
         when (intent) {
-            is TaskDetailIntent.Domain.SetDueDate -> {
-                mutate(task, intent) {
-                    copy(
-                        dueDate = intent.date,
-                        // The date and its time are one fact: a time without a date
-                        // is not a moment. Clearing the date clears the time with it.
-                        dueTime = if (intent.date == null) null else dueTime,
-                        // `someday` means "no date", so a task that carries a date is
-                        // not a deferred one — and clearing the date does not quietly
-                        // move the task into the someday bucket.
-                        someday = false,
-                    )
-                }
-            }
-
-            is TaskDetailIntent.Domain.SetDueTime -> {
-                mutate(task, intent) { copy(dueTime = intent.time) }
-            }
-
-            is TaskDetailIntent.Domain.SetDeadline -> {
-                mutate(task, intent) { copy(endDate = intent.date) }
+            is TaskDetailIntent.Domain.SetSchedule -> {
+                mutate(task, intent, "Failed to set schedule") { applySchedule(intent) }
             }
 
             is TaskDetailIntent.Domain.SetStartDate -> {
@@ -217,33 +199,39 @@ class TaskEntitySlot(
             is TaskDetailIntent.Domain.SetStartTime -> {
                 mutate(task, intent) { copy(startTime = intent.time) }
             }
-
-            is TaskDetailIntent.Domain.SetSomeday -> {
-                mutate(
-                    task,
-                    intent,
-                    "Failed to set someday",
-                ) {
-                    copy(
-                        someday = intent.deferred,
-                        // The two are exclusive: a deferred task has no date, and a
-                        // dated task is not deferred.
-                        dueDate = if (intent.deferred) null else dueDate,
-                        dueTime = if (intent.deferred) null else dueTime,
-                    )
-                }
-            }
-
-            // `data object` branches are equality checks, not type checks, so the
-            // smart cast does not happen: the object is named explicitly.
-            TaskDetailIntent.Domain.ToggleSomeday -> {
-                mutate(
-                    task,
-                    TaskDetailIntent.Domain.ToggleSomeday,
-                    "Failed to set someday",
-                ) { copy(someday = !someday) }
-            }
         }
+    }
+
+    /**
+     * Applies the change of the schedule to the task.
+     *
+     * The four facts — the due date and its time, the deadline and the `someday`
+     * bucket — are written in one go, and this is the one place where the rules
+     * between them are applied: `someday` means *no date* and a date means *not
+     * someday*, so the two are exclusive; and a time without a date is not a
+     * moment, so it goes with the date.
+     *
+     * A fact the change does not mention keeps the value the task carries now, so
+     * a save that changed the deadline does not touch the date beside it.
+     */
+    private fun Task.applySchedule(intent: TaskDetailIntent.Domain.SetSchedule): Task {
+        val date = intent.dueDate.orKeep(dueDate)
+        val time = intent.dueTime.orKeep(dueTime)
+        // A date that was picked takes the task out of the `someday` bucket — the
+        // two cannot live together. The bucket that was chosen takes the date with
+        // it. A change that mentions neither leaves the task where it is.
+        val deferred =
+            when {
+                intent.dueDate is ScheduleChange.Value && date != null -> false
+                intent.someday is ScheduleChange.Value -> intent.someday.value
+                else -> someday
+            }
+        return copy(
+            dueDate = if (deferred) null else date,
+            dueTime = if (deferred || date == null) null else time,
+            endDate = intent.deadline.orKeep(endDate),
+            someday = deferred,
+        )
     }
 
     /**
@@ -491,3 +479,12 @@ class TaskEntitySlot(
         }
     }
 }
+
+/**
+ * The value the change asks for, or [current] when the change does not touch
+ * the fact at all.
+ *
+ * A fact the change does not mention keeps the value the task carries now: a
+ * save that changed the deadline must not write the date beside it.
+ */
+private fun <T> ScheduleChange<T>.orKeep(current: T): T = if (this is ScheduleChange.Value) value else current

@@ -209,7 +209,6 @@ class TaskDetailCoordinator(
             sourceViewId = sourceViewId,
             core = deps.core,
             scheduling = deps.scheduling,
-            context = deps.context,
             scope = vmScope,
             taskFlow = taskFlow,
             onError = ::reportError,
@@ -525,9 +524,7 @@ class TaskDetailCoordinator(
                 draft.onIntent(intent)
             }
 
-            is TaskDetailIntent.Domain.SetDueDate,
-            is TaskDetailIntent.Domain.SetDueTime,
-            is TaskDetailIntent.Domain.SetDeadline,
+            is TaskDetailIntent.Domain.SetSchedule,
             is TaskDetailIntent.Domain.SetStartDate,
             is TaskDetailIntent.Domain.SetStartTime,
             is TaskDetailIntent.Domain.SetPriority,
@@ -537,8 +534,6 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.RemoveTag,
             is TaskDetailIntent.Domain.RestoreTag,
             is TaskDetailIntent.Domain.SetKind,
-            is TaskDetailIntent.Domain.ToggleSomeday,
-            is TaskDetailIntent.Domain.SetSomeday,
             is TaskDetailIntent.Domain.TogglePinned,
             is TaskDetailIntent.Domain.SetRecurrence,
             is TaskDetailIntent.Domain.SetDependencies,

@@ -197,6 +197,50 @@ truth — on Android it reads `POST_NOTIFICATIONS` live, on the desktop it probe
 Clearing is deliberately not gated, for both gates: a reminder written before the
 permission was revoked is still the task's, and the user must be able to remove it.
 
+### The four rules the follow-up round added
+
+The first implementation of this surface shipped four rules the ADR above had not
+stated. A review of the shipped behaviour found them, and they are decided here
+rather than in the code.
+
+**A relative reminder needs a due date.** The offset counts back from the due
+moment, and a task without a date has no such moment. The first implementation
+fell back to "now", so a task without a date got a reminder that fired at once:
+the person who asked for "15 minutes before" got it immediately, and the row
+showed a live reminder for a moment they never chose. `TaskRemindersSlot` now
+refuses the write — before the row, before the alarm — and the reminder sheet
+says that the date comes first. This is about **creating** a reminder: a reminder
+that already exists keeps its stored `fireAt` when the date is removed, which is
+the decision the section above took.
+
+**An unknown reminder offset is a reminder.** `ReminderOffset.fromMinutes`
+answered `null` for an offset this build does not know, and `null` was what the
+UI read as "no reminder". A reminder written by an older build, by a newer one,
+or by another client was therefore shown to the user as nothing at all. The
+reminder is now a three-state value — no reminder, a known offset, an unknown
+offset — and the third state is shown, can be removed, and is never rewritten
+into the nearest offset the app happens to offer. `Int.MIN_VALUE` is handled
+too: it is the one value whose magnitude does not fit in an `Int`, so the lookup
+cannot take its absolute value.
+
+**The schedule is written in one go.** The date sheet used to write the four
+scheduling facts one by one — four repository writes, one fact each. If the
+second write failed, the task was left with a new date and an old deadline: a
+partly saved schedule the user never asked for. The sheet now sends one
+`SetSchedule` intent carrying the facts that changed, the slot applies them to
+one copy of the task, and the repository writes the task once. A fact the change
+does not mention keeps the value it has — the save that changed the deadline
+does not touch the date beside it. This is one intent and one write, not a
+scheduling framework: the repository already writes a single task row, so there
+is no transaction API to reach for.
+
+**A completed task is never overdue.** The deadline row asked only whether the
+deadline was before today, so a task that was already done kept saying
+`Просрочен` — the app reported the task as late for work it had finished. The
+rule is one function: a completed task is not overdue, a task without a deadline
+is not overdue, a deadline before today is overdue, a deadline today or later is
+not.
+
 ## Rationale
 
 **The rows are the surface; the sheets are the editors.** A fact the user cannot see

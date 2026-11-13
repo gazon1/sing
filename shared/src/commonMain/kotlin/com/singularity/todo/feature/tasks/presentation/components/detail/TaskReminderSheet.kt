@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.components.sheet.SheetActions
@@ -41,6 +42,8 @@ import singularity_todo.shared.generated.resources.notification_permission_actio
 import singularity_todo.shared.generated.resources.notification_settings_action
 import singularity_todo.shared.generated.resources.notifications_disabled
 import singularity_todo.shared.generated.resources.reminder_label
+import singularity_todo.shared.generated.resources.reminder_needs_due_date
+import singularity_todo.shared.generated.resources.reminder_unknown_offset
 
 /**
  * The reminder editor of the task detail.
@@ -61,11 +64,24 @@ import singularity_todo.shared.generated.resources.reminder_label
  *
  * «Очистить» marks the removal and «Сохранить» applies it, so a cleared
  * reminder can still be called back: the same rule the date sheet follows.
+ *
+ * ## The two states the sheet has to say out loud
+ *
+ * *A reminder without a due date cannot be created.* The offset counts back
+ * from the due moment, and a task without a date has no such moment — the
+ * reminder would fire at once. So the sheet says that the date comes first, and
+ * the slot refuses the write.
+ *
+ * *A reminder with an offset this build does not know is still a reminder.* It
+ * was written by another build or another client. The sheet says that the
+ * reminder exists, offers to remove it, and never rewrites it into the nearest
+ * offset it happens to know.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun TaskReminderSheet(
-    currentOffset: ReminderOffset?,
+    currentState: ReminderOffsetState,
+    hasDueDate: Boolean,
     notificationsEnabled: Boolean,
     onSelect: (ReminderOffset) -> Unit,
     onClear: () -> Unit,
@@ -76,6 +92,12 @@ fun TaskReminderSheet(
     // The sheet opens expanded: a half-expanded sheet hides its bottom, and
     // the bottom of this sheet is where the actions are.
     val sheetState = rememberAppSheetState(initialValue = SheetValue.Expanded)
+
+    // The offset the task carries, when this build knows it. An unknown offset
+    // has none: the sheet cannot preselect a choice it does not have, and it
+    // must not preselect the nearest one — that would rewrite the reminder the
+    // moment the sheet is opened.
+    val currentOffset = (currentState as? ReminderOffsetState.Known)?.offset
 
     BottomSheetHost(onDismiss = onDismiss, sheetState = sheetState) {
         // The pending offset. The sheet opens on the task's current offset, so
@@ -91,7 +113,7 @@ fun TaskReminderSheet(
             actions =
                 SheetActions(
                     onClear =
-                        if (currentOffset != null) {
+                        if (currentState != ReminderOffsetState.None) {
                             {
                                 removalPending = true
                                 selected = null
@@ -108,6 +130,9 @@ fun TaskReminderSheet(
 
                             // Nothing to write when the choice was left as it was:
                             // the offset the task already has is already there.
+                            // An unknown offset is left alone as well: it is not
+                            // an offset the sheet can write, and it must not
+                            // become the nearest one it knows.
                             selected != currentOffset -> selected?.let { onSelect(it) }
                         }
                         onDismiss()
@@ -135,6 +160,34 @@ fun TaskReminderSheet(
                 ReminderNotice(
                     onRequestPermission = onRequestPermission,
                     onOpenSettings = onOpenSettings,
+                )
+            }
+
+            // The offset counts back from the due moment, and a task without a
+            // date has no such moment. The sheet says so before the user picks
+            // an offset, because the slot refuses the write.
+            if (!hasDueDate) {
+                Text(
+                    text = stringResource(Res.string.reminder_needs_due_date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier =
+                        Modifier
+                            .padding(vertical = 8.dp)
+                            .testTag(TestTags.TASK_REMINDER_NEEDS_DUE_DATE),
+                )
+            }
+
+            // A reminder this build does not know the offset of. It exists, and
+            // the sheet says so — a reminder shown as no reminder is a fact the
+            // database holds and the screen does not.
+            if (currentState is ReminderOffsetState.Unknown) {
+                Text(
+                    text = stringResource(Res.string.reminder_unknown_offset),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier =
+                        Modifier
+                            .padding(vertical = 8.dp)
+                            .testTag(TestTags.TASK_REMINDER_UNKNOWN_OFFSET),
                 )
             }
 

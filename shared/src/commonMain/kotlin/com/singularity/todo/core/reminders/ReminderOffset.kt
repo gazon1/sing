@@ -22,6 +22,15 @@ enum class ReminderOffset(val minutes: Int, val label: String) {
          * written by an older build, or by another client, must not be presented as
          * one of the choices the sheet offers.
          */
-        fun fromMinutes(minutes: Int): ReminderOffset? = entries.firstOrNull { it.minutes == kotlin.math.abs(minutes) }
+        fun fromMinutes(minutes: Int): ReminderOffset? {
+            // `abs(Int.MIN_VALUE)` is `Int.MIN_VALUE` — the one value whose
+            // magnitude does not fit in an `Int`, so it stays negative and would
+            // compare equal to no offset at all. It is mapped to the largest
+            // magnitude an `Int` can hold instead, which matches no offset
+            // either, and says so for the same reason: an offset this app does
+            // not know is not one of its offsets.
+            val magnitude = if (minutes == Int.MIN_VALUE) Int.MAX_VALUE else kotlin.math.abs(minutes)
+            return entries.firstOrNull { it.minutes == magnitude }
+        }
     }
 }

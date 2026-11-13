@@ -12,6 +12,8 @@ import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
 import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
@@ -76,18 +78,22 @@ fun TaskEditorSheetsHost(
         // the surface that edits it: the deadline opens the planning sheet on
         // the deadline, the reminder opens the reminder sheet.
         is TaskEditorSheet.Deadline -> {
-            TaskSchedulingSheetHost(
-                model = model,
-                callbacks = callbacks,
-                initialTarget = SchedulingTarget.DEADLINE,
-                now = now,
-                onSheetDismiss = onSheetDismiss,
-            )
+            val schedule = callbacks.schedule
+            if (schedule != null) {
+                TaskSchedulingSheetHost(
+                    model = model,
+                    schedule = schedule,
+                    initialTarget = SchedulingTarget.DEADLINE,
+                    now = now,
+                    onSheetDismiss = onSheetDismiss,
+                )
+            }
         }
 
         is TaskEditorSheet.Reminder -> {
             TaskReminderSheet(
-                currentOffset = model.reminderOffset,
+                currentState = model.reminderState,
+                hasDueDate = model.dueDate != null,
                 notificationsEnabled = model.notificationsEnabled,
                 onSelect = { offset -> callbacks.reminder?.onSet?.invoke(offset) },
                 onClear = { callbacks.reminder?.onClear?.invoke() },
@@ -380,28 +386,32 @@ private fun TaskEditorDateSheet(
             maxDates = TaskSeriesPlanner.MAX_DATES,
         )
     } else {
-        TaskSchedulingSheetHost(
-            model = model,
-            callbacks = callbacks,
-            initialTarget = SchedulingTarget.DUE_DATE,
-            now = now,
-            onSheetDismiss = onSheetDismiss,
-        )
+        val schedule = callbacks.schedule
+        if (schedule != null) {
+            TaskSchedulingSheetHost(
+                model = model,
+                schedule = schedule,
+                initialTarget = SchedulingTarget.DUE_DATE,
+                now = now,
+                onSheetDismiss = onSheetDismiss,
+            )
+        }
     }
 }
 
 /**
- * The planning sheet, and the writes it causes.
+ * The planning sheet, and the write it causes.
  *
- * Only the facts that actually changed are written. A sheet that wrote all
- * four of them on every save would turn one change into four writes, and would
- * write a fact the user never touched — which is how a deadline disappears
+ * The schedule is written in one go: the facts that changed, and only those. A
+ * sheet that wrote them one by one could leave the task halfway between what it
+ * was and what the user asked for — and a sheet that wrote all of them would
+ * write a fact the user never touched, which is how a deadline disappears
  * because somebody changed a time.
  */
 @Composable
 private fun TaskSchedulingSheetHost(
     model: TaskEditorModel,
-    callbacks: TaskEditorCallbacks,
+    schedule: ScheduleCallbacks,
     initialTarget: SchedulingTarget,
     now: kotlin.time.Instant,
     onSheetDismiss: () -> Unit,
@@ -414,23 +424,39 @@ private fun TaskSchedulingSheetHost(
         today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
         initialTarget = initialTarget,
         onConfirm = { result ->
-            if (result.dueDate != model.dueDate) {
-                callbacks.dueDate.onChangeDate.invoke(result.dueDate)
-            }
-            if (result.dueTime != model.dueTime) {
-                callbacks.dueDate.onChangeTime.invoke(result.dueTime)
-            }
-            if (result.deadline != model.deadline) {
-                callbacks.deadline?.onChange?.invoke(result.deadline)
-            }
-            if (result.someday != model.someday) {
-                callbacks.someday?.onChange?.invoke(result.someday)
+            val change =
+                TaskDetailIntent.Domain.SetSchedule(
+                    dueDate = changed(result.dueDate, model.dueDate),
+                    dueTime = changed(result.dueTime, model.dueTime),
+                    deadline = changed(result.deadline, model.deadline),
+                    someday = changed(result.someday, model.someday),
+                )
+            // Nothing changed means nothing to write: the task already carries
+            // what the sheet showed.
+            if (change != UNCHANGED_SCHEDULE) {
+                schedule.onChange(change)
             }
             onSheetDismiss()
         },
         onDismiss = onSheetDismiss,
     )
 }
+
+/**
+ * The change of a fact — or [ScheduleChange.Unchanged] when the fact did not
+ * change.
+ */
+private fun <T> changed(
+    new: T,
+    current: T,
+): ScheduleChange<T> = if (new != current) ScheduleChange.Value(new) else ScheduleChange.Unchanged
+
+/**
+ * The change that changes nothing.
+ *
+ * Every fact of the schedule is left as it is, so there is nothing to write.
+ */
+private val UNCHANGED_SCHEDULE = TaskDetailIntent.Domain.SetSchedule()
 
 /**
  * The recurrence sheet and its anchor date.

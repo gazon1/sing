@@ -94,6 +94,8 @@
     <string name="reminder_offset_1_hour">1 hour before</string>
     <string name="reminder_offset_1_day">1 day before</string>
     <string name="notifications_disabled">Notifications are off</string>
+    <string name="reminder_unknown_offset">Reminder (unknown time)</string>
+    <string name="reminder_needs_due_date">Set a due date to use a reminder</string>
     <string name="notification_settings_action">Open settings</string>
     <string name="notification_permission_action">Allow notifications</string>
     <string name="add_deadline">Add deadline</string>

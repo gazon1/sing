@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.localizedDueDateWithTime
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
@@ -38,6 +39,7 @@ import singularity_todo.shared.generated.resources.reminder_offset_15_min
 import singularity_todo.shared.generated.resources.reminder_offset_1_day
 import singularity_todo.shared.generated.resources.reminder_offset_1_hour
 import singularity_todo.shared.generated.resources.reminder_offset_at_due
+import singularity_todo.shared.generated.resources.reminder_unknown_offset
 import singularity_todo.shared.generated.resources.reset_deadline
 import singularity_todo.shared.generated.resources.reset_reminder
 
@@ -64,7 +66,10 @@ fun reminderOffsetLabel(offset: ReminderOffset): String =
  *
  * It shows three different things, and the difference matters:
  *
- * * the offset, when the task has a reminder;
+ * * the offset, when the task has a reminder this build knows;
+ * * «Напоминание (неизвестное время)», when the task has a reminder whose
+ *   offset this build does not know — the reminder is there, and the screen
+ *   must not pretend it is not;
  * * «Напоминание», when it has none — the row is still there, because a row
  *   that appears only once something is set is a row nobody finds;
  * * «Уведомления выключены», when the app may not post notifications. The
@@ -77,16 +82,16 @@ fun reminderOffsetLabel(offset: ReminderOffset): String =
  */
 @Composable
 fun TaskEditorReminderRow(
-    reminderOffset: ReminderOffset?,
+    reminderState: ReminderOffsetState,
     notificationsEnabled: Boolean,
     onReminderClick: (() -> Unit)?,
     onReminderClear: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val label =
-        when {
-            reminderOffset != null -> {
-                reminderOffsetLabel(reminderOffset) +
+        when (reminderState) {
+            is ReminderOffsetState.Known -> {
+                reminderOffsetLabel(reminderState.offset) +
                     if (notificationsEnabled) {
                         ""
                     } else {
@@ -94,21 +99,34 @@ fun TaskEditorReminderRow(
                     }
             }
 
-            !notificationsEnabled -> {
-                stringResource(Res.string.notifications_disabled)
+            // The reminder exists; the offset it was written with is not one
+            // this build offers. It says so rather than showing the row of a
+            // task that has no reminder.
+            is ReminderOffsetState.Unknown -> {
+                stringResource(Res.string.reminder_unknown_offset) +
+                    if (notificationsEnabled) {
+                        ""
+                    } else {
+                        " · " + stringResource(Res.string.notifications_disabled)
+                    }
             }
 
-            else -> {
-                stringResource(Res.string.reminder_label)
+            ReminderOffsetState.None -> {
+                if (notificationsEnabled) {
+                    stringResource(Res.string.reminder_label)
+                } else {
+                    stringResource(Res.string.notifications_disabled)
+                }
             }
         }
+    val isSet = reminderState != ReminderOffsetState.None
     PlanningRow(
         icon = Icons.Outlined.Notifications,
         label = label,
-        isSet = reminderOffset != null,
+        isSet = isSet,
         rowTestTag = TestTags.TASK_EDITOR_REMINDER_ROW,
         labelTestTag =
-            if (reminderOffset != null) {
+            if (isSet) {
                 TestTags.TASK_EDITOR_REMINDER_ROW_LABEL
             } else {
                 TestTags.TASK_EDITOR_REMINDER_ROW_PLACEHOLDER
@@ -119,6 +137,25 @@ fun TaskEditorReminderRow(
         modifier = modifier,
     )
 }
+
+/**
+ * Whether the deadline of the task is overdue.
+ *
+ * Four rules, and the last one is the one that was missing: a task that is
+ * done is never overdue. The deadline of a completed task is a fact about work
+ * that is finished — calling it overdue would report the task as late for
+ * something it did not leave late.
+ *
+ * * a completed task is not overdue;
+ * * a task without a deadline is not overdue;
+ * * a deadline before today is overdue;
+ * * a deadline today or later is not.
+ */
+fun isDeadlineOverdue(
+    deadline: LocalDate?,
+    today: LocalDate,
+    isCompleted: Boolean,
+): Boolean = !isCompleted && deadline != null && deadline < today
 
 /**
  * The deadline row of the task detail.

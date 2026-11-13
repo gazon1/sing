@@ -21,6 +21,21 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 /**
+ * One fact of the schedule, as it changes.
+ *
+ * `null` cannot say it: a cleared deadline and an untouched deadline are both
+ * "no date", and the write has to tell them apart — one of them is a write and
+ * the other is not.
+ */
+sealed interface ScheduleChange<out T> {
+    /** The fact was not touched by this save. */
+    data object Unchanged : ScheduleChange<Nothing>
+
+    /** The fact takes this value — `null` meaning the fact was cleared. */
+    data class Value<T>(val value: T) : ScheduleChange<T>
+}
+
+/**
  * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator].
  *
  * Все варианты обрабатываются VM через [Domain].
@@ -70,45 +85,30 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskDraftIntent
 
-        data object ToggleSomeday : Domain, TaskSchedulingIntent
-
-        /**
-         * Puts the task into the `someday` bucket, or takes it out of it.
-         *
-         * The explicit form of [ToggleSomeday]: the screen knows whether the task is
-         * deferred, and a toggle applied to a stale state flips the wrong way.
-         *
-         * `someday` and the due date are exclusive — `someday` means *no date* — so
-         * the slot clears the date when the task is deferred.
-         */
-        data class SetSomeday(val deferred: Boolean) :
-            Domain,
-            TaskSchedulingIntent
-
         data class SetKind(val kind: TaskKind) :
             Domain,
             TaskEntityIntent
 
         // ── Meta fields ─────────────────────────────────────────────────────
 
-        data class SetDueDate(val date: LocalDate?) :
-            Domain,
-            TaskSchedulingIntent
-
-        data class SetDueTime(val time: LocalTime?) :
-            Domain,
-            TaskSchedulingIntent
-
         /**
-         * The deadline — the bound by which the work has to be done.
+         * The schedule of the task — the due date and its time, the deadline and
+         * the `someday` bucket — written as one change.
          *
-         * Written to `Task.endDate`, the field the domain already has for the end of
-         * the work's window. The reminder and the deadline are independent facts:
-         * clearing the due date leaves the deadline alone, and clearing the deadline
-         * leaves the reminder alone.
+         * The four facts are one decision, and they are written in one go: a save
+         * that wrote them one by one could leave the task halfway between what it
+         * was and what the user asked for.
+         *
+         * Each fact says whether it changes at all, because a fact the user did
+         * not touch must not be written: a deadline must not disappear because
+         * somebody changed a time.
          */
-        data class SetDeadline(val date: LocalDate?) :
-            Domain,
+        data class SetSchedule(
+            val dueDate: ScheduleChange<LocalDate?> = ScheduleChange.Unchanged,
+            val dueTime: ScheduleChange<LocalTime?> = ScheduleChange.Unchanged,
+            val deadline: ScheduleChange<LocalDate?> = ScheduleChange.Unchanged,
+            val someday: ScheduleChange<Boolean> = ScheduleChange.Unchanged,
+        ) : Domain,
             TaskSchedulingIntent
 
         data class SetStartDate(val date: LocalDate?) :

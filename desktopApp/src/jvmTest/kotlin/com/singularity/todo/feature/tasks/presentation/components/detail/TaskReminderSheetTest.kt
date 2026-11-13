@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagSelected
@@ -18,11 +19,12 @@ import kotlin.test.assertTrue
 /**
  * The reminder sheet of the task detail.
  *
- * Three things are pinned here. The sheet has to open on the offset the task
+ * Four things are pinned here. The sheet has to open on the offset the task
  * already has — a picker that opens on nothing makes the user guess what is
  * set — a refusal of the notification permission has to say what is wrong
- * and offer a way out, and the sheet has to apply its change only on its
- * confirm button.
+ * and offer a way out, the sheet has to apply its change only on its
+ * confirm button, and a task without a due date has to say that the date
+ * comes first.
  */
 @Tag("fast")
 class TaskReminderSheetTest {
@@ -31,7 +33,8 @@ class TaskReminderSheetTest {
         runIsolatedComposeTest(width = 360, height = 800) {
             setContent {
                 TaskReminderSheet(
-                    currentOffset = ReminderOffset.ONE_HOUR,
+                    currentState = ReminderOffsetState.Known(ReminderOffset.ONE_HOUR),
+                    hasDueDate = true,
                     notificationsEnabled = true,
                     onSelect = {},
                     onClear = {},
@@ -50,7 +53,8 @@ class TaskReminderSheetTest {
             var chosen: ReminderOffset? = null
             setContent {
                 TaskReminderSheet(
-                    currentOffset = null,
+                    currentState = ReminderOffsetState.None,
+                    hasDueDate = true,
                     notificationsEnabled = true,
                     onSelect = { chosen = it },
                     onClear = {},
@@ -72,7 +76,8 @@ class TaskReminderSheetTest {
             var written = false
             setContent {
                 TaskReminderSheet(
-                    currentOffset = ReminderOffset.ONE_HOUR,
+                    currentState = ReminderOffsetState.Known(ReminderOffset.ONE_HOUR),
+                    hasDueDate = true,
                     notificationsEnabled = true,
                     onSelect = { written = true },
                     onClear = {},
@@ -101,7 +106,8 @@ class TaskReminderSheetTest {
             var cleared = false
             setContent {
                 TaskReminderSheet(
-                    currentOffset = ReminderOffset.ONE_HOUR,
+                    currentState = ReminderOffsetState.Known(ReminderOffset.ONE_HOUR),
+                    hasDueDate = true,
                     notificationsEnabled = true,
                     onSelect = {},
                     onClear = { cleared = true },
@@ -123,7 +129,8 @@ class TaskReminderSheetTest {
             var cleared = false
             setContent {
                 TaskReminderSheet(
-                    currentOffset = ReminderOffset.ONE_HOUR,
+                    currentState = ReminderOffsetState.Known(ReminderOffset.ONE_HOUR),
+                    hasDueDate = true,
                     notificationsEnabled = true,
                     onSelect = {},
                     onClear = { cleared = true },
@@ -145,7 +152,8 @@ class TaskReminderSheetTest {
             var settingsOpened = false
             setContent {
                 TaskReminderSheet(
-                    currentOffset = ReminderOffset.ONE_HOUR,
+                    currentState = ReminderOffsetState.Known(ReminderOffset.ONE_HOUR),
+                    hasDueDate = true,
                     notificationsEnabled = false,
                     onSelect = {},
                     onClear = {},
@@ -162,5 +170,89 @@ class TaskReminderSheetTest {
             clickTag(TestTags.TASK_REMINDER_SETTINGS_ACTION)
 
             assertTrue(settingsOpened, "the settings action opens the settings")
+        }
+
+    /**
+     * A task without a due date has no moment to count back from, so the sheet
+     * says the date comes first — the slot refuses the write.
+     */
+    @Test
+    fun `a task without a due date is told that the date comes first`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            setContent {
+                TaskReminderSheet(
+                    currentState = ReminderOffsetState.None,
+                    hasDueDate = false,
+                    notificationsEnabled = true,
+                    onSelect = {},
+                    onClear = {},
+                    onRequestPermission = null,
+                    onOpenSettings = null,
+                    onDismiss = {},
+                )
+            }
+
+            assertTagDisplayed(TestTags.TASK_REMINDER_NEEDS_DUE_DATE)
+            assertTextDisplayed("Set a due date to use a reminder")
+        }
+
+    /**
+     * A reminder this build does not know the offset of is still a reminder:
+     * the sheet says so, and saving it without touching anything must not
+     * rewrite it into the nearest offset the app happens to offer.
+     */
+    @Test
+    fun `an unknown offset is not rewritten when the sheet is saved`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            var chosen: ReminderOffset? = null
+            var cleared = false
+            setContent {
+                TaskReminderSheet(
+                    currentState = ReminderOffsetState.Unknown(37),
+                    hasDueDate = true,
+                    notificationsEnabled = true,
+                    onSelect = { chosen = it },
+                    onClear = { cleared = true },
+                    onRequestPermission = null,
+                    onOpenSettings = null,
+                    onDismiss = {},
+                )
+            }
+
+            assertTagDisplayed(TestTags.TASK_REMINDER_UNKNOWN_OFFSET)
+
+            clickTag(TestTags.TASK_REMINDER_CONFIRM)
+
+            assertEquals(null, chosen, "an unknown offset must not be rewritten")
+            assertFalse(cleared, "saving is not a removal")
+        }
+
+    /**
+     * The other half: a reminder the user cannot read the offset of is still a
+     * reminder they own, so they must be able to take it away.
+     */
+    @Test
+    fun `an unknown offset can be removed`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            var cleared = false
+            setContent {
+                TaskReminderSheet(
+                    currentState = ReminderOffsetState.Unknown(37),
+                    hasDueDate = true,
+                    notificationsEnabled = true,
+                    onSelect = {},
+                    onClear = { cleared = true },
+                    onRequestPermission = null,
+                    onOpenSettings = null,
+                    onDismiss = {},
+                )
+            }
+
+            assertTagDisplayed(TestTags.TASK_REMINDER_CLEAR)
+
+            clickTag(TestTags.TASK_REMINDER_CLEAR)
+            clickTag(TestTags.TASK_REMINDER_CONFIRM)
+
+            assertTrue(cleared, "the unknown reminder can still be removed")
         }
 }

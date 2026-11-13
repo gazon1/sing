@@ -164,6 +164,7 @@ non-alphanumeric characters with `_`.
 | `TASK_REMINDER_CANCEL` | `task_reminder_cancel` | |
 | `TASK_REMINDER_CLEAR` | `task_reminder_clear` | |
 | `TASK_REMINDER_CONFIRM` | `task_reminder_confirm` | |
+| `TASK_REMINDER_NEEDS_DUE_DATE` | `task_reminder_needs_due_date` | |
 | `TASK_REMINDER_NOTICE` | `task_reminder_notice` | |
 | `TASK_REMINDER_OPTION_15_MIN` | `task_reminder_option_15_min` | |
 | `TASK_REMINDER_OPTION_1_DAY` | `task_reminder_option_1_day` | |
@@ -171,6 +172,7 @@ non-alphanumeric characters with `_`.
 | `TASK_REMINDER_PERMISSION_ACTION` | `task_reminder_permission_action` | |
 | `TASK_REMINDER_SETTINGS_ACTION` | `task_reminder_settings_action` | |
 | `TASK_REMINDER_SHEET` | `task_reminder_sheet` | |
+| `TASK_REMINDER_UNKNOWN_OFFSET` | `task_reminder_unknown_offset` | |
 | `TASK_SCHEDULING_ADD_TIME` | `task_scheduling_add_time` | |
 | `TASK_SCHEDULING_CANCEL` | `task_scheduling_cancel` | |
 | `TASK_SCHEDULING_CLEAR` | `task_scheduling_clear` | |

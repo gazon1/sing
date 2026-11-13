@@ -43,7 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
@@ -145,12 +145,12 @@ private fun TaskEditorContent(
     onPriorityClick: (() -> Unit)? = null,
     onDueDateClick: (() -> Unit)? = null,
     someday: Boolean = false,
-    reminderOffset: ReminderOffset? = null,
+    reminderState: ReminderOffsetState = ReminderOffsetState.None,
     notificationsEnabled: Boolean = true,
     reminderCallbacks: ReminderRowCallbacks? = null,
     deadline: LocalDate? = null,
     deadlineIsOverdue: Boolean = false,
-    deadlineCallbacks: RowCallbacks<LocalDate?>? = null,
+    deadlineCallbacks: DeadlineRowCallbacks? = null,
     startDate: LocalDate? = null,
     startTime: LocalTime? = null,
     startDateCallbacks: DateRowCallbacks? = null,
@@ -324,7 +324,7 @@ private fun TaskEditorContent(
             // that appears only once something is set is a row nobody finds.
             reminderCallbacks?.let { cb ->
                 TaskEditorReminderRow(
-                    reminderOffset = reminderOffset,
+                    reminderState = reminderState,
                     notificationsEnabled = notificationsEnabled,
                     onReminderClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Reminder) },
                     onReminderClear = cb.onClear,
@@ -637,11 +637,11 @@ private fun TaskEditorScaffold(
         onPriorityClick = callbacks.priority.onClick,
         onDueDateClick = callbacks.dueDate.onClick,
         someday = model.someday,
-        reminderOffset = model.reminderOffset,
+        reminderState = model.reminderState,
         notificationsEnabled = model.notificationsEnabled,
         reminderCallbacks = callbacks.reminder,
         deadline = model.deadline,
-        deadlineIsOverdue = model.deadline?.let { it < today } ?: false,
+        deadlineIsOverdue = isDeadlineOverdue(model.deadline, today, isCompleted),
         deadlineCallbacks = callbacks.deadline,
         startDate = model.startDate,
         startTime = model.startTime,

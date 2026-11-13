@@ -92,6 +92,8 @@
     <string name="reminder_offset_1_hour">За час</string>
     <string name="reminder_offset_1_day">За день</string>
     <string name="notifications_disabled">Уведомления выключены</string>
+    <string name="reminder_unknown_offset">Напоминание (неизвестное время)</string>
+    <string name="reminder_needs_due_date">Укажите дату, чтобы включить напоминание</string>
     <string name="notification_settings_action">Открыть настройки</string>
     <string name="notification_permission_action">Разрешить уведомления</string>
     <string name="add_deadline">Добавить срок</string>

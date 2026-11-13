@@ -527,6 +527,12 @@ object TestTags {
     /** The «За день» option of the reminder sheet. */
     const val TASK_REMINDER_OPTION_1_DAY = "task_reminder_option_1_day"
 
+    /** The notice that says the reminder needs a due date first. */
+    const val TASK_REMINDER_NEEDS_DUE_DATE = "task_reminder_needs_due_date"
+
+    /** The notice that says the reminder's offset is not one this build knows. */
+    const val TASK_REMINDER_UNKNOWN_OFFSET = "task_reminder_unknown_offset"
+
     const val WORKFLOW_STATE_OPTION_OPEN = "workflow_state_option_open"
     const val WORKFLOW_STATE_OPTION_NEXT_UP = "workflow_state_option_next_up"
     const val WORKFLOW_STATE_OPTION_IN_PROGRESS = "workflow_state_option_in_progress"
