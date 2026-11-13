@@ -111,7 +111,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `MENU-05` | A project without children shows no expander, and a closed project is absent from the menu's Projects section | ● | ● | The childless project shows no expander control, so nothing in the menu invites an expansion that cannot happen. The… |
 | `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the menu's Projects section is not the only way to… |
 | `MENU-07` | The Projects section of the menu starts folded, so the menu's destinations stay reachable | ● | ● | The projects are not drawn, so the entries above them — the destinations and Settings — are reachable without… |
-| `MENU-08` | The Android menu lists the root projects, and a nested project is reached through its parent's screen | ● | — | The Projects section lists the root projects — A and C — and no child: B is not in the menu. A's own screen says that… |
+| `MENU-08` | The Android menu lists the root projects, and a nested project is reached through its parent's screen | ● | — | The Projects section lists the root projects — A and C — and no child: neither B nor D is in the menu. A's own screen… |
 | `MENU-10` | The menu offers Attach account to an anonymous session | ● | — | The menu carries an "Attach account" entry. It is the way out of the local session, so an anonymous session has to be… |
 
 ## feature.nav

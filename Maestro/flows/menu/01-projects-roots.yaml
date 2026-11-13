@@ -7,9 +7,13 @@
 # parent's screen says how many children it has, and that entry opens them
 # (ADR `2026-11-12-android-menu-roots-only.md`).
 #
+# The chain is three deep, because that is where the menu's shortcut ends: the
+# sheet holds the roots, and every level below a root costs one more step down
+# and one step back. The flow walks the whole chain and walks back out of it.
+#
 # The seeds are given the ids the projects carry, so the rows are addressed by
 # those ids rather than by the names the user reads — a name is copy, and an id
-# is not. The child is seeded below the parent by the parent's id, because a
+# is not. Each project is seeded below the one above it by its id, because a
 # deep link cannot know a generated id.
 appId: com.singularity.todo
 name: menu-projects-roots
@@ -26,6 +30,10 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "project=Child&id=child&parent=parent"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Grandchild&id=grandchild&parent=child"
 - runFlow: ../../helpers/open-app-menu.yaml
 # The section is folded by default, so the projects are unfolded before they are
 # used.
@@ -38,20 +46,22 @@ tags:
     timeout: 8000
 - assertVisible:
     id: menu_project_node_parent
-# The child is not in the menu: the list holds the roots, and the child is
-# behind its parent.
+# The children are not in the menu: the list holds the roots, and the children
+# are behind their parents.
 #
 # The sheet is scrolled to its end first. At the end of the sheet the last row
 # is the last project of the list — in the menu that is the parent, and in the
-# tree that would be the child, which the tree draws right below its parent.
-# So the check is made where a tree would show the child, and it cannot pass
-# by the child being under the fold.
+# tree that would be the grandchild, which the tree draws below the child below
+# the parent. So the check is made where a tree would show them, and it cannot
+# pass by them being under the fold.
 - swipe:
     start: "50%, 80%"
     end: "50%, 20%"
     duration: 1000
 - assertNotVisible:
     id: menu_project_node_child
+- assertNotVisible:
+    id: menu_project_node_grandchild
 # The root project is a way into the project: tapping it opens that project's
 # own screen, which names it in the bar.
 - tapOn:
@@ -82,8 +92,35 @@ tags:
       id: shell_bar_title
       text: "Child"
     timeout: 8000
-# Back from the child lands on the parent: the way down into the hierarchy is
-# also the way back out of it.
+# The child is a project like any other: it has a screen of its own, and that
+# screen says how many sub-projects it has. The way down does not stop at the
+# first level.
+- extendedWaitUntil:
+    visible:
+      id: project_detail_children_chip
+    timeout: 8000
+- tapOn:
+    id: project_detail_children_chip
+- extendedWaitUntil:
+    visible:
+      id: project_child_row_grandchild
+    timeout: 8000
+- tapOn:
+    id: project_child_row_grandchild
+- extendedWaitUntil:
+    visible:
+      id: shell_bar_title
+      text: "Grandchild"
+    timeout: 8000
+# Back from the grandchild lands on the child, back from the child on the
+# parent: the way down into the hierarchy is also the way back out of it.
+- tapOn:
+    id: top_bar_back_button
+- extendedWaitUntil:
+    visible:
+      id: shell_bar_title
+      text: "Child"
+    timeout: 8000
 - tapOn:
     id: top_bar_back_button
 - extendedWaitUntil:
