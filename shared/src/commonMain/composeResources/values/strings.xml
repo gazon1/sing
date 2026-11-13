@@ -17,6 +17,7 @@
     <string name="add_estimate">Add estimate</string>
     <string name="reset_estimate">Reset estimate</string>
     <string name="task_completed">Task completed</string>
+    <string name="completed_on">Done %1$s</string>
     <string name="mark_task_complete">Mark as complete</string>
     <string name="delete_task">Delete task</string>
     <string name="task_checked">Done</string>

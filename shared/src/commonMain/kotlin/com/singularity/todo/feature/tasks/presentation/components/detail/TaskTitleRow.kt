@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
@@ -59,6 +61,7 @@ fun TaskTitleRow(
     onCheckToggle: (() -> Unit)?,
     modifier: Modifier = Modifier,
     titleError: String? = null,
+    completedLabel: String? = null,
 ) {
     // The caller's modifier is the whole block's: the message is part of the title,
     // so the caller's padding or width has to cover the row and the line under it.
@@ -70,6 +73,21 @@ fun TaskTitleRow(
             isCompleted = isCompleted,
             onCheckToggle = onCheckToggle,
         )
+
+        // The completion date: a finished task says when it finished, in words.
+        // Drawn under the title rather than in place of a row, because the rows
+        // are what the task *is* and the date is what happened to it.
+        if (completedLabel != null) {
+            Text(
+                text = completedLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                modifier =
+                    Modifier
+                        .padding(top = TaskSpacing.sm)
+                        .testTag(TestTags.TASK_DETAIL_COMPLETED_LABEL),
+            )
+        }
 
         // The message sits under the field, in the same place whatever the
         // screen: the create editor and the detail editor hand the row the same
@@ -99,7 +117,9 @@ private fun TitleFieldRow(
     onCheckToggle: (() -> Unit)?,
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        // Top, not centre: the title wraps to three lines now, and a checkbox floating
+        // in the middle of a three-line title is not on the line the eye starts at.
+        verticalAlignment = Alignment.Top,
     ) {
         if (onCheckToggle != null) {
             Celebration(
@@ -137,12 +157,30 @@ private fun TitleFieldRow(
             state = titleState,
             textStyle =
                 LocalTextStyle.current.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
+                    // A completed task reads as done without looking at the checkbox:
+                    // struck through and dimmed. Colour alone would not be a fact a
+                    // screen reader, or an eye that cannot see the dimming, receives.
+                    color =
+                        if (isCompleted) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
+                    textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
                 ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            lineLimits = TextFieldLineLimits.SingleLine,
+            // The hero wraps to three lines instead of hard-clipping at the container
+            // edge, which is the finding this replaces (UXF-06). Three is the cap.
+            //
+            // shortcut: an editable field has no `TextOverflow` — past three lines the
+            // field scrolls internally rather than drawing an ellipsis. The whole title
+            // is still its value, so accessibility and a cursor move reach all of it;
+            // when a deliberate ellipsis is required, the hero has to become a Text
+            // with tap-to-edit rather than this field.
+            lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 3),
+            inputTransformation = NoNewlines,
             modifier =
                 Modifier
                     .weight(1f)
@@ -155,6 +193,9 @@ private fun TitleFieldRow(
                     // node's text (measured on the device, 2026-10-28), so a flow
                     // asserts it with `text:`.
                     .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+                    // The visual cap is three lines, but the field's own value is the
+                    // whole title — an editable node publishes all of it, so a screen
+                    // reader reads the full title however it is drawn.
                     .semantics { contentDescription = "Task title" },
             decorator = { innerTextField ->
                 if (titleState.text.isEmpty()) {
@@ -170,6 +211,18 @@ private fun TitleFieldRow(
         )
     }
 }
+
+/**
+ * The title is one logical line: a newline pasted into it would break the single-row
+ * shape the checkbox aligns against, and the hero's three lines come from wrapping,
+ * not from line breaks the user typed.
+ */
+private val NoNewlines =
+    InputTransformation {
+        val breaks = asCharSequence().mapIndexedNotNull { i, c -> i.takeIf { c == '\n' || c == '\r' } }
+        // Back to front, so each replacement leaves the earlier offsets valid.
+        breaks.asReversed().forEach { replace(it, it + 1, " ") }
+    }
 
 // ===== Preview =====
 

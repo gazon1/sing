@@ -131,6 +131,8 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_DETAIL_ADD_RELATED_TASK` | `task_detail_add_related_task` | |
+| `TASK_DETAIL_BAR_TITLE` | `task_detail_bar_title` | |
+| `TASK_DETAIL_COMPLETED_LABEL` | `task_detail_completed_label` | |
 | `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_DETAIL_RELATED_TASKS_SECTION` | `task_detail_related_tasks_section` | |
 | `TASK_DETAIL_SAVED_INDICATOR` | `task_detail_saved_indicator` | |
