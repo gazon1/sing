@@ -88,8 +88,8 @@ from a highlighted row.
 
 ## Links
 
-- Issues: #2862, parent #2861, #2740 (fold + All projects), #2728 (nested route research),
-  #2734 (nested titles), #2735 (nested FAB)
+- Issues: #2862, parent #2861, #2864 (implements this decision), #2740 (fold + All projects),
+  #2728 (nested route research), #2734 (nested titles), #2735 (nested FAB)
 - Research: `docs/research/2862-project-navigation-comparison.md` (row heights, hit-testing,
   122/20 counts, 24dp picker indent)
 - Decisions: `2026-11-10-the-menu-projects-section-is-folded-by-default.md`,
@@ -99,6 +99,6 @@ from a highlighted row.
   `androidMain/.../AndroidShellNav3.kt`, `jvmMain/.../DesktopShellNav3.kt`,
   `feature/projects/.../nav/ProjectsOpener.kt`,
   `feature/projects/.../screen/ProjectDetailHero.kt`
-- Scenario: `scripts/src/traceability/scenarios/menu/MENU-07.yaml`; flows
+- Scenario: `scripts/src/traceability/scenarios/menu/MENU-07.yaml`, `MENU-08.yaml`; flows
   `Maestro/flows/menu/01-projects-roots.yaml`, `03-open-project.yaml`, `05-tree-contents.yaml`,
   `06-tree-live.yaml`, `10-large-projects.yaml`
