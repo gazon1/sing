@@ -23,8 +23,7 @@ priority: P1
 status: confirmed
 targets: [android]
 preconditions: >-
-  Project A has a child project B, B has a child project D, and project C is a
-  root project without children.
+  A root project A has a child project B, and B has a child project D.
 steps:
   - "Open the app menu and look at the Projects section."
   - "Tap project A."
@@ -34,9 +33,8 @@ steps:
   - "Tap project D there."
   - "Go back three times."
 expected: >-
-  The Projects section lists the root projects — A and C — and no child: neither
-  B nor D is in the menu. A's own screen says that it has one sub-project, and
-  that entry opens a list holding B; B's screen says the same about D. Tapping
-  B opens B's screen and tapping D opens D's, and each back returns to the
-  screen before it, so the way down into the hierarchy is also the way back out
-  of it.
+  The Projects section lists the root project A and no child: neither B nor D is
+  in the menu. A's own screen offers an entry into its sub-projects, and that
+  entry opens a list holding B; B's screen offers the same about D. Tapping B
+  opens B's screen and tapping D opens D's, and each back returns to the screen
+  before it, so the way down into the hierarchy is also the way back out of it.

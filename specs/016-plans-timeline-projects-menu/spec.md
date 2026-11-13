@@ -345,11 +345,12 @@ each one asserts.
 - **SC-002**: Switching granularity re-groups the visible timeline in under 1 second on a device
   holding 500 open tasks.
 - **SC-003**: A user with 30 projects nested up to three levels deep reaches any of them from the
-  menu — on Desktop, where the drawer draws the tree inline, a project at any depth costs the same
-  taps once its ancestors are expanded (open the menu, expand, tap); on Android, where the menu
-  lists the root projects only, a project below a root is reached by tapping the root and then,
-  for each level below it, opening the parent's sub-project list and tapping the row in it — two
-  taps per level, so a project three levels down is six taps.
+  menu — on Desktop, where the drawer draws the tree inline and the tree starts open, a project at
+  any depth costs the same two taps (open the menu, tap the project), plus one tap to expand each
+  ancestor the user has collapsed; on Android, where the menu lists the root projects only, a
+  project below a root is reached by tapping the root and then, for each level below it, opening
+  the parent's sub-project list and tapping the row in it — two taps per level, so a project three
+  levels down is six taps.
 - **SC-004**: At every granularity, no task is rendered in more than one section; the count of
   duplicated rows is zero.
 - **SC-005**: After the change, the Android bottom navigation holds five tabs and no Calendar

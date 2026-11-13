@@ -741,7 +741,7 @@ Steps:
 
 **confirmed** · P1 · `#MENU`
 
-**Given:** Project A has a child project B, B has a child project D, and project C is a root project without children.
+**Given:** A root project A has a child project B, and B has a child project D.
 
 Steps:
 
@@ -753,7 +753,7 @@ Steps:
 6. Tap project D there.
 7. Go back three times.
 
-**Expected:** The Projects section lists the root projects — A and C — and no child: neither B nor D is in the menu. A's own screen says that it has one sub-project, and that entry opens a list holding B; B's screen says the same about D. Tapping B opens B's screen and tapping D opens D's, and each back returns to the screen before it, so the way down into the hierarchy is also the way back out of it.
+**Expected:** The Projects section lists the root project A and no child: neither B nor D is in the menu. A's own screen offers an entry into its sub-projects, and that entry opens a list holding B; B's screen offers the same about D. Tapping B opens B's screen and tapping D opens D's, and each back returns to the screen before it, so the way down into the hierarchy is also the way back out of it.
 
 #### `MENU-10` — The menu offers Attach account to an anonymous session
 

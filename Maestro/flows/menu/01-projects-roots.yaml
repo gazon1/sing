@@ -49,11 +49,9 @@ tags:
 # The children are not in the menu: the list holds the roots, and the children
 # are behind their parents.
 #
-# The sheet is scrolled to its end first. At the end of the sheet the last row
-# is the last project of the list — in the menu that is the parent, and in the
-# tree that would be the grandchild, which the tree draws below the child below
-# the parent. So the check is made where a tree would show them, and it cannot
-# pass by them being under the fold.
+# The sheet is scrolled to its end first, so the check cannot pass by the
+# children being under the fold: at the end of the sheet the last row of the
+# list is the last project in it, and the children are not in the list at all.
 - swipe:
     start: "50%, 80%"
     end: "50%, 20%"
