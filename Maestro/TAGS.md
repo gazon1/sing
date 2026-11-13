@@ -263,6 +263,7 @@ non-alphanumeric characters with `_`.
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
+| `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |
 | `PROJECT_PICKER_NONE` | `project_picker_none` | |
 
 ### Settings

@@ -859,6 +859,9 @@ object TestTags {
     /** The picker's "No project" row. */
     const val PROJECT_PICKER_NONE = "project_picker_none"
 
+    /** The picker's "Inbox" system-destination row, when an inbox project exists. */
+    const val PROJECT_PICKER_INBOX = "project_picker_inbox"
+
     /** Dynamic tag of a project row in the task editor's picker: `project_picker_row_<slug>`. */
     fun projectPickerRow(projectId: String) = "project_picker_row_${slug(projectId)}"
 
