@@ -51,3 +51,18 @@ sealed interface TaskTimeSlotState {
      */
     data class Error(val message: String) : TaskTimeSlotState
 }
+
+/**
+ * Whether the task has any tracked time at all.
+ *
+ * A running session counts, and so does a finished entry. A task with neither
+ * has nothing to show in the time section, and a section with nothing to show
+ * is not drawn.
+ */
+val TaskTimeSlotState.hasTrackedTime: Boolean
+    get() =
+        when (this) {
+            is TaskTimeSlotState.Running -> true
+            is TaskTimeSlotState.Loaded -> entries.isNotEmpty()
+            else -> false
+        }

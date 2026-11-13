@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
@@ -175,6 +176,7 @@ private fun TaskEditorContent(
     showAttachmentsRow: Boolean = true,
     bannerSections: (@Composable () -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
+    moreParameters: ImmutableList<TaskOptionalProperty> = persistentListOf(),
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
     onBack: () -> Unit,
@@ -459,6 +461,22 @@ private fun TaskEditorContent(
             // above them pushes those fields below the fold.
             extraSections?.invoke()
 
+            // The `+ Ещё` row.
+            //
+            // It is drawn last, under everything the task has: it is the way in to
+            // the properties that are not on the screen — the attachments, the
+            // logbook, the related tasks, the time, the state — and it is the way
+            // in only for a task that has none of them. A task that has an
+            // attachment does not need a row that offers to add one.
+            if (moreParameters.isNotEmpty()) {
+                TaskAttributeCard(
+                    icon = Icons.Filled.Add,
+                    label = "+ Ещё",
+                    onClick = { sheets.show(TaskEditorSheet.MoreParameters) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW),
+                )
+            }
+
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
         }
     }
@@ -667,6 +685,7 @@ private fun TaskEditorScaffold(
         showAttachmentsRow = showAttachmentsRow,
         bannerSections = callbacks.bannerSections,
         extraSections = callbacks.extraSections,
+        moreParameters = model.moreParameters,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,

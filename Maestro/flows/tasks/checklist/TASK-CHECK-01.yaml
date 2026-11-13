@@ -21,8 +21,9 @@
 # 1. A task is created and opened.
 # 2. The checklist section is on the task screen, and it is there even though the
 #    task has no checklist items — the section carries the add-row.
-# 3. An item is typed into the inline add-row and added, with no sheet opening.
-# 4. The item's checkbox is ticked and the item is marked as finished.
+# 3. The section is opened with a tap on its header.
+# 4. An item is typed into the inline add-row and added, with no sheet opening.
+# 5. The item's checkbox is ticked and the item is marked as finished.
 appId: com.singularity.todo
 name: tasks-checklist
 tags:
@@ -84,6 +85,16 @@ tags:
       id: task_checklist_section
     direction: DOWN
     timeout: 8000
+
+# ── Open the section ─────────────────────────────────────────────
+# The header is the toggle, and the section is closed until it is tapped. The
+# tag is on the header row, so the tap opens the section the flow needs.
+- tapOn:
+    id: task_checklist_section
+- extendedWaitUntil:
+    visible:
+      id: checklist_inline_add_input
+    timeout: 5000
 
 # ── Add an item inline ───────────────────────────────────────────
 # The add-row of the section. Nothing opens: the item is typed where it is

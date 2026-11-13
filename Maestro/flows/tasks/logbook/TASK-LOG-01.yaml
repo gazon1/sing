@@ -8,10 +8,11 @@
 # ## What this flow covers
 #
 # 1. Seed a task via DebugSeedActivity deep-link.
-# 2. Open the task detail view — the Logbook section appears.
+# 2. Open the task detail view — the logbook is empty, so it is added to the
+#    screen from the `+ Ещё` sheet.
 # 3. Tap the logbook's "+" — the note editor opens, attached to that task.
 # 4. Type a title and save.
-# 5. Leave the editor, reopen the task, and find the note in the logbook.
+# 5. Leave the editor, reopen the task, open the logbook, and find the note.
 #
 # ## The bug this flow guards
 #
@@ -48,11 +49,16 @@ tags:
     timeout: 5000
 
 # ── The Logbook section ─────────────────────────────────────────
-# The section is below the fold on a phone: scroll it into view first.
-- scrollUntilVisible:
-    element:
+# The task has no logbook entries yet, so the logbook is not on the screen:
+# it is one of the properties the `+ Ещё` sheet offers. Picking it puts the
+# section on the screen and opens it.
+- runFlow:
+    file: ../../../helpers/open-more-parameter.yaml
+    env:
+      PROPERTY: logbook
+- extendedWaitUntil:
+    visible:
       id: logbook_section
-    direction: DOWN
     timeout: 8000
 
 # ── Add a note from the logbook ─────────────────────────────────
@@ -111,6 +117,12 @@ tags:
       id: logbook_section
     direction: DOWN
     timeout: 8000
+
+# The logbook now holds the note, so the section is on the screen — closed,
+# because a section is closed until its header is tapped. The header is the
+# toggle, and it carries the section's tag.
+- tapOn:
+    id: logbook_section
 
 # The note is addressed by its visible title: the row's id is a generated ULID
 # that the flow never learns.

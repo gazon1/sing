@@ -1,10 +1,16 @@
 # Opens the attachments sheet from the task detail's "+ Add file" row.
 #
-# The row is at the bottom of the task, below the fold. DOWN scrolls the content
-# up so what is below comes into view; UP moves it the other way.
+# The attachments section is not on the screen while the task has none: it is
+# one of the properties the `+ Ещё` sheet offers. The row is then at the bottom
+# of the task, below the fold. DOWN scrolls the content up so what is below
+# comes into view; UP moves it the other way.
 appId: com.singularity.todo
 name: open-attachments-sheet
 ---
+- runFlow:
+    file: open-more-parameter.yaml
+    env:
+      PROPERTY: attachments
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row

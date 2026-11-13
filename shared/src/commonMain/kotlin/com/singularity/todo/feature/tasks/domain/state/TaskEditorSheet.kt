@@ -52,4 +52,12 @@ sealed interface TaskEditorSheet {
     data object Estimate : TaskEditorSheet
 
     data object TimeEntry : TaskEditorSheet
+
+    /**
+     * The `+ Ещё` sheet — the list of the properties that are not on the screen.
+     *
+     * A sheet of its own rather than a menu: the list is derived from the task's
+     * state, and a row that has just been picked leaves the list.
+     */
+    data object MoreParameters : TaskEditorSheet
 }

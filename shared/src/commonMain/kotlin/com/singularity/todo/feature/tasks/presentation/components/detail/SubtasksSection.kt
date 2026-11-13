@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sectionTitle
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
@@ -36,10 +38,10 @@ import kotlinx.collections.immutable.persistentListOf
  * Section showing direct child tasks of a task.
  *
  * The section is always visible when rendered (even when [subtasks] is empty),
- * because the "add subtask" input row is how a subtask is created in the first
- * place — a section that hid itself when the list was empty would take the way
- * in with it. What an empty list must not do is report a count over nothing: it
- * says so in a line of its own, under the section's title.
+ * because its header is the way to write into it — a section that hid itself
+ * when the list was empty would take the way in with it. What an empty list
+ * must not do is report a count over nothing: the header says "Subtasks" and
+ * nothing else until the section is opened.
  *
  * Callers that want to suppress the section for tasks that are themselves
  * subtasks should do so before calling this composable.
@@ -47,6 +49,10 @@ import kotlinx.collections.immutable.persistentListOf
  * @param onAddSubtask Called when the user submits the "add subtask" input.
  *                     The string is the new subtask title, already trimmed by
  *                     this composable. Empty input is not submitted.
+ * @param expanded Whether the section is open. The header is the toggle.
+ * @param onToggleExpanded Called when the header is tapped. `null` means the
+ *                     section cannot be collapsed and its content is always
+ *                     drawn.
  */
 @Composable
 fun SubtasksSection(
@@ -56,15 +62,20 @@ fun SubtasksSection(
     onOpen: (Task) -> Unit,
     onAddSubtask: (String) -> Unit,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    onToggleExpanded: (() -> Unit)? = null,
 ) {
     val newTitleState = rememberTextFieldState()
     val completed = subtasks.count { it.isCompleted }
     val total = subtasks.size
 
     ExtraSectionCard(
-        modifier = modifier.testTag(TestTags.SUBTASKS_SECTION),
-        icon = { Text("\uD83D\uDCCB", style = MaterialTheme.typography.bodyMedium) },
-        label = if (subtasks.isEmpty()) "Subtasks" else "Subtasks ($completed/$total)",
+        modifier = modifier,
+        headerTestTag = TestTags.SUBTASKS_SECTION,
+        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+        label = sectionTitle("Subtasks", total, completed),
+        expanded = expanded,
+        onToggle = onToggleExpanded,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (subtasks.isEmpty()) {

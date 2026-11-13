@@ -6,6 +6,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.revealMoreParameter
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -51,6 +52,11 @@ class AttachmentsSheetReachabilityFlowTest {
             awaitTag(TestTags.taskItem("Task with an attachment")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
+            // The attachments are one of the properties that are not on the screen
+            // while the task has none, so they are brought in through the `+ Ещё`
+            // sheet. The section comes with them — open.
+            revealMoreParameter("Attachments")
+
             // The affordance: a row on the task that opens the attachments sheet.
             // It sits below the fold of the test window, so it is scrolled to first.
             scrollToTag(TestTags.ATTACHMENTS_ADD_FILE_ROW)
@@ -73,6 +79,8 @@ class AttachmentsSheetReachabilityFlowTest {
             tapTab("Today")
             awaitTag(TestTags.taskItem("Task with a file attachment")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            revealMoreParameter("Attachments")
 
             scrollToTag(TestTags.ATTACHMENTS_ADD_FILE_ROW)
             awaitTag(TestTags.ATTACHMENTS_ADD_FILE_ROW).performClick()

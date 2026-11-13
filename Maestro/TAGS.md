@@ -148,6 +148,8 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
+| `TASK_EDITOR_MORE_PARAMETERS_ROW` | `task_editor_more_parameters_row` | |
+| `TASK_EDITOR_MORE_PARAMETERS_SHEET` | `task_editor_more_parameters_sheet` | |
 | `TASK_EDITOR_PIN_ROW` | `task_editor_pin_row` | |
 | `TASK_EDITOR_PRIORITY_ROW` | `task_editor_priority_row` | |
 | `TASK_EDITOR_PROJECT_ROW` | `task_editor_project_row` | |
@@ -193,6 +195,7 @@ non-alphanumeric characters with `_`.
 | `TASK_SCHEDULING_TODAY_CHIP` | `task_scheduling_today_chip` | |
 | `TASK_SCHEDULING_TOMORROW_CHIP` | `task_scheduling_tomorrow_chip` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
+| `TimeTracking.SECTION` | `time_tracking_section` | |
 | `TimeTracking.START` | `time_tracking_start` | |
 | `TimeTracking.STOP` | `time_tracking_stop` | |
 
@@ -477,6 +480,7 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_ADD_FILE_ROW` | `attachments_add_file_row` | |
 | `ATTACHMENTS_ADD_URL_BUTTON` | `attachments_add_url_button` | |
 | `ATTACHMENTS_PICK_FILE_BUTTON` | `attachments_pick_file_button` | |
+| `ATTACHMENTS_SECTION` | `attachments_section` | |
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `CHAT_INPUT` | `chat_input` | |
@@ -544,6 +548,7 @@ use the expanded string directly).
 | `dependencyItem("Dep task")` | `"Dep task"` | `dependency_item_dep_task` | Rows in the dependency picker |
 | `dependencyVerb("blocks")` | `"blocks"` | `dependency_verb_blocks` | Kind-of-relation chips on one dependency row |
 | `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |
+| `moreParameterRow("Attachments")` | `"Attachments"` | `task_editor_more_parameter_attachments` | Rows in the task detail's `+ Ещё` sheet |
 | `relatedTaskCandidate("01ABC...")` | `"01ABC..."` | `related_task_candidate_01abc` | Candidate rows in the related-task picker |
 | `relatedTaskItem("01ABC...")` | `"01ABC..."` | `related_task_item_01abc` | Rows in the related-tasks section |
 | `relatedTaskRemove("01ABC...")` | `"01ABC..."` | `related_task_remove_01abc` | Remove buttons for related tasks |

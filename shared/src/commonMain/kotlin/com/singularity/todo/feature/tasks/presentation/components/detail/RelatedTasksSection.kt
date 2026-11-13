@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sectionTitle
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -44,6 +45,10 @@ data class RelatedTaskItemUi(
  *
  * Shows current relations with enough context to disambiguate and an explicit
  * action to add one related task at a time.
+ *
+ * @param expanded Whether the section is open. The header is the toggle.
+ * @param onToggleExpanded Called when the header is tapped. `null` means the
+ *        section cannot be collapsed and its content is always drawn.
  */
 @Composable
 fun RelatedTasksSection(
@@ -52,11 +57,16 @@ fun RelatedTasksSection(
     onRemove: (TaskId) -> Unit,
     onOpen: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    onToggleExpanded: (() -> Unit)? = null,
 ) {
     ExtraSectionCard(
         icon = { Icon(Icons.Filled.Link, contentDescription = null) },
-        label = "Related tasks",
-        modifier = modifier.testTag(TestTags.TASK_DETAIL_RELATED_TASKS_SECTION),
+        label = sectionTitle("Related tasks", items.size),
+        expanded = expanded,
+        onToggle = onToggleExpanded,
+        modifier = modifier,
+        headerTestTag = TestTags.TASK_DETAIL_RELATED_TASKS_SECTION,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (items.isEmpty()) {

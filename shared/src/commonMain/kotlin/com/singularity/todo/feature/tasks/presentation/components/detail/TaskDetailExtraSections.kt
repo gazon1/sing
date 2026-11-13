@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sectionTitle
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -86,19 +87,24 @@ fun TaskDetailChecklistSection(
     onDelete: (ChecklistItemId) -> Unit,
     onAddItem: (String) -> Unit,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    onToggleExpanded: (() -> Unit)? = null,
 ) {
     val newTitleState = rememberTextFieldState()
     val completed = checklist.count { it.isCompleted }
 
-    // The section always renders, empty list or not: the add-row inside it is the
-    // only way to add the first checklist item from the task screen, so a section
-    // that hid itself when the list was empty would take the way in with it.
-    // What it must not do is look like a leftover — an empty list shows no count
-    // over nothing and says so in a line of its own.
+    // The section always renders, empty list or not: the header is the way to
+    // write into it, so a section that hid itself when the list was empty would
+    // take the way in with it. What it must not do is look like a leftover — an
+    // empty list shows no count over nothing, and the header is one line until
+    // the section is opened.
     ExtraSectionCard(
-        modifier = modifier.testTag(TestTags.TASK_CHECKLIST_SECTION),
+        modifier = modifier,
+        headerTestTag = TestTags.TASK_CHECKLIST_SECTION,
         icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
-        label = if (checklist.isEmpty()) "Checklist" else "Checklist ($completed/${checklist.size})",
+        label = sectionTitle("Checklist", checklist.size, completed),
+        expanded = expanded,
+        onToggle = onToggleExpanded,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (checklist.isEmpty()) {
@@ -194,13 +200,19 @@ fun TaskDetailAttachmentsSection(
     onDelete: ((AttachmentId) -> Unit)? = null,
     onOpen: ((AttachmentId) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    onToggleExpanded: (() -> Unit)? = null,
 ) {
     if (attachments.isEmpty() && onOpenAttachments == null) return
     ExtraSectionCard(
+        modifier = modifier,
+        headerTestTag = TestTags.ATTACHMENTS_SECTION,
         icon = { Icon(Icons.Filled.AttachFile, contentDescription = null) },
         // No count over nothing: an empty list says "Attachments", and the add-row
         // below is the way in.
-        label = if (attachments.isEmpty()) "Attachments" else "Attachments (${attachments.size})",
+        label = sectionTitle("Attachments", attachments.size),
+        expanded = expanded,
+        onToggle = onToggleExpanded,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 attachments.forEach { att ->
@@ -227,6 +239,5 @@ fun TaskDetailAttachmentsSection(
                 }
             }
         },
-        modifier = modifier,
     )
 }

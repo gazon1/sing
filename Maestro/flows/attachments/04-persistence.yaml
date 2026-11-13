@@ -36,13 +36,19 @@ tags:
     env:
       TASK_ID: task_item_persistencetask2026
 
-# The row is at the bottom of the task, below the fold. DOWN scrolls the content
-# up so what is below comes into view; UP moves it the other way.
+# The section is at the bottom of the task, below the fold. DOWN scrolls the
+# content up so what is below comes into view; UP moves it the other way.
 - scrollUntilVisible:
     element:
-      id: attachments_add_file_row
+      id: attachments_section
     direction: DOWN
     timeout: 8000
+
+# The task has an attachment now, so the section is on the screen — closed,
+# because a section is closed until its header is tapped. The header is the
+# toggle, and it carries the section's tag.
+- tapOn:
+    id: attachments_section
 
 # Verify the attachment is still present.
 - extendedWaitUntil:

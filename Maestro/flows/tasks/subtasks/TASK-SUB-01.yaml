@@ -9,8 +9,8 @@
 #
 # android: Maestro drives the real Android UI. The SubtasksSection is always
 # shown in the task detail view (even when empty) because the "add subtask"
-# input row is how a subtask is created. The section uses testTags for all
-# interactive elements.
+# input row is how a subtask is created. The section is closed until its header
+# is tapped. The section uses testTags for all interactive elements.
 #
 # desktop: JVM Compose UI test — TBD.
 #
@@ -18,12 +18,13 @@
 #
 # 1. Seed a parent task via DebugSeedActivity deep-link.
 # 2. Open the task detail view — SubtasksSection appears.
-# 3. Type a subtask title in the add-subtask input and submit.
-# 4. Verify the subtask appears in the list.
-# 5. Tap the subtask's checkbox to toggle its completed state.
-# 6. Verify the completed state changes.
-# 7. Tap the delete (×) button to remove the subtask.
-# 8. Verify the subtask is removed from the list.
+# 3. Open the section with a tap on its header.
+# 4. Type a subtask title in the add-subtask input and submit.
+# 5. Verify the subtask appears in the list.
+# 6. Tap the subtask's checkbox to toggle its completed state.
+# 7. Verify the completed state changes.
+# 8. Tap the delete (×) button to remove the subtask.
+# 9. Verify the subtask is removed from the list.
 appId: com.singularity.todo
 name: tasks-subtasks
 tags:
@@ -68,6 +69,17 @@ tags:
       id: subtasks_section
     direction: DOWN
     timeout: 8000
+
+# ── Open the section ─────────────────────────────────────────────
+# The header is the toggle, and the section is closed until it is tapped. The
+# tag is on the header row, so the tap opens the section the flow needs.
+- tapOn:
+    id: subtasks_section
+- extendedWaitUntil:
+    visible:
+      id: subtask_add_input
+    timeout: 5000
+
 - tapOn:
     id: subtask_add_input
 - inputText: "${RUN_ID} Child task one"

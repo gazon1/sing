@@ -7,6 +7,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.revealMoreParameter
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -91,6 +92,11 @@ class TaskTime01ScenarioTest {
             tapTab("Today")
             assertTagDisplayed(TestTags.taskItem(TASK_TITLE))
             awaitTag(TestTags.taskItem(TASK_TITLE)).performClick()
+
+            // A task with no tracked time does not draw the time section: it is one
+            // of the properties the `+ Ещё` sheet offers. It comes back through
+            // that sheet.
+            revealMoreParameter("TimeTracking")
 
             // The time-tracking section renders in Idle (no entries yet) and shows
             // a Start chip. Click it — the write succeeds under the harness session,

@@ -3,6 +3,8 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
@@ -284,8 +286,53 @@ fun TaskEditorSheetsHost(
             )
         }
 
+        // ── More parameters ──────────────────────────────────────────────────
+        is TaskEditorSheet.MoreParameters -> {
+            TaskEditorMoreParametersSheet(
+                model = model,
+                callbacks = callbacks,
+                onSheetDismiss = onSheetDismiss,
+            )
+        }
+
         null -> {
             // no sheet open
+        }
+    }
+}
+
+/**
+ * The `Ещё` sheet — the list of the properties that are not on the screen.
+ *
+ * Extracted from the host's `when` so that the dispatcher stays a dispatcher:
+ * the sheet is one of many the editor can open, and it does not belong in the
+ * list of branches that opens them.
+ *
+ * Picking a property closes this sheet first and asks the screen to add it:
+ * the sheet that edits the property opens on top of this one, and two sheets at
+ * once is two sheets the user cannot tell apart.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TaskEditorMoreParametersSheet(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    onSheetDismiss: () -> Unit,
+) {
+    TaskEditorSheetHost(
+        title = "Ещё",
+        onClose = onSheetDismiss,
+        testTag = TestTags.TASK_EDITOR_MORE_PARAMETERS_SHEET,
+    ) {
+        model.moreParameters.forEach { property ->
+            TaskAttributeCard(
+                label = property.label,
+                onClick = {
+                    onSheetDismiss()
+                    callbacks.onMoreParameterSelected?.invoke(property)
+                },
+                modifier = Modifier.testTag(TestTags.moreParameterRow(property.name)),
+            )
         }
     }
 }

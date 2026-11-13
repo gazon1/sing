@@ -40,6 +40,7 @@ android:id/button1 button
 archive_bulk_action menu
 archive_empty text
 attachments_add_file_row item
+attachments_section item
 attachments_url_input field
 auth_attach_account_button button
 auth_attach_email_input field
@@ -63,6 +64,7 @@ calendar_view_mode_month button
 calendar_view_mode_week button
 calendar_weekday_mon text
 chat_input field
+checklist_inline_add_input field
 checklist_item_${RUN_ID}_milk item
 checklist_item_checkbox_${RUN_ID}_milk item
 checklist_item_milk item
@@ -164,6 +166,7 @@ snackbar_action button
 snackbar_message text
 statistics_tab_health tab
 statistics_tab_tasks tab
+subtask_add_input field
 subtask_checkbox_${RUN_ID}_child_task_one item
 subtask_item_${RUN_ID}_child_task_one item
 subtasks_section item
@@ -180,6 +183,8 @@ task_editor_due_date_row_label text
 task_editor_due_date_row_placeholder text
 task_editor_due_date_row_someday text
 task_editor_due_row item
+task_editor_more_parameters_row item
+task_editor_more_parameters_sheet dialog
 task_editor_pin_row item
 task_editor_priority_row item
 task_editor_project_row item
