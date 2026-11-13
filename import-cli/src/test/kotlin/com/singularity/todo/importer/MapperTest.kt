@@ -115,6 +115,29 @@ class MapperTest {
     }
 
     @Test
+    fun `a legacy icon with nothing usable is no icon`() {
+        assertNull(Mapper.emojiCodepointToIcon(""), "an empty value is no icon")
+        assertNull(Mapper.emojiCodepointToIcon("   "), "blank is no icon")
+        assertNull(Mapper.emojiCodepointToIcon("zzz"), "a part that is not hex leaves nothing")
+    }
+
+    @Test
+    fun `a code point outside Unicode is dropped rather than written`() {
+        // String(Character.toChars(0x110000)) throws; a legacy file must not take
+        // the whole import down with it.
+        assertNull(
+            Mapper.emojiCodepointToIcon("110000"),
+            "a value past U+10FFFF cannot become a character and must not be forced into one",
+        )
+    }
+
+    @Test
+    fun `a single code point becomes its character`() {
+        assertEquals("🚀", Mapper.emojiCodepointToIcon("1f680"), "the base case the sequence builds on")
+        assertEquals("a", Mapper.emojiCodepointToIcon("61"), "a BMP code point is one character too")
+    }
+
+    @Test
     fun `a monthly rule keeps its own day`() {
         val rule = recurrenceOf("EVERYMONTH", dayNumber = 20)
 
