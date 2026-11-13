@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
@@ -15,6 +13,8 @@ import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.test.helpers.awaitText
+import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfTagAt
 import kotlinx.collections.immutable.persistentListOf
@@ -77,8 +77,8 @@ class TaskDetailIconLanguageTest {
                 // The label says exactly what the section is. A glyph smuggled into
                 // the label — the emoji this replaced — would show up here as text
                 // the section does not own.
-                onNodeWithText("Checklist", useUnmergedTree = true).assertTextEquals("Checklist")
-                onNodeWithText("Subtasks", useUnmergedTree = true).assertTextEquals("Subtasks")
+                awaitText("Checklist").assertTextEquals("Checklist")
+                awaitText("Subtasks").assertTextEquals("Subtasks")
             }
         }
     }
@@ -95,10 +95,7 @@ class TaskDetailIconLanguageTest {
                 }
             }
 
-            val count =
-                onAllNodesWithTag(TestTags.TASK_DETAIL_SECTION_ICON, useUnmergedTree = true)
-                    .fetchSemanticsNodes()
-                    .size
+            val count = countNodes(TestTags.TASK_DETAIL_SECTION_ICON, useUnmergedTree = true)
             repeat(count) { index ->
                 val bounds =
                     unclippedBoundsOfTagAt(

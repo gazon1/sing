@@ -11,8 +11,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.height
@@ -26,6 +24,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.unmergedNodeOfTag
+import com.singularity.todo.test.helpers.unmergedNodeOfText
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -499,12 +499,10 @@ class TaskDetailFontScaleTest {
      * row is merged up into it, and the merged node carries the row's box rather
      * than the text's.
      */
-    private fun DesktopComposeUiTest.nodeOfTag(tag: String): SemanticsNodeInteraction =
-        onNodeWithTag(tag, useUnmergedTree = true)
+    private fun DesktopComposeUiTest.nodeOfTag(tag: String): SemanticsNodeInteraction = unmergedNodeOfTag(tag)
 
     /**
      * The node with [text], in the unmerged tree.
      */
-    private fun DesktopComposeUiTest.nodeOfText(text: String): SemanticsNodeInteraction =
-        onNodeWithText(text, useUnmergedTree = true)
+    private fun DesktopComposeUiTest.nodeOfText(text: String): SemanticsNodeInteraction = unmergedNodeOfText(text)
 }
