@@ -1,7 +1,13 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * The optional properties of a task that the detail screen can show or hide.
@@ -72,3 +78,24 @@ internal val TaskOptionalPropertySetSaver: Saver<Set<TaskOptionalProperty>, Any>
         save = { properties -> properties.savedNames() },
         restore = { names -> names.properties() },
     )
+
+/**
+ * The optional properties a screen keeps for one task.
+ *
+ * Saved, not merely remembered: a rotation rebuilds the composition from
+ * nothing, and a screen that forgets what the user just asked for takes the
+ * section away again — the one thing the `+ Ещё` sheet promised.
+ *
+ * The state belongs to the task and to nothing else: a different task starts
+ * from an empty set, so what one task's user revealed does not show up on
+ * another task's screen.
+ *
+ * The holder is named rather than inlined so that the state is one thing with
+ * one owner — and so that a test can hold it against a real saved-state
+ * registry and watch it come back.
+ */
+@Composable
+fun rememberSavedOptionalProperties(taskId: TaskId): MutableState<Set<TaskOptionalProperty>> =
+    rememberSaveable(taskId, stateSaver = TaskOptionalPropertySetSaver) {
+        mutableStateOf<Set<TaskOptionalProperty>>(persistentSetOf())
+    }

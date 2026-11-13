@@ -90,10 +90,10 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskOptionalProperty
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskOptionalPropertySetSaver
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.hiddenOptionalProperties
+import com.singularity.todo.feature.tasks.presentation.components.detail.rememberSavedOptionalProperties
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
@@ -103,7 +103,6 @@ import com.singularity.todo.feature.timetracking.presentation.components.TimeTra
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -370,14 +369,8 @@ fun TaskDetailContent(
                     // composition from nothing, and a screen that forgets what the
                     // user just asked for takes the section away again — the one
                     // thing the `+ Ещё` sheet promised.
-                    var revealedProperties by
-                        rememberSaveable(ui.task.id, stateSaver = TaskOptionalPropertySetSaver) {
-                            mutableStateOf<Set<TaskOptionalProperty>>(persistentSetOf())
-                        }
-                    var expandedProperties by
-                        rememberSaveable(ui.task.id, stateSaver = TaskOptionalPropertySetSaver) {
-                            mutableStateOf<Set<TaskOptionalProperty>>(persistentSetOf())
-                        }
+                    var revealedProperties by rememberSavedOptionalProperties(ui.task.id)
+                    var expandedProperties by rememberSavedOptionalProperties(ui.task.id)
 
                     val toggleSection: (TaskOptionalProperty) -> Unit = { property ->
                         expandedProperties =
