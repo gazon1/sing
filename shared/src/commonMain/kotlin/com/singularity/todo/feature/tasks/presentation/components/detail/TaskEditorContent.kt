@@ -23,9 +23,9 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -240,7 +240,7 @@ private fun TaskEditorContent(
             // are added, because that is the only surface with an input for them.
             checklistCallbacks?.let { cb ->
                 TaskAttributeCard(
-                    icon = Icons.AutoMirrored.Filled.ListAlt,
+                    icon = Icons.Filled.Checklist,
                     label = if (checklistCount > 0) "Checklist ($checklistCount)" else "Checklist",
                     isActive = checklistCount > 0,
                     onClick = cb.onOpen,
@@ -691,15 +691,6 @@ private fun TaskEditorScaffold(
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-private fun priorityLabel(priority: TaskPriority): String =
-    when (priority) {
-        TaskPriority.None -> "No priority"
-        TaskPriority.Low -> "Low priority"
-        TaskPriority.Medium -> "Medium priority"
-        TaskPriority.High -> "High priority"
-        TaskPriority.Urgent -> "Urgent"
-    }
 
 // ===== Preview =====
 

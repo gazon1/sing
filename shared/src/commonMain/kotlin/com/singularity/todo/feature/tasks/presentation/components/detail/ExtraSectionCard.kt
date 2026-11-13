@@ -14,7 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 /**
  * The one line a section shows when it has nothing to show.
@@ -51,18 +51,22 @@ internal fun ExtraSectionCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier =
+                Modifier.padding(
+                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                    vertical = TaskSpacing.md,
+                ),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 icon()
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(TaskSpacing.md))
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(TaskSpacing.sm))
             content()
         }
     }

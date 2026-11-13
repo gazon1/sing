@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +24,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -136,9 +134,8 @@ private fun TitleFieldRow(
         BasicTextField(
             state = titleState,
             textStyle =
-                LocalTextStyle.current.copy(
+                MaterialTheme.typography.titleLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
                 ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -161,8 +158,7 @@ private fun TitleFieldRow(
                     Text(
                         text = stringResource(Res.string.task_title_placeholder),
                         color = placeholderTextColor(),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                 }
                 innerTextField()

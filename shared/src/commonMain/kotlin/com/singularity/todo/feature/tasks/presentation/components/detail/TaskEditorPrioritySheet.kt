@@ -1,5 +1,4 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,8 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -17,13 +14,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.priorityIcon
+import com.singularity.todo.feature.tasks.presentation.theme.priorityIconTint
+import com.singularity.todo.feature.tasks.presentation.theme.priorityLabel
 
 /**
- * Priority selection sheet with colored flag icons and radio buttons.
+ * Priority selection sheet: one row per level, the level's own glyph, and a radio
+ * button that says which one is chosen.
+ *
+ * The sheet and the priority row share the glyphs and the tints, so the level looks
+ * the same in both places. The raw priority hues are not used here: most of them
+ * measure below 3:1 on a light surface, and a picker whose own options are hard to
+ * read is a picker that cannot be used without guessing.
  */
 @Composable
 fun TaskEditorPrioritySheet(
@@ -32,33 +37,36 @@ fun TaskEditorPrioritySheet(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier.padding(vertical = TaskSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(TaskSpacing.sm),
     ) {
         TaskPriority.entries.forEach { priority ->
-            val meta = priorityMeta(priority)
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .testTag(priority.testTag())
                         .clickable { onSelect(priority) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(
+                            horizontal = TaskSpacing.cardPaddingHorizontal,
+                            vertical = TaskSpacing.md,
+                        ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Flag,
+                    imageVector = priorityIcon(priority),
                     contentDescription = null,
-                    tint = meta.color,
-                    modifier = Modifier.size(20.dp),
+                    tint = priorityIconTint(priority),
+                    modifier = Modifier.size(TaskSpacing.iconSize),
                 )
                 Text(
-                    text = meta.label,
+                    text = priorityLabel(priority),
                     style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier =
                         Modifier
                             .weight(1f)
-                            .padding(start = 12.dp),
+                            .padding(start = TaskSpacing.md),
                 )
                 RadioButton(
                     selected = priority == selected,
@@ -76,7 +84,7 @@ fun TaskEditorPrioritySheet(
 /**
  * The stable test tag for a priority option.
  *
- * Keyed on the enum, not on [priorityMeta]'s label: the labels are user-facing
+ * Keyed on the enum, not on the priority label: the labels are user-facing
  * copy that the app translates, so a tag built from them would break in every
  * locale but the one it was written in. `TestTags.PRIORITY_OPTION_*` already
  * exists for exactly this, and this mapping is the only place the two meet.

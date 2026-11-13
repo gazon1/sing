@@ -12,9 +12,9 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +38,7 @@ import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
 
@@ -97,7 +98,7 @@ fun TaskDetailChecklistSection(
     // over nothing and says so in a line of its own.
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.TASK_CHECKLIST_SECTION),
-        icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
+        icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
         label = if (checklist.isEmpty()) "Checklist" else "Checklist ($completed/${checklist.size})",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -220,8 +221,10 @@ fun TaskDetailAttachmentsSection(
                         modifier =
                             Modifier
                                 .touchTarget()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .clickable(onClick = onOpenAttachments)
+                                .padding(
+                                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                                    vertical = TaskSpacing.sm,
+                                ).clickable(onClick = onOpenAttachments)
                                 .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
                     )
                 }
