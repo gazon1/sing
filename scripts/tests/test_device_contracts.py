@@ -27,6 +27,7 @@ from __future__ import annotations
 import collections.abc
 import inspect
 import pathlib
+import re
 import tempfile
 import typing
 import unittest
@@ -333,6 +334,38 @@ class SeedFailureReportTest(unittest.TestCase):
                 (pathlib.Path(tmp) / "flow-a_logcat.txt").is_file(),
                 "the logcat artifact is gone",
             )
+
+
+class SeedFailurePrefixTest(unittest.TestCase):
+    """The prefix the app writes and the prefix the runner greps for are one.
+
+    The reason a seed failed is written by the app (``SeedFailure.PREFIX``) and
+    read by the runner's regex. They are two languages, so they cannot share a
+    constant — but they can be held to each other: if the app's prefix changes
+    and the runner's regex does not, the runner stops reporting the reason and
+    the flow's failure message names nothing again. Nothing else would notice.
+    """
+
+    _KOTLIN_PREFIX = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "shared/src/commonMain/kotlin/com/singularity/todo/core/seed/SeedFailure.kt"
+    )
+
+    def test_the_runner_recognises_the_prefix_the_app_writes(self):
+        source = self._KOTLIN_PREFIX.read_text()
+        match = re.search(r'PREFIX: String = "([^"]+)"', source)
+        self.assertIsNotNone(
+            match,
+            f"{self._KOTLIN_PREFIX} no longer declares a PREFIX constant",
+        )
+        prefix = match.group(1)
+        self.assertIsNotNone(
+            _artifacts._SEED_FAILURE.search(
+                f"11-13 15:23:45.678  5678  5678 E DebugSeedActivity: {prefix}some reason\n"
+            ),
+            "the runner's regex does not match the prefix the app writes: the "
+            "reason a seed failed would reach the logcat and nothing else",
+        )
 
 class AdbOnTest(unittest.TestCase):
     """`adb_on` itself: it must scope, and it must refuse to guess."""

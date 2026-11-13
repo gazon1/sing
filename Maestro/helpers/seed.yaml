@@ -84,15 +84,20 @@ name: seed
 # the screen is there, so the flow fails on the reason rather than on the app
 # that was never going to arrive. When the screen is not there, the seed
 # worked and the wait below is the one that matters.
+#
+# The reason is addressed by its text, not by an id. The failure screen is a
+# plain view in the debug activity, not a composable, so it has no tag in the
+# app's tag registry — and the registry is where a Maestro flow's ids come
+# from (`MaestroFlowTagsTest` holds a helper's literal id to it). The text is
+# addressed by the prefix every report of a failed seed carries: the screen
+# here, the logcat line and the runner's summary next to the flow failure.
 - runFlow:
     when:
       visible:
-        id: seed_failure_reason
+        text: "Seed failed:.*"
     commands:
-      - copyTextFrom:
-          id: seed_failure_reason
       - assertNotVisible:
-          text: "${maestro.copiedText}"
+          text: "Seed failed:.*"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

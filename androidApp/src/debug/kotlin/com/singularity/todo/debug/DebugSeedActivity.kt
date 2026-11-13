@@ -3,12 +3,12 @@ package com.singularity.todo.debug
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import com.singularity.todo.R
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
 import com.singularity.todo.core.seed.SeedCount
+import com.singularity.todo.core.seed.SeedFailure
 import com.singularity.todo.core.seed.SeedLinkKeys
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
@@ -163,7 +163,7 @@ class DebugSeedActivity :
                 // already looking at the code.
                 android.util.Log.e(
                     "DebugSeedActivity",
-                    "Seed failed: ${e.message ?: e.javaClass.simpleName}",
+                    "${SeedFailure.PREFIX}${e.message ?: e.javaClass.simpleName}",
                     e,
                 )
                 // A failed seed does not bring the app up. The fixture the flow
@@ -215,15 +215,15 @@ class DebugSeedActivity :
      * that wait — at the seed — rather than later, on an assertion about a row
      * that was never written.
      *
-     * The view carries an id, so a flow can *address* the failure instead of
-     * guessing at it: the text says what went wrong, and the id says that this
-     * is the screen that says it. A flow reads the reason off this view, and
-     * the reason it reads is the one in the failure message.
+     * The reason carries a fixed prefix, so the tools that report it can find
+     * it by its text: the flow asserts that the prefix is not on the screen
+     * (`Maestro/helpers/seed.yaml`), the logcat line starts with it, and the
+     * runner greps the logcat for it. A plain view has no tag in the app's tag
+     * registry — that registry is for composables — so the text is the handle.
      */
     private fun showSeedFailure(error: Throwable) {
         val view = android.widget.TextView(this)
-        view.id = R.id.seed_failure_reason
-        view.text = "Seed failed: ${error.message ?: error.javaClass.simpleName}"
+        view.text = "${SeedFailure.PREFIX}${error.message ?: error.javaClass.simpleName}"
         view.setPadding(48, 48, 48, 48)
         setContentView(view)
     }

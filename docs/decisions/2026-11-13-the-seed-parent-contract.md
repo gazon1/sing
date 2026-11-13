@@ -54,13 +54,20 @@ written.
 
 The reason is machine-readable, because a reason nobody can read is not a reason:
 
-- the failure screen's view carries the resource id `seed_failure_reason`, so a flow can address
-  it instead of guessing at it;
 - the reason is one line in the logcat (`Seed failed: …`), and the runner prints it next to the
   flow failure — the artifact file alone was where it used to end up, and nobody opens an
   artifact file to find out why a flow failed;
 - `Maestro/helpers/seed.yaml` reads the reason off the screen when the screen is there, so the
   flow's own failure message names it.
+
+The reason is addressed by its **text**, not by an id. The failure screen is a plain view in the
+debug activity, not a composable, so it has no tag in the app's tag registry — and that registry
+is where a Maestro flow's ids come from: `MaestroFlowTagsTest` holds every literal id in a
+helper to an entry in it. Registering a view that is not a composable would have meant either
+wiring debt in `TestTagsWiringTest` or a Compose migration of a debug screen, both larger than
+the problem. The text carries a fixed prefix (`SeedFailure.PREFIX`) that every report of a failed
+seed shares — the screen, the logcat line, the runner's summary — so one string is what a flow
+asserts on, what the runner greps for, and what a human reading the device sees.
 
 The guard compares the named parent against **both** ids the project answers to: the id the seed
 gives it, and the id the row already carries. A project that is reseeded under a new id is still
@@ -104,7 +111,7 @@ its children' parent under the old one, and a cycle through the old id is still 
 - Decisions: `2026-11-12-android-menu-roots-only.md` (why a nested fixture exists at all),
   `2026-10-05-debug-source-set-is-linted.md` (the debug activity's own rules)
 - Code the decision names: `core/seed/SeedWriter.kt`, `core/seed/SeedLinkKeys.kt`,
-  `androidApp/src/debug/.../DebugSeedActivity.kt`,
+  `core/seed/SeedFailure.kt`, `androidApp/src/debug/.../DebugSeedActivity.kt`,
   `Maestro/helpers/seed.yaml`, `scripts/src/emulator/maestro/_artifacts.py`
 - Tests: `shared/src/commonTest/.../core/seed/SeedWriterTest.kt`,
   `scripts/tests/test_device_contracts.py`
