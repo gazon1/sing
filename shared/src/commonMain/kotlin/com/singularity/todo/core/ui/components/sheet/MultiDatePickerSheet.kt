@@ -1,21 +1,9 @@
 package com.singularity.todo.core.ui.components.sheet
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,27 +11,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.formatRussianMonthYear
 import com.singularity.todo.core.ui.components.isoLocalDate
-import com.singularity.todo.core.ui.components.russianWeekdayHeaders
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.Month
-import kotlinx.datetime.number
-import kotlinx.datetime.plus
 
 /**
  * A picker that lets the user choose *several* days in one go.
@@ -126,17 +102,18 @@ fun MultiDatePickerSheet(
                     label = { Text("Сегодня") },
                 )
             }
-            MonthHeader(
+            MonthCalendarHeader(
                 monthAnchor = monthAnchor,
-                onPrevious = { monthAnchor = monthAnchor.minusMonth() },
-                onNext = { monthAnchor = monthAnchor.plusMonth() },
+                onPrevious = { monthAnchor = shiftMonth(monthAnchor, -1) },
+                onNext = { monthAnchor = shiftMonth(monthAnchor, 1) },
             )
             WeekdayHeaderRow()
-            MonthGrid(
+            MonthCalendarGrid(
                 monthAnchor = monthAnchor,
                 today = today,
                 selected = selected,
                 disabledDates = disabledDates,
+                dayTestTag = { date -> TestTags.MultiDatePicker.day(isoLocalDate(date)) },
                 onDayClick = { date ->
                     if (date in disabledDates) {
                         // Disabled days are inert: no selection, no counter bump.
@@ -168,92 +145,6 @@ fun MultiDatePickerSheet(
     }
 }
 
-/** The month title and the two buttons that page between months. */
-@Composable
-private fun MonthHeader(
-    monthAnchor: LocalDate,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(
-            onClick = onPrevious,
-            modifier =
-                Modifier
-                    .testTag(TestTags.MultiDatePicker.PREV_MONTH)
-                    .mapTestTagsAsResourceIds(),
-        ) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий месяц")
-        }
-        Text(
-            text = formatRussianMonthYear(monthAnchor),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.testTag(TestTags.MultiDatePicker.MONTH_TITLE),
-        )
-        IconButton(
-            onClick = onNext,
-            modifier =
-                Modifier
-                    .testTag(TestTags.MultiDatePicker.NEXT_MONTH)
-                    .mapTestTagsAsResourceIds(),
-        ) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
-        }
-    }
-}
-
-/** The weekday names above the grid. */
-@Composable
-private fun WeekdayHeaderRow() {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        russianWeekdayHeaders.forEach { label ->
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-/** The six-week grid of the month, with the picked days marked. */
-@Composable
-private fun MonthGrid(
-    monthAnchor: LocalDate,
-    today: LocalDate,
-    selected: ImmutableSet<LocalDate>,
-    disabledDates: ImmutableSet<LocalDate> = persistentSetOf(),
-    onDayClick: (LocalDate) -> Unit,
-) {
-    val gridDates = remember(monthAnchor) { monthGridDates(monthAnchor) }
-    gridDates.chunked(7).forEach { week ->
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-        ) {
-            week.forEach { date ->
-                MultiDateCell(
-                    date = date,
-                    isCurrentMonth = date.month == monthAnchor.month,
-                    isToday = date == today,
-                    isSelected = date in selected,
-                    isDisabled = date in disabledDates,
-                    onClick = { onDayClick(date) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
 /** How many days are picked, and the ceiling when it was reached. */
 @Composable
 private fun SelectionCounter(
@@ -275,81 +166,3 @@ private fun SelectionCounter(
         modifier = Modifier.testTag(TestTags.MultiDatePicker.COUNTER),
     )
 }
-
-@Composable
-private fun MultiDateCell(
-    date: LocalDate,
-    isCurrentMonth: Boolean,
-    isToday: Boolean,
-    isSelected: Boolean,
-    isDisabled: Boolean = false,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .aspectRatio(1f)
-                .padding(2.dp)
-                .clip(CircleShape)
-                .background(
-                    when {
-                        isDisabled -> Color.Transparent
-                        isSelected -> MaterialTheme.colorScheme.primary
-                        isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                        else -> Color.Transparent
-                    },
-                ).clickable(enabled = !isDisabled, onClick = onClick)
-                .testTag(TestTags.MultiDatePicker.day(isoLocalDate(date)))
-                .mapTestTagsAsResourceIds(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = date.day.toString(),
-            color =
-                when {
-                    isDisabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    isSelected -> MaterialTheme.colorScheme.onPrimary
-                    !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
-            fontSize = 14.sp,
-            fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-        )
-    }
-}
-
-/** Steps back one month, keeping the day of the month where the month has one. */
-private fun LocalDate.minusMonth(): LocalDate = shiftMonth(-1)
-
-/** Steps forward one month, keeping the day of the month where the month has one. */
-private fun LocalDate.plusMonth(): LocalDate = shiftMonth(1)
-
-/**
- * Moves the date by whole months.
- *
- * The day is clamped rather than rolled over: stepping from 31 January forward
- * lands on 28 (or 29) February, not on 2 or 3 March. A picker that rolled over
- * would silently move the day the user was looking at.
- */
-private fun LocalDate.shiftMonth(delta: Int): LocalDate {
-    val total = year * 12 + (month.number - 1) + delta
-    var newYear = total / 12
-    var newMonthIndex = total % 12
-    if (newMonthIndex < 0) {
-        newMonthIndex += 12
-        newYear -= 1
-    }
-    val newMonth = Month(newMonthIndex + 1)
-    return LocalDate(newYear, newMonth, minOf(day, newMonth.daysIn(newYear)))
-}
-
-/** The number of days in [month] of [year]. */
-private fun Month.daysIn(year: Int): Int =
-    when (this) {
-        Month.JANUARY, Month.MARCH, Month.MAY, Month.JULY, Month.AUGUST, Month.OCTOBER, Month.DECEMBER -> 31
-        Month.APRIL, Month.JUNE, Month.SEPTEMBER, Month.NOVEMBER -> 30
-        Month.FEBRUARY -> if (isLeapYear(year)) 29 else 28
-    }
-
-private fun isLeapYear(year: Int): Boolean = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0

@@ -232,6 +232,7 @@ fun tasksModule(): org.koin.core.module.Module =
                                 reminderRepo = get(),
                                 reminderScheduler = get(),
                                 timeZoneProvider = get(),
+                                notifier = get(),
                             ),
                         collaboration =
                             TaskCollaborationDeps(

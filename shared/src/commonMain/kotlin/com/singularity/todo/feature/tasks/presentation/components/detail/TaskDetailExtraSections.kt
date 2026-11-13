@@ -37,13 +37,29 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.datetime.LocalDate
 
 // ─── Recurrence ────────────────────────────────────────────────────────────────
 
+/**
+ * The rule the task repeats on, read as a sentence.
+ *
+ * The row used to print the rule itself — "Interval(base=FROM_DUE, amount=3,
+ * unit=DAY, termination=null)" — which is the rule's own `toString()` and says
+ * nothing a person can act on. It says what repeats now.
+ *
+ * @param dueDate The task's due date. The rule hangs on it when its base says
+ *        so, and then the sentence says when the series starts; when the task
+ *        has no due date, the sentence says nothing about a start. It has no
+ *        default: a caller that forgets it would quietly get a rule without a
+ *        start date, and "no due date" is a thing to say out loud.
+ */
 @Composable
 fun TaskDetailRecurrenceSection(
     recurrence: RecurrenceSpec,
+    dueDate: LocalDate?,
     modifier: Modifier = Modifier,
 ) {
     ExtraSectionCard(
@@ -51,8 +67,9 @@ fun TaskDetailRecurrenceSection(
         label = "Repeats",
         content = {
             Text(
-                text = recurrence.toString(),
+                text = RecurrenceSentence(recurrence, dueDate),
                 style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(TestTags.TASK_RECURRENCE_TEXT),
             )
         },
         modifier = modifier,
@@ -101,6 +118,7 @@ fun TaskDetailChecklistSection(
                         modifier =
                             Modifier
                                 .weight(1f)
+                                .bringIntoViewOnFocus()
                                 .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
                         placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,

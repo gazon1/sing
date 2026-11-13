@@ -48,8 +48,13 @@ import kotlinx.datetime.DayOfWeek
  * Run it right after adding a constant — it costs a second, and it is what
  * tells you *that* the catalogue is stale before you spend minutes finding out.
  * The pre-push hook runs it for you whenever the push touches this file.
+ *
+ * The object is one object on purpose: a tag is a name the whole app agrees
+ * on — the UI, the tests and the Maestro flows. Splitting it would change
+ * every call site and rewrite the flows to match, so the size is accepted
+ * rather than paid for.
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass")
 object TestTags {
     // ─── Global ──────────────────────────────────────────────────────────────
 
@@ -284,6 +289,7 @@ object TestTags {
      * just went past".
      */
     const val TASK_EDITOR_TITLE_ERROR = "task_editor_title_error"
+    const val TASK_EDITOR_DESCRIPTION_INPUT = "task_editor_description_input"
 
     const val TASK_EDITOR_SAVE = "task_editor_save"
 
@@ -306,8 +312,21 @@ object TestTags {
     /** Due-date row in the task editor attribute list. */
     const val TASK_EDITOR_DUE_ROW = "task_editor_due_row"
 
-    /** Label text inside the due-date row (shown when no date is set: "Add due date"). */
+    /**
+     * The label inside the due-date row, when the task carries a date.
+     *
+     * The tag names the *state*, not the copy: the row reads a different string
+     * when the task is undated, deferred or dated, and a flow that asserted the
+     * copy would break on every locale and on every rewording. The empty and
+     * the deferred states have tags of their own.
+     */
     const val TASK_EDITOR_DUE_DATE_ROW_LABEL = "task_editor_due_date_row_label"
+
+    /** The label inside the due-date row while the task carries no date. */
+    const val TASK_EDITOR_DUE_DATE_ROW_PLACEHOLDER = "task_editor_due_date_row_placeholder"
+
+    /** The label inside the due-date row while the task sits in the «Когда-нибудь» bucket. */
+    const val TASK_EDITOR_DUE_DATE_ROW_SOMEDAY = "task_editor_due_date_row_someday"
 
     /** Priority row in the task editor attribute list. */
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
@@ -395,6 +414,126 @@ object TestTags {
     /** Workflow-state row in the task editor attribute list. */
     const val TASK_EDITOR_WORKFLOW_STATE_ROW = "task_editor_workflow_state_row"
 
+    // ─── Task Detail · planning ───────────────────────────────────────────────
+    //
+    // The planning rows of the task detail. Each of them is always there — a
+    // row that appears only once something is set is a row nobody finds — so
+    // they need tags of their own.
+
+    /** The reminder row of the task detail. */
+    const val TASK_EDITOR_REMINDER_ROW = "task_editor_reminder_row"
+
+    /** The label inside the reminder row — the offset, or "Уведомления выключены". */
+    const val TASK_EDITOR_REMINDER_ROW_LABEL = "task_editor_reminder_row_label"
+
+    /** The label inside the reminder row while the task carries no reminder. */
+    const val TASK_EDITOR_REMINDER_ROW_PLACEHOLDER = "task_editor_reminder_row_placeholder"
+
+    /** The deadline row of the task detail. */
+    const val TASK_EDITOR_DEADLINE_ROW = "task_editor_deadline_row"
+
+    /** The label inside the deadline row — the date, with "Просрочен" when it passed. */
+    const val TASK_EDITOR_DEADLINE_ROW_LABEL = "task_editor_deadline_row_label"
+
+    /** The label inside the deadline row while the task carries no deadline. */
+    const val TASK_EDITOR_DEADLINE_ROW_PLACEHOLDER = "task_editor_deadline_row_placeholder"
+
+    /** The planning sheet itself. */
+    const val TASK_SCHEDULING_SHEET = "task_scheduling_sheet"
+
+    /** The sheet's «Дата» fact row. */
+    const val TASK_SCHEDULING_DATE_ROW = "task_scheduling_date_row"
+
+    /** The sheet's «Время» fact row. */
+    const val TASK_SCHEDULING_TIME_ROW = "task_scheduling_time_row"
+
+    /** The sheet's «Крайний срок» fact row. */
+    const val TASK_SCHEDULING_DEADLINE_ROW = "task_scheduling_deadline_row"
+
+    /** The «Сегодня» preset. */
+    const val TASK_SCHEDULING_TODAY_CHIP = "task_scheduling_today_chip"
+
+    /** The «Завтра» preset. */
+    const val TASK_SCHEDULING_TOMORROW_CHIP = "task_scheduling_tomorrow_chip"
+
+    /** The «Когда-нибудь» preset. */
+    const val TASK_SCHEDULING_SOMEDAY_CHIP = "task_scheduling_someday_chip"
+
+    /** The month title of the sheet's calendar. */
+    const val TASK_SCHEDULING_MONTH_TITLE = "task_scheduling_month_title"
+
+    /** The button that pages to the previous month. */
+    const val TASK_SCHEDULING_PREV_MONTH = "task_scheduling_prev_month"
+
+    /** The button that pages to the next month. */
+    const val TASK_SCHEDULING_NEXT_MONTH = "task_scheduling_next_month"
+
+    /**
+     * A day cell of the sheet's calendar, tagged by ISO local date.
+     *
+     * Format: `task_scheduling_day_2026_09_15`.
+     */
+    fun taskSchedulingDay(isoDate: String) = "task_scheduling_day_${isoDate.replace("-", "_")}"
+
+    /** The time input of the sheet. */
+    const val TASK_SCHEDULING_TIME_INPUT = "task_scheduling_time_input"
+
+    /** The button that adds a time to a dated task. */
+    const val TASK_SCHEDULING_ADD_TIME = "task_scheduling_add_time"
+
+    /** The button that takes the time away again, leaving the date. */
+    const val TASK_SCHEDULING_CLEAR_TIME = "task_scheduling_clear_time"
+
+    /** The sheet's «Очистить» — clears the focused fact. */
+    const val TASK_SCHEDULING_CLEAR = "task_scheduling_clear"
+
+    /** The sheet's «Отмена» — writes nothing at all. */
+    const val TASK_SCHEDULING_CANCEL = "task_scheduling_cancel"
+
+    /** The sheet's «Сохранить» — the only thing that writes. */
+    const val TASK_SCHEDULING_CONFIRM = "task_scheduling_confirm"
+
+    /** The reminder sheet itself. */
+    const val TASK_REMINDER_SHEET = "task_reminder_sheet"
+
+    /** The notice that says the notifications are off. */
+    const val TASK_REMINDER_NOTICE = "task_reminder_notice"
+
+    /** The action that asks the system for the notification permission. */
+    const val TASK_REMINDER_PERMISSION_ACTION = "task_reminder_permission_action"
+
+    /** The action that opens the app's notification settings. */
+    const val TASK_REMINDER_SETTINGS_ACTION = "task_reminder_settings_action"
+
+    /** The action that takes the reminder away. */
+    const val TASK_REMINDER_CLEAR = "task_reminder_clear"
+
+    /** The action that writes the chosen offset. */
+    const val TASK_REMINDER_CONFIRM = "task_reminder_confirm"
+
+    /** The action that leaves the sheet without writing anything. */
+    const val TASK_REMINDER_CANCEL = "task_reminder_cancel"
+
+    /**
+     * One option of the reminder sheet.
+     *
+     * The options are named by the offset's wire name (`FIFTEEN_MIN`), not by
+     * its label: the label is user-facing copy and the app translates it.
+     */
+    const val TASK_REMINDER_OPTION_15_MIN = "task_reminder_option_15_min"
+
+    /** The «За час» option of the reminder sheet. */
+    const val TASK_REMINDER_OPTION_1_HOUR = "task_reminder_option_1_hour"
+
+    /** The «За день» option of the reminder sheet. */
+    const val TASK_REMINDER_OPTION_1_DAY = "task_reminder_option_1_day"
+
+    /** The notice that says the reminder needs a due date first. */
+    const val TASK_REMINDER_NEEDS_DUE_DATE = "task_reminder_needs_due_date"
+
+    /** The notice that says the reminder's offset is not one this build knows. */
+    const val TASK_REMINDER_UNKNOWN_OFFSET = "task_reminder_unknown_offset"
+
     const val WORKFLOW_STATE_OPTION_OPEN = "workflow_state_option_open"
     const val WORKFLOW_STATE_OPTION_NEXT_UP = "workflow_state_option_next_up"
     const val WORKFLOW_STATE_OPTION_IN_PROGRESS = "workflow_state_option_in_progress"
@@ -428,6 +567,15 @@ object TestTags {
      * so a task without checklist items is still a task the user can add one to.
      */
     const val TASK_CHECKLIST_SECTION = "task_checklist_section"
+
+    /**
+     * The recurrence sentence in the task detail screen.
+     *
+     * The row used to print the rule's own `toString()`, so the tag is on the
+     * sentence that replaced it: a test that says "the row does not show
+     * `Interval(`" needs to look at the text.
+     */
+    const val TASK_RECURRENCE_TEXT = "task_recurrence_text"
 
     /**
      * The line the checklist section shows when it has no items.
@@ -548,6 +696,15 @@ object TestTags {
     const val RECURRENCE_ENDS_NEVER = "recurrence_ends_never"
     const val RECURRENCE_ENDS_ON_DATE = "recurrence_ends_on_date"
     const val RECURRENCE_END_DATE_VALUE = "recurrence_end_date_value"
+
+    /**
+     * The rule, as a sentence, in the recurrence picker's preview.
+     *
+     * The preview is the sentence the task detail row wears, so the tag is what
+     * lets a test read both and say whether they agree — and the picker's own
+     * copy is what it is on, not a sentence the test renders for itself.
+     */
+    const val RECURRENCE_PICKER_PREVIEW = "recurrence_picker_preview"
 
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
@@ -840,6 +997,9 @@ object TestTags {
 
     /** The picker's "No project" row. */
     const val PROJECT_PICKER_NONE = "project_picker_none"
+
+    /** The picker's "Inbox" system-destination row, when an inbox project exists. */
+    const val PROJECT_PICKER_INBOX = "project_picker_inbox"
 
     /** Dynamic tag of a project row in the task editor's picker: `project_picker_row_<slug>`. */
     fun projectPickerRow(projectId: String) = "project_picker_row_${slug(projectId)}"

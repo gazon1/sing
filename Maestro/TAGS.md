@@ -112,6 +112,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_WEEKLY` | `recurrence_option_weekly` | |
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
+| `RECURRENCE_PICKER_PREVIEW` | `recurrence_picker_preview` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
 | `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
@@ -136,8 +137,14 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
+| `TASK_EDITOR_DEADLINE_ROW` | `task_editor_deadline_row` | |
+| `TASK_EDITOR_DEADLINE_ROW_LABEL` | `task_editor_deadline_row_label` | |
+| `TASK_EDITOR_DEADLINE_ROW_PLACEHOLDER` | `task_editor_deadline_row_placeholder` | |
 | `TASK_EDITOR_DEPENDENCIES_ROW` | `task_editor_dependencies_row` | |
+| `TASK_EDITOR_DESCRIPTION_INPUT` | `task_editor_description_input` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
+| `TASK_EDITOR_DUE_DATE_ROW_PLACEHOLDER` | `task_editor_due_date_row_placeholder` | |
+| `TASK_EDITOR_DUE_DATE_ROW_SOMEDAY` | `task_editor_due_date_row_someday` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
@@ -146,6 +153,9 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_PROJECT_ROW` | `task_editor_project_row` | |
 | `TASK_EDITOR_RECURRENCE_LABEL` | `task_editor_recurrence_label` | |
 | `TASK_EDITOR_RECURRENCE_ROW` | `task_editor_recurrence_row` | |
+| `TASK_EDITOR_REMINDER_ROW` | `task_editor_reminder_row` | |
+| `TASK_EDITOR_REMINDER_ROW_LABEL` | `task_editor_reminder_row_label` | |
+| `TASK_EDITOR_REMINDER_ROW_PLACEHOLDER` | `task_editor_reminder_row_placeholder` | |
 | `TASK_EDITOR_SAVE` | `task_editor_save` | |
 | `TASK_EDITOR_SAVING` | `task_editor_saving` | |
 | `TASK_EDITOR_START_DATE_ROW` | `task_editor_start_date_row` | |
@@ -153,6 +163,35 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_TITLE_ERROR` | `task_editor_title_error` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 | `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
+| `TASK_RECURRENCE_TEXT` | `task_recurrence_text` | |
+| `TASK_REMINDER_CANCEL` | `task_reminder_cancel` | |
+| `TASK_REMINDER_CLEAR` | `task_reminder_clear` | |
+| `TASK_REMINDER_CONFIRM` | `task_reminder_confirm` | |
+| `TASK_REMINDER_NEEDS_DUE_DATE` | `task_reminder_needs_due_date` | |
+| `TASK_REMINDER_NOTICE` | `task_reminder_notice` | |
+| `TASK_REMINDER_OPTION_15_MIN` | `task_reminder_option_15_min` | |
+| `TASK_REMINDER_OPTION_1_DAY` | `task_reminder_option_1_day` | |
+| `TASK_REMINDER_OPTION_1_HOUR` | `task_reminder_option_1_hour` | |
+| `TASK_REMINDER_PERMISSION_ACTION` | `task_reminder_permission_action` | |
+| `TASK_REMINDER_SETTINGS_ACTION` | `task_reminder_settings_action` | |
+| `TASK_REMINDER_SHEET` | `task_reminder_sheet` | |
+| `TASK_REMINDER_UNKNOWN_OFFSET` | `task_reminder_unknown_offset` | |
+| `TASK_SCHEDULING_ADD_TIME` | `task_scheduling_add_time` | |
+| `TASK_SCHEDULING_CANCEL` | `task_scheduling_cancel` | |
+| `TASK_SCHEDULING_CLEAR` | `task_scheduling_clear` | |
+| `TASK_SCHEDULING_CLEAR_TIME` | `task_scheduling_clear_time` | |
+| `TASK_SCHEDULING_CONFIRM` | `task_scheduling_confirm` | |
+| `TASK_SCHEDULING_DATE_ROW` | `task_scheduling_date_row` | |
+| `TASK_SCHEDULING_DEADLINE_ROW` | `task_scheduling_deadline_row` | |
+| `TASK_SCHEDULING_MONTH_TITLE` | `task_scheduling_month_title` | |
+| `TASK_SCHEDULING_NEXT_MONTH` | `task_scheduling_next_month` | |
+| `TASK_SCHEDULING_PREV_MONTH` | `task_scheduling_prev_month` | |
+| `TASK_SCHEDULING_SHEET` | `task_scheduling_sheet` | |
+| `TASK_SCHEDULING_SOMEDAY_CHIP` | `task_scheduling_someday_chip` | |
+| `TASK_SCHEDULING_TIME_INPUT` | `task_scheduling_time_input` | |
+| `TASK_SCHEDULING_TIME_ROW` | `task_scheduling_time_row` | |
+| `TASK_SCHEDULING_TODAY_CHIP` | `task_scheduling_today_chip` | |
+| `TASK_SCHEDULING_TOMORROW_CHIP` | `task_scheduling_tomorrow_chip` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
 | `TimeTracking.START` | `time_tracking_start` | |
 | `TimeTracking.STOP` | `time_tracking_stop` | |
@@ -262,6 +301,7 @@ non-alphanumeric characters with `_`.
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
 | `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
+| `PROJECT_PICKER_INBOX` | `project_picker_inbox` | |
 | `PROJECT_PICKER_NONE` | `project_picker_none` | |
 
 ### Settings

@@ -21,6 +21,21 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 /**
+ * One fact of the schedule, as it changes.
+ *
+ * `null` cannot say it: a cleared deadline and an untouched deadline are both
+ * "no date", and the write has to tell them apart — one of them is a write and
+ * the other is not.
+ */
+sealed interface ScheduleChange<out T> {
+    /** The fact was not touched by this save. */
+    data object Unchanged : ScheduleChange<Nothing>
+
+    /** The fact takes this value — `null` meaning the fact was cleared. */
+    data class Value<T>(val value: T) : ScheduleChange<T>
+}
+
+/**
  * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator].
  *
  * Все варианты обрабатываются VM через [Domain].
@@ -70,29 +85,39 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskDraftIntent
 
-        data object ToggleSomeday : Domain, TaskEntityIntent
-
         data class SetKind(val kind: TaskKind) :
             Domain,
             TaskEntityIntent
 
         // ── Meta fields ─────────────────────────────────────────────────────
 
-        data class SetDueDate(val date: LocalDate?) :
-            Domain,
-            TaskEntityIntent
-
-        data class SetDueTime(val time: LocalTime?) :
-            Domain,
-            TaskEntityIntent
+        /**
+         * The schedule of the task — the due date and its time, the deadline and
+         * the `someday` bucket — written as one change.
+         *
+         * The four facts are one decision, and they are written in one go: a save
+         * that wrote them one by one could leave the task halfway between what it
+         * was and what the user asked for.
+         *
+         * Each fact says whether it changes at all, because a fact the user did
+         * not touch must not be written: a deadline must not disappear because
+         * somebody changed a time.
+         */
+        data class SetSchedule(
+            val dueDate: ScheduleChange<LocalDate?> = ScheduleChange.Unchanged,
+            val dueTime: ScheduleChange<LocalTime?> = ScheduleChange.Unchanged,
+            val deadline: ScheduleChange<LocalDate?> = ScheduleChange.Unchanged,
+            val someday: ScheduleChange<Boolean> = ScheduleChange.Unchanged,
+        ) : Domain,
+            TaskSchedulingIntent
 
         data class SetStartDate(val date: LocalDate?) :
             Domain,
-            TaskEntityIntent
+            TaskSchedulingIntent
 
         data class SetStartTime(val time: LocalTime?) :
             Domain,
-            TaskEntityIntent
+            TaskSchedulingIntent
 
         data class SetPriority(val priority: TaskPriority) :
             Domain,

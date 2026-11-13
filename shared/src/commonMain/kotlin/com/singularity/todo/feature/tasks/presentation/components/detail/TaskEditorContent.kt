@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
@@ -64,6 +65,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
@@ -141,6 +144,13 @@ private fun TaskEditorContent(
     showDueDate: Boolean = true,
     onPriorityClick: (() -> Unit)? = null,
     onDueDateClick: (() -> Unit)? = null,
+    someday: Boolean = false,
+    reminderState: ReminderOffsetState = ReminderOffsetState.None,
+    notificationsEnabled: Boolean = true,
+    reminderCallbacks: ReminderRowCallbacks? = null,
+    deadline: LocalDate? = null,
+    deadlineIsOverdue: Boolean = false,
+    deadlineCallbacks: DeadlineRowCallbacks? = null,
     startDate: LocalDate? = null,
     startTime: LocalTime? = null,
     startDateCallbacks: DateRowCallbacks? = null,
@@ -303,6 +313,34 @@ private fun TaskEditorContent(
                     onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
                     labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
+                    someday = someday,
+                )
+            }
+
+            // The reminder row.
+            //
+            // It sits right under the due date, because a reminder is a fact
+            // *about* the due moment — the row is always there, because a row
+            // that appears only once something is set is a row nobody finds.
+            reminderCallbacks?.let { cb ->
+                TaskEditorReminderRow(
+                    reminderState = reminderState,
+                    notificationsEnabled = notificationsEnabled,
+                    onReminderClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Reminder) },
+                    onReminderClear = cb.onClear,
+                )
+            }
+
+            // The deadline row.
+            //
+            // The deadline is the bound by which the work has to be done; it is
+            // not the due date, and it is not touched by it.
+            deadlineCallbacks?.let { cb ->
+                TaskEditorDeadlineRow(
+                    deadline = deadline,
+                    isOverdue = deadlineIsOverdue,
+                    onDeadlineClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Deadline) },
+                    onDeadlineClear = cb.onClear,
                 )
             }
 
@@ -577,6 +615,11 @@ private fun TaskEditorScaffold(
     snackbarHost: (@Composable () -> Unit)? = null,
     savedVisible: Boolean = false,
 ) {
+    // The deadline is overdue when it sits before today. "Today" comes from the
+    // same `now` the rest of the editor is given, so the row and the sheet that
+    // sets it agree on which day it is.
+    val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
         titleState = titleState,
@@ -593,6 +636,13 @@ private fun TaskEditorScaffold(
         showDueDate = true,
         onPriorityClick = callbacks.priority.onClick,
         onDueDateClick = callbacks.dueDate.onClick,
+        someday = model.someday,
+        reminderState = model.reminderState,
+        notificationsEnabled = model.notificationsEnabled,
+        reminderCallbacks = callbacks.reminder,
+        deadline = model.deadline,
+        deadlineIsOverdue = isDeadlineOverdue(model.deadline, today, isCompleted),
+        deadlineCallbacks = callbacks.deadline,
         startDate = model.startDate,
         startTime = model.startTime,
         startDateCallbacks = callbacks.startDate,

@@ -1,7 +1,9 @@
-# Task editor: cancelling the date picker leaves the task undated.
+# Task editor: cancelling the planning sheet leaves the task undated.
 #
-# The counterpart to set-due-date: a picker that can be dismissed without a write
-# is what makes the destructive path safe.
+# The counterpart to set-due-date: a sheet that can be dismissed without a
+# write is what makes the destructive path safe. The flow picks a date, backs
+# out, and checks that the row still reads the placeholder — a sheet that
+# wrote on dismissal would leave the task dated.
 appId: com.singularity.todo
 name: tasks-due-date-cancel
 tags:
@@ -25,24 +27,19 @@ tags:
     id: task_editor_due_row
 - extendedWaitUntil:
     visible:
-      id: dialog_date_picker_ok
+      id: task_scheduling_sheet
     timeout: 8000
-# The Material3 date picker exposes its day cells only as a contentDescription
-# ("Tuesday, September 29, 2026"), and Maestro has no content-desc selector,
-# so the day is picked with a regex. The regex matches the day number as a
-# standalone number, because that is the one part of the description the app
-# does not write: the month name and the weekday are Material3's, and
-# Material3 writes them in the device's language ("Tuesday, September 29,
-# 2026" in English, "Вторник, 29 сентября 2026 г." in Russian). The 1st of the
-# month is the only day whose number stands on its own, so the match picks it
-# and nothing else, and it keeps the flow valid past the turn of the year.
+# Pick a date, then leave without saving it.
 - tapOn:
-    text: '.*[^0-9]1[^0-9].*'
+    id: task_scheduling_today_chip
 - tapOn:
-    id: dialog_date_picker_cancel
+    id: task_scheduling_cancel
+# The sheet is gone before the row is read: the row must be the one the user
+# is left with, not the one still behind the scrim.
 - extendedWaitUntil:
-    visible:
-      id: task_editor_due_date_row_label
+    notVisible:
+      id: task_scheduling_sheet
     timeout: 8000
 - assertVisible:
-    id: task_editor_due_date_row_label
+    id: task_editor_due_date_row_placeholder
+# The row still reads the placeholder: nothing was written.

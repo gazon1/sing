@@ -1,0 +1,50 @@
+# Task editor: set a reminder from the planning group.
+#
+# The reminder has a sheet of its own: it is an offset before the due moment,
+# it is written by another slot with its own capability gate, and it needs the
+# notification permission. The sheet opens on the offset the task already has
+# — here there is none — and the row reads the offset once it is set.
+#
+# The offset is asserted through the row's tag: the tag names the state — a
+# reminder is set — and not the copy, which is localized.
+appId: com.singularity.todo
+name: tasks-planning-reminder
+tags:
+  - regression
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# The reminder row sits under the due-date row; scroll it into view.
+- scrollUntilVisible:
+    element:
+      id: task_editor_reminder_row
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: task_editor_reminder_row
+- extendedWaitUntil:
+    visible:
+      id: task_reminder_sheet
+    timeout: 8000
+# «За 15 минут» — the option row carries a stable wire name, not its label, so
+# the tap does not depend on the language.
+- tapOn:
+    id: task_reminder_option_15_min
+- tapOn:
+    id: task_reminder_confirm
+- extendedWaitUntil:
+    notVisible:
+      id: task_reminder_sheet
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_editor_reminder_row_label
+    timeout: 8000
+- assertNotVisible:
+    id: task_editor_reminder_row_placeholder

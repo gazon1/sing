@@ -34,6 +34,43 @@ fun bundleString(
 }
 
 /**
+ * The text a Compose resource bundle gives a plural key, in one language.
+ *
+ * The forms of a plural key live in a `<plurals>` block, one `<item>` per
+ * quantity the language has, so a test that wants the form a count of three
+ * takes has to say which form it takes.
+ *
+ * @param language The bundle directory under `composeResources` — `values`,
+ *   `values-ru`, and so on.
+ * @param key The resource key, e.g. `recurrence_every_days`.
+ * @param quantity The plural form: `one`, `few`, `many`, `other`.
+ * @param count The number the form is written for; it fills the `%1$d` slot,
+ *   so the result reads as the sentence a device would show.
+ */
+fun bundlePlural(
+    language: String,
+    key: String,
+    quantity: String,
+    count: Int,
+): String {
+    val bundle = File(repositoryRoot(), "shared/src/commonMain/composeResources/$language/strings.xml")
+    assertTrue(bundle.isFile, "expected the resource bundle at ${bundle.path}")
+    val forms =
+        Regex("""<plurals\s+name="$key"\s*>(.*?)</plurals>""", RegexOption.DOT_MATCHES_ALL)
+            .find(bundle.readText())
+            ?.groupValues
+            ?.get(1)
+            .orEmpty()
+    return Regex("""<item\s+quantity="$quantity"\s*>(.*?)</item>""", RegexOption.DOT_MATCHES_ALL)
+        .find(forms)
+        ?.groupValues
+        ?.get(1)
+        ?.trim()
+        ?.replace("%1\$d", count.toString())
+        .orEmpty()
+}
+
+/**
  * The checkout root, found by walking up from the working directory.
  *
  * The JVM does not start at a fixed depth — Gradle starts it in the module's own

@@ -171,6 +171,39 @@ class AllurePagesTest(unittest.TestCase):
         root = (self.site / "index.html").read_text(encoding="utf-8")
         self.assertNotIn('href="2808/index.html"', root)
 
+    def test_a_namespace_with_the_legacy_visible_manifest_is_published(self):
+        # A site published before the rename carries the visible manifest.
+        # Asking only about the dotfile made that population disappear from
+        # the root index and from the tree check.
+        pdir = self.pop_dir(self.site, "fast")
+        current = pub(run_id=7, run_number=70, population="fast", report_path="70")
+        (pdir / "allure-manifest.json").write_text(
+            ap.manifest_json(manifest_of("fast", current, {current.identity: current})),
+            encoding="utf-8",
+        )
+        self.assertEqual(ap.present_populations(self.site), ["fast"])
+
+        self.make_report(self.site, "fast", "70")
+        self.write_index(pdir, "70")
+        ap._atomic_write_text(self.site / "index.html", ap.build_root_index(self.site, ["fast"]))
+        ap.validate_publish_tree(self.site)
+
+    def test_a_namespace_without_a_manifest_is_not_published(self):
+        self.pop_dir(self.site, "fast")
+        self.assertEqual(ap.present_populations(self.site), [])
+
+    def test_the_dotfile_manifest_wins_over_the_legacy_visible_one(self):
+        pdir = self.pop_dir(self.site, "fast")
+        current = pub(run_id=7, run_number=70, population="fast", report_path="70")
+        older = pub(run_id=6, run_number=60, population="fast", report_path="60")
+        ap.save_manifest(ap.manifest_path(pdir), manifest_of("fast", current, {current.identity: current}))
+        (pdir / "allure-manifest.json").write_text(
+            ap.manifest_json(manifest_of("fast", older, {older.identity: older})),
+            encoding="utf-8",
+        )
+        manifest = ap.load_manifest(ap.manifest_path(pdir), "fast")
+        self.assertEqual(manifest.latest.run_number, 70)
+
     def test_apply_stale_does_not_regress_latest_or_indexes(self):
         self.make_report(self.site, "fast", "11")
         newer = pub(run_id=2, run_number=11, population="fast", report_path="11")
@@ -299,6 +332,10 @@ class AllurePagesTest(unittest.TestCase):
         self.assertTrue(unexplained.is_dir())
 
     def test_retention_drops_a_publication_whose_report_is_gone(self):
+        # A report directory that disappears out of band — the report action
+        # prunes its namespace before the helper applies the publication —
+        # leaves a manifest entry naming something that is not there. The
+        # entry goes; the publications that are still there stay.
         self.make_report(self.site, "fast", "10")
         ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
         self.make_report(self.site, "fast", "11")
@@ -446,6 +483,19 @@ class AllurePagesTest(unittest.TestCase):
         leftovers = [p.name for p in self.root.iterdir() if p.name.startswith("allure-history-")]
         self.assertEqual(leftovers, [])
 
+    def test_the_manifest_is_invisible_to_the_listing_the_prune_uses(self):
+        # `ls` does not list dotfiles, so the listing the pinned action prunes
+        # with never names the manifest. This is the part of the property
+        # that does not depend on the shell the prune happens to run in.
+        pdir = self.pop_dir(self.site, "fast")
+        ap.save_manifest(ap.manifest_path(pdir), manifest_of("fast"))
+        listing = subprocess.run(["ls"], cwd=pdir, capture_output=True, text=True, check=True)
+        self.assertNotIn(".allure-manifest.json", listing.stdout.split())
+
+    @unittest.skipUnless(
+        sys.platform.startswith("linux"),
+        "the pinned action's prune is GNU: `head -n -N` and `xargs -r`",
+    )
     def test_manifest_survives_the_pinned_actions_retention_prune(self):
         # `simple-elf/allure-report-action` prunes its own `<population>/`
         # directory with `ls | sort -n | grep -v CNAME | head -n -N | xargs rm`.
@@ -476,6 +526,72 @@ class AllurePagesTest(unittest.TestCase):
         stats = ap.tree_stats(self.site)
         self.assertGreater(stats["files"], 0)
         self.assertGreater(stats["bytes"], 0)
+
+    # ── The legacy root ───────────────────────────────────────────────────────
+
+    def test_drop_legacy_root_removes_the_legacy_reports_and_the_shared_history(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        (self.site / "last-history").mkdir()
+        (self.site / "last-history" / "widgets.json").write_text("{}", encoding="utf-8")
+        self.make_report(self.site, "fast", "10")
+
+        result = ap.drop_legacy_root(self.site)
+
+        self.assertEqual(result["removed_reports"], ["2807"])
+        self.assertTrue(result["removed_history"])
+        self.assertGreater(result["removed_files"], 0)
+        self.assertGreater(result["removed_bytes"], 0)
+        self.assertFalse(legacy.exists())
+        self.assertFalse((self.site / "last-history").exists())
+        # The population namespace is not the legacy root.
+        self.assertTrue((self.site / "fast" / "10").is_dir())
+        self.assertTrue((self.site / "fast" / "last-history").is_dir())
+
+    def test_drop_legacy_root_is_idempotent(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        self.assertEqual(ap.drop_legacy_root(self.site)["removed_reports"], ["2807"])
+        second = ap.drop_legacy_root(self.site)
+        self.assertEqual(second["removed_reports"], [])
+        self.assertFalse(second["removed_history"])
+
+    def test_drop_legacy_root_leaves_a_folder_that_is_not_a_report(self):
+        (self.site / "2808").mkdir()
+        result = ap.drop_legacy_root(self.site)
+        self.assertEqual(result["removed_reports"], [])
+        self.assertTrue((self.site / "2808").is_dir())
+
+    def test_drop_legacy_root_keeps_the_cname_and_the_root_index(self):
+        # The custom domain file and the index that names what is published
+        # are not the legacy root: a dropped CNAME takes the custom domain
+        # with it, and a dropped index names nothing.
+        (self.site / "CNAME").write_text("maxdrobin.ru\n", encoding="utf-8")
+        (self.site / "index.html").write_text("<html>index</html>", encoding="utf-8")
+        (self.site / "2807").mkdir()
+
+        ap.drop_legacy_root(self.site)
+
+        self.assertTrue((self.site / "CNAME").is_file())
+        self.assertTrue((self.site / "index.html").is_file())
+
+    def test_the_root_index_stops_linking_the_dropped_legacy_reports(self):
+        legacy = self.site / "2807"
+        legacy.mkdir()
+        (legacy / "index.html").write_text("<html>legacy</html>", encoding="utf-8")
+        self.make_report(self.site, "fast", "10")
+        ap.apply_publication(self.site, pub(run_id=1, run_number=10, population="fast", report_path="10"))
+        self.assertIn('href="2807/index.html"', (self.site / "index.html").read_text(encoding="utf-8"))
+
+        ap.drop_legacy_root(self.site)
+        self.make_report(self.site, "fast", "11")
+        ap.apply_publication(self.site, pub(run_id=2, run_number=11, population="fast", report_path="11"))
+
+        root = (self.site / "index.html").read_text(encoding="utf-8")
+        self.assertIn('href="fast/index.html"', root)
+        self.assertNotIn('href="2807/index.html"', root)
 
 
 class PublicationContractTest(unittest.TestCase):

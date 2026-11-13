@@ -57,8 +57,13 @@ Two heaviest gates carry **57 % of all gate time**: `declared dependencies are u
 (the `sgate` figure includes its 24 command modules).
 
 Entry points installed by `scripts/src/pyproject.toml`: `sgate`, `ensure-emulator`,
-`run-maestro`. All five runtime dependencies (`click`, `loguru`, `rich`, `pyyaml`,
-`pydantic`) are in use.
+`run-maestro`. All six runtime dependencies (`click`, `loguru`, `rich`, `pyyaml`,
+`pydantic`, `GitPython`) are in use.
+
+GitPython reaches the local hooks through the tooling venv: `scripts/lint-changed.py`
+re-runs itself with the venv's interpreter when the `python3` of the shell has no
+`git` module, and names `scripts/ci/setup-local-tools.sh` when there is no such
+venv to run with.
 
 ### The 38 gate-shaped scripts
 

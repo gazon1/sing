@@ -16,6 +16,16 @@ sealed interface TaskEntityIntent : TaskDetailSlotIntent
  */
 sealed interface TaskTagIntent : TaskEntityIntent
 
+/**
+ * The intents that write *when* the work happens: the due date and its time,
+ * the start date and its time, the deadline and the `someday` bucket.
+ *
+ * A group of its own, because the facts are one decision — when this task is
+ * due — and because the type is what lets the entity slot handle them in one
+ * place with an exhaustive `when`.
+ */
+sealed interface TaskSchedulingIntent : TaskEntityIntent
+
 sealed interface TaskDraftIntent : TaskDetailSlotIntent
 
 sealed interface TaskCompletionIntent : TaskDetailSlotIntent

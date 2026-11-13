@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -10,6 +11,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -57,8 +59,65 @@ data class DateRowCallbacks(
     val onChangeDates: ((Set<LocalDate>) -> Unit)? = null,
 )
 
+/**
+ * Callback bundle for the reminder row.
+ *
+ * The reminder is not a date: it is an offset before the due moment, it has
+ * its own editor, and it can only be written where the platform has a
+ * notification scheduler. `null` for the whole bundle means the row is hidden.
+ */
+data class ReminderRowCallbacks(
+    /** Sets (or replaces) the task's reminder. */
+    val onSet: (ReminderOffset) -> Unit,
+    /** Removes the task's reminder. */
+    val onClear: () -> Unit,
+    /**
+     * Opens the reminder editor.
+     *
+     * `null` lets the row open it itself, which is what almost every call site
+     * wants. It must NOT default to an empty lambda: a no-op lambda is a
+     * supplied value, so the row's own fallback never fires.
+     */
+    val onClick: (() -> Unit)? = null,
+)
+
 /** Callback bundle for a toggle (checkbox) attribute. */
 data class ToggleCallbacks(val onToggle: () -> Unit)
+
+/**
+ * Callback bundle for the deadline row.
+ *
+ * The deadline is one of the schedule's facts, so it is *written* through
+ * [ScheduleCallbacks]. What is left to the row is what is not a write:
+ * opening the sheet that edits it, and clearing it.
+ */
+data class DeadlineRowCallbacks(
+    /**
+     * Opens the deadline sheet.
+     *
+     * `null` — the default — lets the row open its own sheet, which is what
+     * almost every call site wants.
+     */
+    val onClick: (() -> Unit)? = null,
+    /** Clears the deadline. Null means no clear button is shown. */
+    val onClear: (() -> Unit)? = null,
+)
+
+/**
+ * Callback bundle for the schedule — the due date and its time, the deadline and
+ * the `someday` bucket.
+ *
+ * The four facts are one decision, so they are written in one go: [onChange]
+ * carries the facts that changed *and* the facts that did not, and the write
+ * lands on one copy of the task. A save that wrote them one by one could leave
+ * the task halfway between what it was and what the user asked for.
+ *
+ * `null` for the whole bundle means the surface does not offer the schedule.
+ */
+data class ScheduleCallbacks(
+    /** Writes the change of the schedule. */
+    val onChange: (TaskDetailIntent.Domain.SetSchedule) -> Unit,
+)
 
 /** Callback bundle for the checklist section. `null` means checklist row is hidden. */
 data class ChecklistCallbacks(
@@ -107,6 +166,19 @@ data class TaskEditorCallbacks(
     /** Due date + time row — null = hidden */
     @Suppress("NoEmptyOnClickLambda")
     val dueDate: DateRowCallbacks = DateRowCallbacks(onChangeDate = {}, onChangeTime = {}),
+    /** Reminder row — null = hidden. */
+    val reminder: ReminderRowCallbacks? = null,
+    /** Deadline row — null = hidden. */
+    val deadline: DeadlineRowCallbacks? = null,
+    /**
+     * The schedule of the task — null = the surface does not offer it.
+     *
+     * The due date and its time, the deadline and the `someday` bucket are one
+     * decision, so they are written through this one bundle: a save that wrote
+     * them one by one could leave the task halfway between what it was and what
+     * the user asked for.
+     */
+    val schedule: ScheduleCallbacks? = null,
     /** Start date + time row — null = hidden */
     val startDate: DateRowCallbacks?,
     /** Project row — null = hidden */
@@ -175,4 +247,19 @@ data class TaskEditorCallbacks(
     val menuItems: ImmutableList<TaskEditorMenuItem> = persistentListOf(),
     /** AI action button — null means AI button is hidden */
     val onAiClick: (() -> Unit)? = null,
+    /**
+     * Opens the app's notification settings.
+     *
+     * `null` means the platform has no such screen — the desktop app, where
+     * the scheduler is missing anyway. The reminder editor offers this action
+     * when the notification permission was refused, because a refusal with no
+     * way out is a dead end.
+     */
+    val onOpenNotificationSettings: (() -> Unit)? = null,
+    /**
+     * Asks the system for the notification permission.
+     *
+     * `null` means the platform has no runtime permission to ask for.
+     */
+    val onRequestNotificationPermission: (() -> Unit)? = null,
 )

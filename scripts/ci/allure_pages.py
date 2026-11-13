@@ -60,15 +60,16 @@ REPORT_PATH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 # What a fetched history tarball may hold. The tarball is a copy of a branch
 # this repository published, so its size is bounded by the retention window:
-# twenty reports per population (~4 900 files each), plus the legacy
-# root-level reports that are never removed. That is ~220 000 files and
-# ~1.2 GB today and it stops growing there.
+# twenty reports per population (~4 900 files each). Until the first run that
+# drops the legacy root, the branch still carries the root-level reports the
+# legacy layout left behind — 25 249 of them, 136 MB — and after that run it
+# carries the two populations and the root index, and it stops growing there.
 #
 # The caps sit well above that steady state. A cap that normal operation
 # reaches is not a safety feature: it is a pipeline that fails on the day
 # the history grows past it, which is what 20 000 members did — the branch
-# holds 25 249 today. A tarball far past these numbers is not one, and
-# unpacking it is how a disk gets filled.
+# held 25 249 files in that root. A tarball far past these numbers is not one,
+# and unpacking it is how a disk gets filled.
 MAX_TAR_MEMBERS = 500_000
 MAX_TAR_BYTES = 4 * 1024 * 1024 * 1024
 
@@ -221,6 +222,20 @@ def manifest_path(population_dir: Path) -> Path:
 
 def _legacy_manifest_path(population_dir: Path) -> Path:
     return population_dir / "allure-manifest.json"
+
+
+def existing_manifest_path(population_dir: Path) -> Path | None:
+    """The manifest file a population namespace carries, if it carries one.
+
+    The current state file is the dotfile. A site published before the rename
+    still carries the visible name, and it is read once (ADR 2026-11-11). A
+    namespace that has either one is published; one that has neither is not,
+    however it is asked.
+    """
+    for candidate in (manifest_path(population_dir), _legacy_manifest_path(population_dir)):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def empty_manifest(population: str) -> Manifest:
@@ -509,8 +524,14 @@ def build_root_index(site_dir: Path, populations: Iterable[str]) -> str:
 
 
 def present_populations(site_dir: Path) -> list[str]:
-    present = [p for p in SUPPORTED_POPULATIONS if manifest_path(site_dir / p).is_file()]
-    return present
+    """The populations this site publishes.
+
+    A population counts when its namespace carries a manifest: the current
+    dotfile, or the visible name a site published before the rename still
+    has. Asking only about the dotfile made a population that was still
+    being migrated disappear from the root index and from the tree check.
+    """
+    return [p for p in SUPPORTED_POPULATIONS if existing_manifest_path(site_dir / p) is not None]
 
 
 def ensure_population_namespace(gh_pages_dir: Path, population: str) -> Path:
@@ -596,7 +617,7 @@ def validate_publish_tree(site_dir: Path, populations: Iterable[str] | None = No
         if f"{pop}/index.html" not in root_content:
             raise PublishError(f"root index.html does not link to population {pop}")
         mpath = manifest_path(pop_dir)
-        if not mpath.is_file():
+        if existing_manifest_path(pop_dir) is None:
             raise PublishError(f"publish tree missing manifest for population {pop}")
         manifest = load_manifest(mpath, pop)
         validate_population_state(pop_dir, pop, manifest)
@@ -648,6 +669,46 @@ def _remove_reports(population_dir: Path, report_paths: Iterable[str]) -> list[s
             shutil.rmtree(directory)
             removed.append(report_path)
     return removed
+
+
+def drop_legacy_root(site_dir: Path) -> dict[str, Any]:
+    """Remove the root-level reports and history the legacy layout left.
+
+    The legacy layout published every report at the root of the branch and
+    kept one shared history there. The population layout publishes inside a
+    namespace, so the root copies are dead weight: the report action copies
+    the whole tree into the publish tree on every run, and nothing ever
+    removes them. The publication contract calls legacy root URLs legacy-only
+    — they may disappear.
+
+    Idempotent: a tree that carries no legacy root is left as it is, and the
+    populations are not touched.
+    """
+    empty = {"removed_reports": [], "removed_history": False, "removed_files": 0, "removed_bytes": 0}
+    if not site_dir.is_dir():
+        return empty
+    removed: list[str] = []
+    files = 0
+    size = 0
+    for name in legacy_report_dirs(site_dir):
+        stats = tree_stats(site_dir / name)
+        shutil.rmtree(site_dir / name)
+        removed.append(name)
+        files += stats["files"]
+        size += stats["bytes"]
+    history = site_dir / "last-history"
+    removed_history = history.is_dir()
+    if removed_history:
+        stats = tree_stats(history)
+        shutil.rmtree(history)
+        files += stats["files"]
+        size += stats["bytes"]
+    return {
+        "removed_reports": removed,
+        "removed_history": removed_history,
+        "removed_files": files,
+        "removed_bytes": size,
+    }
 
 
 def reconcile_population(site_dir: Path, population: str) -> None:
@@ -952,6 +1013,12 @@ def cmd_measure(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_drop_legacy_root(args: argparse.Namespace) -> int:
+    result = drop_legacy_root(Path(args.site_dir))
+    _print_json(result)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1000,6 +1067,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_measure = sub.add_parser("measure", help="report file count and byte size of a directory tree")
     p_measure.add_argument("--path", required=True)
     p_measure.set_defaults(func=cmd_measure)
+
+    p_drop = sub.add_parser(
+        "drop-legacy-root",
+        help="remove the root-level reports and history the legacy layout left behind",
+    )
+    p_drop.add_argument("--site-dir", required=True)
+    p_drop.set_defaults(func=cmd_drop_legacy_root)
 
     return parser
 

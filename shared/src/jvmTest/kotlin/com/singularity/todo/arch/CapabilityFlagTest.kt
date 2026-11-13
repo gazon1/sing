@@ -190,6 +190,10 @@ class CapabilityFlagTest {
          * loopback block, and the consent it runs needs only a browser and a local socket
          * — a desktop machine has both. What can fail is the user's browser, and that
          * fails loudly at the call, not silently as "unsupported".
+         *
+         * The two notification-settings flags: the port opens a system screen, and every
+         * platform either has such a screen (Android, with a fallback) or has none at all
+         * (the desktop). Neither can change while the app runs.
          */
         val SANCTIONED_CONSTANTS: Map<String, String> =
             mapOf(
@@ -218,6 +222,15 @@ class CapabilityFlagTest {
                     "The desktop is the platform Google exempts from the loopback block, and " +
                     "the consent needs only a browser and a local socket, which a desktop " +
                     "machine has. A missing browser fails at the call, not as 'unsupported'.",
+                "AndroidNotificationSettingsPort.isSupported" to
+                    "Every Android build this app runs on ships a system notification " +
+                    "settings screen, and the port falls back to the application-details " +
+                    "screen when an OEM build does not resolve the notification action, so " +
+                    "there is no device on which there is nothing to open.",
+                "JvmNotificationSettingsPort.isSupported" to
+                    "The desktop has no system notification settings at all, and the JVM " +
+                    "permission requester never refuses, so the action is never offered " +
+                    "there: false is the complete answer and cannot become stale.",
             )
     }
 }

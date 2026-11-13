@@ -16,7 +16,12 @@
 # the runner substitutes the value, the shape of the element does not change.
 #
 # Sorted by id, one mapping per line, no blank lines.
+# The shared error dialog is where the server's answer is presented, so the
+# wait is for the answer and not for the dialog: every flow that waits for it
+# waits for a round-trip to finish first.
 ${DAY_CELL} item
+${DEST_ID} text
+${ENTRY_ID} menu
 ${SETTINGS_TAB} tab
 ${TASK_ID} item
 agenda_grouping_day button
@@ -50,6 +55,7 @@ backup_create_button button
 backup_password_field dialog
 backup_push button
 backup_restore_button button
+calendar_month_title text
 calendar_sync_google_connect_button button
 calendar_sync_system_enable_switch button
 calendar_sync_system_unavailable text
@@ -79,7 +85,6 @@ menu_archive menu
 menu_attach_account menu
 menu_calendar menu
 menu_notes menu
-menu_proposals menu
 menu_profiles menu
 menu_project_node_bulk_001 item
 menu_project_node_child item
@@ -92,6 +97,7 @@ menu_projects_collapse menu
 menu_projects_expand menu
 menu_projects_header item
 menu_projects_section item
+menu_proposals menu
 menu_quick_search menu
 menu_search menu
 menu_settings menu
@@ -113,7 +119,6 @@ onboarding_spotlight_card dialog
 overflow_archive menu
 overflow_delete menu
 overflow_restore menu
-proposals_empty text
 pomodoro_focus_chip button
 pomodoro_phase_label text
 pomodoro_play_button button
@@ -131,10 +136,8 @@ project_detail_children_chip button
 project_detail_quick_add field
 project_editor_name_input field
 projects_create_button button
+proposals_empty text
 recurrence_option_daily dialog
-# The shared error dialog is where the server's answer is presented, so the
-# wait is for the answer and not for the dialog: every flow that waits for it
-# waits for a round-trip to finish first.
 result_dialog network
 result_dialog_confirm button
 saved_agenda_card_${RUN_ID}_copy_source item
@@ -176,12 +179,20 @@ task_card_action_pin item
 task_checkbox_buy_milk item
 task_checklist_section item
 task_context_menu_sheet dialog
+task_editor_deadline_row item
+task_editor_deadline_row_label text
+task_editor_deadline_row_placeholder text
 task_editor_due_date_row_label text
+task_editor_due_date_row_placeholder text
+task_editor_due_date_row_someday text
 task_editor_due_row item
 task_editor_pin_row item
 task_editor_priority_row item
 task_editor_project_row item
 task_editor_recurrence_row item
+task_editor_reminder_row item
+task_editor_reminder_row_label text
+task_editor_reminder_row_placeholder text
 task_editor_start_date_row item
 task_editor_tags_row item
 task_editor_title_input field
@@ -190,11 +201,12 @@ task_item_${RUN_ID}_full_task_with_all_fields item
 task_item_${RUN_ID}_grocery_run item
 task_item_${RUN_ID}_task_from_inbox_tab item
 task_item_${RUN_ID}_task_from_today_tab item
+task_item_${RUN_ID}_task_from_upcoming_tab item
 task_item_${RUN_ID}_water_the_plants item
 task_item_airport_run item
-task_item_attachtesttask2026 item
 task_item_anonymous_task item
 task_item_architecture_of_the_house item
+task_item_attachtesttask2026 item
 task_item_backuproundtriptask item
 task_item_bigoverdue_1 item
 task_item_buy_milk item
@@ -227,11 +239,9 @@ task_item_unpinnedtask2026 item
 task_item_worktask item
 task_item_write_spec item
 task_item_купить_молоко item
+task_reminder_sheet dialog
+task_scheduling_sheet dialog
 tasks_fab button
 time_tracking_start button
 time_tracking_stop button
 top_bar_back_button button
-calendar_month_title text
-${ENTRY_ID} menu
-${DEST_ID} text
-task_item_${RUN_ID}_task_from_upcoming_tab item

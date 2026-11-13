@@ -153,6 +153,13 @@ decision. But a report that is published and not linked from anywhere is a
 report nobody finds, and the root index is the one page that reaches all of
 them.
 
+> **Amended 2026-11-12.** The separate decision was made: the legacy root is
+> dropped from the publish tree before the report action runs, and the root
+> index names the populations and no legacy report. The rest of this record —
+> who owns retention, what a damaged manifest means, what a report path may be,
+> how the state is written — stands. See
+> `2026-11-12-the-legacy-root-reports-are-dropped.md`.
+
 ## 8. The helper has one command per thing it does
 
 `prune`, `write-root-index` and `reconcile` were commands of the helper that

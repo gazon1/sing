@@ -8,7 +8,6 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
@@ -44,7 +43,6 @@ class TaskRemindersSlot(
     private val sourceViewId: SavedAgendaViewId? = null,
     private val core: TaskCoreDeps,
     private val scheduling: TaskSchedulingDeps,
-    private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -56,6 +54,40 @@ class TaskRemindersSlot(
          * property of the desktop app and not a malformed task.
          */
         const val UNSUPPORTED_MESSAGE = "Reminders are not available on desktop — the app has no alarm scheduler here."
+
+        /**
+         * Shown when the alarm can be armed but no notification can appear.
+         *
+         * The same shape as [UNSUPPORTED_MESSAGE]: a plain message, read at the
+         * point of refusal. It is not a resource string on purpose — the read of
+         * a compose resource hops to another dispatcher, which takes the
+         * refusal off the clock the slot tests settle on, and a refusal the
+         * tests cannot see is a refusal nothing can pin down.
+         *
+         * The localized half of this fact lives where the user reads it: the
+         * reminder sheet shows its own "notifications are off" notice, with the
+         * ways out, before the user can pick an offset.
+         */
+        const val NOTIFICATIONS_OFF_MESSAGE = "A reminder needs notifications to be on"
+
+        /**
+         * Shown when the reminder cannot be created because the task has no due
+         * date.
+         *
+         * The offset counts back from the due moment, and a task without a date
+         * has no such moment: a reminder created anyway would fire at once, and
+         * the person who asked for "15 minutes before" would get it now.
+         *
+         * The same shape as [UNSUPPORTED_MESSAGE]: a plain message, read at the
+         * point of refusal, for the same reason — the read of a compose
+         * resource hops to another dispatcher, which takes the refusal off the
+         * clock the slot tests settle on.
+         *
+         * The localized half of this fact lives where the user reads it: the
+         * reminder sheet says that the date comes first, before the user can
+         * pick an offset.
+         */
+        const val MISSING_DUE_DATE_MESSAGE = "A reminder needs a due date to count back from"
     }
 
     private val _state = MutableStateFlow(TaskRemindersState())
@@ -91,12 +123,33 @@ class TaskRemindersSlot(
                 onError(UNSUPPORTED_MESSAGE)
                 return@launch
             }
+            // The second gate: the platform can arm the alarm, but cannot show a
+            // notification. The alarm would fire into nothing, and the stored row
+            // would still render as a live reminder — the same lie as an unarmed
+            // alarm, one step later. The permission can be revoked while the app
+            // runs, so the answer is read per write.
+            if (!scheduling.notifier.isSupported) {
+                onError(NOTIFICATIONS_OFF_MESSAGE)
+                return@launch
+            }
+            // The third gate: a relative reminder counts back from the due
+            // moment, and a task without a date has no such moment. Created
+            // anyway, it would fire at once — "15 minutes before" would arrive
+            // now, and the row would show a live reminder for a moment the
+            // person never chose.
+            val dueDate = task.dueDate
+            if (dueDate == null) {
+                onError(MISSING_DUE_DATE_MESSAGE)
+                return@launch
+            }
             val userId = core.taskRepo.currentUserId()
-            val now = context.clock.now().toEpochMilliseconds()
             val fireAt =
-                task.dueDate?.let { due ->
-                    dueInstant(due, task.dueTime, offset, scheduling.timeZoneProvider.current())
-                } ?: now
+                dueInstant(
+                    dueDate,
+                    task.dueTime,
+                    offset,
+                    scheduling.timeZoneProvider.current(),
+                )
             // Reuse existing reminder id so last_fired_at is preserved (avoids resetting the
             // recurring fire-count on every offset change)
             val existingId =

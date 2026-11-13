@@ -147,6 +147,7 @@ class TaskDetailCoordinatorGraphTest {
                     reminderRepo = koin.get(),
                     reminderScheduler = koin.get(),
                     timeZoneProvider = koin.get(),
+                    notifier = koin.get(),
                 ),
             collaboration =
                 com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps(
