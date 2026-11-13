@@ -422,6 +422,32 @@ fun DesktopComposeUiTest.unclippedBoundsOfTagInUnmergedTree(tag: String): DpRect
     onAllNodesWithTag(tag, useUnmergedTree = true)[0].getUnclippedBoundsInRoot()
 
 /**
+ * The node with [tag], in the **unmerged** tree.
+ *
+ * The counterpart of [awaitTag] for a node that sits inside a merging ancestor.
+ * A clickable row merges the semantics of the text inside it, and the merged
+ * node carries the row's box rather than the text's — so a measurement that
+ * wants the text's own box has to read the unmerged tree.
+ *
+ * @param tag The test tag of the node.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unmergedNodeOfTag(tag: String): SemanticsNodeInteraction =
+    onNodeWithTag(tag, useUnmergedTree = true)
+
+/**
+ * The node with [text], in the **unmerged** tree.
+ *
+ * The counterpart of [unmergedNodeOfTag] for a field that is named by what it
+ * says rather than by a test tag.
+ *
+ * @param text The text of the node.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unmergedNodeOfText(text: String): SemanticsNodeInteraction =
+    onNodeWithText(text, useUnmergedTree = true)
+
+/**
  * The **touch** bounds of the node with [tag] in the unmerged tree, in root
  * coordinates.
  *

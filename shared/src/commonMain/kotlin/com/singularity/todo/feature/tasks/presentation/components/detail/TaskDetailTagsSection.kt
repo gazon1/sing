@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -39,7 +40,7 @@ fun TaskDetailTagsSection(
 ) {
     if (tags.isEmpty()) return
     ExtraSectionCard(
-        icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
+        icon = Icons.AutoMirrored.Filled.Label,
         label = "Tags",
         content = {
             FlowRow(
@@ -55,7 +56,7 @@ fun TaskDetailTagsSection(
                             ),
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = TaskSpacing.sm, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(

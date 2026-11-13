@@ -10,8 +10,8 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -81,7 +81,7 @@ fun SubtasksSection(
     ExtraSectionCard(
         modifier = modifier,
         headerTestTag = TestTags.SUBTASKS_SECTION,
-        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+        icon = Icons.Filled.Checklist,
         label = sectionTitle("Subtasks", total, completed),
         expanded = expanded,
         onToggle = onToggleExpanded,

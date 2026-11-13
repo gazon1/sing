@@ -12,9 +12,9 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +47,7 @@ import com.singularity.todo.feature.checklist.components.ChecklistRowReorder
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
 
@@ -72,7 +73,7 @@ fun TaskDetailRecurrenceSection(
     modifier: Modifier = Modifier,
 ) {
     ExtraSectionCard(
-        icon = { Icon(Icons.Filled.Repeat, contentDescription = null) },
+        icon = Icons.Filled.Repeat,
         label = "Repeats",
         content = {
             Text(
@@ -114,7 +115,7 @@ fun TaskDetailChecklistSection(
     ExtraSectionCard(
         modifier = modifier,
         headerTestTag = TestTags.TASK_CHECKLIST_SECTION,
-        icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
+        icon = Icons.Filled.Checklist,
         label = sectionTitle("Checklist", checklist.size, completed),
         expanded = expanded,
         onToggle = onToggleExpanded,
@@ -268,7 +269,7 @@ fun TaskDetailAttachmentsSection(
     ExtraSectionCard(
         modifier = modifier,
         headerTestTag = TestTags.ATTACHMENTS_SECTION,
-        icon = { Icon(Icons.Filled.AttachFile, contentDescription = null) },
+        icon = Icons.Filled.AttachFile,
         // No count over nothing: an empty list says "Attachments", and the add-row
         // below is the way in.
         label = sectionTitle("Attachments", attachments.size),
@@ -293,8 +294,10 @@ fun TaskDetailAttachmentsSection(
                         modifier =
                             Modifier
                                 .touchTarget()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .clickable(onClick = onOpenAttachments)
+                                .padding(
+                                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                                    vertical = TaskSpacing.sm,
+                                ).clickable(onClick = onOpenAttachments)
                                 .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
                     )
                 }

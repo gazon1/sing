@@ -66,6 +66,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/proposals/presentation/components/ProposalCard.kt` | local | the rejection reason |
 | `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | bridged | the title, the description — the detail editor's are owned, the create editor's are static |
 | `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | local | the estimate |
+| `feature/tasks/presentation/components/ProjectPickerSheet.kt` | local | the search query |
 | `feature/timetracking/presentation/components/TimeEntryEditorSheet.kt` | local | the note |
 
 A local field is still *seeded* from a parameter — the rename dialog's current name, the

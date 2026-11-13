@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,15 +20,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 /**
  * Карточка-строка для основных атрибутов задачи (проект, приоритет, дата и т.д.).
  *
- * @param isActive true, если атрибут задан пользователем — тогда используем
- * акцентный фон/цвет вместо нейтрального, чтобы "заполненные" поля визуально
- * отличались от пустых (в исходном варианте это работало не всегда).
+ * @param isActive true, если атрибут задан пользователем — тогда иконка и текст
+ *   читаются как заполненные (акцентная иконка, обычный текст, средний вес), а
+ *   не как пустые. Заполненность НЕ выражается заливкой: строка стоит на той же
+ *   поверхности, что и все остальные строки, поэтому текст на ней всегда
+ *   контрастен, а акцентная заливка забирала бы контраст у подписи.
  */
 @Composable
 fun TaskAttributeCard(
@@ -40,8 +42,14 @@ fun TaskAttributeCard(
         if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
     textColor: Color =
         if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-    containerColor: Color =
-        if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+    /**
+     * The surface the row stands on.
+     *
+     * Every attribute row stands on the same surface: a filled row puts its label
+     * on the accent's container role, where the label's own colour has to be
+     * re-derived for every accent and a muted label stops being readable.
+     */
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     /**
@@ -69,6 +77,7 @@ fun TaskAttributeCard(
         modifier =
             modifier
                 .fillMaxWidth()
+                .heightIn(min = TaskSpacing.rowMinHeight)
                 .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         Row(
@@ -100,7 +109,7 @@ fun TaskAttributeCard(
             Text(
                 text = label,
                 color = textColor,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
                 modifier =
                     Modifier

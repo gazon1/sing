@@ -38,11 +38,14 @@ fun mutedTextColor(): Color = coreMutedTextColor()
 /**
  * Placeholder text in an empty input.
  *
- * Quieter than [mutedTextColor] on purpose: a placeholder that reads as strongly
- * as real content gets typed over by someone who thought it was the value.
+ * A placeholder is text, and text has to clear 4.5:1 on the surface it stands on.
+ * The old 0.55 measured about 2.1–2.8:1 — decorative rather than readable — so the
+ * placeholder now reads in the muted role, the same one every other piece of
+ * secondary text uses. It is still lighter than the value it is replaced by,
+ * because the value is drawn in `onSurface`.
  */
 @Composable
-fun placeholderTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+fun placeholderTextColor(): Color = coreMutedTextColor()
 
 /**
  * A raised surface — a pressed row, a header strip.

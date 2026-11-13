@@ -30,6 +30,7 @@ import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 
 data class RelatedTaskItemUi(
@@ -61,12 +62,12 @@ fun RelatedTasksSection(
     onToggleExpanded: (() -> Unit)? = null,
 ) {
     ExtraSectionCard(
-        icon = { Icon(Icons.Filled.Link, contentDescription = null) },
+        modifier = modifier,
+        headerTestTag = TestTags.TASK_DETAIL_RELATED_TASKS_SECTION,
+        icon = Icons.Filled.Link,
         label = sectionTitle("Related tasks", items.size),
         expanded = expanded,
         onToggle = onToggleExpanded,
-        modifier = modifier,
-        headerTestTag = TestTags.TASK_DETAIL_RELATED_TASKS_SECTION,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (items.isEmpty()) {
@@ -97,7 +98,7 @@ fun RelatedTasksSection(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(TaskSpacing.sm))
                     Text(
                         text = "Add related task",
                         style = MaterialTheme.typography.labelLarge,
@@ -128,7 +129,7 @@ private fun RelatedTaskRow(
                 Modifier
                     .weight(1f)
                     .then(if (item.canOpen) Modifier.clickable(onClick = onOpen) else Modifier)
-                    .padding(end = 8.dp),
+                    .padding(end = TaskSpacing.sm),
         ) {
             SelectableText(
                 text = item.title.ifBlank { "(Untitled)" },
