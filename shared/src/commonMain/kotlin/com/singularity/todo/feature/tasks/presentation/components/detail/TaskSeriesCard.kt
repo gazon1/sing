@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,6 +23,7 @@ import com.singularity.todo.core.ui.components.formatRussianShortDate
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -68,13 +68,7 @@ fun TaskSeriesCard(
     if (members.size < 2) return
     ExtraSectionCard(
         modifier = modifier,
-        icon = {
-            Icon(
-                imageVector = Icons.Outlined.DateRange,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
+        icon = Icons.Outlined.DateRange,
         label = pluralStringResource(Res.plurals.series_label, members.size, members.size),
         content = {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -95,7 +89,7 @@ fun TaskSeriesCard(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(TaskSpacing.sm))
                         Text(
                             text = member.title,
                             style = MaterialTheme.typography.bodySmall,

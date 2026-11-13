@@ -64,7 +64,7 @@ fun SubtasksSection(
 
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.SUBTASKS_SECTION),
-        icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
+        icon = Icons.Filled.Checklist,
         label = if (subtasks.isEmpty()) "Subtasks" else "Subtasks ($completed/$total)",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
