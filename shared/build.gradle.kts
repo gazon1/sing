@@ -230,6 +230,11 @@ kotlin {
             implementation(libs.koog.prompt.llm)
             implementation(libs.koog.prompt.executor.model)
 
+            // Vanniktech Emoji core — the catalog, search and text analysis the
+            // project icon picker is migrating to (#2918 verifies the dependency,
+            // #2919 migrates the call sites).
+            implementation(libs.vanniktech.emoji)
+
             // MaterialKolor
             implementation(libs.materialkolor)
 

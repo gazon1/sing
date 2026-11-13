@@ -104,6 +104,13 @@ filekit = "0.17.0"
 # Rich Text Editor
 rich-editor = "1.2.1"
 
+# Vanniktech Emoji — the KMP core: emoji catalog, search and text analysis, shared
+# by Android and JVM Desktop. Apache-2.0. On Android this same coordinate brings the
+# library's legacy View widgets and their appcompat/recyclerview dependencies; the
+# app's own Compose picker does not use them. See
+# docs/decisions/2026-11-13-emoji-come-from-the-vanniktech-core-artifact.md
+vanniktech-emoji = "0.24.1"
+
 # Security
 security-crypto = "1.1.0"
 java-keyring = "1.0.4"
@@ -254,6 +261,12 @@ markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-
 
 # OpenAI
 openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
+
+# Emoji
+# Only the core artifact. The providers (`emoji-google`, `emoji-ios`, …) keep their
+# `EmojiProvider` implementation in a platform source set, so they cannot be reached
+# from commonMain; an installing platform seam arrives with #2919.
+vanniktech-emoji = { module = "com.vanniktech:emoji", version.ref = "vanniktech-emoji" }
 
 # MaterialKolor
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
