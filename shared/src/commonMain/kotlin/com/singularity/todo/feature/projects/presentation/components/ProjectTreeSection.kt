@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -100,7 +102,7 @@ private fun ProjectTreeRow(
                 // The whole row opens the project, and the row is what carries the
                 // tag: a click on the row's centre is the click a test makes, and a
                 // clickable only on the name would miss it.
-                .clickable(onClick = onOpen)
+                .clickable(role = Role.Button, onClick = onOpen)
                 .testTag(TestTags.menuProjectNode(node.id.value)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -134,14 +136,18 @@ private fun ProjectTreeRow(
             icon = node.project.icon,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             size = 18.dp,
-            contentDescription = node.name,
+            // The row's title is the accessible name; a described icon would
+            // announce the same project twice.
+            contentDescription = null,
             modifier = Modifier.padding(start = 4.dp),
         )
 
         Text(
             text = node.name,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(start = 8.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
         )
     }
 }

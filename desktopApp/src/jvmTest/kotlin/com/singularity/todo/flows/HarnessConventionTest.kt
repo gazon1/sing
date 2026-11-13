@@ -459,6 +459,11 @@ class HarnessConventionTest {
                 // scroll-aware helper would fail on it.
                 "AccountSettingsScreenTest.kt" to
                     "the profile avatar is not a drawer item and has no scrollable parent",
+                // The descriptions are the tree expander's Expand/Collapse action,
+                // not a drawer entry. The isolated tree has no scrollable parent,
+                // so the scroll-aware helper would have nothing to scroll.
+                "ProjectIdentityTest.kt" to
+                    "the tree expander's action description is not a drawer item and has no scrollable parent",
             )
 
         /**

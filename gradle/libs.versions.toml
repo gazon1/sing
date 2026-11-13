@@ -202,6 +202,8 @@ compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMul
 compose-ui-desktop = { module = "org.jetbrains.compose.ui:ui-desktop", version.ref = "composeMultiplatform" }
 # Compose Multiplatform desktop test — provides runDesktopComposeUiTest
 compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
+# Android instrumented Compose test — provides createAndroidComposeRule
+compose-ui-test-junit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 
 # Room 3 (androidx.room3 group)
