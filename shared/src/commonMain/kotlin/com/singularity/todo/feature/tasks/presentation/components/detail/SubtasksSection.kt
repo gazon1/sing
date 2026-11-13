@@ -83,6 +83,7 @@ fun SubtasksSection(
                         modifier =
                             Modifier
                                 .weight(1f)
+                                .bringIntoViewOnFocus()
                                 .testTag(TestTags.SUBTASK_ADD_INPUT),
                         placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,

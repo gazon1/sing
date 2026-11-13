@@ -27,10 +27,11 @@ phase that silently proves nothing is the defect this module exists to avoid.
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+
+from git import BadName, GitCommandError, InvalidGitRepositoryError, NoSuchPathError, Repo
 
 #: The tree this package lives in. A module of the package is imported as
 #: `sgate.control_scope`, but the gate script loads it by path — and a module
@@ -40,7 +41,7 @@ _SRC = Path(__file__).resolve().parents[1]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from sgate.gatekit.gitenv import tree_env  # noqa: E402
+from sgate.gatekit.gitenv import own_tree_env  # noqa: E402
 
 #: The refs the change is measured against, in order. The first one that
 #: resolves wins; `origin/main` is the branch a pull request is measured
@@ -60,41 +61,42 @@ SCRIPT_PREFIX = "scripts/"
 
 
 #: This checkout's own root. The scope is about THIS repository, so the git
-#: commands below read this tree and no other: a caller-chosen tree is a tree
+#: work below reads this tree and no other: a caller-chosen tree is a tree
 #: whose git variables the command would inherit.
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def _git(*args: str) -> tuple[int, str]:
-    # `tree_env()` drops the variables git exports to a hook: this command
-    # must mean the repository it discovers, not the one the hook runs in.
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=ROOT,
-        env=tree_env(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return proc.returncode, proc.stdout
+#: The change types `git diff --diff-filter=ACMR` keeps: added, copied,
+#: modified and renamed.
+KEPT_CHANGE_TYPES = frozenset({"A", "C", "M", "R"})
 
 
-def _merge_base(base: str) -> str | None:
-    code, out = _git("merge-base", base, "HEAD")
-    found = out.strip()
-    if code != 0 or not found:
+def _repo() -> Repo | None:
+    """The repository this checkout is, or None when there is none."""
+    try:
+        return Repo(ROOT, search_parent_directories=True)
+    except (InvalidGitRepositoryError, NoSuchPathError):
         return None
-    return found
 
 
-def _base_ref() -> str | None:
+def _merge_base(repo: Repo, base: str) -> str | None:
+    try:
+        bases = repo.merge_base(base, "HEAD")
+    except GitCommandError:
+        return None
+    return bases[0].hexsha if bases else None
+
+
+def _base_ref(repo: Repo) -> str | None:
     """The ref this change is measured against, or None when there is none."""
     explicit = os.environ.get("SGATE_BASE_REF", "").strip()
     candidates = (explicit,) if explicit else BASE_CANDIDATES
     for candidate in candidates:
-        code, _ = _git("rev-parse", "--verify", "--quiet", f"{candidate}^{{commit}}")
-        if code == 0:
-            return candidate
+        try:
+            repo.commit(f"{candidate}^{{commit}}")
+        except (BadName, ValueError, GitCommandError):
+            continue
+        return candidate
     return None
 
 
@@ -105,19 +107,28 @@ def changed_files() -> set[str] | None:
     merge-base cannot be found, and when the change is empty — an empty diff
     means "we cannot tell what changed", not "nothing changed".
     """
-    base = _base_ref()
-    if base is None:
-        return None
-    merge_base = _merge_base(base)
-    if merge_base is None:
-        return None
-    code, out = _git("diff", "--name-only", "--diff-filter=ACMR", "-z", merge_base)
-    if code != 0:
-        return None
-    files = {path for path in out.split("\0") if path}
-    if not files:
-        return None
-    return files
+    with own_tree_env():
+        repo = _repo()
+        if repo is None:
+            return None
+        base = _base_ref(repo)
+        if base is None:
+            return None
+        merge_base = _merge_base(repo, base)
+        if merge_base is None:
+            return None
+        try:
+            diff = repo.commit(merge_base).diff(None)
+        except GitCommandError:
+            return None
+        files = {
+            entry.b_path
+            for entry in diff
+            if entry.change_type in KEPT_CHANGE_TYPES and entry.b_path
+        }
+        if not files:
+            return None
+        return files
 
 
 def affected_gates(

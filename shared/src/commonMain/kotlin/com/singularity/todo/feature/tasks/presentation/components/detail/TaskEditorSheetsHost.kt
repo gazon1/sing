@@ -474,6 +474,10 @@ private fun TaskEditorRecurrenceSheet(
     RecurrencePickerSheet(
         currentSpec = model.recurrence,
         anchorDate = model.dueDate ?: now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+        // The due date on its own: the anchor above falls back to today, and
+        // today is not a date the task has. The sentence says when the series
+        // starts only when the rule hangs on the due date.
+        dueDate = model.dueDate,
         onApply = { spec ->
             callbacks.recurrence?.onChange?.invoke(spec)
             onSheetDismiss()

@@ -110,4 +110,49 @@
         <item quantity="many">Серия · %1$d дат</item>
         <item quantity="other">Серия · %1$d дат</item>
     </plurals>
+    <!-- The recurrence sentence; the same strings as in values/strings.xml. Russian
+         counts differently, so each unit carries the three forms it needs: one
+         ("Каждый 21 день"), few ("Каждые 3 дня") and many ("Каждые 5 дней"). -->
+    <string name="recurrence_every_day">Каждый день</string>
+    <string name="recurrence_every_week">Каждую неделю</string>
+    <string name="recurrence_every_month">Каждый месяц</string>
+    <string name="recurrence_every_year">Каждый год</string>
+    <plurals name="recurrence_every_days">
+        <item quantity="one">Каждый %1$d день</item>
+        <item quantity="few">Каждые %1$d дня</item>
+        <item quantity="many">Каждые %1$d дней</item>
+        <item quantity="other">Каждые %1$d дней</item>
+    </plurals>
+    <plurals name="recurrence_every_weeks">
+        <item quantity="one">Каждую %1$d неделю</item>
+        <item quantity="few">Каждые %1$d недели</item>
+        <item quantity="many">Каждые %1$d недель</item>
+        <item quantity="other">Каждые %1$d недель</item>
+    </plurals>
+    <plurals name="recurrence_every_months">
+        <item quantity="one">Каждый %1$d месяц</item>
+        <item quantity="few">Каждые %1$d месяца</item>
+        <item quantity="many">Каждые %1$d месяцев</item>
+        <item quantity="other">Каждые %1$d месяцев</item>
+    </plurals>
+    <plurals name="recurrence_every_years">
+        <item quantity="one">Каждый %1$d год</item>
+        <item quantity="few">Каждые %1$d года</item>
+        <item quantity="many">Каждые %1$d лет</item>
+        <item quantity="other">Каждые %1$d лет</item>
+    </plurals>
+    <string name="recurrence_weekly">Еженедельно по %1$s</string>
+    <string name="recurrence_monthly">Ежемесячно в %1$d-й день</string>
+    <string name="recurrence_yearly">Ежегодно, %2$d %1$s</string>
+    <string name="recurrence_from_due">от даты выполнения</string>
+    <string name="recurrence_from_completion">после выполнения</string>
+    <string name="recurrence_catch_up">с заполнением пропусков</string>
+    <!-- The sentence itself; the same keys as in values/strings.xml. The order of
+         the parts and the punctuation around them are the language's: Russian
+         says "начиная с" where English says "starting", and "до" where English
+         says "until". -->
+    <string name="recurrence_sentence">%1$s, %2$s</string>
+    <string name="recurrence_sentence_with_start">%1$s, %2$s, начиная с %3$s</string>
+    <string name="recurrence_sentence_with_end">%1$s, %2$s, до %3$s</string>
+    <string name="recurrence_sentence_with_start_and_end">%1$s, %2$s, начиная с %3$s, до %4$s</string>
 </resources>

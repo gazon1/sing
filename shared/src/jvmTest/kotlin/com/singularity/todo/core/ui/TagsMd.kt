@@ -387,6 +387,10 @@ object TagsMd {
                 DynamicMeta(fnName, "Projects", "Project Alpha", "Project cards")
             }
 
+            "projectPickerRow" -> {
+                DynamicMeta(fnName, "Projects", "p-1", "Project rows in the task editor's picker")
+            }
+
             "pomodoroTaskChip" -> {
                 DynamicMeta(fnName, "Pomodoro", "Buy milk", "Pomodoro focus-task chips")
             }

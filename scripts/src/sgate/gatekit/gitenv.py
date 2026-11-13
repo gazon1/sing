@@ -21,8 +21,10 @@ judges; it lives here so that the gates and the tests have one answer.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
+from collections.abc import Iterator
 
 #: The variables git exports for a hook. A command that means "this
 #: repository" must not inherit them.
@@ -64,6 +66,27 @@ def tree_env() -> dict[str, str]:
     for name in INHERITED_FROM_HOOK:
         env.pop(name, None)
     return env
+
+
+@contextlib.contextmanager
+def own_tree_env() -> Iterator[None]:
+    """`os.environ` without the variables git exports for a hook.
+
+    `tree_env()` is the answer for a command this repository starts by hand:
+    it hands the command an environment. GitPython cannot be handed one — it
+    reads `os.environ` itself, both when it opens the repository and when it
+    runs a command — so a caller that means *the repository in this directory*
+    takes the names out of `os.environ` for the duration of the call and puts
+    them back afterwards.
+
+    The same four names, the same answer, one place: a second spelling of
+    "which tree does this git command read" is a spelling that can drift.
+    """
+    saved = {name: os.environ.pop(name) for name in INHERITED_FROM_HOOK if name in os.environ}
+    try:
+        yield
+    finally:
+        os.environ.update(saved)
 
 
 def sandbox_env(root: pathlib.Path) -> dict[str, str]:

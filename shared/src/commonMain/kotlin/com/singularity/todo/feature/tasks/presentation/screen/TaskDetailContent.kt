@@ -12,13 +12,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -281,682 +283,678 @@ fun TaskDetailContent(
         onNavigateBack = { navigator.back() },
     )
 
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-        ) {
-            RefreshableContent {
-                when (val s = state) {
-                    TaskDetailUiState.Loading -> {
-                        LoadingState()
-                    }
+    Box(modifier = modifier.fillMaxSize()) {
+        RefreshableContent {
+            when (val s = state) {
+                TaskDetailUiState.Loading -> {
+                    LoadingState()
+                }
 
-                    is TaskDetailUiState.Error -> {
-                        ErrorState(
-                            message = s.message,
-                            onRetry = { coordinator.retry() },
-                        )
-                    }
+                is TaskDetailUiState.Error -> {
+                    ErrorState(
+                        message = s.message,
+                        onRetry = { coordinator.retry() },
+                    )
+                }
 
-                    is TaskDetailUiState.Loaded -> {
-                        val ui = s.ui
-                        val extras = s.extras
+                is TaskDetailUiState.Loaded -> {
+                    val ui = s.ui
+                    val extras = s.extras
 
-                        // The notification permission and the way out of it.
-                        //
-                        // The permission state decides whether the reminder row
-                        // says «Уведомления выключены» or the offset it holds.
-                        // The settings port decides whether there is a screen to
-                        // open at all — the desktop app has none, so it offers no
-                        // action rather than one that opens nothing.
-                        val notificationPermission = rememberNotificationPermissionRequester()
-                        val notificationSettings: NotificationSettingsPort = koinInject()
-                        val canOpenNotificationSettings = notificationSettings.isSupported
+                    // The notification permission and the way out of it.
+                    //
+                    // The permission state decides whether the reminder row
+                    // says «Уведомления выключены» or the offset it holds.
+                    // The settings port decides whether there is a screen to
+                    // open at all — the desktop app has none, so it offers no
+                    // action rather than one that opens nothing.
+                    val notificationPermission = rememberNotificationPermissionRequester()
+                    val notificationSettings: NotificationSettingsPort = koinInject()
+                    val canOpenNotificationSettings = notificationSettings.isSupported
 
-                        val attachmentsVm: AttachmentsViewModel = koinViewModel { parametersOf(ui.task.id) }
-                        val attachments by attachmentsVm.attachments.collectAsStateWithLifecycle()
-                        LaunchedEffect(attachmentsVm) {
-                            attachmentsVm.events.collect { event ->
-                                when (event) {
-                                    is AttachmentsUiEvent.UndoDelete -> {
-                                        notifications.send(
-                                            Notification.Undo(
-                                                title = "Attachment deleted",
-                                                actionLabel = "Undo",
-                                                onAction = {
-                                                    attachmentsVm.onIntent(
-                                                        AttachmentsIntent.RestoreAttachment(event.attachmentId),
-                                                    )
-                                                },
-                                            ),
-                                        )
-                                    }
-
-                                    else -> {}
-                                }
-                            }
-                        }
-
-                        // The attach-file entry point. Declared here rather than inside the
-                        // attachments card so the launcher survives recomposition with the
-                        // same identity, and so the card stays a presentational component.
-                        val pickAttachment =
-                            rememberAppFilePicker(FilePickPurpose.Attachment) { picked ->
-                                if (picked != null) {
-                                    attachmentsVm.onIntent(
-                                        AttachmentsIntent.SaveFile(
-                                            sourcePath = picked.path,
-                                            mimeType = picked.mimeType,
-                                            taskId = ui.task.id,
+                    val attachmentsVm: AttachmentsViewModel = koinViewModel { parametersOf(ui.task.id) }
+                    val attachments by attachmentsVm.attachments.collectAsStateWithLifecycle()
+                    LaunchedEffect(attachmentsVm) {
+                        attachmentsVm.events.collect { event ->
+                            when (event) {
+                                is AttachmentsUiEvent.UndoDelete -> {
+                                    notifications.send(
+                                        Notification.Undo(
+                                            title = "Attachment deleted",
+                                            actionLabel = "Undo",
+                                            onAction = {
+                                                attachmentsVm.onIntent(
+                                                    AttachmentsIntent.RestoreAttachment(event.attachmentId),
+                                                )
+                                            },
                                         ),
                                     )
                                 }
+
+                                else -> {}
                             }
+                        }
+                    }
 
-                        TaskEditorContent(
-                            model =
-                                TaskEditorModel(
-                                    taskId = ui.task.id,
-                                    priority = ui.task.priority,
-                                    dueDate = ui.task.dueDate,
-                                    dueTime = ui.task.dueTime,
-                                    startDate = null,
-                                    startTime = null,
-                                    project = ui.task.projectId,
-                                    projectName = ui.project?.name,
-                                    projectColor = ui.project?.color,
-                                    tags = remember(ui.tags) { ui.tags.map { it.id }.toImmutableList() },
-                                    recurrence = ui.task.recurrence,
-                                    isPinned = ui.task.isPinned,
-                                    estimateMinutes = ui.task.estimateMinutes,
-                                    blockedBy = ui.blockedBy,
-                                    followsUp = ui.followsUp,
-                                    workflowState = ui.task.workflowState,
-                                    relatedTasks = ui.relatedTasks,
-                                    // The attachments sheet reads the model's list, and the
-                                    // sheet is where an attachment is deleted. The detail
-                                    // kept its attachments out of the model — the section
-                                    // below the fields had them — so the sheet said "no
-                                    // attachments yet" on a task that had them, and there
-                                    // was nothing to delete from the one place that
-                                    // deletes.
-                                    attachments = remember(attachments) { attachments.toImmutableList() },
-                                    // The three planning facts that used to have no
-                                    // row on this screen: the deferred bucket, the
-                                    // deadline and the reminder.
-                                    //
-                                    // The deadline is the task's `endDate`, and the
-                                    // reminder's offset is read back from the stored
-                                    // reminder — the offset is not stored on the
-                                    // task, so there is no other place to read it
-                                    // from.
-                                    someday = ui.task.someday,
-                                    deadline = ui.task.endDate,
-                                    // What the app knows about the reminder. A
-                                    // reminder whose offset this build does not
-                                    // know is still a reminder: it is shown as
-                                    // one, and it is not rewritten into the
-                                    // nearest offset the app happens to offer.
-                                    reminderState =
-                                        remember(ui.reminders) {
-                                            ReminderOffsetState.of(
-                                                ui.reminders.firstOrNull()?.offsetMinutes,
+                    // The attach-file entry point. Declared here rather than inside the
+                    // attachments card so the launcher survives recomposition with the
+                    // same identity, and so the card stays a presentational component.
+                    val pickAttachment =
+                        rememberAppFilePicker(FilePickPurpose.Attachment) { picked ->
+                            if (picked != null) {
+                                attachmentsVm.onIntent(
+                                    AttachmentsIntent.SaveFile(
+                                        sourcePath = picked.path,
+                                        mimeType = picked.mimeType,
+                                        taskId = ui.task.id,
+                                    ),
+                                )
+                            }
+                        }
+
+                    TaskEditorContent(
+                        model =
+                            TaskEditorModel(
+                                taskId = ui.task.id,
+                                priority = ui.task.priority,
+                                dueDate = ui.task.dueDate,
+                                dueTime = ui.task.dueTime,
+                                startDate = null,
+                                startTime = null,
+                                project = ui.task.projectId,
+                                projectName = ui.project?.name,
+                                projectColor = ui.project?.color,
+                                tags = remember(ui.tags) { ui.tags.map { it.id }.toImmutableList() },
+                                recurrence = ui.task.recurrence,
+                                isPinned = ui.task.isPinned,
+                                estimateMinutes = ui.task.estimateMinutes,
+                                blockedBy = ui.blockedBy,
+                                followsUp = ui.followsUp,
+                                workflowState = ui.task.workflowState,
+                                relatedTasks = ui.relatedTasks,
+                                // The attachments sheet reads the model's list, and the
+                                // sheet is where an attachment is deleted. The detail
+                                // kept its attachments out of the model — the section
+                                // below the fields had them — so the sheet said "no
+                                // attachments yet" on a task that had them, and there
+                                // was nothing to delete from the one place that
+                                // deletes.
+                                attachments = remember(attachments) { attachments.toImmutableList() },
+                                // The three planning facts that used to have no
+                                // row on this screen: the deferred bucket, the
+                                // deadline and the reminder.
+                                //
+                                // The deadline is the task's `endDate`, and the
+                                // reminder's offset is read back from the stored
+                                // reminder — the offset is not stored on the
+                                // task, so there is no other place to read it
+                                // from.
+                                someday = ui.task.someday,
+                                deadline = ui.task.endDate,
+                                // What the app knows about the reminder. A
+                                // reminder whose offset this build does not
+                                // know is still a reminder: it is shown as
+                                // one, and it is not rewritten into the
+                                // nearest offset the app happens to offer.
+                                reminderState =
+                                    remember(ui.reminders) {
+                                        ReminderOffsetState.of(
+                                            ui.reminders.firstOrNull()?.offsetMinutes,
+                                        )
+                                    },
+                                notificationsEnabled = notificationPermission.hasPermissions,
+                            ),
+                        titleSource = ui.titleSource,
+                        // Nothing under the field until the title has been edited — a
+                        // task that arrived with a valid title is not an edit in progress,
+                        // and opening it must not paint a red message. A task that arrived
+                        // with a blank title keeps the message: the title is still invalid,
+                        // and hiding it would hide why the autosave refuses the write.
+                        titleError =
+                            TaskTitleValidation
+                                .error(ui.titleDraft.value)
+                                .takeIf { ui.task.title.isBlank() || ui.titleDraft.value != ui.task.title },
+                        descriptionSource = ui.descriptionSource,
+                        savedVisible = savedPill.visible,
+                        onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
+                        onDescriptionChange = {
+                            coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))
+                        },
+                        callbacks =
+                            TaskEditorCallbacks(
+                                onBack = {
+                                    coordinator.flushDraft()
+                                    navigator.back()
+                                },
+                                onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                                workflowState =
+                                    RowCallbacks(
+                                        onChange = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetWorkflowState(it),
                                             )
                                         },
-                                    notificationsEnabled = notificationPermission.hasPermissions,
-                                ),
-                            titleSource = ui.titleSource,
-                            // Nothing under the field until the title has been edited — a
-                            // task that arrived with a valid title is not an edit in progress,
-                            // and opening it must not paint a red message. A task that arrived
-                            // with a blank title keeps the message: the title is still invalid,
-                            // and hiding it would hide why the autosave refuses the write.
-                            titleError =
-                                TaskTitleValidation
-                                    .error(ui.titleDraft.value)
-                                    .takeIf { ui.task.title.isBlank() || ui.titleDraft.value != ui.task.title },
-                            descriptionSource = ui.descriptionSource,
-                            savedVisible = savedPill.visible,
-                            onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
-                            onDescriptionChange = {
-                                coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))
-                            },
-                            callbacks =
-                                TaskEditorCallbacks(
-                                    onBack = {
-                                        coordinator.flushDraft()
-                                        navigator.back()
+                                        onClick = { sheets.show(TaskEditorSheet.WorkflowState) },
+                                    ),
+                                priority =
+                                    RowCallbacks(
+                                        onChange = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetPriority(it),
+                                            )
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.Priority) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetPriority(TaskPriority.None),
+                                            )
+                                        },
+                                    ),
+                                dueDate =
+                                    DateRowCallbacks(
+                                        // The date and its time are facts of
+                                        // the schedule, so they are written
+                                        // through it: one write, one copy of
+                                        // the task, one place where the rules
+                                        // between the facts are applied.
+                                        onChangeDate = { date ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    dueDate = ScheduleChange.Value(date),
+                                                ),
+                                            )
+                                        },
+                                        onChangeTime = { time ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    dueTime = ScheduleChange.Value(time),
+                                                ),
+                                            )
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.Date) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    dueDate = ScheduleChange.Value(null),
+                                                ),
+                                            )
+                                        },
+                                    ),
+                                startDate = null,
+                                // The reminder.
+                                //
+                                // The sheet supplies the offset and the
+                                // existing intents do the write — the
+                                // reminders slot owns the scheduler and the
+                                // capability gate. The row itself only opens
+                                // the sheet.
+                                reminder =
+                                    ReminderRowCallbacks(
+                                        onSet = { offset ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetReminder(offset),
+                                            )
+                                        },
+                                        onClear = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.Reminder) },
+                                    ),
+                                // The deadline — the bound by which the work
+                                // has to be done. Independent of the due date:
+                                // clearing one leaves the other alone.
+                                deadline =
+                                    DeadlineRowCallbacks(
+                                        onClick = { sheets.show(TaskEditorSheet.Deadline) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetSchedule(
+                                                    deadline = ScheduleChange.Value(null),
+                                                ),
+                                            )
+                                        },
+                                    ),
+                                // The schedule — the due date and its time,
+                                // the deadline and the `someday` bucket.
+                                //
+                                // One bundle, because they are one decision
+                                // and one write: the sheet that edits them
+                                // reports what changed, and the slot applies
+                                // it to a single copy of the task.
+                                schedule =
+                                    ScheduleCallbacks(
+                                        onChange = { coordinator.onIntent(it) },
+                                    ),
+                                // The two ways out of a refused notification
+                                // permission. A refusal with no way out is a
+                                // dead end, so both are offered where the
+                                // platform has them.
+                                onRequestNotificationPermission =
+                                    if (notificationPermission.hasPermissions) {
+                                        null
+                                    } else {
+                                        { notificationPermission.requestPermissions() }
                                     },
-                                    onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
-                                    workflowState =
-                                        RowCallbacks(
-                                            onChange = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetWorkflowState(it),
-                                                )
-                                            },
-                                            onClick = { sheets.show(TaskEditorSheet.WorkflowState) },
-                                        ),
-                                    priority =
-                                        RowCallbacks(
-                                            onChange = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetPriority(it),
-                                                )
-                                            },
-                                            onClick = { sheets.show(TaskEditorSheet.Priority) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetPriority(TaskPriority.None),
-                                                )
-                                            },
-                                        ),
-                                    dueDate =
-                                        DateRowCallbacks(
-                                            // The date and its time are facts of
-                                            // the schedule, so they are written
-                                            // through it: one write, one copy of
-                                            // the task, one place where the rules
-                                            // between the facts are applied.
-                                            onChangeDate = { date ->
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetSchedule(
-                                                        dueDate = ScheduleChange.Value(date),
-                                                    ),
-                                                )
-                                            },
-                                            onChangeTime = { time ->
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetSchedule(
-                                                        dueTime = ScheduleChange.Value(time),
-                                                    ),
-                                                )
-                                            },
-                                            onClick = { sheets.show(TaskEditorSheet.Date) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetSchedule(
-                                                        dueDate = ScheduleChange.Value(null),
-                                                    ),
-                                                )
-                                            },
-                                        ),
-                                    startDate = null,
-                                    // The reminder.
-                                    //
-                                    // The sheet supplies the offset and the
-                                    // existing intents do the write — the
-                                    // reminders slot owns the scheduler and the
-                                    // capability gate. The row itself only opens
-                                    // the sheet.
-                                    reminder =
-                                        ReminderRowCallbacks(
-                                            onSet = { offset ->
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetReminder(offset),
-                                                )
-                                            },
-                                            onClear = {
-                                                coordinator.onIntent(TaskDetailIntent.Domain.DeleteReminder)
-                                            },
-                                            onClick = { sheets.show(TaskEditorSheet.Reminder) },
-                                        ),
-                                    // The deadline — the bound by which the work
-                                    // has to be done. Independent of the due date:
-                                    // clearing one leaves the other alone.
-                                    deadline =
-                                        DeadlineRowCallbacks(
-                                            onClick = { sheets.show(TaskEditorSheet.Deadline) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetSchedule(
-                                                        deadline = ScheduleChange.Value(null),
-                                                    ),
-                                                )
-                                            },
-                                        ),
-                                    // The schedule — the due date and its time,
-                                    // the deadline and the `someday` bucket.
-                                    //
-                                    // One bundle, because they are one decision
-                                    // and one write: the sheet that edits them
-                                    // reports what changed, and the slot applies
-                                    // it to a single copy of the task.
-                                    schedule =
-                                        ScheduleCallbacks(
-                                            onChange = { coordinator.onIntent(it) },
-                                        ),
-                                    // The two ways out of a refused notification
-                                    // permission. A refusal with no way out is a
-                                    // dead end, so both are offered where the
-                                    // platform has them.
-                                    onRequestNotificationPermission =
-                                        if (notificationPermission.hasPermissions) {
-                                            null
-                                        } else {
-                                            { notificationPermission.requestPermissions() }
+                                onOpenNotificationSettings =
+                                    if (canOpenNotificationSettings) {
+                                        { notificationSettings.open() }
+                                    } else {
+                                        null
+                                    },
+                                project =
+                                    RowCallbacks(
+                                        onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },
+                                        onClick = { sheets.show(TaskEditorSheet.Project) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetProject(null),
+                                            )
                                         },
-                                    onOpenNotificationSettings =
-                                        if (canOpenNotificationSettings) {
-                                            { notificationSettings.open() }
-                                        } else {
-                                            null
+                                    ),
+                                tags =
+                                    RowCallbacks(
+                                        onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(it)) },
+                                        onClick = { sheets.show(TaskEditorSheet.Tags) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetTags(emptyList()),
+                                            )
                                         },
-                                    project =
-                                        RowCallbacks(
-                                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },
-                                            onClick = { sheets.show(TaskEditorSheet.Project) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetProject(null),
-                                                )
-                                            },
-                                        ),
-                                    tags =
-                                        RowCallbacks(
-                                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(it)) },
-                                            onClick = { sheets.show(TaskEditorSheet.Tags) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetTags(emptyList()),
-                                                )
-                                            },
-                                        ),
-                                    recurrence =
-                                        RowCallbacks(
-                                            onChange = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetRecurrence(it),
-                                                )
-                                            },
-                                            onClick = { sheets.show(TaskEditorSheet.Recurrence) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetRecurrence(null),
-                                                )
-                                            },
-                                        ),
-                                    pin =
-                                        ToggleCallbacks(
-                                            onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.TogglePinned) },
-                                        ),
-                                    estimate =
-                                        RowCallbacks(
-                                            onChange = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetEstimate(it),
-                                                )
-                                            },
-                                            onClick = { sheets.show(TaskEditorSheet.Estimate) },
-                                            onClear = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetEstimate(null),
-                                                )
-                                            },
-                                        ),
-                                    dependencies =
-                                        RowCallbacks(
-                                            onChange = {
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetDependencyRelations(it),
-                                                )
-                                            },
-                                        ),
-                                    checklist = null,
-                                    // The bundle that gives the attachments sheet its
-                                    // behaviour: without it the sheet opens with no way to
-                                    // add a link or a file. A URL attachment — the kind a
-                                    // person types — had no way in at all.
-                                    attachments =
-                                        AttachmentsCallbacks(
-                                            onOpen = { sheets.show(TaskEditorSheet.Attachments) },
-                                            onAddUrl = { url, title ->
-                                                attachmentsVm.onIntent(
-                                                    AttachmentsIntent.AddUrl(ui.task.id, url, title),
-                                                )
-                                            },
-                                            onAttachFile = { pickAttachment() },
-                                            onDelete = {
-                                                attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
-                                            },
-                                        ),
-                                    onTimeEntryAdd = null,
-                                    onTimeEntrySave = null,
-                                    // The offers the screen makes to the person: the first-run
-                                    // banner and the pending AI proposals. They have a slot of
-                                    // their own, so their place on the screen is the editor's
-                                    // decision and not a side effect of which child sections the
-                                    // slot below happens to carry — the editor draws them
-                                    // directly under the title and the description, above the
-                                    // attribute rows, for every task.
-                                    bannerSections = {
-                                        // First-run nudge and pending AI proposals both
-                                        // arrive through `extras`, which is Unresolved
-                                        // until the coordinator's cold-start work lands.
-                                        // Reading them as absent while unresolved is the
-                                        // intended behaviour: there is nothing to show yet,
-                                        // and inventing an empty offer would flash a
-                                        // section that disappears a frame later.
-                                        val firstRun =
-                                            when (val ex = extras) {
-                                                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                                                is TaskDetailExtras.Ready -> ex.firstRun
-                                            }
-                                        val proposals =
-                                            when (val ex = extras) {
-                                                is TaskDetailExtras.Unresolved -> persistentListOf()
-                                                is TaskDetailExtras.Ready -> ex.proposals
-                                            }
-                                        val proposalFailures =
-                                            when (val ex = extras) {
-                                                is TaskDetailExtras.Unresolved -> persistentMapOf()
-                                                is TaskDetailExtras.Ready -> ex.proposalFailures
-                                            }
-                                        // Draw the slot at all only when there is an offer in
-                                        // it. An empty column is still a child of the editor's
-                                        // column, so its `spacedBy(md)` puts one extra gap
-                                        // between the description and the first attribute row
-                                        // on every task that has nothing to offer.
-                                        if (firstRun is FirstRun.Offer || proposals.isNotEmpty()) {
-                                            Column(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                            ) {
-                                                if (firstRun is FirstRun.Offer) {
-                                                    FirstRunSection(
-                                                        // Only Ask AI has a handler to give it. The
-                                                        // other two chips are not rendered — see
-                                                        // FirstRunSection's KDoc.
-                                                        onAskAi = { showAiSheet = true },
-                                                    )
-                                                }
-                                                if (proposals.isNotEmpty()) {
-                                                    TaskDetailProposalSection(
-                                                        proposals = proposals,
-                                                        failures = proposalFailures,
-                                                        onConfirm = { itemId ->
-                                                            coordinator.onIntent(
-                                                                TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
-                                                            )
-                                                        },
-                                                        onReject = { itemId, reason ->
-                                                            coordinator.onIntent(
-                                                                TaskDetailIntent.Domain.RejectProposalItem(
-                                                                    itemId,
-                                                                    reason,
-                                                                ),
-                                                            )
-                                                        },
-                                                        onConfirmAll = { proposalId ->
-                                                            coordinator.onIntent(
-                                                                TaskDetailIntent.Domain.ConfirmAllProposalItems(
-                                                                    proposalId,
-                                                                ),
-                                                            )
-                                                        },
-                                                        onDismiss = { proposalId ->
-                                                            coordinator.onIntent(
-                                                                TaskDetailIntent.Domain.DismissProposal(proposalId),
-                                                            )
-                                                        },
-                                                        onEdit = { itemId, text ->
-                                                            coordinator.onIntent(
-                                                                TaskDetailIntent.Domain.EditProposalItem(itemId, text),
-                                                            )
-                                                        },
-                                                    )
-                                                }
-                                            }
+                                    ),
+                                recurrence =
+                                    RowCallbacks(
+                                        onChange = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetRecurrence(it),
+                                            )
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.Recurrence) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetRecurrence(null),
+                                            )
+                                        },
+                                    ),
+                                pin =
+                                    ToggleCallbacks(
+                                        onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.TogglePinned) },
+                                    ),
+                                estimate =
+                                    RowCallbacks(
+                                        onChange = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetEstimate(it),
+                                            )
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.Estimate) },
+                                        onClear = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetEstimate(null),
+                                            )
+                                        },
+                                    ),
+                                dependencies =
+                                    RowCallbacks(
+                                        onChange = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.SetDependencyRelations(it),
+                                            )
+                                        },
+                                    ),
+                                checklist = null,
+                                // The bundle that gives the attachments sheet its
+                                // behaviour: without it the sheet opens with no way to
+                                // add a link or a file. A URL attachment — the kind a
+                                // person types — had no way in at all.
+                                attachments =
+                                    AttachmentsCallbacks(
+                                        onOpen = { sheets.show(TaskEditorSheet.Attachments) },
+                                        onAddUrl = { url, title ->
+                                            attachmentsVm.onIntent(
+                                                AttachmentsIntent.AddUrl(ui.task.id, url, title),
+                                            )
+                                        },
+                                        onAttachFile = { pickAttachment() },
+                                        onDelete = {
+                                            attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
+                                        },
+                                    ),
+                                onTimeEntryAdd = null,
+                                onTimeEntrySave = null,
+                                // The offers the screen makes to the person: the first-run
+                                // banner and the pending AI proposals. They have a slot of
+                                // their own, so their place on the screen is the editor's
+                                // decision and not a side effect of which child sections the
+                                // slot below happens to carry — the editor draws them
+                                // directly under the title and the description, above the
+                                // attribute rows, for every task.
+                                bannerSections = {
+                                    // First-run nudge and pending AI proposals both
+                                    // arrive through `extras`, which is Unresolved
+                                    // until the coordinator's cold-start work lands.
+                                    // Reading them as absent while unresolved is the
+                                    // intended behaviour: there is nothing to show yet,
+                                    // and inventing an empty offer would flash a
+                                    // section that disappears a frame later.
+                                    val firstRun =
+                                        when (val ex = extras) {
+                                            is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                            is TaskDetailExtras.Ready -> ex.firstRun
                                         }
-                                    },
-                                    // The child sections: the task's own content, drawn after
-                                    // the attribute rows so the due date, the priority and the
-                                    // project stay on the first screen. Where they sit is the
-                                    // editor's business, and the offers above do not travel
-                                    // with them.
-                                    extraSections = {
-                                        val projectsRepo: ProjectsRepository = koinInject()
-                                        val projects by projectsRepo
-                                            .observeAllIncludingClosed()
-                                            .collectAsStateWithLifecycle(
-                                                initialValue = emptyList(),
-                                            )
-                                        val relatedProjects =
-                                            remember(projects) { projects.associate { it.id to it.name } }
-                                        val relationItems =
-                                            remember(ui.blockedBy, ui.followsUp, ui.relatedTasks, relatedProjects) {
-                                                val byId = ui.relatedTasks.associateBy { it.id }
-
-                                                fun itemFor(
-                                                    id: TaskId,
-                                                    verb: DependencyVerb,
-                                                ): RelatedTaskItemUi {
-                                                    val task = byId[id]
-                                                    return if (task != null) {
-                                                        RelatedTaskItemUi(
-                                                            id = id,
-                                                            title = task.title,
-                                                            verb = verb,
-                                                            projectName = task.projectId?.let { relatedProjects[it] },
-                                                            canOpen = true,
-                                                        )
-                                                    } else {
-                                                        RelatedTaskItemUi(
-                                                            id = id,
-                                                            title = "Unavailable task",
-                                                            verb = verb,
-                                                            projectName = null,
-                                                            canOpen = false,
-                                                        )
-                                                    }
-                                                }
-                                                buildList {
-                                                    ui.blockedBy.forEach { add(itemFor(it, DependencyVerb.BLOCKS)) }
-                                                    ui.followsUp.forEach { add(itemFor(it, DependencyVerb.FOLLOWS_UP)) }
-                                                }.sortedBy { it.title.lowercase() }.toImmutableList()
-                                            }
-                                        val currentRelations =
-                                            remember(ui.blockedBy, ui.followsUp) {
-                                                buildMap {
-                                                    ui.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
-                                                    ui.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
-                                                }
-                                            }
+                                    val proposals =
+                                        when (val ex = extras) {
+                                            is TaskDetailExtras.Unresolved -> persistentListOf()
+                                            is TaskDetailExtras.Ready -> ex.proposals
+                                        }
+                                    val proposalFailures =
+                                        when (val ex = extras) {
+                                            is TaskDetailExtras.Unresolved -> persistentMapOf()
+                                            is TaskDetailExtras.Ready -> ex.proposalFailures
+                                        }
+                                    // Draw the slot at all only when there is an offer in
+                                    // it. An empty column is still a child of the editor's
+                                    // column, so its `spacedBy(md)` puts one extra gap
+                                    // between the description and the first attribute row
+                                    // on every task that has nothing to offer.
+                                    if (firstRun is FirstRun.Offer || proposals.isNotEmpty()) {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
                                         ) {
-                                            RelatedTasksSection(
-                                                items = relationItems,
-                                                onAdd = { sheets.show(TaskEditorSheet.Dependencies) },
-                                                onRemove = { id ->
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.SetDependencyRelations(
-                                                            currentRelations - id,
-                                                        ),
-                                                    )
-                                                },
-                                                onOpen = { navigator.openDetail(it) },
-                                            )
-                                            TaskDetailTagsSection(
-                                                tags = ui.tags,
-                                                onDeleteTag = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.RemoveTag(it),
-                                                    )
-                                                },
-                                            )
-                                            val recurrence = ui.task.recurrence
-                                            if (recurrence != null) {
-                                                TaskDetailRecurrenceSection(
-                                                    recurrence = recurrence,
+                                            if (firstRun is FirstRun.Offer) {
+                                                FirstRunSection(
+                                                    // Only Ask AI has a handler to give it. The
+                                                    // other two chips are not rendered — see
+                                                    // FirstRunSection's KDoc.
+                                                    onAskAi = { showAiSheet = true },
                                                 )
                                             }
-                                            TaskDetailChecklistSection(
-                                                checklist = ui.checklist,
-                                                onToggle = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.ToggleChecklistItem(it),
-                                                    )
-                                                },
-                                                onDelete = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.DeleteChecklistItem(it),
-                                                    )
-                                                },
-                                                // The add-row lives in the section itself, so
-                                                // a checklist item is created from the task
-                                                // screen without a sheet opening.
-                                                onAddItem = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.AddChecklistItem(it),
-                                                    )
-                                                },
-                                            )
-                                            SubtasksSection(
-                                                subtasks = ui.subtasks,
-                                                onToggle = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.ToggleSubtask(it),
-                                                    )
-                                                },
-                                                onDelete = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.DeleteSubtask(it),
-                                                    )
-                                                },
-                                                onOpen = { navigator.openDetail(it.id) },
-                                                onAddSubtask = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.AddSubtask(it),
-                                                    )
-                                                },
-                                            )
-                                            // Always shown, not only when there is something to show: this row
-                                            // is also how the user opens the attachments sheet to attach
-                                            // the first file — or the first link.
-                                            TaskDetailAttachmentsSection(
-                                                attachments = remember(attachments) { attachments.toImmutableList() },
-                                                onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
-                                                onDelete = {
-                                                    attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
-                                                },
-                                                onOpen = { id -> navigator.openAttachment(id) },
-                                            )
-                                            if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
-                                                LinkedBacklinksCard(
-                                                    linkedNotes = ui.linkedNotes,
-                                                    linkedTasks = ui.linkedTasks,
-                                                    onOpenNote = { navigator.openNote(it) },
-                                                    onOpenTask = { navigator.openDetail(it) },
+                                            if (proposals.isNotEmpty()) {
+                                                TaskDetailProposalSection(
+                                                    proposals = proposals,
+                                                    failures = proposalFailures,
+                                                    onConfirm = { itemId ->
+                                                        coordinator.onIntent(
+                                                            TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
+                                                        )
+                                                    },
+                                                    onReject = { itemId, reason ->
+                                                        coordinator.onIntent(
+                                                            TaskDetailIntent.Domain.RejectProposalItem(
+                                                                itemId,
+                                                                reason,
+                                                            ),
+                                                        )
+                                                    },
+                                                    onConfirmAll = { proposalId ->
+                                                        coordinator.onIntent(
+                                                            TaskDetailIntent.Domain.ConfirmAllProposalItems(
+                                                                proposalId,
+                                                            ),
+                                                        )
+                                                    },
+                                                    onDismiss = { proposalId ->
+                                                        coordinator.onIntent(
+                                                            TaskDetailIntent.Domain.DismissProposal(proposalId),
+                                                        )
+                                                    },
+                                                    onEdit = { itemId, text ->
+                                                        coordinator.onIntent(
+                                                            TaskDetailIntent.Domain.EditProposalItem(itemId, text),
+                                                        )
+                                                    },
                                                 )
                                             }
-                                            // The series card. Rendered only for a task that
-                                            // belongs to one: a task that stands alone has
-                                            // nothing to say about other occurrences.
-                                            TaskSeriesCard(
-                                                members = ui.seriesMembers,
-                                                onOpenMember = { navigator.openDetail(it) },
-                                                onApplyToAll = {
-                                                    coordinator.onIntent(
-                                                        TaskDetailIntent.Domain.ApplyToAllOccurrences,
+                                        }
+                                    }
+                                },
+                                // The child sections: the task's own content, drawn after
+                                // the attribute rows so the due date, the priority and the
+                                // project stay on the first screen. Where they sit is the
+                                // editor's business, and the offers above do not travel
+                                // with them.
+                                extraSections = {
+                                    val projectsRepo: ProjectsRepository = koinInject()
+                                    val projects by projectsRepo
+                                        .observeAllIncludingClosed()
+                                        .collectAsStateWithLifecycle(
+                                            initialValue = emptyList(),
+                                        )
+                                    val relatedProjects =
+                                        remember(projects) { projects.associate { it.id to it.name } }
+                                    val relationItems =
+                                        remember(ui.blockedBy, ui.followsUp, ui.relatedTasks, relatedProjects) {
+                                            val byId = ui.relatedTasks.associateBy { it.id }
+
+                                            fun itemFor(
+                                                id: TaskId,
+                                                verb: DependencyVerb,
+                                            ): RelatedTaskItemUi {
+                                                val task = byId[id]
+                                                return if (task != null) {
+                                                    RelatedTaskItemUi(
+                                                        id = id,
+                                                        title = task.title,
+                                                        verb = verb,
+                                                        projectName = task.projectId?.let { relatedProjects[it] },
+                                                        canOpen = true,
                                                     )
-                                                },
-                                                onDetach = {
-                                                    coordinator.onIntent(TaskDetailIntent.Domain.DetachFromSeries)
-                                                },
-                                                onDeleteSeries = {
-                                                    coordinator.onIntent(TaskDetailIntent.Domain.DeleteSeries)
-                                                },
-                                            )
-                                            TimeTrackingSection(
-                                                state = ui.timeSlotState,
-                                                onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
-                                                onStop = { coordinator.onIntent(TaskDetailIntent.Domain.Stop) },
-                                                onAddManual = { showTimeEntrySheet = true },
-                                            )
-                                            LogbookSection(
-                                                entries = ui.logbookEntries,
-                                                onOpenNote = { navigator.openNote(it) },
-                                                onAddNote = { taskId -> navigator.openCreateNote(taskId) },
-                                                currentTaskId = ui.task.id,
-                                                now = now,
+                                                } else {
+                                                    RelatedTaskItemUi(
+                                                        id = id,
+                                                        title = "Unavailable task",
+                                                        verb = verb,
+                                                        projectName = null,
+                                                        canOpen = false,
+                                                    )
+                                                }
+                                            }
+                                            buildList {
+                                                ui.blockedBy.forEach { add(itemFor(it, DependencyVerb.BLOCKS)) }
+                                                ui.followsUp.forEach { add(itemFor(it, DependencyVerb.FOLLOWS_UP)) }
+                                            }.sortedBy { it.title.lowercase() }.toImmutableList()
+                                        }
+                                    val currentRelations =
+                                        remember(ui.blockedBy, ui.followsUp) {
+                                            buildMap {
+                                                ui.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
+                                                ui.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
+                                            }
+                                        }
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        RelatedTasksSection(
+                                            items = relationItems,
+                                            onAdd = { sheets.show(TaskEditorSheet.Dependencies) },
+                                            onRemove = { id ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.SetDependencyRelations(
+                                                        currentRelations - id,
+                                                    ),
+                                                )
+                                            },
+                                            onOpen = { navigator.openDetail(it) },
+                                        )
+                                        TaskDetailTagsSection(
+                                            tags = ui.tags,
+                                            onDeleteTag = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.RemoveTag(it),
+                                                )
+                                            },
+                                        )
+                                        val recurrence = ui.task.recurrence
+                                        if (recurrence != null) {
+                                            TaskDetailRecurrenceSection(
+                                                recurrence = recurrence,
+                                                // The rule hangs on the task's
+                                                // due date when its base says
+                                                // so, and then the sentence
+                                                // says when the series starts.
+                                                dueDate = ui.task.dueDate,
                                             )
                                         }
+                                        TaskDetailChecklistSection(
+                                            checklist = ui.checklist,
+                                            onToggle = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.ToggleChecklistItem(it),
+                                                )
+                                            },
+                                            onDelete = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.DeleteChecklistItem(it),
+                                                )
+                                            },
+                                            // The add-row lives in the section itself, so
+                                            // a checklist item is created from the task
+                                            // screen without a sheet opening.
+                                            onAddItem = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.AddChecklistItem(it),
+                                                )
+                                            },
+                                        )
+                                        SubtasksSection(
+                                            subtasks = ui.subtasks,
+                                            onToggle = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.ToggleSubtask(it),
+                                                )
+                                            },
+                                            onDelete = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.DeleteSubtask(it),
+                                                )
+                                            },
+                                            onOpen = { navigator.openDetail(it.id) },
+                                            onAddSubtask = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.AddSubtask(it),
+                                                )
+                                            },
+                                        )
+                                        // Always shown, not only when there is something to show: this row
+                                        // is also how the user opens the attachments sheet to attach
+                                        // the first file — or the first link.
+                                        TaskDetailAttachmentsSection(
+                                            attachments = remember(attachments) { attachments.toImmutableList() },
+                                            onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
+                                            onDelete = {
+                                                attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
+                                            },
+                                            onOpen = { id -> navigator.openAttachment(id) },
+                                        )
+                                        if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
+                                            LinkedBacklinksCard(
+                                                linkedNotes = ui.linkedNotes,
+                                                linkedTasks = ui.linkedTasks,
+                                                onOpenNote = { navigator.openNote(it) },
+                                                onOpenTask = { navigator.openDetail(it) },
+                                            )
+                                        }
+                                        // The series card. Rendered only for a task that
+                                        // belongs to one: a task that stands alone has
+                                        // nothing to say about other occurrences.
+                                        TaskSeriesCard(
+                                            members = ui.seriesMembers,
+                                            onOpenMember = { navigator.openDetail(it) },
+                                            onApplyToAll = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.ApplyToAllOccurrences,
+                                                )
+                                            },
+                                            onDetach = {
+                                                coordinator.onIntent(TaskDetailIntent.Domain.DetachFromSeries)
+                                            },
+                                            onDeleteSeries = {
+                                                coordinator.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+                                            },
+                                        )
+                                        TimeTrackingSection(
+                                            state = ui.timeSlotState,
+                                            onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
+                                            onStop = { coordinator.onIntent(TaskDetailIntent.Domain.Stop) },
+                                            onAddManual = { showTimeEntrySheet = true },
+                                        )
+                                        LogbookSection(
+                                            entries = ui.logbookEntries,
+                                            onOpenNote = { navigator.openNote(it) },
+                                            onAddNote = { taskId -> navigator.openCreateNote(taskId) },
+                                            currentTaskId = ui.task.id,
+                                            now = now,
+                                        )
+                                    }
+                                },
+                                bottomBar = null,
+                                menuItems =
+                                    buildDetailMenuItems(isTrashed = ui.task.isTrashed) { intent ->
+                                        coordinator.onIntent(intent)
                                     },
-                                    bottomBar = null,
-                                    menuItems =
-                                        buildDetailMenuItems(isTrashed = ui.task.isTrashed) { intent ->
-                                            coordinator.onIntent(intent)
-                                        },
-                                    onAiClick = { showAiSheet = true },
-                                ),
-                            isCompleted = ui.task.isCompleted,
-                            now = now,
-                            // The state the rows open their sheets through. The editor renders
-                            // the sheets from the same state, so the row that opens one and the
-                            // host that shows it are looking at one thing.
-                            sheets = sheets,
-                            // The detail lists its attachments under the fields, the way
-                            // it lists its checklist items — so no card here. The sheet
-                            // is opened from that list instead, and the callbacks the
-                            // sheet needs travel with the bundle, not with the card.
-                            showAttachmentsRow = false,
+                                onAiClick = { showAiSheet = true },
+                            ),
+                        isCompleted = ui.task.isCompleted,
+                        now = now,
+                        // The state the rows open their sheets through. The editor renders
+                        // the sheets from the same state, so the row that opens one and the
+                        // host that shows it are looking at one thing.
+                        sheets = sheets,
+                        // The detail lists its attachments under the fields, the way
+                        // it lists its checklist items — so no card here. The sheet
+                        // is opened from that list instead, and the callbacks the
+                        // sheet needs travel with the bundle, not with the card.
+                        showAttachmentsRow = false,
+                        snackbarHost = { SnackbarHost(snackbarHostState) },
+                    )
+
+                    if (showAiSheet) {
+                        TaskAiBottomSheet(
+                            task = ui.task,
+                            onAction = { action ->
+                                coordinator.onIntent(TaskDetailIntent.Domain.RunAiAction(action))
+                                showAiSheet = false
+                            },
+                            onDismiss = { showAiSheet = false },
                         )
+                    }
 
-                        if (showAiSheet) {
-                            TaskAiBottomSheet(
-                                task = ui.task,
-                                onAction = { action ->
-                                    coordinator.onIntent(TaskDetailIntent.Domain.RunAiAction(action))
-                                    showAiSheet = false
-                                },
-                                onDismiss = { showAiSheet = false },
-                            )
-                        }
+                    if (showTimeEntrySheet) {
+                        TimeEntryEditorSheet(
+                            taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
+                            now = now,
+                            onSave = { startedAtMs, endedAtMs, kind, note ->
+                                coordinator.onIntent(
+                                    TaskDetailIntent.Domain.CreateManual(
+                                        startedAtMs = startedAtMs,
+                                        endedAtMs = endedAtMs,
+                                        kind = kind,
+                                        note = note,
+                                    ),
+                                )
+                                showTimeEntrySheet = false
+                            },
+                            onDismiss = { showTimeEntrySheet = false },
+                        )
+                    }
 
-                        if (showTimeEntrySheet) {
-                            TimeEntryEditorSheet(
-                                taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
-                                now = now,
-                                onSave = { startedAtMs, endedAtMs, kind, note ->
-                                    coordinator.onIntent(
-                                        TaskDetailIntent.Domain.CreateManual(
-                                            startedAtMs = startedAtMs,
-                                            endedAtMs = endedAtMs,
-                                            kind = kind,
-                                            note = note,
-                                        ),
-                                    )
-                                    showTimeEntrySheet = false
-                                },
-                                onDismiss = { showTimeEntrySheet = false },
-                            )
-                        }
-
-                        // A task with an unfinished prerequisite is not closed on the
-                        // first request. The dialog is drawn from the state, so it
-                        // survives a rotation instead of disappearing under the user's
-                        // finger.
-                        val pendingBlockedClose = s.pendingBlockedClose
-                        if (pendingBlockedClose != null) {
-                            BlockedCompletionDialog(
-                                taskTitle = pendingBlockedClose.taskTitle,
-                                blockerTitles = pendingBlockedClose.blockerTitles,
-                                onConfirm = {
-                                    coordinator.onIntent(
-                                        TaskDetailIntent.Domain.ConfirmBlockedClose(pendingBlockedClose.taskId),
-                                    )
-                                },
-                                onDismiss = { coordinator.onIntent(TaskDetailIntent.Domain.DismissBlockedClose) },
-                            )
-                        }
+                    // A task with an unfinished prerequisite is not closed on the
+                    // first request. The dialog is drawn from the state, so it
+                    // survives a rotation instead of disappearing under the user's
+                    // finger.
+                    val pendingBlockedClose = s.pendingBlockedClose
+                    if (pendingBlockedClose != null) {
+                        BlockedCompletionDialog(
+                            taskTitle = pendingBlockedClose.taskTitle,
+                            blockerTitles = pendingBlockedClose.blockerTitles,
+                            onConfirm = {
+                                coordinator.onIntent(
+                                    TaskDetailIntent.Domain.ConfirmBlockedClose(pendingBlockedClose.taskId),
+                                )
+                            },
+                            onDismiss = { coordinator.onIntent(TaskDetailIntent.Domain.DismissBlockedClose) },
+                        )
                     }
                 }
             }
@@ -999,7 +997,10 @@ private fun buildDetailMenuItems(
 @Composable
 private fun LoadingState() {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
         contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator()
@@ -1015,6 +1016,7 @@ private fun ErrorState(
         modifier =
             Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

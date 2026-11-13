@@ -146,6 +146,7 @@ private fun TitleFieldRow(
             modifier =
                 Modifier
                     .weight(1f)
+                    .bringIntoViewOnFocus()
                     // One tag per node. A second `testTag` on the same chain is
                     // applied and then dropped by the semantics merge, so the flow
                     // that asks for it can never pass — the tag looks right in

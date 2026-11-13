@@ -1,11 +1,16 @@
 package com.singularity.todo.importer
 
 import com.singularity.todo.core.backup.BackupFormat
+import com.singularity.todo.core.backup.BackupPayload
+import com.singularity.todo.core.backup.JvmBackupCodec
+import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -216,6 +221,216 @@ class MapperTest {
         assertEquals("Доставка из divanboss.ru", payload.tasks.single().title, "a title carries no tags")
     }
 
+    /**
+     * The reminder records the legacy app carried on a task become native reminder
+     * rows: each offset turns into a row for the right task, with the fire time
+     * derived from the task start and the offset preserved. The 2026-11-08 backup
+     * had 1,756 tasks with notifies and imported as zero rows because the mapper
+     * never read them — a source record must now produce a row, not silence.
+     */
+    @Test
+    fun `task notifies are mapped to reminders with preserved offset and fire time`() {
+        val backup =
+            LegacyBackup(
+                data =
+                    LegacyData(
+                        tasks =
+                            listOf(
+                                LegacyTask(
+                                    id = "T-r1",
+                                    title = "With reminders",
+                                    start = "2025-04-15T15:00:00.000Z",
+                                    useTime = true,
+                                    notifies = listOf(0, 30, 1440),
+                                    modificatedDate = 1_700_000_000_000L,
+                                ),
+                            ),
+                    ),
+            )
+
+        val result = Mapper.map(backup, markCompleted = false)
+        val reminders = result.payload.taskReminders
+
+        assertEquals(3, reminders.size, "every legacy notify offset becomes a reminder row")
+        assertTrue(reminders.all { it.taskId == "T-r1" }, "reminders stay attached to their task")
+        assertEquals(listOf("gentle", "gentle", "gentle"), reminders.map { it.type })
+
+        val base = Mapper.parseInstantMs("2025-04-15T15:00:00.000Z")!!
+        val byOffset = reminders.associateBy { it.offsetMinutes }
+        assertEquals(base, byOffset.getValue(0).fireAt, "offset 0 fires at start")
+        assertEquals(base - 30 * 60_000L, byOffset.getValue(-30).fireAt, "30 minutes before start")
+        assertEquals(base - 1440 * 60_000L, byOffset.getValue(-1440).fireAt, "1 day before start")
+        assertEquals(
+            setOf(0, -30, -1440),
+            reminders.map { it.offsetMinutes }.toSet(),
+            "legacy 'minutes before' is a negative offset",
+        )
+
+        assertEquals(3, result.skipped["reminderSourceRecords"])
+        assertEquals(3, result.skipped["remindersImported"])
+        assertEquals(0, result.skipped["remindersDuplicatesMerged"])
+        assertEquals(0, result.skipped["remindersMissingBaseTime"])
+    }
+
+    @Test
+    fun `reminders without a faithful base time or read state are reported, not guessed`() {
+        val backup =
+            LegacyBackup(
+                data =
+                    LegacyData(
+                        tasks =
+                            listOf(
+                                LegacyTask(
+                                    id = "T-no-start",
+                                    title = "No base",
+                                    start = null,
+                                    notifies = listOf(15),
+                                    startNotifiesReaded = listOf(15),
+                                    modificatedDate = 1_700_000_000_000L,
+                                ),
+                                LegacyTask(
+                                    id = "T-rec",
+                                    title = "Template recurrence",
+                                    start = null,
+                                    recurrence = LegacyRecurrence(notifies = listOf(0)),
+                                    modificatedDate = 1_700_000_000_000L,
+                                ),
+                                LegacyTask(
+                                    id = "T-ok",
+                                    title = "Recoverable",
+                                    start = "2025-01-01T10:00:00.000Z",
+                                    notifies = listOf(60),
+                                    startNotifiesReaded = listOf(60),
+                                    modificatedDate = 1_700_000_000_000L,
+                                ),
+                            ),
+                    ),
+            )
+
+        val result = Mapper.map(backup, markCompleted = false)
+
+        assertEquals(1, result.payload.taskReminders.size, "only the reminder with a computable fire time is preserved")
+        assertEquals(
+            "T-ok",
+            result.payload.taskReminders
+                .single()
+                .taskId,
+        )
+
+        assertEquals(3, result.skipped["reminderSourceRecords"])
+        assertEquals(1, result.skipped["remindersImported"])
+        assertEquals(0, result.skipped["remindersDuplicatesMerged"])
+        assertEquals(2, result.skipped["remindersMissingBaseTime"])
+        assertEquals(2, result.skipped["reminderReadStateUnsupported"])
+    }
+
+    @Test
+    fun `reminder mapping is idempotent so repeated imports do not duplicate rows`() {
+        val backup =
+            LegacyBackup(
+                data =
+                    LegacyData(
+                        tasks =
+                            listOf(
+                                LegacyTask(
+                                    id = "T-r1",
+                                    title = "With reminder",
+                                    start = "2025-04-15T15:00:00.000Z",
+                                    notifies = listOf(15, 30),
+                                    modificatedDate = 1_700_000_000_000L,
+                                ),
+                            ),
+                    ),
+            )
+
+        val first = Mapper.map(backup, markCompleted = false).payload.taskReminders
+        val second = Mapper.map(backup, markCompleted = false).payload.taskReminders
+
+        assertEquals(
+            first.map { it.id }.sorted(),
+            second.map { it.id }.sorted(),
+            "re-converting yields the same reminder ids",
+        )
+        assertEquals(
+            first,
+            second,
+            "a repeated conversion produces identical reminder rows for upsert/idempotent import",
+        )
+        assertEquals(
+            listOf("T-r1:legacy-notify:15", "T-r1:legacy-notify:30"),
+            first.map { it.id }.sorted(),
+        )
+    }
+
+    /**
+     * Convert-then-read round-trip: the archive the importer writes carries the
+     * reminder rows, so restoring it (the native import path) sees non-zero task
+     * reminders associated with the correct tasks — the end-to-end property the
+     * 2026-11-08 backup lost (1,756 tasks with notifies -> 0 imported).
+     */
+    @Test
+    fun `converted archive contains imported reminder rows`() =
+        runTest {
+            val backup =
+                LegacyBackup(
+                    data =
+                        LegacyData(
+                            tasks =
+                                listOf(
+                                    LegacyTask(
+                                        id = "T-r1",
+                                        title = "A",
+                                        start = "2025-04-15T15:00:00.000Z",
+                                        notifies = listOf(0, 60),
+                                        modificatedDate = 1_700_000_000_000L,
+                                    ),
+                                    LegacyTask(
+                                        id = "T-r2",
+                                        title = "B",
+                                        start = "2025-04-16T08:30:00.000Z",
+                                        notifies = listOf(1440),
+                                        modificatedDate = 1_700_000_000_000L,
+                                    ),
+                                ),
+                        ),
+                )
+
+            val payload = Mapper.map(backup, markCompleted = false).payload
+            assertEquals(3, payload.taskReminders.size, "source reminder records must survive conversion")
+            assertTrue(payload.taskReminders.all { it.taskId in setOf("T-r1", "T-r2") })
+
+            val tmp = Files.createTempFile("sing-import-reminders", ".zip")
+            try {
+                val fs = JvmFileSystem()
+                val codec = JvmBackupCodec()
+                val manifestBytes = """{"formatVersion":1}""".toByteArray()
+                val payloadBytes = StableJson.encodeToString(BackupPayload.serializer(), payload).encodeToByteArray()
+                codec.export(manifestBytes, payloadBytes, emptyList(), tmp.toString(), fs).getOrThrow()
+                val read = codec.import(tmp.toString(), fs).getOrThrow()
+                val restored =
+                    StableJson.decodeFromString(
+                        BackupPayload.serializer(),
+                        read.payloadBytes.decodeToString(),
+                    )
+
+                assertEquals(
+                    payload.taskReminders.size,
+                    restored.taskReminders.size,
+                    "archive round-trip must not drop reminder rows",
+                )
+                assertEquals(
+                    payload.taskReminders.map { it.taskId to it.fireAt }.toSet(),
+                    restored.taskReminders
+                        .map {
+                            it.taskId to
+                                it.fireAt
+                        }.toSet(),
+                )
+            } finally {
+                Files.deleteIfExists(tmp)
+            }
+        }
+
     private fun recurrenceOf(
         type: String,
         dayNumber: Int,
@@ -243,49 +458,4 @@ class MapperTest {
             .recurrenceRule
             ?: error("no recurrence rule was mapped for $type")
     }
-}
-
-@Test
-fun `mark-completed treats legacy checked as done regardless of state`() {
-    val backup =
-        LegacyBackup(
-            data =
-                LegacyData(
-                    tasks =
-                        listOf(
-                            LegacyTask(id = "T-done-10", title = "Done", checked = 1, state = 0),
-                            LegacyTask(id = "T-done-11", title = "Done dominant", checked = 1, state = 1),
-                            LegacyTask(id = "T-open-01", title = "Open", checked = 0, state = 1),
-                            LegacyTask(id = "T-odd-21", title = "Odd checked value", checked = 2, state = 1),
-                        ),
-                ),
-        )
-
-    val mapped =
-        Mapper
-            .map(backup, markCompleted = true)
-            .payload.tasks
-            .associateBy { it.id }
-    assertTrue(mapped.getValue("T-done-10").completedAt != null, "checked==1,state==0 is completed")
-    assertTrue(mapped.getValue("T-done-11").completedAt != null, "checked==1,state==1 is completed")
-    assertNull(mapped.getValue("T-open-01").completedAt, "checked==0 is not completed")
-    assertNull(mapped.getValue("T-odd-21").completedAt, "checked!=1 is not completed")
-}
-
-@Test
-fun `without mark-completed legacy checked tasks stay active`() {
-    val backup =
-        LegacyBackup(
-            data =
-                LegacyData(
-                    tasks = listOf(LegacyTask(id = "T-done", title = "Done", checked = 1, state = 1)),
-                ),
-        )
-
-    val task =
-        Mapper
-            .map(backup, markCompleted = false)
-            .payload.tasks
-            .single()
-    assertNull(task.completedAt, "completion is only applied when explicitly requested")
 }

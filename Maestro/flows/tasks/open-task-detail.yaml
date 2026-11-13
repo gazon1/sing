@@ -27,6 +27,41 @@ tags:
 # says only that *a* title field is open.
 - assertVisible:
     text: "Buy milk"
+
+# Title and description stay editable with the IME open (UXF-03 / #2874).
+- tapOn:
+    id: task_editor_title_input
+- inputText: " edited"
+- assertVisible:
+    id: task_editor_title_input
+- hideKeyboard
+
+- tapOn:
+    id: task_editor_description_input
+- inputText: "Detail description"
+- assertVisible:
+    id: task_editor_description_input
+- hideKeyboard
+# The value must survive the keyboard closing and the screen being left/reopened.
+- assertVisible:
+    text: "Detail description"
+
+- back
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
+
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- assertVisible:
+    text: "Buy milk edited"
+- assertVisible:
+    text: "Detail description"
 - back
 - extendedWaitUntil:
     visible:

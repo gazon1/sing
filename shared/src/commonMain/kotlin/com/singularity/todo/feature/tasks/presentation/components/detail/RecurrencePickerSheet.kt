@@ -53,7 +53,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
-import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label
+import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableSet
@@ -100,6 +100,11 @@ private val MONTH_NAMES =
  *
  * @param currentSpec The currently selected recurrence spec, or null for no recurrence.
  * @param anchorDate The date to use as anchor for preview (typically task's due date or today).
+ * @param dueDate The task's due date, or null when it has none. The preview says
+ *        when the series starts only when the rule hangs on this date; the anchor
+ *        above falls back to today, and today is not a date the task has. It has
+ *        no default: a caller that forgets it would show a rule without a start
+ *        date, and "no due date" is a thing to say out loud.
  * @param onApply Called with the selected [RecurrenceSpec], or null to clear recurrence.
  * @param onDismiss Called when the user dismisses the sheet.
  */
@@ -108,6 +113,7 @@ private val MONTH_NAMES =
 fun RecurrencePickerSheet(
     currentSpec: RecurrenceSpec?,
     anchorDate: LocalDate,
+    dueDate: LocalDate?,
     onApply: (RecurrenceSpec?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -291,7 +297,7 @@ fun RecurrencePickerSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            PreviewSection(spec = spec, anchorDate = anchorDate)
+            PreviewSection(spec = spec, anchorDate = anchorDate, dueDate = dueDate)
 
             Spacer(Modifier.height(16.dp))
         }
@@ -408,13 +414,17 @@ private fun FrequencySelector(
 }
 
 /**
- * The recurrence preview — displays the human-readable rule label and the
- * next occurrence based on the anchor date.
+ * The recurrence preview — the rule as a sentence, and the next occurrence
+ * based on the anchor date.
+ *
+ * The sentence is the same one the task detail row wears, so the rule reads the
+ * same in the place it is chosen and in the place it is shown.
  */
 @Composable
 private fun PreviewSection(
     spec: RecurrenceSpec,
     anchorDate: LocalDate,
+    dueDate: LocalDate?,
 ) {
     Text(
         text = "Preview",
@@ -429,8 +439,9 @@ private fun PreviewSection(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
         Text(
-            text = label(spec),
+            text = RecurrenceSentence(spec, dueDate),
             style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(TestTags.RECURRENCE_PICKER_PREVIEW),
         )
     }
     Text(
@@ -763,6 +774,7 @@ private fun RecurrencePickerSheetPreview() =
         RecurrencePickerSheet(
             currentSpec = null,
             anchorDate = PreviewSamples.today,
+            dueDate = null,
             onApply = { },
             onDismiss = noopClick,
         )
@@ -779,6 +791,7 @@ private fun RecurrencePickerSheetWeeklyPreview() =
                     weekdays = setOf(1, 3, 5),
                 ),
             anchorDate = PreviewSamples.today,
+            dueDate = null,
             onApply = { },
             onDismiss = noopClick,
         )
