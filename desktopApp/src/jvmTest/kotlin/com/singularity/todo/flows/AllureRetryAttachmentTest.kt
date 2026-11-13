@@ -43,7 +43,7 @@ class AllureRetryAttachmentTest {
 
         var attempts = 0
         withAttempts(2) {
-            runDesktopAppTest {
+            runDesktopAppTest(width = TEST_WINDOW_WIDTH, height = TEST_WINDOW_HEIGHT) {
                 attempts += 1
                 if (attempts == 1) fail("intentional first-attempt failure")
             }
@@ -60,7 +60,7 @@ class AllureRetryAttachmentTest {
         val failure =
             withAttempts(2) {
                 assertFailsWith<AssertionError> {
-                    runDesktopAppTest {
+                    runDesktopAppTest(width = TEST_WINDOW_WIDTH, height = TEST_WINDOW_HEIGHT) {
                         attempts += 1
                         // The recorder keeps the whole history, so the final attempt's
                         // steps.txt is the only one that names attempt-2.
@@ -132,4 +132,21 @@ class AllureRetryAttachmentTest {
     }
 
     private fun resultsDir(): File = File(System.getProperty("allure.results.directory") ?: "build/allure-results")
+
+    private companion object {
+        /**
+         * The size of the test window — and of the failure screenshot.
+         *
+         * This test fails on purpose, and every failure writes a screenshot of
+         * the window twice: once plain, once annotated. At the usual 1024x768
+         * that capture costs more than the whole rest of the test, and the
+         * class ran out of runTest's 60-second budget when the suite ran in
+         * parallel — the same class takes a few seconds on its own. The window
+         * is the size of the picture, so a small one keeps the class inside its
+         * budget. Nothing here reads the window: the test asserts on the
+         * harness's retry and on the attached files.
+         */
+        const val TEST_WINDOW_WIDTH = 320
+        const val TEST_WINDOW_HEIGHT = 240
+    }
 }
