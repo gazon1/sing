@@ -1,0 +1,139 @@
+Semantic nodes with testTag (56 total)
+Highlighted: null [NOTE: 2 semantics roots; overlay roots appended]
+
+  task_editor_title_input
+    text=Quiet task
+    contentDescription=Task title
+    bounds=(76,112) w=932 h=26
+  task_editor_description_input
+    contentDescription=Task description
+    bounds=(16,168) w=992 h=19
+  task_editor_workflow_state_row
+    bounds=(16,231) w=992 h=50
+  task_editor_priority_row
+    bounds=(16,293) w=992 h=50
+  task_editor_estimate_row
+    bounds=(16,355) w=992 h=50
+  task_editor_due_row
+    bounds=(16,417) w=992 h=76
+  task_editor_due_date_row_label
+    text=Sat, 14 Mar 2026
+    bounds=(70,446) w=874 h=19
+  task_editor_reminder_row
+    bounds=(16,505) w=992 h=52
+  task_editor_reminder_row_placeholder
+    text=Reminder
+    bounds=(70,519) w=874 h=24
+  task_editor_deadline_row
+    bounds=(16,569) w=992 h=52
+  task_editor_deadline_row_placeholder
+    text=Add deadline
+    bounds=(70,583) w=874 h=24
+  task_editor_project_row
+    bounds=(16,633) w=992 h=50
+  task_editor_tags_row
+    bounds=(16,695) w=992 h=50
+  task_editor_recurrence_row
+    bounds=(16,757) w=992 h=11
+  task_editor_recurrence_label
+    text=No repeat
+    bounds=(0,0) w=0 h=0
+  task_editor_pin_row
+    bounds=(0,0) w=0 h=0
+  task_detail_related_tasks_section
+    bounds=(0,0) w=0 h=0
+  task_detail_section_icon
+    bounds=(0,0) w=0 h=0
+  task_detail_add_related_task
+    bounds=(0,0) w=0 h=0
+  task_checklist_section
+    bounds=(0,0) w=0 h=0
+  task_detail_section_icon
+    bounds=(0,0) w=0 h=0
+  checklist_empty_hint
+    text=No checklist items yet. Add the first one below.
+    bounds=(0,0) w=0 h=0
+  checklist_inline_add_input
+    bounds=(0,0) w=0 h=0
+  checklist_inline_add_button
+    bounds=(0,0) w=0 h=0
+  subtasks_section
+    bounds=(0,0) w=0 h=0
+  task_detail_section_icon
+    bounds=(0,0) w=0 h=0
+  subtasks_empty_hint
+    text=No subtasks yet. Add the first one below.
+    bounds=(0,0) w=0 h=0
+  subtask_add_input
+    bounds=(0,0) w=0 h=0
+  subtask_add_button
+    bounds=(0,0) w=0 h=0
+  task_detail_section_icon
+    bounds=(0,0) w=0 h=0
+  attachments_add_file_row
+    text=+ Add file
+    bounds=(0,0) w=0 h=0
+  time_tracking_start
+    selected=false
+    bounds=(0,0) w=0 h=0
+  logbook_section
+    bounds=(0,0) w=0 h=0
+  logbook_empty
+    bounds=(0,0) w=0 h=0
+  logbook_add_note_button
+    bounds=(0,0) w=0 h=0
+  logbook_empty_hint
+    text=No notes or time entries yet. Add a note to start the log.
+    bounds=(0,0) w=0 h=0
+  task_detail_saved_indicator
+    bounds=(870,73) w=54 h=14
+  task_editor_ai_button
+    bounds=(928,60) w=40 h=40
+  task_editor_more_menu
+    bounds=(976,60) w=40 h=40
+  nav_menu_button
+    bounds=(4,4) w=40 h=40
+  shell_back_button
+    bounds=(52,4) w=40 h=40
+  desktop_drawer
+    bounds=(0,0) w=0 h=0
+  menu_statistics
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_notes
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_aichat
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_proposals
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_search
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_archive
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_pomodoro
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_profiles
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_settings
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_ai_usage
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_attach_account
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_projects_header
+    bounds=(0,0) w=0 h=0
+  menu_projects_expand
+    bounds=(0,0) w=0 h=0
+  menu_all_projects
+    selected=false
+    bounds=(0,0) w=0 h=0
