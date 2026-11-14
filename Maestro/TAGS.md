@@ -284,6 +284,7 @@ non-alphanumeric characters with `_`.
 | `SEARCH_MODE_CONTAINS` | `search_mode_contains` | |
 | `SEARCH_MODE_CONTAINS_NOTE` | `search_mode_contains_note` | |
 | `SEARCH_MODE_WORD` | `search_mode_word` | |
+| `SavedSearches.NO_MATCH` | `saved_search_no_match` | |
 | `SavedSearches.RENAME_DIALOG_CONFIRM` | `search_rename_dialog_confirm` | |
 | `SavedSearches.SAVE_CHIP` | `search_save_chip` | |
 | `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
