@@ -19,9 +19,7 @@ import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ui.TestTags
 
 /**
- * Renders a project's icon.
- *
- * Resolution lives in [resolveProjectIcon], so this composable only draws.
+ * Renders a project's icon: the stored emoji, or a folder when none is set.
  *
  * Pass a null [contentDescription] when the row already names the project.
  */
@@ -33,34 +31,32 @@ fun ProjectIcon(
     contentDescription: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    when (val resolved = resolveProjectIcon(icon)) {
-        is ResolvedProjectIcon.EmojiIcon -> {
-            Box(
-                modifier = modifier.size(size),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = resolved.value,
-                    color = tint,
-                    fontSize = (size.value * 0.75f).sp,
-                    textAlign = TextAlign.Center,
-                    // A composed sequence — ZWJ, flag, skin tone, variation
-                    // selector — is one grapheme and must stay one line; wrapping
-                    // or ellipsizing would split a single glyph.
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                )
-            }
-        }
+    val emoji = icon?.value?.takeIf { it.isNotBlank() }
+    if (emoji == null) {
+        Icon(
+            imageVector = Icons.Filled.Folder,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = modifier.size(size).testTag(TestTags.PROJECT_ICON_FALLBACK),
+        )
+        return
+    }
 
-        ResolvedProjectIcon.None -> {
-            Icon(
-                imageVector = Icons.Filled.Folder,
-                contentDescription = contentDescription,
-                tint = tint,
-                modifier = modifier.size(size).testTag(TestTags.PROJECT_ICON_FALLBACK),
-            )
-        }
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = emoji,
+            color = tint,
+            fontSize = (size.value * 0.75f).sp,
+            textAlign = TextAlign.Center,
+            // A composed sequence — ZWJ, flag, skin tone, variation
+            // selector — is one grapheme and must stay one line; wrapping
+            // or ellipsizing would split a single glyph.
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+        )
     }
 }

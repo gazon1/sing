@@ -7,7 +7,7 @@
 > The SKILL.md <= 500 lines and `description` <= 1024 chars budgets were enforced by a
 > doc-sizes gate that was removed on 2026-10-19; nothing enforces them now.
 
-128 skills: 86 project-specific, 42 generic/meta.
+127 skills: 85 project-specific, 42 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -45,7 +45,6 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-emulator-launch` | 212 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 457 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-genui-catalog` | 195 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
-| `singularity-todo-icon-registry` | 274 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 243 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 105 | JvmInline value class patterns for Singularity Todo. |
 | `singularity-todo-kmp-reorderable` | 221 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |

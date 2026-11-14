@@ -237,11 +237,12 @@ on Android so the OEM cannot substitute it).
 
 ### Singularity Todo
 
-- The "pack" is 20 literal strings, `COMMON_EMOJIS` in `IconPickerSheet.kt:36-57`, next to the 18
-  Material icons from `ProjectIconRegistry` (the ADR budget). Extending it is editing a list —
-  there is nothing else to extend.
+- The "pack" was 20 literal strings, `COMMON_EMOJIS` in `IconPickerSheet.kt:36-57`, next to the 18
+  Material icons from `ProjectIconRegistry` (the ADR budget). Both are gone: the picker reads the
+  Vanniktech catalog (#2919) and the registry was removed with the Material keys (#2935).
 - **Arbitrary Unicode already works end to end.** `projects.icon` is `TEXT`; `resolveProjectIcon`
-  treats any string that is not a registry key as emoji (`ProjectIconResolver.kt:19-24`); the
+  treated any string that is not a registry key as emoji (`ProjectIconResolver.kt:19-24`, since
+  removed — `ProjectIcon` now draws the stored value directly); the
   "Custom emoji" field stores whatever is typed (`IconPickerSheet.kt:160-176`). The importer keeps
   multi-codepoint sequences whole and has a test for it (`Mapper.emojiCodepointToIcon`,
   `MapperTest.a multi code point emoji survives whole`: `1f9d1-200d-1f4bb` → 🧑‍💻).
@@ -337,10 +338,10 @@ Each item is a difference measured above. Nothing is implemented.
 - **Theirs:** the same emoji in the menu, the picker and the task row (~20–22dp), with the name
   beside it.
 - **Change:** define the contract once — `ProjectIcon(icon = …, size = 20.dp, tint = …)` plus the
-  name, one line, ellipsis; `ProjectIcon` and `resolveProjectIcon` already implement the resolution
-  (Material key vs. emoji vs. folder). Do **not** merge the three layouts: a card may keep its
-  32dp colour circle.
-- **Reuse:** `ProjectIcon`, `resolveProjectIcon`, `ProjectIconRegistry`.
+  name, one line, ellipsis; `ProjectIcon` draws the stored emoji or the folder fallback (the
+  Material-key branch and its resolver were removed in #2935). Do **not** merge the three layouts:
+  a card may keep its 32dp colour circle.
+- **Reuse:** `ProjectIcon`.
 - **Tests:** one test per surface that the project's stored emoji is rendered, not a folder.
 - **Risk:** the card's colour circle is the only place colour carries meaning — keep it there, do
   not add colour to the menu.

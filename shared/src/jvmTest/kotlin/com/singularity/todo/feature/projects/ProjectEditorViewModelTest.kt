@@ -5,6 +5,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.ProjectsDomain
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -145,22 +146,10 @@ class ProjectEditorViewModelTest {
             val store = newRecentEmojiStore(backgroundScope)
             val vm = createVm(backgroundScope, recentEmojiStore = store)
 
-            vm.onIntent(ProjectEditorIntent.IconChanged("🎯"))
+            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("🎯")))
             runCurrent()
 
             assertEquals(listOf("🎯"), store.recent.first(), "the picked emoji is the newest one")
-        }
-
-    @Test
-    fun `a registry icon is not remembered`() =
-        runTest {
-            val store = newRecentEmojiStore(backgroundScope)
-            val vm = createVm(backgroundScope, recentEmojiStore = store)
-
-            vm.onIntent(ProjectEditorIntent.IconChanged("Home"))
-            runCurrent()
-
-            assertEquals(emptyList(), store.recent.first(), "a registry icon is not an emoji")
         }
 
     @Test
@@ -185,10 +174,10 @@ class ProjectEditorViewModelTest {
                 )
             val vm = createVm(backgroundScope, recentEmojiStore = store)
 
-            vm.onIntent(ProjectEditorIntent.IconChanged("🎯"))
+            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("🎯")))
             runCurrent()
 
-            assertEquals("🎯", vm.stateFlow.value.icon, "the icon was applied anyway")
+            assertEquals(Emoji("🎯"), vm.stateFlow.value.icon, "the icon was applied anyway")
         }
 
     @Test
@@ -204,9 +193,9 @@ class ProjectEditorViewModelTest {
                 )
             val vm = createVm(backgroundScope, recentEmojiStore = store)
 
-            vm.onIntent(ProjectEditorIntent.IconChanged("🎯"))
+            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("🎯")))
 
             // No waiting: the pick is applied before the write even starts.
-            assertEquals("🎯", vm.stateFlow.value.icon, "the icon was applied without the write")
+            assertEquals(Emoji("🎯"), vm.stateFlow.value.icon, "the icon was applied without the write")
         }
 }
