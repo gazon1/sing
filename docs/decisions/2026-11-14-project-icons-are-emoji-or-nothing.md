@@ -68,6 +68,32 @@ serves data nobody can produce is a path that tests cover and users never take.
 registry key, so the registry's remaining job was to render values that can no longer be
 created.
 
+## Legacy Material keys: kept as text, never converted on read
+
+Issue #2931 asked for an "explicit deterministic mapping" of the retired keys; #2935 forbids
+a compatibility path. This is the reconciliation: the deterministic treatment is to leave
+the stored string alone. A legacy key is read, persisted, exported and rendered unchanged — it
+is never mapped to a guessed emoji, never dropped, and never replaced by the folder
+fallback. A project holding `"Work"` shows the word "Work" until the user picks a glyph.
+
+**Why not convert once, on read, at the persistence boundary.**
+
+- A read-time conversion with no persisted marker is not a persistence decision: every
+  consumer (tree, card, detail, picker, search, backup, export) would still have to apply
+  it, which is a presentation rule under a persistence name — the thing #2935 removes.
+- Writing the converted value back mutates data on read, and an older client that still
+  speaks Material keys writes its key again. The server accepts arbitrary strings, so the
+  two spellings would coexist and the row would flip between them. #2917 rules out a data
+  migration, and a conversion that lasts until the next old-client write is not
+  deterministic either.
+- Some keys have no honest emoji equivalent. `MoreHoriz` mapped to `⋯`, which is not an
+  emoji; "deterministic" would mean inventing a wrong glyph.
+
+**Old-client sync.** Because no client converts, a document carrying `"icon":"Work"`
+round-trips verbatim: the pull stores `"Work"`, the export sends `"Work"`, and pulling the
+same document twice leaves the row identical. There is nothing to oscillate, and nothing
+is lost — the user can replace the key with an emoji whenever they open the editor.
+
 ## Consequences
 
 - A project shows one glyph everywhere: menu tree, card, detail hero, editor chip, task
@@ -85,17 +111,24 @@ created.
   fallback is not used for it, because a non-blank value is a value. This is the
   deterministic rule for legacy values, pinned by `ProjectIdentityTest`'s "a legacy
   Material key is drawn as its own text": such a value is visible, never dropped and
-  never silently replaced. Deciding *whether* legacy keys should instead be mapped to
-  emoji at the persistence boundary belongs to #2931/#2936, not to the renderer — a
-  mapping there would have to be applied once, on read, so that two clients agree.
+  never silently replaced. The persistence-boundary question #2931 left open is decided
+  above: there is no conversion, and the string crosses Room, backup and sync unchanged.
+  `ProjectIconBoundaryTest` pins every retired key through those boundaries,
+  `BackupRoundTripTest` runs the keys and composed sequences through a real archive,
+  `ProjectDocumentWriteTest` pins both sync directions (stored as-is, re-pull stable, and
+  the same string in the outbound document), and `ProjectEditorViewModelTest` pins that a
+  picked emoji is what the saved project stores.
 - ADR `2026-11-12-project-identity-is-one-icon-composable` was superseded in part: its
   "shared resolution contract" is now this entry's direct rendering.
 
 ## Links
 
-- Issue: #2935, parent #2917, depends on #2934 and #2919
+- Issues: #2935, #2936 (legacy-key and boundary verification), #2931 (the mapping
+  question this entry settles), parent #2917
 - Code: `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectIcon.kt`,
   `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/IconPickerSheet.kt`
+- Boundary tests: `shared/src/commonTest/.../feature/projects/ProjectIconBoundaryTest.kt`,
+  `shared/src/jvmTest/.../core/sync/ProjectDocumentWriteTest.kt`
 - Removed: `ProjectIconResolver.kt`, `ProjectIconRegistry.kt`, `ProjectIconResolverTest.kt`,
   `.agents/skills/singularity-todo-icon-registry/`
 - Decisions: `2026-11-12-project-identity-is-one-icon-composable`,
