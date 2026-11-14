@@ -78,6 +78,13 @@ data class TaskDraft(
     val projectId: String? = null,
     val tagIds: List<String> = emptyList(),
     val isPinned: Boolean = false,
+    /**
+     * The user's estimate of the work, in minutes.
+     *
+     * The detail offers the estimate as a row; the create editor offers the same
+     * row because both render one editor. Null means no estimate was set.
+     */
+    val estimateMinutes: Int? = null,
     val recurrence: RecurrenceSpec? = null,
     val checklist: List<DraftChecklistItem> = emptyList(),
     val attachments: List<DraftAttachment> = emptyList(),

@@ -14,6 +14,7 @@ import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagEnabled
 import com.singularity.todo.test.helpers.assertTagNotEnabled
+import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
@@ -78,26 +79,24 @@ class CreateTaskFlowTest {
         }
 
     /**
-     * The message reaches the first frame.
+     * A pristine Create form says nothing in red.
      *
-     * The editor is opened with nothing in it, which is the moment the person most
-     * needs to know what is missing. The message is derived from the draft's
-     * validity, not from the last validation result the base class withholds on its
-     * first pass, so it is on screen before the first keystroke — and the disabled
-     * button and the message tell one story rather than two.
+     * The message used to be on the form from the first frame, which made the
+     * first thing a person saw when creating a task a complaint. The disabled
+     * button already says the title is missing; the error is for a person who
+     * has typed and then emptied the field, or who tried to save.
      */
     @Test
-    fun a_freshly_opened_editor_says_the_title_is_required() =
+    fun a_freshly_opened_editor_shows_no_validation_message() =
         runDesktopAppTest(checkA11y = true) {
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-            assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_ERROR)
-            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_ERROR, "Title is required")
             assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
+            assertTagNotExists(TestTags.TASK_EDITOR_TITLE_ERROR)
             assertEquals(
-                1,
+                0,
                 onAllNodesWithText("Title is required").fetchSemanticsNodes().size,
-                "the message is under the field, not repeated in a snackbar",
+                "a pristine form shows no complaint",
             )
         }
 

@@ -219,6 +219,55 @@ class TaskCreateViewModelTest {
             )
         }
 
+    /**
+     * The pin row is drawn on both editors, so the value it sets has to reach the
+     * task. It did not: the draft carried the flag and the write dropped it, which
+     * made the row a control that reported success and changed nothing.
+     */
+    @Test
+    fun `SaveClicked with the pin set creates a pinned task`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Pinned task"))
+            vm.onIntent(TaskCreateIntent.PinToggled)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertTrue(
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .isPinned,
+                "the draft carried the pin and the created task did not",
+            )
+        }
+
+    /** The estimate row is the other half of the same defect: the detail had it, the
+     * write from a draft dropped it, and the create editor had no row at all. */
+    @Test
+    fun `SaveClicked with an estimate creates a task with that estimate`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Estimated task"))
+            vm.onIntent(TaskCreateIntent.SetEstimate(45))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(
+                45,
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .estimateMinutes,
+            )
+        }
+
     // ─── SaveClicked — clears draft ─────────────────────────────────────────
 
     @Test

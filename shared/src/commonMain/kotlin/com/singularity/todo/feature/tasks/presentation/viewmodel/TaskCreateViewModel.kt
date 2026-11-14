@@ -160,6 +160,10 @@ class TaskCreateViewModel(
                 updateDraft { it.copy(isPinned = !it.isPinned) }
             }
 
+            is TaskCreateIntent.SetEstimate -> {
+                updateDraft { it.copy(estimateMinutes = intent.minutes) }
+            }
+
             is TaskCreateIntent.AddChecklistItem -> {
                 val newItem =
                     DraftChecklistItem(

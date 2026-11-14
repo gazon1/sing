@@ -51,6 +51,8 @@ class CreateRecurringTaskUseCase(
                 endTime = input.endTime,
                 accentColor = input.accentColor,
                 emoji = input.emoji,
+                estimateMinutes = input.estimateMinutes,
+                isPinned = input.isPinned,
                 someday = input.someday,
                 recurrence = input.recurrence,
             )

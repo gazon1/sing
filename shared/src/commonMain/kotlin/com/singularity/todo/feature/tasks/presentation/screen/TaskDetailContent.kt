@@ -475,8 +475,8 @@ fun TaskDetailContent(
                                 priority = ui.task.priority,
                                 dueDate = ui.task.dueDate,
                                 dueTime = ui.task.dueTime,
-                                startDate = null,
-                                startTime = null,
+                                startDate = ui.task.startDate,
+                                startTime = ui.task.startTime,
                                 project = ui.task.projectId,
                                 projectName = ui.project?.name,
                                 projectColor = ui.project?.color,
@@ -610,7 +610,24 @@ fun TaskDetailContent(
                                             )
                                         },
                                     ),
-                                startDate = null,
+                                // The start date is a field Create has always offered and
+                                // the detail always hid: the task can carry it, the row
+                                // writes it through the intents that already exist, and
+                                // the two surfaces are one editor — so a row on one and
+                                // not the other is a difference with no reason behind it.
+                                startDate =
+                                    DateRowCallbacks(
+                                        onChangeDate = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.SetStartDate(it))
+                                        },
+                                        onChangeTime = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.SetStartTime(it))
+                                        },
+                                        onClick = { sheets.show(TaskEditorSheet.StartDate) },
+                                        onClear = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.SetStartDate(null))
+                                        },
+                                    ),
                                 // The reminder.
                                 //
                                 // The sheet supplies the offset and the

@@ -403,6 +403,14 @@ data class CreateTaskInput(
     val accentColor: Long? = null,
     val emoji: String? = null,
     val estimateMinutes: Int? = null,
+    /**
+     * Whether the new task is pinned.
+     *
+     * The editor offers the pin as a row on both surfaces, so a draft that set it
+     * has to reach the row that carries it: a row whose value the write drops is a
+     * row that does nothing.
+     */
+    val isPinned: Boolean = false,
     val someday: Boolean = false,
     /**
      * The recurrence rule for the new task, or null for a non-recurring task.

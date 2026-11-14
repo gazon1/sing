@@ -115,6 +115,8 @@ class CreateTaskFromDraftUseCase(
                 endTime = draft.endTime,
                 accentColor = draft.accentColor,
                 emoji = draft.emoji,
+                estimateMinutes = draft.estimateMinutes,
+                isPinned = draft.isPinned,
                 someday = false,
                 recurrence = draft.recurrence,
             )
