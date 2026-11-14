@@ -75,7 +75,13 @@ class TaskDetailOverflowActionsTest {
             awaitTagGone(TestTags.EditorOverflow.ARCHIVE)
         }
 
-    /** One tap on Delete publishes the delete offer, which is the way back. */
+    /**
+     * One tap on Delete publishes the delete offer.
+     *
+     * The offer is where the way back lives, so the row has to reach it. Only its
+     * presence is asserted: whether tapping Undo restores the task is #2723's, and
+     * that defect is open — this test must not be read as saying the undo works.
+     */
     @Test
     @DisplayName("one tap on Delete deletes the task and offers the undo")
     fun one_tap_on_delete_deletes_the_task_and_offers_the_undo() =

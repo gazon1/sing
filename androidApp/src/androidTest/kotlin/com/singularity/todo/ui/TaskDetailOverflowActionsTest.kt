@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
@@ -79,6 +80,10 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
                 "the Archive row wrote no archive. ${device.diagnostics()}",
                 isTrashed(taskId),
             )
+            assertRowIsGone(
+                TestTags.EditorOverflow.ARCHIVE,
+                "the archive menu is still open over the screen it acted on",
+            )
         } finally {
             scenario.close()
         }
@@ -87,9 +92,14 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
     /**
      * One tap on Delete deletes the task, and the delete offer is the one shown.
      *
-     * This is the destructive row, and its offer is the only way back — so the row
-     * has to reach it. That the offer says "Task deleted" and not "Task archived"
-     * is what stops the two rows from being interchangeable.
+     * This is the destructive row, and the offer is where its way back lives — so
+     * the row has to reach it. That the offer says "Task deleted" and not "Task
+     * archived" is what stops the two rows from being interchangeable.
+     *
+     * The undo *action* is asserted only to be present: whether tapping it
+     * restores the task is #2723's, and that defect is open. This test must not be
+     * read as saying the undo works — only that the Delete row publishes the offer
+     * the user is promised.
      */
     @Test
     fun one_tap_on_delete_deletes_the_task_and_offers_the_delete_undo() {
@@ -106,7 +116,8 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
                 "the delete offer",
                 MENU_TIMEOUT_MS,
             )
-            // The offer carries the undo action — the way back the row promises.
+            // The offer carries an undo action. Presence only: whether the action
+            // restores the task is #2723's and is not asserted here.
             device.awaitTag(
                 TestTags.SNACKBAR_ACTION,
                 "the delete offer's undo action",
@@ -116,9 +127,38 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
                 "the Delete row wrote no delete. ${device.diagnostics()}",
                 isTrashed(taskId),
             )
+            assertRowIsGone(
+                TestTags.EditorOverflow.DELETE,
+                "the delete menu is still open over the screen it acted on",
+            )
         } finally {
             scenario.close()
         }
+    }
+
+    /**
+     * Waits for the overflow row [rowTag] to leave the screen.
+     *
+     * A menu left open over the screen it acted on reads to a user as "my tap
+     * missed": the action ran behind a popup that still covers the screen. The
+     * desktop test asserts the same thing; this is the device's copy of it.
+     *
+     * The wait is not vacuous: `Until.gone` returns true at once for a node that
+     * was never there, so the row's presence is asserted before the tap
+     * ([openOverflowAndAssertRowIsClickable]). The row existed, and this waits for
+     * it to stop existing.
+     *
+     * `Until.gone` is the UiAutomator wait the shell tests already use, so this is
+     * the existing mechanism rather than a polling loop of the test's own.
+     */
+    private fun assertRowIsGone(
+        rowTag: String,
+        message: String,
+    ) {
+        assertTrue(
+            "$message. ${device.diagnostics()}",
+            device.wait(Until.gone(By.res(rowTag)), MENU_TIMEOUT_MS),
+        )
     }
 
     /**
