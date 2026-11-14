@@ -10,6 +10,7 @@ import com.lemonappdev.konsist.api.provider.KoDeclarationProvider
 import com.lemonappdev.konsist.api.provider.KoNameProvider
 import org.junit.jupiter.api.Tag
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -126,6 +127,11 @@ class ScreenStateCollectionsTest {
             "The scan found zero screen states — a gate that reads nothing measures " +
                 "nothing. Check that the source roots are configured.",
         )
+        assertTrue(
+            scanCount.get() == roots.size,
+            "Expected ${roots.size} Konsist root scans, got ${scanCount.get()}; " +
+                "the gate must reuse one declaration snapshot for the class.",
+        )
     }
 
     // ── the scan ────────────────────────────────────────────────────────────────
@@ -134,100 +140,9 @@ class ScreenStateCollectionsTest {
 
     private data class State(val qualifiedName: String, val properties: List<Held>)
 
-    /** Every declaration the five production roots hold, with its package. */
-    private fun declarations(): List<Pair<String, State>> {
-        val found = mutableListOf<Pair<String, State>>()
-        for (root in roots) {
-            require(root.isDirectory) { "missing source root: ${root.path}" }
-            val scope = Konsist.scopeFromExternalDirectory(root.path)
-            for (file in scope.files) {
-                val packageName = file.packagee?.name ?: continue
-                collect(file.declarations(), packageName, "", found)
-            }
-        }
-        return found
-    }
+    private fun states(): List<State> = featureStates
 
-    private fun collect(
-        declarations: List<KoBaseDeclaration>,
-        packageName: String,
-        prefix: String,
-        out: MutableList<Pair<String, State>>,
-    ) {
-        for (declaration in declarations) {
-            if (declaration !is KoClassDeclaration &&
-                declaration !is KoInterfaceDeclaration &&
-                declaration !is KoObjectDeclaration
-            ) {
-                continue
-            }
-            val name = (declaration as KoNameProvider).name
-            val qualified = if (prefix.isEmpty()) "$packageName.$name" else "$prefix.$name"
-            out += packageName to State(qualified, propertiesOf(declaration))
-            collect(
-                (declaration as KoDeclarationProvider).declarations(includeNested = false),
-                packageName,
-                qualified,
-                out,
-            )
-        }
-    }
-
-    /** The constructor properties and the body properties, by declared type. */
-    private fun propertiesOf(declaration: KoBaseDeclaration): List<Held> {
-        val held = mutableListOf<Held>()
-        val constructor = (declaration as? KoClassDeclaration)?.primaryConstructor
-        constructor
-            ?.parameters
-            ?.filter { parameter -> parameter.isVal || parameter.isVar }
-            ?.forEach { parameter ->
-                val type = parameter.type?.sourceType ?: return@forEach
-                held += Held(parameter.name, type)
-            }
-        (declaration as KoDeclarationProvider)
-            .declarations(includeNested = false)
-            .filterIsInstance<KoPropertyDeclaration>()
-            // A computed property (`val allEntries get() = …`) reads a collection the
-            // state already holds; it does not hold a second one. The gate asks what
-            // the state *holds*, which is what the register records.
-            .filter { property -> !property.hasGetter }
-            .forEach { property ->
-                val type = property.type?.sourceType ?: return@forEach
-                held += Held(property.name, type)
-            }
-        return held
-    }
-
-    /** The screen states of a feature. */
-    private fun states(): List<State> =
-        declarations()
-            .filter { (packageName, _) -> packageName.startsWith(FEATURE_PACKAGE) }
-            .map { (_, state) -> state }
-            .filter { state -> isState(state.qualifiedName) }
-
-    private fun isState(qualifiedName: String): Boolean {
-        val simple = qualifiedName.substringAfterLast('.')
-        if (STATE_SUFFIXES.any { suffix -> simple.endsWith(suffix) }) return true
-        val parent = qualifiedName.substringBeforeLast('.', "")
-        return parent in stateNames
-    }
-
-    private val stateNames: Set<String> by lazy {
-        declarations()
-            .map { (_, state) -> state.qualifiedName }
-            .filter { qualified ->
-                STATE_SUFFIXES.any { suffix -> qualified.substringAfterLast('.').endsWith(suffix) }
-            }.toSet()
-    }
-
-    /** The raw collections their states hold, keyed by `<qualified name>.<property>`. */
-    private fun holdings(): Map<String, String> =
-        states()
-            .flatMap { state ->
-                state.properties
-                    .filter { held -> isRawCollection(held.type) }
-                    .map { held -> "${state.qualifiedName}.${held.name}" to held.type }
-            }.toMap()
+    private fun holdings(): Map<String, String> = rawHoldings
 
     private fun isRawCollection(type: String): Boolean {
         val bare =
@@ -306,5 +221,117 @@ class ScreenStateCollectionsTest {
 
         val registerFile: File =
             File(repoRoot, "config/compose/screen_state_collection_debt.conf")
+
+        val scanCount = AtomicInteger(0)
+
+        private val declarationSnapshot: List<Pair<String, State>> by lazy {
+            val found = mutableListOf<Pair<String, State>>()
+            for (root in roots) {
+                require(root.isDirectory) { "missing source root: ${root.path}" }
+                scanCount.incrementAndGet()
+                val scope = Konsist.scopeFromExternalDirectory(root.path)
+                val files = scope.files
+                require(files.isNotEmpty()) {
+                    "source root was scanned but no files were found: ${root.path}"
+                }
+                for (file in files) {
+                    val packageName = file.packagee?.name ?: continue
+                    collect(file.declarations(), packageName, "", found)
+                }
+            }
+            found.toList()
+        }
+
+        private val stateNames: Set<String> by lazy {
+            declarationSnapshot
+                .map { (_, state) -> state.qualifiedName }
+                .filter { qualified ->
+                    STATE_SUFFIXES.any { suffix -> qualified.substringAfterLast('.').endsWith(suffix) }
+                }.toSet()
+        }
+
+        private val featureStates: List<State> by lazy {
+            declarationSnapshot
+                .filter { (packageName, _) -> packageName.startsWith(FEATURE_PACKAGE) }
+                .map { (_, state) -> state }
+                .filter { state ->
+                    val simple = state.qualifiedName.substringAfterLast('.')
+                    if (STATE_SUFFIXES.any { suffix -> simple.endsWith(suffix) }) {
+                        true
+                    } else {
+                        state.qualifiedName.substringBeforeLast('.', "") in stateNames
+                    }
+                }
+        }
+
+        private val rawHoldings: Map<String, String> by lazy {
+            featureStates
+                .flatMap { state ->
+                    state.properties
+                        .filter { held -> isRawCollection(held.type) }
+                        .map { held -> "${state.qualifiedName}.${held.name}" to held.type }
+                }.toMap()
+        }
+
+        private fun collect(
+            declarations: List<KoBaseDeclaration>,
+            packageName: String,
+            prefix: String,
+            out: MutableList<Pair<String, State>>,
+        ) {
+            for (declaration in declarations) {
+                if (declaration !is KoClassDeclaration &&
+                    declaration !is KoInterfaceDeclaration &&
+                    declaration !is KoObjectDeclaration
+                ) {
+                    continue
+                }
+                val name = (declaration as KoNameProvider).name
+                val qualified = if (prefix.isEmpty()) "$packageName.$name" else "$prefix.$name"
+                out += packageName to State(qualified, propertiesOf(declaration))
+                collect(
+                    (declaration as KoDeclarationProvider).declarations(includeNested = false),
+                    packageName,
+                    qualified,
+                    out,
+                )
+            }
+        }
+
+        /** The constructor properties and the body properties, by declared type. */
+        private fun propertiesOf(declaration: KoBaseDeclaration): List<Held> {
+            val held = mutableListOf<Held>()
+            val constructor = (declaration as? KoClassDeclaration)?.primaryConstructor
+            constructor
+                ?.parameters
+                ?.filter { parameter -> parameter.isVal || parameter.isVar }
+                ?.forEach { parameter ->
+                    val type = parameter.type?.sourceType ?: return@forEach
+                    held += Held(parameter.name, type)
+                }
+            (declaration as KoDeclarationProvider)
+                .declarations(includeNested = false)
+                .filterIsInstance<KoPropertyDeclaration>()
+                // A computed property (`val allEntries get() = …`) reads a collection the
+                // state already holds; it does not hold a second one. The gate asks what
+                // the state *holds*, which is what the register records.
+                .filter { property -> !property.hasGetter }
+                .forEach { property ->
+                    val type = property.type?.sourceType ?: return@forEach
+                    held += Held(property.name, type)
+                }
+            return held
+        }
+
+        private fun isRawCollection(type: String): Boolean {
+            val bare =
+                type
+                    .trim()
+                    .removeSuffix("?")
+                    .substringBefore('<')
+                    .trim()
+                    .substringAfterLast('.')
+            return bare in RAW_COLLECTIONS
+        }
     }
 }
