@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.components
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -34,7 +35,7 @@ import kotlinx.collections.immutable.persistentSetOf
 class CurrentProjectContent(
     val name: String,
     val color: Int,
-    val icon: String?,
+    val icon: Emoji?,
     val parentId: ProjectId?,
     val dueDate: kotlinx.datetime.LocalDate?,
     val isArchived: Boolean,

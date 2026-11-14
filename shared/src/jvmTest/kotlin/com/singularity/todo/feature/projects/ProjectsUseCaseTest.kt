@@ -3,6 +3,7 @@
 
 package com.singularity.todo.feature.projects
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -103,7 +104,7 @@ class ProjectsUseCaseTest {
                 CreateProjectInput(
                     name = "Sub Project",
                     color = 0xFFFF0000.toInt(),
-                    icon = "work",
+                    icon = Emoji("💼"),
                     parentId = ProjectId.fromString("parent1"),
                 )
             val result = createProjectUseCase()(input)

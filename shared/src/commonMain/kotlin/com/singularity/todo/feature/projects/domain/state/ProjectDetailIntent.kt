@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.domain.state
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -82,7 +83,7 @@ sealed interface ProjectDetailIntent : MviIntent {
 
         data class UpdateColor(val color: Int) : Domain
 
-        data class UpdateIcon(val icon: String?) : Domain
+        data class UpdateIcon(val icon: Emoji?) : Domain
 
         data class UpdateParent(val parentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) : Domain
 

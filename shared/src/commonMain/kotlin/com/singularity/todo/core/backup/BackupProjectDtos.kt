@@ -4,6 +4,7 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.ProjectReminderEntity
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.emoji.Emoji
 import kotlinx.serialization.Serializable
 
 // ─── ProjectDto ───────────────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ fun ProjectEntity.toDto(): ProjectDto =
         id = id,
         name = name,
         color = color,
-        icon = icon,
+        icon = icon?.let(::Emoji)?.value,
         description = description,
         createdAt = createdAt,
         updatedAt = updatedAt,
@@ -61,7 +62,7 @@ fun ProjectDto.toEntity(userId: String): ProjectEntity =
         userId = userId,
         name = name,
         color = color,
-        icon = icon,
+        icon = icon?.let(::Emoji)?.value,
         description = description,
         createdAt = createdAt,
         updatedAt = updatedAt,

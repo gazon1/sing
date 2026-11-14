@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -258,7 +259,7 @@ class ProjectPickerSemanticsTest {
     @Test
     fun `ordinary picker rows keep a stable touch target and one-line titles`() =
         runIsolatedComposeTest(width = 260, height = 800) {
-            val repo = repo(project(id = "p-long", name = LONG_NAME, icon = "🧑‍💻"))
+            val repo = repo(project(id = "p-long", name = LONG_NAME, icon = Emoji("🧑‍💻")))
             setContent { picker(repo, selectedId = null, onSelect = {}) }
 
             assertTextDisplayed(LONG_NAME)
@@ -304,9 +305,9 @@ class ProjectPickerSemanticsTest {
     @Test
     fun `missing and blank icons use the fallback while stored icons render`() =
         runIsolatedComposeTest(width = 360, height = 800) {
-            val withIcon = project(id = "p-icon", name = "Iconed", icon = "📦")
+            val withIcon = project(id = "p-icon", name = "Iconed", icon = Emoji("📦"))
             val missing = project(id = "p-missing", name = "Missing")
-            val blank = project(id = "p-blank", name = "Blank", icon = "   ")
+            val blank = project(id = "p-blank", name = "Blank", icon = Emoji("   "))
             setContent { picker(repo(withIcon, missing, blank), selectedId = null, onSelect = {}) }
 
             awaitText("📦")
@@ -330,7 +331,7 @@ class ProjectPickerSemanticsTest {
     @Test
     fun `a root project row is selectable and uses its stored icon`() =
         runIsolatedComposeTest(width = 360, height = 800) {
-            val root = project(id = "p-root", name = "Work", icon = "🧑‍💻")
+            val root = project(id = "p-root", name = "Work", icon = Emoji("🧑‍💻"))
             val repo = repo(root)
             val selections = mutableListOf<ProjectId?>()
             setContent { picker(repo, selectedId = null, onSelect = { selections += it }) }
@@ -513,7 +514,7 @@ class ProjectPickerSemanticsTest {
         fun project(
             id: String,
             name: String,
-            icon: String? = null,
+            icon: Emoji? = null,
             parentId: ProjectId? = null,
             sortOrder: Int = 0,
             isDefault: Boolean = false,
@@ -534,7 +535,7 @@ class ProjectPickerSemanticsTest {
 
         val BETA = project(id = "p-beta", name = "Beta")
 
-        val INBOX = project(id = "p-inbox", name = "Inbox", isDefault = true, icon = "📥")
+        val INBOX = project(id = "p-inbox", name = "Inbox", isDefault = true, icon = Emoji("📥"))
 
         const val LONG_NAME =
             "A project name long enough that it would wrap several times in a compact row"

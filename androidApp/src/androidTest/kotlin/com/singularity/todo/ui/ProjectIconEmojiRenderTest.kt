@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.theme.SingularityTheme
@@ -86,7 +87,7 @@ class ProjectIconEmojiRenderTest {
                                         .background(BACKGROUND)
                                         .testTag(boxTag(index)),
                             ) {
-                                ProjectIcon(icon = icon, tint = Color.Black, size = ICON_BOX)
+                                ProjectIcon(icon = Emoji(icon), tint = Color.Black, size = ICON_BOX)
                             }
                         }
                     }
@@ -137,7 +138,7 @@ class ProjectIconEmojiRenderTest {
                 id = ProjectId.fromString("p-long"),
                 name = LONG_NAME,
                 color = 0xFF3366FF.toInt(),
-                icon = "🧑‍💻",
+                icon = Emoji("🧑‍💻"),
                 createdAt = Instant.parse("2026-11-12T12:00:00Z"),
                 updatedAt = Instant.parse("2026-11-12T12:00:00Z"),
                 userId = UserId("test-user"),

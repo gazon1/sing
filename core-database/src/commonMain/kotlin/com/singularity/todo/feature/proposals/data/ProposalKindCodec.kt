@@ -289,7 +289,11 @@ private fun decodeProposedProject(obj: JsonObject): ProposedProject =
         name = obj.stringOrNull("name").orEmpty(),
         description = obj.stringOrNull("description"),
         color = obj.stringOrNull("color")?.toIntOrNull() ?: 0xFF2196F3.toInt(),
-        icon = obj.stringOrNull("icon"),
+        icon =
+            obj.stringOrNull("icon")?.let {
+                com.singularity.todo.core.emoji
+                    .Emoji(it)
+            },
     )
 
 /** The tag a `CreateTag` item brings into being. */

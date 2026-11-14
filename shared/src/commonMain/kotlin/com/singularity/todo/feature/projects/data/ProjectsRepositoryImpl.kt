@@ -12,6 +12,7 @@ import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.database.toLocalDateOrNull
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
@@ -329,7 +330,7 @@ internal fun ProjectEntity.toProject(): Project =
         id = ProjectId.fromString(id),
         name = name,
         color = color,
-        icon = icon,
+        icon = icon?.let(::Emoji),
         description = description,
         createdAt = createdAt.toInstant(),
         updatedAt = updatedAt.toInstant(),
@@ -354,7 +355,7 @@ internal fun Project.toEntity(): ProjectEntity =
         userId = userId.value,
         name = name,
         color = color,
-        icon = icon,
+        icon = icon?.value,
         description = description,
         createdAt = createdAt.toEpochMillis(),
         updatedAt = updatedAt.toEpochMillis(),

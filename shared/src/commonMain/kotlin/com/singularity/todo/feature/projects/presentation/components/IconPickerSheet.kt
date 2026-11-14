@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.emoji.EmojiCatalog
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.touchTarget
@@ -51,7 +52,7 @@ import kotlinx.collections.immutable.ImmutableList
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun IconPickerSheet(
-    currentIcon: String?,
+    currentIcon: Emoji?,
     /**
      * The emoji the user picked before, most recent first, so they can be
      * picked again with one tap.
@@ -60,7 +61,7 @@ fun IconPickerSheet(
      * writes it, so it stays free of both storage and DI.
      */
     recentEmojis: ImmutableList<String>,
-    onPick: (String?) -> Unit,
+    onPick: (Emoji?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // The sheet opens partially expanded on Android, and the search field sits
@@ -88,11 +89,13 @@ fun IconPickerSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ProjectIconRegistry.all.forEach { (key, icon) ->
+                val emoji = registryKeyToEmoji[key]
+                val selected = emoji != null && currentIcon?.value == emoji
                 Icon(
                     icon,
                     contentDescription = key,
                     tint =
-                        if (key == currentIcon) {
+                        if (selected) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -102,9 +105,9 @@ fun IconPickerSheet(
                             .touchTarget()
                             .size(40.dp)
                             .clip(CircleShape)
-                            .clickable { onPick(key) }
+                            .clickable { if (emoji != null) onPick(Emoji(emoji)) }
                             .background(
-                                if (key == currentIcon) {
+                                if (selected) {
                                     MaterialTheme.colorScheme.primaryContainer
                                 } else {
                                     Color.Transparent
@@ -132,9 +135,9 @@ fun IconPickerSheet(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EmojiSection(
-    currentIcon: String?,
+    currentIcon: Emoji?,
     recentEmojis: ImmutableList<String>,
-    onPick: (String?) -> Unit,
+    onPick: (Emoji?) -> Unit,
 ) {
     // No history, no section: an empty "Recent" heading above an empty row is
     // a blank the user has to read past on every opening of the sheet.
@@ -152,8 +155,8 @@ private fun EmojiSection(
             recentEmojis.forEach { emoji ->
                 EmojiChip(
                     emoji = emoji,
-                    selected = emoji == currentIcon,
-                    onClick = { onPick(emoji) },
+                    selected = emoji == currentIcon?.value,
+                    onClick = { onPick(Emoji(emoji)) },
                 )
             }
         }
@@ -183,9 +186,7 @@ private fun EmojiSection(
         )
         TextButton(onClick = {
             val v = custom.text.trim().toString()
-            if (v.isNotEmpty()) {
-                onPick(v)
-            }
+            if (v.isNotEmpty()) onPick(Emoji(v))
         }) { Text("Add") }
     }
 }
@@ -218,8 +219,8 @@ private fun EmojiSearchField(searchState: TextFieldState) {
 @Composable
 private fun EmojiGrid(
     query: String,
-    currentIcon: String?,
-    onPick: (String?) -> Unit,
+    currentIcon: Emoji?,
+    onPick: (Emoji?) -> Unit,
 ) {
     if (query.isBlank()) {
         LazyVerticalGrid(
@@ -239,8 +240,8 @@ private fun EmojiGrid(
                 items(category.emojis) { emoji ->
                     EmojiChip(
                         emoji = emoji.unicode,
-                        selected = emoji.unicode == currentIcon,
-                        onClick = { onPick(emoji.unicode) },
+                        selected = emoji.unicode == currentIcon?.value,
+                        onClick = { onPick(Emoji(emoji.unicode)) },
                     )
                 }
             }
@@ -268,12 +269,34 @@ private fun EmojiGrid(
         items(results) { emoji ->
             EmojiChip(
                 emoji = emoji.unicode,
-                selected = emoji.unicode == currentIcon,
-                onClick = { onPick(emoji.unicode) },
+                selected = emoji.unicode == currentIcon?.value,
+                onClick = { onPick(Emoji(emoji.unicode)) },
             )
         }
     }
 }
+
+private val registryKeyToEmoji =
+    mapOf(
+        "Home" to "🏠",
+        "Work" to "💼",
+        "Star" to "⭐",
+        "Folder" to "📁",
+        "FolderSpecial" to "📂",
+        "Note" to "📝",
+        "DateRange" to "📅",
+        "ShoppingCart" to "🛒",
+        "Flight" to "✈️",
+        "LocalHospital" to "🏥",
+        "School" to "🎓",
+        "FitnessCenter" to "🏋️",
+        "Pets" to "🐾",
+        "MusicNote" to "🎵",
+        "Code" to "💻",
+        "Build" to "🔧",
+        "Anchor" to "⚓",
+        "MoreHoriz" to "⋯",
+    )
 
 private val emojiGridHeight = 240.dp
 

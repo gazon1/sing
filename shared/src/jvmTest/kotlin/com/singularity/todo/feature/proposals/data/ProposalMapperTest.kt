@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.proposals.data
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
@@ -342,7 +343,7 @@ private fun samples(): List<ProposalItemKind> =
         ProposalItemKind.SetProjectField(ProjectValue.Name("Kitchen")),
         ProposalItemKind.SetProjectField(ProjectValue.Description("Renovation")),
         ProposalItemKind.SetProjectField(ProjectValue.Color(0xFF2196F3.toInt())),
-        ProposalItemKind.SetProjectField(ProjectValue.Icon("kitchen")),
+        ProposalItemKind.SetProjectField(ProjectValue.Icon(Emoji("🍳"))),
         // Every tag field.
         ProposalItemKind.SetTagField(TagValue.Name("chore")),
         ProposalItemKind.SetTagField(TagValue.Color(0xFF9E9E9E.toInt())),
@@ -373,7 +374,12 @@ private fun samples(): List<ProposalItemKind> =
             ),
         ),
         ProposalItemKind.CreateProject(
-            ProposedProject(name = "Kitchen", description = "Renovation", color = 0xFF2196F3.toInt(), icon = "kitchen"),
+            ProposedProject(
+                name = "Kitchen",
+                description = "Renovation",
+                color = 0xFF2196F3.toInt(),
+                icon = Emoji("🍳"),
+            ),
         ),
         ProposalItemKind.CreateNote(
             ProposedNote(title = "Agenda", bodyHtml = "<p>Buy milk</p>", isFolder = false, parentNoteId = "note-0"),

@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ColorSwatch
@@ -59,7 +60,6 @@ import com.singularity.todo.feature.projects.presentation.components.IconPickerS
 import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
-import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -233,9 +233,9 @@ private sealed interface EditorSheet {
 @Composable
 private fun IconPickerSheetHost(
     visible: Boolean,
-    currentIcon: String?,
+    currentIcon: Emoji?,
     recentEmojis: ImmutableList<String>,
-    onPick: (String?) -> Unit,
+    onPick: (Emoji?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     if (visible) {
@@ -376,7 +376,7 @@ private fun IdentitySection(
 @Composable
 private fun AppearanceSection(
     selectedColor: Int,
-    selectedIcon: String?,
+    selectedIcon: Emoji?,
     onColorSelected: (Int) -> Unit,
     onIconPickerRequested: () -> Unit,
 ) {
@@ -417,9 +417,7 @@ private fun AppearanceSection(
             onClick = onIconPickerRequested,
             label = {
                 Text(
-                    selectedIcon?.let { key ->
-                        ProjectIconRegistry.iconByKey(key)?.name ?: "Emoji"
-                    } ?: "Icon",
+                    if (selectedIcon != null) "Emoji" else "Icon",
                 )
             },
             leadingIcon = {

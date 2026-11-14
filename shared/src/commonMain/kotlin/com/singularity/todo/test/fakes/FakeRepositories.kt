@@ -2330,7 +2330,7 @@ class FakeProjectsRepository(
                                         userId = p.userId.value,
                                         name = p.name,
                                         color = p.color,
-                                        icon = p.icon,
+                                        icon = p.icon?.value,
                                         description = p.description,
                                         createdAt = p.createdAt.toEpochMilliseconds(),
                                         updatedAt = p.updatedAt.toEpochMilliseconds(),

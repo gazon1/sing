@@ -1,24 +1,20 @@
 package com.singularity.todo.feature.projects.presentation.components
 
-import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.singularity.todo.core.emoji.Emoji
 
 /**
- * Pure resolution of a stored project icon string into a renderable kind.
+ * Pure resolution of a project icon into a renderable kind.
  *
- * Kept separate from the Composable so the "registered key vs. free text vs.
- * fallback" rule is testable without Compose.
+ * Kept separate from the Composable so the rule is testable without Compose.
  */
 sealed interface ResolvedProjectIcon {
-    data class Material(val key: String) : ResolvedProjectIcon
-
-    data class Emoji(val value: String) : ResolvedProjectIcon
+    data class EmojiIcon(val value: String) : ResolvedProjectIcon
 
     data object None : ResolvedProjectIcon
 }
 
-fun resolveProjectIcon(icon: String?): ResolvedProjectIcon =
+fun resolveProjectIcon(icon: Emoji?): ResolvedProjectIcon =
     when {
-        icon.isNullOrBlank() -> ResolvedProjectIcon.None
-        ProjectIconRegistry.iconByKey(icon) != null -> ResolvedProjectIcon.Material(icon)
-        else -> ResolvedProjectIcon.Emoji(icon)
+        icon == null || icon.value.isBlank() -> ResolvedProjectIcon.None
+        else -> ResolvedProjectIcon.EmojiIcon(icon.value)
     }

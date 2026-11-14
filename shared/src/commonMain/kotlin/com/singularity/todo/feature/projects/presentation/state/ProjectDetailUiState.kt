@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.projects.presentation.state
+
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption

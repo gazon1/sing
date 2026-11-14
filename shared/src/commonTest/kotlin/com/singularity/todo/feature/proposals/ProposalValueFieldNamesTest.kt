@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.proposals
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalValue
@@ -153,7 +154,7 @@ class ProposalValueFieldNamesTest {
                 ProjectValue.Name("Home"),
                 ProjectValue.Description("Everything at home"),
                 ProjectValue.Color(0xFF00FF00.toInt()),
-                ProjectValue.Icon("house"),
+                ProjectValue.Icon(Emoji("house")),
             )
 
         /** The tag's readable fields. */

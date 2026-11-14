@@ -5,6 +5,7 @@ package com.singularity.todo.preview
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentType
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -98,7 +99,7 @@ internal object PreviewSamples {
         name: String = "Inbox",
         color: Int = 0xFF2196F3.toInt(),
         description: String? = null,
-        icon: String? = null,
+        icon: Emoji? = null,
         parentId: ProjectId? = null,
     ): Project =
         Project(
