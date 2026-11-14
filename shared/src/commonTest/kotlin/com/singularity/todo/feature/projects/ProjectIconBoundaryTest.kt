@@ -52,7 +52,7 @@ class ProjectIconBoundaryTest {
 
     @Test
     fun `a stored value crosses Room, backup and sync verbatim`() {
-        STORED_VALUES.forEach { raw ->
+        STORED_PROJECT_ICONS.forEach { raw ->
             val icon = Emoji(raw)
             val project = project(icon = icon)
 
@@ -74,17 +74,20 @@ class ProjectIconBoundaryTest {
     }
 
     @Test
-    fun `a legacy Material key is not converted on any boundary`() {
+    fun `every retired Material key is not converted on any boundary`() {
         // The picker writes Emoji now, so no code can produce a Material key; the
         // values in old rows and from old clients are still there. The decision is to
         // leave them alone rather than invent a glyph: "Work" stays "Work" everywhere
-        // and the renderer draws it as its own text (ProjectIdentityTest).
-        val project = project(icon = Emoji("Work"))
-        val entity = project.projectToEntity()
+        // and the renderer draws it as its own text (ProjectIdentityTest). Each key is
+        // checked, so a mapping added for one of them cannot hide behind the others.
+        LEGACY_MATERIAL_KEYS.forEach { key ->
+            val project = project(icon = Emoji(key))
+            val entity = project.projectToEntity()
 
-        assertEquals("Work", entity.entityToProject().icon?.value)
-        assertEquals("Work", entity.toDto().icon)
-        assertEquals("Work", project.toJson()["icon"]?.jsonPrimitive?.content)
+            assertEquals(key, entity.entityToProject().icon?.value, "Room keeps '$key'")
+            assertEquals(key, entity.toDto().icon, "the backup keeps '$key'")
+            assertEquals(key, project.toJson()["icon"]?.jsonPrimitive?.content, "the document carries '$key'")
+        }
     }
 
     @Test
@@ -110,40 +113,5 @@ class ProjectIconBoundaryTest {
         const val USER = "user-a"
 
         val NOW: Instant = Instant.parse("2026-11-14T00:00:00Z")
-
-        /** The 18 keys `ProjectIconRegistry` used to hold, plus text it could never have produced. */
-        val STORED_VALUES: List<String> =
-            listOf(
-                "Home",
-                "Work",
-                "Star",
-                "Folder",
-                "FolderSpecial",
-                "Note",
-                "DateRange",
-                "ShoppingCart",
-                "Flight",
-                "LocalHospital",
-                "School",
-                "FitnessCenter",
-                "Pets",
-                "MusicNote",
-                "Code",
-                "Build",
-                "Anchor",
-                "MoreHoriz",
-                "NotAKey",
-                "marketing",
-                "   ",
-                "🏠",
-                // Composed sequences: ZWJ person, flag, skin tone, variation selector,
-                // family and keycap are each several code points that must not be split.
-                "🧑‍💻",
-                "🇬🇧",
-                "🧘🏽",
-                "🕊️",
-                "👨‍👩‍👧‍👦",
-                "1️⃣",
-            )
     }
 }

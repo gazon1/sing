@@ -11,6 +11,7 @@ import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.JvmBackupCodec
+import com.singularity.todo.core.backup.ProjectDto
 import com.singularity.todo.core.backup.TaskDto
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
@@ -23,6 +24,8 @@ import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
+import com.singularity.todo.feature.projects.COMPOSED_PROJECT_ICONS
+import com.singularity.todo.feature.projects.LEGACY_MATERIAL_KEYS
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -126,6 +129,64 @@ class BackupRoundTripTest {
                 restoredTasks.first().workflowState,
                 "the state the user claimed for the task's work must survive the round trip",
             )
+        }
+
+    /**
+     * A project icon survives the real archive, unchanged.
+     *
+     * `ProjectIconBoundaryTest` proves the DTO mapper; this runs the pipeline the app
+     * actually uses — export to a file, import into an empty database — for every
+     * retired Material key and a set of composed sequences. A serializer that dropped
+     * or normalized the column would write something the restore does not return.
+     */
+    @Test
+    fun `project icons survive export and restore unchanged`() =
+        runTest {
+            val owner = UserId("backup-user")
+            val now = Clock.System.now().toEpochMilliseconds()
+            val icons = LEGACY_MATERIAL_KEYS + COMPOSED_PROJECT_ICONS
+            icons.forEachIndexed { index, icon ->
+                sourceDb.projectDao().upsert(
+                    ProjectDto(
+                        id = "icon-$index",
+                        name = "Project $index",
+                        color = 0xFF3366FF.toInt(),
+                        icon = icon,
+                        createdAt = now,
+                        updatedAt = now,
+                    ).toEntity(owner.value),
+                )
+            }
+
+            val fs = JvmFileSystem()
+            val destPath = File(fixture.directory(), "project-icons.zip").absolutePath
+
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = false
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+
+            icons.forEachIndexed { index, icon ->
+                assertEquals(
+                    icon,
+                    targetDb.projectDao().getByIdForUser("icon-$index", owner.value)?.icon,
+                    "the archive did not return the stored icon '$icon'",
+                )
+            }
         }
 
     /**

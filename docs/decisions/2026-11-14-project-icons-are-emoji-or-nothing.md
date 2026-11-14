@@ -113,9 +113,11 @@ is lost — the user can replace the key with an emoji whenever they open the ed
   Material key is drawn as its own text": such a value is visible, never dropped and
   never silently replaced. The persistence-boundary question #2931 left open is decided
   above: there is no conversion, and the string crosses Room, backup and sync unchanged.
-  `ProjectIconBoundaryTest` pins every retired key through those boundaries, and
-  `ProjectDocumentWriteTest` pins that an old client's key is stored as-is and does not
-  oscillate across pulls.
+  `ProjectIconBoundaryTest` pins every retired key through those boundaries,
+  `BackupRoundTripTest` runs the keys and composed sequences through a real archive,
+  `ProjectDocumentWriteTest` pins both sync directions (stored as-is, re-pull stable, and
+  the same string in the outbound document), and `ProjectEditorViewModelTest` pins that a
+  picked emoji is what the saved project stores.
 - ADR `2026-11-12-project-identity-is-one-icon-composable` was superseded in part: its
   "shared resolution contract" is now this entry's direct rendering.
 

@@ -153,6 +153,26 @@ class ProjectEditorViewModelTest {
         }
 
     @Test
+    fun `a picked emoji is what the saved project stores`() =
+        runTest {
+            // The picker hands the emoji to `IconChanged`; this is the rest of the
+            // user's path — the intent reaches the repository as the project's icon,
+            // so the row the tree/card/detail read back carries the same value.
+            val vm = createVm(backgroundScope)
+            vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
+            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("🧑‍💻")))
+            vm.onIntent(ProjectEditorIntent.Save)
+
+            val saved = fakeProjectsRepo.observeAll().first().single()
+            assertEquals(
+                Emoji("🧑‍💻"),
+                saved.icon,
+                "the emoji the picker handed over is what the repository stores",
+            )
+            assertEquals(Emoji("🧑‍💻"), vm.stateFlow.value.icon)
+        }
+
+    @Test
     fun `no icon at all is not remembered`() =
         runTest {
             val store = newRecentEmojiStore(backgroundScope)

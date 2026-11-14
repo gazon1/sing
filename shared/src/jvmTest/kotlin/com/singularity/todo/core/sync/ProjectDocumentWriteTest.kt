@@ -3,6 +3,7 @@ package com.singularity.todo.core.sync
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.LEGACY_MATERIAL_KEYS
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -16,6 +17,7 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -103,13 +105,16 @@ class ProjectDocumentWriteTest {
         externalId = null,
     )
 
-    private fun repository(db: FakeAppDatabase): ProjectsRepository =
+    private fun repository(
+        db: FakeAppDatabase,
+        sync: FakeSyncRepository = FakeSyncRepository(),
+    ): ProjectsRepository =
         ProjectsRepositoryImpl(
             projectDao = db.projectDao(),
             inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
             clock = FakeClock(),
             currentUser = FakeProfileAwareCurrentUser(),
-            syncRepository = FakeSyncRepository(),
+            syncRepository = sync,
             unitOfWork = FakeUnitOfWork(),
         )
 
@@ -186,26 +191,39 @@ class ProjectDocumentWriteTest {
         }
 
     @Test
-    fun `a legacy Material key from an older client is stored unchanged and re-pulling does not oscillate`() =
+    fun `every retired Material key survives the pull and the push unchanged`() =
         runTest {
-            // No client converts a legacy key, so an old client's document and this
-            // client's row agree on the spelling. Pulling the same document twice must
-            // therefore leave the same row; a read-time mapping would rewrite it here
-            // and the old client would write its key back on its next sync.
-            val db = FakeAppDatabase()
-            db.projectDao().upsert(row())
-            val repo = repository(db)
-            val writer = fakeSyncDocumentWriter(projects = repo)
-            val document = JsonObject(project(icon = Emoji("Work")).toJson())
+            // One document per key, in both directions. A client that never converts
+            // has nothing to oscillate: the pull stores the key, a second pull leaves
+            // the row alone, and the outbound document — built from the row through
+            // `toProject()` and `toJson()` — carries the same string back.
+            LEGACY_MATERIAL_KEYS.forEach { key ->
+                val db = FakeAppDatabase()
+                db.projectDao().upsert(row())
+                val sync = FakeSyncRepository()
+                val repo = repository(db, sync)
+                val writer = fakeSyncDocumentWriter(projects = repo)
+                val document = JsonObject(project(icon = Emoji(key)).toJson())
 
-            writer.upsert(DocType.Project, document)
-            val afterFirst = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon
+                writer.upsert(DocType.Project, document)
+                val afterFirst = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon
 
-            writer.upsert(DocType.Project, document)
-            val afterSecond = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon
+                writer.upsert(DocType.Project, document)
+                val afterSecond = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon
 
-            assertEquals("Work", afterFirst, "a legacy key is kept as the string it is, not mapped")
-            assertEquals(afterFirst, afterSecond, "the second pull changes nothing")
+                assertEquals(key, afterFirst, "'$key' is kept as the string it is, not mapped")
+                assertEquals(key, afterSecond, "the second pull of '$key' changes nothing")
+
+                val stored = repo.get(ProjectId.fromString("p1")) ?: error("the pulled project is not readable")
+                repo.update(stored.copy(name = "Renamed $key")).getOrThrow()
+
+                val pushed = sync.enqueuedEntities.single() as Project
+                assertEquals(
+                    key,
+                    pushed.toJson()["icon"]?.jsonPrimitive?.content,
+                    "the outbound document carries '$key', not a converted or null value",
+                )
+            }
         }
 
     // ── the inheritance ───────────────────────────────────────────────────
