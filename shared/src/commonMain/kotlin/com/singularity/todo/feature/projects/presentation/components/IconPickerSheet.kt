@@ -45,7 +45,6 @@ import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.emoji.EmojiCatalog
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.vanniktech.emoji.EmojiCategory
 import kotlinx.collections.immutable.ImmutableList
 
@@ -65,7 +64,7 @@ fun IconPickerSheet(
     onDismiss: () -> Unit,
 ) {
     // The sheet opens partially expanded on Android, and the search field sits
-    // below the icon registry: without this the field is unreachable until the
+    // below the recent row: without this the field is unreachable until the
     // user drags the sheet up. The grid inside keeps its own bounded height.
     Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -84,41 +83,6 @@ fun IconPickerSheet(
         }
         Spacer(Modifier.height(16.dp))
 
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ProjectIconRegistry.all.forEach { (key, icon) ->
-                val emoji = registryKeyToEmoji[key]
-                val selected = emoji != null && currentIcon?.value == emoji
-                Icon(
-                    icon,
-                    contentDescription = key,
-                    tint =
-                        if (selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    modifier =
-                        Modifier
-                            .touchTarget()
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .clickable { if (emoji != null) onPick(Emoji(emoji)) }
-                            .background(
-                                if (selected) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    Color.Transparent
-                                },
-                                CircleShape,
-                            ).padding(8.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
         EmojiSection(
             currentIcon = currentIcon,
             recentEmojis = recentEmojis,
@@ -275,28 +239,6 @@ private fun EmojiGrid(
         }
     }
 }
-
-private val registryKeyToEmoji =
-    mapOf(
-        "Home" to "🏠",
-        "Work" to "💼",
-        "Star" to "⭐",
-        "Folder" to "📁",
-        "FolderSpecial" to "📂",
-        "Note" to "📝",
-        "DateRange" to "📅",
-        "ShoppingCart" to "🛒",
-        "Flight" to "✈️",
-        "LocalHospital" to "🏥",
-        "School" to "🎓",
-        "FitnessCenter" to "🏋️",
-        "Pets" to "🐾",
-        "MusicNote" to "🎵",
-        "Code" to "💻",
-        "Build" to "🔧",
-        "Anchor" to "⚓",
-        "MoreHoriz" to "⋯",
-    )
 
 private val emojiGridHeight = 240.dp
 

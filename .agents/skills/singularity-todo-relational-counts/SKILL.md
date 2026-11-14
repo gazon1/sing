@@ -155,7 +155,7 @@ fun ProjectCard(
                     )
                 }
             }
-            ProjectIcon(iconKey = project.icon)
+            ProjectIcon(icon = project.icon, tint = MaterialTheme.colorScheme.onSurfaceVariant, size = 20.dp)
         }
     }
 }

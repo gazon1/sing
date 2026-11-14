@@ -5,6 +5,12 @@ date: 2026-11-12
 tags: ["ui", "projects", "identity"]
 ---
 
+> **Superseded in part (2026-11-14):** the "shared resolution contract" — `resolveProjectIcon`
+> and `ProjectIconRegistry` — is gone. `ProjectIcon` draws the stored `Emoji?` directly, and the
+> picker offers emoji only. The decision that a project is drawn through one `ProjectIcon`
+> composable, and the per-surface size/tint/selection rule, still hold. See
+> [2026-11-14-project-icons-are-emoji-or-nothing.md](2026-11-14-project-icons-are-emoji-or-nothing.md).
+
 ## Context
 
 Issue #2863 asks for a shared presentation contract for a project, so the same project is

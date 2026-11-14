@@ -5,6 +5,7 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.database.ProjectWithCountRow
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -60,7 +61,7 @@ class ProjectsViewModelTest {
         id: String,
         name: String,
         color: Int = 0xFF2196F3.toInt(),
-        icon: String? = null,
+        icon: Emoji? = null,
         parentId: ProjectId? = null,
     ) {
         val now = Clock.System.now()
