@@ -3,6 +3,8 @@
 package com.singularity.todo.feature.search
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -36,8 +38,12 @@ import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagFocused
+import com.singularity.todo.test.helpers.assertTagNotFocused
+import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.awaitTagTextEquals
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.typeIntoTag
 import kotlinx.coroutines.CompletableDeferred
@@ -168,6 +174,52 @@ class SearchPendingStateScenarioTest {
             }
         }
 
+    /** Losing the focus is not a write: the query survives the caret leaving the field. */
+    @Test
+    fun the_field_gives_up_the_focus_without_losing_the_query() =
+        runIsolatedComposeTest(width = 420, height = 900) {
+            val fakes = SearchFakes()
+            try {
+                val viewModel = fakes.viewModel()
+                var focusManager: FocusManager? = null
+                setContent {
+                    SingularityTheme(themeMode = ThemeMode.Light) {
+                        CompositionLocalProvider(LocalSearchNavigator provides PreviewSearchNavigator()) {
+                            focusManager = LocalFocusManager.current
+                            SearchScreen(viewModel = viewModel)
+                        }
+                    }
+                }
+
+                assertTagFocused(TestTags.SEARCH_INPUT)
+                typeIntoTag(TestTags.SEARCH_INPUT, "milk")
+
+                runOnIdle { focusManager?.clearFocus() }
+
+                assertTagNotFocused(TestTags.SEARCH_INPUT)
+                assertTagTextEquals(TestTags.SEARCH_INPUT, "milk")
+            } finally {
+                fakes.close()
+            }
+        }
+
+    /** A saved search seeds the field with the exact query it stores. */
+    @Test
+    fun a_saved_search_seeds_the_field_with_its_stored_query() =
+        runIsolatedComposeTest(width = 420, height = 900) {
+            val fakes = SearchFakes()
+            try {
+                fakes.seedSavedSearch(id = "ss-high", name = "High priority", query = "priority:high")
+                showSearch(fakes.viewModel())
+
+                clickText("High priority")
+
+                awaitTagTextEquals(TestTags.SEARCH_INPUT, "priority:high")
+            } finally {
+                fakes.close()
+            }
+        }
+
     /**
      * Mounts the search screen over [viewModel], with the navigator a preview
      * would get: the screen reads `LocalSearchNavigator` even when nothing is
@@ -212,6 +264,23 @@ class SearchPendingStateScenarioTest {
         /** Cancels the screen's collectors. Every test closes its fakes. */
         fun close() {
             scope.close()
+        }
+
+        fun seedSavedSearch(
+            id: String,
+            name: String,
+            query: String,
+        ) {
+            savedSearchRepo.seed(
+                SavedSearch(
+                    id = SavedSearchId(id),
+                    userId = TestUsers.DEFAULT,
+                    name = name,
+                    queryString = query,
+                    createdAt = NOW,
+                    updatedAt = NOW,
+                ),
+            )
         }
 
         fun seedTask(title: String) {
@@ -293,6 +362,10 @@ class SearchPendingStateScenarioTest {
      */
     private class InMemorySavedSearchRepository : SavedSearchRepository {
         private val searches = MutableStateFlow<List<SavedSearch>>(emptyList())
+
+        fun seed(search: SavedSearch) {
+            searches.value = searches.value + search
+        }
 
         override fun observeAll(): Flow<List<SavedSearch>> = searches
 

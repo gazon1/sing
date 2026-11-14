@@ -89,7 +89,7 @@
 # branch does not cause, and nobody should read that red as this change's.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
-classes 13
-tests 36
+classes 14
+tests 38
 skipped 0
 # GENERATED:END

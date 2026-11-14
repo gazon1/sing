@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -45,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,7 @@ import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -139,6 +142,10 @@ fun SearchScreenContent(
             source = state.querySource,
             onTextChanged = { onIntent(SearchIntent.OnQueryChange(it)) },
         )
+
+    // Back with the keyboard up closes the keyboard and nothing else: leaving the
+    // screen on the same press would discard the field the person is typing into.
+    ImeAwareBackHandler { navigator.back() }
 
     SearchSheetHosts(
         showFilterSheet = overlay.sheet is SearchDialog.Filter,
@@ -250,6 +257,18 @@ private fun SearchInputBar(queryState: TextFieldState) {
             }
         },
         lineLimits = TextFieldLineLimits.SingleLine,
+        // The search bar's shape and tone: a tonal pill when the field is at rest,
+        // and the primary outline the moment it holds the focus. The field stays a
+        // plain input — the expanded SearchBar container belongs to the suggestion
+        // surface, not here.
+        shape = MaterialTheme.shapes.extraLarge,
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = Color.Transparent,
+            ),
     )
 }
 
