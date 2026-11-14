@@ -113,7 +113,9 @@
     </plurals>
     <!-- The recurrence sentence; the same strings as in values/strings.xml. Russian
          counts differently, so each unit carries the three forms it needs: one
-         ("Каждый 21 день"), few ("Каждые 3 дня") and many ("Каждые 5 дней"). -->
+         ("Каждый 21 день"), few ("Каждые 3 дня") and many ("Каждые 5 дней"). The
+         weekday list inside the sentence has its own abbreviations, lowercase as a
+         Russian calendar writes them in a line of text; the agenda keeps its own. -->
     <string name="recurrence_every_day">Каждый день</string>
     <string name="recurrence_every_week">Каждую неделю</string>
     <string name="recurrence_every_month">Каждый месяц</string>
@@ -143,7 +145,15 @@
         <item quantity="other">Каждые %1$d лет</item>
     </plurals>
     <string name="recurrence_weekly">Еженедельно по %1$s</string>
-    <string name="recurrence_monthly">Ежемесячно в %1$d-й день</string>
+    <string name="recurrence_weekday_separator">, </string>
+    <string name="recurrence_weekday_short_mon">пн</string>
+    <string name="recurrence_weekday_short_tue">вт</string>
+    <string name="recurrence_weekday_short_wed">ср</string>
+    <string name="recurrence_weekday_short_thu">чт</string>
+    <string name="recurrence_weekday_short_fri">пт</string>
+    <string name="recurrence_weekday_short_sat">сб</string>
+    <string name="recurrence_weekday_short_sun">вс</string>
+    <string name="recurrence_monthly">Ежемесячно, %1$d-го числа</string>
     <string name="recurrence_yearly">Ежегодно, %2$d %1$s</string>
     <string name="recurrence_from_due">от даты выполнения</string>
     <string name="recurrence_from_completion">после выполнения</string>

@@ -106,6 +106,12 @@ class RecurrenceStringsResourceTest {
         )
     }
 
+    @Test
+    fun `the weekday separator is a resource in both bundles`() {
+        assertEquals(", ", bundleString("values", "recurrence_weekday_separator"))
+        assertEquals(", ", bundleString("values-ru", "recurrence_weekday_separator"))
+    }
+
     private companion object {
         /** The words of the recurrence sentence, and their English text. */
         val STRINGS: List<Pair<String, String>> =
@@ -115,6 +121,13 @@ class RecurrenceStringsResourceTest {
                 "recurrence_every_month" to "Every month",
                 "recurrence_every_year" to "Every year",
                 "recurrence_weekly" to "Weekly on %1\$s",
+                "recurrence_weekday_short_mon" to "Mon",
+                "recurrence_weekday_short_tue" to "Tue",
+                "recurrence_weekday_short_wed" to "Wed",
+                "recurrence_weekday_short_thu" to "Thu",
+                "recurrence_weekday_short_fri" to "Fri",
+                "recurrence_weekday_short_sat" to "Sat",
+                "recurrence_weekday_short_sun" to "Sun",
                 "recurrence_monthly" to "Monthly on day %1\$d",
                 "recurrence_yearly" to "Yearly on %1\$s %2\$d",
                 "recurrence_from_due" to "from the due date",
