@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,8 +65,8 @@ fun MultiDatePickerSheet(
     var selected by remember { mutableStateOf(initialDates) }
     var monthAnchor by remember { mutableStateOf(initialDates.minOrNull() ?: today) }
     var limitReached by remember { mutableStateOf(false) }
-
-    BottomSheetHost(onDismiss = onDismiss) {
+    // Expanded: half-expanded put the action row below a phone screen's edge.
+    BottomSheetHost(onDismiss = onDismiss, sheetState = rememberAppSheetState(SheetValue.Expanded)) {
         SheetScaffold(
             modifier = modifier,
             actions =
