@@ -1,6 +1,7 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -62,6 +63,7 @@ class ProjectDocumentWriteTest {
         id: String = "p1",
         name: String = "Work",
         description: String? = "the description",
+        icon: Emoji? = null,
         inherited: Set<TagGroupId> = emptySet(),
         owner: UserId = TestUsers.DEFAULT,
     ) = Project(
@@ -69,6 +71,7 @@ class ProjectDocumentWriteTest {
         userId = owner,
         name = name,
         color = 0xFF00FF00.toInt(),
+        icon = icon,
         description = description,
         createdAt = created,
         updatedAt = created,
@@ -159,6 +162,50 @@ class ProjectDocumentWriteTest {
                 stored?.description,
                 "the rest of the document is applied — a dropped document applies nothing",
             )
+        }
+
+    // ── the icon ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `a project document carrying an emoji stores it byte-for-byte`() =
+        runTest {
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            val repo = repository(db)
+
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project(icon = Emoji("🧑‍💻")).toJson()),
+            )
+
+            assertEquals(
+                "🧑‍💻",
+                db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon,
+                "the pulled icon is the document's string, composed sequence and all",
+            )
+        }
+
+    @Test
+    fun `a legacy Material key from an older client is stored unchanged and re-pulling does not oscillate`() =
+        runTest {
+            // No client converts a legacy key, so an old client's document and this
+            // client's row agree on the spelling. Pulling the same document twice must
+            // therefore leave the same row; a read-time mapping would rewrite it here
+            // and the old client would write its key back on its next sync.
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            val repo = repository(db)
+            val writer = fakeSyncDocumentWriter(projects = repo)
+            val document = JsonObject(project(icon = Emoji("Work")).toJson())
+
+            writer.upsert(DocType.Project, document)
+            val afterFirst = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon
+
+            writer.upsert(DocType.Project, document)
+            val afterSecond = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon
+
+            assertEquals("Work", afterFirst, "a legacy key is kept as the string it is, not mapped")
+            assertEquals(afterFirst, afterSecond, "the second pull changes nothing")
         }
 
     // ── the inheritance ───────────────────────────────────────────────────

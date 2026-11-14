@@ -14,10 +14,13 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectTreeNode
+import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
+import com.singularity.todo.feature.projects.presentation.screen.ProjectHeroSection
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -120,6 +123,42 @@ class ProjectIdentityTest {
 
             assertTextDisplayed("Work")
             assertTagNotExists(TestTags.PROJECT_ICON_FALLBACK)
+        }
+
+    @Test
+    fun `a project card draws the stored emoji`() =
+        runIsolatedComposeTest {
+            setContent {
+                ProjectCard(project = project(name = "Card", icon = Emoji("🧑‍💻")), onClick = {})
+            }
+
+            assertTextDisplayed("🧑‍💻")
+        }
+
+    @Test
+    fun `the project detail hero draws the stored emoji`() =
+        runIsolatedComposeTest {
+            val project = project(name = "Detail", icon = Emoji("🧑‍💻"))
+            setContent {
+                ProjectHeroSection(
+                    ui =
+                        ProjectDetailUi(
+                            project = project,
+                            tasks = emptyList(),
+                            totalCount = 0,
+                            completedCount = 0,
+                            childProjects = persistentListOf(),
+                            parent = null,
+                        ),
+                    lastEditedAt = null,
+                    now = NOW,
+                    nameSource = OwnedText(project.name, revision = 0),
+                    descriptionSource = OwnedText("", revision = 0),
+                    actions = ProjectDetailActions {},
+                )
+            }
+
+            assertTextDisplayed("🧑‍💻")
         }
 
     @Test
