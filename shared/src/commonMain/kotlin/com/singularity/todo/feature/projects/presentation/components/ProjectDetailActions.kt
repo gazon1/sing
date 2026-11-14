@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.runtime.Stable
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
@@ -75,7 +76,7 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
 
     fun onUpdateColor(color: Int) = block(ProjectDetailIntent.Domain.UpdateColor(color))
 
-    fun onUpdateIcon(icon: String?) = block(ProjectDetailIntent.Domain.UpdateIcon(icon))
+    fun onUpdateIcon(icon: Emoji?) = block(ProjectDetailIntent.Domain.UpdateIcon(icon))
 
     fun onUpdateParent(parentId: ProjectId?) = block(ProjectDetailIntent.Domain.UpdateParent(parentId))
 

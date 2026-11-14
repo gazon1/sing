@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.domain.model
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.Searchable
 import com.singularity.todo.core.serialization.StableJson
@@ -37,7 +38,7 @@ data class Project(
     val id: ProjectId,
     val name: String,
     val color: Int, // ARGB
-    val icon: String? = null,
+    val icon: Emoji? = null,
     val description: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
@@ -122,7 +123,7 @@ data class ProjectWithCounts(val project: Project, val totalCount: Int, val comp
 data class CreateProjectInput(
     val name: String,
     val color: Int,
-    val icon: String? = null,
+    val icon: Emoji? = null,
     val description: String? = null,
     val parentId: ProjectId? = null,
 )

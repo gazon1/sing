@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.proposals.domain.model
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -438,13 +439,13 @@ sealed interface ProjectValue : ProposalValue {
         override fun editableValue(): EditableValue<ProjectValue>? = null
     }
 
-    /** The project's icon name. */
+    /** The project's icon. */
     @Serializable
     @SerialName("Icon")
-    data class Icon(val value: String) : ProjectValue {
+    data class Icon(val value: Emoji) : ProjectValue {
         override val fieldName: String = "Icon"
         override val summary: String = "Change the project icon"
-        override val text: String = value
+        override val text: String = value.value
 
         /** Not editable: an icon is picked, not typed. */
         override fun editableValue(): EditableValue<ProjectValue>? = null
@@ -497,7 +498,12 @@ sealed interface ProjectValue : ProposalValue {
                 }
 
                 "Icon" -> {
-                    ReadResult.Ok(Icon(text.trim()))
+                    val trimmed = text.trim()
+                    if (trimmed.isEmpty()) {
+                        ReadResult.Rejected("An icon cannot be blank.")
+                    } else {
+                        ReadResult.Ok(Icon(Emoji(trimmed)))
+                    }
                 }
 
                 else -> {
@@ -635,7 +641,7 @@ data class ProposedProject(
     val name: String,
     val description: String? = null,
     val color: Int = 0xFF2196F3.toInt(),
-    val icon: String? = null,
+    val icon: Emoji? = null,
 )
 
 /**

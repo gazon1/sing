@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
@@ -20,8 +21,8 @@ data class CreateProjectInput(
      * Default: 0xFF2196F3 (ARGB blue).
      */
     val color: Int = 0xFF2196F3.toInt(),
-    /** Material icon key (e.g. "Work") or a single emoji; null = default folder. */
-    val icon: String? = null,
+    /** Project icon emoji (Unicode string). Legacy Material icon keys are accepted. */
+    val icon: Emoji? = null,
     val description: String? = null,
     /**
      * Optional hex-string override for [color]. Accepted forms:

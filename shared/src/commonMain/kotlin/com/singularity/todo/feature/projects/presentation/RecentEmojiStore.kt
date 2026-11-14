@@ -8,12 +8,11 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.datastore.catchDataStoreIoError
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.settings.SettingsNamespace
 import com.singularity.todo.feature.projects.domain.logic.normalizeRecentEmoji
 import com.singularity.todo.feature.projects.domain.logic.rememberRecentEmoji
-import com.singularity.todo.feature.projects.presentation.components.ResolvedProjectIcon
-import com.singularity.todo.feature.projects.presentation.components.resolveProjectIcon
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
@@ -94,13 +93,12 @@ class RecentEmojiStore(
     }
 
     /**
-     * Records [icon] when it is an emoji.
+     * Records [icon] when it is an emoji pick.
      *
-     * A registry key is an icon, not an emoji, and "no icon at all" is not a
-     * pick: neither is remembered.
+     * "No icon at all" is not a pick and is not remembered.
      */
-    fun recordPickedIcon(icon: String?) {
-        val emoji = (resolveProjectIcon(icon) as? ResolvedProjectIcon.Emoji)?.value ?: return
+    fun recordPickedIcon(icon: Emoji?) {
+        val emoji = icon?.value?.takeIf { it.isNotBlank() } ?: return
         record(emoji)
     }
 

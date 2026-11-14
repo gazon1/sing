@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
@@ -56,7 +57,7 @@ fun ProjectCard(
             // Color circle with icon from registry
             ColorCircle(
                 color = Color(project.color),
-                iconKey = project.icon,
+                icon = project.icon,
                 contentDescription = project.name,
             )
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
@@ -94,7 +95,7 @@ fun ProjectCard(
 @Composable
 private fun ColorCircle(
     color: Color,
-    iconKey: String?,
+    icon: Emoji?,
     contentDescription: String? = null,
 ) {
     Box(
@@ -106,7 +107,7 @@ private fun ColorCircle(
         contentAlignment = Alignment.Center,
     ) {
         ProjectIcon(
-            icon = iconKey,
+            icon = icon,
             tint = color.contrastingForeground(),
             size = 20.dp,
             contentDescription = contentDescription,

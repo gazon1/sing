@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
@@ -196,7 +197,7 @@ fun ProjectEntity.toProject(): Project =
         id = ProjectId.fromString(id),
         name = name,
         color = color,
-        icon = icon,
+        icon = icon?.let(::Emoji),
         description = description,
         createdAt = createdAt.toInstant(),
         updatedAt = updatedAt.toInstant(),

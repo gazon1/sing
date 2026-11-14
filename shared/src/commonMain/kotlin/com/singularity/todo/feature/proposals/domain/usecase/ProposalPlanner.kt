@@ -336,7 +336,7 @@ class ProposalPlanner(private val clock: Clock) {
             }
 
             is ProjectValue.Icon -> {
-                project.copy(icon = value.value.trim().takeIf(String::isNotEmpty))
+                project.copy(icon = value.value.takeIf { it.value.isNotBlank() })
             }
 
             // A value this build cannot read. The change stays on the card with the
@@ -422,7 +422,7 @@ class ProposalPlanner(private val clock: Clock) {
             id = ProjectId.fromString(targetId),
             name = name,
             color = proposed.color,
-            icon = proposed.icon?.trim()?.takeIf(String::isNotEmpty),
+            icon = proposed.icon?.takeIf { it.value.isNotBlank() },
             description = proposed.description?.trim()?.takeIf(String::isNotEmpty),
             createdAt = now,
             updatedAt = now,

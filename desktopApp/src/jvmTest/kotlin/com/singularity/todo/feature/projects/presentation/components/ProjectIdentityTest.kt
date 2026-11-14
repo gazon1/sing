@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -72,7 +73,7 @@ class ProjectIdentityTest {
     fun `a blank icon also draws the fallback folder`() =
         runIsolatedComposeTest {
             setContent {
-                ProjectIcon(icon = "   ", tint = Color.Black, size = 20.dp)
+                ProjectIcon(icon = Emoji("   "), tint = Color.Black, size = 20.dp)
             }
 
             assertTagDisplayed(TestTags.PROJECT_ICON_FALLBACK)
@@ -83,8 +84,8 @@ class ProjectIdentityTest {
         runIsolatedComposeTest {
             setContent {
                 Column {
-                    ProjectIcon(icon = "🧑‍💻", tint = Color.Black, size = 20.dp)
-                    ProjectIcon(icon = "Work", tint = Color.Black, size = 20.dp)
+                    ProjectIcon(icon = Emoji("🧑‍💻"), tint = Color.Black, size = 20.dp)
+                    ProjectIcon(icon = Emoji("💼"), tint = Color.Black, size = 20.dp)
                 }
             }
 
@@ -95,7 +96,7 @@ class ProjectIdentityTest {
     fun `the stored sequence reaches the text layer`() =
         runIsolatedComposeTest {
             setContent {
-                ProjectIcon(icon = "🧑‍💻", tint = Color.Black, size = 20.dp)
+                ProjectIcon(icon = Emoji("🧑‍💻"), tint = Color.Black, size = 20.dp)
             }
 
             assertTextDisplayed("🧑‍💻")
@@ -104,7 +105,7 @@ class ProjectIdentityTest {
     @Test
     fun `a menu row draws the project emoji, keeps one line and is one button`() =
         runIsolatedComposeTest(width = 200, height = 400) {
-            val project = project(name = LONG_NAME, icon = "🧑‍💻")
+            val project = project(name = LONG_NAME, icon = Emoji("🧑‍💻"))
             setContent {
                 ProjectTreeSection(
                     state = treeOf(node(project)),
@@ -190,7 +191,7 @@ class ProjectIdentityTest {
 
     private fun project(
         name: String,
-        icon: String? = null,
+        icon: Emoji? = null,
         id: String = "p-1",
     ) = Project(
         id = ProjectId.fromString(id),

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.domain.state
 
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviIntent
@@ -18,7 +19,7 @@ data class ProjectEditorUiState(
     val name: FieldOwnedText = FieldOwnedText.empty(),
     val description: FieldOwnedText = FieldOwnedText.empty(),
     val color: Int = DEFAULT_COLOR,
-    val icon: String? = null,
+    val icon: Emoji? = null,
     val parentId: ProjectId? = null,
     val saving: Boolean = false,
     val loading: Boolean = false,
@@ -29,7 +30,7 @@ data class ProjectEditorUiState(
     val baselineName: String = "",
     val baselineDescription: String = "",
     val baselineColor: Int = DEFAULT_COLOR,
-    val baselineIcon: String? = null,
+    val baselineIcon: Emoji? = null,
     val baselineParentId: ProjectId? = null,
 ) {
     val isDirty: Boolean
@@ -69,7 +70,7 @@ sealed interface ProjectEditorIntent : MviIntent {
 
     data class ColorChanged(val color: Int) : ProjectEditorIntent
 
-    data class IconChanged(val icon: String?) : ProjectEditorIntent
+    data class IconChanged(val icon: Emoji?) : ProjectEditorIntent
 
     data class DescriptionChanged(val description: String) : ProjectEditorIntent
 
