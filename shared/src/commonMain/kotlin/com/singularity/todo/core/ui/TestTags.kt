@@ -1262,6 +1262,16 @@ object TestTags {
          */
         fun chip(name: String) = "saved_search_chip_${slug(name)}"
 
+        /**
+         * The row's own answer when the typed query hides every saved search.
+         *
+         * The row is the screen's suggestion surface, so the state where it has
+         * nothing to offer is shown in the row rather than by removing it: a row
+         * that vanished while the user typed would move the results under the
+         * finger, and a panel over the results would be a second surface.
+         */
+        const val NO_MATCH = "saved_search_no_match"
+
         /** Confirm button of the rename dialog — the marker that the dialog is up. */
         const val RENAME_DIALOG_CONFIRM = "search_rename_dialog_confirm"
 

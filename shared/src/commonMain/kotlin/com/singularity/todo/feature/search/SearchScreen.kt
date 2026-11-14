@@ -201,6 +201,7 @@ fun SearchScreenContent(
                         onSaveClick = { overlay.show(SearchDialog.Save) },
                         onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
                         onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                        query = state.query.text,
                     )
                 }
 
