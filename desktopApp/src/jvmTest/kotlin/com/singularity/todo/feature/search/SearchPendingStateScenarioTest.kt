@@ -174,13 +174,7 @@ class SearchPendingStateScenarioTest {
             }
         }
 
-    /**
-     * The field can lose the focus, and losing it is not a write.
-     *
-     * The unfocused state is the one the screen draws while the keyboard is away;
-     * the text the person typed belongs to the query, not to the focus, so it
-     * survives the caret leaving the field.
-     */
+    /** Losing the focus is not a write: the query survives the caret leaving the field. */
     @Test
     fun the_field_gives_up_the_focus_without_losing_the_query() =
         runIsolatedComposeTest(width = 420, height = 900) {
@@ -209,10 +203,7 @@ class SearchPendingStateScenarioTest {
             }
         }
 
-    /**
-     * A saved search is a seed: the field shows the query the saved search stores,
-     * exactly as it was stored, and the screen's query is that same text.
-     */
+    /** A saved search seeds the field with the exact query it stores. */
     @Test
     fun a_saved_search_seeds_the_field_with_its_stored_query() =
         runIsolatedComposeTest(width = 420, height = 900) {
