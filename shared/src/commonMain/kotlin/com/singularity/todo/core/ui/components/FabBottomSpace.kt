@@ -11,8 +11,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * The space the shell's floating action button takes above the bottom edge of
- * the shell's content.
+ * The space the **shell's** floating action button takes above the bottom edge
+ * of the shell's content.
  *
  * Material3's `Scaffold` does not reserve room for a floating action button:
  * the content is laid out behind it, and the last row of a list ends up under
@@ -26,6 +26,26 @@ import androidx.compose.ui.unit.dp
  * takes the same space for the other reason: the popup is drawn above the
  * app's window, so an unlifted toast would cover the button rather than be
  * covered by it.
+ *
+ * ## One owner per button
+ *
+ * This value is the shell's button and nothing else. It is not "whatever button
+ * happens to be visible in this screen", and a screen that draws its own button
+ * must not publish it or consume it for that button.
+ *
+ * - Shell button, screen snackbar: the host takes this clearance
+ *   ([TaggedSnackbarHost], and the popup's host for its own reason).
+ * - Screen button and snackbar in the same Material3 `Scaffold`: put the button
+ *   in that `Scaffold`'s FAB slot, and Material3 places the snackbar clear of
+ *   it. Do not add this clearance for it as well — the snackbar would be lifted
+ *   twice. A button drawn inside the content (a `Box` with `BottomEnd`) is
+ *   invisible to that placement and ends up under the snackbar.
+ * - Screen button overlaid independently of the `Scaffold` that places its
+ *   snackbar: that screen provides its own, explicitly named clearance and a
+ *   host that consumes it. This value is not widened to cover it.
+ * - Screen button with no snackbar host: no clearance plumbing at all.
+ *
+ * Never add the shell's clearance and a screen's own clearance together.
  *
  * Zero when no button is on screen: a list must not keep blank space for a
  * button that is not there, and a toast must not float above the bottom edge
