@@ -75,6 +75,14 @@ Option 3 is what this ADR takes.
    write drops is worse than no row: it accepts the input and reports success.
    The pin and the estimate now reach the created task.
 
+   This holds for **every** door, not only the one the editor walks. The three
+   create paths re-validate through the same domain call, and that call rebuilds
+   the input: a field a caller does not forward is dropped. The editor's door
+   forwards both; the project view's and the recurring door did not, and now do.
+   `parentTaskId` was lost the same way once, and a subtask became a top-level
+   task — which is why the use-case doors have their own tests rather than
+   trusting the editor's.
+
 ### The validation contract
 
 4. **A pristine form shows no error.** The red line under the title appears
@@ -98,7 +106,9 @@ Option 3 is what this ADR takes.
    recorded as a product decision to keep the list, which also keeps every
    create flow and UI test that asserts the row right after save. Landing on the
    detail is the cheaper change now that the field sets match, and it stays
-   available if the product decision changes.
+   available if the product decision changes. This is stated here because the
+   issue's acceptance criterion still names the detail: the issue follows this
+   record, not the other way round.
 
 ### The date sheet opens expanded
 

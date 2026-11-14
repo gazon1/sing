@@ -15,7 +15,6 @@ import com.singularity.todo.test.helpers.unclippedBoundsOfTag
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Create and Edit are two entry points into one editor, so the attribute rows they
@@ -26,14 +25,16 @@ import kotlin.test.assertTrue
  * created complete and the same task had a different shape depending on how it was
  * opened (UXF-24).
  *
- * The assertion is on the **order**, not on the set: a set that matches while the order
- * does not is the same defect one screen down, and only the order tells a person where
- * to look for the field they remember.
+ * The assertion is against [SHARED_ROWS], not Create against Edit. Comparing the two
+ * surfaces to each other would stay green when a row disappeared from **both** — the
+ * defect this test exists for is a field a person cannot reach, and two screens that
+ * both lost it are still wrong. Each surface is therefore checked against the expected
+ * contract, and against the other, so a one-sided row and a missing row both fail.
  *
  * The rows listed in [ONE_SIDED] are deliberately one-sided, and each has a reason the
- * screen would show if the row appeared on both. What this test holds is that the list
- * stays those rows: a row that becomes one-sided later fails here until it is either
- * drawn on both surfaces or written into the list with its reason.
+ * screen would show if the row appeared on both. They are excluded from both sides by
+ * name; a row that becomes one-sided later fails here until it is either drawn on both
+ * surfaces or written into the list with its reason.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -56,14 +57,14 @@ class CreateAndEditFieldParityTest {
             val editRows = rowsOnScreen()
 
             assertEquals(
-                editRows - ONE_SIDED,
+                SHARED_ROWS,
                 createRows - ONE_SIDED,
-                "Create and Edit expose different rows, or the same rows in a different order. " +
-                    "Create drew $createRows, Edit drew $editRows.",
+                "Create does not draw the shared rows, in this order. It drew $createRows.",
             )
-            assertTrue(
-                (createRows - ONE_SIDED).isNotEmpty(),
-                "the parity claim is vacuous: Create drew no shared rows at all",
+            assertEquals(
+                SHARED_ROWS,
+                editRows - ONE_SIDED,
+                "Edit does not draw the shared rows, in this order. It drew $editRows.",
             )
         }
 
@@ -81,6 +82,29 @@ class CreateAndEditFieldParityTest {
             .sortedBy { tag -> unclippedBoundsOfTag(tag).top.value }
 
     private companion object {
+        /**
+         * The rows both surfaces must draw, in the editor's own order.
+         *
+         * The expected list, not a filter over what is on the screen: a row that is
+         * missing from both surfaces has to fail here, and comparing two screens that
+         * both lost it would not.
+         *
+         * The order is the renderer's: the priority, the estimate, the date, the
+         * reminder, the deadline, the start date, the project, the tags, the
+         * recurrence and the pin.
+         */
+        val SHARED_ROWS: List<String> =
+            listOf(
+                TestTags.TASK_EDITOR_PRIORITY_ROW,
+                TestTags.TASK_EDITOR_ESTIMATE_ROW,
+                TestTags.TASK_EDITOR_DUE_ROW,
+                TestTags.TASK_EDITOR_START_DATE_ROW,
+                TestTags.TASK_EDITOR_PROJECT_ROW,
+                TestTags.TASK_EDITOR_TAGS_ROW,
+                TestTags.TASK_EDITOR_RECURRENCE_ROW,
+                TestTags.TASK_EDITOR_PIN_ROW,
+            )
+
         /** Every attribute row the editor can draw. The hero (title, description) and
          * the chrome (the bar, the save button) are not rows and are not compared. */
         val EDITOR_ROWS: List<String> =
