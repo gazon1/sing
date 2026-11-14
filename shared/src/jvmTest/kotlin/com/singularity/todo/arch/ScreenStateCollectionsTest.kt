@@ -230,7 +230,11 @@ class ScreenStateCollectionsTest {
                 require(root.isDirectory) { "missing source root: ${root.path}" }
                 scanCount.incrementAndGet()
                 val scope = Konsist.scopeFromExternalDirectory(root.path)
-                for (file in scope.files) {
+                val files = scope.files
+                require(files.isNotEmpty()) {
+                    "source root was scanned but no files were found: ${root.path}"
+                }
+                for (file in files) {
                     val packageName = file.packagee?.name ?: continue
                     collect(file.declarations(), packageName, "", found)
                 }
