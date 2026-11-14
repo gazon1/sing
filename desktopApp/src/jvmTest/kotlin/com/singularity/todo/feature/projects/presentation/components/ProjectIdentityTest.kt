@@ -102,6 +102,26 @@ class ProjectIdentityTest {
             assertTextDisplayed("🧑‍💻")
         }
 
+    /**
+     * A legacy Material key is drawn as its own text, not converted and not dropped.
+     *
+     * `projects.icon` used to hold a `ProjectIconRegistry` key (`"Work"`). The
+     * registry and the resolver are gone (ADR 2026-11-14), so the renderer's rule
+     * is the whole contract: any non-blank value is drawn. This test states that
+     * outcome where a reader changing the rule will see it, so the choice is not
+     * rediscovered from a bug report — a legacy key is visible, not silently lost.
+     */
+    @Test
+    fun `a legacy Material key is drawn as its own text`() =
+        runIsolatedComposeTest {
+            setContent {
+                ProjectIcon(icon = Emoji("Work"), tint = Color.Black, size = 20.dp)
+            }
+
+            assertTextDisplayed("Work")
+            assertTagNotExists(TestTags.PROJECT_ICON_FALLBACK)
+        }
+
     @Test
     fun `a menu row draws the project emoji, keeps one line and is one button`() =
         runIsolatedComposeTest(width = 200, height = 400) {

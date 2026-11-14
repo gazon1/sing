@@ -82,7 +82,12 @@ created.
   `ProjectEditorViewModelTest`'s "a registry icon is not remembered" is deleted too: no
   intent can carry a registry key any more, so the case cannot be constructed.
 - A previously stored Material key draws as text until the user picks a glyph. The
-  fallback is not used for it, because a non-blank value is a value.
+  fallback is not used for it, because a non-blank value is a value. This is the
+  deterministic rule for legacy values, pinned by `ProjectIdentityTest`'s "a legacy
+  Material key is drawn as its own text": such a value is visible, never dropped and
+  never silently replaced. Deciding *whether* legacy keys should instead be mapped to
+  emoji at the persistence boundary belongs to #2931/#2936, not to the renderer — a
+  mapping there would have to be applied once, on read, so that two clients agree.
 - ADR `2026-11-12-project-identity-is-one-icon-composable` was superseded in part: its
   "shared resolution contract" is now this entry's direct rendering.
 
