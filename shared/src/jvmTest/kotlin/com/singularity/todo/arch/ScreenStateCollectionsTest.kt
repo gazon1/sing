@@ -128,9 +128,9 @@ class ScreenStateCollectionsTest {
                 "nothing. Check that the source roots are configured.",
         )
         assertTrue(
-            scanCount.get() == 1,
-            "The five source roots were scanned ${scanCount.get()} time(s); the gate must " +
-                "reuse one declaration snapshot for the class.",
+            scanCount.get() == roots.size,
+            "Expected ${roots.size} Konsist root scans, got ${scanCount.get()}; " +
+                "the gate must reuse one declaration snapshot for the class.",
         )
     }
 
@@ -143,13 +143,6 @@ class ScreenStateCollectionsTest {
     private fun states(): List<State> = featureStates
 
     private fun holdings(): Map<String, String> = rawHoldings
-
-    private fun isState(qualifiedName: String): Boolean {
-        val simple = qualifiedName.substringAfterLast('.')
-        if (STATE_SUFFIXES.any { suffix -> simple.endsWith(suffix) }) return true
-        val parent = qualifiedName.substringBeforeLast('.', "")
-        return parent in stateNames
-    }
 
     private fun isRawCollection(type: String): Boolean {
         val bare =
@@ -232,10 +225,10 @@ class ScreenStateCollectionsTest {
         val scanCount = AtomicInteger(0)
 
         private val declarationSnapshot: List<Pair<String, State>> by lazy {
-            scanCount.incrementAndGet()
             val found = mutableListOf<Pair<String, State>>()
             for (root in roots) {
                 require(root.isDirectory) { "missing source root: ${root.path}" }
+                scanCount.incrementAndGet()
                 val scope = Konsist.scopeFromExternalDirectory(root.path)
                 for (file in scope.files) {
                     val packageName = file.packagee?.name ?: continue
