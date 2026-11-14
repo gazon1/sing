@@ -28,3 +28,21 @@ fun DesktopComposeUiTest.assertTagFocused(tag: String) {
         onAllNodes(hasTestTag(tag) and isFocused()).fetchSemanticsNodes().isNotEmpty()
     }
 }
+
+/**
+ * Waits for the node with [tag] to stop holding the focus.
+ *
+ * The counterpart of [assertTagFocused]: a screen that cleared the focus says so
+ * in the field's `Focused` semantics, and the wait is a poll because clearing the
+ * focus is applied by the composition a frame after it is asked for.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertTagNotFocused(tag: String) {
+    awaitTag(tag)
+    waitUntil(
+        conditionDescription = "node with testTag '$tag' no longer holds the focus",
+        timeoutMillis = TIMEOUT_MS,
+    ) {
+        onAllNodes(hasTestTag(tag) and isFocused()).fetchSemanticsNodes().isEmpty()
+    }
+}

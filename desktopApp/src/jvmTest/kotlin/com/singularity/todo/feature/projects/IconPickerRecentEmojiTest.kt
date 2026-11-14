@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
 import com.singularity.todo.test.helpers.ScreenWithOwners
@@ -71,7 +72,7 @@ class IconPickerRecentEmojiTest {
     @Test
     fun `picking an emoji hands the emoji back`() =
         runIsolatedComposeTest {
-            var picked: String? = null
+            var picked: Emoji? = null
 
             setContent {
                 ScreenWithOwners {
@@ -86,7 +87,7 @@ class IconPickerRecentEmojiTest {
 
             clickText("😀")
 
-            assertEquals("😀", picked, "the emoji was picked")
+            assertEquals(Emoji("😀"), picked, "the emoji was picked")
         }
 
     @Test
