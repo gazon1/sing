@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.search
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -229,6 +230,77 @@ class SavedSearchesRowUiTest {
             // that says what the search does.
             assertTextDisplayed("Due this week")
             assertTextDisplayed("due:7d")
+        }
+
+    @Test
+    fun `the suggestions follow the list when a saved search is removed and added`() =
+        // The row is derived from the list, not a snapshot of it: deleting a saved
+        // search has to take its chip away, and saving one has to bring it back —
+        // without touching the query.
+        runIsolatedComposeTest {
+            val searches = mutableStateOf(rowFixture)
+
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = searches.value,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                    query = "overdue",
+                )
+            }
+            waitForIdle()
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
+            assertTagNotExists(TestTags.SavedSearches.NO_MATCH)
+
+            // Deleted: the chip goes and the row says it has nothing to offer.
+            searches.value = rowFixture.filter { it.name != "Overdue" }.toImmutableList()
+            waitForIdle()
+
+            assertTagNotExists(TestTags.SavedSearches.chip("Overdue"))
+            assertTagDisplayed(TestTags.SavedSearches.NO_MATCH)
+
+            // Saved again (here, renamed back into a match): the chip returns and
+            // the no-match line goes.
+            searches.value = rowFixture
+            waitForIdle()
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
+            assertTagNotExists(TestTags.SavedSearches.NO_MATCH)
+        }
+
+    @Test
+    fun `a renamed saved search is suggested under its new name`() =
+        runIsolatedComposeTest {
+            val searches = mutableStateOf(rowFixture)
+
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = searches.value,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                    query = "overdue",
+                )
+            }
+            waitForIdle()
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
+
+            // Renamed: the chip is addressed by its name, so the old address goes
+            // and the new one answers. The search still matches by its stored
+            // query, which the rename did not touch.
+            searches.value =
+                rowFixture.map { if (it.id.raw == "s1") it.copy(name = "Old") else it }.toImmutableList()
+            waitForIdle()
+
+            assertTagNotExists(TestTags.SavedSearches.chip("Overdue"))
+            assertTagDisplayed(TestTags.SavedSearches.chip("Old"))
         }
 
     private val rowFixture =

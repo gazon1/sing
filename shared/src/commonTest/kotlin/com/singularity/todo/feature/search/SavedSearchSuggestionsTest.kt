@@ -44,6 +44,25 @@ class SavedSearchSuggestionsTest {
     }
 
     @Test
+    fun `an unaccented term finds an accented name`() {
+        // The fold is the matcher's, not this function's: "cafe" finds "Café" here
+        // the way it finds it everywhere else in the app.
+        assertEquals(
+            listOf("Café"),
+            savedSearchSuggestions(listOf(ACCENTED_NAME).toImmutableList(), "cafe").map { it.name },
+        )
+    }
+
+    @Test
+    fun `an unaccented term finds an accented stored query`() {
+        // The name is accented neither way, so only the stored query can answer.
+        assertEquals(
+            listOf("Coffee tag"),
+            savedSearchSuggestions(listOf(ACCENTED_QUERY).toImmutableList(), "cafe").map { it.name },
+        )
+    }
+
+    @Test
     fun `a query that matches neither name nor stored query offers nothing`() {
         assertEquals(emptyList(), matching("zzzznomatch"))
     }
@@ -76,6 +95,9 @@ class SavedSearchSuggestionsTest {
         val OVERDUE = search("s1", "Overdue", "is:overdue")
         val WEEK = search("s2", "Due this week", "due:7d")
         val WORK = search("s3", "Work", "tag:work")
+
+        val ACCENTED_NAME = search("s4", "Café", "is:pinned")
+        val ACCENTED_QUERY = search("s5", "Coffee tag", "tag:café")
 
         val ALL = listOf(OVERDUE, WEEK, WORK).toImmutableList()
     }
