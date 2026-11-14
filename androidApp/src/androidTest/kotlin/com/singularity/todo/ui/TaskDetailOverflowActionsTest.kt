@@ -183,6 +183,12 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
      *
      * The repository and the seed writer are read from the app's own graph, so the
      * app has to have started before either is reachable.
+     *
+     * An activity that fails to reach the shell is closed before the failure is
+     * rethrown: the caller's `finally` only runs once this has returned, so a
+     * leaked activity here would stay on top of the device and the next test in
+     * the suite would drive *this* one's screen. This is the same shape as
+     * `ActionRecordingTest.withAppOpen`.
      */
     private fun launchApp(): ActivityScenario<MainActivity> {
         device.wakeUp()
@@ -193,7 +199,12 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
                 MainActivity::class.java,
             )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
-        device.awaitShell()
+        try {
+            device.awaitShell()
+        } catch (error: Throwable) {
+            scenario.close()
+            throw error
+        }
         return scenario
     }
 
@@ -256,7 +267,21 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
         const val ARCHIVE_TASK = "Overflow archive task"
         const val DELETE_TASK = "Overflow delete task"
 
-        /** The offers the two rows publish, and the only user-visible difference. */
+        /**
+         * The offers the two rows publish, and the only user-visible difference.
+         *
+         * These are the English literals `TaskDetailContent` passes to
+         * `Notification.Undo` — hardcoded in production, not `stringResource`, so
+         * they read the same on a Russian device as on an English one and this
+         * assertion is locale-independent *today*. Unlike the menu labels beside
+         * them, which are resources (`Архивировать` / `Удалить` on this device) and
+         * are deliberately not asserted on.
+         *
+         * #2884 localizes the task detail's strings. Whoever takes it must update
+         * these constants in the same change: the moment the offer becomes a
+         * `stringResource`, this test starts failing on a device that is not in
+         * English — which is the right failure, but only if it is understood.
+         */
         const val ARCHIVED_OFFER = "Task archived"
         const val DELETED_OFFER = "Task deleted"
 

@@ -145,7 +145,16 @@ class TaskDetailOverflowActionsTest {
         const val OPEN_ARCHIVE_TASK = "Overflow archive task"
         const val OPEN_DELETE_TASK = "Overflow delete task"
 
-        /** The offers the two rows publish, and the only user-visible difference. */
+        /**
+         * The offers the two rows publish, and the only user-visible difference.
+         *
+         * Hardcoded English literals in `TaskDetailContent`, not resources, so these
+         * are locale-independent today. #2884 localizes the task detail and must
+         * update these in the same change; the desktop harness mounts in English
+         * (`useEnglishTestLocale`), so the day the offer becomes a `stringResource`
+         * this file keeps passing while the Android one starts failing on its
+         * Russian device.
+         */
         const val ARCHIVED_OFFER = "Task archived"
         const val DELETED_OFFER = "Task deleted"
     }

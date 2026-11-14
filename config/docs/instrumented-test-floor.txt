@@ -73,11 +73,20 @@
 # closing. The scenario had no test at any tier: `PopupReachabilityTest` opens the menu
 # and never presses a row.
 #
-# The rewrite was taken from a full run in which `MenuSheetBoundsTest` failed (two
-# `StaleObjectException`s), which the floor does not care about — it counts what the
-# suite delivered, not what passed. That failure reproduces on a clean tree without
-# this change, on a device whose screen was being driven by other work at the same
-# time; it is not this change's, and it is not fixed here.
+# The rewrite was taken from a full run that delivered 13 classes and 36 tests. Two
+# of those 36 — both in `MenuSheetBoundsTest` — failed with `StaleObjectException`,
+# and that is worth stating plainly rather than burying: the floor records what the
+# suite *delivered*, not what passed, so the numbers are sound, but the run was not
+# green.
+#
+# The failure is not this change's, and that was measured rather than assumed:
+# `MenuSheetBoundsTest` fails 2/2 on this device with `TaskDetailOverflowActionsTest`
+# removed from the test APK entirely, and it fails on a freshly reinstalled package,
+# so neither the class nor device contention explains it. It is a defect in
+# `MenuSheetBoundsTest` (a stale `UiObject2` held across a width change) and it is
+# older than this change. It is not fixed here — that would be a different PR — but it
+# means a `connectedDebugAndroidTest` run on this device is red for a reason this
+# branch does not cause, and nobody should read that red as this change's.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
 classes 13
