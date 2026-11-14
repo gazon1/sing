@@ -7,7 +7,6 @@ import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -45,7 +44,9 @@ class CreateTaskAttributeCarryOverTest {
             FakeAuthRepository(initialSession = Session.Anonymous(UserId("carry-over-user"))),
         )
 
-    private fun created(): Task = repo.tasks.value.values.first()
+    private fun created(): Task =
+        repo.tasks.value.values
+            .first()
 
     // ── CreateTaskUseCase ────────────────────────────────────────────────────
 
@@ -99,7 +100,12 @@ class CreateTaskAttributeCarryOverTest {
                     dueDate = LocalDate(2026, 11, 16),
                     estimateMinutes = 30,
                     isPinned = true,
-                    recurrence = RecurrenceSpec.Interval(base = RecurrenceBase.FROM_DUE, amount = 1, unit = DateTimeUnit.WEEK),
+                    recurrence =
+                        RecurrenceSpec.Interval(
+                            base = RecurrenceBase.FROM_DUE,
+                            amount = 1,
+                            unit = DateTimeUnit.WEEK,
+                        ),
                 ),
             ).getOrThrow()
 
@@ -137,11 +143,18 @@ class CreateTaskAttributeCarryOverTest {
                     dueDate = LocalDate(2026, 11, 16),
                     estimateMinutes = 15,
                     isPinned = true,
-                    recurrence = RecurrenceSpec.Interval(base = RecurrenceBase.FROM_DUE, amount = 1, unit = DateTimeUnit.DAY),
+                    recurrence =
+                        RecurrenceSpec.Interval(
+                            base = RecurrenceBase.FROM_DUE,
+                            amount = 1,
+                            unit = DateTimeUnit.DAY,
+                        ),
                 ),
             ).getOrThrow()
 
-            val members = repo.tasks.value.values.filter { it.seriesId != null }
+            val members =
+                repo.tasks.value.values
+                    .filter { it.seriesId != null }
             assertTrue(members.size > 1, "one day's rule produced no further occurrence: ${members.size} row(s)")
             members.forEach { member ->
                 assertEquals(
@@ -173,7 +186,12 @@ class CreateTaskAttributeCarryOverTest {
                 CreateTaskInput(
                     title = "Unestimated standup",
                     dueDate = LocalDate(2026, 11, 16),
-                    recurrence = RecurrenceSpec.Interval(base = RecurrenceBase.FROM_DUE, amount = 1, unit = DateTimeUnit.DAY),
+                    recurrence =
+                        RecurrenceSpec.Interval(
+                            base = RecurrenceBase.FROM_DUE,
+                            amount = 1,
+                            unit = DateTimeUnit.DAY,
+                        ),
                 ),
             ).getOrThrow()
 
