@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -42,6 +44,7 @@ import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
+import com.singularity.todo.feature.search.savedSearchSuggestions
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -54,6 +57,21 @@ import kotlinx.collections.immutable.toImmutableList
  * - Other saved searches show outlined star.
  * - "+" chip opens the save dialog via [onSaveClick].
  * - Long-press any saved search chip opens a context menu with Rename / Delete.
+ *
+ * The row is also the screen's suggestion surface: [query] narrows the chips to
+ * the saved searches it matches (see [savedSearchSuggestions]), so the saved
+ * searches that answer what is being typed stay reachable while the results are
+ * on screen. The row is the suggestion surface rather than a second list under
+ * the field because the same chips would otherwise appear twice.
+ *
+ * @param query the text in the search field. Blank offers every saved search.
+ * @param savedSearches every saved search of the profile.
+ * @param activeSavedSearchId the saved search the field was loaded from, if any.
+ * @param onLoadSearch what a chip tap asks for.
+ * @param onSaveClick what the "Save" chip asks for.
+ * @param onRename what the long-press menu asks for.
+ * @param onDelete what the long-press menu asks for.
+ * @param modifier the modifier applied to the row.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +83,10 @@ fun SavedSearchesRow(
     onRename: (SavedSearchId, String) -> Unit,
     onDelete: (SavedSearchId) -> Unit,
     modifier: Modifier = Modifier,
+    query: String = "",
 ) {
+    val suggestions = remember(savedSearches, query) { savedSearchSuggestions(savedSearches, query) }
+
     LazyRow(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -88,9 +109,25 @@ fun SavedSearchesRow(
             )
         }
 
+        // The query hid every saved search. Said in the row's own place, so the
+        // screen neither draws an empty row nor a panel over the results.
+        if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
+            item {
+                Text(
+                    text = "No saved searches match",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.SavedSearches.NO_MATCH)
+                            .padding(horizontal = 4.dp),
+                )
+            }
+        }
+
         // Saved search chips
         items(
-            items = savedSearches,
+            items = suggestions,
             key = { it.id.raw },
         ) { saved ->
             SavedSearchChipWithMenu(
@@ -124,7 +161,7 @@ private fun SavedSearchChipWithMenu(
         FilterChip(
             selected = isActive,
             onClick = onClick,
-            label = { Text(saved.name, maxLines = 1) },
+            label = { SavedSearchChipLabel(saved) },
             leadingIcon = {
                 Icon(
                     imageVector = if (isActive) Icons.Filled.Star else Icons.Outlined.Star,
@@ -196,6 +233,29 @@ private fun SavedSearchChipWithMenu(
                 },
                 leadingIcon = {},
                 modifier = Modifier.testTag(TestTags.SavedSearches.SEARCH_MENU_DELETE),
+            )
+        }
+    }
+}
+
+/**
+ * The chip's two lines: the name, and the query it stores.
+ *
+ * The name is what the saved search is called; the query is what it does. A
+ * search whose name says nothing about its query — "Work", "Friday" — is hard
+ * to pick from a row of chips without it.
+ */
+@Composable
+private fun SavedSearchChipLabel(saved: SavedSearch) {
+    Column {
+        Text(saved.name, maxLines = 1)
+        if (saved.queryString.isNotBlank() && saved.queryString != saved.name) {
+            Text(
+                text = saved.queryString,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.widthIn(max = 200.dp),
             )
         }
     }

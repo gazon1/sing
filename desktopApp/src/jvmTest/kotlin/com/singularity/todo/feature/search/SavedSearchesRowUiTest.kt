@@ -5,9 +5,12 @@ package com.singularity.todo.feature.search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
@@ -148,4 +151,90 @@ class SavedSearchesRowUiTest {
             // The star icon is part of the chip's merged semantics.
             assertTextDisplayed("Active search")
         }
+
+    @Test
+    fun `a typed query hides the saved searches it does not match`() =
+        runIsolatedComposeTest {
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = rowFixture,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                    query = "overdue",
+                )
+            }
+
+            assertTextDisplayed("Overdue")
+            assertTagNotExists(TestTags.SavedSearches.chip("Due this week"))
+            assertTagNotExists(TestTags.SavedSearches.chip("Work"))
+        }
+
+    @Test
+    fun `a query that matches no saved search says so instead of leaving a bare row`() =
+        runIsolatedComposeTest {
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = rowFixture,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                    query = "zzzznomatch",
+                )
+            }
+
+            assertTagDisplayed(TestTags.SavedSearches.NO_MATCH)
+            assertTagNotExists(TestTags.SavedSearches.chip("Overdue"))
+        }
+
+    @Test
+    fun `no no-match line when there are no saved searches at all`() =
+        // Nothing has been saved, so there is no suggestion surface: the row
+        // holds the Save chip and says nothing about a filter over an empty list.
+        runIsolatedComposeTest {
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = persistentListOf(),
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                    query = "overdue",
+                )
+            }
+
+            assertTagNotExists(TestTags.SavedSearches.NO_MATCH)
+        }
+
+    @Test
+    fun `a chip shows the query its saved search stores`() =
+        runIsolatedComposeTest {
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = rowFixture,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
+
+            // The name is the primary label; the stored query is the context
+            // that says what the search does.
+            assertTextDisplayed("Due this week")
+            assertTextDisplayed("due:7d")
+        }
+
+    private val rowFixture =
+        listOf(
+            makeSavedSearch("s1", "Overdue", "is:overdue"),
+            makeSavedSearch("s2", "Due this week", "due:7d"),
+            makeSavedSearch("s3", "Work", "tag:work"),
+        ).toImmutableList()
 }
