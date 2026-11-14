@@ -8,6 +8,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.revealMoreParameter
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -83,6 +84,11 @@ class TaskDetailTimeTrackingSectionTest {
             tapTab("Today")
             awaitTag(TestTags.taskItem("Track me")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // A task with no tracked time does not draw the time section: it is one
+            // of the properties the `+ Ещё` sheet offers. It comes back through
+            // that sheet, and it comes back open.
+            revealMoreParameter("TimeTracking")
 
             // The section sits below the attribute rows and the child work now, so on a
             // desktop window it is past the fold: presence is not display. The guard is

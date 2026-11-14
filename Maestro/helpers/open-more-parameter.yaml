@@ -1,0 +1,30 @@
+# Opens the `+ Ещё` sheet and picks one property from it.
+#
+# The row is at the bottom of the task, below the fold — the sections of the
+# task come first. DOWN scrolls the content up so what is below comes into view.
+#
+# `PROPERTY` is the property's own name, lowercased: `attachments`, `logbook`,
+# `relatedtasks`, `timetracking`, `workflowstate`. The tag is
+# `task_editor_more_parameter_<name>`.
+#
+# Picking a property puts it on the screen and opens it.
+appId: com.singularity.todo
+name: open-more-parameter
+---
+- scrollUntilVisible:
+    element:
+      id: task_editor_more_parameters_row
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: task_editor_more_parameters_row
+- extendedWaitUntil:
+    visible:
+      id: task_editor_more_parameters_sheet
+    timeout: 8000
+- tapOn:
+    id: task_editor_more_parameter_${PROPERTY}
+- extendedWaitUntil:
+    notVisible:
+      id: task_editor_more_parameters_sheet
+    timeout: 8000

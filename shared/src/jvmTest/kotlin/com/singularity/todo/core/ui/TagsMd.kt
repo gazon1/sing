@@ -287,6 +287,15 @@ object TagsMd {
                 DynamicMeta(fnName, "Tasks", "Buy milk", "Task checkboxes")
             }
 
+            "moreParameterRow" -> {
+                DynamicMeta(
+                    fnName,
+                    "Tasks",
+                    "Attachments",
+                    "Rows in the task detail's `+ Ещё` sheet",
+                )
+            }
+
             "dependencyItem" -> {
                 DynamicMeta(fnName, "Tasks", "Dep task", "Rows in the dependency picker")
             }

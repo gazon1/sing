@@ -2,8 +2,6 @@
 
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -12,9 +10,10 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagEnabled
+import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
-import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.collections.immutable.persistentListOf
@@ -216,10 +215,10 @@ class ChecklistAndSubtasksSectionUiTest {
                 )
             }
 
-            awaitTag(TestTags.checklistItemMoveUp("c1", "Item 1")).assertIsNotEnabled()
-            awaitTag(TestTags.checklistItemMoveDown("c1", "Item 1")).assertIsEnabled()
-            awaitTag(TestTags.checklistItemMoveUp("c3", "Item 3")).assertIsEnabled()
-            awaitTag(TestTags.checklistItemMoveDown("c3", "Item 3")).assertIsNotEnabled()
+            assertTagNotEnabled(TestTags.checklistItemMoveUp("c1", "Item 1"))
+            assertTagEnabled(TestTags.checklistItemMoveDown("c1", "Item 1"))
+            assertTagEnabled(TestTags.checklistItemMoveUp("c3", "Item 3"))
+            assertTagNotEnabled(TestTags.checklistItemMoveDown("c3", "Item 3"))
 
             clickTag(TestTags.checklistItemMoveDown("c1", "Item 1"))
             assertEquals(listOf("c1" to ChecklistMove.Down), moves)

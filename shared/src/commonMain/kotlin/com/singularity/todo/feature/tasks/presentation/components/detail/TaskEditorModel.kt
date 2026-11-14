@@ -121,4 +121,12 @@ data class TaskEditorModel(
     val workflowState: TaskWorkflowState = TaskWorkflowState.Open,
     /** Task creation timestamp in epoch milliseconds — used as default for time entry start. */
     val taskStartedAtMs: Long? = null,
+    /**
+     * The optional properties that are not on the screen.
+     *
+     * A section with nothing in it is not drawn, and this is the list of the ones
+     * that could be. It is derived from the task's state, never a static list:
+     * a property that has content is on the screen and does not belong here.
+     */
+    val moreParameters: ImmutableList<TaskOptionalProperty> = persistentListOf(),
 )

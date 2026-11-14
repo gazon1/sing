@@ -21,6 +21,14 @@ tags:
 - assertVisible:
     text: "Buy milk"
 
+# A task with no tracked time does not draw the time section: it is one of the
+# properties the `+ Ещё` sheet offers. Bring it back through that sheet — the
+# section comes with it, open.
+- runFlow:
+    file: ../../helpers/open-more-parameter.yaml
+    env:
+      PROPERTY: timetracking
+
 # The time tracking section shows the START chip on a signed-in session.
 # (Anonymous/dev sessions show time_tracking_error instead; the section is
 # still present, just in an error state — the STOP path is inaccessible.)

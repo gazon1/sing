@@ -13,7 +13,9 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.revealMoreParameter
 import com.singularity.todo.test.helpers.scrollToTag
+import com.singularity.todo.test.helpers.tagExists
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
@@ -76,7 +78,17 @@ internal object TaskStateScenarioSupport {
         ui.awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
     }
 
+    /**
+     * Brings the state row onto the screen.
+     *
+     * The row is not drawn while nobody has claimed a state: the row of a state
+     * that does not exist is one of the things the `+ Ещё` sheet offers. It comes
+     * back through that sheet, and from then on it is on the screen.
+     */
     fun scrollToStateRow(ui: DesktopComposeUiTest) {
+        if (!ui.tagExists(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW)) {
+            ui.revealMoreParameter("WorkflowState")
+        }
         ui.scrollToTag(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW)
         ui.assertTagDisplayed(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW)
     }

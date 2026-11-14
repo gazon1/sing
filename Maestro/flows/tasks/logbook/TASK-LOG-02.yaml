@@ -8,10 +8,11 @@
 # ## What this flow covers
 #
 # 1. Seed a task via DebugSeedActivity deep-link.
-# 2. Open the task detail view — the Logbook section shows its empty state.
+# 2. Open the task detail view and add the logbook from the `+ Ещё` sheet — it
+#    shows its empty state.
 # 3. Tap the logbook's "+" — the note editor opens, attached to that task.
 # 4. Leave the editor without typing anything.
-# 5. Reopen the task and find the logbook still empty.
+# 5. Reopen the task, add the logbook again, and find it still empty.
 #
 # ## The behaviour this flow guards
 #
@@ -45,10 +46,16 @@ tags:
     timeout: 5000
 
 # ── The Logbook section, still empty ───────────────────────────
-- scrollUntilVisible:
-    element:
+# The task has no logbook entries, so the logbook is not on the screen: it is
+# one of the properties the `+ Ещё` sheet offers. Picking it puts the section
+# on the screen and opens it — and it opens onto its empty state.
+- runFlow:
+    file: ../../../helpers/open-more-parameter.yaml
+    env:
+      PROPERTY: logbook
+- extendedWaitUntil:
+    visible:
       id: logbook_section
-    direction: DOWN
     timeout: 8000
 - assertVisible:
     id: logbook_empty
@@ -86,13 +93,14 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-- scrollUntilVisible:
-    element:
-      id: logbook_section
-    direction: DOWN
-    timeout: 8000
 
-# The empty state is still the one on screen — nothing was written.
+# The task came back without a note, so the logbook is off the screen again —
+# the `+ Ещё` sheet offers it again. Picking it puts it back, and it opens onto
+# its empty state: nothing was written.
+- runFlow:
+    file: ../../../helpers/open-more-parameter.yaml
+    env:
+      PROPERTY: logbook
 - extendedWaitUntil:
     visible:
       id: logbook_empty

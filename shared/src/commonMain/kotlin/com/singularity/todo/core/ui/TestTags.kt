@@ -415,6 +415,30 @@ object TestTags {
     /** Workflow-state row in the task editor attribute list. */
     const val TASK_EDITOR_WORKFLOW_STATE_ROW = "task_editor_workflow_state_row"
 
+    // ─── Task Detail · optional properties ───────────────────────────────────
+    //
+    // The `+ Ещё` row and the sheet it opens. The row is the way in to the
+    // properties that are not on the screen: a section with nothing in it is not
+    // drawn, and the row says which sections could be added.
+
+    /** The `+ Ещё` row — the way in to the properties that are not on the screen. */
+    const val TASK_EDITOR_MORE_PARAMETERS_ROW = "task_editor_more_parameters_row"
+
+    /** The sheet the `+ Ещё` row opens. */
+    const val TASK_EDITOR_MORE_PARAMETERS_SHEET = "task_editor_more_parameters_sheet"
+
+    /**
+     * Dynamic tag of one property in the `+ Ещё` sheet.
+     *
+     * Keyed by the property's own name, not by its label: the label is copy that
+     * a translation can change, and a flow that selects on copy breaks in every
+     * locale but the one it was written in.
+     */
+    fun moreParameterRow(name: String) = "task_editor_more_parameter_${slug(name)}"
+
+    /** The attachments section of the task detail — its header, the toggle. */
+    const val ATTACHMENTS_SECTION = "attachments_section"
+
     // ─── Task Detail · planning ───────────────────────────────────────────────
     //
     // The planning rows of the task detail. Each of them is always there — a
@@ -1493,6 +1517,16 @@ object TestTags {
     object TimeTracking {
         const val START = "time_tracking_start"
         const val STOP = "time_tracking_stop"
+
+        /**
+         * The header of the time-tracking section — the toggle that opens and
+         * closes it.
+         *
+         * The tag is on the header and not on the card: the header is the only
+         * target of the section, so a flow that wants to open it has to be able
+         * to address the thing that opens it.
+         */
+        const val SECTION = "time_tracking_section"
 
         /**
          * The refusal text, rendered in place of the chip when a write failed.

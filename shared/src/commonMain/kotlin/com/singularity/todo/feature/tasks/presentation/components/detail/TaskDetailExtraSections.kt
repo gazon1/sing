@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sectionTitle
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -96,21 +97,28 @@ fun TaskDetailChecklistSection(
     onAddItem: (String) -> Unit,
     onMove: ((ChecklistItemId, ChecklistMove) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    onToggleExpanded: (() -> Unit)? = null,
 ) {
-    val newTitleState = rememberTextFieldState()
     val completed = checklist.count { it.isCompleted }
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val visibleItems = if (!expanded && checklist.size > 5) checklist.take(5) else checklist
+    // Two different expansions, kept apart. The section's own open state belongs to
+    // the screen, which remembers it; the long list's "show all" belongs to the
+    // list, and the screen has no reason to remember it.
+    var showAll by rememberSaveable { mutableStateOf(false) }
+    val visibleItems = if (!showAll && checklist.size > 5) checklist.take(5) else checklist
 
-    // The section always renders, empty list or not: the add-row inside it is the
-    // only way to add the first checklist item from the task screen, so a section
-    // that hid itself when the list was empty would take the way in with it.
-    // What it must not do is look like a leftover — an empty list shows no count
-    // over nothing and says so in a line of its own.
+    // The section always renders, empty list or not: the header is the way to
+    // write into it, so a section that hid itself when the list was empty would
+    // take the way in with it. What it must not do is look like a leftover — an
+    // empty list shows no count over nothing, and the header is one line until
+    // the section is opened.
     ExtraSectionCard(
-        modifier = modifier.testTag(TestTags.TASK_CHECKLIST_SECTION),
+        modifier = modifier,
+        headerTestTag = TestTags.TASK_CHECKLIST_SECTION,
         icon = Icons.Filled.Checklist,
-        label = if (checklist.isEmpty()) "Checklist" else "Checklist ($completed/${checklist.size})",
+        label = sectionTitle("Checklist", checklist.size, completed),
+        expanded = expanded,
+        onToggle = onToggleExpanded,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (checklist.isEmpty()) {
@@ -153,9 +161,9 @@ fun TaskDetailChecklistSection(
                     )
                 }
 
-                if (!expanded && checklist.size > 5) {
+                if (!showAll && checklist.size > 5) {
                     TextButton(
-                        onClick = { expanded = true },
+                        onClick = { showAll = true },
                         modifier = Modifier.testTag(TestTags.CHECKLIST_SHOW_ALL),
                     ) {
                         Text("Показать все ${checklist.size}")
@@ -163,51 +171,69 @@ fun TaskDetailChecklistSection(
                 }
 
                 // The add row — after existing items so new content stays in reading order.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        state = newTitleState,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .bringIntoViewOnFocus(revision = checklist.size)
-                                .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
-                        placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
-                        lineLimits = TextFieldLineLimits.SingleLine,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        onKeyboardAction = {
-                            val trimmed = newTitleState.text.toString().trim()
-                            if (trimmed.isNotEmpty()) {
-                                onAddItem(trimmed)
-                                newTitleState.clearText()
-                            }
-                        },
-                    )
-                    IconButton(
-                        onClick = {
-                            val trimmed = newTitleState.text.toString().trim()
-                            if (trimmed.isNotEmpty()) {
-                                onAddItem(trimmed)
-                                newTitleState.clearText()
-                            }
-                        },
-                        modifier =
-                            Modifier
-                                .touchTarget()
-                                .size(40.dp)
-                                .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
-                    ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = "Add item",
-                        )
-                    }
-                }
+                ChecklistInlineAddRow(
+                    revision = checklist.size,
+                    onAddItem = onAddItem,
+                )
             }
         },
     )
+}
+
+/**
+ * The row that writes a new checklist item — an input and a button, side by side.
+ *
+ * Its own composable so the section stays short enough to read: the row is a
+ * block of input plumbing, and the section is about the checklist.
+ */
+@Composable
+private fun ChecklistInlineAddRow(
+    revision: Int,
+    onAddItem: (String) -> Unit,
+) {
+    val newTitleState = rememberTextFieldState()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            state = newTitleState,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .bringIntoViewOnFocus(revision = revision)
+                    .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
+            placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
+            lineLimits = TextFieldLineLimits.SingleLine,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            onKeyboardAction = {
+                val trimmed = newTitleState.text.toString().trim()
+                if (trimmed.isNotEmpty()) {
+                    onAddItem(trimmed)
+                    newTitleState.clearText()
+                }
+            },
+        )
+        IconButton(
+            onClick = {
+                val trimmed = newTitleState.text.toString().trim()
+                if (trimmed.isNotEmpty()) {
+                    onAddItem(trimmed)
+                    newTitleState.clearText()
+                }
+            },
+            modifier =
+                Modifier
+                    .touchTarget()
+                    .size(40.dp)
+                    .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = "Add item",
+            )
+        }
+    }
 }
 
 // ─── Attachments ─────────────────────────────────────────────────────────────
@@ -236,13 +262,19 @@ fun TaskDetailAttachmentsSection(
     onDelete: ((AttachmentId) -> Unit)? = null,
     onOpen: ((AttachmentId) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    onToggleExpanded: (() -> Unit)? = null,
 ) {
     if (attachments.isEmpty() && onOpenAttachments == null) return
     ExtraSectionCard(
+        modifier = modifier,
+        headerTestTag = TestTags.ATTACHMENTS_SECTION,
         icon = Icons.Filled.AttachFile,
         // No count over nothing: an empty list says "Attachments", and the add-row
         // below is the way in.
-        label = if (attachments.isEmpty()) "Attachments" else "Attachments (${attachments.size})",
+        label = sectionTitle("Attachments", attachments.size),
+        expanded = expanded,
+        onToggle = onToggleExpanded,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 attachments.forEach { att ->
@@ -271,6 +303,5 @@ fun TaskDetailAttachmentsSection(
                 }
             }
         },
-        modifier = modifier,
     )
 }

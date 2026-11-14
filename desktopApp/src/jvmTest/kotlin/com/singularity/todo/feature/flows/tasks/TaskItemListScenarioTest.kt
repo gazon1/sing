@@ -23,6 +23,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clickCheckbox
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.isCheckboxChecked
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -70,14 +71,20 @@ class TaskItemListScenarioTest {
             scrollToTag(TestTags.TASK_CHECKLIST_SECTION)
             assertTagDisplayed(TestTags.TASK_CHECKLIST_SECTION)
 
+            // The section is closed by default — the header carries the count, the
+            // items are behind it. The header is the way in, and one tap opens it.
+            clickTagScrolled(TestTags.TASK_CHECKLIST_SECTION)
+
             scrollToTag(TestTags.checklistItemCheckbox(id = MILK, title = MILK))
             assertTagDisplayed(TestTags.checklistItemCheckbox(id = MILK, title = MILK))
+            scrollToTag(TestTags.checklistItemCheckbox(id = BREAD, title = BREAD))
             assertTagDisplayed(TestTags.checklistItemCheckbox(id = BREAD, title = BREAD))
 
             // The counts are the finished items out of all of them, one number per
             // list.
             assertTextDisplayed("Checklist (0/2)")
 
+            clickTagScrolled(TestTags.SUBTASKS_SECTION)
             scrollToTag(TestTags.subtaskCheckbox(CHILD))
             assertTagDisplayed(TestTags.SUBTASKS_SECTION)
             assertTagDisplayed(TestTags.subtaskCheckbox(CHILD))

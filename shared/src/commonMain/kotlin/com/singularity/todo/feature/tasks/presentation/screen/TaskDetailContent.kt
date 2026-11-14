@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +49,7 @@ import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.formatDateCount
 import com.singularity.todo.core.ui.components.localizedShortDateWithYear
 import com.singularity.todo.core.ui.components.rememberDialogState
@@ -61,6 +61,7 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tasks.domain.state.FirstRun
 import com.singularity.todo.feature.tasks.domain.state.ScheduleChange
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
@@ -90,11 +91,15 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskOptionalProperty
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.hiddenOptionalProperties
+import com.singularity.todo.feature.tasks.presentation.components.detail.rememberSavedOptionalProperties
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
+import com.singularity.todo.feature.timetracking.domain.model.hasTrackedTime
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
 import kotlinx.collections.immutable.ImmutableList
@@ -363,6 +368,106 @@ fun TaskDetailContent(
                             }
                         }
 
+                    // The properties the user has added through the `+ Ещё` sheet,
+                    // and the sections that are open.
+                    //
+                    // Both are the screen's own state and not the task's: a section
+                    // that is open is a way of looking at the task, not a fact about
+                    // it, and nothing is written until the user writes something into
+                    // it.
+                    //
+                    // Saved, not merely remembered: a rotation rebuilds the
+                    // composition from nothing, and a screen that forgets what the
+                    // user just asked for takes the section away again — the one
+                    // thing the `+ Ещё` sheet promised.
+                    var revealedProperties by rememberSavedOptionalProperties(ui.task.id)
+                    var expandedProperties by rememberSavedOptionalProperties(ui.task.id)
+
+                    val toggleSection: (TaskOptionalProperty) -> Unit = { property ->
+                        expandedProperties =
+                            if (property in expandedProperties) {
+                                expandedProperties - property
+                            } else {
+                                expandedProperties + property
+                            }
+                    }
+
+                    // The relations, with the projects they point at. Computed here
+                    // and not inside the section slot: whether the related-tasks
+                    // section is on the screen is a question about the task, and the
+                    // slot that draws the section cannot answer it.
+                    val projectsRepo: ProjectsRepository = koinInject()
+                    val projects by
+                        projectsRepo
+                            .observeAllIncludingClosed()
+                            .collectAsStateWithLifecycle(initialValue = emptyList())
+                    val relatedProjects =
+                        remember(projects) { projects.associate { it.id to it.name } }
+                    val relationItems =
+                        remember(ui.blockedBy, ui.followsUp, ui.relatedTasks, relatedProjects) {
+                            val byId = ui.relatedTasks.associateBy { it.id }
+
+                            fun itemFor(
+                                id: TaskId,
+                                verb: DependencyVerb,
+                            ): RelatedTaskItemUi {
+                                val task = byId[id]
+                                return if (task != null) {
+                                    RelatedTaskItemUi(
+                                        id = id,
+                                        title = task.title,
+                                        verb = verb,
+                                        projectName = task.projectId?.let { relatedProjects[it] },
+                                        canOpen = true,
+                                    )
+                                } else {
+                                    RelatedTaskItemUi(
+                                        id = id,
+                                        title = "Unavailable task",
+                                        verb = verb,
+                                        projectName = null,
+                                        canOpen = false,
+                                    )
+                                }
+                            }
+                            buildList {
+                                ui.blockedBy.forEach { add(itemFor(it, DependencyVerb.BLOCKS)) }
+                                ui.followsUp.forEach { add(itemFor(it, DependencyVerb.FOLLOWS_UP)) }
+                            }.sortedBy { it.title.lowercase() }.toImmutableList()
+                        }
+                    val currentRelations =
+                        remember(ui.blockedBy, ui.followsUp) {
+                            buildMap {
+                                ui.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
+                                ui.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
+                            }
+                        }
+
+                    // Which of the optional properties the task has something to
+                    // show, and which of them are therefore on the screen.
+                    //
+                    // One owner for the rule: a section with nothing in it is not
+                    // drawn, and the `+ Ещё` sheet offers exactly the ones that are
+                    // not drawn. Two owners would let the sheet offer a section
+                    // that is on the screen, or hide one that is.
+                    val propertiesWithContent =
+                        buildSet {
+                            if (attachments.isNotEmpty()) add(TaskOptionalProperty.Attachments)
+                            if (ui.logbookEntries.isNotEmpty()) add(TaskOptionalProperty.Logbook)
+                            if (relationItems.isNotEmpty()) add(TaskOptionalProperty.RelatedTasks)
+                            if (ui.timeSlotState.hasTrackedTime) add(TaskOptionalProperty.TimeTracking)
+                            if (ui.task.workflowState != TaskWorkflowState.Open) {
+                                add(TaskOptionalProperty.WorkflowState)
+                            }
+                        }
+                    val hiddenProperties =
+                        hiddenOptionalProperties(
+                            hasContent = propertiesWithContent,
+                            revealed = revealedProperties,
+                        )
+                    val visibleProperties =
+                        TaskOptionalProperty.entries.toSet() - hiddenProperties.toSet()
+
                     TaskEditorContent(
                         model =
                             TaskEditorModel(
@@ -414,6 +519,11 @@ fun TaskDetailContent(
                                         )
                                     },
                                 notificationsEnabled = notificationPermission.hasPermissions,
+                                // The properties that are not on the screen. The
+                                // `+ Ещё` sheet offers exactly these, and the row
+                                // that opens it is drawn only when there is
+                                // something to offer.
+                                moreParameters = remember(hiddenProperties) { hiddenProperties.toImmutableList() },
                             ),
                         titleSource = ui.titleSource,
                         // Nothing under the field until the title has been edited — a
@@ -438,15 +548,24 @@ fun TaskDetailContent(
                                     navigator.back()
                                 },
                                 onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                                // The state row is drawn only when the task has a
+                                // state or the user has asked for the row: an unset
+                                // state is not a fact about the work, and a row that
+                                // says "Open" about work nobody claimed is a
+                                // leftover.
                                 workflowState =
-                                    RowCallbacks(
-                                        onChange = {
-                                            coordinator.onIntent(
-                                                TaskDetailIntent.Domain.SetWorkflowState(it),
-                                            )
-                                        },
-                                        onClick = { sheets.show(TaskEditorSheet.WorkflowState) },
-                                    ),
+                                    if (TaskOptionalProperty.WorkflowState in visibleProperties) {
+                                        RowCallbacks(
+                                            onChange = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.SetWorkflowState(it),
+                                                )
+                                            },
+                                            onClick = { sheets.show(TaskEditorSheet.WorkflowState) },
+                                        )
+                                    } else {
+                                        null
+                                    },
                                 priority =
                                     RowCallbacks(
                                         onChange = {
@@ -632,6 +751,23 @@ fun TaskDetailContent(
                                     ),
                                 onTimeEntryAdd = null,
                                 onTimeEntrySave = null,
+                                // The `+ Ещё` sheet.
+                                //
+                                // Picking a property puts it on the screen and opens
+                                // it. The sheet answers "what may I add to this
+                                // task", not "what is this task missing" — it
+                                // opens nothing by itself, because a sheet that
+                                // appears on top of the one the user just chose
+                                // is a sheet the user cannot tell apart from the
+                                // first.
+                                onMoreParameterSelected = { property ->
+                                    revealedProperties = revealedProperties + property
+                                    if (property != TaskOptionalProperty.WorkflowState) {
+                                        // The state is a row, not a section: it has
+                                        // nothing to open.
+                                        expandedProperties = expandedProperties + property
+                                    }
+                                },
                                 // The offers the screen makes to the person: the first-run
                                 // banner and the pending AI proposals. They have a slot of
                                 // their own, so their place on the screen is the editor's
@@ -725,69 +861,30 @@ fun TaskDetailContent(
                                 // editor's business, and the offers above do not travel
                                 // with them.
                                 extraSections = {
-                                    val projectsRepo: ProjectsRepository = koinInject()
-                                    val projects by projectsRepo
-                                        .observeAllIncludingClosed()
-                                        .collectAsStateWithLifecycle(
-                                            initialValue = emptyList(),
-                                        )
-                                    val relatedProjects =
-                                        remember(projects) { projects.associate { it.id to it.name } }
-                                    val relationItems =
-                                        remember(ui.blockedBy, ui.followsUp, ui.relatedTasks, relatedProjects) {
-                                            val byId = ui.relatedTasks.associateBy { it.id }
-
-                                            fun itemFor(
-                                                id: TaskId,
-                                                verb: DependencyVerb,
-                                            ): RelatedTaskItemUi {
-                                                val task = byId[id]
-                                                return if (task != null) {
-                                                    RelatedTaskItemUi(
-                                                        id = id,
-                                                        title = task.title,
-                                                        verb = verb,
-                                                        projectName = task.projectId?.let { relatedProjects[it] },
-                                                        canOpen = true,
-                                                    )
-                                                } else {
-                                                    RelatedTaskItemUi(
-                                                        id = id,
-                                                        title = "Unavailable task",
-                                                        verb = verb,
-                                                        projectName = null,
-                                                        canOpen = false,
-                                                    )
-                                                }
-                                            }
-                                            buildList {
-                                                ui.blockedBy.forEach { add(itemFor(it, DependencyVerb.BLOCKS)) }
-                                                ui.followsUp.forEach { add(itemFor(it, DependencyVerb.FOLLOWS_UP)) }
-                                            }.sortedBy { it.title.lowercase() }.toImmutableList()
-                                        }
-                                    val currentRelations =
-                                        remember(ui.blockedBy, ui.followsUp) {
-                                            buildMap {
-                                                ui.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
-                                                ui.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
-                                            }
-                                        }
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        RelatedTasksSection(
-                                            items = relationItems,
-                                            onAdd = { sheets.show(TaskEditorSheet.Dependencies) },
-                                            onRemove = { id ->
-                                                coordinator.onIntent(
-                                                    TaskDetailIntent.Domain.SetDependencyRelations(
-                                                        currentRelations - id,
-                                                    ),
-                                                )
-                                            },
-                                            onOpen = { navigator.openDetail(it) },
-                                        )
+                                        if (TaskOptionalProperty.RelatedTasks in visibleProperties) {
+                                            RelatedTasksSection(
+                                                items = relationItems,
+                                                onAdd = { sheets.show(TaskEditorSheet.Dependencies) },
+                                                onRemove = { id ->
+                                                    coordinator.onIntent(
+                                                        TaskDetailIntent.Domain.SetDependencyRelations(
+                                                            currentRelations - id,
+                                                        ),
+                                                    )
+                                                },
+                                                onOpen = { navigator.openDetail(it) },
+                                                expanded =
+                                                    TaskOptionalProperty.RelatedTasks in
+                                                        expandedProperties,
+                                                onToggleExpanded = {
+                                                    toggleSection(TaskOptionalProperty.RelatedTasks)
+                                                },
+                                            )
+                                        }
                                         TaskDetailTagsSection(
                                             tags = ui.tags,
                                             onDeleteTag = {
@@ -827,6 +924,12 @@ fun TaskDetailContent(
                                                     TaskDetailIntent.Domain.AddChecklistItem(it),
                                                 )
                                             },
+                                            expanded =
+                                                TaskOptionalProperty.Checklist in
+                                                    expandedProperties,
+                                            onToggleExpanded = {
+                                                toggleSection(TaskOptionalProperty.Checklist)
+                                            },
                                             onMove = { id, direction ->
                                                 coordinator.onIntent(
                                                     TaskDetailIntent.Domain.MoveChecklistItem(id, direction),
@@ -851,18 +954,39 @@ fun TaskDetailContent(
                                                     TaskDetailIntent.Domain.AddSubtask(it),
                                                 )
                                             },
-                                        )
-                                        // Always shown, not only when there is something to show: this row
-                                        // is also how the user opens the attachments sheet to attach
-                                        // the first file — or the first link.
-                                        TaskDetailAttachmentsSection(
-                                            attachments = remember(attachments) { attachments.toImmutableList() },
-                                            onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
-                                            onDelete = {
-                                                attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
+                                            expanded =
+                                                TaskOptionalProperty.Subtasks in expandedProperties,
+                                            onToggleExpanded = {
+                                                toggleSection(TaskOptionalProperty.Subtasks)
                                             },
-                                            onOpen = { id -> navigator.openAttachment(id) },
                                         )
+                                        // Drawn only when the task has attachments or
+                                        // the user has asked for the section. The add-row
+                                        // is inside it, so the section is where the
+                                        // first file is attached from.
+                                        if (TaskOptionalProperty.Attachments in visibleProperties) {
+                                            TaskDetailAttachmentsSection(
+                                                attachments =
+                                                    remember(attachments) {
+                                                        attachments.toImmutableList()
+                                                    },
+                                                onOpenAttachments = {
+                                                    sheets.show(TaskEditorSheet.Attachments)
+                                                },
+                                                onDelete = {
+                                                    attachmentsVm.onIntent(
+                                                        AttachmentsIntent.Delete(it),
+                                                    )
+                                                },
+                                                onOpen = { id -> navigator.openAttachment(id) },
+                                                expanded =
+                                                    TaskOptionalProperty.Attachments in
+                                                        expandedProperties,
+                                                onToggleExpanded = {
+                                                    toggleSection(TaskOptionalProperty.Attachments)
+                                                },
+                                            )
+                                        }
                                         if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
                                             LinkedBacklinksCard(
                                                 linkedNotes = ui.linkedNotes,
@@ -889,19 +1013,40 @@ fun TaskDetailContent(
                                                 coordinator.onIntent(TaskDetailIntent.Domain.DeleteSeries)
                                             },
                                         )
-                                        TimeTrackingSection(
-                                            state = ui.timeSlotState,
-                                            onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
-                                            onStop = { coordinator.onIntent(TaskDetailIntent.Domain.Stop) },
-                                            onAddManual = { showTimeEntrySheet = true },
-                                        )
-                                        LogbookSection(
-                                            entries = ui.logbookEntries,
-                                            onOpenNote = { navigator.openNote(it) },
-                                            onAddNote = { taskId -> navigator.openCreateNote(taskId) },
-                                            currentTaskId = ui.task.id,
-                                            now = now,
-                                        )
+                                        if (TaskOptionalProperty.TimeTracking in visibleProperties) {
+                                            TimeTrackingSection(
+                                                state = ui.timeSlotState,
+                                                onStart = {
+                                                    coordinator.onIntent(TaskDetailIntent.Domain.Start)
+                                                },
+                                                onStop = {
+                                                    coordinator.onIntent(TaskDetailIntent.Domain.Stop)
+                                                },
+                                                onAddManual = { showTimeEntrySheet = true },
+                                                expanded =
+                                                    TaskOptionalProperty.TimeTracking in
+                                                        expandedProperties,
+                                                onToggleExpanded = {
+                                                    toggleSection(TaskOptionalProperty.TimeTracking)
+                                                },
+                                            )
+                                        }
+                                        if (TaskOptionalProperty.Logbook in visibleProperties) {
+                                            LogbookSection(
+                                                entries = ui.logbookEntries,
+                                                onOpenNote = { navigator.openNote(it) },
+                                                onAddNote = { taskId ->
+                                                    navigator.openCreateNote(taskId)
+                                                },
+                                                currentTaskId = ui.task.id,
+                                                now = now,
+                                                expanded =
+                                                    TaskOptionalProperty.Logbook in expandedProperties,
+                                                onToggleExpanded = {
+                                                    toggleSection(TaskOptionalProperty.Logbook)
+                                                },
+                                            )
+                                        }
                                     }
                                 },
                                 bottomBar = null,
@@ -933,7 +1078,7 @@ fun TaskDetailContent(
                         // is opened from that list instead, and the callbacks the
                         // sheet needs travel with the bundle, not with the card.
                         showAttachmentsRow = false,
-                        snackbarHost = { SnackbarHost(snackbarHostState) },
+                        snackbarHost = { TaggedSnackbarHost(snackbarHostState) },
                     )
 
                     if (showAiSheet) {

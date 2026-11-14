@@ -274,6 +274,13 @@ data class TaskEditorCallbacks(
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */
     val menuItems: ImmutableList<TaskEditorMenuItem> = persistentListOf(),
+    /**
+     * Called when the user picks a property in the `+ Ещё` sheet.
+     *
+     * `null` means the screen offers no such sheet — the create flow has nothing
+     * to hide and nothing to add.
+     */
+    val onMoreParameterSelected: ((TaskOptionalProperty) -> Unit)? = null,
     /** AI action button — null means AI button is hidden */
     val onAiClick: (() -> Unit)? = null,
     /**

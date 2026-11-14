@@ -277,6 +277,17 @@ fun DesktopComposeUiTest.countNodes(
 ): Int = onAllNodesWithTag(tag, useUnmergedTree = useUnmergedTree).fetchSemanticsNodes().size
 
 /**
+ * Whether any node with [tag] exists in the current semantics tree.
+ * Does not wait — captures the answer at call time.
+ *
+ * The predicate counterpart of [countNodes]: a test that must branch on
+ * "is this row on the screen yet?" needs a yes/no, not a number and not an
+ * assertion that would throw.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.tagExists(tag: String): Boolean = onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+
+/**
  * How many nodes carry [text] right now.
  *
  * The counterpart of [countNodes] for text that repeats: one `+N` label per day

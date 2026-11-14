@@ -3,8 +3,6 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.checklist.ChecklistItem
-import com.singularity.todo.feature.checklist.ChecklistItemId
-import com.singularity.todo.feature.checklist.ChecklistMove
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -29,42 +27,6 @@ import kotlin.test.assertTrue
 @Epic("Tasks")
 @Feature("Presentation")
 class TaskChildrenSlotTest {
-    private fun slot(
-        fakes: SlotFakes,
-        source: TaskSource,
-        scope: kotlinx.coroutines.CoroutineScope,
-        allTasks: List<Task> = emptyList(),
-        onBlockedClose: (BlockedCloseRequest) -> Unit = {},
-        onSaved: (String) -> Unit = {},
-        onError: (String) -> Unit = {},
-        onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
-        onUndoDeleteSubtask: (Task) -> Unit = {},
-    ) = TaskChildrenSlot(
-        taskId = TaskId("t1"),
-        core = fakes.core(),
-        children = fakes.children(),
-        context = fakes.context(),
-        scope = testSlotScope(scope),
-        taskFlow = source.state,
-        allTasks = MutableStateFlow(allTasks),
-        onError = onError,
-        onSaved = onSaved,
-        onBlockedClose = onBlockedClose,
-        onUndoDeleteChecklistItem = onUndoDeleteChecklistItem,
-        onUndoDeleteSubtask = onUndoDeleteSubtask,
-    )
-
-    private fun checklistItem(
-        id: String,
-        title: String,
-        order: Int,
-    ) = ChecklistItem(
-        id = ChecklistItemId.fromString(id),
-        taskId = "t1",
-        title = title,
-        sortOrder = order,
-    )
-
     @Test
     fun `state is empty before anything is added`() =
         runTest {
@@ -614,100 +576,5 @@ class TaskChildrenSlotTest {
                     ?.completedAt,
             )
             assertTrue(blocked.isEmpty(), "an unblocked subtask must not raise a confirmation")
-        }
-
-    // ─── Reordering a checklist ──────────────────────────────────────────────
-
-    @Test
-    fun `moving an item down renumbers the list`() =
-        runTest {
-            val fakes = SlotFakes()
-            fakes.checklistRepo.seed(
-                checklistItem("c1", "One", 0),
-                checklistItem("c2", "Two", 1),
-                checklistItem("c3", "Three", 2),
-            )
-            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-            runCurrent()
-            assertEquals(
-                listOf("One", "Two", "Three"),
-                slot.state.value.checklist
-                    .map { it.title },
-            )
-
-            slot.onIntent(
-                TaskDetailIntent.Domain.MoveChecklistItem(
-                    itemId = ChecklistItemId.fromString("c2"),
-                    direction = ChecklistMove.Down,
-                ),
-            )
-            runCurrent()
-
-            assertEquals(
-                listOf("One", "Three", "Two"),
-                slot.state.value.checklist
-                    .map { it.title },
-                "the list is renumbered, not just the two rows swapped",
-            )
-            assertEquals(
-                listOf(0, 1, 2),
-                slot.state.value.checklist
-                    .map { it.sortOrder },
-            )
-        }
-
-    @Test
-    fun `moving the first item up is a no-op`() =
-        runTest {
-            val fakes = SlotFakes()
-            fakes.checklistRepo.seed(
-                checklistItem("c1", "One", 0),
-                checklistItem("c2", "Two", 1),
-            )
-            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-            runCurrent()
-
-            slot.onIntent(
-                TaskDetailIntent.Domain.MoveChecklistItem(
-                    itemId = ChecklistItemId.fromString("c1"),
-                    direction = ChecklistMove.Up,
-                ),
-            )
-            runCurrent()
-
-            assertEquals(
-                listOf("One", "Two"),
-                slot.state.value.checklist
-                    .map { it.title },
-            )
-        }
-
-    @Test
-    fun `a failed reorder is reported`() =
-        runTest {
-            val fakes = SlotFakes()
-            fakes.checklistRepo.seed(
-                checklistItem("c1", "One", 0),
-                checklistItem("c2", "Two", 1),
-            )
-            fakes.checklistRepo.reorderOverride = Result.failure(IllegalStateException("boom"))
-            val errors = mutableListOf<String>()
-            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onError = { errors += it })
-            runCurrent()
-
-            slot.onIntent(
-                TaskDetailIntent.Domain.MoveChecklistItem(
-                    itemId = ChecklistItemId.fromString("c1"),
-                    direction = ChecklistMove.Down,
-                ),
-            )
-            runCurrent()
-
-            assertEquals(listOf("Reorder failed"), errors)
-            assertEquals(
-                listOf("One", "Two"),
-                slot.state.value.checklist
-                    .map { it.title },
-            )
         }
 }

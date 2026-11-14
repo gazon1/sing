@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Checklist
@@ -39,12 +40,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -180,6 +183,7 @@ private fun TaskEditorContent(
     showAttachmentsRow: Boolean = true,
     bannerSections: (@Composable () -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
+    moreParameters: ImmutableList<TaskOptionalProperty> = persistentListOf(),
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
     onBack: () -> Unit,
@@ -220,6 +224,19 @@ private fun TaskEditorContent(
     // A blank title is no title: a task whose title the user emptied says nothing in
     // the bar rather than drawing an empty node there.
     val barName = taskTitle?.ifBlank { null }
+
+    // The band the snackbar takes at the bottom of the editor.
+    //
+    // Material3's `Scaffold` draws the snackbar over the content and reserves
+    // nothing for it, and the `+ Ещё` row is the last row of the scroll: under a
+    // snackbar that row cannot be pressed, and it is the only way in to the
+    // properties that are not on the screen.
+    //
+    // The band is measured rather than guessed — a message of another length is a
+    // band of another height — and reserved as the bottom of the scroll, so the
+    // scroll ends above the snackbar and the last row stays reachable.
+    var snackbarHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
     Scaffold(
         topBar = {
             // Read inside the bar's own scope: scrolling then recomposes the bar and
@@ -242,13 +259,23 @@ private fun TaskEditorContent(
             )
         },
         bottomBar = bottomBar ?: {},
-        snackbarHost = { snackbarHost?.invoke() },
+        snackbarHost = {
+            Box(
+                modifier =
+                    Modifier.onSizeChanged {
+                        snackbarHeight = with(density) { it.height.toDp() }
+                    },
+            ) {
+                snackbarHost?.invoke()
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier =
                 Modifier
                     .padding(padding)
+                    .padding(bottom = snackbarHeight)
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(horizontal = TaskSpacing.screenPadding),
@@ -522,6 +549,22 @@ private fun TaskEditorContent(
                 sections()
             }
 
+            // The `+ Ещё` row.
+            //
+            // It is drawn last, under everything the task has: it is the way in to
+            // the properties that are not on the screen — the attachments, the
+            // logbook, the related tasks, the time, the state — and it is the way
+            // in only for a task that has none of them. A task that has an
+            // attachment does not need a row that offers to add one.
+            if (moreParameters.isNotEmpty()) {
+                TaskAttributeCard(
+                    icon = Icons.Filled.Add,
+                    label = "+ Ещё",
+                    onClick = { sheets.show(TaskEditorSheet.MoreParameters) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_MORE_PARAMETERS_ROW),
+                )
+            }
+
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
         }
     }
@@ -750,6 +793,7 @@ private fun TaskEditorScaffold(
         showAttachmentsRow = showAttachmentsRow,
         bannerSections = callbacks.bannerSections,
         extraSections = callbacks.extraSections,
+        moreParameters = model.moreParameters,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
