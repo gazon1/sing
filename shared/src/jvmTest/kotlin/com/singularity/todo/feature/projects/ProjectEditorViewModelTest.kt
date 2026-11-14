@@ -153,18 +153,6 @@ class ProjectEditorViewModelTest {
         }
 
     @Test
-    fun `a registry icon is not remembered`() =
-        runTest {
-            val store = newRecentEmojiStore(backgroundScope)
-            val vm = createVm(backgroundScope, recentEmojiStore = store)
-
-            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("Home")))
-            runCurrent()
-
-            assertEquals(emptyList(), store.recent.first(), "a registry icon is not an emoji")
-        }
-
-    @Test
     fun `no icon at all is not remembered`() =
         runTest {
             val store = newRecentEmojiStore(backgroundScope)

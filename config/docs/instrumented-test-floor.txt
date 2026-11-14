@@ -50,18 +50,46 @@
 # something no other tier can (the real Keystore, the real Android shell), and this
 # one did not.
 #
-# The loss is acknowledged here rather than regenerated silently: the tier is 8
-# classes and 25 tests now. `CreateTaskFlowTest` is not back — the scenario it
-# held is owned by the desktop tier — but the tier has one class it did not have
-# before that removal: `TaskEditorDraftTest`. One of its two tests owns what only
-# a device can observe — an editor restoring a draft that outlived the process —
-# and the other holds the harness helper to its boundary: the editor's drafts are
-# cleared and the `DataStore` the app's settings share is not emptied.
+# The loss is acknowledged here rather than regenerated silently: the tier was 8
+# classes and 25 tests after that removal. `CreateTaskFlowTest` is not back — the
+# scenario it held is owned by the desktop tier — but the tier gained one class it
+# did not have before that removal: `TaskEditorDraftTest`. One of its two tests owns
+# what only a device can observe — an editor restoring a draft that outlived the
+# process — and the other holds the harness helper to its boundary: the editor's
+# drafts are cleared and the `DataStore` the app's settings share is not emptied.
 # `--update-floor --allow-drop` is the documented override for a deliberate
 # deletion; without it the tool refuses a drop, which is the point.
 #
+# **The floor was behind the suite, and this rewrite pays that down.** Between that
+# record and this one, four classes landed without the floor following: the IME-inset
+# class, the project picker's semantics class, and two others — 8/25 had become 12/34
+# before this change added anything. A floor that lags stops asking its question, so
+# the drift is recorded rather than carried: the rewrite is from a full run, and the
+# rise is almost entirely the earlier classes, not this change.
+#
+# This change added one class and two tests on top of that: `TaskDetailOverflowActionsTest`
+# (#2883) — the task detail's overflow, on the Android shell. One tap opens the menu and
+# one tap on a row performs it, asserted where the write lands rather than on the menu
+# closing. The scenario had no test at any tier: `PopupReachabilityTest` opens the menu
+# and never presses a row.
+#
+# The rewrite was taken from a full run that delivered 13 classes and 36 tests. Two
+# of those 36 — both in `MenuSheetBoundsTest` — failed with `StaleObjectException`,
+# and that is worth stating plainly rather than burying: the floor records what the
+# suite *delivered*, not what passed, so the numbers are sound, but the run was not
+# green.
+#
+# The failure is not this change's, and that was measured rather than assumed:
+# `MenuSheetBoundsTest` fails 2/2 on this device with `TaskDetailOverflowActionsTest`
+# removed from the test APK entirely, and it fails on a freshly reinstalled package,
+# so neither the class nor device contention explains it. It is a defect in
+# `MenuSheetBoundsTest` (a stale `UiObject2` held across a width change) and it is
+# older than this change. It is not fixed here — that would be a different PR — but it
+# means a `connectedDebugAndroidTest` run on this device is red for a reason this
+# branch does not cause, and nobody should read that red as this change's.
+#
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
-classes 8
-tests 25
+classes 13
+tests 36
 skipped 0
 # GENERATED:END

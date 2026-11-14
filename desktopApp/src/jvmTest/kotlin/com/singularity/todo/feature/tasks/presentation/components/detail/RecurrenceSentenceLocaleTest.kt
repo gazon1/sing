@@ -77,7 +77,7 @@ class RecurrenceSentenceLocaleTest {
     @Test
     fun `a russian weekly rule names its weekdays`() {
         assertEquals(
-            "Еженедельно по Пн, Ср, Пт, от даты выполнения",
+            "Еженедельно по пн, ср, пт, от даты выполнения",
             rendered(Weekly(RecurrenceBase.FROM_DUE, setOf(1, 3, 5)), null, RUSSIAN),
         )
     }
@@ -85,9 +85,20 @@ class RecurrenceSentenceLocaleTest {
     @Test
     fun `a russian monthly rule names its day`() {
         assertEquals(
-            "Ежемесячно в 15-й день, от даты выполнения",
+            "Ежемесячно, 15-го числа, от даты выполнения",
             rendered(Monthly(RecurrenceBase.FROM_DUE, 15), null, RUSSIAN),
         )
+    }
+
+    @Test
+    fun `a russian monthly rule names every day of the month`() {
+        listOf(1, 2, 3, 4, 11, 21, 31).forEach { day ->
+            assertEquals(
+                "Ежемесячно, $day-го числа, от даты выполнения",
+                rendered(Monthly(RecurrenceBase.FROM_DUE, day), null, RUSSIAN),
+                "the russian monthly day $day",
+            )
+        }
     }
 
     @Test

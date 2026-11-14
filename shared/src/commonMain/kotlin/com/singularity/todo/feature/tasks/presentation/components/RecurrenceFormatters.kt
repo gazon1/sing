@@ -46,15 +46,16 @@ import singularity_todo.shared.generated.resources.recurrence_sentence
 import singularity_todo.shared.generated.resources.recurrence_sentence_with_end
 import singularity_todo.shared.generated.resources.recurrence_sentence_with_start
 import singularity_todo.shared.generated.resources.recurrence_sentence_with_start_and_end
+import singularity_todo.shared.generated.resources.recurrence_weekday_separator
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_fri
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_mon
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_sat
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_sun
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_thu
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_tue
+import singularity_todo.shared.generated.resources.recurrence_weekday_short_wed
 import singularity_todo.shared.generated.resources.recurrence_weekly
 import singularity_todo.shared.generated.resources.recurrence_yearly
-import singularity_todo.shared.generated.resources.weekday_short_fri
-import singularity_todo.shared.generated.resources.weekday_short_mon
-import singularity_todo.shared.generated.resources.weekday_short_sat
-import singularity_todo.shared.generated.resources.weekday_short_sun
-import singularity_todo.shared.generated.resources.weekday_short_thu
-import singularity_todo.shared.generated.resources.weekday_short_tue
-import singularity_todo.shared.generated.resources.weekday_short_wed
 
 /**
  * Pure UI string formatters for [RecurrenceSpec].
@@ -250,10 +251,10 @@ private fun weeklyPhrase(weekly: Weekly): String {
     // The names are read first: `joinToString` takes a function it may hold on
     // to, and a resource read is only allowed where the composition can see it.
     val names = weekly.weekdays.sorted().map { stringResource(weekdayResource(it)) }
-    // The separator is the same in both shipped locales; a locale that lists
-    // its days differently needs a resource here, and this comment is where
-    // that would be said.
-    return stringResource(Res.string.recurrence_weekly, names.joinToString(", "))
+    return stringResource(
+        Res.string.recurrence_weekly,
+        names.joinToString(stringResource(Res.string.recurrence_weekday_separator)),
+    )
 }
 
 /** "Yearly on Dec 25". */
@@ -291,13 +292,13 @@ private fun baseResource(base: RecurrenceBase): StringResource =
 
 private fun weekdayResource(isoDayOfWeek: Int): StringResource =
     when (DayOfWeek(isoDayOfWeek)) {
-        DayOfWeek.MONDAY -> Res.string.weekday_short_mon
-        DayOfWeek.TUESDAY -> Res.string.weekday_short_tue
-        DayOfWeek.WEDNESDAY -> Res.string.weekday_short_wed
-        DayOfWeek.THURSDAY -> Res.string.weekday_short_thu
-        DayOfWeek.FRIDAY -> Res.string.weekday_short_fri
-        DayOfWeek.SATURDAY -> Res.string.weekday_short_sat
-        DayOfWeek.SUNDAY -> Res.string.weekday_short_sun
+        DayOfWeek.MONDAY -> Res.string.recurrence_weekday_short_mon
+        DayOfWeek.TUESDAY -> Res.string.recurrence_weekday_short_tue
+        DayOfWeek.WEDNESDAY -> Res.string.recurrence_weekday_short_wed
+        DayOfWeek.THURSDAY -> Res.string.recurrence_weekday_short_thu
+        DayOfWeek.FRIDAY -> Res.string.recurrence_weekday_short_fri
+        DayOfWeek.SATURDAY -> Res.string.recurrence_weekday_short_sat
+        DayOfWeek.SUNDAY -> Res.string.recurrence_weekday_short_sun
     }
 
 private fun monthResource(month: Int): StringResource =

@@ -115,7 +115,9 @@
          and the picker's preview both say "Every 3 days, from the due date", never
          "Interval(base=FROM_DUE, amount=3, unit=DAY)". The count is pluralized per
          unit, and the singular is a string of its own because "Every 1 day" is not
-         what a person says — "Every day" is. -->
+         what a person says — "Every day" is. The weekday list inside the sentence
+         has its own separator and its own abbreviations, so a locale can list its
+         days the way its calendar does without touching the agenda's date format. -->
     <string name="recurrence_every_day">Every day</string>
     <string name="recurrence_every_week">Every week</string>
     <string name="recurrence_every_month">Every month</string>
@@ -137,6 +139,14 @@
         <item quantity="other">Every %1$d years</item>
     </plurals>
     <string name="recurrence_weekly">Weekly on %1$s</string>
+    <string name="recurrence_weekday_separator">, </string>
+    <string name="recurrence_weekday_short_mon">Mon</string>
+    <string name="recurrence_weekday_short_tue">Tue</string>
+    <string name="recurrence_weekday_short_wed">Wed</string>
+    <string name="recurrence_weekday_short_thu">Thu</string>
+    <string name="recurrence_weekday_short_fri">Fri</string>
+    <string name="recurrence_weekday_short_sat">Sat</string>
+    <string name="recurrence_weekday_short_sun">Sun</string>
     <string name="recurrence_monthly">Monthly on day %1$d</string>
     <string name="recurrence_yearly">Yearly on %1$s %2$d</string>
     <string name="recurrence_from_due">from the due date</string>

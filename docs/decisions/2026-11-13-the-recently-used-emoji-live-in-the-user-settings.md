@@ -2,8 +2,14 @@
 title: "The recently used emoji are remembered in the user settings, and the pick does not wait for the write"
 date: 2026-11-13
 status: accepted
-tags: ["projects", "settings", "compose"]
+tags: [projects, settings, compose]
 ---
+
+> **Superseded in part (2026-11-14):** `recordPickedIcon` no longer consults
+> `resolveProjectIcon` — it records any non-blank `Emoji` value. Its first clause ("a
+> registry key is not remembered") is vacuous now that nothing can pick one, and that
+> test was deleted with it; "no icon at all is not remembered" is unchanged. See
+> [2026-11-14-project-icons-are-emoji-or-nothing.md](2026-11-14-project-icons-are-emoji-or-nothing.md).
 
 # The recently used emoji are remembered in the user settings, and the pick does not wait for the write
 

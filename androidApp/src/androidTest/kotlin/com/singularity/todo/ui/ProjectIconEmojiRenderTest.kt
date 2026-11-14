@@ -45,7 +45,7 @@ import android.graphics.Color as AndroidColor
 /**
  * The project glyph as the platform actually draws it.
  *
- * `ProjectIconResolverTest` proves the stored sequence survives resolution; it
+ * `ProjectIdentityTest` proves the stored sequence survives to the text layer; it
  * says nothing about a font. This test renders the same four composed sequences
  * on a device, inside the icon box, and asserts:
  *
