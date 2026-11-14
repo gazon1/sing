@@ -115,6 +115,22 @@ much clear below itself: a popup is its own semantics root, drawn above the
 app's window, so a toast that ignored the clearance would cover the shell's
 button rather than clear it.
 
+The *other* ownership shape has its own test:
+`desktopApp/.../SavedAgendaSnackbarFabClearanceTest.kt` renders one Material3
+`Scaffold` holding both a screen-owned FAB and its native `SnackbarHost`, the way
+`SavedAgendaListScreen` is built. It asserts the snackbar's action clears that
+button, and that the placement is unchanged when an outer shell-like parent
+publishes a non-zero `LocalFabBottomSpace` — the screen must not be consuming
+someone else's clearance. It fails if the screen is switched to
+`TaggedSnackbarHost` (the action would jump up by the shell's footprint) or if
+the snackbar starts sitting over its own FAB.
+
+`desktopApp/.../TagsUndoFabClearanceTest.kt` covers the third current screen:
+the real `TagsScreen`, real `TagsViewModel` and a fake repository. It deletes a
+tag and asserts the undo action clears the add button. Measured against the
+button drawn inside the content, the action ended at y 626 while the button
+started at y 568 — the same overlap the fix removes.
+
 The popup's case was measured, at 360×640, on a shell-like `Scaffold` with the
 button in the FAB slot at `FabPosition.End`. With the clearance the toast's
 bottom edge is at y 564 and the button's top edge at y 568 — the toast clears
@@ -144,16 +160,67 @@ suite's insets are not exercised by a test — there is no Compose UI harness in
 the Android host tests — so the Android path rests on the formula above and on
 this one measured run, not on a test that fails when the geometry drifts.
 
+## Clearance ownership
+
+`LocalFabBottomSpace` is the **shell's** button's clearance and nothing else. It
+never means "whatever button happens to be visible in this screen", because a
+screen that owns its own button would then lift its snackbar for a button that
+is not there — or for two buttons at once.
+
+Three cases, one owner each:
+
+| Button | Snackbar | Who keeps the clearance |
+|---|---|---|
+| shell FAB (overlay, drawn by the shell) | screen's snackbar | `TaggedSnackbarHost` consumes `LocalFabBottomSpace` |
+| screen's FAB in the screen's own Material3 `Scaffold` FAB slot | screen's snackbar | Material3 places the snackbar clear of the FAB slot. If the screen still uses `TaggedSnackbarHost` (it needs the countdown or the tagged action), the shell value must be `0` on that route — the button in the slot does the work, not the clearance |
+| screen's FAB, overlaid independently of the `Scaffold` that places its snackbar | screen's snackbar | a dedicated, explicitly named screen-owned clearance and a host that consumes it. `LocalFabBottomSpace` is not widened or repurposed for it |
+
+The middle row's "FAB slot" is the part that matters, and it is easy to get
+wrong: a button drawn *inside* the content (a `Box` with
+`Alignment.BottomEnd`) is invisible to Material3's placement, so the snackbar
+lands on top of it and the button swallows the taps meant for the action. Both
+of those were true of `TagsScreen` until #2814 moved its button into the slot.
+
+A screen with a button but no snackbar host needs no clearance plumbing at all.
+
+Never add the shell's clearance and a screen's own clearance together. Two
+independent footprints do not sum into one meaningful number: the sum lifts the
+snackbar for a button that is not there, and it is the double-clearance bug the
+snackbar tests exist to catch.
+
+Current screens:
+
+- `SavedAgendaListScreen` owns a Material3 `Scaffold` FAB and a snackbar in the
+  same `Scaffold`, so it keeps Material3's plain `SnackbarHost`. It does not add
+  `LocalFabBottomSpace`, does not publish a footprint of its own, and does not
+  migrate to `TaggedSnackbarHost` just for selector symmetry — a tagged action
+  added here would need its own placement decision, not an inherited clearance.
+- `TagsScreen` owns a FAB and a snackbar too, but keeps `TaggedSnackbarHost`
+  because the undo needs the countdown bar and the tagged action. Its button
+  therefore sits in the `Scaffold`'s FAB slot, which is what lets Material3 keep
+  the two apart. It adds no clearance of its own and must see `0` from the
+  shell — the tags screen is a settings tab, not a route with a shell button.
+- `TextViewerScreen` puts `AttachmentAnnotationPanel` in its `Scaffold` FAB
+  slot. The panel draws its own button but hosts no snackbar: its annotation
+  error snackbar is collected by a `SnackbarHostState` that nothing renders, and
+  this ADR does not change that. No clearance plumbing, no new host.
+- The shell FAB is absent on the saved-view routes today, but that is not what
+  makes the above correct — the ownership rule is. It must keep holding if
+  `FabActionResolver` ever returns a button there.
+
 ## Consequences
 
 - A new contract between the shell and the features: `LocalFabBottomSpace` in
-  `core/ui`. A list that floats under the FAB consumes it; a snackbar host
-  consumes it; anything that does not is unaffected (the value is `0`).
+  `core/ui`. A list that floats under the **shell's** FAB consumes it, and so
+  does a snackbar host that has to clear that button; a screen-owned button does
+  not (see Clearance ownership above). Anything that does not is unaffected
+  (the value is `0`).
 - Both snackbar hosts live under this contract and both use the value: the
   agenda's own host, and the one inside `NotificationHost`'s `Popup`. The popup
   is its own semantics root, drawn above the app's window, so its toast covers
   the shell's button instead of being covered by it — it takes the clearance for
-  the same reason the agenda's host does.
+  the same reason the agenda's host does. "Both hosts" means both hosts that
+  clear the shell's button, not every snackbar host in the app.
 - The clearance follows the button, not the host: the shell publishes `0` on a
   route without a button, so a toast on such a route stays on the bottom edge.
   A host that asked for the clearance of a button that is not there would leave
@@ -171,12 +238,17 @@ this one measured run, not on a test that fails when the geometry drifts.
 
 - Issue: https://github.com/gazon1/sing/issues/2743
 - Issue: https://github.com/gazon1/sing/issues/2752
+- Issue: https://github.com/gazon1/sing/issues/2814
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/FabBottomSpace.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TaggedSnackbarHost.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaContent.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/SavedAgendaListScreen.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/TagsScreen.kt`
 - `shared/src/androidMain/kotlin/com/singularity/todo/AndroidShellNav3.kt`
 - `shared/src/jvmMain/kotlin/com/singularity/todo/shell/DesktopShellNav3.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaFabClearanceTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/AgendaSnackbarFabClearanceTest.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/SavedAgendaSnackbarFabClearanceTest.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/tags/TagsUndoFabClearanceTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/core/ui/components/NotificationPopupFabClearanceTest.kt`
 - ADR: `docs/decisions/2026-09-07-fab-chrome-level.md`

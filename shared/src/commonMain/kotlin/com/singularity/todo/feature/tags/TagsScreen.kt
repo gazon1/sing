@@ -86,35 +86,40 @@ fun TagsScreen(
         }
     }
 
+    val contentState = state.toContentState()
+
     Scaffold(
         snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = countdownProgress) },
+        floatingActionButton = {
+            // Only once there are tags to list: the empty and error states have
+            // nothing to add to, and the button was already Ready-only.
+            if (contentState !is ContentState.Ready) return@Scaffold
+            FloatingActionButton(
+                onClick = { overlay.show(TagDialog.Add) },
+                modifier = Modifier.testTag(TestTags.TAGS_FAB),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Add tag")
+            }
+        },
         modifier = modifier,
     ) { paddingValues ->
         RefreshableContent {
             StatefulContent(
-                state = state.toContentState(),
+                state = contentState,
                 emptyTitle = "No tags yet",
                 emptyTestTag = TestTags.TAGS_LIST_EMPTY,
                 modifier = Modifier.padding(paddingValues),
             ) { tags, contentModifier ->
-                Box(modifier = contentModifier) {
-                    TagList(
-                        tags = tags,
-                        onDelete = { id -> viewModel.onIntent(TagsIntent.Delete(id)) },
-                        onRename = { tag -> overlay.show(TagDialog.Rename(tag)) },
-                        onOpen = onOpenTag,
-                    )
-                    FloatingActionButton(
-                        onClick = { overlay.show(TagDialog.Add) },
-                        modifier =
-                            Modifier
-                                .testTag(TestTags.TAGS_FAB)
-                                .align(Alignment.BottomEnd)
-                                .padding(16.dp),
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add tag")
-                    }
-                }
+                // The button lives in the Scaffold's FAB slot, not over this
+                // Box: Material3 places the snackbar clear of that slot, which
+                // an overlaid button inside the content is invisible to (#2814).
+                TagList(
+                    tags = tags,
+                    onDelete = { id -> viewModel.onIntent(TagsIntent.Delete(id)) },
+                    onRename = { tag -> overlay.show(TagDialog.Rename(tag)) },
+                    onOpen = onOpenTag,
+                    modifier = contentModifier,
+                )
             }
         }
     }
@@ -181,9 +186,10 @@ private fun TagList(
     onDelete: (TagId) -> Unit,
     onRename: (Tag) -> Unit,
     onOpen: (TagId) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = Modifier.testTag(TestTags.TAGS_LIST),
+        modifier = modifier.testTag(TestTags.TAGS_LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

@@ -51,6 +51,18 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
  * visible and tappable (#2752). The space comes from the shell
  * ([LocalFabBottomSpace]), so it is zero on a route without a button.
  *
+ * That is the *shell's* clearance, not an arbitrary button's footprint: this
+ * host is for content that has to clear the shell-owned overlay button. A
+ * screen that draws its own button and places its snackbar in the same
+ * Material3 `Scaffold` should put that button in the `Scaffold`'s FAB slot and
+ * let Material3 keep the two apart — it must not add this clearance for its own
+ * button as well, or the snackbar is lifted twice. When such a screen still
+ * needs this host for another reason (`TagsScreen` needs the countdown and the
+ * tagged action), the button in the FAB slot is what makes the pairing correct;
+ * the value it reads here belongs to the shell and must be `0` on that route. A
+ * screen-owned button that is overlaid independently needs its own, explicitly
+ * named clearance; do not reach for this one.
+ *
  * The same host is also used inside a `Popup` (`NotificationHost`). A popup is
  * its own semantics root, drawn above the app's window — so the toast covers
  * the button rather than the other way round: the button is hidden, and
@@ -76,6 +88,11 @@ fun TaggedSnackbarHost(
     // button instead of the action (#2752). The shell publishes the space its
     // button takes; the host keeps that much clear at the bottom. Zero when no
     // button is on screen.
+    //
+    // The shell's clearance only: a screen that owns its FAB and its snackbar in
+    // one Scaffold uses the Scaffold's native SnackbarHost, which Material3
+    // already places clear of the FAB slot. Taking this value there too would
+    // lift the snackbar twice.
     val fabBottomSpace = LocalFabBottomSpace.current
     SnackbarHost(
         hostState = hostState,
