@@ -100,7 +100,16 @@ fun TaskCreateScreen(
         }
     }
 
-    val titleError = TaskTitleValidation.error(state.draft.title.text)
+    // A pristine form is not an edit in progress: the red line appears once the
+    // person has touched the draft or tried to save it, not on the first frame.
+    // The disabled button already says what is missing, and a complaint before
+    // the first keystroke reads as a screen that opened broken (UXF-12).
+    //
+    // The ViewModel recomputes this message on every edit and after a refused
+    // save, and withholds it on the very first pass. Reading it from there is
+    // how "after interaction" needs no second flag here — and how a
+    // persistence failure, which is another message, does not arm this line.
+    val titleError = state.error.takeIf { it == TaskTitleValidation.REQUIRED_MESSAGE }
 
     LaunchedEffect(state.error) {
         val message = state.error ?: return@LaunchedEffect
@@ -173,7 +182,7 @@ fun TaskCreateScreen(
                 attachments = remember(attachmentItems) { attachmentItems.toImmutableList() },
                 recurrence = state.draft.recurrence,
                 isPinned = state.draft.isPinned,
-                estimateMinutes = null,
+                estimateMinutes = state.draft.estimateMinutes,
                 blockedBy = persistentSetOf(),
                 relatedTasks = persistentListOf(),
             ),
@@ -227,7 +236,12 @@ fun TaskCreateScreen(
                     ToggleCallbacks(
                         onToggle = { vm.onIntent(TaskCreateIntent.PinToggled) },
                     ),
-                estimate = null,
+                estimate =
+                    RowCallbacks(
+                        onChange = { minutes -> vm.onIntent(TaskCreateIntent.SetEstimate(minutes)) },
+                        onClick = { sheets.show(TaskEditorSheet.Estimate) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetEstimate(null)) },
+                    ),
                 onTimeEntryAdd = null,
                 onTimeEntrySave = null,
                 checklist =

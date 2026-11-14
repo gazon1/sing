@@ -49,6 +49,8 @@ sealed interface TaskCreateIntent : MviIntent {
 
     data object PinToggled : TaskCreateIntent
 
+    data class SetEstimate(val minutes: Int?) : TaskCreateIntent
+
     data class AddChecklistItem(val text: String) : TaskCreateIntent
 
     data class ToggleChecklistItem(val id: String) : TaskCreateIntent
