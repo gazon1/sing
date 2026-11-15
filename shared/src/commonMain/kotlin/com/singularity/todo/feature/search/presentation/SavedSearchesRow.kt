@@ -43,6 +43,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
@@ -99,7 +100,14 @@ fun SavedSearchesRow(
         id: String,
         open: Boolean,
     ) {
-        val next = if (open) id else if (openMenuId == id) null else openMenuId
+        val next =
+            if (open) {
+                id
+            } else if (openMenuId == id) {
+                null
+            } else {
+                openMenuId
+            }
         if (next == openMenuId) return
         val wasOpen = openMenuId != null
         openMenuId = next
@@ -107,15 +115,16 @@ fun SavedSearchesRow(
         if (wasOpen != isOpen) onMenuOpenChanged(isOpen)
     }
 
-    LaunchedEffect(showSuggestions) {
-        if (!showSuggestions && openMenuId != null) {
-            openMenuId = null
-            onMenuOpenChanged(false)
-        }
-    }
-
-    LaunchedEffect(suggestions, showSuggestions, openMenuId) {
-        if (showSuggestions && openMenuId != null && suggestions.none { it.id.raw == openMenuId }) {
+    LaunchedEffect(suggestions, showSuggestions) {
+        // A menu belongs to a chip that is on the row. The chip can leave the row
+        // without the person closing the menu — the row is hidden by a dismissal, or
+        // the search the person deleted is the one whose menu is open — and the menu
+        // would then be an id with nothing behind it: the screen would keep believing
+        // a menu is open and stop dismissing the row around it.
+        val menuIsStale =
+            openMenuId != null &&
+                (!showSuggestions || suggestions.none { it.id.raw == openMenuId })
+        if (menuIsStale) {
             openMenuId = null
             onMenuOpenChanged(false)
         }
@@ -148,7 +157,9 @@ fun SavedSearchesRow(
             // screen neither draws an empty row nor a panel over the results.
             if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
                 item {
-                    Text(
+                    // Selectable: the line explains why nothing is offered, and a
+                    // person who wants to quote it can take it as it is written.
+                    SelectableText(
                         text = "No saved searches match",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

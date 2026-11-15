@@ -582,6 +582,38 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun `loading a saved search again restores the query it stored`() =
+        runTest {
+            fakeSavedSearchRepo.seedSavedSearch(
+                SavedSearch(
+                    id = SavedSearchId("ss-1"),
+                    userId = UserId("user-a"),
+                    name = "Completed",
+                    queryString = "state:completed",
+                    createdAt = NOW,
+                    updatedAt = NOW,
+                ),
+            )
+
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+            vm.onIntent(SearchIntent.OnQueryChange("state:completed extra"))
+            runCurrent()
+            assertNull(vm.stateFlow.value.activeSavedSearchId)
+
+            // The edit was the field's, so the stored query never saw it: loading the
+            // search again is the way back to what it says.
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+
+            assertEquals("state:completed", vm.stateFlow.value.query.text)
+            assertEquals(SavedSearchId("ss-1"), vm.stateFlow.value.activeSavedSearchId)
+        }
+
+    @Test
     fun `OnDeleteSavedSearch removes it from the repository`() =
         runTest {
             fakeSavedSearchRepo.seedSavedSearch(

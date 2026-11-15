@@ -7,10 +7,9 @@ package com.singularity.todo.feature.search
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +70,7 @@ import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
+import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -156,60 +157,46 @@ fun SearchScreenContent(
     var suggestionsDismissed by remember { mutableStateOf(false) }
     var inputFocused by remember { mutableStateOf(false) }
     var suggestionMenuOpen by remember { mutableStateOf(false) }
+    var pointerPressed by remember { mutableStateOf(false) }
 
-    fun dismissSuggestionsIfIdle() {
-        if (!suggestionMenuOpen && !inputFocused) suggestionsDismissed = true
+    fun dismissThen(action: () -> Unit = {}) {
+        suggestionsDismissed = true
+        focusManager.clearFocus()
+        action()
     }
 
-    LaunchedEffect(state.query.text.isEmpty()) {
-        if (state.query.text.isEmpty()) suggestionsDismissed = false
+    fun dismissSuggestionsIfIdle() {
+        if (!suggestionMenuOpen && !inputFocused && !pointerPressed) suggestionsDismissed = true
+    }
+
+    // A tap below the field is an outside tap whatever the field's focus does: the
+    // tap did not land in the field, and the row goes. The focus is not consulted
+    // here on purpose — on a platform where tapping elsewhere does not take the
+    // field's focus, that would leave the row up over the results.
+    fun dismissSuggestionsForTap() {
+        if (!suggestionMenuOpen && !pointerPressed) suggestionsDismissed = true
+    }
+
+    // The field emptying is what brings the suggestions back — the field's own text,
+    // which is what the person sees; the ViewModel's copy arrives a frame later
+    // carrying the same text. A loaded saved search is not a clear even when its
+    // query is empty: the load writes the field from outside, and the row would come
+    // back the moment the selection dismissed it. The loaded search is what tells
+    // the two apart — a clear has none, because editing drops it.
+    val fieldIsEmpty by remember(queryState) { derivedStateOf { queryState.text.isEmpty() } }
+    LaunchedEffect(fieldIsEmpty, state.activeSavedSearchId) {
+        if (fieldIsEmpty && state.activeSavedSearchId == null) suggestionsDismissed = false
     }
 
     // Back with the keyboard up closes the keyboard and nothing else: leaving the
     // screen on the same press would discard the field the person is typing into.
     ImeAwareBackHandler { navigator.back() }
 
-    SearchSheetHosts(
-        showFilterSheet = overlay.sheet is SearchDialog.Filter,
-        showSaveDialog = overlay.sheet is SearchDialog.Save,
-        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.pair,
-        activeFilter = state.activeFilter,
-        query = state.query.text,
-        onDismissFilterSheet = { overlay.dismissSheet() },
-        onApplyFilter = { filter ->
-            onIntent(SearchIntent.OnApplyFilter(filter))
-            overlay.dismissSheet()
-        },
-        onDismissSaveDialog = { overlay.dismissSheet() },
-        onSaveSearch = { name ->
-            onIntent(SearchIntent.OnSaveCurrentSearch(name))
-            overlay.dismissSheet()
-        },
-        onDismissRename = { overlay.dismissSheet() },
-        onRename = { id, newName ->
-            onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
-            overlay.dismissSheet()
-        },
-    )
+    SearchSheetsHost(overlay = overlay, state = state, onIntent = onIntent)
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text("Search") },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            suggestionsDismissed = true
-                            focusManager.clearFocus()
-                            overlay.show(SearchDialog.Filter)
-                        },
-                    ) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Filter")
-                    }
-                },
-            )
-        },
+        topBar = { SearchTopBar(onFilter = { dismissThen { overlay.show(SearchDialog.Filter) } }) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         RefreshableContent {
@@ -222,29 +209,20 @@ fun SearchScreenContent(
                 suggestionsDismissed = suggestionsDismissed,
                 onInputFocusChanged = { focused ->
                     inputFocused = focused
-                    if (focused) {
-                        suggestionsDismissed = false
-                    } else {
-                        dismissSuggestionsIfIdle()
-                    }
+                    if (focused) suggestionsDismissed = false else dismissSuggestionsIfIdle()
                 },
                 onMenuOpenChanged = { open ->
                     suggestionMenuOpen = open
                     if (!open) dismissSuggestionsIfIdle()
                 },
-                onDismissSuggestions = {
-                    suggestionsDismissed = true
-                    focusManager.clearFocus()
+                onPressChanged = { pressed, travelled ->
+                    pointerPressed = pressed
+                    if (!pressed && !travelled) dismissSuggestionsForTap()
                 },
-                onShowSaveDialog = {
-                    suggestionsDismissed = true
-                    focusManager.clearFocus()
-                    overlay.show(SearchDialog.Save)
-                },
+                onDismissSuggestions = { dismissThen() },
+                onShowSaveDialog = { dismissThen { overlay.show(SearchDialog.Save) } },
                 onShowRenameDialog = { id, newName ->
-                    suggestionsDismissed = true
-                    focusManager.clearFocus()
-                    overlay.show(SearchDialog.Rename(id to newName))
+                    dismissThen { overlay.show(SearchDialog.Rename(id to newName)) }
                 },
             )
         }
@@ -257,10 +235,11 @@ private fun SearchScreenBody(
     state: SearchUiState,
     onIntent: (SearchIntent) -> Unit,
     navigator: SearchNavigator,
-    queryState: androidx.compose.foundation.text.input.TextFieldState,
+    queryState: TextFieldState,
     suggestionsDismissed: Boolean,
     onInputFocusChanged: (Boolean) -> Unit,
     onMenuOpenChanged: (Boolean) -> Unit,
+    onPressChanged: (pressed: Boolean, travelled: Boolean) -> Unit,
     onDismissSuggestions: () -> Unit,
     onShowSaveDialog: () -> Unit,
     onShowRenameDialog: (SavedSearchId, String) -> Unit,
@@ -268,82 +247,106 @@ private fun SearchScreenBody(
     val queryText = state.query.text
     val hasSavedSearches = state.savedSearches.isNotEmpty()
     val showSuggestions = hasSavedSearches && !suggestionsDismissed
-    Column(modifier = modifier) {
+    Column(modifier = modifier.fillMaxSize()) {
         SearchInputBar(
             queryState = queryState,
             onFocusChanged = onInputFocusChanged,
         )
 
-        SearchModeSwitch(
-            mode = state.mode,
-            onModeChange = {
-                onDismissSuggestions()
-                onIntent(SearchIntent.OnModeChange(it))
-            },
-        )
-
-        if (hasSavedSearches) {
-            SavedSearchesRow(
-                savedSearches = state.savedSearches,
-                activeSavedSearchId = state.activeSavedSearchId,
-                onLoadSearch = { id ->
-                    onDismissSuggestions()
-                    onIntent(SearchIntent.OnLoadSavedSearch(id))
-                },
-                onSaveClick = onShowSaveDialog,
-                onRename = onShowRenameDialog,
-                onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
-                query = queryText,
-                showSuggestions = showSuggestions,
-                onMenuOpenChanged = onMenuOpenChanged,
-            )
-        }
-
-        Box(
+        // Everything under the field. The press tracking sits here rather than on
+        // the whole screen because a press on the field is not an outside tap: it
+        // is the person coming back to type.
+        Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .dismissSuggestionsOnTap(
-                        enabled = showSuggestions,
-                        onDismiss = onDismissSuggestions,
-                    ),
+                    .trackPresses(onPressChanged),
         ) {
-            SearchOutcome(
-                content = searchContent(queryText, state.results, state.isSearching),
-                results = state.results,
-                activeFilter = state.activeFilter,
-                projectsById = state.projectsById,
-                navigator = navigator,
-                onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
-                onClearQuery = { queryState.clearText() },
-                onClearFilters = {
-                    // The structured constraints go, the free text and the mode
-                    // stay — and the filter that goes through the intent is the
-                    // one the search runs.
-                    state.activeFilter?.let { filter ->
-                        onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
-                    }
+            SearchModeSwitch(
+                mode = state.mode,
+                onModeChange = {
+                    onDismissSuggestions()
+                    onIntent(SearchIntent.OnModeChange(it))
                 },
             )
+
+            if (hasSavedSearches) {
+                SavedSearchesRow(
+                    savedSearches = state.savedSearches,
+                    activeSavedSearchId = state.activeSavedSearchId,
+                    onLoadSearch = { id ->
+                        onDismissSuggestions()
+                        onIntent(SearchIntent.OnLoadSavedSearch(id))
+                    },
+                    onSaveClick = onShowSaveDialog,
+                    onRename = onShowRenameDialog,
+                    onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                    query = queryText,
+                    showSuggestions = showSuggestions,
+                    onMenuOpenChanged = onMenuOpenChanged,
+                )
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                SearchOutcome(
+                    content = searchContent(queryText, state.results, state.isSearching),
+                    results = state.results,
+                    activeFilter = state.activeFilter,
+                    projectsById = state.projectsById,
+                    navigator = navigator,
+                    onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
+                    onClearQuery = { queryState.clearText() },
+                    onClearFilters = {
+                        // The structured constraints go, the free text and the mode
+                        // stay — and the filter that goes through the intent is the
+                        // one the search runs.
+                        state.activeFilter?.let { filter ->
+                            onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+                        }
+                    },
+                )
+            }
         }
     }
 }
 
+/**
+ * Reports the body's presses, from the down to the lift, without consuming them.
+ *
+ * A press is watched in the [PointerEventPass.Initial] pass and never consumed: the
+ * control under the finger — a saved-search chip, a result card — still owns the
+ * press, and *its* click is the thing that has to run. This is an observer, not a
+ * handler, which is why it is a raw pointer loop rather than `clickable`: a
+ * `clickable` here would compete with the controls for the press instead of
+ * watching it.
+ *
+ * The screen needs the answer because losing the field's focus is a dismissal
+ * trigger, and a press outside the field takes that focus *on the way down*. A row
+ * that vanished at the down would remove the chip under the finger before the tap
+ * (or the long press) could land on it — so the dismissal waits for the lift, and
+ * this is what tells it when the press is over.
+ *
+ * `travelled` separates the two lifts: a thumb that moved past the touch slop was
+ * scrolling the results, and the row must not disappear under it.
+ */
 @Composable
-private fun Modifier.dismissSuggestionsOnTap(
-    enabled: Boolean,
-    onDismiss: () -> Unit,
-): Modifier {
-    val currentOnDismiss by rememberUpdatedState(onDismiss)
-    return if (!enabled) {
-        this
-    } else {
-        pointerInput(Unit) {
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                val up = waitForUpOrCancellation(pass = PointerEventPass.Initial)
-                if (up != null) currentOnDismiss()
+private fun Modifier.trackPresses(onPressedChanged: (pressed: Boolean, travelled: Boolean) -> Unit): Modifier {
+    val currentOnPressedChanged by rememberUpdatedState(onPressedChanged)
+    return pointerInput(Unit) {
+        val touchSlop = viewConfiguration.touchSlop
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var travelled = false
+            currentOnPressedChanged(true, travelled)
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change != null && (change.position - down.position).getDistance() > touchSlop) {
+                    travelled = true
+                }
+                if (event.changes.none { it.pressed }) break
             }
+            currentOnPressedChanged(false, travelled)
         }
     }
 }
@@ -395,6 +398,55 @@ private fun SearchInputBar(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color.Transparent,
             ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchTopBar(onFilter: () -> Unit) {
+    TopAppBar(
+        title = { Text("Search") },
+        actions = {
+            IconButton(onClick = onFilter) {
+                Icon(Icons.Filled.Tune, contentDescription = "Filter")
+            }
+        },
+    )
+}
+
+/**
+ * The screen's overlay state, wired to the presentational sheet hosts.
+ *
+ * The hosts are a list, not a state: one place says which sheet the overlay holds
+ * and hands each host the callbacks that close it and the intent it sends.
+ */
+@Composable
+private fun SearchSheetsHost(
+    overlay: OverlayState<SearchDialog>,
+    state: SearchUiState,
+    onIntent: (SearchIntent) -> Unit,
+) {
+    SearchSheetHosts(
+        showFilterSheet = overlay.sheet is SearchDialog.Filter,
+        showSaveDialog = overlay.sheet is SearchDialog.Save,
+        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.pair,
+        activeFilter = state.activeFilter,
+        query = state.query.text,
+        onDismissFilterSheet = { overlay.dismissSheet() },
+        onApplyFilter = { filter ->
+            onIntent(SearchIntent.OnApplyFilter(filter))
+            overlay.dismissSheet()
+        },
+        onDismissSaveDialog = { overlay.dismissSheet() },
+        onSaveSearch = { name ->
+            onIntent(SearchIntent.OnSaveCurrentSearch(name))
+            overlay.dismissSheet()
+        },
+        onDismissRename = { overlay.dismissSheet() },
+        onRename = { id, newName ->
+            onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
+            overlay.dismissSheet()
+        },
     )
 }
 
