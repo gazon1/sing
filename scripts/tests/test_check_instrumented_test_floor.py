@@ -414,6 +414,37 @@ class GateExitCodeTest(unittest.TestCase):
         self.assertEqual(2, rc)
 
 
+class InstrumentedSourceConventionTest(unittest.TestCase):
+    """The fixture check reads the sources; this pins the shape it can read.
+
+    `instrumented_classes()` counts `@Test` where the annotation is the first thing
+    on its line — the shape the instrumented suite uses. A same-line
+    `@Test fun ...`, or a KDoc that mentions `@Test`, would make the count wrong in
+    one direction or the other. Rather than grow a Kotlin parser, this test fails
+    on the first source that does not match the convention, so the scanner is
+    never silently wrong.
+    """
+
+    def test_every_test_annotation_is_its_own_line(self):
+        offenders = []
+        for path in sorted(INSTRUMENTED_SOURCES.rglob('*.kt')):
+            text = path.read_text(encoding='utf-8')
+            anywhere = len(re.findall(r'@Test\b', text))
+            own_line = len(re.findall(r'(?m)^\s*@Test\b', text))
+            if anywhere != own_line:
+                offenders.append(
+                    f'{path.name}: {anywhere - own_line} `@Test` occurrence(s) not on '
+                    f'their own line'
+                )
+        self.assertEqual(
+            [],
+            offenders,
+            'instrumented_classes() reads `@Test` at the start of a line. Put the '
+            'annotation on its own line, or teach the scanner the new shape — a '
+            'silently wrong count makes the fixture check prove nothing.',
+        )
+
+
 class RepositoryFloorTest(unittest.TestCase):
     """The repository's own floor is readable, complete, and self-consistent.
 

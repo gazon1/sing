@@ -377,24 +377,24 @@ class SyncEngineIntegrationTest {
         runTest {
             val outbox = FakeSyncOutboxDao()
             val shadow = FakeSyncShadowDao()
+            val auth =
+                FakeSyncAuthRepository(
+                    Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+                )
             val api =
                 object : FakeSyncApiClient() {
+                    var signOuts = 0
+
                     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
                         // Sign out while push is in flight: push has already read
                         // its session, pull has not yet read one.
-                        signOutHelper?.invoke()
+                        auth.set(Session.SignedOut)
+                        signOuts++
                         return BatchPushResponse(
                             request.patches.map { PatchResult(it.patchId, ok = true) },
                         )
                     }
                 }
-            val auth =
-                FakeSyncAuthRepository(
-                    Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
-                )
-
-            // Inject a sign-out to happen during batchPush.
-            api.signOutHelper = { auth.set(Session.SignedOut) }
 
             val (e, engineScope) =
                 engine(
@@ -404,16 +404,44 @@ class SyncEngineIntegrationTest {
                     shadow = shadow,
                 )
 
+            // Seed the outbox so push actually calls the API — an empty outbox
+            // returns before `batchPush`, and the sign-out below would never run.
+            outbox.insert(
+                SyncOutboxEntity(
+                    patchId = "p1",
+                    ownerId = "owner-1",
+                    profileId = "profile-1",
+                    entityId = "e1",
+                    entityType = DocType.Task.key,
+                    payload =
+                        StableJson.encodeToString(
+                            DeltaPatch(
+                                patchId = "p1",
+                                entityId = "e1",
+                                entityType = DocType.Task,
+                                baseVersion = 0,
+                            ),
+                        ),
+                    createdAt = 1L,
+                    attempts = 0,
+                ),
+            )
+
             val outcome = e.syncOnce()
             advanceUntilIdle()
             engineScope.close()
 
             val completed = assertIs<SyncOutcome.Completed>(outcome)
+            assertEquals(1, api.signOuts, "the fake push must run the sign-out")
             assertTrue(completed.push.isSuccess, "push should succeed")
             // Pull returned NotRun (Session.SignedOut) — this is graceful handling.
             // The pull result is a success with zero received/applied/dropped.
             assertTrue(completed.pull.isSuccess, "pull should succeed with NotRun")
             assertEquals(0, completed.pull.getOrNull()?.received)
+            // And it did not call the transport at all: PullPhase reads the session
+            // before it fetches a page, so a signed-out pull is a no-op rather than an
+            // empty request whose failure the cycle would have to explain.
+            assertEquals(0, api.pullCalls.size, "a signed-out pull must not call the API")
         }
 
     // ─── Gap 5: scope disappears between cycles — cycle completes with what it read ─
@@ -469,9 +497,12 @@ class SyncEngineIntegrationTest {
             val shadow = FakeSyncShadowDao()
             val api =
                 object : FakeSyncApiClient() {
+                    var pushes = 0
+
                     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
                         // Null the scope DURING the push call.
                         scopeProvider.set(null)
+                        pushes++
                         return BatchPushResponse(
                             request.patches.map { PatchResult(it.patchId, ok = true) },
                         )
@@ -490,6 +521,7 @@ class SyncEngineIntegrationTest {
                 SyncOutboxEntity(
                     patchId = "p1",
                     ownerId = "owner-1",
+                    profileId = "profile-1",
                     entityId = "e1",
                     entityType = DocType.Task.key,
                     payload =
@@ -515,6 +547,7 @@ class SyncEngineIntegrationTest {
 
             // Push should have used the scope captured at the start.
             val completed = assertIs<SyncOutcome.Completed>(outcome, "syncOnce returned: $outcome")
+            assertEquals(1, api.pushes, "the fake push must run the scope change")
             val pushResult = completed.push
             assertTrue(
                 pushResult.isSuccess,
@@ -612,8 +645,3 @@ class SyncEngineIntegrationTest {
             assertTrue(outcome1 is SyncOutcome.Completed || outcome2 is SyncOutcome.Completed)
         }
 }
-
-// Extension property on FakeSyncApiClient to allow the test to inject a sign-out callback.
-private var FakeSyncApiClient.signOutHelper: (() -> Unit)?
-    get() = null
-    set(_) {}
