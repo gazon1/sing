@@ -42,6 +42,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.LinkifiedText
+import com.singularity.todo.core.ui.text.TextLinkDetector
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
 import org.jetbrains.compose.resources.stringResource
@@ -319,29 +321,44 @@ private fun RowScope.TitleText(
     titleStyle: TextStyle,
     onClick: () -> Unit,
 ) {
-    Text(
-        text =
-            titleState.text.toString().ifEmpty {
-                stringResource(Res.string.task_title_placeholder)
-            },
-        style = titleStyle,
-        // The placeholder is a hint, not the value: dimming it says so, and a real
-        // title never draws in that colour.
-        color =
-            if (titleState.text.isEmpty()) {
-                placeholderTextColor()
-            } else {
-                titleStyle.color
-            },
-        maxLines = TITLE_MAX_LINES,
-        overflow = TextOverflow.Ellipsis,
-        modifier =
-            Modifier
-                .weight(1f)
-                .clickable(onClick = onClick)
-                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-                .semantics { contentDescription = "Task title" },
-    )
+    val title = titleState.text.toString()
+    val baseModifier =
+        Modifier
+            .weight(1f)
+            .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            .semantics { contentDescription = "Task title" }
+    if (title.isEmpty()) {
+        Text(
+            text = stringResource(Res.string.task_title_placeholder),
+            style = titleStyle,
+            color = placeholderTextColor(),
+            maxLines = TITLE_MAX_LINES,
+            overflow = TextOverflow.Ellipsis,
+            modifier = baseModifier.clickable(onClick = onClick),
+        )
+    } else {
+        val hasLinks = remember(title) { TextLinkDetector.detect(title).isNotEmpty() }
+        if (!hasLinks) {
+            Text(
+                text = title,
+                style = titleStyle,
+                color = titleStyle.color,
+                maxLines = TITLE_MAX_LINES,
+                overflow = TextOverflow.Ellipsis,
+                modifier = baseModifier.clickable(onClick = onClick),
+            )
+        } else {
+            LinkifiedText(
+                text = title,
+                style = titleStyle,
+                color = titleStyle.color,
+                maxLines = TITLE_MAX_LINES,
+                overflow = TextOverflow.Ellipsis,
+                onClick = onClick,
+                modifier = baseModifier,
+            )
+        }
+    }
 }
 
 /**
