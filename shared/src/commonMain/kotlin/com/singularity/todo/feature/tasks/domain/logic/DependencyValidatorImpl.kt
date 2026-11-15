@@ -47,24 +47,28 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
     /**
      * BFS from [startId] following outgoing dependency edges.
      * Returns `true` when [targetId] is reachable, stopping as soon as it is.
+     *
+     * A node is marked visited when it is *queued*, not when it is dequeued: in a
+     * graph where several paths converge, the dequeued-only form puts the same
+     * node in the queue once per incoming path. The traversal answered the same
+     * either way — the dequeued check kept it from being processed twice — so this
+     * is about the queue's size, not its order.
      */
     private suspend fun isReachable(
         startId: String,
         targetId: String,
         uid: String,
     ): Boolean {
-        val visited = mutableSetOf<String>()
+        val visited = mutableSetOf(startId)
         val worklist = ArrayDeque<String>()
         worklist.add(startId)
 
         while (worklist.isNotEmpty()) {
             val current = worklist.removeFirst()
-            if (current in visited) continue
             if (current == targetId) return true
-            visited.add(current)
             val deps = taskDao.getOrderingEdgeIdsForUser(current, uid).first()
             for (depId in deps) {
-                if (depId !in visited) worklist.add(depId)
+                if (visited.add(depId)) worklist.add(depId)
             }
         }
         return false

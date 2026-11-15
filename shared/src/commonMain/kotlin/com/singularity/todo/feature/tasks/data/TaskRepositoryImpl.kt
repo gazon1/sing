@@ -1019,8 +1019,17 @@ class TaskRepositoryImpl(
                 val uid = currentUser.scopedUserId.value.value
                 require(taskDao.getByIdForUser(from.value, uid) != null) { "Task $from not found" }
                 if (enabled) {
+                    // The last word on cycles, not the picker's preview. The picker
+                    // refuses a candidate it can see would close one, but between that
+                    // answer and this write the graph can move — a sync, another
+                    // device, a second window — so the edge is validated here, against
+                    // the state it is actually about to join. The ordering graph
+                    // covers every verb: a follow-up orders the work just as a block
+                    // does.
+                    dependencyValidator.assertNoCycles(from, setOf(to)).getOrThrow()
                     taskDao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
                 } else {
+                    // Removing an edge cannot close a cycle, so it needs no walk.
                     taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
                 }
                 enqueueFresh(from)
@@ -1036,9 +1045,10 @@ class TaskRepositoryImpl(
                 val uid = currentUser.scopedUserId.value.value
                 require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
 
-                // Validate the resulting blocking set before any write.
-                val blockingSet = relations.filterValues { it == DependencyVerb.BLOCKS }.keys.toSet()
-                dependencyValidator.assertNoCycles(taskId, blockingSet).getOrThrow()
+                // Validate every edge the map asks for, not just the blocking ones: a
+                // follow-up orders the work as surely as a block, so a cycle closed by
+                // one is still a cycle.
+                dependencyValidator.assertNoCycles(taskId, relations.keys).getOrThrow()
 
                 val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
                 val existing = existingEdges.map { it.dependsOnTaskId }.toSet()

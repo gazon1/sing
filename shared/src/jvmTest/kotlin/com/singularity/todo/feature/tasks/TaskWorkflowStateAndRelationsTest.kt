@@ -155,8 +155,8 @@ class TaskWorkflowStateAndRelationsTest {
      * The relation map is validated before it is written.
      *
      * A task cannot block on itself, and the check runs on the same map that is about to be
-     * saved — the blocking subset of it, as identifiers. A self-loop is refused with nothing
-     * written; a relation that breaks no cycle is applied.
+     * saved — every verb of it, not just the blocking ones. A self-loop is refused with
+     * nothing written; a relation that breaks no cycle is applied.
      */
     @Test
     fun `a relation map is validated before it is written`() =
@@ -183,6 +183,31 @@ class TaskWorkflowStateAndRelationsTest {
         }
 
     @Test
+    fun `a relation map that closes a follow-up cycle is refused`() =
+        runTest {
+            // The map is checked as a whole: narrowing the check to its BLOCKS keys
+            // would let a follow-up cycle through, and a follow-up orders the work
+            // just as a block does.
+            val repo = repository()
+            repo.create(task("a", "A"))
+            repo.create(task("b", "B"))
+            repo.setDependency(TaskId("b"), TaskId("a"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            val refused =
+                repo.setDependencyRelations(TaskId("a"), mapOf(TaskId("b") to DependencyVerb.FOLLOWS_UP))
+
+            assertTrue(refused.isFailure, "a follow-up cycle is still a cycle: $refused")
+            assertTrue(
+                repo
+                    .observe(TaskId("a"))
+                    .first()
+                    ?.followsUp
+                    .isNullOrEmpty(),
+                "and the closing edge is not written",
+            )
+        }
+
+    @Test
     fun `disabling one verb leaves an edge of the other verb intact`() =
         runTest {
             val repo = repository()
@@ -198,6 +223,124 @@ class TaskWorkflowStateAndRelationsTest {
             assertTrue(
                 loaded?.followsUp.isNullOrEmpty(),
                 "only the disabled verb must be gone: ${loaded?.followsUp}",
+            )
+        }
+
+    // ── The single-edge write guards the ordering graph ────────────────────────
+    //
+    // `setDependency` is the edge-by-edge write the related-task picker goes
+    // through — the sheet reports a map, the slot diffs it, and every added or
+    // changed edge lands here. The picker's own search-time check is a preview:
+    // it answers about the graph as it was when the row was rendered, and the
+    // graph can move before Add is pressed. So the guard is asserted here, on the
+    // write, where the edge meets the state it is actually joining.
+
+    @Test
+    fun `a single edge that would make a task its own dependency is refused`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("t1", "Self"))
+
+            val refused =
+                repo.setDependency(TaskId("t1"), TaskId("t1"), DependencyVerb.BLOCKS, enabled = true)
+
+            assertTrue(refused.isFailure, "a task cannot depend on itself: $refused")
+            assertTrue(
+                repo
+                    .observe(TaskId("t1"))
+                    .first()
+                    ?.blockedBy
+                    .isNullOrEmpty(),
+                "and the refused edge is not written",
+            )
+        }
+
+    @Test
+    fun `a single edge that would close a blocking cycle is refused`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("a", "A"))
+            repo.create(task("b", "B"))
+            repo.create(task("c", "C"))
+            // C → B → A already exists; A → C would close the loop.
+            repo.setDependency(TaskId("c"), TaskId("b"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("b"), TaskId("a"), DependencyVerb.BLOCKS, enabled = true)
+
+            val refused =
+                repo.setDependency(TaskId("a"), TaskId("c"), DependencyVerb.BLOCKS, enabled = true)
+
+            assertTrue(refused.isFailure, "the edge would close a cycle: $refused")
+            assertTrue(
+                repo
+                    .observe(TaskId("a"))
+                    .first()
+                    ?.blockedBy
+                    .isNullOrEmpty(),
+                "and the closing edge is not written",
+            )
+        }
+
+    @Test
+    fun `a single edge that would close a follow-up cycle is refused`() =
+        runTest {
+            // The ordering graph is every verb. Two tasks that follow up on each
+            // other are a cycle of order even though neither of them waits, so the
+            // guard must not narrow to BLOCKS.
+            val repo = repository()
+            repo.create(task("a", "A"))
+            repo.create(task("b", "B"))
+            repo.setDependency(TaskId("b"), TaskId("a"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            val refused =
+                repo.setDependency(TaskId("a"), TaskId("b"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            assertTrue(refused.isFailure, "a follow-up cycle is still a cycle: $refused")
+            assertTrue(
+                repo
+                    .observe(TaskId("a"))
+                    .first()
+                    ?.followsUp
+                    .isNullOrEmpty(),
+                "and the closing edge is not written",
+            )
+        }
+
+    @Test
+    fun `an independent edge is written and survives a reread`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("a", "A"))
+            repo.create(task("d", "Independent"))
+
+            repo.setDependency(TaskId("a"), TaskId("d"), DependencyVerb.BLOCKS, enabled = true).getOrThrow()
+
+            assertEquals(
+                setOf(TaskId("d")),
+                repo.observe(TaskId("a")).first()?.blockedBy,
+                "an edge that closes no cycle must still be written",
+            )
+        }
+
+    @Test
+    fun `removing an edge needs no new cycle check`() =
+        runTest {
+            // The graph the removal leaves behind cannot contain the cycle the
+            // removed edge did not have; a guard that walked the graph here would
+            // refuse to undo a relation.
+            val repo = repository()
+            repo.create(task("a", "A"))
+            repo.create(task("b", "B"))
+            repo.setDependency(TaskId("a"), TaskId("b"), DependencyVerb.BLOCKS, enabled = true).getOrThrow()
+
+            repo.setDependency(TaskId("a"), TaskId("b"), DependencyVerb.BLOCKS, enabled = false).getOrThrow()
+
+            assertTrue(
+                repo
+                    .observe(TaskId("a"))
+                    .first()
+                    ?.blockedBy
+                    .isNullOrEmpty(),
+                "the removed edge is gone",
             )
         }
 }
