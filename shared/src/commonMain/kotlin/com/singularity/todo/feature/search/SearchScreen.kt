@@ -163,7 +163,9 @@ fun SearchScreenContent(
     // could land; the tap did not run, because the control it was meant for was
     // gone. And on Android a press outside a field does not take its focus at all,
     // so the trigger would be a no-op there. The tap is the event that says the
-    // person went elsewhere, and the tap is what the row listens for.
+    // person went elsewhere, and the tap is what the row listens for. The window's
+    // own focus is not a substitute: it flips for this screen's popups and dialogs.
+    // See `docs/decisions/2026-11-15-suggestions-follow-taps-not-focus-loss.md`.
     var suggestionsDismissed by remember { mutableStateOf(false) }
 
     fun dismissSuggestions() {
