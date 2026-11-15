@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -21,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -29,11 +31,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.PickerSearchField
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.CreateTagInput
@@ -94,18 +98,32 @@ fun TagsPickerSheet(
     selectedIds: ImmutableList<TagId>,
     onSelect: (ImmutableList<TagId>) -> Unit,
     onDismiss: () -> Unit,
+    tagsRepo: TagsRepository = koinInject(),
+    createTag: CreateTagUseCase = koinInject(),
+    currentUser: ProfileAwareCurrentUser = koinInject(),
 ) {
-    val tagsRepo: TagsRepository = koinInject()
-    val createTag: CreateTagUseCase = koinInject()
-    val currentUser: ProfileAwareCurrentUser = koinInject()
     val scope = rememberCoroutineScope()
     val allTags by tagsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
     val selected = remember(selectedIds) { mutableStateListOf<TagId>().apply { addAll(selectedIds) } }
+    val queryState = rememberTextFieldState()
+    val query = queryState.text.toString()
+    val visibleTags =
+        remember(allTags, query) {
+            val term = query.trim()
+            if (term.isEmpty()) {
+                allTags.toImmutableList()
+            } else {
+                allTags.filter { it.name.contains(term, ignoreCase = true) }.toImmutableList()
+            }
+        }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var createMessage by remember { mutableStateOf<String?>(null) }
     var createFailed by remember { mutableStateOf(false) }
+
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(searchFocus) { searchFocus.requestFocus() }
 
     fun select(id: TagId) {
         if (!selected.contains(id)) selected.add(id)
@@ -150,8 +168,20 @@ fun TagsPickerSheet(
         title = "Tags",
         onClose = onDismiss,
     ) {
+        PickerSearchField(
+            queryState = queryState,
+            placeholder = "Search tags",
+            focusRequester = searchFocus,
+            testTag = TestTags.TAGS_PICKER_SEARCH,
+            clearTestTag = TestTags.TAGS_PICKER_CLEAR,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         TagChoices(
-            allTags = remember(allTags) { allTags.toImmutableList() },
+            visibleTags = visibleTags,
+            query = query,
             selected = remember(selected.toList()) { selected.toImmutableList() },
             onToggle = { tag ->
                 if (selected.contains(tag.id)) {
@@ -293,30 +323,34 @@ private fun PickerButtons(
  * The tags on offer, or the statement that there are none.
  *
  * The empty state does not replace the list — it stands in front of it, so the
- * create action below stays reachable when there is nothing to choose yet.
+ * create action below stays reachable when there is nothing to choose yet. A
+ * query that matches nothing says so, rather than claiming there are no tags.
  */
 @Composable
 private fun TagChoices(
-    allTags: ImmutableList<Tag>,
+    visibleTags: ImmutableList<Tag>,
+    query: String,
     selected: ImmutableList<TagId>,
     onToggle: (Tag) -> Unit,
 ) {
-    if (allTags.isEmpty()) {
+    if (visibleTags.isEmpty()) {
+        val term = query.trim()
         SelectableText(
-            text = "No tags yet",
+            text = if (term.isEmpty()) "No tags yet" else "No tags match \"$term\"",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier =
                 Modifier
-                    .testTag(TestTags.TAGS_PICKER_EMPTY)
-                    .padding(16.dp),
+                    .testTag(
+                        if (term.isEmpty()) TestTags.TAGS_PICKER_EMPTY else TestTags.TAGS_PICKER_NO_RESULTS,
+                    ).padding(16.dp),
         )
     } else {
         LazyColumn(
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            items(allTags, key = { it.id.value }) { tag ->
+            items(visibleTags, key = { it.id.value }) { tag ->
                 TagItem(
                     tag = tag,
                     isSelected = selected.contains(tag.id),

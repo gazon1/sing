@@ -920,8 +920,17 @@ object TestTags {
     /** Dynamic tag of the form `tag_open_<slug>` — tapping a tag card opens its agenda. */
     fun tagOpen(tagName: String) = "tag_open_${slug(tagName)}"
 
+    /** Search field in the tags picker sheet. */
+    const val TAGS_PICKER_SEARCH = "tags_picker_search"
+
+    /** Clear-query action in the tags picker sheet. */
+    const val TAGS_PICKER_CLEAR = "tags_picker_clear"
+
     /** "No tags yet" empty text in the tags picker sheet. */
     const val TAGS_PICKER_EMPTY = "tags_picker_empty"
+
+    /** The message shown when the tags picker's query matches no tag. */
+    const val TAGS_PICKER_NO_RESULTS = "tags_picker_no_results"
 
     /** "No tags yet" empty state title on the tags list screen. */
     const val TAGS_LIST_EMPTY = "tags_list_empty"

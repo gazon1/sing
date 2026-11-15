@@ -76,6 +76,27 @@ class DependencyValidatorTest {
             )
         }
 
+    @Test
+    fun `assertNoCycles fails when a new dependency can reach the task`() =
+        runTest {
+            // t-a → t-c would close t-c → t-b → t-a → t-c.
+            val deps =
+                dao(
+                    Triple("t-c", "t-b", "BLOCKS"),
+                    Triple("t-b", "t-a", "BLOCKS"),
+                )
+            val result = sut(deps).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-c")))
+            assertTrue(result.isFailure)
+        }
+
+    @Test
+    fun `assertNoCycles passes when a new dependency cannot reach the task`() =
+        runTest {
+            val deps = dao(Triple("t-a", "t-b", "BLOCKS"))
+            val result = sut(deps).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-c")))
+            assertTrue(result.isSuccess)
+        }
+
     // ── analyzeDependencies — no cycle ────────────────────────────────────────
 
     @Test

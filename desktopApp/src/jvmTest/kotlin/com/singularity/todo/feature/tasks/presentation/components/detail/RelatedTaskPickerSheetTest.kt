@@ -23,6 +23,8 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
+import com.singularity.todo.test.fakes.FakeDependencyValidator
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeSearchTextIndex
@@ -177,6 +179,7 @@ class RelatedTaskPickerSheetTest {
                     searchIndex =
                         FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository()),
                     projectsRepo = projectRepo,
+                    dependencyValidator = FakeDependencyValidator(),
                 )
             }
 
@@ -191,6 +194,41 @@ class RelatedTaskPickerSheetTest {
         }
 
     @Test
+    fun `current task and cycle-closing candidates are not offered`() =
+        runIsolatedComposeTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = TestUsers.DEFAULT
+            val taskRepo =
+                FakeTaskRepository().apply {
+                    add(task("t-cur", "Current task", uid, now))
+                    add(task("t-cycle", "Current cycle", uid, now))
+                    add(task("t-ok", "Current ok", uid, now))
+                }
+            val projectRepo = FakeProjectsRepository()
+
+            setContent {
+                RelatedTaskPickerSheet(
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = persistentSetOf(),
+                    onAdd = { _, _ -> },
+                    onDismiss = {},
+                    searchIndex =
+                        FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository()),
+                    projectsRepo = projectRepo,
+                    // The domain refuses this candidate: adding it would close a cycle.
+                    dependencyValidator = FakeDependencyValidator(rejected = setOf(TaskId("t-cycle"))),
+                )
+            }
+
+            awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
+            typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Current")
+
+            awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-ok"))
+            assertTagNotExists(TestTags.relatedTaskCandidate("t-cycle"))
+            assertTagNotExists(TestTags.relatedTaskCandidate("t-cur"))
+        }
+
+    @Test
     fun `picker shows the search error and how to recover`() =
         runIsolatedComposeTest {
             setContent {
@@ -201,6 +239,7 @@ class RelatedTaskPickerSheetTest {
                     onDismiss = {},
                     searchIndex = ThrowingSearchIndex(),
                     projectsRepo = FakeProjectsRepository(),
+                    dependencyValidator = FakeDependencyValidator(),
                 )
             }
 
@@ -268,6 +307,7 @@ class RelatedTaskPickerSheetTest {
                     onDismiss = {},
                     searchIndex = GatedSearchIndex(gate, started, alpha, beta),
                     projectsRepo = FakeProjectsRepository(),
+                    dependencyValidator = FakeDependencyValidator(),
                 )
             }
 
@@ -292,6 +332,7 @@ class RelatedTaskPickerSheetTest {
         searchIndex: SearchTextIndex,
         projectsRepo: FakeProjectsRepository,
         onAdded: (TaskId, DependencyVerb) -> Unit,
+        dependencyValidator: DependencyValidator = FakeDependencyValidator(),
     ) {
         var show by remember { mutableStateOf(false) }
         var existing by remember { mutableStateOf<ImmutableSet<TaskId>>(persistentSetOf()) }
@@ -311,6 +352,7 @@ class RelatedTaskPickerSheetTest {
                     onDismiss = { show = false },
                     searchIndex = searchIndex,
                     projectsRepo = projectsRepo,
+                    dependencyValidator = dependencyValidator,
                 )
             }
         }

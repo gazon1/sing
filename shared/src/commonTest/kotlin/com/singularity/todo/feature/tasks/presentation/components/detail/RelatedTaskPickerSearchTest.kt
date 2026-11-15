@@ -50,6 +50,7 @@ class RelatedTaskPickerSearchTest {
                     taskId = current.id,
                     existingRelationIds = excluded,
                     searchIndex = index,
+                    isValidCandidate = { true },
                     resultLimit = 30,
                     initialFetchLimit = 10,
                     maxFetchLimit = 200,
@@ -58,6 +59,51 @@ class RelatedTaskPickerSearchTest {
             assertTrue(results.any { it.id == wanted.id }, "expected wanted task after excluded results")
             assertTrue(results.none { it.id == current.id || it.id in excluded })
             assertTrue(results.size <= 30)
+        }
+
+    @Test
+    fun `candidates the domain refuses are dropped and asked about once per search`() =
+        runTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = UserId("u1")
+            val excluded = (1..40).map { TaskId("t-ex$it") }.toSet()
+            val excludedTasks = excluded.map { task(it.value, "Alpha excluded", uid, now) }
+            val rejected = task("t-cycle", "Alpha cycle", uid, now)
+            val kept = task("t-keep", "Alpha keep", uid, now)
+            val asked = mutableListOf<TaskId>()
+            // The rejected candidate appears in every page, so a cache is the only
+            // thing that keeps the validator from being asked about it twice.
+            val index =
+                object : NoOpSearchTextIndex() {
+                    override suspend fun recentTaskTitles(
+                        query: TextMatchQuery,
+                        limit: Int,
+                    ): List<Task> =
+                        if (limit < 60) {
+                            listOf(rejected) + excludedTasks.take(limit - 1)
+                        } else {
+                            listOf(rejected, kept) + excludedTasks.take(10)
+                        }
+                }
+
+            val results =
+                searchRelatedTaskCandidates(
+                    rawQuery = "Alpha",
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = excluded,
+                    searchIndex = index,
+                    isValidCandidate = { id ->
+                        asked += id
+                        id != rejected.id
+                    },
+                    resultLimit = 30,
+                    initialFetchLimit = 10,
+                    maxFetchLimit = 200,
+                )
+
+            assertEquals(listOf(kept), results)
+            assertEquals(1, asked.count { it == rejected.id }, "the rejected candidate must be validated once")
+            assertEquals(1, asked.count { it == kept.id }, "the kept candidate must be validated once")
         }
 
     @Test
@@ -70,6 +116,7 @@ class RelatedTaskPickerSearchTest {
                     taskId = TaskId("t-cur"),
                     existingRelationIds = emptySet(),
                     searchIndex = index,
+                    isValidCandidate = { true },
                 )
             assertTrue(results.isEmpty())
             assertEquals(0, index.calls)
