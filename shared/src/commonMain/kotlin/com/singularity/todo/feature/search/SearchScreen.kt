@@ -41,12 +41,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -142,6 +149,23 @@ fun SearchScreenContent(
             source = state.querySource,
             onTextChanged = { onIntent(SearchIntent.OnQueryChange(it)) },
         )
+    val focusManager = LocalFocusManager.current
+    var suggestionsDismissed by remember { mutableStateOf(false) }
+    var inputFocused by remember { mutableStateOf(false) }
+    var suggestionMenuOpen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.query.text.isEmpty()) {
+        if (state.query.text.isEmpty()) suggestionsDismissed = false
+    }
+
+    LaunchedEffect(inputFocused, suggestionMenuOpen, state.query.text.isNotEmpty(), suggestionsDismissed) {
+        if (state.query.text.isNotEmpty() && !inputFocused && !suggestionMenuOpen && !suggestionsDismissed) {
+            kotlinx.coroutines.delay(150)
+            if (!inputFocused && !suggestionMenuOpen && state.query.text.isNotEmpty()) {
+                suggestionsDismissed = true
+            }
+        }
+    }
 
     // Back with the keyboard up closes the keyboard and nothing else: leaving the
     // screen on the same press would discard the field the person is typing into.
@@ -185,43 +209,86 @@ fun SearchScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         RefreshableContent {
+            val showSuggestions =
+                state.savedSearches.isNotEmpty() && (state.query.text.isEmpty() || !suggestionsDismissed)
             Column(modifier = Modifier.padding(padding)) {
-                SearchInputBar(queryState = queryState)
+                SearchInputBar(
+                    queryState = queryState,
+                    onFocusChanged = { focused ->
+                        inputFocused = focused
+                        if (focused) suggestionsDismissed = false
+                    },
+                )
 
                 SearchModeSwitch(
                     mode = state.mode,
-                    onModeChange = { onIntent(SearchIntent.OnModeChange(it)) },
+                    onModeChange = {
+                        suggestionsDismissed = true
+                        focusManager.clearFocus()
+                        onIntent(SearchIntent.OnModeChange(it))
+                    },
                 )
 
                 if (state.savedSearches.isNotEmpty()) {
                     SavedSearchesRow(
                         savedSearches = state.savedSearches,
                         activeSavedSearchId = state.activeSavedSearchId,
-                        onLoadSearch = { id -> onIntent(SearchIntent.OnLoadSavedSearch(id)) },
+                        onLoadSearch = { id ->
+                            suggestionsDismissed = true
+                            focusManager.clearFocus()
+                            onIntent(SearchIntent.OnLoadSavedSearch(id))
+                        },
                         onSaveClick = { overlay.show(SearchDialog.Save) },
                         onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
                         onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
                         query = state.query.text,
+                        showSuggestions = showSuggestions,
+                        onMenuOpenChanged = { open ->
+                            suggestionMenuOpen = open
+                        },
                     )
                 }
 
-                SearchOutcome(
-                    content = searchContent(state.query.text, state.results, state.isSearching),
-                    results = state.results,
-                    activeFilter = state.activeFilter,
-                    projectsById = state.projectsById,
-                    navigator = navigator,
-                    onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
-                    onClearQuery = { queryState.clearText() },
-                    onClearFilters = {
-                        // The structured constraints go, the free text and the mode
-                        // stay — and the filter that goes through the intent is the
-                        // one the search runs.
-                        state.activeFilter?.let { filter ->
-                            onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
-                        }
-                    },
-                )
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (showSuggestions) {
+                                    Modifier.pointerInput(Unit) {
+                                        awaitPointerEventScope {
+                                            while (true) {
+                                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                                if (event.changes.any { it.changedToDown() }) {
+                                                    suggestionsDismissed = true
+                                                    focusManager.clearFocus()
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                ) {
+                    SearchOutcome(
+                        content = searchContent(state.query.text, state.results, state.isSearching),
+                        results = state.results,
+                        activeFilter = state.activeFilter,
+                        projectsById = state.projectsById,
+                        navigator = navigator,
+                        onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
+                        onClearQuery = { queryState.clearText() },
+                        onClearFilters = {
+                            // The structured constraints go, the free text and the mode
+                            // stay — and the filter that goes through the intent is the
+                            // one the search runs.
+                            state.activeFilter?.let { filter ->
+                                onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -229,7 +296,10 @@ fun SearchScreenContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchInputBar(queryState: TextFieldState) {
+private fun SearchInputBar(
+    queryState: TextFieldState,
+    onFocusChanged: (Boolean) -> Unit = {},
+) {
     // The screen is opened to be typed into: the field asks for the focus once,
     // when it appears. A person who came here to type should not have to tap
     // the field first.
@@ -244,6 +314,7 @@ private fun SearchInputBar(queryState: TextFieldState) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .focusRequester(focusRequester)
+                .onFocusChanged { onFocusChanged(it.isFocused) }
                 .testTag(TestTags.SEARCH_INPUT),
         placeholder = { Text("Search tasks, notes, projects...") },
         leadingIcon = { Icon(Icons.Filled.Search, null) },

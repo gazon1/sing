@@ -29,8 +29,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -73,6 +75,9 @@ import kotlinx.collections.immutable.toImmutableList
  * @param onRename what the long-press menu asks for.
  * @param onDelete what the long-press menu asks for.
  * @param modifier the modifier applied to the row.
+ * @param showSuggestions when false, the suggested saved-search chips are hidden;
+ *   the Save chip stays so the current query can still be saved.
+ * @param onMenuOpenChanged reports whether any suggestion chip's context menu is open.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -85,8 +90,17 @@ fun SavedSearchesRow(
     onDelete: (SavedSearchId) -> Unit,
     modifier: Modifier = Modifier,
     query: String = "",
+    showSuggestions: Boolean = true,
+    onMenuOpenChanged: (Boolean) -> Unit = {},
 ) {
     val suggestions = remember(savedSearches, query) { savedSearchSuggestions(savedSearches, query) }
+    val openMenuIds = remember { mutableStateSetOf<String>() }
+    LaunchedEffect(openMenuIds.size) {
+        onMenuOpenChanged(openMenuIds.isNotEmpty())
+    }
+    LaunchedEffect(showSuggestions) {
+        if (!showSuggestions) openMenuIds.clear()
+    }
 
     LazyRow(
         modifier = modifier,
@@ -110,34 +124,39 @@ fun SavedSearchesRow(
             )
         }
 
-        // The query hid every saved search. Said in the row's own place, so the
-        // screen neither draws an empty row nor a panel over the results.
-        if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
-            item {
-                Text(
-                    text = "No saved searches match",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier =
-                        Modifier
-                            .testTag(TestTags.SavedSearches.NO_MATCH)
-                            .padding(horizontal = 4.dp),
+        if (showSuggestions) {
+            // The query hid every saved search. Said in the row's own place, so the
+            // screen neither draws an empty row nor a panel over the results.
+            if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "No saved searches match",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.SavedSearches.NO_MATCH)
+                                .padding(horizontal = 4.dp),
+                    )
+                }
+            }
+
+            // Saved search chips
+            items(
+                items = suggestions,
+                key = { it.id.raw },
+            ) { saved ->
+                SavedSearchChipWithMenu(
+                    saved = saved,
+                    isActive = saved.id == activeSavedSearchId,
+                    onClick = { onLoadSearch(saved.id) },
+                    onRename = { newName -> onRename(saved.id, newName) },
+                    onDelete = { onDelete(saved.id) },
+                    onMenuExpandedChange = { expanded ->
+                        if (expanded) openMenuIds.add(saved.id.raw) else openMenuIds.remove(saved.id.raw)
+                    },
                 )
             }
-        }
-
-        // Saved search chips
-        items(
-            items = suggestions,
-            key = { it.id.raw },
-        ) { saved ->
-            SavedSearchChipWithMenu(
-                saved = saved,
-                isActive = saved.id == activeSavedSearchId,
-                onClick = { onLoadSearch(saved.id) },
-                onRename = { newName -> onRename(saved.id, newName) },
-                onDelete = { onDelete(saved.id) },
-            )
         }
     }
 }
@@ -150,8 +169,12 @@ private fun SavedSearchChipWithMenu(
     onClick: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
+    onMenuExpandedChange: (Boolean) -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    LaunchedEffect(showMenu) {
+        onMenuExpandedChange(showMenu)
+    }
     // Anchored, not seeded: the chip lives as long as the list does, and the saved
     // name can change underneath it — the rename is applied elsewhere, the list is
     // refreshed, the name comes back from a sync. A one-way seed would leave the
