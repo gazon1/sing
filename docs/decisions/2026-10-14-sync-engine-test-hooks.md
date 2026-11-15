@@ -44,11 +44,12 @@ Both conditions are injected **through the seams the engine already has** — th
 `SyncApiClient` and `SyncScopeProvider` dependencies — in `SyncEngineIntegrationTest`,
 and no production code carries a test-only path.
 
-### G4 — the fake API signs out before it returns
+### G4 — the fake API signs out while push is in flight
 
-The session is changed from inside the fake's `batchPush`, which the engine awaits
-between the phases. Push has already read the scope when the sign-out lands; pull then
-runs with the new session:
+The session is changed from inside the fake's `batchPush`. `PushPhase.push()` reads
+the session once when it starts, so the cycle's push finishes with the session and
+scope it began with; `PullPhase` reads the session when it starts and sees
+`SignedOut`:
 
 ```kotlin
 val api = object : FakeSyncApiClient() {
@@ -59,7 +60,12 @@ val api = object : FakeSyncApiClient() {
 }
 ```
 
-Verified by `sign out after push but before pull — pull returns NotRun gracefully`.
+There is no seam between `pushPhase.push()` and `pullPhase.pull()`, so this is the
+closest injection the engine has. Push had already read everything the sign-out could
+change, so the behaviour is the same as landing it strictly after push returns.
+
+Verified by `sign out during push — push finishes with its session and pull runs
+signed out`.
 
 ### G5 — the fake scope provider clears the scope mid-cycle
 

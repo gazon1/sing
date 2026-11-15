@@ -357,24 +357,31 @@ class SyncEngineIntegrationTest {
     // ─── Gap 4: SignedOut mid-cycle — push uses correct scope, pull handles gracefully ─
 
     /**
-     * Session becomes SignedOut after push succeeds but before pull starts.
-     * Push used the scope read at the start (correct). Pull receives SignedOut
-     * and should return NotRun or handle gracefully.
+     * The session becomes SignedOut while the push API call is in flight.
      *
-     * The active scope is captured before push, so sign-out mid-cycle does not
-     * affect the scope push ran with. Pull checks the session and returns NotRun.
+     * `PushPhase.push()` reads the session once when it starts, so the sign-out
+     * does not change the push this cycle runs: it completes with the session and
+     * scope it read. `PullPhase` reads the session when it starts and sees
+     * SignedOut, so it returns NotRun, which `syncOnce` reports as a success with
+     * nothing pulled.
+     *
+     * This is the closest seam to "sign out between the phases" the engine has:
+     * there is no callback between `pushPhase.push()` and `pullPhase.pull()`, and
+     * adding one to production code for a test is what the hooks ADR considered
+     * and removed. Push has already read everything the sign-out could change, so
+     * landing it a moment earlier or later in the call observes the same
+     * behaviour — which is why this test is named for the seam it uses.
      */
     @Test
-    fun `sign out after push but before pull — pull returns NotRun gracefully`() =
+    fun `sign out during push — push finishes with its session and pull runs signed out`() =
         runTest {
             val outbox = FakeSyncOutboxDao()
             val shadow = FakeSyncShadowDao()
             val api =
                 object : FakeSyncApiClient() {
                     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
-                        // Sign out AFTER push returns, before pull starts.
-                        // This is a synchronous callback (batchPush is not yet returned),
-                        // so the session is changed while syncOnce is still running.
+                        // Sign out while push is in flight: push has already read
+                        // its session, pull has not yet read one.
                         signOutHelper?.invoke()
                         return BatchPushResponse(
                             request.patches.map { PatchResult(it.patchId, ok = true) },
@@ -506,8 +513,6 @@ class SyncEngineIntegrationTest {
             advanceUntilIdle()
             engineScope.close()
 
-            // Diagnostic: see what we actually got.
-            assertIs<SyncOutcome.Completed>(outcome, "syncOnce returned: $outcome")
             // Push should have used the scope captured at the start.
             val completed = assertIs<SyncOutcome.Completed>(outcome, "syncOnce returned: $outcome")
             val pushResult = completed.push

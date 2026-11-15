@@ -34,6 +34,7 @@ import re
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from collections import Counter
 
 import click
 
@@ -450,22 +451,21 @@ class RepositoryFloorTest(unittest.TestCase):
         gate-tooling job; the sources are. This is the check that the fixture did
         not drift while the suite grew — the drift that made the fixture say eight
         classes while the floor and the tree said fourteen.
+
+        The comparison is the whole distribution, not the class set and the total:
+        a fixture that moved one test from one class to another keeps both of those
+        equal while no longer matching the suite.
         """
-        expected = instrumented_classes()
+        expected = Counter(instrumented_classes())
         report = ET.parse(FIXTURE_DIR / 'TEST-fixture.xml').getroot()
-        reported = {case.get('classname') for case in report.iter('testcase')}
+        reported = Counter(case.get('classname') for case in report.iter('testcase'))
 
         self.assertEqual(
-            set(expected),
+            expected,
             reported,
             'the committed fixture and the instrumented sources disagree on which '
-            'classes exist; rewrite the fixture from the suite',
-        )
-        self.assertEqual(
-            sum(expected.values()),
-            len(list(report.iter('testcase'))),
-            'the committed fixture and the instrumented sources disagree on the '
-            'number of tests; rewrite the fixture from the suite',
+            'classes exist or how many tests each declares; rewrite the fixture '
+            'from the suite',
         )
 
 
