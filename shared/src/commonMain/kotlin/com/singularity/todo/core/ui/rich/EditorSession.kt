@@ -53,8 +53,10 @@ class EditorSession(
      *
      * The library's own link insertion refuses a collapsed selection, so the
      * link text is written at the caret first and the link is applied to the
-     * range that text occupies. A selection keeps the library's behaviour: the
-     * selected text becomes the link and no text is written.
+     * range that text occupies. A selection keeps the library's behaviour: when
+     * it is already a link the library's [RichTextState.updateLink] replaces the
+     * address and keeps the visible text; otherwise the selected text becomes
+     * the link.
      *
      * @param url the address the link points at.
      * @param text the text the link shows.
@@ -65,7 +67,11 @@ class EditorSession(
     ) {
         val state = richTextState
         if (!state.selection.collapsed) {
-            state.addLinkToSelection(url = url)
+            if (state.isLink) {
+                state.updateLink(url = url)
+            } else {
+                state.addLinkToSelection(url = url)
+            }
         } else {
             val caret = state.selection.min
             state.addTextAfterSelection(text)

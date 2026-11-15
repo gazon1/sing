@@ -30,7 +30,6 @@ import com.mohamedrejeb.richeditor.ui.BasicRichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
-import com.singularity.todo.core.text.TextSource
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.rich.EditorSession
@@ -50,7 +49,8 @@ import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.task_description_placeholder
 
 /**
- * The task description, edited and rendered by the Compose Rich Editor.
+ * The task description, edited and rendered by the Compose Rich Editor, for the
+ * detail's owned source.
  *
  * ## The source is HTML
  *
@@ -63,7 +63,13 @@ import singularity_todo.shared.generated.resources.task_description_placeholder
  * In the detail the description is text until it is tapped, like the title.
  * That is what makes links work: the read-only `RichText` hands a tap on a link
  * to the app's URI handler, while the editable surface has no link tap. Create
- * is always in edit mode — its whole job is to take text.
+ * uses the static overload and is always in edit mode.
+ *
+ * ## Why the kind is in the parameter
+ *
+ * The two overloads are the two answers to "who may rewrite the value?". The
+ * shared implementation takes the text and the revision, not the sealed parent,
+ * so the kind is decided at the call site, at compile time.
  *
  * @param taskId the identity the editor state is keyed to.
  * @param source the description as the owner stored it.
@@ -75,40 +81,87 @@ import singularity_todo.shared.generated.resources.task_description_placeholder
 @Composable
 fun TaskDescriptionField(
     taskId: String,
-    source: TextSource,
+    source: OwnedText,
     onDescriptionChange: (String) -> Unit,
     alwaysEditable: Boolean,
     modifier: Modifier = Modifier,
     onSearchInternalLinks: (suspend (String) -> List<LinkResult>)? = null,
 ) {
+    TaskDescriptionField(
+        taskId = taskId,
+        text = source.text,
+        revision = source.revision,
+        onDescriptionChange = onDescriptionChange,
+        alwaysEditable = alwaysEditable,
+        modifier = modifier,
+        onSearchInternalLinks = onSearchInternalLinks,
+    )
+}
+
+/**
+ * The task description for the create screen's static source.
+ *
+ * The upstream loads the text once — from the empty draft or a restored one —
+ * and the field owns it afterwards. See the owned overload for the source and
+ * document-style contracts.
+ */
+@Composable
+fun TaskDescriptionField(
+    taskId: String,
+    source: StaticText,
+    onDescriptionChange: (String) -> Unit,
+    alwaysEditable: Boolean,
+    modifier: Modifier = Modifier,
+    onSearchInternalLinks: (suspend (String) -> List<LinkResult>)? = null,
+) {
+    TaskDescriptionField(
+        taskId = taskId,
+        text = source.text,
+        revision = 0L,
+        onDescriptionChange = onDescriptionChange,
+        alwaysEditable = alwaysEditable,
+        modifier = modifier,
+        onSearchInternalLinks = onSearchInternalLinks,
+    )
+}
+
+@Composable
+private fun TaskDescriptionField(
+    taskId: String,
+    text: String,
+    revision: Long,
+    onDescriptionChange: (String) -> Unit,
+    alwaysEditable: Boolean,
+    modifier: Modifier,
+    onSearchInternalLinks: (suspend (String) -> List<LinkResult>)?,
+) {
     var hasUserEdited by remember(taskId) { mutableStateOf(false) }
-    var seededText by remember(taskId) { mutableStateOf(source.text) }
+    var seededText by remember(taskId) { mutableStateOf(text) }
     val session =
-        rememberTaskDescriptionSession(taskId, source.text) { html ->
+        rememberTaskDescriptionSession(taskId, text) { html ->
             hasUserEdited = true
             onDescriptionChange(html)
         }
 
-    // A draft is restored asynchronously: the field can compose before the store
-    // hands the text back, and a `StaticText` source has no revision to say the
-    // value changed. Until the user types, a source the field has not seeded yet
-    // is the truth. After that the editor owns the content and the source is its
-    // own echo.
-    if (source is StaticText) {
-        LaunchedEffect(taskId, source.text) {
-            if (!hasUserEdited && source.text != seededText) {
-                session.replaceContent(source.text)
-                seededText = source.text
-            }
+    // A static source has no revision to say the value changed: a draft is
+    // restored asynchronously, and the field can compose before the store hands
+    // the text back. Until the user types, a source the field has not seeded yet
+    // is the truth; after that the editor owns the content and the source is its
+    // own echo. An owned source never needs this before its first edit, and its
+    // rewrites arrive through the revision below.
+    LaunchedEffect(taskId, text) {
+        if (revision == 0L && !hasUserEdited && text != seededText) {
+            session.replaceContent(text)
+            seededText = text
         }
     }
 
-    // A rewrite from outside — a sync, a proposal, a change on another screen —
-    // reaches the editor only through the owner's revision. Typing never moves it.
-    val revision = (source as? OwnedText)?.revision ?: 0L
+    // An owned source says a replacement happened by moving its revision. A
+    // keystroke never moves it, so the echo of our own save does not reset the
+    // content the user is typing into.
     LaunchedEffect(taskId, revision) {
         if (revision == 0L) return@LaunchedEffect
-        session.replaceContent(source.text)
+        session.replaceContent(text)
     }
 
     // Dispatch every edit. The state object is the same instance for the whole

@@ -2,7 +2,9 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.ui.text.TextRange
 import com.mohamedrejeb.richeditor.model.RichTextState
+import com.singularity.todo.core.ui.rich.EditorAction
 import com.singularity.todo.core.ui.rich.EditorSession
+import com.singularity.todo.core.ui.rich.apply
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -60,6 +62,34 @@ class EditorSessionLinkTest {
         assertContains(html, ">Hello</a>")
         // The address was not written into the note: the selected text is the link.
         assertFalse(html.contains("https://example.com</a>"))
+        assertEquals("Hello world", state.toText())
+    }
+
+    @Test
+    fun `an existing link is updated and keeps its visible text`() {
+        val state = RichTextState().apply { setHtml("""<p><a href="https://old.example">Hello</a> world</p>""") }
+        state.selection = TextRange(0, 5) // the whole link is selected
+        val session = session(state)
+
+        session.insertLink(url = "https://new.example", text = "https://new.example")
+
+        val html = state.toHtml()
+        assertContains(html, """href="https://new.example"""")
+        assertFalse(html.contains("https://old.example"), "the old address stayed in the note")
+        assertContains(html, ">Hello</a>")
+        assertEquals("Hello world", state.toText())
+    }
+
+    @Test
+    fun `removing the link keeps the visible text`() {
+        val state = RichTextState().apply { setHtml("""<p><a href="https://example.com">Hello</a> world</p>""") }
+        state.selection = TextRange(0, 5)
+
+        state.apply(EditorAction.RemoveLink)
+
+        val html = state.toHtml()
+        assertFalse(html.contains("href="), "the link formatting stayed in the note")
+        assertContains(html, "Hello")
         assertEquals("Hello world", state.toText())
     }
 

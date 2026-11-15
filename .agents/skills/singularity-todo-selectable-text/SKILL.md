@@ -167,7 +167,7 @@ when the answer is "excluded".
 | `feature/settings/screens/InterfaceSettingsScreen.kt` | excluded | the settings preview's sample text |
 | `feature/settings/screens/WorkScheduleSettingsScreen.kt` | excluded | the settings preview's sample text |
 | `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | excluded | the picker's option labels |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | excluded | the description field's placeholder |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | selectable | the document-style description is prose and is rendered selectably; its placeholder is not selectable |
 | `feature/tasks/presentation/components/detail/TaskDetailExtraSections.kt` | excluded | the action's label |
 | `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | excluded | the picker's option labels |
 | `feature/tasks/presentation/components/detail/TaskSeriesCard.kt` | excluded | each row opens its member task, and the actions are button labels |
