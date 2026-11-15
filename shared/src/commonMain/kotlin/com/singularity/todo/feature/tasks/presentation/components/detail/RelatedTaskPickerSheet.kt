@@ -134,7 +134,6 @@ internal suspend fun searchRelatedTaskCandidates(
 
     var fetchLimit = initialFetchLimit.coerceAtLeast(resultLimit)
     val cap = maxFetchLimit.coerceAtLeast(fetchLimit)
-    var result = emptyList<Task>()
     while (true) {
         val batch = searchIndex.recentTaskTitles(query, fetchLimit)
         val filtered = mutableListOf<Task>()
@@ -142,14 +141,11 @@ internal suspend fun searchRelatedTaskCandidates(
             if (filtered.size >= resultLimit) break
             if (isAllowed(task)) filtered.add(task)
         }
-        val done = filtered.size >= resultLimit || batch.size < fetchLimit || fetchLimit >= cap
-        if (done) {
-            result = filtered
-            break
+        if (filtered.size >= resultLimit || batch.size < fetchLimit || fetchLimit >= cap) {
+            return filtered
         }
         fetchLimit = (fetchLimit * 2).coerceAtMost(cap)
     }
-    return result
 }
 
 private fun relatedTaskSearchQuery(rawQuery: String): TextMatchQuery? {

@@ -290,6 +290,44 @@ class RelatedTaskPickerSheetTest {
         }
 
     @Test
+    fun `clearing the query disables Add for the candidate found before`() =
+        runIsolatedComposeTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = TestUsers.DEFAULT
+            val taskRepo =
+                FakeTaskRepository().apply {
+                    add(task("t-cur", "Current", uid, now))
+                    add(task("t-a", "Alpha task", uid, now))
+                }
+            val projectRepo = FakeProjectsRepository()
+            val added = mutableListOf<Pair<TaskId, DependencyVerb>>()
+
+            setContent {
+                PickerHarness(
+                    taskId = TaskId("t-cur"),
+                    searchIndex =
+                        FakeSearchTextIndex(taskRepo, FakeNotesRepository(), projectRepo, FakeTagsRepository()),
+                    projectsRepo = projectRepo,
+                    onAdded = { id, verb -> added += id to verb },
+                )
+            }
+
+            clickTag("open_picker")
+            awaitAnyDisplayed(TestTags.RELATED_TASK_PICKER_SEARCH)
+            typeIntoTag(TestTags.RELATED_TASK_PICKER_SEARCH, "Alpha")
+            awaitAnyDisplayed(TestTags.relatedTaskCandidate("t-a"))
+            clickTag(TestTags.relatedTaskCandidate("t-a"))
+
+            clickTag(TestTags.RELATED_TASK_PICKER_CLEAR)
+            awaitText("Type to find a task to relate")
+            assertTagNotEnabled(TestTags.RELATED_TASK_PICKER_ADD)
+            clickTag(TestTags.RELATED_TASK_PICKER_ADD)
+            waitForIdle()
+
+            assertTrue(added.isEmpty(), "the candidate of a cleared query must not be added")
+        }
+
+    @Test
     fun `a superseded search is cancelled and cannot replace the newer results`() =
         runIsolatedComposeTest {
             val now = Instant.parse("2026-01-01T00:00:00Z")

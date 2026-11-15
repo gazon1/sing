@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -12,10 +13,12 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.InMemoryTaskDao
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -52,7 +55,7 @@ class DependencyValidatorTest {
     }
 
     private fun sut(
-        dao: InMemoryTaskDao,
+        dao: TaskDao,
         currentUser: ProfileAwareCurrentUser = currentUser(),
     ) = DependencyValidatorImpl(dao, currentUser)
 
@@ -95,6 +98,76 @@ class DependencyValidatorTest {
             val deps = dao(Triple("t-a", "t-b", "BLOCKS"))
             val result = sut(deps).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-c")))
             assertTrue(result.isSuccess)
+        }
+
+    @Test
+    fun `assertNoCycles passes for an empty set of new dependencies`() =
+        runTest {
+            val deps = dao(Triple("t-a", "t-b", "BLOCKS"))
+            val result = sut(deps).assertNoCycles(TaskId("t-a"), emptySet())
+            assertTrue(result.isSuccess)
+        }
+
+    @Test
+    fun `assertNoCycles fails when the new dependency closes a two-node cycle`() =
+        runTest {
+            // t-b → t-a already exists, so t-a → t-b would make the pair circular.
+            val deps = dao(Triple("t-b", "t-a", "BLOCKS"))
+            val result = sut(deps).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-b")))
+            assertTrue(result.isFailure)
+        }
+
+    @Test
+    fun `assertNoCycles fails when the cycle closes through a FOLLOWS_UP edge`() =
+        runTest {
+            // The ordering graph is every verb: a follow-up still orders the work.
+            val deps = dao(Triple("t-b", "t-a", "FOLLOWS_UP"))
+            val result = sut(deps).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-b")))
+            assertTrue(result.isFailure)
+        }
+
+    @Test
+    fun `assertNoCycles fails when the cycle closes through mixed edge types`() =
+        runTest {
+            // t-b --FOLLOWS_UP--> t-c --BLOCKS--> t-a. Adding t-a --BLOCKS--> t-b
+            // closes a cycle whose path uses two different verbs, so a validator
+            // that only walked BLOCKS edges would let it through.
+            val deps =
+                dao(
+                    Triple("t-b", "t-c", "FOLLOWS_UP"),
+                    Triple("t-c", "t-a", "BLOCKS"),
+                )
+            val result = sut(deps).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-b")))
+            assertTrue(result.isFailure)
+        }
+
+    @Test
+    fun `assertNoCycles stops walking once the task is reached`() =
+        runTest {
+            val delegate = InMemoryTaskDao()
+            delegate.upsertDependencyForUser("t-b", "t-a", "BLOCKS", userA.value)
+            (1..50).forEach { delegate.upsertDependencyForUser("t-b", "t-x$it", "BLOCKS", userA.value) }
+            val counting = CountingTaskDao(delegate)
+
+            val result = sut(counting).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-b")))
+
+            assertTrue(result.isFailure)
+            assertEquals(
+                1,
+                counting.orderingEdgeReads,
+                "the walk must stop at the target instead of reading every reachable node's edges",
+            )
+        }
+
+    @Test
+    fun `assertNoCycles propagates a read failure instead of reporting success`() =
+        runTest {
+            val deps = dao(Triple("t-b", "t-a", "BLOCKS"))
+            val failing = FailingEdgeReadTaskDao(deps)
+
+            assertFailsWith<IllegalStateException> {
+                sut(failing).assertNoCycles(TaskId("t-a"), setOf(TaskId("t-b")))
+            }
         }
 
     // ── analyzeDependencies — no cycle ────────────────────────────────────────
@@ -251,4 +324,26 @@ class DependencyValidatorTest {
             assertTrue(analysis.containsCycle)
             assertEquals(DependencyVerb.SUPERSEDES, analysis.cycleEdges.first().verb)
         }
+
+    /** Counts ordering-graph reads so a test can see where the walk stopped. */
+    private class CountingTaskDao(private val delegate: TaskDao) : TaskDao by delegate {
+        var orderingEdgeReads: Int = 0
+            private set
+
+        override fun getOrderingEdgeIdsForUser(
+            taskId: String,
+            userId: String,
+        ): Flow<List<String>> {
+            orderingEdgeReads++
+            return delegate.getOrderingEdgeIdsForUser(taskId, userId)
+        }
+    }
+
+    /** Fails every ordering-graph read, standing in for a database that cannot answer. */
+    private class FailingEdgeReadTaskDao(private val delegate: TaskDao) : TaskDao by delegate {
+        override fun getOrderingEdgeIdsForUser(
+            taskId: String,
+            userId: String,
+        ): Flow<List<String>> = throw IllegalStateException("database unavailable")
+    }
 }

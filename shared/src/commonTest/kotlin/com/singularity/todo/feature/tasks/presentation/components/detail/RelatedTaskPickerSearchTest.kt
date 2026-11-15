@@ -122,6 +122,100 @@ class RelatedTaskPickerSearchTest {
             assertEquals(0, index.calls)
         }
 
+    @Test
+    fun `results keep the order the index returned`() =
+        runTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = UserId("u1")
+            val ordered = (1..5).map { task("t-$it", "Alpha $it", uid, now) }
+            val index =
+                object : NoOpSearchTextIndex() {
+                    override suspend fun recentTaskTitles(
+                        query: TextMatchQuery,
+                        limit: Int,
+                    ): List<Task> = ordered
+                }
+
+            val results =
+                searchRelatedTaskCandidates(
+                    rawQuery = "Alpha",
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = emptySet(),
+                    searchIndex = index,
+                    isValidCandidate = { true },
+                )
+
+            assertEquals(ordered.map { it.id }, results.map { it.id })
+        }
+
+    @Test
+    fun `a short page ends the search without fetching again`() =
+        runTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = UserId("u1")
+            val limits = mutableListOf<Int>()
+            val page = (1..5).map { task("t-$it", "Alpha $it", uid, now) }
+            val index =
+                object : NoOpSearchTextIndex() {
+                    override suspend fun recentTaskTitles(
+                        query: TextMatchQuery,
+                        limit: Int,
+                    ): List<Task> {
+                        limits += limit
+                        return page
+                    }
+                }
+
+            val results =
+                searchRelatedTaskCandidates(
+                    rawQuery = "Alpha",
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = emptySet(),
+                    searchIndex = index,
+                    isValidCandidate = { true },
+                    resultLimit = 30,
+                    initialFetchLimit = 50,
+                    maxFetchLimit = 500,
+                )
+
+            assertEquals(page.map { it.id }, results.map { it.id })
+            assertEquals(listOf(50), limits, "a page shorter than the fetch limit is the last one")
+        }
+
+    @Test
+    fun `the fetch stops at the maximum when every candidate is excluded`() =
+        runTest {
+            val now = Instant.parse("2026-01-01T00:00:00Z")
+            val uid = UserId("u1")
+            val limits = mutableListOf<Int>()
+            val excluded = (1..200).map { TaskId("t-ex$it") }.toSet()
+            val index =
+                object : NoOpSearchTextIndex() {
+                    override suspend fun recentTaskTitles(
+                        query: TextMatchQuery,
+                        limit: Int,
+                    ): List<Task> {
+                        limits += limit
+                        return (1..limit).map { task("t-ex$it", "Alpha excluded", uid, now) }
+                    }
+                }
+
+            val results =
+                searchRelatedTaskCandidates(
+                    rawQuery = "Alpha",
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = excluded,
+                    searchIndex = index,
+                    isValidCandidate = { true },
+                    resultLimit = 30,
+                    initialFetchLimit = 10,
+                    maxFetchLimit = 40,
+                )
+
+            assertTrue(results.isEmpty())
+            assertEquals(listOf(30, 40), limits, "the fetch doubles but never passes the cap")
+        }
+
     private open class NoOpSearchTextIndex : SearchTextIndex {
         override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> = emptyFlow()
 
