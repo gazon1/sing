@@ -114,6 +114,13 @@ fun SavedSearchesRow(
         }
     }
 
+    LaunchedEffect(suggestions, showSuggestions, openMenuId) {
+        if (showSuggestions && openMenuId != null && suggestions.none { it.id.raw == openMenuId }) {
+            openMenuId = null
+            onMenuOpenChanged(false)
+        }
+    }
+
     LazyRow(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),

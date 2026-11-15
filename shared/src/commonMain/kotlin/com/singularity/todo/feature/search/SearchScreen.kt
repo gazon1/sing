@@ -198,7 +198,13 @@ fun SearchScreenContent(
             TopAppBar(
                 title = { Text("Search") },
                 actions = {
-                    IconButton(onClick = { overlay.show(SearchDialog.Filter) }) {
+                    IconButton(
+                        onClick = {
+                            suggestionsDismissed = true
+                            focusManager.clearFocus()
+                            overlay.show(SearchDialog.Filter)
+                        },
+                    ) {
                         Icon(Icons.Filled.Tune, contentDescription = "Filter")
                     }
                 },
@@ -230,8 +236,14 @@ fun SearchScreenContent(
                     suggestionsDismissed = true
                     focusManager.clearFocus()
                 },
-                onShowSaveDialog = { overlay.show(SearchDialog.Save) },
+                onShowSaveDialog = {
+                    suggestionsDismissed = true
+                    focusManager.clearFocus()
+                    overlay.show(SearchDialog.Save)
+                },
                 onShowRenameDialog = { id, newName ->
+                    suggestionsDismissed = true
+                    focusManager.clearFocus()
                     overlay.show(SearchDialog.Rename(id to newName))
                 },
             )

@@ -102,5 +102,5 @@ ktlint_standard_function-signature = disabled
 [shared/src/jvmTest/kotlin/com/singularity/todo/core/database/MigrationRoundTripTest.kt]
 ktlint_standard_no-empty-first-line-in-class-body = disabled
 
-[{**/generated/**,**/build/generated/**}]
+[{**/generated/**}]
 ktlint = disabled

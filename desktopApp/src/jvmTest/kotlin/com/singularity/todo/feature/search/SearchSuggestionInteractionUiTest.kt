@@ -121,7 +121,7 @@ class SearchSuggestionInteractionUiTest {
         }
 
     @Test
-    fun `focus loss dismisses suggestions and regaining focus restores them`() =
+    fun `opening filter dismisses suggestions without changing the query`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
             setContent {
@@ -139,12 +139,36 @@ class SearchSuggestionInteractionUiTest {
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickContentDescription("Filter")
             waitForIdle()
+
             awaitTagGone(TestTags.SavedSearches.chip("Work"))
             assertTagDisplayed(TestTags.SearchFilter.APPLY_BUTTON)
+            assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
             assertEquals(emptyList<SearchIntent>(), intents)
+        }
+
+    @Test
+    fun `focusing the input restores dismissed suggestions`() =
+        runIsolatedComposeTest {
+            setContent {
+                SearchScreenContent(
+                    state =
+                        SearchUiState(
+                            query = FieldOwnedText.empty().seeded("work"),
+                            savedSearches = searches,
+                        ),
+                    onIntent = {},
+                    navigator = PreviewSearchNavigator(),
+                )
+            }
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+            clickTag(TestTags.SEARCH_MODE_CONTAINS)
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
 
             clickTag(TestTags.SEARCH_INPUT)
             waitForIdle()
+
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
         }
@@ -205,8 +229,9 @@ class SearchSuggestionInteractionUiTest {
         }
 
     @Test
-    fun `opening a menu keeps suggestions visible and save remains available when dismissed`() =
+    fun `opening a menu keeps suggestions visible and save opens dialog when dismissed`() =
         runIsolatedComposeTest {
+            val intents = mutableListOf<SearchIntent>()
             setContent {
                 SearchScreenContent(
                     state =
@@ -214,7 +239,7 @@ class SearchSuggestionInteractionUiTest {
                             query = FieldOwnedText.empty().seeded("work"),
                             savedSearches = searches,
                         ),
-                    onIntent = {},
+                    onIntent = { intents += it },
                     navigator = PreviewSearchNavigator(),
                 )
             }
@@ -231,7 +256,10 @@ class SearchSuggestionInteractionUiTest {
 
             clickTag(TestTags.SavedSearches.SAVE_CHIP)
             waitForIdle()
+
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
             assertTagDisplayed(TestTags.SavedSearches.SAVE_DIALOG_CONFIRM)
+            assertEquals(emptyList<SearchIntent.OnQueryChange>(), intents.filterIsInstance<SearchIntent.OnQueryChange>())
         }
 
     @Test
