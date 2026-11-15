@@ -168,7 +168,10 @@ class RecurrenceFormattersTest {
     @Test
     fun `baseLabelRes maps each base to its string resource`() {
         assertEquals(Res.string.recurrence_from_due, RecurrenceFormatters.baseLabelRes(RecurrenceBase.FROM_DUE))
-        assertEquals(Res.string.recurrence_from_completion, RecurrenceFormatters.baseLabelRes(RecurrenceBase.FROM_COMPLETION))
+        assertEquals(
+            Res.string.recurrence_from_completion,
+            RecurrenceFormatters.baseLabelRes(RecurrenceBase.FROM_COMPLETION),
+        )
         assertEquals(Res.string.recurrence_catch_up, RecurrenceFormatters.baseLabelRes(RecurrenceBase.CATCH_UP))
     }
 

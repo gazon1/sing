@@ -742,7 +742,6 @@ private fun SpecType.testTag(): String =
         SpecType.YEARLY -> TestTags.RECURRENCE_OPTION_YEARLY_ON_DATE
     }
 
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 private fun RecurrenceSpec.specType(): SpecType =

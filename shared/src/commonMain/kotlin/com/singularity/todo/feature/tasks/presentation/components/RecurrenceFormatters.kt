@@ -31,8 +31,6 @@ import singularity_todo.shared.generated.resources.month_short_nov
 import singularity_todo.shared.generated.resources.month_short_oct
 import singularity_todo.shared.generated.resources.month_short_sep
 import singularity_todo.shared.generated.resources.recurrence_catch_up
-import singularity_todo.shared.generated.resources.recurrence_from_completion
-import singularity_todo.shared.generated.resources.recurrence_from_due
 import singularity_todo.shared.generated.resources.recurrence_every_day
 import singularity_todo.shared.generated.resources.recurrence_every_days
 import singularity_todo.shared.generated.resources.recurrence_every_month
@@ -41,6 +39,8 @@ import singularity_todo.shared.generated.resources.recurrence_every_week
 import singularity_todo.shared.generated.resources.recurrence_every_weeks
 import singularity_todo.shared.generated.resources.recurrence_every_year
 import singularity_todo.shared.generated.resources.recurrence_every_years
+import singularity_todo.shared.generated.resources.recurrence_from_completion
+import singularity_todo.shared.generated.resources.recurrence_from_due
 import singularity_todo.shared.generated.resources.recurrence_monthly
 import singularity_todo.shared.generated.resources.recurrence_next
 import singularity_todo.shared.generated.resources.recurrence_sentence
