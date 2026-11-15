@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.state
 
 import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.core.linkpreview.LinkPreviewState
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import kotlinx.collections.immutable.ImmutableList
@@ -33,6 +34,14 @@ sealed interface TaskDetailExtras {
         val firstRun: FirstRun,
         val proposals: ImmutableList<AiProposal> = persistentListOf(),
         val proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
+        /**
+         * The link preview under the title.
+         *
+         * Folded in here rather than added as an eleventh input to the coordinator's
+         * combine: this partition exists to keep that combine bounded, and a preview is
+         * another slice of "the rest of the screen", not a sixth top-level concern.
+         */
+        val linkPreview: LinkPreviewState = LinkPreviewState.None,
     ) : TaskDetailExtras
 }
 

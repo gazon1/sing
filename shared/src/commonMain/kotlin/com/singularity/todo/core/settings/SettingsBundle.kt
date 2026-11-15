@@ -89,9 +89,14 @@ sealed interface SettingsSection {
 
     /**
      * Task-related settings such as the staleness threshold for undated tasks.
+     *
+     * @property linkPreviewsEnabled whether a task title's link is previewed in the
+     *   task detail. Off means nothing is fetched at all.
      */
-    data class Tasks(val stalenessThresholdDays: Int = SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS) :
-        SettingsSection
+    data class Tasks(
+        val stalenessThresholdDays: Int = SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS,
+        val linkPreviewsEnabled: Boolean = SettingsDefaults.Tasks.LINK_PREVIEWS_ENABLED,
+    ) : SettingsSection
 }
 
 /**
@@ -237,6 +242,9 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     sealed interface Tasks : SettingsIntent {
         data class UpdateStalenessThresholdDays(val value: Int) : Tasks
+
+        /** Turns the task-title link preview on or off. */
+        data class UpdateLinkPreviewsEnabled(val value: Boolean) : Tasks
     }
 
     /** Clears any errorMessage in the UI state. */

@@ -135,6 +135,19 @@ acp = "0.34.0"
 # Coil
 coil = "3.6.3"
 
+# Ksoup — an HTML5 parser for KMP. The link preview reads a page's own metadata out
+# of its head, and hand-rolled tag scanning is exactly the kind of parsing a parser
+# should do: malformed markup, entities, attribute order and quoting all have answers
+# the standard already writes down. 0.2.x is the version that dropped its Ktor
+# dependency (0.1.x resolved Ktor 2.3.7 into the runtime, against this project's 3.6).
+ksoup = "0.2.6"
+
+# IPAddress — the range classifier the preview's public-address policy is checked
+# against, in tests only. It is a JVM library, so it cannot be the production
+# implementation in `commonMain`; it is a far better oracle than a second hand-rolled
+# classifier would be.
+ipaddress = "5.5.1"
+
 # Testing
 junit = "4.13.2"
 junit-jupiter = "5.11.4"
@@ -232,6 +245,9 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-json = { module = "io.ktor:ktor-client-json", version.ref = "ktor" }
+# Test-only: the one way to exercise the preview fetcher's redirect, size and
+# media-type rules without a network, and without hand-rolling an engine.
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 
 # Koin
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
@@ -330,6 +346,14 @@ androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
+
+# Ksoup — HTML parsing only. `ksoup-network` is deliberately not declared: the page
+# is fetched by our own guarded client, and a second network path would be a second
+# place the address checks could be forgotten.
+ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "ksoup" }
+
+# Test-only oracle for the public-address policy: see the version's comment above.
+ipaddress = { module = "com.github.seancfoley:ipaddress", version.ref = "ipaddress" }
 
 # Rich Text Editor
 rich-editor-compose = { module = "com.mohamedrejeb.richeditor:richeditor-compose", version.ref = "rich-editor" }

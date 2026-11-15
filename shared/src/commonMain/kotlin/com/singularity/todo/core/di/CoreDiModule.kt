@@ -40,6 +40,11 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UuidIdGenerator
+import com.singularity.todo.core.linkpreview.LinkPreviewCache
+import com.singularity.todo.core.linkpreview.LinkPreviewRepository
+import com.singularity.todo.core.linkpreview.LinkPreviewRepositoryImpl
+import com.singularity.todo.core.linkpreview.PageFetcher
+import com.singularity.todo.core.linkpreview.PageSource
 import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.notifications.DataStoreNotificationsSettingsRepository
 import com.singularity.todo.core.notifications.NotificationsContributor
@@ -404,6 +409,38 @@ fun coreModule(): org.koin.core.module.Module =
         // NoDirectClockSystemRule exemption: the singleton binding itself is the intentional
         // call site. All production code must inject Clock; only this binding uses Clock.System.
         single<Clock> { Clock.System }
+
+        // ─── Link previews ─────────────────────────────────────────────────
+
+        // The fetcher is bound as the contract the repository reads, so the security
+        // rules — scheme, public address, size, media type, redirect target — are the
+        // same single implementation for a page and for its image. It takes the graph's
+        // one HttpClient: a second client would mean a second connection pool and a
+        // second answer to "how long may a request take".
+        single<PageSource> { PageFetcher(client = get(), addresses = get()) }
+
+        // The preview cache. Bound here rather than in the tasks module because the
+        // directory qualifier is a platform binding, and because the value it stores is
+        // derived and disposable — it belongs with the other core caches, not with the
+        // task entity, which it never touches.
+        single {
+            LinkPreviewCache(
+                dataStore = get(),
+                fileSystem = get(),
+                imageDir = get(PreviewImageDirQualifier),
+                clock = get(),
+            )
+        }
+
+        single<LinkPreviewRepository> {
+            LinkPreviewRepositoryImpl(
+                source = get(),
+                cache = get(),
+                linkPreviewsEnabled = get<SettingsRepository>().linkPreviewsEnabled,
+                clock = get(),
+                dispatcher = get(),
+            )
+        }
 
         // ─── Observability ─────────────────────────────────────────────────
 

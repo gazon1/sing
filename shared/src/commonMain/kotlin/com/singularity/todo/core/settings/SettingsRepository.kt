@@ -201,6 +201,18 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
             )
 
         /**
+         * Whether a task title's link is previewed.
+         *
+         * On by default: the preview reads a public page and stores four strings about
+         * it, which is the feature the user is being given. Off means nothing is
+         * fetched at all — the toggle is read before any request, not after.
+         */
+        val LINK_PREVIEWS_ENABLED =
+            booleanPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.TASKS, "link_previews_enabled"),
+            )
+
+        /**
          * The key of a profile's recurring-series repair marker.
          *
          * The profile scope is part of the key rather than a value beside it: each
@@ -250,6 +262,9 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
     override val stalenessThresholdDays: Flow<Int> =
         dataStore.data.map { it[STALENESS_THRESHOLD_DAYS] ?: SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS }
 
+    override val linkPreviewsEnabled: Flow<Boolean> =
+        dataStore.data.map { it[LINK_PREVIEWS_ENABLED] ?: SettingsDefaults.Tasks.LINK_PREVIEWS_ENABLED }
+
     // ── Setters ───────────────────────────────────────────────────────────────
 
     override suspend fun setAiProvider(value: String) {
@@ -274,6 +289,10 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     override suspend fun setStalenessThresholdDays(value: Int) {
         dataStore.edit { it[STALENESS_THRESHOLD_DAYS] = value }
+    }
+
+    override suspend fun setLinkPreviewsEnabled(value: Boolean) {
+        dataStore.edit { it[LINK_PREVIEWS_ENABLED] = value }
     }
 
     override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> =

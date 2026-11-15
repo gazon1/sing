@@ -28,6 +28,8 @@ import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.linkpreview.HostAddressResolver
+import com.singularity.todo.core.linkpreview.JvmHostAddressResolver
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.JvmNotificationSettingsPort
 import com.singularity.todo.core.notifications.JvmNotifier
@@ -289,6 +291,14 @@ fun jvmPlatformModule(applicationRoot: File): Module =
 
         // The same folder the desktop's file revealer opens.
         single<String>(AttachmentDirQualifier) { File(applicationDir, "attachments").path }
+
+        // Preview images: derived, disposable, and safe to clear with the app's cache.
+        single<String>(PreviewImageDirQualifier) { File(applicationDir, "preview_images").path }
+
+        // The resolver the preview fetcher judges an address with. Bound per platform
+        // because "what does this name resolve to" is the platform's answer, and a name
+        // is the only thing an SSRF check can be fooled by.
+        single<HostAddressResolver> { JvmHostAddressResolver() }
 
         single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 

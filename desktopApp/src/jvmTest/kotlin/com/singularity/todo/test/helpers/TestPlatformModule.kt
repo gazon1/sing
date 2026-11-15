@@ -13,12 +13,15 @@ import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.di.AttachmentDirQualifier
 import com.singularity.todo.core.di.BackupDirQualifier
 import com.singularity.todo.core.di.LogDirQualifier
+import com.singularity.todo.core.di.PreviewImageDirQualifier
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.linkpreview.HostAddressResolver
+import com.singularity.todo.core.linkpreview.JvmHostAddressResolver
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.JvmNotificationSettingsPort
 import com.singularity.todo.core.notifications.NotificationSettingsPort
@@ -272,6 +275,12 @@ private fun testOsPortModule(): Module =
         single<String>(BackupDirQualifier) { tempRoot().resolve("backups").absolutePath }
         single<String>(LogDirQualifier) { tempRoot().resolve("logs").absolutePath }
         single<String>(AttachmentDirQualifier) { tempRoot().resolve("attachments").absolutePath }
+
+        // Mirrors PlatformModule.jvm.kt: the preview images live under the app root, and
+        // the resolver is the real JVM one — it reads the platform resolver and touches
+        // nothing else, so a fake would only be a way to be wrong.
+        single<String>(PreviewImageDirQualifier) { tempRoot().resolve("preview_images").absolutePath }
+        single<HostAddressResolver> { JvmHostAddressResolver() }
 
         // ─── The Google sign-in ──────────────────────────────────────────────────────
         //

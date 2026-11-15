@@ -52,6 +52,7 @@ port. The authority on which binding is which is the seam registry
 | `GoogleGrantRevoker` | `LocalGoogleGrantRevoker` | `SupabaseGoogleGrantRevoker` | checked |
 | `GoogleSyncPeriodicTrigger` | `DelayLoopGoogleSyncPeriodicTrigger` | `AndroidGoogleSyncPeriodicTrigger` | checked |
 | `Haptic` | `createHaptic` | `AndroidHaptic` | checked |
+| `HostAddressResolver` | `JvmHostAddressResolver` | `AndroidHostAddressResolver` | checked |
 | `HostEnvironmentPort` | `JvmHostEnvironment` | `AndroidHostEnvironment` | checked |
 | `Notifier` | `JvmNotifier` | `AndroidNotifier` | checked |
 | `NotificationSettingsPort` | `JvmNotificationSettingsPort` | `AndroidNotificationSettingsPort` | checked |

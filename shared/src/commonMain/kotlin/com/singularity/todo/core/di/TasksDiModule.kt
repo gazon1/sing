@@ -254,6 +254,10 @@ fun tasksModule(): org.koin.core.module.Module =
                                 firstStep = get(),
                             ),
                         context = TaskContextDeps(clock = get()),
+                        // The title's link preview. Bound as the repository the slot
+                        // reads; the screen asks for one only when the task detail has
+                        // an address in its title.
+                        linkPreview = get(),
                     ),
                 taskId = route.taskId,
                 sourceViewId = route.sourceViewId,

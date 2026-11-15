@@ -309,6 +309,27 @@ object TestTags {
     /** The line under the hero that says when a completed task was completed. */
     const val TASK_DETAIL_COMPLETED_LABEL = "task_detail_completed_label"
 
+    /** The link preview card under the task title. */
+    const val TASK_LINK_PREVIEW = "task_link_preview"
+
+    /** The site name line of the link preview card. */
+    const val TASK_LINK_PREVIEW_SITE = "task_link_preview_site"
+
+    /** The page title line of the link preview card. */
+    const val TASK_LINK_PREVIEW_TITLE = "task_link_preview_title"
+
+    /** The page description line of the link preview card. */
+    const val TASK_LINK_PREVIEW_DESCRIPTION = "task_link_preview_description"
+
+    /** The preview picture, drawn only when one was stored. */
+    const val TASK_LINK_PREVIEW_IMAGE = "task_link_preview_image"
+
+    /** The control that dismisses the preview without touching the title. */
+    const val TASK_LINK_PREVIEW_HIDE = "task_link_preview_hide"
+
+    /** The thin progress line shown while a preview is being read. */
+    const val TASK_LINK_PREVIEW_LOADING = "task_link_preview_loading"
+
     /** The bar's copy of the task title, shown once the hero has scrolled away. */
     const val TASK_DETAIL_BAR_TITLE = "task_detail_bar_title"
 
@@ -1178,6 +1199,9 @@ object TestTags {
 
         /** Per-event sound toggle. Rendered only while notifications are enabled. */
         const val NOTIFICATIONS_SOUND_SWITCH = "settings_notifications_sound_switch"
+
+        /** The task-title link preview switch in the tasks settings section. */
+        const val LINK_PREVIEWS_SWITCH = "settings_link_previews_switch"
 
         /** Per-event vibration toggle. Rendered only while notifications are enabled. */
         const val NOTIFICATIONS_VIBRATION_SWITCH = "settings_notifications_vibration_switch"

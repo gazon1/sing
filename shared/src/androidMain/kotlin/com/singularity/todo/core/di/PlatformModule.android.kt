@@ -25,6 +25,8 @@ import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.linkpreview.AndroidHostAddressResolver
+import com.singularity.todo.core.linkpreview.HostAddressResolver
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.AndroidNotificationSettingsPort
 import com.singularity.todo.core.notifications.AndroidNotifier
@@ -314,6 +316,13 @@ actual fun platformModule(): Module =
         // The attachments live next to the other app data, in the folder the
         // FileProvider publishes as `attachments/`.
         single<String>(AttachmentDirQualifier) { get<Context>().filesDir.absolutePath + "/attachments" }
+
+        // Preview images: derived, disposable, and cleared with the app's data.
+        single<String>(PreviewImageDirQualifier) { get<Context>().filesDir.absolutePath + "/preview_images" }
+
+        // The resolver the preview fetcher judges an address with. Bound per platform
+        // because "what does this name resolve to" is the platform's answer.
+        single<HostAddressResolver> { AndroidHostAddressResolver() }
 
         single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 

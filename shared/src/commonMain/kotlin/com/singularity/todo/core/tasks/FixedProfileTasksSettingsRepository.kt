@@ -46,6 +46,18 @@ class FixedProfileTasksSettingsRepository : TasksSettingsRepository {
     }
 
     /**
+     * Previews are a screen's business, and this process has no screen.
+     *
+     * The value is the default so a reader of the port gets an answer, and nothing
+     * here acts on it: no preview is fetched from a tool server.
+     */
+    override val linkPreviewsEnabled: Flow<Boolean> = flowOf(SettingsDefaults.Tasks.LINK_PREVIEWS_ENABLED)
+
+    override suspend fun setLinkPreviewsEnabled(value: Boolean) {
+        // Intentionally empty: this process does not own the application's settings.
+    }
+
+    /**
      * This process never runs the launch repair — the application owns the launch —
      * so it reports the pass as never having run.
      */

@@ -169,6 +169,13 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_TITLE_ERROR` | `task_editor_title_error` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 | `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
+| `TASK_LINK_PREVIEW` | `task_link_preview` | |
+| `TASK_LINK_PREVIEW_DESCRIPTION` | `task_link_preview_description` | |
+| `TASK_LINK_PREVIEW_HIDE` | `task_link_preview_hide` | |
+| `TASK_LINK_PREVIEW_IMAGE` | `task_link_preview_image` | |
+| `TASK_LINK_PREVIEW_LOADING` | `task_link_preview_loading` | |
+| `TASK_LINK_PREVIEW_SITE` | `task_link_preview_site` | |
+| `TASK_LINK_PREVIEW_TITLE` | `task_link_preview_title` | |
 | `TASK_RECURRENCE_TEXT` | `task_recurrence_text` | |
 | `TASK_REMINDER_CANCEL` | `task_reminder_cancel` | |
 | `TASK_REMINDER_CLEAR` | `task_reminder_clear` | |
@@ -325,6 +332,7 @@ non-alphanumeric characters with `_`.
 | `Settings.ACTION_ROW` | `settings_action_row` | |
 | `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
 | `Settings.FONT_SIZE_SLIDER` | `settings_font_size_slider` | |
+| `Settings.LINK_PREVIEWS_SWITCH` | `settings_link_previews_switch` | |
 | `Settings.NAV_RAIL_SCROLL` | `settings_nav_rail_scroll` | |
 | `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
