@@ -18,19 +18,24 @@ import kotlin.test.assertTrue
  * @param language The bundle directory under `composeResources` — `values`,
  *   `values-ru`, and so on.
  * @param key The resource key, e.g. `agenda_save_current`.
+ * @param trim whether surrounding whitespace is dropped. A separator such as the
+ *   recurrence weekday joiner is a value whose trailing space is the point, so a
+ *   test that owns that value asks for it untrimmed.
  */
 fun bundleString(
     language: String,
     key: String,
+    trim: Boolean = true,
 ): String {
     val bundle = File(repositoryRoot(), "shared/src/commonMain/composeResources/$language/strings.xml")
     assertTrue(bundle.isFile, "expected the resource bundle at ${bundle.path}")
-    return Regex("""<string\s+name="$key"\s*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
-        .find(bundle.readText())
-        ?.groupValues
-        ?.get(1)
-        ?.trim()
-        .orEmpty()
+    val value =
+        Regex("""<string\s+name="$key"\s*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
+            .find(bundle.readText())
+            ?.groupValues
+            ?.get(1)
+            .orEmpty()
+    return if (trim) value.trim() else value
 }
 
 /**
