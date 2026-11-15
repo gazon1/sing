@@ -29,3 +29,12 @@ val LogDirQualifier = named("log_dir")
  * to something else. The attachments were written into the log directory.
  */
 val AttachmentDirQualifier = named("attachment_dir")
+
+/**
+ * The directory that holds preview images.
+ *
+ * Qualified for the same reason as the three above, and with the same edge: the
+ * preview cache takes its directory as a plain `String`, so an unqualified one would
+ * resolve to whichever directory happened to be bound without a qualifier.
+ */
+val PreviewImageDirQualifier = named("preview_image_dir")

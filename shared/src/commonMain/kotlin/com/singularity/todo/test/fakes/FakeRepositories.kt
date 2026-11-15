@@ -294,8 +294,15 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
     private val _stalenessThresholdDays = MutableStateFlow<Int>(SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS)
     override val stalenessThresholdDays: Flow<Int> = _stalenessThresholdDays
 
+    private val _linkPreviewsEnabled = MutableStateFlow(SettingsDefaults.Tasks.LINK_PREVIEWS_ENABLED)
+    override val linkPreviewsEnabled: Flow<Boolean> = _linkPreviewsEnabled
+
     override suspend fun setStalenessThresholdDays(value: Int) {
         _stalenessThresholdDays.value = value
+    }
+
+    override suspend fun setLinkPreviewsEnabled(value: Boolean) {
+        _linkPreviewsEnabled.value = value
     }
 
     private val _repairVersions = MutableStateFlow<Map<String, Int>>(emptyMap())
@@ -351,8 +358,16 @@ class FakeTasksSettingsRepository(initialStalenessThresholdDays: Int = 21) : Tas
 
     private val repairVersions = MutableStateFlow<Map<String, Int>>(emptyMap())
 
+    private val _linkPreviewsEnabled =
+        MutableStateFlow(SettingsDefaults.Tasks.LINK_PREVIEWS_ENABLED)
+    override val linkPreviewsEnabled: Flow<Boolean> = _linkPreviewsEnabled.asStateFlow()
+
     override suspend fun setStalenessThresholdDays(value: Int) {
         _stalenessThresholdDays.value = value
+    }
+
+    override suspend fun setLinkPreviewsEnabled(value: Boolean) {
+        _linkPreviewsEnabled.value = value
     }
 
     override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> =

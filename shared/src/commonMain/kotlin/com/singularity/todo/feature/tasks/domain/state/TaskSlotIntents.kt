@@ -38,6 +38,15 @@ sealed interface TaskLifecycleIntent : TaskDetailSlotIntent
 
 sealed interface TaskAiIntent : TaskDetailSlotIntent
 
+/**
+ * The two things the link preview card can be asked to do.
+ *
+ * [Refresh] is the screen saying "this address is on screen now", and the slot answers
+ * it by reading the cache — a fetch happens only when the cache has nothing recent.
+ * [Hide] dismisses the card for the address, and touches no task.
+ */
+sealed interface TaskLinkPreviewIntent : TaskDetailSlotIntent
+
 sealed interface TaskTimeSlotIntent : TaskDetailSlotIntent {
     data object Start : TaskTimeSlotIntent
 

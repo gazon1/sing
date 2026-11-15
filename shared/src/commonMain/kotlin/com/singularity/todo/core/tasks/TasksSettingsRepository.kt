@@ -18,6 +18,17 @@ interface TasksSettingsRepository {
     suspend fun setStalenessThresholdDays(value: Int)
 
     /**
+     * Whether a task title's link is previewed.
+     *
+     * The preview reads a public page, so this is a consent switch as much as a
+     * preference: it is read **before** any request is made, and off means the app
+     * never reaches out at all.
+     */
+    val linkPreviewsEnabled: Flow<Boolean>
+
+    suspend fun setLinkPreviewsEnabled(value: Boolean)
+
+    /**
      * The version of the recurring-series repair last completed in [profileScope],
      * or `0` when it has never run there.
      *

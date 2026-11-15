@@ -69,6 +69,9 @@ object SettingsDefaults {
     object Tasks {
         /** Days after which an undated, incomplete task is considered stagnant. */
         const val STALENESS_THRESHOLD_DAYS: Int = 21
+
+        /** Whether a task title's link is previewed. On: it is the feature being given. */
+        const val LINK_PREVIEWS_ENABLED: Boolean = true
     }
 
     // ── Account ───────────────────────────────────────────────────────────

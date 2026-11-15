@@ -183,6 +183,14 @@ private fun TaskEditorContent(
     showAttachmentsRow: Boolean = true,
     bannerSections: (@Composable () -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
+    /**
+     * Drawn inside the hero, between the title and the description.
+     *
+     * The link preview lives here and not in [bannerSections]: it describes the
+     * address the *title* names, so it belongs to the hero, and an offer slot should
+     * not be able to change where the description sits. Null — nothing is drawn.
+     */
+    heroExtra: (@Composable () -> Unit)? = null,
     moreParameters: ImmutableList<TaskOptionalProperty> = persistentListOf(),
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
@@ -292,6 +300,11 @@ private fun TaskEditorContent(
                     completedLabel = completedLabel,
                     alwaysEditable = alwaysEditableTitle,
                 )
+
+                // Under the title and above the description: the hero's own extra, which
+                // is where a link preview belongs — it describes the title's address, not
+                // the task, and it must not push the description out of the hero.
+                heroExtra?.invoke()
 
                 // Description
                 TaskDescriptionField(
@@ -634,6 +647,8 @@ fun TaskEditorContent(
     savedVisible: Boolean = false,
     completedLabel: String? = null,
     barTitle: String? = null,
+    /** The link preview under the title; see the private editor's [heroExtra]. */
+    heroExtra: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -649,6 +664,7 @@ fun TaskEditorContent(
         savedVisible = savedVisible,
         completedLabel = completedLabel,
         barTitle = barTitle,
+        heroExtra = heroExtra,
     )
 }
 
@@ -735,6 +751,7 @@ private fun TaskEditorScaffold(
     completedLabel: String? = null,
     barTitle: String? = null,
     alwaysEditableTitle: Boolean = false,
+    heroExtra: (@Composable () -> Unit)? = null,
 ) {
     // The deadline is overdue when it sits before today. "Today" comes from the
     // same `now` the rest of the editor is given, so the row and the sheet that
@@ -808,6 +825,7 @@ private fun TaskEditorScaffold(
         taskTitle = barTitle,
         completedLabel = completedLabel,
         alwaysEditableTitle = alwaysEditableTitle,
+        heroExtra = heroExtra,
     )
 
     TaskEditorSheetsHost(

@@ -4,6 +4,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.linkpreview.LinkPreviewState
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -37,6 +38,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskDraftS
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntitySlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntityState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLifecycleSlot
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLinkPreviewSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskProposalsCollector
@@ -248,6 +250,23 @@ class TaskDetailCoordinator(
             taskFlow = taskFlow,
         )
 
+    /**
+     * The link preview under the title.
+     *
+     * Fed by the title **draft**, so the card follows the title as it is typed rather
+     * than waiting for the debounced write. Absent when the graph supplies no
+     * repository — a test with no business reading the network builds none, and the
+     * screen then shows no card.
+     */
+    private val linkPreview =
+        deps.linkPreview?.let { repository ->
+            TaskLinkPreviewSlot(
+                previews = repository,
+                scope = vmScope,
+                draftFlow = draft.state,
+            )
+        }
+
     private val logbook =
         TaskLogbookCollector(
             notesRepo = deps.collaboration.notesRepo,
@@ -320,28 +339,26 @@ class TaskDetailCoordinator(
     private val extrasState: StateFlow<TaskDetailExtras> =
         MutableStateFlow<TaskDetailExtras>(TaskDetailExtras.Unresolved).also { sink ->
             scope.launch {
-                combine(
+                combineStates(
                     timeSlot.state,
                     children.state,
                     taskFlow,
                     proposalsCollector?.state ?: flowOf(emptyList<AiProposal>()),
                     proposalDecisions.failures,
-                ) { timeState, childrenState, task, proposals, failures ->
-                    Triple(timeState, childrenState, task) to (proposals to failures)
-                }.collect { (triple, proposalsAndFailures) ->
-                    val (timeState, childrenState, task) = triple
-                    val (proposals, failures) = proposalsAndFailures
-                    sink.value =
-                        TaskDetailExtras.Ready(
-                            timeSlotState = timeState,
-                            firstRun = resolveFirstRun(childrenState, task),
-                            // Built here, once per emission: the screen hands them to
-                            // composables as they are, and the compiler compares them by
-                            // their contents.
-                            proposals = proposals.toImmutableList(),
-                            proposalFailures = failures.toImmutableMap(),
-                        )
-                }
+                    linkPreview?.state ?: flowOf(LinkPreviewState.None),
+                ) { timeState, childrenState, task, proposals, failures, preview ->
+                    val firstRun = resolveFirstRun(childrenState, task)
+                    TaskDetailExtras.Ready(
+                        timeSlotState = timeState,
+                        firstRun = firstRun,
+                        // Built here, once per emission: the screen hands them to
+                        // composables as they are, and the compiler compares them by
+                        // their contents.
+                        proposals = proposals.toImmutableList(),
+                        proposalFailures = failures.toImmutableMap(),
+                        linkPreview = preview,
+                    )
+                }.collect { sink.value = it }
             }
         }
 
@@ -576,6 +593,14 @@ class TaskDetailCoordinator(
 
             is TaskDetailIntent.Domain.RunAiAction -> {
                 ai.onIntent(intent)
+            }
+
+            // No preview repository means no card, and no intent to route: the screen
+            // does not draw one either, so nothing can send these.
+            is TaskDetailIntent.Domain.RefreshLinkPreview,
+            is TaskDetailIntent.Domain.HideLinkPreview,
+            -> {
+                linkPreview?.onIntent(intent)
             }
 
             is TaskDetailIntent.Domain.Start -> {

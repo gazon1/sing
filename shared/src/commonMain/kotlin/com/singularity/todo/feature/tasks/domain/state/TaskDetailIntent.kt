@@ -345,6 +345,24 @@ sealed interface TaskDetailIntent : MviIntent {
         /** Change the value of one proposal, before it is applied. */
         data class EditProposalItem(val itemId: ProposalItemId, val text: String) : Domain
 
+        // ── Link preview ──────────────────────────────────────────────────
+
+        /**
+         * The task detail is showing the task, so its title's address may be previewed.
+         *
+         * The slot reads the cache and fetches only when it has nothing recent, which is
+         * what makes this safe to send on every opening and every title edit.
+         */
+        data object RefreshLinkPreview : Domain, TaskLinkPreviewIntent
+
+        /**
+         * Dismiss the preview of the title's current address.
+         *
+         * The address stays in the title and stays tappable: hiding a card is not
+         * editing a task.
+         */
+        data object HideLinkPreview : Domain, TaskLinkPreviewIntent
+
         // ── Time Tracking ─────────────────────────────────────────────────
 
         /** Start the time tracker for this task. */

@@ -1,0 +1,169 @@
+package com.singularity.todo.core.linkpreview
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.MapFileSystem
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/**
+ * The cache answers without a fetch, forgets one address at a time, and expires.
+ *
+ * The clock is the injected one, so "six hours later" is a value rather than a wait.
+ */
+@Tag("fast")
+class LinkPreviewCacheTest {
+    /** The smallest DataStore a test can use: one mutable preferences map. */
+    private class MemoryPreferences : DataStore<Preferences> {
+        private val state = MutableStateFlow(emptyPreferences())
+        override val data = state
+
+        override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+            val next = transform(state.value)
+            state.value = next
+            return next
+        }
+    }
+
+    private val clock = FakeClock(kotlin.time.Instant.parse("2026-01-01T00:00:00Z"))
+
+    private fun cache(
+        store: DataStore<Preferences> = MemoryPreferences(),
+        files: MapFileSystem = MapFileSystem(),
+    ) = LinkPreviewCache(store, files, "/previews", clock)
+
+    private fun preview(
+        url: String,
+        at: Long = 0L,
+    ) = LinkPreview(
+        url = url,
+        siteName = "Example",
+        title = "A page",
+        description = "What it is",
+        imageUrl = null,
+        fetchedAt = at,
+    )
+
+    @Test
+    fun `a stored preview comes back`() =
+        runTest {
+            val cache = cache()
+            cache.put(preview("https://example.com/a"))
+            assertEquals("A page", cache.cached("https://example.com/a")?.title)
+        }
+
+    @Test
+    fun `a missing address has no entry`() =
+        runTest {
+            assertNull(cache().cached("https://example.com/none"))
+        }
+
+    @Test
+    fun `the entry is keyed by the normalised address`() =
+        runTest {
+            val cache = cache()
+            cache.put(preview("https://example.com/a#top"))
+            assertEquals("A page", cache.cached(PreviewUrls.keyOf("HTTPS://Example.com/a"))?.title)
+        }
+
+    @Test
+    fun `an entry older than the refresh window is not fresh`() =
+        runTest {
+            val cache = cache()
+            val now = clock.now().toEpochMilliseconds()
+            cache.put(preview("https://example.com/a", at = now - LinkPreviewCache.REFRESH_AFTER_MILLIS - 1))
+            assertFalse(cache.isFresh("https://example.com/a"))
+        }
+
+    @Test
+    fun `a recent entry is fresh, which is what stops a refetch on every opening`() =
+        runTest {
+            val cache = cache()
+            cache.put(preview("https://example.com/a", at = clock.now().toEpochMilliseconds()))
+            assertTrue(cache.isFresh("https://example.com/a"))
+        }
+
+    @Test
+    fun `hiding is remembered against the address`() =
+        runTest {
+            val cache = cache()
+            cache.hide("https://example.com/a")
+            assertTrue(cache.observeHidden("https://example.com/a").first())
+            assertFalse(cache.observeHidden("https://example.com/b").first())
+        }
+
+    @Test
+    fun `forgetting removes the entry and its image`() =
+        runTest {
+            val files = MapFileSystem()
+            val cache = cache(files = files)
+            cache.put(preview("https://example.com/a"))
+            cache.putImage("https://example.com/a", byteArrayOf(1, 2, 3))
+            assertTrue(cache.imagePathOrNull("https://example.com/a") != null)
+
+            cache.forget("https://example.com/a")
+
+            assertNull(cache.cached("https://example.com/a"))
+            assertNull(cache.imagePathOrNull("https://example.com/a"))
+        }
+
+    @Test
+    fun `forgetting one address leaves another one alone`() =
+        runTest {
+            val cache = cache()
+            cache.put(preview("https://example.com/a"))
+            cache.put(preview("https://example.com/b"))
+            cache.forget("https://example.com/a")
+            assertEquals("A page", cache.cached("https://example.com/b")?.title)
+        }
+
+    @Test
+    fun `an image is stored under the address and read back`() =
+        runTest {
+            val cache = cache()
+            val path = cache.putImage("https://example.com/a", byteArrayOf(9, 9))
+            assertTrue(path.startsWith("/previews/"))
+            assertEquals(path, cache.imagePathOrNull("https://example.com/a"))
+        }
+
+    @Test
+    fun `the cache keeps its bound by dropping the oldest address`() =
+        runTest {
+            val cache = cache()
+            repeat(LinkPreviewCache.MAX_ENTRIES) { index ->
+                cache.put(preview("https://example.com/$index", at = index.toLong()))
+            }
+            val evicted = cache.put(preview("https://example.com/new", at = 10_000L))
+            assertEquals(listOf("https://example.com/0"), evicted)
+            assertNull(cache.cached("https://example.com/0"))
+            assertEquals("A page", cache.cached("https://example.com/new")?.title)
+        }
+
+    @Test
+    fun `a cache under the bound evicts nothing`() =
+        runTest {
+            val cache = cache()
+            assertTrue(cache.put(preview("https://example.com/a")).isEmpty())
+        }
+
+    @Test
+    fun `a stored preview survives a store that also carries unrelated settings`() =
+        runTest {
+            val store = MemoryPreferences()
+            store.edit { it[booleanPreferencesKey("tasks.link_previews_enabled")] = true }
+            val cache = cache(store)
+            cache.put(preview("https://example.com/a"))
+            assertEquals("A page", cache.cached("https://example.com/a")?.title)
+        }
+}

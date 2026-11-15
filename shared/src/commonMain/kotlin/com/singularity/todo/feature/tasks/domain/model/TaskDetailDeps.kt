@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.linkpreview.LinkPreviewRepository
 import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
@@ -60,6 +61,14 @@ data class TaskDetailDeps(
     val collaboration: TaskCollaborationDeps,
     val ai: TaskAiDeps,
     val context: TaskContextDeps,
+    /**
+     * The link preview under the title.
+     *
+     * Nullable because a test that has no business reading the network should not have
+     * to build one: the slot is simply absent, and the screen shows no card. A preview
+     * is decoration — the task is fully usable without it.
+     */
+    val linkPreview: LinkPreviewRepository? = null,
 )
 
 /**

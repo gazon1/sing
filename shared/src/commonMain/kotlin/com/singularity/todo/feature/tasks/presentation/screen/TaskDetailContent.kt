@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
+import com.singularity.todo.core.linkpreview.LinkPreviewState
+import com.singularity.todo.core.linkpreview.PreviewUrls
 import com.singularity.todo.core.notifications.NotificationSettingsPort
 import com.singularity.todo.core.notifications.rememberNotificationPermissionRequester
 import com.singularity.todo.core.platform.TimeZoneProvider
@@ -91,6 +93,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskLinkPreview
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskOptionalProperty
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
@@ -540,6 +543,30 @@ fun TaskDetailContent(
                         onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
                         onDescriptionChange = {
                             coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))
+                        },
+                        // The preview of the address in the title.
+                        //
+                        // The refresh is keyed by the address, not fired unconditionally:
+                        // `LaunchedEffect` re-runs when the key changes, and the cache
+                        // answers a fresh entry without a request — so opening the task
+                        // once costs one fetch, and editing the title costs one per
+                        // *different* address. Nothing is fetched on recomposition.
+                        heroExtra = {
+                            val preview =
+                                when (val ex = extras) {
+                                    is TaskDetailExtras.Unresolved -> LinkPreviewState.None
+                                    is TaskDetailExtras.Ready -> ex.linkPreview
+                                }
+                            val url = remember(ui.titleDraft.value) { PreviewUrls.primaryIn(ui.titleDraft.value) }
+                            LaunchedEffect(url) {
+                                if (url != null) {
+                                    coordinator.onIntent(TaskDetailIntent.Domain.RefreshLinkPreview)
+                                }
+                            }
+                            TaskLinkPreview(
+                                state = preview,
+                                onHide = { coordinator.onIntent(TaskDetailIntent.Domain.HideLinkPreview) },
+                            )
                         },
                         callbacks =
                             TaskEditorCallbacks(

@@ -16,7 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.feature.settings.SettingsUiState
 
 /**
@@ -39,6 +41,28 @@ fun TasksSettingsScreen(
             StalenessThresholdSlider(
                 value = state.tasks.stalenessThresholdDays,
                 onValueChange = { onIntent(SettingsIntent.Tasks.UpdateStalenessThresholdDays(it)) },
+            )
+        }
+
+        // A consent switch as much as a preference: the preview reads a public page,
+        // so off has to mean the request is never made. The ViewModel's repository
+        // reads this flow before fetching, which is what makes it true.
+        SettingsSection(title = "Links") {
+            SettingsSwitchRow(
+                title = "Preview links in task titles",
+                testTag = TestTags.Settings.LINK_PREVIEWS_SWITCH,
+                checked = state.tasks.linkPreviewsEnabled,
+                onCheckedChange = {
+                    onIntent(SettingsIntent.Tasks.UpdateLinkPreviewsEnabled(it))
+                },
+            )
+            Text(
+                text =
+                    "Reads the page a task title links to and shows its title, description " +
+                        "and picture under the title. Only public pages are read, and the " +
+                        "title itself is never changed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
