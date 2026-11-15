@@ -1,7 +1,7 @@
 ---
 title: "Session state semantics and missing AUTH-ATTACH-01 UI"
 date: 2026-10-14
-status: open
+status: accepted
 tags: ["auth", "architectural-gap"]
 ---
 
@@ -89,10 +89,24 @@ flow that tried to exercise the anonymous path would silently not work.
 
 ---
 
+## Resolution
+
+Resolved 2026-11-15: the journey is reachable and the gap this ADR recorded is closed.
+
+Verified: `AuthIntent.AttachAccount` is handled by `AuthViewModel.attachAccount`;
+`AccountSettingsScreen` draws the entry point (`AUTH_ATTACH_ACCOUNT_BUTTON`) and calls
+`SettingsNavigator.openAttachAccount()`; the screen is `AttachAccountScreen`; the
+destination is registered in the shared `AppEntries` graph, so Android and desktop
+both carry it; and `Maestro/flows/auth/07-account-attach.yaml` drives the real UI.
+
+The intent is named `AttachAccount`, not the `MigrateAnonymousTo` proposed above; the
+transition it performs — an anonymous session becoming a signed-in account with its
+local data attached — is the same one.
+
 ## Links
 
 - `Session.kt` — domain model
 - `AuthGuard.kt` — navigation guard
 - `StubAuthRepository.kt` — E2E stub
-- `07-account-attach.yaml` — stub flow (waits for UI)
+- `07-account-attach.yaml` — the attach journey on the device
 - `deferred/reminder-tile-is-only-reachable-from-its-own-preview.md` — REMINDER Tile resolved (deleted)

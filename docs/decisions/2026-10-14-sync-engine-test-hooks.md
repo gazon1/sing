@@ -1,7 +1,7 @@
 ---
 title: "ADR: SyncEngine test hooks for G4/G5 integration tests"
 date: 2026-10-14
-status: open
+status: accepted
 tags: [sync, testing, architecture]
 description: Engine-level injection points to enable G4 (sign-out mid-cycle) and G5 (scope null during syncOnce) integration tests.
 ---
@@ -99,6 +99,20 @@ The ADR originally considered Option B — a `TestableSyncEngine` subclass that 
 - `internal` members are not accessible across this boundary, so `override` is illegal
 
 The callback approach (Option A) is the only viable path. It is a one-line addition to the engine's constructor with a null default, and it achieves the same effect.
+
+## Resolution
+
+Resolved 2026-11-15: the G4/G5 scenarios are tested; the hooks this ADR proposed are gone.
+
+Verified: `SyncEngineIntegrationTest` covers G4 (`sign out after push but before pull —
+pull returns NotRun gracefully`) by invoking the sign-out from the fake API's
+`batchPush`, and G5 (`syncOnce that started with valid scope completes even if scope
+becomes null` and its mid-cycle variant) through `FakeSyncScopeProvider.set(null)`,
+with `ThrowingSyncScopeProvider` for scope read failures. `onPushCompletedCallback`,
+`MidFlightScopeNullProvider` and `buildTestableSyncEngine` no longer exist: the engine
+constructor takes no test callback, and the fakes inject the same conditions at the
+API and scope-provider seams. The decision — these two scenarios are covered — stands;
+the constructor callback was removed rather than carried.
 
 ## Links
 

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.emoji.EmojiCatalog
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.touchTarget
 import com.vanniktech.emoji.EmojiCategory
 import kotlinx.collections.immutable.ImmutableList
@@ -215,7 +216,7 @@ private fun EmojiGrid(
 
     val results = remember(query) { EmojiCatalog.search(query) }
     if (results.isEmpty()) {
-        Text(
+        SelectableText(
             text = "No emoji match \"$query\"",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

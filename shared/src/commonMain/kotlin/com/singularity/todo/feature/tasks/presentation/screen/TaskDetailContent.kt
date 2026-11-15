@@ -311,6 +311,26 @@ fun TaskDetailContent(
                     val ui = s.ui
                     val extras = s.extras
 
+                    // The offers the screen makes: the first-run banner and the pending
+                    // AI proposals. `Unresolved` means the coordinator's cold-start work
+                    // has not landed yet — there is nothing to show, and inventing an
+                    // empty offer would flash a section that disappears a frame later.
+                    val firstRun =
+                        when (extras) {
+                            is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                            is TaskDetailExtras.Ready -> extras.firstRun
+                        }
+                    val proposals =
+                        when (extras) {
+                            is TaskDetailExtras.Unresolved -> persistentListOf()
+                            is TaskDetailExtras.Ready -> extras.proposals
+                        }
+                    val proposalFailures =
+                        when (extras) {
+                            is TaskDetailExtras.Unresolved -> persistentMapOf()
+                            is TaskDetailExtras.Ready -> extras.proposalFailures
+                        }
+
                     // The zone the completion date is rendered in. The injected provider,
                     // not `TimeZone.currentSystemDefault()`: the port is what the rest of
                     // the app reads "today" through, so a screen that reached past it
@@ -792,86 +812,67 @@ fun TaskDetailContent(
                                 // slot below happens to carry — the editor draws them
                                 // directly under the title and the description, above the
                                 // attribute rows, for every task.
-                                bannerSections = {
-                                    // First-run nudge and pending AI proposals both
-                                    // arrive through `extras`, which is Unresolved
-                                    // until the coordinator's cold-start work lands.
-                                    // Reading them as absent while unresolved is the
-                                    // intended behaviour: there is nothing to show yet,
-                                    // and inventing an empty offer would flash a
-                                    // section that disappears a frame later.
-                                    val firstRun =
-                                        when (val ex = extras) {
-                                            is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                                            is TaskDetailExtras.Ready -> ex.firstRun
-                                        }
-                                    val proposals =
-                                        when (val ex = extras) {
-                                            is TaskDetailExtras.Unresolved -> persistentListOf()
-                                            is TaskDetailExtras.Ready -> ex.proposals
-                                        }
-                                    val proposalFailures =
-                                        when (val ex = extras) {
-                                            is TaskDetailExtras.Unresolved -> persistentMapOf()
-                                            is TaskDetailExtras.Ready -> ex.proposalFailures
-                                        }
-                                    // Draw the slot at all only when there is an offer in
-                                    // it. An empty column is still a child of the editor's
-                                    // column, so its `spacedBy(md)` puts one extra gap
-                                    // between the description and the first attribute row
-                                    // on every task that has nothing to offer.
+                                //
+                                // Null when there is no offer. The editor draws the slot's
+                                // group gap whenever the lambda is not null, so an empty
+                                // slot is a gap between the description and the first
+                                // attribute row on every task with nothing to offer.
+                                bannerSections =
                                     if (firstRun is FirstRun.Offer || proposals.isNotEmpty()) {
-                                        Column(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        ) {
-                                            if (firstRun is FirstRun.Offer) {
-                                                FirstRunSection(
-                                                    // Only Ask AI has a handler to give it. The
-                                                    // other two chips are not rendered — see
-                                                    // FirstRunSection's KDoc.
-                                                    onAskAi = { showAiSheet = true },
-                                                )
-                                            }
-                                            if (proposals.isNotEmpty()) {
-                                                TaskDetailProposalSection(
-                                                    proposals = proposals,
-                                                    failures = proposalFailures,
-                                                    onConfirm = { itemId ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
-                                                        )
-                                                    },
-                                                    onReject = { itemId, reason ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.RejectProposalItem(
-                                                                itemId,
-                                                                reason,
-                                                            ),
-                                                        )
-                                                    },
-                                                    onConfirmAll = { proposalId ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.ConfirmAllProposalItems(
-                                                                proposalId,
-                                                            ),
-                                                        )
-                                                    },
-                                                    onDismiss = { proposalId ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.DismissProposal(proposalId),
-                                                        )
-                                                    },
-                                                    onEdit = { itemId, text ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.EditProposalItem(itemId, text),
-                                                        )
-                                                    },
-                                                )
+                                        {
+                                            Column(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            ) {
+                                                if (firstRun is FirstRun.Offer) {
+                                                    FirstRunSection(
+                                                        // Only Ask AI has a handler to give it. The
+                                                        // other two chips are not rendered — see
+                                                        // FirstRunSection's KDoc.
+                                                        onAskAi = { showAiSheet = true },
+                                                    )
+                                                }
+                                                if (proposals.isNotEmpty()) {
+                                                    TaskDetailProposalSection(
+                                                        proposals = proposals,
+                                                        failures = proposalFailures,
+                                                        onConfirm = { itemId ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
+                                                            )
+                                                        },
+                                                        onReject = { itemId, reason ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.RejectProposalItem(
+                                                                    itemId,
+                                                                    reason,
+                                                                ),
+                                                            )
+                                                        },
+                                                        onConfirmAll = { proposalId ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.ConfirmAllProposalItems(
+                                                                    proposalId,
+                                                                ),
+                                                            )
+                                                        },
+                                                        onDismiss = { proposalId ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.DismissProposal(proposalId),
+                                                            )
+                                                        },
+                                                        onEdit = { itemId, text ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.EditProposalItem(itemId, text),
+                                                            )
+                                                        },
+                                                    )
+                                                }
                                             }
                                         }
-                                    }
-                                },
+                                    } else {
+                                        null
+                                    },
                                 // The child sections: the task's own content, drawn after
                                 // the attribute rows so the due date, the priority and the
                                 // project stay on the first screen. Where they sit is the

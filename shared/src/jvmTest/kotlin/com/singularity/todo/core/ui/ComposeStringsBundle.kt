@@ -29,7 +29,6 @@ fun bundleString(
         .find(bundle.readText())
         ?.groupValues
         ?.get(1)
-        ?.trim()
         .orEmpty()
 }
 

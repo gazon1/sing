@@ -136,8 +136,10 @@ when the answer is "excluded".
 | `feature/profile/presentation/ChangePasswordScreen.kt` | selectable | the instruction the person has to follow |
 | `feature/projects/presentation/components/ConfirmCloseSheet.kt` | selectable | the dialog body reports what is unfinished; the title and the buttons stay labels |
 | `feature/projects/presentation/components/ConfirmDeleteSheet.kt` | selectable | the dialog body names the project; the title and the buttons stay labels |
+| `feature/projects/presentation/components/IconPickerSheet.kt` | selectable | the no-match line names the query that found nothing; the category headings stay labels |
 | `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
 | `feature/search/SearchScreen.kt` | selectable | the titles of the note, project and tag results |
+| `feature/search/presentation/SavedSearchesRow.kt` | selectable | the line that says the query hid every saved search |
 | `feature/search/presentation/SearchModeSwitch.kt` | selectable | the sentence that says what the contains mode costs; the two segment labels stay labels |
 | `feature/settings/screens/AgendaSettingsScreen.kt` | selectable | the empty state says where to create a view |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | selectable | the provider and model ids; the key and the endpoint are input fields and stay as they are |
