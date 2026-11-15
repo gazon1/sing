@@ -123,6 +123,99 @@ class RelatedTaskPickerCostTest {
             assertEquals(4, counting.orderingEdgeReads, "c1, a, b and join are each read once")
         }
 
+    @Test
+    fun `an already related task is excluded without being validated`() =
+        runTest {
+            // The exclusion is decided before the validator is asked, so a task the
+            // picker already relates costs no graph walk at all — its chain is never
+            // read even though the chain exists.
+            val dao = InMemoryTaskDao()
+            seedChain(dao, "t-rel", CHAIN)
+            val counting = CountingTaskDao(dao)
+            val index = listIndex(listOf(task("t-rel")))
+
+            val results =
+                searchRelatedTaskCandidates(
+                    rawQuery = "Alpha",
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = setOf(TaskId("t-rel")),
+                    searchIndex = index,
+                    isValidCandidate = { id ->
+                        DependencyValidatorImpl(counting, currentUser())
+                            .assertNoCycles(TaskId("t-cur"), setOf(id))
+                            .isSuccess
+                    },
+                )
+
+            assertTrue(results.isEmpty())
+            assertEquals(0, counting.orderingEdgeReads, "an excluded candidate must not be walked")
+        }
+
+    @Test
+    fun `a candidate met again by the expanding fetch is walked once`() =
+        runTest {
+            // The index answers the same first row on every page and fills the rest
+            // with tasks the picker already relates. Expansion therefore walks over
+            // the same candidate four times — and the cache is what keeps that to one
+            // walk, so the reads stay at the candidate plus its chain.
+            val dao = InMemoryTaskDao()
+            seedChain(dao, "t-shared", CHAIN)
+            val counting = CountingTaskDao(dao)
+            val excluded = (1..40).map { TaskId("t-ex$it") }
+            val filler = excluded.map { task(it.value) }
+            val shared = task("t-shared")
+            val index =
+                object : SearchTextIndex by listIndex(emptyList()) {
+                    override suspend fun recentTaskTitles(
+                        query: TextMatchQuery,
+                        limit: Int,
+                    ): List<Task> = (listOf(shared) + filler).take(limit)
+                }
+
+            val results =
+                searchRelatedTaskCandidates(
+                    rawQuery = "Alpha",
+                    taskId = TaskId("t-cur"),
+                    existingRelationIds = excluded.toSet(),
+                    searchIndex = index,
+                    isValidCandidate = { id ->
+                        DependencyValidatorImpl(counting, currentUser())
+                            .assertNoCycles(TaskId("t-cur"), setOf(id))
+                            .isSuccess
+                    },
+                    initialFetchLimit = 10,
+                    maxFetchLimit = 40,
+                )
+
+            assertEquals(listOf(shared.id), results.map { it.id })
+            assertEquals(
+                CHAIN + 1,
+                counting.orderingEdgeReads,
+                "four pages met the same candidate; it is walked once, not four times",
+            )
+        }
+
+    private fun listIndex(tasks: List<Task>): SearchTextIndex =
+        object : SearchTextIndex {
+            override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> = emptyFlow()
+
+            override fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>> = emptyFlow()
+
+            override fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>> = emptyFlow()
+
+            override fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>> = emptyFlow()
+
+            override suspend fun recentTaskTitles(
+                query: TextMatchQuery,
+                limit: Int,
+            ): List<Task> = tasks.take(limit)
+
+            override suspend fun recentNoteTitles(
+                query: TextMatchQuery,
+                limit: Int,
+            ): List<Note> = emptyList()
+        }
+
     private suspend fun search(
         candidateIds: List<String>,
         dao: TaskDao,
@@ -130,26 +223,7 @@ class RelatedTaskPickerCostTest {
         maxFetchLimit: Int = 500,
     ): List<Task> {
         val tasks = candidateIds.map { task(it) }
-        val index =
-            object : SearchTextIndex {
-                override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> = emptyFlow()
-
-                override fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>> = emptyFlow()
-
-                override fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>> = emptyFlow()
-
-                override fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>> = emptyFlow()
-
-                override suspend fun recentTaskTitles(
-                    query: TextMatchQuery,
-                    limit: Int,
-                ): List<Task> = tasks.take(limit)
-
-                override suspend fun recentNoteTitles(
-                    query: TextMatchQuery,
-                    limit: Int,
-                ): List<Note> = emptyList()
-            }
+        val index = listIndex(tasks)
         val validator: DependencyValidator = DependencyValidatorImpl(dao, currentUser())
 
         return searchRelatedTaskCandidates(

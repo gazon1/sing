@@ -1,7 +1,10 @@
 package com.singularity.todo.feature.tags.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onLast
@@ -174,14 +177,50 @@ class TagsPickerSheetTest {
             assertEquals(1, applied.single().size, "the tag created in the sheet is the selection")
         }
 
+    @Test
+    fun `a tag the parent removes while the sheet is open is not handed back on done`() =
+        runIsolatedComposeTest {
+            // The parent owns the selection, and it can move while the sheet is open:
+            // `model.tags` is derived from the reactive task state, so sync or a row's
+            // own clear can change it. The sheet rebuilds its temporary copy from the
+            // new list, which is what keeps Done from re-applying a tag the task no
+            // longer has.
+            val repo =
+                FakeTagsRepository().apply {
+                    seed(tag("a", "Alpha"), tag("b", "Beta"))
+                }
+            val applied = mutableListOf<List<TagId>>()
+            var selectedIds by mutableStateOf(persistentListOf(TagId("a")))
+            setContent {
+                Picker(repo, selectedIds) { applied += it.toList() }
+            }
+
+            awaitAnyDisplayed(TagsPickerTestTags.row("Alpha"))
+            assertTagDisplayed(TagsPickerTestTags.row("Alpha"))
+
+            // The parent drops "a" while the sheet stays open.
+            runOnIdle { selectedIds = persistentListOf() }
+            waitForIdle()
+
+            clickTag(TagsPickerTestTags.DONE)
+            waitForIdle()
+
+            assertEquals(
+                emptyList(),
+                applied.single(),
+                "the sheet must hand back the parent's current selection, not a stale copy",
+            )
+        }
+
     @Composable
     private fun Picker(
         repo: FakeTagsRepository,
+        selectedIds: ImmutableList<TagId> = persistentListOf(),
         onSelect: (ImmutableList<TagId>) -> Unit = {},
     ) {
         val currentUser: ProfileAwareCurrentUser = remember { FakeProfileAwareCurrentUser() }
         TagsPickerSheet(
-            selectedIds = persistentListOf(),
+            selectedIds = selectedIds,
             onSelect = onSelect,
             onDismiss = {},
             tagsRepo = repo,
