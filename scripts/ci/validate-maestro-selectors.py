@@ -293,6 +293,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "agenda_section_not_touched_in_a_while",
     # projectCard(...) — used in flows
     "project_card_project_alpha",
+    "project_card_emoji_flow",
     # profileItem(...) — used in profile flows
     "profile_item_personal",
     "profile_item_work",

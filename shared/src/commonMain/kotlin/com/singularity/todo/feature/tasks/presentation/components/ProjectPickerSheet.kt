@@ -229,7 +229,11 @@ private fun HierarchyContent(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.PROJECT_PICKER_LIST)
+                .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (selectedOutsideTree != null) {
