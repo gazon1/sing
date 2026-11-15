@@ -1,0 +1,6 @@
++0.00s  awaitContentDescriptionDisplayed(Menu)    OK    0.01s
++0.15s  openDrawer    OK    0.16s
++0.21s  tapTab(Today)    OK    0.22s
++0.21s  awaitTag(task_item_quiet_task)    OK    0.00s
++0.24s  awaitTag(task_editor_title_input)    OK    0.03s
++0.24s  awaitTag(task_editor_priority_row)    OK    0.00s

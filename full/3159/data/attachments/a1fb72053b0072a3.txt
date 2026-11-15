@@ -1,0 +1,38 @@
+=== FakeAppDatabase snapshot ===
+
+--- Tasks (1 rows) ---
+TaskEntity(id=robot-task-0, title=Quiet task, description=null, priority=None, kind=Task, projectId=null, parentTaskId=null, dueDate=2026-03-14, dueTime=null, startDate=null, startTime=null, endDate=null, endTime=null, accentColor=null, emoji=null, estimateMinutes=null, completedAt=null, someday=false, archivedAt=null, isPinned=false, recurrenceRule=null, seriesId=null, workflowState=Open, outgoingLinks=[], aiSuppressedTagIds=[], createdAt=0, updatedAt=0, userId=test-user, sync=SyncColumns(serverVersion=0, syncStatus=LOCAL_ONLY, syncError=null, lastSyncedAt=null, deviceId=null, hlc=null))
+
+--- TaskTags (0 rows) ---
+
+--- TaskDependencies (0 rows) ---
+
+--- Notes (0 rows) ---
+
+--- Projects (0 rows) ---
+
+--- Tags (0 rows) ---
+
+--- SyncOutbox (0 rows) ---
+
+--- Attachments (0 rows) ---
+
+--- Reminders (0 rows) ---
+
+--- ProjectReminders (0 rows) ---
+
+--- Checklist (0 rows) ---
+
+--- LlmUsage (0 rows) ---
+
+--- Profiles (0 rows) ---
+
+--- AgendaViews (0 rows) ---
+
+--- RemoteConfigs (0 rows) ---
+
+--- SavedSearches (0 rows) ---
+
+--- TagGroups (0 rows) ---
+
+--- ProjectTagGroups (0 rows) ---
