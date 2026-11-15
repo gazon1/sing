@@ -35,8 +35,19 @@ Both live in `core/ui/text/`.
 SelectableText(text, modifier, style, color, maxLines, overflow)   // one text, selectable
 SelectableTextGroup(modifier) { … }                                // a block, selectable as one
 UnselectableContent { … }                                          // an interactive child, excluded
-LinkifiedText(text, modifier, style, color, onInternalLink)        // one text, with tappable links
+LinkifiedText(                                                     // one text, with tappable links
+    text, modifier, textModifier, style, color, maxLines, overflow, onClick, onInternalLink,
+)
 ```
+
+### Modifier, or textModifier
+
+`modifier` is the block's layout — a row `weight`, a width. `textModifier` is the text's
+identity: its `testTag` and its semantics. Put the tag on `textModifier`, because a
+selection container is a wrapper around the text: a tag on `modifier` names the wrapper,
+and a test or a Maestro flow that reads the node's text finds none — the text is its
+child. Put `weight` on `modifier`, because a weight resolves against the parent row only
+while it is on the row's own child.
 
 ### SelectableText is one text, not a list
 
@@ -59,6 +70,24 @@ registrar, so wrapping *that* in `UnselectableContent` would not take its select
 
 `LinkifiedText` wraps its text in a selection container as well: a person who wants to
 copy a sentence that contains a link should not have to give up the link to do it.
+
+### Compose splits the tap; do not split it again
+
+Every detected link is attached to its range with a `LinkAnnotation` that carries its own
+listener, and `onClick` reaches the text as a plain `Modifier.clickable`. That is the whole
+mechanism: Compose lays a child over each link's range that takes the tap for itself, so
+the text's `clickable` never sees a tap that landed on a link.
+
+Two consequences worth knowing before "fixing" it:
+
+- **A link listener must never be null.** A `LinkAnnotation` without one is a coloured
+  range that does nothing when tapped, and an accessibility service is handed that same
+  nothing. Nulling the listener because a text-click callback exists is the bug that made
+  an internal link in the hero title dead (#2963).
+- **A link takes a tap whose down and up both land inside its own range.** A drag that
+  crosses it is not a tap on it. A long press on plain text starts a selection; a long
+  press *on* a link opens the link, which is stock Compose behaviour and not something a
+  widget here can change without replacing Compose's link handling.
 
 ## 3. The links
 
@@ -150,6 +179,8 @@ when the answer is "excluded".
 | `feature/tasks/presentation/components/detail/RelatedTaskPickerSheet.kt` | selectable | the picker's task titles and its status and error messages |
 | `feature/tasks/presentation/components/detail/RelatedTasksSection.kt` | selectable | the titles and relation labels of the related tasks |
 | `feature/tasks/presentation/components/detail/LinkedBacklinksCard.kt` | selectable | the titles of the notes that link back |
+| `feature/tasks/presentation/components/detail/TaskDetailTopBar.kt` | linkified | the collapsed task title: web/internal links are tappable via LinkifiedText; plain titles stay plain text |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | linkified | the hero title: URLs/internal links are tappable via LinkifiedText and text stays selectable/copyable; tapping non-link text (or placeholder) enters edit mode |
 | `feature/tasks/presentation/components/detail/LogbookSection.kt` | selectable | note titles and time rows — the "add note" button is excluded from the selection |
 | `feature/tasks/presentation/components/ProjectPickerSheet.kt` | selectable | the empty state tells the person what is missing |
 | `feature/timetracking/presentation/components/TimeTrackingSection.kt` | selectable | the section's message |

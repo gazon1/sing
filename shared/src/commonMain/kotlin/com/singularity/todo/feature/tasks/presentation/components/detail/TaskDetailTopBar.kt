@@ -25,6 +25,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.detail.SavedIndicator
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.text.LinkifiedText
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.stringResource
@@ -71,12 +72,12 @@ fun TaskDetailTopBar(
     TopAppBar(
         title = {
             if (title != null) {
-                Text(
+                LinkifiedText(
                     text = title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.testTag(TestTags.TASK_DETAIL_BAR_TITLE),
+                    textModifier = Modifier.testTag(TestTags.TASK_DETAIL_BAR_TITLE),
                 )
             }
         },
