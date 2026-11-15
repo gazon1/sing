@@ -19,6 +19,7 @@ import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
@@ -253,7 +254,12 @@ class TaskRepositoryImpl(
                 TaskSeriesShape.requireRuleLivesInSeries(item)
                 val toInsert = item.copy(userId = currentUid)
                 taskDao.upsert(toInsert.toEntity())
-                saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
+                saveOutgoingLinks(
+                    toInsert.id,
+                    toInsert.description,
+                    toInsert.descriptionHtml,
+                    toInsert.updatedAt.toEpochMilliseconds(),
+                )
                 toInsert.tags.forEach { tagId ->
                     taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                 }
@@ -275,7 +281,7 @@ class TaskRepositoryImpl(
                 // database does not have — an edge the caller carried but the create
                 // did not write would be a claim about an edge that is not there.
                 enqueueFresh(toInsert.id)
-                toInsert
+                toInsert.normalizedDescription()
             }
         }
 
@@ -301,7 +307,12 @@ class TaskRepositoryImpl(
                 // caller's anonymous id verbatim would orphan the row.
                 val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
                 taskDao.upsert(toUpdate.toEntity())
-                saveOutgoingLinks(toUpdate.id, toUpdate.description, toUpdate.updatedAt.toEpochMilliseconds())
+                saveOutgoingLinks(
+                    toUpdate.id,
+                    toUpdate.description,
+                    toUpdate.descriptionHtml,
+                    toUpdate.updatedAt.toEpochMilliseconds(),
+                )
                 // The tags are NOT written here, and that is a rule rather than an
                 // omission. The tags live in the cross-ref table, and the task this
                 // path is given was read through `get()` — which does not load them,
@@ -325,7 +336,7 @@ class TaskRepositoryImpl(
                 // emptiness of a read is not the truth about the work — has to
                 // follow the push.
                 enqueueFresh(toUpdate.id)
-                toUpdate
+                toUpdate.normalizedDescription()
             }
         }
 
@@ -348,7 +359,12 @@ class TaskRepositoryImpl(
                     currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                     val toInsert = item.copy(userId = currentUid)
                     taskDao.upsert(toInsert.toEntity())
-                    saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
+                    saveOutgoingLinks(
+                        toInsert.id,
+                        toInsert.description,
+                        toInsert.descriptionHtml,
+                        toInsert.updatedAt.toEpochMilliseconds(),
+                    )
                     toInsert.tags.forEach { tagId ->
                         taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                     }
@@ -366,7 +382,7 @@ class TaskRepositoryImpl(
                     // just written, and the edges the create did not write and the
                     // database therefore does not have.
                     enqueueFresh(toInsert.id)
-                    toInsert
+                    toInsert.normalizedDescription()
                 }
             }
         }
@@ -394,7 +410,12 @@ class TaskRepositoryImpl(
                             ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
                         val toUpdate = item.copy(userId = currentUid)
                         taskDao.upsert(toUpdate.toEntity())
-                        saveOutgoingLinks(toUpdate.id, toUpdate.description, toUpdate.updatedAt.toEpochMilliseconds())
+                        saveOutgoingLinks(
+                            toUpdate.id,
+                            toUpdate.description,
+                            toUpdate.descriptionHtml,
+                            toUpdate.updatedAt.toEpochMilliseconds(),
+                        )
                         // The tags are a shared field of a series, and they live in the
                         // cross-ref table rather than in the row. A batch write that carried
                         // the tags in the task but not in the database would leave the
@@ -408,7 +429,7 @@ class TaskRepositoryImpl(
                         // `get()` holds none. On the wire an empty set is a claim, and
                         // the server would apply it as "the work waits for nothing".
                         enqueueFresh(toUpdate.id)
-                        toUpdate
+                        toUpdate.normalizedDescription()
                     }
                 // The batch is a series write, and a series write repairs the series:
                 // the members that were not in the batch follow the ones that were.
@@ -524,8 +545,15 @@ class TaskRepositoryImpl(
                 // members of a series say the same thing about the work, and the
                 // source is what they say it now. The mapper derives the links from
                 // the task's own description, which is not what this row carries.
-                taskDao.upsert(stamped.toEntity(outgoingLinks = linksJsonOf(source.description)))
-                saveOutgoingLinks(member.id, source.description, repairedAt.toEpochMilliseconds())
+                taskDao.upsert(
+                    stamped.toEntity(outgoingLinks = linksJsonOf(source.description, source.descriptionHtml)),
+                )
+                saveOutgoingLinks(
+                    member.id,
+                    source.description,
+                    source.descriptionHtml,
+                    repairedAt.toEpochMilliseconds(),
+                )
                 val memberTags = tagRefs[memberId].orEmpty()
                 if (tagsClaimed && memberTags != sourceTags) {
                     memberTags.forEach { tagId -> taskDao.removeTagRefForUser(memberId, tagId.value, uid) }
@@ -585,12 +613,13 @@ class TaskRepositoryImpl(
     private suspend fun saveOutgoingLinks(
         id: TaskId,
         description: String?,
+        descriptionHtml: String?,
         updatedAt: Long,
     ) {
         val rows =
             taskDao.setOutgoingLinksForUser(
                 id = id.value,
-                linksJson = linksJsonOf(description),
+                linksJson = linksJsonOf(description, descriptionHtml),
                 updatedAt = updatedAt,
                 userId = currentUser.scopedUserId.value.value,
             )
@@ -1032,6 +1061,25 @@ class TaskRepositoryImpl(
 }
 
 /**
+ * The same task with the description pair made consistent before it is returned.
+ *
+ * A writer that only knows about plain text changes `description` and leaves the
+ * old HTML behind; the database drops the stale HTML (see [toEntity]), and the
+ * value the caller gets back must say the same thing.
+ */
+private fun Task.normalizedDescription(): Task {
+    val plain = TaskDescriptionHtml.storedPlain(descriptionHtml, description)
+    val html = TaskDescriptionHtml.storedHtml(descriptionHtml, description)
+    return if (plain == description &&
+        html == descriptionHtml
+    ) {
+        this
+    } else {
+        copy(description = plain, descriptionHtml = html)
+    }
+}
+
+/**
  * The row of a task.
  *
  * [outgoingLinks] is passed in rather than taken from the domain: the links
@@ -1045,11 +1093,12 @@ class TaskRepositoryImpl(
  * A mapper that left the column out would let `@Upsert` reset it to "[]", and
  * the links of a task would vanish with every write that did not mention them.
  */
-private fun Task.toEntity(outgoingLinks: String = linksJsonOf(description)): TaskEntity =
+private fun Task.toEntity(outgoingLinks: String = linksJsonOf(description, descriptionHtml)): TaskEntity =
     TaskEntity(
         id = id.value,
         title = title,
-        description = description,
+        description = TaskDescriptionHtml.storedPlain(descriptionHtml, description),
+        descriptionHtml = TaskDescriptionHtml.storedHtml(descriptionHtml, description),
         priority = priority,
         kind = kind,
         projectId = projectId?.value,
@@ -1097,5 +1146,11 @@ private const val EMPTY_LINKS = "[]"
  * that rewrites the links of a row that is already there. Two derivations would
  * be two truths about the same description.
  */
-internal fun linksJsonOf(description: String?): String =
-    description?.let { extractOutgoingLinks(it) }.orEmpty().toLinksJson()
+internal fun linksJsonOf(
+    description: String?,
+    descriptionHtml: String? = null,
+): String =
+    (TaskDescriptionHtml.storedHtml(descriptionHtml, description) ?: description)
+        ?.let { extractOutgoingLinks(it) }
+        .orEmpty()
+        .toLinksJson()

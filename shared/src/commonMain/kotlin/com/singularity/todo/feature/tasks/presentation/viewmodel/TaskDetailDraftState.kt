@@ -60,12 +60,14 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
      * Called once per task change, not once per unrelated child update.
      *
      * @param title the task's title as the repository holds it.
-     * @param description the task's description as the repository holds it.
+     * @param descriptionHtml the task's description as the rich editor shows it —
+     *   canonical HTML, with legacy plain text already escaped.
      */
     fun seed(
         title: String,
-        description: String,
+        descriptionHtml: String,
     ) {
+        val description = descriptionHtml
         val current = _state.value
         if (!current.initialized) {
             _state.value =
@@ -101,8 +103,8 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
         _state.value = _state.value.copy(title = _state.value.title.typed(title))
     }
 
-    fun setDescription(description: String) {
-        _state.value = _state.value.copy(description = _state.value.description.typed(description))
+    fun setDescription(descriptionHtml: String) {
+        _state.value = _state.value.copy(description = _state.value.description.typed(descriptionHtml))
     }
 
     /**

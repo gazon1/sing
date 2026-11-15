@@ -129,6 +129,12 @@ class BackupRoundTripTest {
                 restoredTasks.first().workflowState,
                 "the state the user claimed for the task's work must survive the round trip",
             )
+            assertEquals(
+                "<p>Backup description</p>",
+                restoredTasks.first().descriptionHtml,
+                "the rich description must survive the round trip",
+            )
+            assertEquals("Backup description", restoredTasks.first().description)
         }
 
     /**
@@ -376,6 +382,8 @@ class BackupRoundTripTest {
             Task(
                 id = TaskId("round-trip-task"),
                 title = "Backup round trip",
+                description = "Backup description",
+                descriptionHtml = "<p>Backup description</p>",
                 userId = owner,
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),

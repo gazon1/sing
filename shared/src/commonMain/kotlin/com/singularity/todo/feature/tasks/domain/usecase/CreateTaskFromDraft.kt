@@ -102,6 +102,7 @@ class CreateTaskFromDraftUseCase(
             TaskDomain.createInput(
                 title = draft.title.text,
                 description = draft.description.text.ifBlank { null },
+                descriptionHtml = draft.descriptionHtml.text.ifBlank { null },
                 priority = draft.priority,
                 kind = TaskKind.Task,
                 projectId = draft.projectId?.let { ProjectId.fromString(it) },

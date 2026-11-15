@@ -45,6 +45,7 @@ class CreateTaskUseCase(
                 isPinned = input.isPinned,
                 someday = input.someday,
                 recurrence = input.recurrence,
+                descriptionHtml = input.descriptionHtml,
             )
         if (validated is Either.Left) return Result.failure(validated.error)
 

@@ -44,6 +44,7 @@ import com.singularity.todo.core.notifications.rememberNotificationPermissionReq
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.reminders.ReminderOffsetState
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
@@ -54,10 +55,13 @@ import com.singularity.todo.core.ui.components.formatDateCount
 import com.singularity.todo.core.ui.components.localizedShortDateWithYear
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.detail.rememberSavedPillState
+import com.singularity.todo.core.ui.rich.LinkKind
+import com.singularity.todo.core.ui.rich.LinkResult
 import com.singularity.todo.feature.attachments.AttachmentsIntent
 import com.singularity.todo.feature.attachments.AttachmentsUiEvent
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -414,6 +418,7 @@ fun TaskDetailContent(
                         projectsRepo
                             .observeAllIncludingClosed()
                             .collectAsStateWithLifecycle(initialValue = emptyList())
+                    val internalLinkRepo: InternalLinkRepository = koinInject()
                     val relatedProjects =
                         remember(projects) { projects.associate { it.id to it.name } }
                     val relationItems =
@@ -561,6 +566,17 @@ fun TaskDetailContent(
                                     navigator.back()
                                 },
                                 onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                                searchInternalLinks = { query ->
+                                    val notes =
+                                        internalLinkRepo
+                                            .searchNotes(query, SearchMode.Word)
+                                            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+                                    val tasks =
+                                        internalLinkRepo
+                                            .searchTasks(query, SearchMode.Word)
+                                            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+                                    notes + tasks
+                                },
                                 // The state row is drawn only when the task has a
                                 // state or the user has asked for the row: an unset
                                 // state is not a fact about the work, and a row that

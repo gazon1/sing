@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.domain.state
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.FieldOwnedTextAsString
 import com.singularity.todo.core.text.StaticText
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
@@ -53,6 +54,15 @@ data class TaskDraft(
     val title: FieldOwnedText = FieldOwnedText.empty(),
     @Serializable(with = FieldOwnedTextAsString::class)
     val description: FieldOwnedText = FieldOwnedText.empty(),
+    /**
+     * The rich description as the editor writes it.
+     *
+     * [description] stays the plain-text projection. A draft saved before the
+     * rich editor existed has no [descriptionHtml], and its description is shown
+     * literally.
+     */
+    @Serializable(with = FieldOwnedTextAsString::class)
+    val descriptionHtml: FieldOwnedText = FieldOwnedText.empty(),
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: DueDateOption = DueDateOption.None,
     /**
@@ -106,8 +116,12 @@ data class TaskDraft(
     /**
      * The description as the field's source; see [titleSource] for why no counter is read
      * and for the promise that lives in the type of the value.
+     *
+     * The source is HTML: a draft saved before the rich editor has only the plain
+     * [description], and it is escaped so it is read literally.
      */
-    val descriptionSource: StaticText get() = StaticText(description.text)
+    val descriptionSource: StaticText
+        get() = StaticText(TaskDescriptionHtml.canonical(descriptionHtml.text, description.text))
 }
 
 /**

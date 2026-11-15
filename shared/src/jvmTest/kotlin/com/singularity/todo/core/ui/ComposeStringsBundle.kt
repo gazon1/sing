@@ -6,10 +6,6 @@ import kotlin.test.assertTrue
 /**
  * The text a Compose resource bundle gives a key, in one language.
  *
- * The value is returned **as written**. Whitespace inside the element is part of
- * the text Compose resolves — the recurrence sentence's weekday separator is
- * `", "` — so the reader must not trim it.
- *
  * A test that says "this label is translated" is a claim about the **bundle**:
  * the composable can only be as translated as the resources behind it, and the
  * bundle is a file the build feeds into the resource cache. Reading it says the
@@ -22,18 +18,24 @@ import kotlin.test.assertTrue
  * @param language The bundle directory under `composeResources` — `values`,
  *   `values-ru`, and so on.
  * @param key The resource key, e.g. `agenda_save_current`.
+ * @param trim whether surrounding whitespace is dropped. A separator such as the
+ *   recurrence weekday joiner is a value whose trailing space is the point, so a
+ *   test that owns that value asks for it untrimmed.
  */
 fun bundleString(
     language: String,
     key: String,
+    trim: Boolean = true,
 ): String {
     val bundle = File(repositoryRoot(), "shared/src/commonMain/composeResources/$language/strings.xml")
     assertTrue(bundle.isFile, "expected the resource bundle at ${bundle.path}")
-    return Regex("""<string\s+name="$key"\s*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
-        .find(bundle.readText())
-        ?.groupValues
-        ?.get(1)
-        .orEmpty()
+    val value =
+        Regex("""<string\s+name="$key"\s*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
+            .find(bundle.readText())
+            ?.groupValues
+            ?.get(1)
+            .orEmpty()
+    return if (trim) value.trim() else value
 }
 
 /**

@@ -137,6 +137,16 @@ object TaskSeriesInvariants {
     }
 
     /**
+     * The description pair — the plain projection and the rich HTML — as one value.
+     *
+     * A series agrees about the description when it agrees about both: two
+     * members whose plain text matches but whose formatting does not are still
+     * two descriptions. Comparing the pair is what keeps the repair from
+     * stripping the rich field off every other member.
+     */
+    private data class DescriptionValue(val plain: String?, val html: String?)
+
+    /**
      * The value of a shared field of a task.
      *
      * The tags are compared as a set: the same tags in a different order are the
@@ -149,7 +159,7 @@ object TaskSeriesInvariants {
     ): Any? =
         when (field) {
             TaskSharedField.Title -> task.title
-            TaskSharedField.Description -> task.description
+            TaskSharedField.Description -> DescriptionValue(task.description, task.descriptionHtml)
             TaskSharedField.Priority -> task.priority
             TaskSharedField.Project -> task.projectId
             TaskSharedField.Tags -> task.tags.toSet()
@@ -168,15 +178,45 @@ object TaskSeriesInvariants {
         value: Any?,
     ): Task =
         when (field) {
-            TaskSharedField.Title -> copy(title = value as String)
-            TaskSharedField.Description -> copy(description = value as String?)
-            TaskSharedField.Priority -> copy(priority = value as TaskPriority)
-            TaskSharedField.Project -> copy(projectId = value as ProjectId?)
-            TaskSharedField.Tags -> copy(tags = (value as Set<TagId>).toList())
-            TaskSharedField.AccentColor -> copy(accentColor = value as Long?)
-            TaskSharedField.Emoji -> copy(emoji = value as String?)
-            TaskSharedField.Estimate -> copy(estimateMinutes = value as Int?)
-            TaskSharedField.Recurrence -> copy(recurrence = value as RecurrenceSpec?)
-            TaskSharedField.WorkflowState -> copy(workflowState = value as TaskWorkflowState)
+            TaskSharedField.Title -> {
+                copy(title = value as String)
+            }
+
+            TaskSharedField.Description -> {
+                val description = value as DescriptionValue
+                copy(description = description.plain, descriptionHtml = description.html)
+            }
+
+            TaskSharedField.Priority -> {
+                copy(priority = value as TaskPriority)
+            }
+
+            TaskSharedField.Project -> {
+                copy(projectId = value as ProjectId?)
+            }
+
+            TaskSharedField.Tags -> {
+                copy(tags = (value as Set<TagId>).toList())
+            }
+
+            TaskSharedField.AccentColor -> {
+                copy(accentColor = value as Long?)
+            }
+
+            TaskSharedField.Emoji -> {
+                copy(emoji = value as String?)
+            }
+
+            TaskSharedField.Estimate -> {
+                copy(estimateMinutes = value as Int?)
+            }
+
+            TaskSharedField.Recurrence -> {
+                copy(recurrence = value as RecurrenceSpec?)
+            }
+
+            TaskSharedField.WorkflowState -> {
+                copy(workflowState = value as TaskWorkflowState)
+            }
         }
 }

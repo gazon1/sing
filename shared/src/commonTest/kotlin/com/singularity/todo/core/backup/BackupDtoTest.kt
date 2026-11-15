@@ -26,6 +26,7 @@ class BackupDtoTest {
                 id = "task-1",
                 title = "Test Task",
                 description = "Description",
+                descriptionHtml = "<p>Description</p>",
                 priority = TaskPriority.High,
                 kind = TaskKind.Task,
                 projectId = "proj-1",
@@ -60,6 +61,7 @@ class BackupDtoTest {
         assertEquals("task-1", dto.id)
         assertEquals("Test Task", dto.title)
         assertEquals("Description", dto.description)
+        assertEquals("<p>Description</p>", dto.descriptionHtml)
         // The payload speaks the format's own names, not the constants' names:
         // a backup is read by a build whose constants may have been renamed.
         assertEquals("high", dto.priority)
@@ -72,6 +74,8 @@ class BackupDtoTest {
         assertEquals(entity.id, restored.id)
         assertEquals(entity.title, restored.title)
         assertEquals(entity.userId, restored.userId)
+        assertEquals("Description", restored.description)
+        assertEquals("<p>Description</p>", restored.descriptionHtml)
         // Sync metadata defaults
         assertEquals(0L, restored.sync.serverVersion)
         assertEquals("LOCAL_ONLY", restored.sync.syncStatus)
@@ -307,5 +311,23 @@ class BackupDtoTest {
 
         assertEquals("BLOCKS", decoded.verb)
         assertEquals("BLOCKS", decoded.toEntity().verb)
+    }
+
+    @Test
+    fun aTaskPayloadWithoutARichDescriptionRestoresItsPlainTextLiterally() {
+        // A payload written before the rich description existed has no field for
+        // it. The text was typed by the user, so markup characters in it are text,
+        // not markup, and the restore must keep them that way.
+        val decoded =
+            StableJson.decodeFromString(
+                TaskDto.serializer(),
+                """{"id":"task-legacy","title":"Legacy","description":"<b>not bold</b> & 2 < 3",""" +
+                    """"createdAt":1,"updatedAt":1}""",
+            )
+
+        assertNull(decoded.descriptionHtml)
+        val entity = decoded.toEntity("user-1")
+        assertEquals("<b>not bold</b> & 2 < 3", entity.description)
+        assertNull(entity.descriptionHtml)
     }
 }

@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-rich-editor
-description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. Use when adding or modifying the notes editor, markdown toolbar, EditorAction sealed interface, EditorToolbar, sticky bottom toolbar pattern, EditorSession hoisting, wikilink insertion, wikilink extraction from HTML, or markdown-to-HTML serialization via RichTextState.
+description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.1. Use when adding or modifying the notes editor, markdown toolbar, EditorAction sealed interface, EditorToolbar, sticky bottom toolbar pattern, EditorSession hoisting, wikilink insertion, wikilink extraction from HTML, or markdown-to-HTML serialization via RichTextState.
 ---
 
 # Skill: Rich-Text Editor for Notes (WYSIWYG)
@@ -29,20 +29,20 @@ feature/notes/
 ├── NotePreviewScreen.kt         # Read-only screen: RichText + backlinks + BottomAppBar
 ├── NotesListViewModel.kt         # List VM: filter, sort, multi-select, quick-add
 ├── NotesScreen.kt               # List screen with QuickAddRow + NotesEmptyState
-├── EditorSession.kt            # Top-level class: RichTextState + dispatch
-├── EditorAction.kt             # sealed interface for toolbar actions
-├── Ids.kt                      # NoteId, Note, NoteColor, LinkResult, LinkKind
-├── LinkResult.kt               # Generic link picker result (LinkRef sealed interface)
+├── EditorSession.kt            # rememberEditorSession factory (the class is in core)
 ├── OutgoingLinksExtractor.kt   # extractOutgoingLinks(html): List<LinkRef> via HTML regex
 ├── NoteFormatters.kt           # formatNoteAiResult
 ├── NotesUiEvent.kt             # Per-feature sealed UiEvent
 ├── NotesDiModule.kt            # DI: 3 VMs + 2 repositories
-└── components/
-    ├── EditorToolbar.kt        # Sticky bottom toolbar with overflow menu
-    └── InternalLinkPickerSheet.kt  # Generic merged Notes+Tasks picker
+└── components/                 # Notes-specific toolbar pieces
 
-core/ui/components/
-└── (no notes-specific components here — see rule below)
+core/ui/rich/                   # Shared with the task description editor
+├── EditorAction.kt             # Formatting/link vocabulary
+├── EditorToolbar.kt            # Stateless toolbar; optional link/AI callbacks
+├── EditorSession.kt            # RichTextState + dispatch + insertLink
+├── LinkResult.kt               # Generic picker result
+├── LinkUrlDialog.kt            # External URL dialog
+└── InternalLinkPickerSheet.kt  # Generic merged Notes+Tasks picker
 ```
 
 ## Rule: `core/` Must Not Import Feature Types
@@ -163,7 +163,7 @@ internal fun RichTextState.apply(action: EditorAction): RichTextState = when (ac
     EditorAction.H3         -> apply { setHeadingStyle(HeadingStyle.H3) }
     EditorAction.Bullet     -> apply { toggleUnorderedList() }
     EditorAction.Ordered    -> apply { toggleOrderedList() }
-    EditorAction.Quote      -> this   // ⚠️ no blockquote in richeditor-compose 1.2.0 — no-op
+    EditorAction.Quote      -> this   // ⚠️ no blockquote in richeditor-compose 1.2.1 — no-op
     EditorAction.ExternalLink, EditorAction.InternalLink -> this  // handled via dialog
     EditorAction.AlignLeft   -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start)) }
     EditorAction.AlignCenter -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center)) }
@@ -173,14 +173,14 @@ internal fun RichTextState.apply(action: EditorAction): RichTextState = when (ac
 
 ## Internal Link Picker — Generic Merged (PR #3)
 
-**`LinkResult`** (`feature/notes/LinkResult.kt`):
+**`LinkResult`** (`core/ui/rich/LinkResult.kt`):
 
 ```kotlin
 data class LinkResult(val id: String, val title: String, val kind: LinkKind)
 enum class LinkKind { Note, Task }
 ```
 
-**Generic sheet** (`feature/notes/components/InternalLinkPickerSheet.kt`):
+**Generic sheet** (`core/ui/rich/InternalLinkPickerSheet.kt`):
 
 ```kotlin
 @Composable
@@ -261,7 +261,7 @@ private suspend fun persist(html: String, title: String, id: String, navigateBac
 
 ## Markdown Round-trip (Built-in, No Port)
 
-`RichTextState` from `richeditor-compose:1.2.0` has built-in markdown support:
+`RichTextState` from `richeditor-compose:1.2.1` has built-in markdown support:
 
 ```kotlin
 // Serialize (editor → markdown for CLI/MCP tools)
@@ -290,7 +290,7 @@ NotePreviewScreen.kt:
 
 `NotePreview` VM observes via `repo.watchNote()`, fetches backlinks via `linkRepo.getBacklinkNotes()`.
 
-## richeditor-compose API (v1.2.0)
+## richeditor-compose API (v1.2.1)
 
 ```kotlin
 val richState = remember { RichTextState() }
@@ -341,7 +341,7 @@ For the editable `RichTextEditor`: `EditorSession.insertLink(url, text)` inserts
 
 ## Limitations
 
-- **Quote/blockquote**: `richeditor-compose 1.2.0` has no `toggleBlockquote()` or `isBlockquote` — `EditorAction.Quote` is a no-op
+- **Quote/blockquote**: `richeditor-compose 1.2.1` has no `toggleBlockquote()` or `isBlockquote` — `EditorAction.Quote` is a no-op
 - **Tables/Images**: HTML↔Markdown round-trip is lossy
 - **Keyboard shortcuts**: `RichTextEditor` lacks `onKeyEvent` — undo/redo buttons are used instead
 - **RichParagraph/RichSpan tree**: `internal` — wikilink extraction uses HTML regex

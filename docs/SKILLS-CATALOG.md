@@ -72,7 +72,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-quality-tools` | 270 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
 | `singularity-todo-relational-counts` | 217 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
-| `singularity-todo-rich-editor` | 366 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |
+| `singularity-todo-rich-editor` | 366 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.1. |
 | `singularity-todo-room-migration` | 333 | Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. |
 | `singularity-todo-room-multi-instance` | 150 | Cross-process SQLite access for Singularity Todo KMP. |
 | `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |

@@ -88,6 +88,7 @@ insert into sync_field_allowlist (entity_type, field, writable) values
     ('task', 'workflowState', true),
     ('task', 'createdAt', true),
     ('task', 'updatedAt', true),
+    ('task', 'descriptionHtml', true),
     ('time_entry', 'taskId', true),
     ('time_entry', 'startedAt', true),
     ('time_entry', 'endedAt', true),

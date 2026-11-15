@@ -6,6 +6,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.serialization.parseWireNameOrNull
 import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -144,7 +145,8 @@ fun TaskEntity.toTask(
     Task(
         id = id.toId(),
         title = title,
-        description = description,
+        description = TaskDescriptionHtml.storedPlain(descriptionHtml, description),
+        descriptionHtml = TaskDescriptionHtml.storedHtml(descriptionHtml, description),
         priority = priority,
         kind = kind,
         projectId = projectId.toProjectIdOrNull(),

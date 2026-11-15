@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes.components
+package com.singularity.todo.core.ui.rich
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -42,9 +42,6 @@ import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
-import com.singularity.todo.feature.nav.Search
-import com.singularity.todo.feature.notes.LinkKind
-import com.singularity.todo.feature.notes.LinkResult
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce

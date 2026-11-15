@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.core.ui.rich
 
 import androidx.compose.runtime.Stable
 
@@ -50,6 +50,9 @@ sealed interface EditorAction {
     /** Opens the internal link picker (Obsidian-style [[Note]] / [[Task]] linking). */
     data object InternalLink : EditorAction
 
+    /** Removes the link from the selection, keeping the visible text. */
+    data object RemoveLink : EditorAction
+
     companion object {
         /**
          * The formatting actions that sit on the bar itself.
@@ -88,6 +91,7 @@ sealed interface EditorAction {
                 AlignRight,
                 ExternalLink,
                 InternalLink,
+                RemoveLink,
             )
     }
 }
