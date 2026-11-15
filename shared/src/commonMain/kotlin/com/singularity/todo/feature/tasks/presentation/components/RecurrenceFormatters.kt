@@ -31,6 +31,8 @@ import singularity_todo.shared.generated.resources.month_short_nov
 import singularity_todo.shared.generated.resources.month_short_oct
 import singularity_todo.shared.generated.resources.month_short_sep
 import singularity_todo.shared.generated.resources.recurrence_catch_up
+import singularity_todo.shared.generated.resources.recurrence_from_completion
+import singularity_todo.shared.generated.resources.recurrence_from_due
 import singularity_todo.shared.generated.resources.recurrence_every_day
 import singularity_todo.shared.generated.resources.recurrence_every_days
 import singularity_todo.shared.generated.resources.recurrence_every_month
@@ -39,9 +41,8 @@ import singularity_todo.shared.generated.resources.recurrence_every_week
 import singularity_todo.shared.generated.resources.recurrence_every_weeks
 import singularity_todo.shared.generated.resources.recurrence_every_year
 import singularity_todo.shared.generated.resources.recurrence_every_years
-import singularity_todo.shared.generated.resources.recurrence_from_completion
-import singularity_todo.shared.generated.resources.recurrence_from_due
 import singularity_todo.shared.generated.resources.recurrence_monthly
+import singularity_todo.shared.generated.resources.recurrence_next
 import singularity_todo.shared.generated.resources.recurrence_sentence
 import singularity_todo.shared.generated.resources.recurrence_sentence_with_end
 import singularity_todo.shared.generated.resources.recurrence_sentence_with_start
@@ -61,28 +62,32 @@ import singularity_todo.shared.generated.resources.recurrence_yearly
  * Pure UI string formatters for [RecurrenceSpec].
  *
  * Internal — called only from UI/component layer.
- *
  */
 object RecurrenceFormatters {
+    /** The resource that names a recurrence base in the picker. */
+    fun baseLabelRes(base: RecurrenceBase): StringResource =
+        when (base) {
+            RecurrenceBase.FROM_DUE -> Res.string.recurrence_from_due
+            RecurrenceBase.FROM_COMPLETION -> Res.string.recurrence_from_completion
+            RecurrenceBase.CATCH_UP -> Res.string.recurrence_catch_up
+        }
+
     /**
      * Base mode label for the picker UI.
      */
-    fun baseLabel(base: RecurrenceBase): String =
-        when (base) {
-            RecurrenceBase.FROM_DUE -> "From due date"
-            RecurrenceBase.FROM_COMPLETION -> "From completion"
-            RecurrenceBase.CATCH_UP -> "Catch-up (fill gaps)"
-        }
+    @Composable
+    fun baseLabel(base: RecurrenceBase): String = stringResource(baseLabelRes(base))
 
     /**
      * Preview string showing the next occurrence given the anchor date.
      */
+    @Composable
     fun nextOccurrencePreview(
         anchor: LocalDate,
         spec: RecurrenceSpec,
     ): String {
         val next = RecurrenceCalculator.nextOccurrence(spec, anchor)
-        return "Next: $next"
+        return stringResource(Res.string.recurrence_next, localizedShortDateWithYear(next))
     }
 }
 
@@ -197,7 +202,7 @@ internal fun formatRecurrence(
     startDate: LocalDate?,
 ): String {
     val rule = rulePhrase(spec)
-    val base = stringResource(baseResource(spec.base))
+    val base = stringResource(RecurrenceFormatters.baseLabelRes(spec.base))
     val start = startDate?.let { localizedShortDateWithYear(it) }
     val end = spec.termination?.endDate?.let { localizedShortDateWithYear(it) }
     return when {
@@ -283,14 +288,7 @@ private fun pluralResource(unit: RecurrenceUnit): PluralStringResource =
         RecurrenceUnit.YEAR -> Res.plurals.recurrence_every_years
     }
 
-private fun baseResource(base: RecurrenceBase): StringResource =
-    when (base) {
-        RecurrenceBase.FROM_DUE -> Res.string.recurrence_from_due
-        RecurrenceBase.FROM_COMPLETION -> Res.string.recurrence_from_completion
-        RecurrenceBase.CATCH_UP -> Res.string.recurrence_catch_up
-    }
-
-private fun weekdayResource(isoDayOfWeek: Int): StringResource =
+internal fun weekdayResource(isoDayOfWeek: Int): StringResource =
     when (DayOfWeek(isoDayOfWeek)) {
         DayOfWeek.MONDAY -> Res.string.recurrence_weekday_short_mon
         DayOfWeek.TUESDAY -> Res.string.recurrence_weekday_short_tue
@@ -301,7 +299,7 @@ private fun weekdayResource(isoDayOfWeek: Int): StringResource =
         DayOfWeek.SUNDAY -> Res.string.recurrence_weekday_short_sun
     }
 
-private fun monthResource(month: Int): StringResource =
+internal fun monthResource(month: Int): StringResource =
     when (Month(month)) {
         Month.JANUARY -> Res.string.month_short_jan
         Month.FEBRUARY -> Res.string.month_short_feb

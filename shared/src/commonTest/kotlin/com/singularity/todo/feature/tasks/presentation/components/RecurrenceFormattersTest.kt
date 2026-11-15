@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
+import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
@@ -11,6 +12,10 @@ import io.qameta.allure.Feature
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.recurrence_catch_up
+import singularity_todo.shared.generated.resources.recurrence_from_completion
+import singularity_todo.shared.generated.resources.recurrence_from_due
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -158,29 +163,27 @@ class RecurrenceFormattersTest {
         )
     }
 
-    // ─── baseLabel ──────────────────────────────────────────────────────────────
+    // ─── baseLabelRes ───────────────────────────────────────────────────────────
 
     @Test
-    fun `baseLabel returns human-readable strings`() {
-        assertEquals("From due date", RecurrenceFormatters.baseLabel(RecurrenceBase.FROM_DUE))
-        assertEquals("From completion", RecurrenceFormatters.baseLabel(RecurrenceBase.FROM_COMPLETION))
-        assertEquals("Catch-up (fill gaps)", RecurrenceFormatters.baseLabel(RecurrenceBase.CATCH_UP))
+    fun `baseLabelRes maps each base to its string resource`() {
+        assertEquals(Res.string.recurrence_from_due, RecurrenceFormatters.baseLabelRes(RecurrenceBase.FROM_DUE))
+        assertEquals(Res.string.recurrence_from_completion, RecurrenceFormatters.baseLabelRes(RecurrenceBase.FROM_COMPLETION))
+        assertEquals(Res.string.recurrence_catch_up, RecurrenceFormatters.baseLabelRes(RecurrenceBase.CATCH_UP))
     }
 
-    // ─── nextOccurrencePreview ─────────────────────────────────────────────────
+    // ─── next occurrence (preview source) ──────────────────────────────────────
 
     @Test
-    fun `nextOccurrencePreview shows next date`() {
+    fun `next occurrence for weekly interval is a week later`() {
         val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
-        val preview = RecurrenceFormatters.nextOccurrencePreview(d(2026, 1, 15), spec)
-        assertEquals("Next: 2026-01-22", preview)
+        assertEquals(d(2026, 1, 22), RecurrenceCalculator.nextOccurrence(spec, d(2026, 1, 15)))
     }
 
     @Test
-    fun `nextOccurrencePreview monthly shows first of next month`() {
+    fun `next occurrence for monthly is first of next month`() {
         val spec = Monthly(RecurrenceBase.FROM_DUE, 1)
-        val preview = RecurrenceFormatters.nextOccurrencePreview(d(2026, 1, 1), spec)
-        assertEquals("Next: 2026-02-01", preview)
+        assertEquals(d(2026, 2, 1), RecurrenceCalculator.nextOccurrence(spec, d(2026, 1, 1)))
     }
 
     // ─── The rules the picker offers ───────────────────────────────────────────

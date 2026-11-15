@@ -37,7 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.formatRussianDueDate
+import com.singularity.todo.core.ui.components.localizedShortDateWithYear
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
@@ -55,6 +55,8 @@ import com.singularity.todo.feature.tasks.presentation.components.RecurrenceForm
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceSentence
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.feature.tasks.presentation.components.monthResource
+import com.singularity.todo.feature.tasks.presentation.components.weekdayResource
 import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -64,33 +66,33 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
-
-private val WEEKDAY_NAMES =
-    listOf(
-        "Mon" to 1,
-        "Tue" to 2,
-        "Wed" to 3,
-        "Thu" to 4,
-        "Fri" to 5,
-        "Sat" to 6,
-        "Sun" to 7,
-    )
-
-private val MONTH_NAMES =
-    listOf(
-        1 to "Jan",
-        2 to "Feb",
-        3 to "Mar",
-        4 to "Apr",
-        5 to "May",
-        6 to "Jun",
-        7 to "Jul",
-        8 to "Aug",
-        9 to "Sep",
-        10 to "Oct",
-        11 to "Nov",
-        12 to "Dec",
-    )
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.recurrence_change
+import singularity_todo.shared.generated.resources.recurrence_day_of_month
+import singularity_todo.shared.generated.resources.recurrence_day_of_month_hint
+import singularity_todo.shared.generated.resources.recurrence_do_not_repeat
+import singularity_todo.shared.generated.resources.recurrence_ends
+import singularity_todo.shared.generated.resources.recurrence_ends_never
+import singularity_todo.shared.generated.resources.recurrence_ends_on_date
+import singularity_todo.shared.generated.resources.recurrence_every
+import singularity_todo.shared.generated.resources.recurrence_frequency
+import singularity_todo.shared.generated.resources.recurrence_mode
+import singularity_todo.shared.generated.resources.recurrence_month_label
+import singularity_todo.shared.generated.resources.recurrence_option_daily
+import singularity_todo.shared.generated.resources.recurrence_option_day_of_month
+import singularity_todo.shared.generated.resources.recurrence_option_monthly
+import singularity_todo.shared.generated.resources.recurrence_option_specific_weekdays
+import singularity_todo.shared.generated.resources.recurrence_option_weekly
+import singularity_todo.shared.generated.resources.recurrence_option_yearly
+import singularity_todo.shared.generated.resources.recurrence_option_yearly_on_date
+import singularity_todo.shared.generated.resources.recurrence_picker_title
+import singularity_todo.shared.generated.resources.recurrence_preview
+import singularity_todo.shared.generated.resources.recurrence_unit_day
+import singularity_todo.shared.generated.resources.recurrence_unit_month
+import singularity_todo.shared.generated.resources.recurrence_unit_week
+import singularity_todo.shared.generated.resources.recurrence_unit_year
 
 /**
  * Recurrence rule picker bottom sheet.
@@ -194,7 +196,7 @@ fun RecurrencePickerSheet(
         }
 
     TaskEditorSheetHost(
-        title = "Repeat",
+        title = stringResource(Res.string.recurrence_picker_title),
         onClose = onDismiss,
         onConfirm = { onApply(spec) },
         // The ✓ commits the pending rule, so it is the button a flow has to press.
@@ -225,7 +227,7 @@ fun RecurrencePickerSheet(
             ) {
                 RadioButton(selected = currentSpec == null, onClick = null)
                 Text(
-                    text = "Do not repeat",
+                    text = stringResource(Res.string.recurrence_do_not_repeat),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(start = 12.dp),
                 )
@@ -357,7 +359,7 @@ private fun ModeSelector(
     onBaseChange: (RecurrenceBase) -> Unit,
 ) {
     Text(
-        text = "Mode",
+        text = stringResource(Res.string.recurrence_mode),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -383,7 +385,7 @@ private fun FrequencySelector(
     onSelectedTypeChange: (SpecType) -> Unit,
 ) {
     Text(
-        text = "Frequency",
+        text = stringResource(Res.string.recurrence_frequency),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -404,7 +406,7 @@ private fun FrequencySelector(
             ) {
                 RadioButton(selected = selectedType == type, onClick = null)
                 Text(
-                    text = type.label,
+                    text = stringResource(type.labelRes()),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(start = 12.dp),
                 )
@@ -427,7 +429,7 @@ private fun PreviewSection(
     dueDate: LocalDate?,
 ) {
     Text(
-        text = "Preview",
+        text = stringResource(Res.string.recurrence_preview),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -466,7 +468,7 @@ private fun TerminationSection(
     onPickEndDate: () -> Unit,
 ) {
     Text(
-        text = "Ends",
+        text = stringResource(Res.string.recurrence_ends),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -485,7 +487,7 @@ private fun TerminationSection(
     ) {
         RadioButton(selected = endDate == null, onClick = null)
         Text(
-            text = "Never",
+            text = stringResource(Res.string.recurrence_ends_never),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(start = 12.dp),
         )
@@ -506,7 +508,7 @@ private fun TerminationSection(
     ) {
         RadioButton(selected = endDate != null, onClick = null)
         Text(
-            text = "On date",
+            text = stringResource(Res.string.recurrence_ends_on_date),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(start = 12.dp),
         )
@@ -523,11 +525,11 @@ private fun TerminationSection(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = formatRussianDueDate(endDate),
+                text = localizedShortDateWithYear(endDate),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "Change",
+                text = stringResource(Res.string.recurrence_change),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -546,10 +548,10 @@ private fun IntervalEditor(
 ) {
     val unitsForType =
         when (type) {
-            SpecType.INTERVAL_DAY -> listOf(DateTimeUnit.DAY to "day(s)")
-            SpecType.INTERVAL_WEEK -> listOf(DateTimeUnit.WEEK to "week(s)")
-            SpecType.INTERVAL_MONTH -> listOf(DateTimeUnit.MONTH to "month(s)")
-            SpecType.INTERVAL_YEAR -> listOf(DateTimeUnit.YEAR to "year(s)")
+            SpecType.INTERVAL_DAY -> listOf(DateTimeUnit.DAY to stringResource(Res.string.recurrence_unit_day))
+            SpecType.INTERVAL_WEEK -> listOf(DateTimeUnit.WEEK to stringResource(Res.string.recurrence_unit_week))
+            SpecType.INTERVAL_MONTH -> listOf(DateTimeUnit.MONTH to stringResource(Res.string.recurrence_unit_month))
+            SpecType.INTERVAL_YEAR -> listOf(DateTimeUnit.YEAR to stringResource(Res.string.recurrence_unit_year))
             else -> emptyList()
         }
 
@@ -577,7 +579,7 @@ private fun IntervalEditor(
     ) {
         OutlinedTextField(
             state = amountState,
-            label = { Text("Every") },
+            label = { Text(stringResource(Res.string.recurrence_every)) },
             modifier = Modifier.width(80.dp),
             inputTransformation = recurrenceIntervalTransformation(),
         )
@@ -612,11 +614,12 @@ private fun WeekdayEditor(
     selected: ImmutableSet<Int>,
     onChange: (ImmutableSet<Int>) -> Unit,
 ) {
+    val weekdays = (1..7).map { it to stringResource(weekdayResource(it)) }
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        WEEKDAY_NAMES.forEach { (name, iso) ->
+        weekdays.forEach { (iso, name) ->
             FilterChip(
                 selected = iso in selected,
                 onClick = {
@@ -654,12 +657,12 @@ private fun DayOfMonthEditor(
     ) {
         OutlinedTextField(
             state = dayState,
-            label = { Text("Day of month") },
+            label = { Text(stringResource(Res.string.recurrence_day_of_month)) },
             modifier = Modifier.width(140.dp),
             inputTransformation = dayOfMonthTransformation(),
         )
         Text(
-            text = "(1–31)",
+            text = stringResource(Res.string.recurrence_day_of_month_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 8.dp),
@@ -675,9 +678,10 @@ private fun YearlyEditor(
     onMonthChange: (Int) -> Unit,
     onDayChange: (Int) -> Unit,
 ) {
+    val months = (1..12).map { it to stringResource(monthResource(it)) }
     Column {
         Text(
-            text = "Month",
+            text = stringResource(Res.string.recurrence_month_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -685,7 +689,7 @@ private fun YearlyEditor(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            MONTH_NAMES.forEach { (m, name) ->
+            months.forEach { (m, name) ->
                 FilterChip(
                     selected = month == m,
                     onClick = { onMonthChange(m) },
@@ -700,24 +704,32 @@ private fun YearlyEditor(
 
 // ─── Spec type enum ───────────────────────────────────────────────────────────
 
-private enum class SpecType(val label: String) {
-    INTERVAL_DAY("Daily"),
-    INTERVAL_WEEK("Weekly"),
-    INTERVAL_MONTH("Monthly"),
-    INTERVAL_YEAR("Yearly"),
-    WEEKLY("Specific weekdays"),
-    MONTHLY("Day of month"),
-    YEARLY("Yearly on date"),
+private enum class SpecType {
+    INTERVAL_DAY,
+    INTERVAL_WEEK,
+    INTERVAL_MONTH,
+    INTERVAL_YEAR,
+    WEEKLY,
+    MONTHLY,
+    YEARLY,
 }
+
+/** The translated label for this frequency option. */
+private fun SpecType.labelRes(): StringResource =
+    when (this) {
+        SpecType.INTERVAL_DAY -> Res.string.recurrence_option_daily
+        SpecType.INTERVAL_WEEK -> Res.string.recurrence_option_weekly
+        SpecType.INTERVAL_MONTH -> Res.string.recurrence_option_monthly
+        SpecType.INTERVAL_YEAR -> Res.string.recurrence_option_yearly
+        SpecType.WEEKLY -> Res.string.recurrence_option_specific_weekdays
+        SpecType.MONTHLY -> Res.string.recurrence_option_day_of_month
+        SpecType.YEARLY -> Res.string.recurrence_option_yearly_on_date
+    }
 
 /**
  * The stable test tag for a frequency option.
  *
- * Keyed on the enum constant, never on [label]: the labels are translated
- * user-facing copy, so a tag built from them would only resolve in the locale
- * it was written in. Mirrors `TaskPriority.testTag()` in the priority sheet —
- * the two are the only places `TestTags.PRIORITY_OPTION_*` /
- * `TestTags.RECURRENCE_OPTION_*` and the user-visible copy meet.
+ * Keyed on the enum constant, never on translated copy.
  */
 private fun SpecType.testTag(): String =
     when (this) {
@@ -729,6 +741,7 @@ private fun SpecType.testTag(): String =
         SpecType.MONTHLY -> TestTags.RECURRENCE_OPTION_DAY_OF_MONTH
         SpecType.YEARLY -> TestTags.RECURRENCE_OPTION_YEARLY_ON_DATE
     }
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

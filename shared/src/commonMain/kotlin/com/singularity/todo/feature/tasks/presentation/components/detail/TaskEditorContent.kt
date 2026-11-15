@@ -56,8 +56,11 @@ import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
-import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
+import com.singularity.todo.core.ui.components.localizedDueDateWithTime
 import com.singularity.todo.core.ui.components.rememberDialogState
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_no_start_date
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.touchTarget
@@ -579,8 +582,8 @@ private fun StartDateRow(
 ) {
     val label =
         when {
-            startDate == null -> "No start date"
-            else -> formatRussianDueDateWithTime(startDate, startTime)
+            startDate == null -> stringResource(Res.string.task_no_start_date)
+            else -> localizedDueDateWithTime(startDate, startTime)
         }
     TaskAttributeCard(
         icon = Icons.Filled.CalendarToday,
