@@ -43,7 +43,6 @@ import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.LinkifiedText
-import com.singularity.todo.core.ui.text.TextLinkDetector
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
 import org.jetbrains.compose.resources.stringResource
@@ -337,27 +336,15 @@ private fun RowScope.TitleText(
             modifier = baseModifier.clickable(onClick = onClick),
         )
     } else {
-        val hasLinks = remember(title) { TextLinkDetector.detect(title).isNotEmpty() }
-        if (!hasLinks) {
-            Text(
-                text = title,
-                style = titleStyle,
-                color = titleStyle.color,
-                maxLines = TITLE_MAX_LINES,
-                overflow = TextOverflow.Ellipsis,
-                modifier = baseModifier.clickable(onClick = onClick),
-            )
-        } else {
-            LinkifiedText(
-                text = title,
-                style = titleStyle,
-                color = titleStyle.color,
-                maxLines = TITLE_MAX_LINES,
-                overflow = TextOverflow.Ellipsis,
-                onClick = onClick,
-                modifier = baseModifier,
-            )
-        }
+        LinkifiedText(
+            text = title,
+            style = titleStyle,
+            color = titleStyle.color,
+            maxLines = TITLE_MAX_LINES,
+            overflow = TextOverflow.Ellipsis,
+            onClick = onClick,
+            modifier = baseModifier,
+        )
     }
 }
 

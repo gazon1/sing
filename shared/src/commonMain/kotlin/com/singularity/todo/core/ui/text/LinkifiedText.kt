@@ -19,7 +19,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -56,41 +57,44 @@ fun LinkifiedText(
     val spans = remember(text) { TextLinkDetector.detect(text) }
     val onTextClickState = rememberUpdatedState(onClick)
     val internalHandlerState = rememberUpdatedState(onInternalLink)
-    val uriHandler = rememberAppUriHandler(onInternalLink)
-    val uriHandlerState = rememberUpdatedState(uriHandler)
+    val uriHandlerState = rememberUpdatedState(rememberAppUriHandler(onInternalLink))
     val primary = MaterialTheme.colorScheme.primary
-    val linkStyles =
-        remember(primary) {
-            TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
-        }
-    val annotated =
-        remember(text, spans, linkStyles) {
-            buildLinkifiedAnnotated(
-                text = text,
-                spans = spans,
-                linkStyles = linkStyles,
-                handleLinks = { onTextClickState.value == null },
-                onWeb = { uriHandlerState.value.openUri(it) },
-                onInternal = { internalHandlerState.value(it) },
-            )
-        }
+    val linkStyles = remember(primary) {
+        TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
+    }
+    val dispatchLinksByAnnotation = onClick == null
+    val annotated = remember(text, spans, linkStyles, dispatchLinksByAnnotation) {
+        buildLinkifiedAnnotated(
+            text = text,
+            spans = spans,
+            linkStyles = linkStyles,
+            dispatchLinks = dispatchLinksByAnnotation,
+            onWeb = { uriHandlerState.value.openUri(it) },
+            onInternal = { internalHandlerState.value(it) },
+        )
+    }
     var layout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
-    val tapModifier =
-        when {
-            onClick == null -> Modifier
-            spans.isEmpty() -> Modifier.clickable { onTextClickState.value?.invoke() }
-            else ->
-                Modifier.pointerInput(text, spans) {
+    val tapModifier = when {
+        onClick == null -> Modifier
+        spans.isEmpty() -> Modifier.clickable { onTextClickState.value?.invoke() }
+        else ->
+            Modifier
+                .semantics {
+                    onClick {
+                        onTextClickState.value?.invoke()
+                        true
+                    }
+                }
+                .pointerInput(text, spans) {
                     detectLinkifiedTap(
                         layout = { layout },
-                        text = text,
                         spans = spans,
-                        uriHandler = { uriHandlerState.value },
+                        onWeb = { uriHandlerState.value.openUri(it) },
                         onInternal = { internalHandlerState.value(it) },
                         onText = { onTextClickState.value?.invoke() },
                     )
                 }
-        }
+    }
     SelectionContainer(modifier = modifier) {
         Text(
             text = annotated ?: AnnotatedString(text),
@@ -108,7 +112,7 @@ private fun buildLinkifiedAnnotated(
     text: String,
     spans: List<TextLinkSpan>,
     linkStyles: TextLinkStyles,
-    handleLinks: () -> Boolean,
+    dispatchLinks: Boolean,
     onWeb: (String) -> Unit,
     onInternal: (TextLink.Internal) -> Unit,
 ): AnnotatedString? {
@@ -119,26 +123,25 @@ private fun buildLinkifiedAnnotated(
             val start = span.range.first
             val end = span.range.last + 1
             when (val link = span.link) {
-                is TextLink.Web ->
-                    addLink(
-                        LinkAnnotation.Url(
-                            url = link.url,
-                            styles = linkStyles,
-                            linkInteractionListener = { if (handleLinks()) onWeb(link.url) },
-                        ),
-                        start,
-                        end,
-                    )
-                is TextLink.Internal ->
-                    addLink(
-                        LinkAnnotation.Clickable(
-                            tag = link.target.url,
-                            styles = linkStyles,
-                            linkInteractionListener = { if (handleLinks()) onInternal(link) },
-                        ),
-                        start,
-                        end,
-                    )
+                is TextLink.Web -> addLink(
+                    LinkAnnotation.Url(
+                        url = link.url,
+                        styles = linkStyles,
+                        linkInteractionListener = if (dispatchLinks) ({ onWeb(link.url) }) else null,
+                    ),
+                    start,
+                    end,
+                )
+
+                is TextLink.Internal -> addLink(
+                    LinkAnnotation.Clickable(
+                        tag = link.target.url,
+                        styles = linkStyles,
+                        linkInteractionListener = if (dispatchLinks) ({ onInternal(link) }) else null,
+                    ),
+                    start,
+                    end,
+                )
             }
         }
     }
@@ -146,41 +149,66 @@ private fun buildLinkifiedAnnotated(
 
 private suspend fun PointerInputScope.detectLinkifiedTap(
     layout: () -> TextLayoutResult?,
-    text: String,
     spans: List<TextLinkSpan>,
-    uriHandler: () -> UriHandler,
+    onWeb: (String) -> Unit,
     onInternal: (TextLink.Internal) -> Unit,
     onText: () -> Unit,
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         val up = waitForUpOrCancellation() ?: return@awaitEachGesture
-        if (!isQuickTap(down.position, up.position, up.uptimeMillis - down.uptimeMillis)) return@awaitEachGesture
+        if (!isQuickTap(down.position, up.position, up.uptimeMillis - down.uptimeMillis)) {
+            return@awaitEachGesture
+        }
         val result = layout() ?: return@awaitEachGesture
-        val pos = up.position
-        if (pos.y < 0f || pos.y > result.size.height.toFloat()) return@awaitEachGesture
-        val line =
-            result
-                .getLineForVerticalPosition(pos.y.coerceIn(0f, result.size.height.toFloat() - 0.001f))
-                .coerceIn(0, result.lineCount - 1)
-        if (pos.x < result.getLineLeft(line) || pos.x > result.getLineRight(line)) {
-            onText()
-            return@awaitEachGesture
-        }
-        val rawOffset = result.getOffsetForPosition(pos).coerceIn(0, (text.length - 1).coerceAtLeast(0))
-        val visibleEnd = result.getLineEnd(line, visibleEnd = true)
-        if (visibleEnd in 1..text.length && rawOffset >= visibleEnd) {
-            onText()
-            return@awaitEachGesture
-        }
-        when (val link = spans.firstOrNull { rawOffset in it.range }?.link) {
-            is TextLink.Web -> uriHandler().openUri(link.url)
-            is TextLink.Internal -> onInternal(link)
-            null -> onText()
+        val downLink = result.linkAt(down.position, spans)
+        val upLink = result.linkAt(up.position, spans)
+        when {
+            downLink != null && downLink == upLink -> when (downLink) {
+                is TextLink.Web -> onWeb(downLink.url)
+                is TextLink.Internal -> onInternal(downLink)
+            }
+
+            downLink == null && upLink == null -> onText()
+            else -> Unit
         }
     }
 }
 
-private fun PointerInputScope.isQuickTap(start: Offset, end: Offset, durationMs: Long): Boolean =
+private fun TextLayoutResult.linkAt(
+    position: Offset,
+    spans: List<TextLinkSpan>,
+): TextLink? {
+    val plainText = layoutInput.text.text
+    if (plainText.isEmpty() || lineCount == 0) return null
+    if (position.y < 0f || position.y > size.height.toFloat()) return null
+    val clampedY = position.y.coerceIn(0f, (size.height - 1).coerceAtLeast(0).toFloat())
+    val line = getLineForVerticalPosition(clampedY).coerceIn(0, lineCount - 1)
+    if (position.x < getLineLeft(line) || position.x > getLineRight(line)) return null
+    val visibleEnd = getLineEnd(line, visibleEnd = true)
+    if (visibleEnd <= 0) return null
+    val rawOffset = getOffsetForPosition(position).coerceIn(0, plainText.length)
+    val candidates = listOf(rawOffset, rawOffset - 1).distinct().filter { it in plainText.indices }
+    for (offset in candidates) {
+        if (offset >= visibleEnd) continue
+        val span = spans.firstOrNull { offset in it.range } ?: continue
+        val box = getBoundingBox(offset)
+        if (
+            position.x >= box.left &&
+            position.x <= box.right &&
+            position.y >= box.top &&
+            position.y <= box.bottom
+        ) {
+            return span.link
+        }
+    }
+    return null
+}
+
+private fun PointerInputScope.isQuickTap(
+    start: Offset,
+    end: Offset,
+    durationMs: Long,
+): Boolean =
     (end - start).getDistance() < viewConfiguration.touchSlop &&
         durationMs < viewConfiguration.longPressTimeoutMillis
