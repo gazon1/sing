@@ -96,5 +96,35 @@ class EnvironmentSelectsTheRunTest(unittest.TestCase):
         self.assertIn("Dry run", out)
 
 
+class ExcludeTagsSelectionTest(unittest.TestCase):
+    """The CI exclusion is a selection like any other — and only when asked."""
+
+    def test_exclude_tags_env_skips_the_tagged_flows(self):
+        out = _dry_run({"EXCLUDE_TAGS": "manual,auth-live"})
+        self.assertIn("excluding ['manual', 'auth-live']", out)
+        self.assertNotIn("08-signup-network-error.yaml", out)
+
+    def test_exclude_tags_flag_wins_over_the_environment(self):
+        """A flag is a decision; an inherited variable is a default."""
+        out = _dry_run(
+            {"EXCLUDE_TAGS": "manual,auth-live"},
+            ["--exclude-tags", "smoke"],
+        )
+        self.assertIn("excluding ['smoke']", out)
+        self.assertNotIn("excluding ['manual', 'auth-live']", out)
+
+    def test_no_exclusion_is_applied_unless_asked_for(self):
+        out = _dry_run({})
+        self.assertIn("08-signup-network-error.yaml", out)
+
+    def test_a_manual_flow_can_still_be_run_directly(self):
+        """The CI exclusion is not a global ban: the flow is runnable by name."""
+        out = _dry_run(
+            {"FLOW": "Maestro/flows/auth/08-signup-network-error.yaml"}
+        )
+        self.assertIn("Total discovered: 1", out)
+        self.assertIn("08-signup-network-error", out)
+
+
 if __name__ == "__main__":
     unittest.main()

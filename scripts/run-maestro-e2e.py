@@ -254,14 +254,16 @@ def maestro_argv(
         argv.extend(["--shard", str(shard), "--shards", str(shards)])
 
     # Flow selection by suite. The smoke suite is selected by *tag*: every flow
-    # that declares `smoke` is part of it, wherever the flow lives. Selecting
-    # the directory instead made the tag on a flow outside that directory a
-    # lie — `Maestro/flows/notes/create-note.yaml` declares `smoke` and ran
-    # in the nightly full suite only.
-    flow_target, tags = suite_selection(ROOT / "Maestro/flows", suite)
+    # that declares `smoke` is part of it, wherever the flow lives. The
+    # automated full suite excludes flows that are not automatable in CI
+    # (tagged `manual` or `auth-live`), so the default CI run never executes
+    # flows that need a build/environment it does not have.
+    flow_target, tags, exclude_tags = suite_selection(ROOT / "Maestro/flows", suite)
     argv.extend(["--flow", str(flow_target)])
     if tags:
         argv.extend(["--tags", ",".join(tags)])
+    if exclude_tags:
+        argv.extend(["--exclude-tags", ",".join(exclude_tags)])
     return argv
 
 

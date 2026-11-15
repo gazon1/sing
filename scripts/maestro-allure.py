@@ -61,6 +61,7 @@ _SRC = pathlib.Path(__file__).resolve().parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from emulator.maestro._flow import select_suite_flows  # noqa: E402
 from scanners.maestro_flow import flow_tags_text  # noqa: E402
 from traceability.junit_xml import TestCaseResult, parse_junit_file_strict  # noqa: E402
 
@@ -68,7 +69,6 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_CATALOGUE = ROOT / "config" / "docs" / "maestro-flows.txt"
 MANIFEST_NAME = "maestro-allure-manifest.json"
 SCHEMA_VERSION = 1
-SCOPE_TAG = "smoke"
 SMOKE = "smoke"
 FULL = "full"
 
@@ -274,24 +274,39 @@ def read_catalogue(path: pathlib.Path) -> list[str]:
 def scope_flows(
     scope: str, catalogue: list[str], root: pathlib.Path, findings: list[dict]
 ) -> list[str]:
-    """The flows of the catalogue this scope runs: the tag selection the runner makes.
+    """The flows of the catalogue this scope runs: the selection the runner makes.
 
-    shortcut: this mirrors `emulator.maestro._flow.smoke_flows` (the `smoke` tag
-    over the tree) over the catalogue instead of over the tree, so it can report
-    `missing` flows the runner never selected. `check-maestro-flow-catalogue`
-    keeps the two lists equal. The plan job publishes only the suite and the
-    shard count, so there is no selected list to pass instead of this one.
+    The selection is `emulator.maestro._flow.select_suite_flows`, the same
+    function the shard planner and the results gate use, so a converter cannot
+    expect a different suite from the one that ran. The catalogue is walked
+    first so a flow that is not in the tree is a `flow file missing` finding
+    rather than a silently absent test; the selector then applies the suite's
+    tags to the flows that exist.
+
+    A flow file whose tags cannot be read is left out of the selector and, in
+    the full scope, kept in the expected set: the only flows the full suite
+    excludes are proven `manual`/`auth-live`, and an unreadable file proves
+    nothing. The read failure itself is reported where the tags are read for
+    the result (`convert`), so a flow that reported cannot disappear quietly.
     """
-    if scope == FULL:
-        return list(catalogue)
-    selected = []
+    existing: list[pathlib.Path] = []
+    names: dict[pathlib.Path, str] = {}
+    unreadable: list[str] = []
     for flow in catalogue:
         path = root / flow
         if not path.is_file():
             findings.append({"kind": "flow file missing", "detail": flow})
             continue
-        if SCOPE_TAG in flow_tags(path, findings):
-            selected.append(flow)
+        try:
+            path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            unreadable.append(flow)
+            continue
+        existing.append(path)
+        names[path] = flow
+    selected = [names[path] for path in select_suite_flows(existing, scope)]
+    if scope == FULL:
+        selected += unreadable
     return selected
 
 

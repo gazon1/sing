@@ -23,7 +23,7 @@ readers, no guess.
 
 The flow list is the runner's own list, and the shard is the runner's own
 rule: the flows are collected by the runner's `collect_flows`, the suite's
-selection by the runner's `suite_selection`, and shard N holds the flows
+selection by the runner's `suite_selection` (include and exclude tags), and shard N holds the flows
 whose index modulo the shard count is N-1. The tag filter is applied
 *before* the shard, so a shard holds an equal share of the flows the suite
 actually runs — sharding the whole list first gave the smoke suite shards of
@@ -71,7 +71,7 @@ def _runner_modules():
     try:
         from emulator.maestro._flow import (
             collect_flows,
-            filter_flows_by_tag,
+            select_suite_flows,
             suite_selection,
         )
     except ImportError as exc:
@@ -79,7 +79,7 @@ def _runner_modules():
             "the runner's flow discovery could not be imported "
             f"({exc}). Install the tooling first: pip install -e scripts/src"
         ) from exc
-    return collect_flows, filter_flows_by_tag, suite_selection
+    return collect_flows, select_suite_flows, suite_selection
 
 
 def read_plan(path: pathlib.Path = PLAN_FILE) -> dict[str, int]:
@@ -206,13 +206,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        collect_flows, filter_flows_by_tag, suite_selection = _runner_modules()
+        collect_flows, select_suite_flows, suite_selection = _runner_modules()
     except ValueError as exc:
         print(f"e2e shard plan: {exc}", file=sys.stderr)
         return 1
-    target, tags = suite_selection(FLOWS_ROOT, suite)
+    target, tags, exclude_tags = suite_selection(FLOWS_ROOT, suite)
     flows = collect_flows(target)
-    selected = filter_flows_by_tag(flows, tags) if tags else list(flows)
+    selected = select_suite_flows(flows, suite)
     mine = shard_flows(selected, shard, shards)
     commands = local_commands(suite, shard, shards)
 
@@ -224,6 +224,7 @@ def main(argv: list[str] | None = None) -> int:
                     "shard": shard,
                     "shards": shards,
                     "tags": tags,
+                    "exclude_tags": exclude_tags,
                     "total_flows": len(flows),
                     "selected_flows": len(selected),
                     "flows": [str(f.relative_to(ROOT)) for f in mine],
@@ -238,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{suite} shard {shard} of {shards} — {len(mine)} of {len(selected)} flows")
     if tags:
         print(f"The {suite} suite selects {len(selected)} flow(s) by tag {tags}.")
+    if exclude_tags:
+        print(f"The {suite} suite excludes flows tagged {exclude_tags}.")
     print()
     for flow in mine:
         print(f"  {flow.relative_to(ROOT)}")

@@ -28,6 +28,8 @@ from emulator.maestro._flow import (
     SMOKE_TAG,
     collect_flows,
     flow_has_tag,
+    flow_tags,
+    select_suite_flows,
     smoke_flows,
     suite_selection,
 )
@@ -51,20 +53,86 @@ class SuiteSelectionTest(unittest.TestCase):
     """The mapping from a suite name to what the runner selects."""
 
     def test_smoke_is_selected_by_tag(self):
-        target, tags = suite_selection(_FLOWS, "smoke")
+        target, tags, exclude_tags = suite_selection(_FLOWS, "smoke")
         self.assertEqual(target, _FLOWS)
         self.assertEqual(tags, [SMOKE_TAG])
+        self.assertEqual(exclude_tags, [])
 
-    def test_full_is_every_flow_under_the_root(self):
-        target, tags = suite_selection(_FLOWS, "full")
+    def test_full_is_every_automatable_flow_under_the_root(self):
+        target, tags, exclude_tags = suite_selection(_FLOWS, "full")
         self.assertEqual(target, _FLOWS)
-        self.assertEqual(tags, [], "the full suite must not be filtered by a tag")
+        self.assertEqual(tags, [], "the automated full suite must not be filtered by a tag")
+        self.assertEqual(
+            exclude_tags,
+            ["manual", "auth-live"],
+            "the automated full suite must exclude flows CI cannot run",
+        )
 
     def test_the_smoke_selection_is_not_the_smoke_directory(self):
         """The defect: the selection was `Maestro/flows/smoke/`, so a flow
         tagged `smoke` anywhere else never ran in the smoke suite."""
-        target, _tags = suite_selection(_FLOWS, "smoke")
+        target, _tags, _exclude = suite_selection(_FLOWS, "smoke")
         self.assertNotEqual(target, _SMOKE_DIR)
+
+
+class SelectSuiteFlowsTest(unittest.TestCase):
+    """The one selector: what each suite leaves in and out, and nothing else."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = pathlib.Path(tmp.name)
+        self.flows: dict[str, pathlib.Path] = {}
+        for name, tags in {
+            "Maestro/flows/tasks/01-create.yaml": [],
+            "Maestro/flows/tasks/02-edit.yaml": ["regression"],
+            "Maestro/flows/notes/03-note.yaml": [SMOKE_TAG],
+            "Maestro/flows/auth/08-signup.yaml": ["manual", "auth-live"],
+            "Maestro/flows/auth/09-signin.yaml": ["manual"],
+        }.items():
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            body = "".join(f"- {tag}\n" for tag in tags)
+            path.write_text(f"tags:\n{body}---\nappId: x\n")
+            self.flows[name] = path
+        self.catalogue = list(self.flows.values())
+
+    def test_full_excludes_manual_flows(self):
+        selected = select_suite_flows(self.catalogue, "full")
+        self.assertNotIn(self.flows["Maestro/flows/auth/09-signin.yaml"], selected)
+
+    def test_full_excludes_auth_live_flows(self):
+        selected = select_suite_flows(self.catalogue, "full")
+        self.assertNotIn(self.flows["Maestro/flows/auth/08-signup.yaml"], selected)
+
+    def test_full_keeps_ordinary_automatable_flows(self):
+        selected = select_suite_flows(self.catalogue, "full")
+        self.assertEqual(
+            selected,
+            [
+                self.flows["Maestro/flows/tasks/01-create.yaml"],
+                self.flows["Maestro/flows/tasks/02-edit.yaml"],
+                self.flows["Maestro/flows/notes/03-note.yaml"],
+            ],
+        )
+
+    def test_smoke_includes_only_the_flows_that_declare_the_tag(self):
+        selected = select_suite_flows(self.catalogue, "smoke")
+        self.assertEqual(selected, [self.flows["Maestro/flows/notes/03-note.yaml"]])
+
+    def test_the_selected_order_is_the_catalogue_order(self):
+        selected = select_suite_flows(self.catalogue, "full")
+        self.assertEqual(selected, [f for f in self.catalogue if f in set(selected)])
+
+    def test_the_catalogue_is_not_modified(self):
+        before = list(self.catalogue)
+        select_suite_flows(self.catalogue, "full")
+        select_suite_flows(self.catalogue, "smoke")
+        self.assertEqual(self.catalogue, before)
+
+    def test_an_empty_catalogue_selects_nothing(self):
+        self.assertEqual(select_suite_flows([], "full"), [])
+        self.assertEqual(select_suite_flows([], "smoke"), [])
 
 
 class SmokeSuiteReachesEveryTaggedFlowTest(unittest.TestCase):
@@ -125,6 +193,27 @@ class SmokeSuiteReachesEveryTaggedFlowTest(unittest.TestCase):
             "tag selection is not reaching the flows outside it",
         )
 
+    def test_no_smoke_flow_is_manual_or_auth_live(self):
+        """The invariant that keeps the smoke suite automatable.
+
+        The smoke suite is selected by the `smoke` tag alone, so a flow that
+        carried `smoke` and `manual` would be run by every pull request against
+        an environment it cannot pass in. The two selections are mutually
+        exclusive; a flow that needs a hand-run environment does not belong in
+        the smoke tag.
+        """
+        conflicts = [
+            str(f.relative_to(_ROOT))
+            for f in smoke_flows(_FLOWS)
+            if {"manual", "auth-live"} & set(flow_tags(f))
+        ]
+        self.assertEqual(
+            conflicts,
+            [],
+            "flows tagged smoke that also need a hand-run environment — the "
+            "smoke suite would run them in CI:",
+        )
+
 
 class RunnerBuildsTheSelectionTest(unittest.TestCase):
     """The runner passes the selection on to the Maestro CLI."""
@@ -161,9 +250,10 @@ class RunnerBuildsTheSelectionTest(unittest.TestCase):
         argv = self._argv_for("smoke")
         self.assertEqual(argv[argv.index("--flow") + 1], str(_FLOWS))
 
-    def test_the_full_suite_passes_no_tag(self):
+    def test_the_full_suite_excludes_non_automatable_flows(self):
         argv = self._argv_for("full")
         self.assertNotIn("--tags", argv)
+        self.assertEqual(argv[argv.index("--exclude-tags") + 1], "manual,auth-live")
         self.assertEqual(argv[argv.index("--flow") + 1], str(_FLOWS))
 
 

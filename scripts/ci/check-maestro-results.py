@@ -60,9 +60,12 @@ the floor and accepting a new cause are deliberate edits to files, and they
 show up in the diff as one — a floor that moves by itself is a floor nobody
 decided.
 
-Scope: `full` is every flow in the catalogue (the nightly's four shards
-together); `smoke` is the flows that declare the `smoke` tag — the tag, not
-the directory, because the tag is what the runner filters on.
+Scope: `full` is every automatable flow in the catalogue (the nightly's four
+shards together) — flows tagged `manual` or `auth-live` are not part of an
+automated run and the gate does not expect them; `smoke` is the flows that
+declare the `smoke` tag — the tag, not the directory, because the tag is what
+the runner filters on. Both scopes come from `select_suite_flows`, the one
+selector the runner and the Allure converter also use.
 
 Usage:
     python3 scripts/ci/check-maestro-results.py [--scope full|smoke]
@@ -103,7 +106,7 @@ _SRC = pathlib.Path(__file__).resolve().parent.parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from scanners.maestro_flow import flow_tags_text  # noqa: E402
+from emulator.maestro._flow import select_suite_flows  # noqa: E402
 from sgate.commands.base import run  # noqa: E402
 
 CLEAN = 0
@@ -122,12 +125,6 @@ ENVIRONMENT_FILENAME = "environment.json"
 SCOPE_FULL = "full"
 SCOPE_SMOKE = "smoke"
 SCOPES = (SCOPE_FULL, SCOPE_SMOKE)
-
-#: The tag the runner filters the smoke suite on. The directory
-#: `Maestro/flows/smoke/` is not the selection — most smoke flows live
-#: elsewhere — so a scope built from the directory would measure a different
-#: suite than the one that ran.
-SMOKE_TAG = "smoke"
 
 #: How many distinct messages a group prints before it says "and N more".
 GROUP_DETAIL_LIMIT = 8
@@ -482,16 +479,19 @@ def scope_flows(
 ) -> tuple[list[str], list[Finding]]:
     """The flows of the catalogue that the scope runs.
 
-    `full` is the whole catalogue. `smoke` is the flows that declare the
-    `smoke` tag — the same selection the runner makes, read by the same
-    reader, because a scope built by a different rule measures a different
-    suite than the one that ran.
-    """
-    if scope == SCOPE_FULL:
-        return list(catalogue), []
+    `full` is the automated full suite: every flow in the catalogue except
+    flows that are not automatable in CI (tagged `manual` or `auth-live`).
+    `smoke` is the flows that declare the `smoke` tag. Both come from
+    `emulator.maestro._flow.select_suite_flows` — the selector the runner, the
+    shard planner and the Allure converter use — because a scope built by a
+    different rule measures a different suite than the one that ran.
 
+    A flow the catalogue names but the tree does not hold is a finding here,
+    not a silent absence: the selector reads tags from files.
+    """
     findings: list[Finding] = []
-    selected: list[str] = []
+    existing: list[pathlib.Path] = []
+    names: dict[pathlib.Path, str] = {}
     for flow in catalogue:
         path = root / flow
         if not path.is_file():
@@ -502,9 +502,9 @@ def scope_flows(
                 )
             )
             continue
-        if SMOKE_TAG in flow_tags_text(path.read_text(encoding="utf-8")):
-            selected.append(flow)
-    return selected, findings
+        existing.append(path)
+        names[path] = flow
+    return [names[path] for path in select_suite_flows(existing, scope)], findings
 
 
 def read_reports(results_dir: pathlib.Path) -> tuple[list[Report], list[Finding]]:

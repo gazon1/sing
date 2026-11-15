@@ -15,7 +15,7 @@ from loguru import logger as _logger
 from emulator._loguru import setup_logger
 from emulator.maestro._bridge import Bridge
 from emulator.maestro._fixtures import reset_session
-from emulator.maestro._flow import collect_flows, filter_flows_by_tag
+from emulator.maestro._flow import collect_flows, filter_flows_by_tag, filter_flows_excluding_tags
 from emulator.maestro._lock import DeviceLock, DeviceLocked
 from emulator.maestro._policy import PolicyError, load_policy
 from emulator.maestro._types import (
@@ -259,6 +259,8 @@ def _reinstall_app(serial: str, deps: DeviceDeps, skip_install: bool) -> bool:
               help="Flow directory, file, or glob (default: Maestro/flows)")
 @click.option("--tags", "-t", "tags", default=None,
               help="Comma-separated tags to filter; flow must declare one of them")
+@click.option("--exclude-tags", "exclude_tags", default=None,
+              help="Comma-separated tags to exclude; a flow declaring any of them is skipped")
 @click.option("--serial", "-s", "serial", default=None,
               help="Pin a specific device serial (also set via SERIAL env var)")
 @click.option("--skip-install", is_flag=True,
@@ -286,6 +288,7 @@ def main(
     ctx: click.Context,
     flow: str,
     tags: str,
+    exclude_tags: str | None,
     serial: str | None,
     skip_install: bool,
     allow_stale_apk: bool,
@@ -313,12 +316,16 @@ def main(
     flow = flow or os.environ.get("FLOW") or "Maestro/flows"
     tags = tags if tags is not None else os.environ.get("TAGS", "")
     tags = tags or ""
+    exclude_tags = exclude_tags if exclude_tags is not None else os.environ.get("EXCLUDE_TAGS", "")
+    exclude_tags = exclude_tags or ""
 
     if dry_run:
         flow_target = (ROOT / flow).resolve()
         all_flows = collect_flows(flow_target)
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        exclude_tag_list = [t.strip() for t in exclude_tags.split(",") if t.strip()]
         selected = filter_flows_by_tag(all_flows, tag_list) if tag_list else list(all_flows)
+        selected = filter_flows_excluding_tags(selected, exclude_tag_list)
         # An out-of-range shard is refused here as it is in a real run: a dry run
         # that quietly showed every flow under the heading "Shard 9 of 4" would
         # report a shard that cannot exist.
@@ -331,11 +338,12 @@ def main(
         else:
             flows = selected
         tag_desc = f"tag filter ({tag_list or 'none'})" if tag_list else "no tag filter"
+        exclude_desc = f", excluding {exclude_tag_list}" if exclude_tag_list else ""
 
         logger.info("Dry run — no device or APK required")
         logger.info(f"Flow target  : {flow_target.relative_to(ROOT)}")
         logger.info(f"Total discovered: {len(all_flows)}")
-        logger.info(f"After {tag_desc}: {len(selected)}")
+        logger.info(f"After {tag_desc}{exclude_desc}: {len(selected)}")
         if shards is not None and shard is not None:
             logger.info(f"Shard {shard}/{shards}: {len(flows)} of {len(selected)} flows")
         logger.info("\nFlows that would run:")
@@ -472,12 +480,20 @@ def main(
         return ctx.exit(EXIT_FAIL)
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    exclude_tag_list = [t.strip() for t in exclude_tags.split(",") if t.strip()]
     flows = all_flows
     if tag_list:
         flows = filter_flows_by_tag(flows, tag_list)
         if not flows:
             logger.error(f"No flow files carry tag(s): {tags}")
             return ctx.exit(EXIT_FAIL)
+    flows = filter_flows_excluding_tags(flows, exclude_tag_list)
+    if not flows:
+        if exclude_tag_list:
+            logger.error(f"No flow files remain after excluding tag(s): {exclude_tags}")
+        else:
+            logger.error("No flows remain after tag filtering")
+        return ctx.exit(EXIT_FAIL)
 
     if shards is not None and shard is not None:
         sharded: list[Path] = [
