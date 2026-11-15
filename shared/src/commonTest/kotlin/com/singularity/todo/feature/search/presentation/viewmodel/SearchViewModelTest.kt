@@ -549,6 +549,39 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun `clearing the query of a loaded saved search clears activeSavedSearchId`() =
+        runTest {
+            fakeSavedSearchRepo.seedSavedSearch(
+                SavedSearch(
+                    id = SavedSearchId("ss-1"),
+                    userId = UserId("user-a"),
+                    name = "Completed",
+                    queryString = "state:completed",
+                    createdAt = NOW,
+                    updatedAt = NOW,
+                ),
+            )
+
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+            assertEquals(SavedSearchId("ss-1"), vm.stateFlow.value.activeSavedSearchId)
+
+            vm.onIntent(SearchIntent.OnQueryChange(""))
+            runCurrent()
+
+            assertEquals("", vm.stateFlow.value.query.text)
+            assertNull(vm.stateFlow.value.activeSavedSearchId)
+            assertEquals(
+                listOf("state:completed"),
+                fakeSavedSearchRepo.allSavedSearches.map { it.queryString },
+                "clearing the field must not rewrite the saved search",
+            )
+        }
+
+    @Test
     fun `OnDeleteSavedSearch removes it from the repository`() =
         runTest {
             fakeSavedSearchRepo.seedSavedSearch(

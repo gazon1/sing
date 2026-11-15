@@ -95,11 +95,11 @@ fun SavedSearchesRow(
     val suggestions = remember(savedSearches, query) { savedSearchSuggestions(savedSearches, query) }
     var openMenuId by remember { mutableStateOf<String?>(null) }
 
-    fun updateMenuState(
+    fun setMenuOpen(
         id: String,
-        expanded: Boolean,
+        open: Boolean,
     ) {
-        val next = if (expanded) id else if (openMenuId == id) null else openMenuId
+        val next = if (open) id else if (openMenuId == id) null else openMenuId
         if (next == openMenuId) return
         val wasOpen = openMenuId != null
         openMenuId = next
@@ -161,10 +161,11 @@ fun SavedSearchesRow(
                 SavedSearchChipWithMenu(
                     saved = saved,
                     isActive = saved.id == activeSavedSearchId,
+                    menuExpanded = openMenuId == saved.id.raw,
+                    onMenuExpandedChange = { expanded -> setMenuOpen(saved.id.raw, expanded) },
                     onClick = { onLoadSearch(saved.id) },
                     onRename = { newName -> onRename(saved.id, newName) },
                     onDelete = { onDelete(saved.id) },
-                    onMenuExpandedChange = { expanded -> updateMenuState(saved.id.raw, expanded) },
                 )
             }
         }
@@ -176,19 +177,12 @@ fun SavedSearchesRow(
 private fun SavedSearchChipWithMenu(
     saved: SavedSearch,
     isActive: Boolean,
+    menuExpanded: Boolean,
+    onMenuExpandedChange: (Boolean) -> Unit,
     onClick: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
-    onMenuExpandedChange: (Boolean) -> Unit = {},
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
-    fun setShowMenu(open: Boolean) {
-        if (showMenu == open) return
-        showMenu = open
-        onMenuExpandedChange(open)
-    }
-
     // Anchored, not seeded: the chip lives as long as the list does, and the saved
     // name can change underneath it — the rename is applied elsewhere, the list is
     // refreshed, the name comes back from a sync. A one-way seed would leave the
@@ -212,13 +206,13 @@ private fun SavedSearchChipWithMenu(
                     .testTag(TestTags.SavedSearches.chip(saved.name))
                     .combinedClickable(
                         onClick = onClick,
-                        onLongClick = { setShowMenu(true) },
+                        onLongClick = { onMenuExpandedChange(true) },
                     ),
         )
 
         DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { setShowMenu(false) },
+            expanded = menuExpanded,
+            onDismissRequest = { onMenuExpandedChange(false) },
             // Renders in its own popup window — mapTestTagsAsResourceIds required
             // so Maestro id: selectors can find items inside the menu.
             modifier = Modifier.mapTestTagsAsResourceIds(),
@@ -246,7 +240,7 @@ private fun SavedSearchChipWithMenu(
                                     onRename(renamed)
                                     renameState.setTextAndPlaceCursorAtEnd(saved.name)
                                 }
-                                setShowMenu(false)
+                                onMenuExpandedChange(false)
                             },
                             modifier =
                                 Modifier
@@ -267,7 +261,7 @@ private fun SavedSearchChipWithMenu(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 onClick = {
                     onDelete()
-                    setShowMenu(false)
+                    onMenuExpandedChange(false)
                 },
                 leadingIcon = {},
                 modifier = Modifier.testTag(TestTags.SavedSearches.SEARCH_MENU_DELETE),
