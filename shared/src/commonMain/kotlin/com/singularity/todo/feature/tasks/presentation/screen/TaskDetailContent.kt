@@ -315,21 +315,14 @@ fun TaskDetailContent(
                     // AI proposals. `Unresolved` means the coordinator's cold-start work
                     // has not landed yet — there is nothing to show, and inventing an
                     // empty offer would flash a section that disappears a frame later.
-                    val firstRun =
+                    val offers =
                         when (extras) {
-                            is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                            is TaskDetailExtras.Ready -> extras.firstRun
+                            is TaskDetailExtras.Unresolved -> null
+                            is TaskDetailExtras.Ready -> extras
                         }
-                    val proposals =
-                        when (extras) {
-                            is TaskDetailExtras.Unresolved -> persistentListOf()
-                            is TaskDetailExtras.Ready -> extras.proposals
-                        }
-                    val proposalFailures =
-                        when (extras) {
-                            is TaskDetailExtras.Unresolved -> persistentMapOf()
-                            is TaskDetailExtras.Ready -> extras.proposalFailures
-                        }
+                    val firstRun = offers?.firstRun ?: FirstRun.Unresolved
+                    val proposals = offers?.proposals ?: persistentListOf()
+                    val proposalFailures = offers?.proposalFailures ?: persistentMapOf()
 
                     // The zone the completion date is rendered in. The injected provider,
                     // not `TimeZone.currentSystemDefault()`: the port is what the rest of

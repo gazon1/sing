@@ -22,16 +22,18 @@ real run, refuses a drop, and leaves the reasoning in the file alone. A floor
 that regenerates itself stops being a floor.
 
 The tests build a miniature report tree and point the module at it, so nothing
-here depends on the repository's own numbers — except the one test that
-asserts the committed floor and the committed fixture agree.
+here depends on the repository's own numbers — except the tests that assert the
+committed floor, the committed fixture and the instrumented sources agree.
 """
 
 import contextlib
 import importlib.util
 import io
 import pathlib
+import re
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 import click
 
@@ -41,6 +43,26 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 FIXTURE_DIR = pathlib.Path(__file__).resolve().parent / 'fixtures' / 'instrumented-report'
+
+#: The instrumented suite's own sources. The fixture is a picture of this tree: a
+#: device run is what the floor records, and the sources are what the run has to
+#: deliver. A fixture that drifts from them is the stale fixture this file catches.
+INSTRUMENTED_SOURCES = (
+    pathlib.Path(__file__).resolve().parents[2] / 'androidApp' / 'src' / 'androidTest' / 'kotlin'
+)
+
+
+def instrumented_classes() -> dict[str, int]:
+    """`{fully-qualified class: @Test count}` for the committed instrumented suite."""
+    classes: dict[str, int] = {}
+    for path in sorted(INSTRUMENTED_SOURCES.rglob('*.kt')):
+        text = path.read_text(encoding='utf-8')
+        package = re.search(r'(?m)^package\s+([\w.]+)', text)
+        tests = len(re.findall(r'(?m)^\s*@Test\b', text))
+        if not tests or package is None:
+            continue
+        classes[f'{package.group(1)}.{path.stem}'] = tests
+    return classes
 
 
 def run_cli(*argv) -> tuple[int, str]:
@@ -420,6 +442,31 @@ class RepositoryFloorTest(unittest.TestCase):
     def test_the_committed_fixture_meets_the_committed_floor(self):
         findings = mod.scan(FIXTURE_DIR, mod.read_floor(mod.FLOOR_FILE))
         self.assertEqual([], findings)
+
+    def test_the_committed_fixture_matches_the_instrumented_sources(self):
+        """The fixture is a picture of `androidTest`, not a hand-kept number.
+
+        A device run is what the floor records, but a run is not available in the
+        gate-tooling job; the sources are. This is the check that the fixture did
+        not drift while the suite grew — the drift that made the fixture say eight
+        classes while the floor and the tree said fourteen.
+        """
+        expected = instrumented_classes()
+        report = ET.parse(FIXTURE_DIR / 'TEST-fixture.xml').getroot()
+        reported = {case.get('classname') for case in report.iter('testcase')}
+
+        self.assertEqual(
+            set(expected),
+            reported,
+            'the committed fixture and the instrumented sources disagree on which '
+            'classes exist; rewrite the fixture from the suite',
+        )
+        self.assertEqual(
+            sum(expected.values()),
+            len(list(report.iter('testcase'))),
+            'the committed fixture and the instrumented sources disagree on the '
+            'number of tests; rewrite the fixture from the suite',
+        )
 
 
 if __name__ == '__main__':

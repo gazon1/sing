@@ -39,7 +39,7 @@ states are equivalent for sync purposes.
 
 ---
 
-## 2. `migrateAnonymousTo` has no UI entry point (AUTH-ATTACH-01 gap)
+## 2. `migrateAnonymousTo` had no UI entry point (AUTH-ATTACH-01 gap, closed — see Resolution)
 
 `AuthRepository.migrateAnonymousTo(email, password)` is fully implemented
 in every repository variant:
@@ -49,31 +49,29 @@ in every repository variant:
 - `FakeAuthRepository` — test stub
 - `StubAuthRepository` — now correctly transitions `Anonymous → SignedIn`
 
-However, **there is no UI to trigger it**:
+At the time, **there was no UI to trigger it**:
 
-- `AuthIntent` has `SignIn`, `SignUp`, `SignInAnonymously`, `SignOut`
-- **No `MigrateAnonymousTo` intent**
-- `AccountSettingsScreen` has no "Attach account" button
+- `AuthIntent` had `SignIn`, `SignUp`, `SignInAnonymously`, `SignOut`
+- **No attach intent**
+- `AccountSettingsScreen` had no "Attach account" button
 - No `auth_attach_account_button` test tag
 
 `Maestro/flows/auth/07-account-attach.yaml` was written as a **future stub**:
-it will only run once the UI is implemented.
+it would only run once the UI existed.
 
-**Impact:** The entire anonymous→account upgrade journey is implemented but
-unreachable. Users who start offline or as guests cannot attach their
+**Impact:** The entire anonymous→account upgrade journey was implemented but
+unreachable. Users who start offline or as guests could not attach their
 local data to a Supabase account.
 
-**Required work (2026-10-14 — step 1 done, steps 2-3 removed as stub):**
+**Required work at the time (2026-10-14), all landed — see Resolution:**
 
-1. ✅ Add `AuthIntent.MigrateAnonymousTo(email, String, password: String)` to `AuthViewModel`
-   - `AUTH_ATTACH_ACCOUNT_BUTTON` tag and `07-account-attach.yaml` flow were removed
-     as premature — no production UI exists to drive them.
-2. Add `SettingsNavigator.openAttachAccount()` stub and `AttachAccount` destination
-3. Wire button in `AccountSettingsScreen` (only shown for `Session.Anonymous`)
-4. Implement `AttachAccountScreen` — reuse `LoginScreen` with `AuthIntent.MigrateAnonymousTo`
-5. Wire in nav graph (Android + JVM)
-6. Re-add `AUTH_ATTACH_ACCOUNT_BUTTON` to `TestTags` when UI is wired
-7. Write `07-account-attach.yaml` Maestro flow against real UI IDs
+1. `AuthIntent` for the attach submission
+2. `SettingsNavigator.openAttachAccount()` and the `AttachAccount` destination
+3. A button in `AccountSettingsScreen`, shown only for `Session.Anonymous`
+4. `AttachAccountScreen`
+5. The destination in the navigation graph on both platforms
+6. `AUTH_ATTACH_ACCOUNT_BUTTON` in `TestTags`
+7. `07-account-attach.yaml` against the real UI ids
 
 ---
 
@@ -101,7 +99,10 @@ both carry it; and `Maestro/flows/auth/07-account-attach.yaml` drives the real U
 
 The intent is named `AttachAccount`, not the `MigrateAnonymousTo` proposed above; the
 transition it performs — an anonymous session becoming a signed-in account with its
-local data attached — is the same one.
+local data attached — is the same one. The attach screen asks what to do with the
+offline rows (`LocalDataDisposition.Keep` or `.Discard`) and `LocalAccountClaimer`
+signs in before it moves anything, so a refused sign-in leaves the local data in
+place.
 
 ## Links
 

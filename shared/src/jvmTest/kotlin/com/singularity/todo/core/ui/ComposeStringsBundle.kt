@@ -6,6 +6,10 @@ import kotlin.test.assertTrue
 /**
  * The text a Compose resource bundle gives a key, in one language.
  *
+ * The value is returned **as written**. Whitespace inside the element is part of
+ * the text Compose resolves — the recurrence sentence's weekday separator is
+ * `", "` — so the reader must not trim it.
+ *
  * A test that says "this label is translated" is a claim about the **bundle**:
  * the composable can only be as translated as the resources behind it, and the
  * bundle is a file the build feeds into the resource cache. Reading it says the

@@ -16,19 +16,15 @@ tags:
   - projects
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-# The project list is reached from the menu's Projects section.
-- runFlow: ../../helpers/open-app-menu.yaml
-- scrollUntilVisible:
-    element:
-      id: menu_all_projects
-    direction: DOWN
-    timeout: 5000
-- tapOn:
-    id: menu_all_projects
-- extendedWaitUntil:
-    visible:
-      id: projects_create_button
-    timeout: 8000
+# The project list is reached from the menu's Projects section. The helper centers
+# the row before tapping it: the menu's last row can be "visible" while sitting on
+# the gesture-navigation strip, and a tap there is a home gesture. Measured on
+# Medium_Phone (API 36): the row's text was on screen and the tap did nothing.
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_all_projects
+      DEST_ID: projects_create_button
 - tapOn:
     id: projects_create_button
 - extendedWaitUntil:
