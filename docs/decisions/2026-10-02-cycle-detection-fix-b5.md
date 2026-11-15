@@ -24,17 +24,20 @@ But `TaskRepositoryImpl.setDependencies` calls `assertNoCycles` before persistin
 
 `assertNoCycles` now performs a BFS from each new dependency to check if `taskId` is reachable. If any new dep can reach `taskId`, the edge is rejected as a cycle.
 
-The BFS is factored into a private `bfsReachableFrom(startId, targetId, uid)` method that returns early when `targetId` is found — the common case (no cycle) is O(1) for the first new dep.
+The BFS is factored into a private helper that walks the ordering graph from `startId` and stops as soon as `targetId` is dequeued.
+
+**Cost, stated correctly.** The early exit fires only when the target *is* reached — that is, when the edge really would close a cycle. When the target is unreachable the walk cannot know that until it has exhausted everything reachable from `startId`, so a single check is `O(V + E)` over the reachable part of the graph, and the refusal case is the cheap one. A caller that checks several independent candidates pays one such walk per candidate; the walks are not shared.
+
+(Since 2026-11-15 the helper is `isReachable(startId, targetId, uid): Boolean` — it reports reachability rather than returning the reachable set, because reachability is all the caller ever read.)
 
 ```kotlin
 override suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Result<Unit> {
-    if (taskId.value in newDeps.map { it.value }) {
+    if (taskId in newDeps) {
         return Result.failure(IllegalArgumentException("Task cannot depend on itself: ${taskId.value}"))
     }
     val uid = currentUser.scopedUserId.value
     for (dep in newDeps) {
-        val reachable = bfsReachableFrom(dep.value, taskId.value, uid.value)
-        if (taskId.value in reachable) {
+        if (isReachable(dep.value, taskId.value, uid.value)) {
             return Result.failure(IllegalArgumentException(
                 "Adding dependency ${taskId.value} → ${dep.value} would create a cycle",
             ))
@@ -47,8 +50,8 @@ override suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Resul
 ## Rationale
 
 - `analyzeDependencies` already had the BFS — reuse the same mental model
-- BFS is called only for new edges (not all edges), so performance is O(new_deps × visited)
-- Early exit on `targetId` found means the common case (no cycle) exits after exploring a small fraction of the graph
+- BFS is called only for new edges (not all edges), so the cost is one walk per new edge — `O(new_deps × (V + E))` in the worst case
+- The early exit bounds the case where a cycle exists, not the case where none does: a clean edge is proven clean only by exhausting what is reachable from it
 - `assertNoCycles` is the **write-time guard**; it MUST catch cycles before they persist
 
 ## Consequences

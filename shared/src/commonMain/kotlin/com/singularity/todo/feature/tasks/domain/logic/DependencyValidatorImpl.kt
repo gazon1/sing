@@ -27,14 +27,13 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
         newDeps: Set<TaskId>,
     ): Result<Unit> {
         // Self-loop check
-        if (taskId.value in newDeps.map { it.value }) {
+        if (taskId in newDeps) {
             return Result.failure(IllegalArgumentException("Task cannot depend on itself: ${taskId.value}"))
         }
         // Multi-node cycle check: for each new dep, BFS to see if taskId is reachable
         val uid = currentUser.scopedUserId.value
         for (dep in newDeps) {
-            val reachable = bfsReachableFrom(dep.value, taskId.value, uid.value)
-            if (taskId.value in reachable) {
+            if (isReachable(dep.value, taskId.value, uid.value)) {
                 return Result.failure(
                     IllegalArgumentException(
                         "Adding dependency ${taskId.value} → ${dep.value} would create a cycle",
@@ -47,28 +46,32 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
 
     /**
      * BFS from [startId] following outgoing dependency edges.
-     * Returns the set of all task IDs reachable from [startId].
+     * Returns `true` when [targetId] is reachable, stopping as soon as it is.
+     *
+     * A node is marked visited when it is *queued*, not when it is dequeued: in a
+     * graph where several paths converge, the dequeued-only form puts the same
+     * node in the queue once per incoming path. The traversal answered the same
+     * either way — the dequeued check kept it from being processed twice — so this
+     * is about the queue's size, not its order.
      */
-    private suspend fun bfsReachableFrom(
+    private suspend fun isReachable(
         startId: String,
         targetId: String,
         uid: String,
-    ): Set<String> {
-        val visited = mutableSetOf<String>()
+    ): Boolean {
+        val visited = mutableSetOf(startId)
         val worklist = ArrayDeque<String>()
         worklist.add(startId)
 
         while (worklist.isNotEmpty()) {
             val current = worklist.removeFirst()
-            if (current in visited) continue
-            if (current == targetId) return setOf(targetId) // early exit: target reachable
-            visited.add(current)
+            if (current == targetId) return true
             val deps = taskDao.getOrderingEdgeIdsForUser(current, uid).first()
             for (depId in deps) {
-                if (depId !in visited) worklist.add(depId)
+                if (visited.add(depId)) worklist.add(depId)
             }
         }
-        return visited
+        return false
     }
 
     /**

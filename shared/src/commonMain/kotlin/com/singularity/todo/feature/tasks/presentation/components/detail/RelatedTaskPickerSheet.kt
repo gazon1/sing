@@ -14,14 +14,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,14 +38,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -60,6 +53,7 @@ import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.PickerSearchField
 import com.singularity.todo.core.ui.components.sheet.rememberAppSheetState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.text.SelectableText
@@ -69,6 +63,7 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -102,16 +97,23 @@ private sealed interface PickerSearchState {
 }
 
 /**
- * Searches for tasks to relate, excluding [taskId] and [existingRelationIds].
+ * Searches for tasks to relate, excluding [taskId], [existingRelationIds] and
+ * every candidate [isValidCandidate] refuses.
+ *
+ * Refusal is the domain's answer — `DependencyValidator.assertNoCycles` — and not
+ * a rule of this function: a self-dependency or a candidate that closes a
+ * transitive cycle is not offered because the write would reject it too.
  *
  * Uses bounded fetch expansion because exclusions are applied after reading from the
- * index and the first page may be fully excluded.
+ * index and the first page may be fully excluded. A candidate is asked about once
+ * per search even when the fetch expands over the same rows again.
  */
 internal suspend fun searchRelatedTaskCandidates(
     rawQuery: String,
     taskId: TaskId,
     existingRelationIds: Set<TaskId>,
     searchIndex: SearchTextIndex,
+    isValidCandidate: suspend (TaskId) -> Boolean,
     resultLimit: Int = RELATED_TASK_PICKER_RESULT_LIMIT,
     initialFetchLimit: Int = RELATED_TASK_PICKER_FETCH_LIMIT,
     maxFetchLimit: Int = RELATED_TASK_PICKER_MAX_FETCH_LIMIT,
@@ -120,20 +122,30 @@ internal suspend fun searchRelatedTaskCandidates(
     val query = relatedTaskSearchQuery(q)
     if (query == null) return emptyList()
 
+    val validity = mutableMapOf<TaskId, Boolean>()
+
+    suspend fun isAllowed(task: Task): Boolean {
+        if (task.id == taskId || task.id in existingRelationIds) return false
+        validity[task.id]?.let { return it }
+        val allowed = isValidCandidate(task.id)
+        validity[task.id] = allowed
+        return allowed
+    }
+
     var fetchLimit = initialFetchLimit.coerceAtLeast(resultLimit)
     val cap = maxFetchLimit.coerceAtLeast(fetchLimit)
-    var result = emptyList<Task>()
     while (true) {
         val batch = searchIndex.recentTaskTitles(query, fetchLimit)
-        val filtered = batch.asSequence().filter { it.id != taskId && it.id !in existingRelationIds }.toList()
-        val done = filtered.size >= resultLimit || batch.size < fetchLimit || fetchLimit >= cap
-        if (done) {
-            result = filtered.take(resultLimit)
-            break
+        val filtered = mutableListOf<Task>()
+        for (task in batch) {
+            if (filtered.size >= resultLimit) break
+            if (isAllowed(task)) filtered.add(task)
+        }
+        if (filtered.size >= resultLimit || batch.size < fetchLimit || fetchLimit >= cap) {
+            return filtered
         }
         fetchLimit = (fetchLimit * 2).coerceAtMost(cap)
     }
-    return result
 }
 
 private fun relatedTaskSearchQuery(rawQuery: String): TextMatchQuery? {
@@ -151,9 +163,11 @@ private fun relatedTaskSearchQuery(rawQuery: String): TextMatchQuery? {
  * Spacious single-add picker for finding and adding one related task.
  *
  * Searches on demand via [SearchTextIndex] (bounded, FTS Word mode) and excludes
- * [taskId] and [existingRelationIds]. Results show task title and project name
- * when available. The user selects one candidate, chooses a relation verb, and
- * confirms to add exactly that relation.
+ * [taskId], [existingRelationIds] and candidates the [dependencyValidator]
+ * refuses — a self-dependency or a cycle is not offered because the write would
+ * reject it too. Results show task title and project name when available. The
+ * user selects one candidate, chooses a relation verb, and confirms to add
+ * exactly that relation.
  */
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
@@ -164,6 +178,7 @@ fun RelatedTaskPickerSheet(
     onDismiss: () -> Unit,
     searchIndex: SearchTextIndex = koinInject(),
     projectsRepo: ProjectsRepository = koinInject(),
+    dependencyValidator: DependencyValidator = koinInject(),
 ) {
     val sheetState = rememberAppSheetState(initialValue = SheetValue.Expanded)
 
@@ -177,7 +192,11 @@ fun RelatedTaskPickerSheet(
     var projectsById by remember { mutableStateOf<ImmutableMap<ProjectId, Project>>(persistentMapOf()) }
     val excludedIds = remember(existingRelationIds) { existingRelationIds.toSet() }
 
-    LaunchedEffect(queryState, excludedIds, taskId) {
+    val isValidCandidate: suspend (TaskId) -> Boolean = { id ->
+        dependencyValidator.assertNoCycles(taskId, setOf(id)).isSuccess
+    }
+
+    LaunchedEffect(queryState, excludedIds, taskId, dependencyValidator) {
         // `onEach` runs before the debounce: a keystroke clears the selection at once,
         // not when the next search lands. Otherwise Add can still fire for the old task.
         snapshotFlow { queryState.text.toString() }
@@ -198,6 +217,7 @@ fun RelatedTaskPickerSheet(
                             taskId = taskId,
                             existingRelationIds = excludedIds,
                             searchIndex = searchIndex,
+                            isValidCandidate = isValidCandidate,
                         )
                     resultsQuery = raw.trim()
                 }
@@ -256,10 +276,11 @@ private suspend fun runRelatedTaskSearch(
     taskId: TaskId,
     existingRelationIds: Set<TaskId>,
     searchIndex: SearchTextIndex,
+    isValidCandidate: suspend (TaskId) -> Boolean,
 ): PickerSearchState {
     val tasks =
         runCatchingCancellable {
-            searchRelatedTaskCandidates(rawQuery, taskId, existingRelationIds, searchIndex)
+            searchRelatedTaskCandidates(rawQuery, taskId, existingRelationIds, searchIndex, isValidCandidate)
         }.getOrElse { error ->
             return PickerSearchState.Error(error.message ?: "Search failed")
         }
@@ -304,7 +325,13 @@ private fun RelatedTaskPickerContent(
     ) {
         RelatedTaskPickerHeader(onDismiss = onDismiss)
         Spacer(Modifier.height(8.dp))
-        RelatedTaskPickerSearchField(queryState = queryState, focusRequester = searchFocus)
+        PickerSearchField(
+            queryState = queryState,
+            placeholder = "Search tasks",
+            focusRequester = searchFocus,
+            testTag = TestTags.RELATED_TASK_PICKER_SEARCH,
+            clearTestTag = TestTags.RELATED_TASK_PICKER_CLEAR,
+        )
         Spacer(Modifier.height(8.dp))
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             PickerResults(
@@ -339,35 +366,6 @@ private fun RelatedTaskPickerHeader(onDismiss: () -> Unit) {
             Icon(Icons.Filled.Close, contentDescription = "Close")
         }
     }
-}
-
-@Composable
-private fun RelatedTaskPickerSearchField(
-    queryState: TextFieldState,
-    focusRequester: FocusRequester,
-) {
-    OutlinedTextField(
-        state = queryState,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .testTag(TestTags.RELATED_TASK_PICKER_SEARCH),
-        placeholder = { Text("Search tasks") },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-        trailingIcon = {
-            if (queryState.text.isNotEmpty()) {
-                IconButton(
-                    onClick = { queryState.clearText() },
-                    modifier = Modifier.testTag(TestTags.RELATED_TASK_PICKER_CLEAR),
-                ) {
-                    Icon(Icons.Filled.Close, contentDescription = "Clear query")
-                }
-            }
-        },
-        lineLimits = TextFieldLineLimits.SingleLine,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-    )
 }
 
 @Composable

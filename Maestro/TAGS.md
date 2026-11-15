@@ -259,7 +259,10 @@ non-alphanumeric characters with `_`.
 | `TAGS_FAB` | `tags_fab` | |
 | `TAGS_LIST` | `tags_list` | |
 | `TAGS_LIST_EMPTY` | `tags_list_empty` | |
+| `TAGS_PICKER_CLEAR` | `tags_picker_clear` | |
 | `TAGS_PICKER_EMPTY` | `tags_picker_empty` | |
+| `TAGS_PICKER_NO_RESULTS` | `tags_picker_no_results` | |
+| `TAGS_PICKER_SEARCH` | `tags_picker_search` | |
 
 ### Notes
 
