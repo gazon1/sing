@@ -1,12 +1,15 @@
 package com.singularity.todo.core.linkpreview
 
 import com.singularity.todo.core.error.runCatchingCancellable
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -88,17 +91,59 @@ class LinkPreviewRepositoryImpl(
     }
 
     override suspend fun refresh(url: String): LinkPreviewState {
-        if (!enabled.first()) return LinkPreviewState.None
         val key = PreviewUrls.keyOf(url)
+        // Turned off, dismissed, or fresh: three reasons to answer without a request.
+        // Read in this order because it is the order of cheapness.
+        if (!enabled.first()) return LinkPreviewState.None
         if (cache.observeHidden(key).first()) return LinkPreviewState.Hidden
         if (cache.isFresh(key)) {
             return cache.cached(key)?.let(LinkPreviewState::Ready) ?: LinkPreviewState.Loading
         }
-        return withContext(dispatcher) {
-            runCatchingCancellable { fetchAndStore(url, key) }
-                .getOrElse { cache.cached(key)?.let(LinkPreviewState::Ready) ?: LinkPreviewState.Unavailable }
+        return fetchOnce(url, key)
+    }
+
+    /**
+     * Fetches [url] once, or waits for the fetch already running for it.
+     *
+     * One fetch per address at a time. Two surfaces showing the same task — two stacked
+     * nav entries, a screen that reopens while the first is still loading — would
+     * otherwise fetch the same page twice for the same answer.
+     */
+    private suspend fun fetchOnce(
+        url: String,
+        key: String,
+    ): LinkPreviewState {
+        val (flight, isOwner) =
+            mutex.withLock {
+                val existing = inFlight[key]
+                if (existing != null) {
+                    existing to false
+                } else {
+                    CompletableDeferred<LinkPreviewState>().also { inFlight[key] = it } to true
+                }
+            }
+        if (!isOwner) {
+            // The owner's coroutine holds the fetch, so a caller that gives up cancels
+            // only its own `await` and leaves the answer coming for the others.
+            return flight.await()
+        }
+        return try {
+            withContext(dispatcher) {
+                runCatchingCancellable { fetchAndStore(url, key) }
+                    .getOrElse {
+                        cache.cached(key)?.let(LinkPreviewState::Ready) ?: LinkPreviewState.Unavailable
+                    }
+            }.also { flight.complete(it) }
+        } finally {
+            mutex.withLock { inFlight.remove(key, flight) }
         }
     }
+
+    /** The fetch already running per address, so a second caller waits rather than repeats. */
+    private val inFlight = mutableMapOf<String, CompletableDeferred<LinkPreviewState>>()
+
+    /** Guards [inFlight], which more than one coroutine reads and writes. */
+    private val mutex = Mutex()
 
     override suspend fun hide(url: String) {
         cache.hide(PreviewUrls.keyOf(url))
@@ -129,7 +174,7 @@ class LinkPreviewRepositoryImpl(
                 imageUrl = metadata.imageUrl,
                 fetchedAt = clock.now().toEpochMilliseconds(),
             )
-        cache.put(preview).forEach { evicted -> cache.forget(evicted) }
+        cache.put(preview).evicted.forEach { evicted -> cache.forget(evicted) }
         metadata.imageUrl?.let { image -> runCatchingCancellable { storeImage(key, image) } }
         return LinkPreviewState.Ready(preview)
     }

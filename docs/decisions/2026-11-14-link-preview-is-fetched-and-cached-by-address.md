@@ -29,27 +29,48 @@ The alternatives were:
 
 # Decision
 
-The app fetches the page itself, through **one guarded fetcher**, and caches the
-result **by normalised address**:
+Nothing here re-implements a standard. Each of the four "standard" jobs is delegated to
+something that already knows the standard, and only the policy stays ours:
 
-1. `PageFetcher` accepts only `http`/`https`, judges every hop — the typed
-   address and each redirect target — as a public unicast address, follows at most
-   three redirects by hand, accepts only HTML (or `image/*` for a picture), and
-   reads at most 512 KB.
-2. `HostAddressResolver` is a platform port so `commonMain` can ask what a name
-   resolves to at all. A name is refused when it does not resolve, and refused
-   when **any** of its addresses is not public — the connection may land on any of
-   them.
-3. The preview is four strings and a fetch timestamp, cached in the settings
-   `DataStore` under the normalised address. The image bytes go on disk in
-   `preview_images/`, fetched through the same guarded path. **No HTML is stored.**
-4. Dismissal is per **address**, not per task: the card is a property of "a task
-   whose title names this link", so the same link in another task is the thing the
-   user already dismissed. Hiding writes nothing to the task, which is what makes
-   "hiding must not change the title" structural rather than a rule to remember.
-5. The preview follows the **title draft**, so it appears as the user types and
-   needs no save round trip. A fresh entry costs no request, which is what keeps
-   navigation and recomposition free.
+| Job | Owner | Why not ours |
+|---|---|---|
+| URL parsing, resolution, IPv6 authority | **Ktor `Url` / `URLBuilder`** | Already on the classpath, and the shape of a URL is a standard with too many corners (`::`, user info, percent-encoding) to approximate. |
+| HTML parsing and metadata extraction | **Ksoup** (`com.fleeksoft.ksoup:ksoup`, KMP) | The same reason. Malformed markup, entities and attribute quoting all have written answers. |
+| "Is this address public?" | **ours** — `PublicAddresses` | It is a *policy* ("may a preview reach it"), not a parse. It is checked against `com.github.seancfoley:ipaddress`, test-only, address by address. |
+| Transport, limits, redirects | **ours** — `PageFetcher` on the existing Ktor client | Security is the point; a library that follows redirects for you is the hole. |
+
+Two of those decisions are worth their own note.
+
+**Ksoup, and the version.** `0.1.x` resolves **Ktor 2.3.7** into the runtime against this
+project's 3.6 — a conflict that would be discovered as a `NoSuchMethodError` on a page
+that happens to hit the changed API. `0.2.x` dropped the Ktor dependency, so that is the
+floor. `ksoup-network` is deliberately **not** declared: the fetch is `PageFetcher`'s, and
+a second network path is a second place the address checks could be forgotten.
+
+**IPAddress is a test oracle, not the implementation.** It is a JVM library, so it cannot
+live in `commonMain`; putting it behind a new port would add a seam whose two halves
+cannot disagree. It earns more as a *reference*: `PublicAddressesOracleTest` sweeps both
+ends of every reserved block — IPv4, IPv6, and the IPv4-embedded forms — and fails when
+the policy and the library disagree. It found two real gaps on its first run: the
+documentation blocks were allowed, and `fec0::/10` (site-local) was not refused.
+
+The behaviour itself, unchanged:
+
+1. `PageFetcher` accepts only `http`/`https`, judges every hop — the typed address and
+   each redirect target — as a public unicast address, follows at most three redirects
+   **by hand** with the client's own redirect following switched off, accepts only HTML
+   (or `image/*` for a picture), and reads at most 512 KB.
+2. `HostAddressResolver` is a platform port so `commonMain` can ask what a name resolves
+   to at all. A name is refused when it does not resolve, and refused when **any** of its
+   addresses is not public — the connection may land on any of them.
+3. The preview is four strings and a fetch timestamp, cached in the settings `DataStore`
+   under the normalised address, each field cut to what the card can hold. The image bytes
+   go on disk in `preview_images/`, fetched through the same guarded path. **No HTML is
+   stored.**
+4. Dismissal is per **address**, not per task. Hiding writes nothing to the task, which is
+   what makes "hiding must not change the title" structural rather than a rule to remember.
+5. The preview follows the **title draft**. A fresh entry costs no request, and concurrent
+   requests for one address share a single flight.
 
 # Rationale
 
@@ -86,6 +107,16 @@ result **by normalised address**:
 - **The title draft and the saved title can disagree for a moment.** The preview
   follows the draft; when the draft is discarded the card follows the saved title
   on the next emission. Nothing is written, so there is nothing to reconcile.
+- **Two new dependencies, both bounded.** Ksoup is `commonMain` and parses only; it
+  cannot fetch. IPAddress is `jvmTest` only — it is absent from every shipped target, so
+  it adds no runtime weight and no Android API floor. `minSdk` is 26, which would have
+  allowed it in production if the port had been worth building.
+- **The oracle is a slow test.** It runs in the `slow` population, not on every pull
+  request, because it is a sweep rather than a unit test. The fast tests keep a hand-
+  written table of the cases people hit.
+- **Ktor does not collapse `..`.** `URLBuilder.takeFrom` implements RFC 3986 §5.2 but not
+  §5.2.4, so `PreviewUrls` keeps a small dot-segment collapser. Removing it would make
+  `/post/deep/../a.png` and `/post/a.png` two cache entries for one page.
 
 # Links
 

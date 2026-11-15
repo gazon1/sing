@@ -68,43 +68,46 @@ object PublicAddresses {
         return octets
     }
 
-    private fun isPublicIv4(octets: IntArray): Boolean {
-        val a = octets[0]
-        val b = octets[1]
-        return when {
-            a == 0 -> false
+    /**
+     * Whether four octets are a public unicast IPv4 address.
+     *
+     * The refusals are a table of blocks — the ones the registries set aside. An address
+     * in none of them is ordinary internet space. Written as data rather than as a long
+     * `when` so that adding a block is adding a row, and so a reader can compare the
+     * table with the registry list without following branches.
+     */
+    private fun isPublicIv4(octets: IntArray): Boolean =
+        // 224.0.0.0/3 — multicast, reserved and broadcast — is the top of the space, and
+        // every block below starts under it, so one comparison covers the whole of it.
+        octets[0] < 224 && RESERVED_IPV4.none { it.matches(octets) }
 
-            // "this network"
-            a == 10 -> false
-
-            // private
-            a == 127 -> false
-
-            // loopback
-            a == 169 && b == 254 -> false
-
-            // link-local
-            a == 172 && b in 16..31 -> false
-
-            // private
-            a == 192 && b == 168 -> false
-
-            // private
-            a == 192 && b == 0 && octets[2] == 0 -> false
-
-            // IETF protocol assignments
-            a == 100 && b in 64..127 -> false
-
-            // carrier-grade NAT
-            a == 198 && b in 18..19 -> false
-
-            // benchmarking
-            a >= 224 -> false
-
-            // multicast, reserved, broadcast
-            else -> true
-        }
+    /** One reserved IPv4 block: the first octet, and the octets after it that matter. */
+    private class Block(
+        private val first: Int,
+        private val second: IntRange? = null,
+        private val third: IntRange? = null,
+    ) {
+        fun matches(octets: IntArray): Boolean =
+            octets[0] == first &&
+                (second == null || octets[1] in second) &&
+                (third == null || octets[2] in third)
     }
+
+    private val RESERVED_IPV4 =
+        listOf(
+            Block(0), // "this network"
+            Block(10), // private
+            Block(100, 64..127), // carrier-grade NAT
+            Block(127), // loopback
+            Block(169, 254..254), // link-local
+            Block(172, 16..31), // private
+            Block(192, 0..0, 0..0), // IETF protocol assignments
+            Block(192, 0..0, 2..2), // documentation
+            Block(192, 168..168), // private
+            Block(198, 18..19), // benchmarking
+            Block(198, 51..51, 100..100), // documentation
+            Block(203, 0..0, 113..113), // documentation
+        )
 
     // ── IPv6 ──────────────────────────────────────────────────────────────────
 
@@ -141,17 +144,14 @@ object PublicAddresses {
         val out = mutableListOf<Int>()
         for ((index, part) in parts.withIndex()) {
             val embedded = parseIpv4(part).takeIf { index == parts.lastIndex }
-            val values = embedded?.let { listOf((it[0] shl 8) or it[1], (it[2] shl 8) or it[3]) } ?: hexGroup(part)
+            val values =
+                embedded?.let { listOf((it[0] shl 8) or it[1], (it[2] shl 8) or it[3]) }
+                    // One 16-bit group, or null when the segment is not one.
+                    ?: part.takeIf { it.length in 1..4 }?.toIntOrNull(16)?.let(::listOf)
             if (values == null) return null
             out += values
         }
         return out
-    }
-
-    /** One 16-bit group, or null when [part] is not one. */
-    private fun hexGroup(part: String): List<Int>? {
-        if (part.isEmpty() || part.length > 4) return null
-        return part.toIntOrNull(16)?.let(::listOf)
     }
 
     private fun isPublicIv6(groups: IntArray): Boolean {
@@ -167,24 +167,27 @@ object PublicAddresses {
             // NAT64 (64:ff9b::/96) embeds an IPv4 address the same way.
             isNat64(groups) -> isPublicIv4(embeddedIpv4(groups))
 
+            // unique local fc00::/7
             first and 0xfe00 == 0xfc00 -> false
 
-            // unique local fc00::/7
+            // link-local fe80::/10
             first and 0xffc0 == 0xfe80 -> false
 
-            // link-local fe80::/10
-            first and 0xff00 == 0xff00 -> false
+            // deprecated site-local fec0::/10 — still not the public internet
+            first and 0xffc0 == 0xfec0 -> false
 
             // multicast ff00::/8
+            first and 0xff00 == 0xff00 -> false
+
+            // documentation 2001:db8::/32
             first == 0x2001 && groups[1] == 0x0db8 -> false
 
-            // documentation
+            // Teredo 2001::/32
             first == 0x2001 && groups[1] == 0 -> false
 
-            // Teredo
+            // discard 100::/64
             first == 0x0100 && groups[1] == 0 && groups[2] == 0 && groups[3] == 0 -> false
 
-            // discard 100::/64
             else -> true
         }
     }

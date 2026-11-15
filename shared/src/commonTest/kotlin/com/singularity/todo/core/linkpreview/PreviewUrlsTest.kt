@@ -67,7 +67,19 @@ class PreviewUrlsTest {
     @Test
     fun `the host is the authority without its port or credentials`() {
         assertEquals("example.com", PreviewUrls.host("https://user:secret@example.com:8443/x"))
-        assertEquals("example.com", PreviewUrls.host("example.com/x"))
+    }
+
+    @Test
+    fun `a string with no scheme has no host`() {
+        // `Url("example.com/x")` parses to host `localhost` — an address nobody wrote.
+        // A host is only reported for an address that names one.
+        assertEquals("", PreviewUrls.host("example.com/x"))
+    }
+
+    @Test
+    fun `an ipv6 literal's host is the address without its brackets`() {
+        assertEquals("::1", PreviewUrls.host("https://[::1]/x"))
+        assertEquals("2606:4700::1", PreviewUrls.host("https://[2606:4700::1]:8080/x"))
     }
 
     @Test

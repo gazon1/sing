@@ -38,11 +38,17 @@ fun TaskLinkPreview(
 ) {
     val uriHandler = rememberAppUriHandler()
     val cache: LinkPreviewCache = koinInject()
+    val ready = state as? LinkPreviewState.Ready
+    // The image belongs to the address the *page* named, and a refresh may name a
+    // different one. The path is therefore keyed by both: a picture left over from the
+    // previous entry is a picture of the wrong page, and the file is deleted when the
+    // entry changes — so the card must be told about the new address, not the old one.
     val imagePath =
-        remember(state) {
-            (state as? LinkPreviewState.Ready)?.preview?.url?.let { url ->
-                cache.imagePath(PreviewUrls.keyOf(url))
-            }
+        remember(ready?.preview?.url, ready?.preview?.imageUrl) {
+            val imageUrl = ready?.preview?.imageUrl ?: return@remember null
+            ready.preview.url
+                .takeIf { imageUrl.isNotBlank() }
+                ?.let { cache.imagePath(PreviewUrls.keyOf(it)) }
         }
 
     LinkPreviewCard(

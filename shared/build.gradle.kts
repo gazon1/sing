@@ -246,6 +246,11 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.core)
 
+            // Ksoup — the HTML5 parser the link preview reads a page's metadata with.
+            // `commonMain`, because the parsing is not a platform's business: both
+            // targets read the same head of the same page.
+            implementation(libs.ksoup)
+
             // Utils
 
             // Supabase
@@ -417,6 +422,11 @@ kotlin {
             // responses, wrong media types — are only observable against a client whose
             // answers the test chooses. No network, no fake engine of our own.
             implementation(libs.ktor.client.mock)
+            // The public-address policy's oracle. `PublicAddresses` is a hand-written
+            // allowlist in `commonMain`; this library is the reference classification it
+            // is checked against, address by address, over a table of ranges. A second
+            // hand-written classifier would only agree with the first by construction.
+            implementation(libs.ipaddress)
         }
     }
 }

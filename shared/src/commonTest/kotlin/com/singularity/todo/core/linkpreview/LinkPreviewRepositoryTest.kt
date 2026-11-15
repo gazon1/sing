@@ -5,9 +5,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.MapFileSystem
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -78,12 +83,13 @@ class LinkPreviewRepositoryTest {
         source: PageSource,
         enabled: Boolean = true,
         cache: LinkPreviewCache = LinkPreviewCache(MemoryPreferences(), MapFileSystem(), "/previews", clock),
+        dispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
     ) = LinkPreviewRepositoryImpl(
         source = source,
         cache = cache,
         enabled = MutableStateFlow(enabled),
         clock = clock,
-        dispatcher = Dispatchers.Unconfined,
+        dispatcher = dispatcher,
     )
 
     @Test
@@ -192,5 +198,61 @@ class LinkPreviewRepositoryTest {
         runTest {
             val source = FakeSource()
             assertFailsWith<PreviewFetchException> { source.fetch(url, 1024, FetchKind.Html) }
+        }
+
+    @Test
+    fun `two callers for the same address cost one fetch`() =
+        runTest {
+            val source = FakeSource(mapOf(url to html))
+            // Both are started before either can finish: the second must wait for the
+            // first, not fetch the page a second time. A `StandardTestDispatcher` keeps
+            // them suspended until the scheduler runs them together — `Unconfined` would
+            // finish the first before the second existed, and prove nothing.
+            val gate = CompletableDeferred<Unit>()
+            var pageFetches = 0
+            val slow =
+                object : PageSource {
+                    override suspend fun fetch(
+                        url: String,
+                        maxBytes: Int,
+                        kind: FetchKind,
+                    ): FetchedPage {
+                        // Count the page only: the picture is a second, legitimate fetch of
+                        // a different address, and counting it would hide the bug this test
+                        // is about.
+                        if (kind == FetchKind.Html) {
+                            pageFetches++
+                            gate.await()
+                        }
+                        return source.fetch(url, maxBytes, kind)
+                    }
+                }
+            val repo = repository(slow, dispatcher = StandardTestDispatcher(testScheduler))
+            // The test body and the repository share one scheduler, so `runCurrent`
+            // advances both and the two callers really are in flight together.
+            val first = async { repo.refresh(url) }
+            runCurrent()
+            val second = async { repo.refresh(url) }
+            runCurrent()
+            gate.complete(Unit)
+            first.await()
+            second.await()
+            assertEquals(1, pageFetches, "the second caller must join the first fetch, not repeat it")
+        }
+
+    @Test
+    fun `different addresses are fetched independently`() =
+        runTest {
+            val other = "https://example.org/other"
+            val source = FakeSource(mapOf(url to html, other to html))
+            val repo = repository(source)
+            val a = async { repo.refresh(url) }
+            val b = async { repo.refresh(other) }
+            a.await()
+            b.await()
+            assertEquals(
+                listOf(url, other).sorted(),
+                source.requested.filter { it != "https://example.com/cover.png" }.sorted(),
+            )
         }
 }

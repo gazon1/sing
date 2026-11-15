@@ -4,7 +4,7 @@ verdict: pass
 date: 2026-11-14
 pr: https://github.com/gazon1/sing/pull/2958
 reviewed: d06509b8bdcd2af0ac205677c3d7b9f0e1359b83
-documents: sha256:be86e2834e56fee63cbf176d8cc013f6231bcfd806c70bbfa8ad79f98e8061f5
+documents: sha256:c9cfb459baae38b86293a06a565492ed2a2af7f513aeb1f81c8ed82b6b2f8f76
 ---
 
 ## What was reviewed
@@ -65,3 +65,33 @@ It does not say the SSRF defence is complete against every resolver: the fetcher
 the addresses a name resolves to at check time, and a name whose answer changes between
 the check and the connect is out of reach of a check that is not at the socket. That is
 recorded in the ADR as the known limit rather than left to be discovered.
+
+## Second pass — the simplification
+
+After the first review, the change was rewritten to stop re-implementing standards. What
+was reviewed, and what was found:
+
+- **URL parsing is Ktor's now.** Probe-verified before the swap: `Url` handles IPv6
+  authority, user info and percent-encoding, which the hand-rolled reader did not — it
+  returned `"["` as the host of `https://[::1]/x`, so IPv6 links never previewed. The
+  swap fixed a real bug. Two behaviours are *not* Ktor's and are kept deliberately:
+  `takeFrom` does not collapse `..` (probed: `/post/deep/../a.png` survives), so
+  `collapseDots` stays; and `Url("example.com/x")` parses to host `localhost`, so a
+  scheme is required as *text* before the address is trusted.
+- **HTML parsing is Ksoup's now.** 0.1.x resolves Ktor 2.3.7 into the runtime against
+  this project's 3.6, so the floor is 0.2.x; `ksoup-network` is deliberately absent.
+  The existing parser fixtures pass unchanged, which is what made deleting the
+  hand-rolled reader safe.
+- **`PublicAddresses` stays ours, and is now checked against a reference.** IPAddress is
+  JVM-only, so it earns its place as a `jvmTest` oracle rather than as a port. On its
+  first run it found two real defects: the documentation blocks (`192.0.2.0/24` and
+  friends) were allowed, and `fec0::/10` was not refused. Both are fixed.
+- **Single-flight, field clamping, and image lifecycle** were added and tested: two
+  concurrent callers cost one fetch; a field is cut to what the card holds; a refresh
+  naming a different picture deletes the old file, and the card is keyed on both the
+  address and the picture so it cannot show the previous one.
+
+One bug was found in the review's own test, worth recording because it is the kind that
+passes for the wrong reason: the single-flight test initially counted *every* `fetch`,
+and the preview image is a legitimate second fetch, so it reported two calls when there
+was one page fetch. It now counts page fetches only.

@@ -1,5 +1,8 @@
 package com.singularity.todo.core.linkpreview
 
+import com.fleeksoft.ksoup.Ksoup
+import com.fleeksoft.ksoup.model.MetaData
+
 /**
  * The metadata a page publishes about itself.
  *
@@ -13,33 +16,34 @@ data class PageMetadata(val title: String?, val description: String?, val siteNa
 /**
  * Reads a page's own description of itself out of its HTML.
  *
- * ## What it reads
+ * ## What is the parser's job, and what is this file's
  *
- * Open Graph first — `og:title`, `og:description`, `og:image`, `og:site_name`,
- * `og:url` — then the standard HTML fallbacks: `<title>`, `name="description"`,
- * `<link rel="canonical">`. Open Graph wins where both are present because it is
- * the one the publisher wrote *for* a preview card.
+ * The *markup* is [Ksoup]'s: which tag holds which attribute, what a malformed tag
+ * means, how an entity is decoded, what attribute order and quoting are allowed.
+ * Those have answers the HTML standard already writes down, and a hand-rolled scanner
+ * only approximates them.
+ *
+ * The *policy* is this file's, because it is a decision about previews and not about
+ * HTML:
+ *
+ * 1. `og:title` → `twitter:title` → `<title>`.
+ * 2. `og:description` → `twitter:description` → `meta[name=description]`.
+ * 3. `og:image` → `twitter:image`.
+ * 4. `og:site_name` → null; the card falls back to the page's host.
+ *
+ * The image and the canonical address are made absolute against the page they came
+ * from: [Ksoup] reports them exactly as written, and a relative address is
+ * meaningless to an image loader.
  *
  * ## What it deliberately does not do
  *
- * It is a scanner, not an HTML parser, and it does not pretend to be one: it looks
- * at the tags it needs and ignores everything else. It never executes anything,
- * never follows a script, and reads no text beyond the fields above — a page is
- * untrusted input and the only thing that leaves here is a handful of strings.
- *
- * A page with no usable metadata yields nulls, and the caller decides what to show.
+ * It reads the page's head and nothing else — no body text, no scripts, nothing that
+ * would make it a reader. A page is untrusted input and the only thing that leaves
+ * here is a handful of strings. `ksoup-network` is not on the classpath on purpose:
+ * the fetch is our own guarded client's business, and a second network path would be
+ * a second place the address checks could be forgotten.
  */
 object PageMetadataParser {
-    private val META = Regex("""<meta\b[^>]*>""", RegexOption.IGNORE_CASE)
-    private val LINK = Regex("""<link\b[^>]*>""", RegexOption.IGNORE_CASE)
-    private val TITLE =
-        Regex(
-            """<title\b[^>]*>(.*?)</title\s*>""",
-            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-        )
-    private val ATTRIBUTE = Regex("""([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)')""")
-    private val WHITESPACE = Regex("""\s+""")
-
     /**
      * Reads [html] against the page's own address [baseUrl].
      *
@@ -51,74 +55,28 @@ object PageMetadataParser {
         html: String,
         baseUrl: String,
     ): PageMetadata {
-        val props = attributesByKey(html)
-        val base = props["og:url"]?.let { PreviewUrls.resolve(it, baseUrl) } ?: baseUrl
-        val image = props["og:image"] ?: props["twitter:image"]
+        val meta =
+            runCatching { Ksoup.parseMetaData(html, baseUrl) }.getOrNull()
+                ?: return PageMetadata(null, null, null, null)
+        val base = meta.canonical?.let { PreviewUrls.resolve(it, baseUrl) } ?: baseUrl
         return PageMetadata(
-            title = firstNonBlank(props["og:title"], documentTitle(html)),
-            description = firstNonBlank(props["og:description"], props["description"]),
-            siteName = firstNonBlank(props["og:site_name"]),
-            imageUrl = image?.let { PreviewUrls.resolve(it, base) },
+            title = clean(meta.ogTitle ?: meta.twitterTitle ?: meta.htmlTitle ?: meta.title),
+            description = clean(meta.ogDescription ?: meta.twitterDescription ?: meta.description),
+            siteName = clean(meta.ogSiteName),
+            imageUrl = imageOf(meta)?.let { PreviewUrls.resolve(it, base) },
         )
     }
 
-    /** The page title from `<title>`, decoded and trimmed. */
-    private fun documentTitle(html: String): String? =
-        TITLE
-            .find(html)
-            ?.groupValues
-            ?.get(1)
-            ?.let(::clean)
+    /** The first image the page states, as written — before it is made absolute. */
+    private fun imageOf(meta: MetaData): String? = (meta.ogImage ?: meta.twitterImage)?.takeIf { it.isNotBlank() }
 
     /**
-     * The `content` values of the page's metadata, by key.
+     * A field as the card shows it: trimmed, with runs of whitespace collapsed.
      *
-     * Keys are the `property` or `name` of a meta tag, lowercased. A repeated key
-     * keeps the first value: a page that states a title twice stated the first one
-     * first. The canonical link is read too, as the fallback base address.
+     * The parser has already decoded the entities, so this is only about the shape a
+     * sentence takes when it has been wrapped across lines in the source.
      */
-    private fun attributesByKey(html: String): Map<String, String> {
-        val result = mutableMapOf<String, String>()
-        for (tag in META.findAll(html)) {
-            val attrs = attributes(tag.value)
-            val key = (attrs["property"] ?: attrs["name"])?.lowercase()
-            val content = attrs["content"]?.let(::clean)
-            if (key != null && !content.isNullOrEmpty()) result.putIfAbsent(key, content)
-        }
-        for (tag in LINK.findAll(html)) {
-            val attrs = attributes(tag.value)
-            val isCanonical = attrs["rel"].orEmpty().equals("canonical", ignoreCase = true)
-            val href = attrs["href"]
-            if (isCanonical && href != null && result["og:url"] == null) {
-                result.putIfAbsent("og:url", href)
-            }
-        }
-        return result
-    }
+    private fun clean(raw: String?): String? = raw?.trim()?.replace(WHITESPACE, " ")?.takeIf { it.isNotEmpty() }
 
-    /** The quoted attributes of one tag, by lowercased name. */
-    private fun attributes(tag: String): Map<String, String> =
-        ATTRIBUTE
-            .findAll(tag)
-            .mapNotNull { match ->
-                val name = match.groupValues[1].lowercase()
-                val value = match.groupValues[3].ifEmpty { match.groupValues[4] }
-                name to value
-            }.toMap()
-
-    /** The first of [candidates] that is not blank. */
-    private fun firstNonBlank(vararg candidates: String?): String? = candidates.firstOrNull { !it.isNullOrBlank() }
-
-    /** Trimmed, with the entities a title or description normally contains decoded. */
-    private fun clean(raw: String): String =
-        raw
-            .replace(WHITESPACE, " ")
-            .replace("&amp;", "&")
-            .replace("&quot;", "\"")
-            .replace("&#39;", "'")
-            .replace("&apos;", "'")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&nbsp;", " ")
-            .trim()
+    private val WHITESPACE = Regex("""\s+""")
 }

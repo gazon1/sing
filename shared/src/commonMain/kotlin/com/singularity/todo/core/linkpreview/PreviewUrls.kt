@@ -2,6 +2,9 @@ package com.singularity.todo.core.linkpreview
 
 import com.singularity.todo.core.ui.text.TextLink
 import com.singularity.todo.core.ui.text.TextLinkDetector
+import io.ktor.http.URLBuilder
+import io.ktor.http.Url
+import io.ktor.http.takeFrom
 
 /**
  * Which address a task title previews, and what to cache it under.
@@ -18,12 +21,20 @@ import com.singularity.todo.core.ui.text.TextLinkDetector
  * An internal link (`task://…`) is never previewed: it points inside the app, and
  * fetching it would be a request to nothing.
  *
- * ## The cache key
+ * ## What is Ktor's job, and what is this file's
  *
- * [keyOf] strips the fragment and lowercases the scheme and host, so the same page
- * reached as `https://Example.com/a#top` and `https://example.com/a` is one cache
- * entry. It deliberately does **not** drop the query string: `?id=1` and `?id=2`
- * are different pages on most sites, and merging them would show the wrong title.
+ * The *shape* of a URL — scheme, authority, host, port, user info, IPv6 brackets,
+ * percent-encoding — is [Url]'s, not this file's. The rules about it are this
+ * file's: which schemes may be previewed, that the fragment is not part of a cache
+ * key, and that a relative reference resolves against the page it was found on.
+ *
+ * Two places still do a little of their own work, and both for a measured reason:
+ *
+ * - **`..` is not collapsed by Ktor.** `URLBuilder.takeFrom("../a.png")` against
+ *   `/post/deep/1` leaves `/post/deep/../a.png` in place, which is the same page
+ *   under a different key. [collapseDots] is the one piece of path arithmetic kept.
+ * - **A host is judged by [host], not by `Url.host`**, because that one returns the
+ *   brackets of an IPv6 literal (`[::1]`), and the address check wants the address.
  */
 object PreviewUrls {
     /**
@@ -41,40 +52,45 @@ object PreviewUrls {
      *
      * A malformed address is returned unchanged — it will fail to fetch, and the
      * failure is then cached under the string the user actually wrote.
+     *
+     * The query is deliberately kept: `?id=1` and `?id=2` are different pages on most
+     * sites, and merging them would show the wrong title.
      */
     fun keyOf(url: String): String {
-        val hash = url.indexOf('#')
-        val withoutFragment = if (hash >= 0) url.substring(0, hash) else url
-        val schemeEnd = withoutFragment.indexOf("://")
-        if (schemeEnd <= 0) return withoutFragment
-        val scheme = withoutFragment.substring(0, schemeEnd).lowercase()
-        val rest = withoutFragment.substring(schemeEnd + 3)
-        val authorityEnd = rest.indexOfAny(charArrayOf('/', '?')).let { if (it < 0) rest.length else it }
-        val authority = rest.substring(0, authorityEnd).lowercase()
-        return "$scheme://$authority${rest.substring(authorityEnd)}"
+        val parsed = parse(url) ?: return url.substringBefore('#')
+        val origin =
+            buildString {
+                append(parsed.protocol.name.lowercase())
+                append("://")
+                append(parsed.host.lowercase())
+                if (parsed.specifiedPort != 0) {
+                    append(':')
+                    append(parsed.specifiedPort)
+                }
+            }
+        val path = parsed.encodedPath.ifEmpty { "/" }
+        return origin + path + (parsed.encodedQuery.takeIf { it.isNotEmpty() }?.let { "?$it" } ?: "")
     }
 
     /**
      * The host of [url], for the label a preview shows when the page names no site.
      *
-     * Empty when the address has no host, so the caller can fall back further
-     * rather than print a fragment of a broken address.
+     * Empty when the address has no host, so the caller can fall back further rather
+     * than print a fragment of a broken address. An IPv6 literal comes back without
+     * its brackets — it is an address, not a URL component.
      */
-    fun host(url: String): String {
-        val schemeEnd = url.indexOf("://")
-        val rest = if (schemeEnd >= 0) url.substring(schemeEnd + 3) else url
-        val host = rest.substringBefore('/').substringBefore('?').substringBefore('#')
-        return host.substringAfter('@').substringBefore(':')
-    }
+    fun host(url: String): String = parse(url)?.host?.removeSurrounding("[", "]").orEmpty()
 
     /**
      * [ref] as an absolute address, resolved against the page address [base].
      *
      * A page names its image and its canonical address relative to itself, and a
-     * relative address is meaningless to an image loader. Three shapes occur in
-     * practice and each is handled: an absolute address is kept, a protocol-relative
-     * one borrows the page's scheme, and anything else is joined to the page's
-     * directory. Null when [ref] is blank.
+     * relative address means nothing to an image loader. Everything the standard
+     * defines — a root-relative path, a protocol-relative one, a query-only or
+     * fragment-only reference — is [URLBuilder.takeFrom]'s answer; the one thing it
+     * leaves undone is the `..` in the resulting path, which is collapsed here.
+     *
+     * Null when [ref] is blank, or when either address is unparsable.
      */
     fun resolve(
         ref: String,
@@ -82,58 +98,63 @@ object PreviewUrls {
     ): String? {
         val trimmed = ref.trim()
         if (trimmed.isEmpty()) return null
-        val scheme = base.substringBefore("://", "https").ifEmpty { "https" }
-        return when {
-            trimmed.isAbsolute() -> trimmed
-            trimmed.startsWith("//") -> "$scheme:$trimmed"
-            else -> originOf(base) + joinedPath(trimmed, base)
-        }
+        val resolved =
+            runCatching {
+                URLBuilder(base).takeFrom(trimmed).buildString()
+            }.getOrNull() ?: return null
+        return collapseDots(resolved)
     }
 
-    /** Whether [ref] already names its own scheme. */
-    private fun String.isAbsolute(): Boolean =
-        startsWith("https://", ignoreCase = true) || startsWith("http://", ignoreCase = true)
+    /**
+     * [url] as Ktor reads it, or null when it is not an address this file will use.
+     *
+     * The scheme is required, and it is required as *text*, not as something Ktor
+     * infers: `Url("example.com/x")` parses to host `localhost` with scheme `http`,
+     * which is an address nobody wrote and a host the address check would then judge.
+     * Requiring the `//` in the input means a string without an authority is refused
+     * rather than parsed into someone else's idea of one.
+     */
+    private fun parse(url: String): Url? =
+        runCatching {
+            Url(url).takeIf { url.contains("://") }
+        }.getOrNull()
 
-    /** The scheme and authority of [base], without its path. */
-    private fun originOf(base: String): String {
-        val pathStart = base.indexOf("://").let { if (it < 0) -1 else base.indexOf('/', it + 3) }
-        return if (pathStart < 0) base.substringBefore('?').substringBefore('#') else base.substring(0, pathStart)
-    }
-
-    /** [ref] resolved against [base]'s path, then `.`/`..` collapsed. */
-    private fun joinedPath(
-        ref: String,
-        base: String,
-    ): String {
-        // A reference that is only a query or a fragment replaces that part of the page
-        // and keeps the page's own path: `?a=1` on `/p` is `/p?a=1`, not `/p/?a=1`.
-        if (ref.startsWith("?") || ref.startsWith("#")) return basePathOf(base) + ref
-        // A path that starts at the root does not inherit the page's directory, and
-        // joining it as if it did produces `/post//img` — a different address.
-        if (ref.startsWith("/")) return collapseDots(ref)
-        val directory = basePathOf(base).substringBeforeLast('/', "")
-        return collapseDots("$directory/$ref")
-    }
-
-    /** The path of [base], without its scheme, authority, query or fragment. */
-    private fun basePathOf(base: String): String {
-        val origin = originOf(base)
-        return base.substring(origin.length).substringBefore('?').substringBefore('#')
-    }
-
-    /** Removes `.` and `..` from a relative path, so the joined address is a plain one. */
-    private fun collapseDots(path: String): String {
-        if (!path.contains("/.")) return path
-        val suffixStart = path.indexOfAny(charArrayOf('?', '#')).let { if (it < 0) path.length else it }
-        val suffix = path.substring(suffixStart)
-        val out = mutableListOf<String>()
-        for (segment in path.substring(0, suffixStart).split('/')) {
+    /**
+     * Removes `.` and `..` from the path of [url], leaving the rest of it alone.
+     *
+     * Kept because Ktor does not do it: `takeFrom` implements RFC 3986 §5.2's
+     * reference resolution but not §5.2.4's dot-segment removal, so
+     * `/post/deep/../a.png` survives as itself. That is the same page as
+     * `/post/a.png` and a different cache key, which is the whole reason this runs.
+     *
+     * An address that does not parse, or whose path holds no dot-segment, is
+     * returned unchanged.
+     */
+    private fun collapseDots(url: String): String {
+        if (!url.contains("/.")) return url
+        val parsed = parse(url) ?: return url
+        val path = parsed.encodedPath
+        if (!path.contains("/.")) return url
+        val segments = mutableListOf<String>()
+        for (segment in path.split('/')) {
             when (segment) {
                 "", "." -> Unit
-                ".." -> if (out.isNotEmpty()) out.removeAt(out.lastIndex)
-                else -> out += segment
+                ".." -> if (segments.isNotEmpty()) segments.removeAt(segments.lastIndex)
+                else -> segments += segment
             }
         }
-        return "/" + out.joinToString("/") + suffix
+        val collapsed = "/" + segments.joinToString("/")
+        return buildString {
+            append(parsed.protocol.name.lowercase())
+            append("://")
+            append(parsed.host)
+            if (parsed.specifiedPort != 0) {
+                append(':')
+                append(parsed.specifiedPort)
+            }
+            append(collapsed)
+            parsed.encodedQuery.takeIf { it.isNotEmpty() }?.let { append('?').append(it) }
+            parsed.encodedFragment.takeIf { it.isNotEmpty() }?.let { append('#').append(it) }
+        }
     }
 }

@@ -70,14 +70,16 @@ not requested at all).
 ### Requirement: REQ-LINKPREVIEW-003
 
 Preview results **MUST** be cached by the normalised address, and opening the same
-task again **MUST NOT** fetch the page again while the entry is recent.
+task again **MUST NOT** fetch the page again while the entry is recent. Two requests
+for the same address **MUST** share one fetch.
 
 **Rationale:** the card is decoration. Paying a network request every time a task is
-opened would make decoration cost more than the task.
+opened would make decoration cost more than the task, and two surfaces showing the
+same task would pay it twice for one answer.
 
-**Test coverage:** `LinkPreviewRepositoryTest` (a second refresh within the window
-costs no request), `LinkPreviewCacheTest` (the key is normalised; the bound evicts
-the oldest).
+**Test coverage:** `LinkPreviewRepositoryTest` (a second refresh within the window costs
+no request; two concurrent callers cost one), `LinkPreviewCacheTest` (the key is
+normalised; the bound evicts the oldest).
 
 #### Scenario: The same task opened twice fetches once
 
@@ -85,21 +87,38 @@ the oldest).
 - **When** the detail is opened, closed and opened again within six hours
 - **Then** the page is fetched once, and the card shows the cached preview
 
+#### Scenario: Two surfaces ask for the same address at once
+
+- **Given** a task is open while the same address is being previewed elsewhere
+- **When** both ask for the preview before either has answered
+- **Then** the page is fetched once, and both receive that answer
+
 ---
 
 ### Requirement: REQ-LINKPREVIEW-004
 
 A failed fetch **MUST NOT** prevent the title's address from being usable, and
-**MUST NOT** show a broken or empty card.
+**MUST NOT** show a broken or empty card. A picture that no longer matches the entry
+**MUST NOT** be shown.
 
-**Test coverage:** `LinkPreviewRepositoryTest` (a failed fetch is unavailable; a
-failed refresh keeps the previous preview), `TaskLinkPreviewSlotTest`.
+**Rationale:** a refresh may name a different picture than the previous one. A file
+left over from the old entry beside the new title is a card describing two pages.
+
+**Test coverage:** `LinkPreviewRepositoryTest` (a failed fetch is unavailable; a failed
+refresh keeps the previous preview), `LinkPreviewCacheTest` (a changed image address
+drops the stored file; an unchanged one keeps it), `TaskLinkPreviewSlotTest`.
 
 #### Scenario: A page that will not load
 
 - **Given** a task whose title names a page that cannot be reached
 - **When** the detail opens
 - **Then** no card is drawn, and the address in the title is still tappable
+
+#### Scenario: The page names a different picture on refresh
+
+- **Given** a preview whose page named one picture
+- **When** a refresh names another
+- **Then** the first picture is no longer shown or stored
 
 ---
 
