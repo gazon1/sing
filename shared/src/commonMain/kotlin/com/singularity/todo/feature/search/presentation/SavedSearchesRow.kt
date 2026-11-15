@@ -42,6 +42,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
@@ -114,7 +115,7 @@ fun SavedSearchesRow(
         // screen neither draws an empty row nor a panel over the results.
         if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
             item {
-                Text(
+                SelectableText(
                     text = "No saved searches match",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -51,8 +51,11 @@ class CreateRecurringTaskUseCase(
                 endTime = input.endTime,
                 accentColor = input.accentColor,
                 emoji = input.emoji,
+                estimateMinutes = input.estimateMinutes,
+                isPinned = input.isPinned,
                 someday = input.someday,
                 recurrence = input.recurrence,
+                descriptionHtml = input.descriptionHtml,
             )
         if (validated is Either.Left) return Result.failure(validated.error)
 

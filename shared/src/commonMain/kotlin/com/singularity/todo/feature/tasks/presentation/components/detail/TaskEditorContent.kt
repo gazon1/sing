@@ -56,7 +56,7 @@ import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
-import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
+import com.singularity.todo.core.ui.components.localizedDueDateWithTime
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -75,6 +75,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_no_start_date
 import kotlin.time.Instant
 
 /**
@@ -97,7 +100,8 @@ import kotlin.time.Instant
  * @param onCheckToggle Called when the completion checkbox is toggled. `null` hides the
  *   checkbox — Create mode has no task to complete yet, and a checkbox that does nothing
  *   is worse than no checkbox.
- * @param descriptionState The description's field state, bridged by the caller.
+ * @param descriptionField the description field, built by the caller with the source
+ *   kind it holds. The renderer places it and does not decide the kind.
  * @param priority Current priority value.
  * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
  * @param dueDate Current due date (null means not set).
@@ -142,7 +146,7 @@ private fun TaskEditorContent(
     titleError: String?,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
-    descriptionState: TextFieldState,
+    descriptionField: @Composable () -> Unit,
     priority: TaskPriority,
     onPriorityClear: (() -> Unit)?,
     dueDate: LocalDate?,
@@ -307,9 +311,7 @@ private fun TaskEditorContent(
                 heroExtra?.invoke()
 
                 // Description
-                TaskDescriptionField(
-                    descriptionState = descriptionState,
-                )
+                descriptionField()
             }
 
             // The offers: the first-run banner and the pending AI proposals.
@@ -592,8 +594,8 @@ private fun StartDateRow(
 ) {
     val label =
         when {
-            startDate == null -> "No start date"
-            else -> formatRussianDueDateWithTime(startDate, startTime)
+            startDate == null -> stringResource(Res.string.task_no_start_date)
+            else -> localizedDueDateWithTime(startDate, startTime)
         }
     TaskAttributeCard(
         icon = Icons.Filled.CalendarToday,
@@ -616,7 +618,7 @@ private fun StartDateRow(
  *   replace the title.
  * @param descriptionSource the description's source, in the same shape.
  * @param onTitleChange called with the title the user typed.
- * @param onDescriptionChange called with the description the user typed.
+ * @param onDescriptionChange called with the description's HTML as the user edits.
  * @param sheets the state the sheets are opened through and rendered from. The caller's rows
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
@@ -654,7 +656,15 @@ fun TaskEditorContent(
         model = model,
         callbacks = callbacks,
         titleState = rememberBridgedTextFieldState(titleSource, onTitleChange),
-        descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
+        descriptionField = {
+            TaskDescriptionField(
+                taskId = model.taskId?.value ?: "",
+                source = descriptionSource,
+                onDescriptionChange = onDescriptionChange,
+                alwaysEditable = false,
+                onSearchInternalLinks = callbacks.searchInternalLinks,
+            )
+        },
         isCompleted = isCompleted,
         now = now,
         sheets = sheets,
@@ -680,7 +690,7 @@ fun TaskEditorContent(
  *   replace the title.
  * @param descriptionSource the description's source, in the same shape.
  * @param onTitleChange called with the title the user typed.
- * @param onDescriptionChange called with the description the user typed.
+ * @param onDescriptionChange called with the description's HTML as the user edits.
  * @param sheets the state the sheets are opened through and rendered from. The caller's rows
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
@@ -705,7 +715,15 @@ fun TaskCreateEditorContent(
         model = model,
         callbacks = callbacks,
         titleState = rememberBridgedTextFieldState(titleSource, onTitleChange),
-        descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
+        descriptionField = {
+            TaskDescriptionField(
+                taskId = model.taskId?.value ?: "",
+                source = descriptionSource,
+                onDescriptionChange = onDescriptionChange,
+                alwaysEditable = true,
+                onSearchInternalLinks = callbacks.searchInternalLinks,
+            )
+        },
         isCompleted = false,
         now = now,
         sheets = sheets,
@@ -740,7 +758,7 @@ private fun TaskEditorScaffold(
     model: TaskEditorModel,
     callbacks: TaskEditorCallbacks,
     titleState: TextFieldState,
-    descriptionState: TextFieldState,
+    descriptionField: @Composable () -> Unit,
     isCompleted: Boolean,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
@@ -769,7 +787,7 @@ private fun TaskEditorScaffold(
         titleError = titleError,
         isCompleted = isCompleted,
         onCheckToggle = callbacks.onCheckToggle,
-        descriptionState = descriptionState,
+        descriptionField = descriptionField,
         priority = model.priority,
         onPriorityClear = callbacks.priority.withoutClearWhen(isCompleted).onClear,
         dueDate = model.dueDate,
@@ -856,7 +874,14 @@ private fun TaskEditorContentEmptyPreview() =
             titleError = null,
             isCompleted = false,
             onCheckToggle = null,
-            descriptionState = TextFieldState(""),
+            descriptionField = {
+                TaskDescriptionField(
+                    taskId = "",
+                    source = StaticText(""),
+                    onDescriptionChange = {},
+                    alwaysEditable = true,
+                )
+            },
             priority = TaskPriority.None,
             onPriorityClear = null,
             dueDate = null,
@@ -881,7 +906,14 @@ private fun TaskEditorContentFilledPreview() =
             titleError = null,
             isCompleted = false,
             onCheckToggle = null,
-            descriptionState = TextFieldState("Milk, eggs, bread"),
+            descriptionField = {
+                TaskDescriptionField(
+                    taskId = "",
+                    source = StaticText("<p>Milk, eggs, bread</p>"),
+                    onDescriptionChange = {},
+                    alwaysEditable = true,
+                )
+            },
             priority = TaskPriority.High,
             onPriorityClear = {},
             dueDate = today,
@@ -911,7 +943,14 @@ private fun TaskEditorContentDarkPreview() =
             titleError = null,
             isCompleted = false,
             onCheckToggle = null,
-            descriptionState = TextFieldState(""),
+            descriptionField = {
+                TaskDescriptionField(
+                    taskId = "",
+                    source = StaticText(""),
+                    onDescriptionChange = {},
+                    alwaysEditable = true,
+                )
+            },
             priority = TaskPriority.Urgent,
             onPriorityClear = {},
             dueDate = today,

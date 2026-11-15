@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.ui.rich.LinkResult
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -298,4 +299,11 @@ data class TaskEditorCallbacks(
      * `null` means the platform has no runtime permission to ask for.
      */
     val onRequestNotificationPermission: (() -> Unit)? = null,
+    /**
+     * The note/task search behind the description's internal-link picker.
+     *
+     * `null` hides the internal-link action: a surface with no search cannot
+     * offer to link to anything.
+     */
+    val searchInternalLinks: (suspend (String) -> List<LinkResult>)? = null,
 )

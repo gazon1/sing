@@ -136,8 +136,10 @@ when the answer is "excluded".
 | `feature/profile/presentation/ChangePasswordScreen.kt` | selectable | the instruction the person has to follow |
 | `feature/projects/presentation/components/ConfirmCloseSheet.kt` | selectable | the dialog body reports what is unfinished; the title and the buttons stay labels |
 | `feature/projects/presentation/components/ConfirmDeleteSheet.kt` | selectable | the dialog body names the project; the title and the buttons stay labels |
+| `feature/projects/presentation/components/IconPickerSheet.kt` | selectable | the no-match line names the query that found nothing; the category headings stay labels |
 | `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
 | `feature/search/SearchScreen.kt` | selectable | the titles of the note, project and tag results |
+| `feature/search/presentation/SavedSearchesRow.kt` | selectable | the line that says the query hid every saved search |
 | `feature/search/presentation/SearchModeSwitch.kt` | selectable | the sentence that says what the contains mode costs; the two segment labels stay labels |
 | `feature/settings/screens/AgendaSettingsScreen.kt` | selectable | the empty state says where to create a view |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | selectable | the provider and model ids; the key and the endpoint are input fields and stay as they are |
@@ -158,7 +160,7 @@ when the answer is "excluded".
 | `feature/archive/ArchiveScreen.kt` | excluded | its rows are task cards, and the gesture is theirs |
 | `feature/calendar/presentation/components/calendar/CalendarSelectionBar.kt` | excluded | the count of the chosen days and the bar's button labels |
 | `feature/checklist/components/ChecklistItemRow.kt` | excluded | the overflow menu's item label |
-| `feature/notes/components/InternalLinkPickerSheet.kt` | excluded | the search field's placeholder |
+| `core/ui/rich/InternalLinkPickerSheet.kt` | excluded | the search field's placeholder |
 | `feature/notes/components/NoteCard.kt` | excluded | the row swipes — the gesture belongs to the card |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | excluded | its empty state is rendered by the shared EmptyState component, which is selectable |
 | `feature/projects/presentation/components/EditorParentPickerSheet.kt` | excluded | the picker's option label |
@@ -167,7 +169,7 @@ when the answer is "excluded".
 | `feature/settings/screens/InterfaceSettingsScreen.kt` | excluded | the settings preview's sample text |
 | `feature/settings/screens/WorkScheduleSettingsScreen.kt` | excluded | the settings preview's sample text |
 | `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | excluded | the picker's option labels |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | excluded | the description field's placeholder |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | selectable | the document-style description is prose and is rendered selectably; its placeholder is not selectable |
 | `feature/tasks/presentation/components/detail/TaskDetailExtraSections.kt` | excluded | the action's label |
 | `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | excluded | the picker's option labels |
 | `feature/tasks/presentation/components/detail/TaskSeriesCard.kt` | excluded | each row opens its member task, and the actions are button labels |

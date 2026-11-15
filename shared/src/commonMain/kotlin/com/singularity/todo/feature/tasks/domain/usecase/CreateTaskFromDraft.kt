@@ -102,6 +102,7 @@ class CreateTaskFromDraftUseCase(
             TaskDomain.createInput(
                 title = draft.title.text,
                 description = draft.description.text.ifBlank { null },
+                descriptionHtml = draft.descriptionHtml.text.ifBlank { null },
                 priority = draft.priority,
                 kind = TaskKind.Task,
                 projectId = draft.projectId?.let { ProjectId.fromString(it) },
@@ -115,6 +116,8 @@ class CreateTaskFromDraftUseCase(
                 endTime = draft.endTime,
                 accentColor = draft.accentColor,
                 emoji = draft.emoji,
+                estimateMinutes = draft.estimateMinutes,
+                isPinned = draft.isPinned,
                 someday = false,
                 recurrence = draft.recurrence,
             )

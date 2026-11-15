@@ -166,4 +166,34 @@
     <string name="recurrence_sentence_with_start">%1$s, %2$s, начиная с %3$s</string>
     <string name="recurrence_sentence_with_end">%1$s, %2$s, до %3$s</string>
     <string name="recurrence_sentence_with_start_and_end">%1$s, %2$s, начиная с %3$s, до %4$s</string>
+
+    <!-- Recurrence picker chrome (#2884) -->
+    <string name="recurrence_picker_title">Повтор</string>
+    <string name="recurrence_mode">Режим</string>
+    <string name="recurrence_frequency">Частота</string>
+    <string name="recurrence_preview">Предпросмотр</string>
+    <string name="recurrence_do_not_repeat">Не повторять</string>
+    <string name="recurrence_ends">Окончание</string>
+    <string name="recurrence_ends_never">Никогда</string>
+    <string name="recurrence_ends_on_date">В дату</string>
+    <string name="recurrence_change">Изменить</string>
+    <string name="recurrence_every">Каждые</string>
+    <string name="recurrence_day_of_month">День месяца</string>
+    <string name="recurrence_day_of_month_hint">(1–31)</string>
+    <string name="recurrence_month_label">Месяц</string>
+    <string name="recurrence_unit_day">дн.</string>
+    <string name="recurrence_unit_week">нед.</string>
+    <string name="recurrence_unit_month">мес.</string>
+    <string name="recurrence_unit_year">г.</string>
+    <string name="recurrence_next">Следующее: %1$s</string>
+    <string name="recurrence_option_daily">Ежедневно</string>
+    <string name="recurrence_option_weekly">Еженедельно</string>
+    <string name="recurrence_option_monthly">Ежемесячно</string>
+    <string name="recurrence_option_yearly">Ежегодно</string>
+    <string name="recurrence_option_specific_weekdays">По дням недели</string>
+    <string name="recurrence_option_day_of_month">День месяца</string>
+    <string name="recurrence_option_yearly_on_date">Ежегодно в дату</string>
+    <string name="task_no_start_date">Без даты начала</string>
+
 </resources>
+

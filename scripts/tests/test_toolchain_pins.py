@@ -124,6 +124,11 @@ ALLOWED_DUPLICATES = {
     "openspec/changes/archive/2026-10-25-the-gates-run-on-every-machine/proposal.md": (
         "change proposal: the historical record of the proposal"
     ),
+    "docs/decisions/2026-11-13-emoji-come-from-the-vanniktech-core-artifact.md": (
+        "ADR: the historical record of the emoji dependency. Its 0.10.0 is the "
+        "transitive ui-android release the provider pulls in, not the shellcheck "
+        "pin that happens to share the spelling"
+    ),
 }
 
 #: Generated files the scan skips. They are gitignored: a fresh checkout does

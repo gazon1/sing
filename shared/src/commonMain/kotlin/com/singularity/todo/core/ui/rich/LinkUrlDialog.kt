@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes.presentation.screen
+package com.singularity.todo.core.ui.rich
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions

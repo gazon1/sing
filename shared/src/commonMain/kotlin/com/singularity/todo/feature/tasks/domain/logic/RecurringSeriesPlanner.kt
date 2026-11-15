@@ -179,6 +179,7 @@ object RecurringSeriesPlanner {
                     com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
                         title = template.title,
                         description = template.description,
+                        descriptionHtml = template.descriptionHtml,
                         priority = template.priority,
                         kind = template.kind,
                         projectId = template.projectId,

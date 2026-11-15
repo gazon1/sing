@@ -10,7 +10,6 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
@@ -358,7 +357,7 @@ class ProjectPickerSemanticsTest {
             setContent { picker(repo(*projects.toTypedArray()), selectedId = null, onSelect = { selections += it }) }
 
             awaitTag(TestTags.projectPickerRow("p-1"))
-            onAllNodes(hasScrollAction()).onFirst().performScrollToIndex(59)
+            onNode(hasTestTag(TestTags.PROJECT_PICKER_LIST)).performScrollToIndex(59)
             val last = projects.last()
             awaitTag(TestTags.projectPickerRow(last.id.value))
             clickTagFirst(TestTags.projectPickerRow(last.id.value))

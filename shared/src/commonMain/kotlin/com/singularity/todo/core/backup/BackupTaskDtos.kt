@@ -10,6 +10,7 @@ import com.singularity.todo.core.database.toLocalTimeOrNull
 import com.singularity.todo.core.database.toWorkflowState
 import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.core.serialization.parseWireName
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
@@ -27,6 +28,12 @@ data class TaskDto(
     val id: String,
     val title: String,
     val description: String? = null,
+    /**
+     * The rich description the editor writes, when the task was saved by a build
+     * that has the rich editor. A payload written before it restores as a task
+     * whose plain [description] is shown literally.
+     */
+    val descriptionHtml: String? = null,
     /**
      * How urgent the task is, under the name the format gives it: `none`, `low`,
      * `medium`, `high` or `urgent`.
@@ -96,6 +103,7 @@ fun TaskEntity.toDto(): TaskDto =
         id = id,
         title = title,
         description = description,
+        descriptionHtml = descriptionHtml,
         priority = priority.wireName,
         kind = kind.wireName,
         projectId = projectId,
@@ -126,7 +134,8 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
     TaskEntity(
         id = id,
         title = title,
-        description = description,
+        description = TaskDescriptionHtml.storedPlain(descriptionHtml, description),
+        descriptionHtml = TaskDescriptionHtml.storedHtml(descriptionHtml, description),
         priority =
             parseWireName<TaskPriority>(priority),
         kind =

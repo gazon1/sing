@@ -52,6 +52,16 @@ tags:
 - assertVisible:
     id: task_editor_due_row
 
+# The estimate row is the field Create used to lack: the detail drew it and the
+# create screen could not, so an estimated task had to be created and reopened.
+- scrollUntilVisible:
+    element:
+      id: task_editor_estimate_row
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: task_editor_estimate_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_start_date_row
@@ -129,12 +139,24 @@ tags:
 # Close the sheet (sheet dismisses automatically after selection)
 
 # ── Set due date to Today ─────────────────────────────────────────────
+#
+# Create's date row opens the **multi-date** sheet, not the single-date dialog:
+# a work that does not exist yet may sit on several days. That sheet's confirm
+# has never read "OK" — it reads «Готово» and is addressed by id — so the text
+# this step used to tap did not exist on any locale, and the step failed here
+# rather than at the save.
+#
+# Nothing is picked here on purpose. The FAB is tapped on the Today tab, which
+# prefills the draft's date to today, so the sheet opens with today already
+# selected; the «Сегодня» chip is a *toggle*, and tapping it would take the date
+# back off. Confirming is what keeps the prefill, which is what this scenario
+# asserts on the row afterwards.
 - tapOn:
     id: task_editor_due_row
 - waitForAnimationToEnd:
     timeout: 2000
 - tapOn:
-    text: "OK"
+    id: multi_date_picker_ok
 
 # ── Save ──────────────────────────────────────────────────────────────
 #

@@ -90,6 +90,27 @@ class FtsSearchJvmTest {
         }
 
     @Test
+    fun `the rich description column is not what the index searches`() =
+        runTest {
+            // The visible text is in the plain projection; the markup is in the
+            // rich column. A word that only exists as a tag must not be found.
+            db.taskDao().upsert(
+                task(id = "t1", title = "Numbers", description = "Quarterly figures")
+                    .copy(descriptionHtml = "<p><strong>Quarterly</strong> figures</p>"),
+            )
+
+            val index = db.ftsDao()
+            assertTrue(
+                index.watchTasks("u1", TextMatchQuery(listOf("strong"))).first().isEmpty(),
+                "a tag name must not be searchable",
+            )
+            assertEquals(
+                listOf("t1"),
+                index.watchTasks("u1", TextMatchQuery(listOf("quarter"))).first().map { it.task.id },
+            )
+        }
+
+    @Test
     fun `another user's task is not found`() =
         runTest {
             db.taskDao().upsert(task(id = "t1", title = "Write the quarterly report"))

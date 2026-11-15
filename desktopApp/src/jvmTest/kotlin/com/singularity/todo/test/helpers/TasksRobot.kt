@@ -9,6 +9,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -73,6 +74,8 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
          * date does the screen say".
          */
         completedAt: Instant? = null,
+        /** An extra field on the seeded task; see [seed]. */
+        overrides: Task.() -> Unit = {},
     ): TasksRobot =
         apply {
             seed(
@@ -86,6 +89,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
                 recurrence = recurrence,
                 createdAt = createdAt,
                 completedAt = completedAt,
+                overrides = overrides,
             )
             assertSeeded(koin, expected = ++seeded)
         }
@@ -124,6 +128,14 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         recurrence: RecurrenceSpec? = null,
         createdAt: Instant? = null,
         completedAt: Instant? = null,
+        /**
+         * An extra field on the seeded task.
+         *
+         * The factory's named parameters cover what the agenda reads; a field the
+         * screen must *show* but the list does not sort by — the start date — is
+         * set through this block rather than by widening the factory for one test.
+         */
+        overrides: Task.() -> Unit = {},
     ) {
         val n = seq++
         // The seeded task is as old as the epoch unless a test says otherwise. A test
@@ -151,6 +163,7 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
                 userId = userId,
                 createdAt = at,
                 updatedAt = at,
+                overrides = overrides,
             )
         val task =
             if (recurrence != null) {

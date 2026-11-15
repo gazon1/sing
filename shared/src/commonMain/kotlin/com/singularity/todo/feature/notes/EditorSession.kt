@@ -2,98 +2,16 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.text.TextRange
 import com.mohamedrejeb.richeditor.model.RichTextState
+import com.singularity.todo.core.ui.rich.EditorSession
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * Holds all mutable editor state for one note-editing session.
- *
- * Stored at the screen level (not inside the Composable hierarchy) so both
- * [EditorTitleAndBody] and [EditorToolbar][com.singularity.todo.feature.notes.components.EditorToolbar]
- * can share the same [RichTextState] — the toolbar can live in
- * [androidx.compose.material3.Scaffold.bottomBar] without passing state down
- * through intermediate composables.
- *
- * Keyed to [state.id] so switching notes creates a fresh session automatically.
- *
- * @param lastDispatchedHtml The HTML the session starts from — the *loaded* content,
- *   normalised through [RichTextState.toHtml]. Every dispatch is compared against
- *   it, so the load itself is never echoed back as a phantom edit.
- * @param onBodyChange Called whenever the HTML changes after the initial load.
- */
-@Stable
-class EditorSession(
-    val richTextState: RichTextState,
-    private var lastDispatchedHtml: String,
-    private val onBodyChange: (id: String, html: String) -> Unit,
-    private val id: String,
-) {
-    /**
-     * Replaces the content the editor holds with content that came from outside.
-     *
-     * The editor owns its content, so a note rewritten elsewhere — a proposal
-     * applied to it, a sync from another device — reaches the editor only as a
-     * request to take the new content. The baseline moves with it: the new
-     * content is what the upstream already holds, so dispatching it back would be
-     * an echo of the upstream's own value, and would mark the draft dirty for
-     * nothing.
-     */
-    fun replaceContent(html: String) {
-        richTextState.setHtml(html)
-        lastDispatchedHtml = richTextState.toHtml()
-    }
-
-    /**
-     * Dispatches the current HTML to the ViewModel if it differs from what
-     * was last dispatched.
-     */
-    fun dispatchHtml() {
-        val html = richTextState.toHtml()
-        if (html != lastDispatchedHtml) {
-            lastDispatchedHtml = html
-            onBodyChange(id, html)
-        }
-    }
-
-    /**
-     * Puts a link into the editor.
-     *
-     * The library's own link insertion refuses a collapsed selection: it returns
-     * without touching the text, and the caller cannot tell that nothing happened.
-     * A caret is the common case — the user taps inside a word and asks for a link —
-     * so the link text is written at the caret first, and the link is applied to the
-     * range that text occupies.
-     *
-     * A selection is the other case, and it keeps the library's behaviour: the
-     * selected text becomes the link, and no text is written.
-     *
-     * @param url the address the link points at.
-     * @param text the text the link shows — the address itself, or a title.
-     */
-    fun insertLink(
-        url: String,
-        text: String,
-    ) {
-        val state = richTextState
-        if (!state.selection.collapsed) {
-            state.addLinkToSelection(url = url)
-        } else {
-            val caret = state.selection.min
-            state.addTextAfterSelection(text)
-            state.addLinkToTextRange(url, TextRange(caret, caret + text.length))
-        }
-        dispatchHtml()
-    }
-}
-
-/**
- * Creates [EditorSession] keyed to [state.id].
+ * Creates an [EditorSession] keyed to [state.id].
  * A fresh [RichTextState] is created for each note id, preventing stale state
  * when the user switches between notes.
  */
