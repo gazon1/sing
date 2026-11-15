@@ -133,6 +133,13 @@ class TaskDescriptionHtmlTest {
     }
 
     @Test
+    fun `an empty html with legacy plain text is legacy`() {
+        assertNull(TaskDescriptionHtml.storedHtml("", "Old"))
+        assertEquals("Old", TaskDescriptionHtml.storedPlain("", "Old"))
+        assertEquals("Old", TaskDescriptionHtml.canonical("", "Old"))
+    }
+
+    @Test
     fun `a malformed numeric entity is left literal`() {
         assertEquals("&#xZZ;", TaskDescriptionHtml.htmlToPlainText("&#xZZ;"))
     }

@@ -101,6 +101,63 @@ class TaskDescriptionFieldFlowTest {
         }
 
     @Test
+    fun formatting_survives_close_and_reopen() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tapTab("Inbox")
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Formatted description")
+            typeIntoTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT, "Pay the rent")
+            awaitTag(TestTags.TASK_EDITOR_SAVE).performClick()
+
+            awaitTag(TestTags.taskItem("Formatted description")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            clickTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT)
+
+            // Type the prefix, turn Bold on at the caret, and type the word the
+            // formatting belongs to. The toolbar applies it to what comes next.
+            typeIntoTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT, "Pay the ")
+            clickContentDescription("Bold")
+            awaitTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT).performTextInput("rent")
+            assertTagTextEquals(TestTags.TASK_EDITOR_DESCRIPTION_INPUT, "Pay the rent")
+
+            var lastSeen: Task? = null
+            val bold =
+                withContext(Dispatchers.Default) {
+                    withTimeoutOrNull(10.seconds) {
+                        koin
+                            .get<TaskRepository>()
+                            .observeAll()
+                            .map { tasks ->
+                                tasks.firstOrNull { it.title == "Formatted description" }.also { lastSeen = it }
+                            }.firstOrNull { it?.descriptionHtml?.contains("<b>") == true }
+                    }
+                }
+            assertTrue(
+                bold != null,
+                "the bold formatting was not saved; the task held ${lastSeen?.descriptionHtml}",
+            )
+
+            // Close and reopen. The detail loads the stored HTML; a reopen that
+            // rewrote the plain text over it would drop the bold tag.
+            clickTag(TestTags.TOP_BAR_BACK_BUTTON)
+            awaitTag(TestTags.taskItem("Formatted description")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT)
+
+            val reopened =
+                withContext(Dispatchers.Default) {
+                    withTimeoutOrNull(10.seconds) {
+                        koin
+                            .get<TaskRepository>()
+                            .observeAll()
+                            .map { tasks -> tasks.firstOrNull { it.title == "Formatted description" } }
+                            .firstOrNull { it?.descriptionHtml?.contains("<b>") == true }
+                    }
+                }
+            assertTrue(reopened != null, "the formatting was lost after reopening the task")
+        }
+
+    @Test
     fun autosave_does_not_reset_the_description_while_the_user_keeps_typing() =
         runDesktopAppTest(checkA11y = true) { koin ->
             tapTab("Inbox")

@@ -283,25 +283,35 @@ private val NAMED_ENTITIES: Map<String, String> =
 private fun decodeNumericEntity(entity: String): String? {
     if (entity.isEmpty() || entity[0] != '#') return null
     val codePoint =
-        try {
-            if (entity.length >= 2 && (entity[1] == 'x' || entity[1] == 'X')) {
-                entity.substring(2).toInt(16)
-            } else {
-                entity.substring(1).toInt(10)
-            }
-        } catch (_: NumberFormatException) {
-            return null
+        if (entity.length >= 2 && (entity[1] == 'x' || entity[1] == 'X')) {
+            entity.substring(2).toIntOrNull(16)
+        } else {
+            entity.substring(1).toIntOrNull(10)
         }
-    if (codePoint !in 0..0x10FFFF) return null
-    // A lone surrogate is not a character: it cannot be encoded, and letting it
-    // through would put invalid text into the plain projection. The entity stays
-    // literal instead.
-    if (codePoint in 0xD800..0xDFFF) return null
-    return if (codePoint <= 0xFFFF) {
-        codePoint.toChar().toString()
-    } else {
-        val high = ((codePoint - 0x10000) shr 10) + 0xD800
-        val low = ((codePoint - 0x10000) and 0x3FF) + 0xDC00
-        charArrayOf(high.toChar(), low.toChar()).concatToString()
+    return when {
+        codePoint == null -> {
+            null
+        }
+
+        codePoint !in 0..0x10FFFF -> {
+            null
+        }
+
+        // A lone surrogate is not a character: it cannot be encoded, and letting
+        // it through would put invalid text into the plain projection. The entity
+        // stays literal instead.
+        codePoint in 0xD800..0xDFFF -> {
+            null
+        }
+
+        codePoint <= 0xFFFF -> {
+            codePoint.toChar().toString()
+        }
+
+        else -> {
+            val high = ((codePoint - 0x10000) shr 10) + 0xD800
+            val low = ((codePoint - 0x10000) and 0x3FF) + 0xDC00
+            charArrayOf(high.toChar(), low.toChar()).concatToString()
+        }
     }
 }

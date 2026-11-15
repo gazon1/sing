@@ -18,7 +18,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -215,9 +214,6 @@ private fun TaskDescriptionEditorBody(
     var editing by remember(taskId, alwaysEditable) { mutableStateOf(alwaysEditable) }
     val focusRequester = remember { FocusRequester() }
     var focusRequested by remember { mutableStateOf(false) }
-    // A field reports "not focused" the first time it composes, before any focus
-    // has arrived; the exit waits for focus to have been held and then lost.
-    var hasHeldFocus by remember { mutableStateOf(false) }
     var showExternalLink by remember { mutableStateOf(false) }
     var showInternalLink by remember { mutableStateOf(false) }
 
@@ -240,14 +236,7 @@ private fun TaskDescriptionEditorBody(
             .bringIntoViewOnFocus()
             .padding(vertical = TaskSpacing.sm)
             .focusRequester(focusRequester)
-            .onFocusChanged { state ->
-                if (state.isFocused) {
-                    hasHeldFocus = true
-                } else if (hasHeldFocus) {
-                    hasHeldFocus = false
-                    editing = alwaysEditable
-                }
-            }.testTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT)
+            .testTag(TestTags.TASK_EDITOR_DESCRIPTION_INPUT)
             .semantics { contentDescription = "Task description" }
 
     Column(modifier = modifier.fillMaxWidth()) {
