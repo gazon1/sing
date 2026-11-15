@@ -107,6 +107,62 @@ class SearchSuggestionInteractionUiTest {
         }
 
     @Test
+    fun `outside tap dismisses suggestions with empty query`() =
+        runIsolatedComposeTest {
+            val intents = mutableListOf<SearchIntent>()
+            setContent {
+                SearchScreenContent(
+                    state =
+                        SearchUiState(
+                            query = FieldOwnedText.empty(),
+                            savedSearches = searches,
+                        ),
+                    onIntent = { intents += it },
+                    navigator = PreviewSearchNavigator(),
+                )
+            }
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+            assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
+
+            clickTag(TestTags.SEARCH_EMPTY_PLACEHOLDER)
+            waitForIdle()
+
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+            awaitTagGone(TestTags.SavedSearches.chip("Overdue"))
+            assertTagDisplayed(TestTags.SEARCH_EMPTY_PLACEHOLDER)
+            assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
+            assertEquals(emptyList<SearchIntent>(), intents)
+        }
+
+    @Test
+    fun `focus loss dismisses suggestions with empty query`() =
+        runIsolatedComposeTest {
+            val intents = mutableListOf<SearchIntent>()
+            setContent {
+                SearchScreenContent(
+                    state =
+                        SearchUiState(
+                            query = FieldOwnedText.empty(),
+                            savedSearches = searches,
+                        ),
+                    onIntent = { intents += it },
+                    navigator = PreviewSearchNavigator(),
+                )
+            }
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+
+            clickContentDescription("Filter")
+            waitForIdle()
+
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+            assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
+            assertTagDisplayed(TestTags.SearchFilter.APPLY_BUTTON)
+            assertEquals(emptyList<SearchIntent>(), intents)
+        }
+
+    @Test
     fun `moving focus to the filter action dismisses suggestions without changing the query`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
@@ -287,6 +343,36 @@ class SearchSuggestionInteractionUiTest {
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
             assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
+        }
+
+    @Test
+    fun `dismissed suggestions return after clearing the query`() =
+        runIsolatedComposeTest {
+            val intents = mutableListOf<SearchIntent>()
+            setContent {
+                SearchScreenContent(
+                    state =
+                        SearchUiState(
+                            query = FieldOwnedText.empty().seeded("work"),
+                            savedSearches = searches,
+                        ),
+                    onIntent = { intents += it },
+                    navigator = PreviewSearchNavigator(),
+                )
+            }
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+
+            clickTag(TestTags.SEARCH_MODE_CONTAINS)
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+
+            clickTag(TestTags.SEARCH_CLEAR_BUTTON)
+            waitForIdle()
+
+            assertEquals("", intents.filterIsInstance<SearchIntent.OnQueryChange>().last().query)
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+            assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
         }
 
     @Test

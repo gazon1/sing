@@ -32,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -94,25 +93,23 @@ fun SavedSearchesRow(
     onMenuOpenChanged: (Boolean) -> Unit = {},
 ) {
     val suggestions = remember(savedSearches, query) { savedSearchSuggestions(savedSearches, query) }
-    val openMenuIds = remember { mutableStateSetOf<String>() }
+    var openMenuId by remember { mutableStateOf<String?>(null) }
 
     fun updateMenuState(
         id: String,
         expanded: Boolean,
     ) {
-        val wasOpen = openMenuIds.isNotEmpty()
-        if (expanded) {
-            openMenuIds.add(id)
-        } else {
-            openMenuIds.remove(id)
-        }
-        val isOpen = openMenuIds.isNotEmpty()
+        val next = if (expanded) id else if (openMenuId == id) null else openMenuId
+        if (next == openMenuId) return
+        val wasOpen = openMenuId != null
+        openMenuId = next
+        val isOpen = next != null
         if (wasOpen != isOpen) onMenuOpenChanged(isOpen)
     }
 
     LaunchedEffect(showSuggestions) {
-        if (!showSuggestions && openMenuIds.isNotEmpty()) {
-            openMenuIds.clear()
+        if (!showSuggestions && openMenuId != null) {
+            openMenuId = null
             onMenuOpenChanged(false)
         }
     }
