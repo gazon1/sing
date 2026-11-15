@@ -46,12 +46,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -150,21 +151,10 @@ fun SearchScreenContent(
             onTextChanged = { onIntent(SearchIntent.OnQueryChange(it)) },
         )
     val focusManager = LocalFocusManager.current
-    var suggestionsDismissed by remember { mutableStateOf(false) }
-    var inputFocused by remember { mutableStateOf(false) }
-    var suggestionMenuOpen by remember { mutableStateOf(false) }
+    val suggestionVisibility = remember { SearchSuggestionVisibility() }
 
     LaunchedEffect(state.query.text.isEmpty()) {
-        if (state.query.text.isEmpty()) suggestionsDismissed = false
-    }
-
-    LaunchedEffect(inputFocused, suggestionMenuOpen, state.query.text.isNotEmpty(), suggestionsDismissed) {
-        if (state.query.text.isNotEmpty() && !inputFocused && !suggestionMenuOpen && !suggestionsDismissed) {
-            kotlinx.coroutines.delay(150)
-            if (!inputFocused && !suggestionMenuOpen && state.query.text.isNotEmpty()) {
-                suggestionsDismissed = true
-            }
-        }
+        if (state.query.text.isEmpty()) suggestionVisibility.resetForEmptyQuery()
     }
 
     // Back with the keyboard up closes the keyboard and nothing else: leaving the
@@ -209,90 +199,178 @@ fun SearchScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         RefreshableContent {
-            val showSuggestions =
-                state.savedSearches.isNotEmpty() && (state.query.text.isEmpty() || !suggestionsDismissed)
-            Column(modifier = Modifier.padding(padding)) {
-                SearchInputBar(
-                    queryState = queryState,
-                    onFocusChanged = { focused ->
-                        inputFocused = focused
-                        if (focused) suggestionsDismissed = false
-                    },
-                )
+            SearchScreenBody(
+                modifier = Modifier.padding(padding),
+                state = state,
+                onIntent = onIntent,
+                navigator = navigator,
+                queryState = queryState,
+                focusManager = focusManager,
+                suggestionVisibility = suggestionVisibility,
+                onShowSaveDialog = { overlay.show(SearchDialog.Save) },
+                onShowRenameDialog = { id, newName ->
+                    overlay.show(SearchDialog.Rename(id to newName))
+                },
+            )
+        }
+    }
+}
 
-                SearchModeSwitch(
-                    mode = state.mode,
-                    onModeChange = {
-                        suggestionsDismissed = true
-                        focusManager.clearFocus()
-                        onIntent(SearchIntent.OnModeChange(it))
-                    },
-                )
+@Composable
+private fun SearchScreenBody(
+    modifier: Modifier,
+    state: SearchUiState,
+    onIntent: (SearchIntent) -> Unit,
+    navigator: SearchNavigator,
+    queryState: androidx.compose.foundation.text.input.TextFieldState,
+    focusManager: FocusManager,
+    suggestionVisibility: SearchSuggestionVisibility,
+    onShowSaveDialog: () -> Unit,
+    onShowRenameDialog: (SavedSearchId, String) -> Unit,
+) {
+    val queryText = state.query.text
+    val hasSavedSearches = state.savedSearches.isNotEmpty()
+    val showSuggestions = suggestionVisibility.showSuggestions(hasSavedSearches, queryText)
+    Column(modifier = modifier) {
+        SearchInputBar(
+            queryState = queryState,
+            onFocusChanged = { focused -> suggestionVisibility.onInputFocusChanged(focused, queryText) },
+        )
 
-                if (state.savedSearches.isNotEmpty()) {
-                    SavedSearchesRow(
-                        savedSearches = state.savedSearches,
-                        activeSavedSearchId = state.activeSavedSearchId,
-                        onLoadSearch = { id ->
-                            suggestionsDismissed = true
+        SearchModeSwitch(
+            mode = state.mode,
+            onModeChange = {
+                suggestionVisibility.dismiss()
+                focusManager.clearFocus()
+                onIntent(SearchIntent.OnModeChange(it))
+            },
+        )
+
+        if (hasSavedSearches) {
+            SavedSearchesRow(
+                savedSearches = state.savedSearches,
+                activeSavedSearchId = state.activeSavedSearchId,
+                onLoadSearch = { id ->
+                    suggestionVisibility.dismiss()
+                    focusManager.clearFocus()
+                    onIntent(SearchIntent.OnLoadSavedSearch(id))
+                },
+                onSaveClick = onShowSaveDialog,
+                onRename = onShowRenameDialog,
+                onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                query = queryText,
+                showSuggestions = showSuggestions,
+                onMenuOpenChanged = { open -> suggestionVisibility.onMenuOpenChanged(open, queryText) },
+            )
+        }
+
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .dismissSuggestionsOnTap(
+                        enabled = showSuggestions,
+                        onDismiss = {
+                            suggestionVisibility.dismiss()
                             focusManager.clearFocus()
-                            onIntent(SearchIntent.OnLoadSavedSearch(id))
                         },
-                        onSaveClick = { overlay.show(SearchDialog.Save) },
-                        onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
-                        onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
-                        query = state.query.text,
-                        showSuggestions = showSuggestions,
-                        onMenuOpenChanged = { open ->
-                            suggestionMenuOpen = open
-                        },
-                    )
-                }
+                    ),
+        ) {
+            SearchOutcome(
+                content = searchContent(queryText, state.results, state.isSearching),
+                results = state.results,
+                activeFilter = state.activeFilter,
+                projectsById = state.projectsById,
+                navigator = navigator,
+                onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
+                onClearQuery = { queryState.clearText() },
+                onClearFilters = {
+                    // The structured constraints go, the free text and the mode
+                    // stay — and the filter that goes through the intent is the
+                    // one the search runs.
+                    state.activeFilter?.let { filter ->
+                        onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+                    }
+                },
+            )
+        }
+    }
+}
 
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (showSuggestions) {
-                                    Modifier.pointerInput(Unit) {
-                                        awaitPointerEventScope {
-                                            while (true) {
-                                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                                if (event.changes.any { it.changedToDown() }) {
-                                                    suggestionsDismissed = true
-                                                    focusManager.clearFocus()
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                ) {
-                    SearchOutcome(
-                        content = searchContent(state.query.text, state.results, state.isSearching),
-                        results = state.results,
-                        activeFilter = state.activeFilter,
-                        projectsById = state.projectsById,
-                        navigator = navigator,
-                        onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
-                        onClearQuery = { queryState.clearText() },
-                        onClearFilters = {
-                            // The structured constraints go, the free text and the mode
-                            // stay — and the filter that goes through the intent is the
-                            // one the search runs.
-                            state.activeFilter?.let { filter ->
-                                onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
-                            }
-                        },
-                    )
+/**
+ * Local suggestion visibility for the search field.
+ *
+ * Dismissal is transient UI state: selection, focus leaving the input and mode
+ * changes hide the surface, while an open chip menu or a cleared query keeps the
+ * saved searches reachable. Focus loss is not treated as dismissal while a
+ * suggestion menu is open because the menu can temporarily move focus away.
+ */
+private class SearchSuggestionVisibility {
+    var dismissed by mutableStateOf(false)
+        private set
+    var inputFocused by mutableStateOf(false)
+        private set
+    var menuOpen by mutableStateOf(false)
+        private set
+
+    fun showSuggestions(
+        hasSavedSearches: Boolean,
+        query: String,
+    ): Boolean = hasSavedSearches && (query.isEmpty() || !dismissed)
+
+    fun dismiss() {
+        dismissed = true
+    }
+
+    fun resetForEmptyQuery() {
+        dismissed = false
+    }
+
+    fun onInputFocusChanged(
+        focused: Boolean,
+        query: String,
+    ) {
+        inputFocused = focused
+        if (focused) {
+            dismissed = false
+            return
+        }
+        dismissIfIdle(query)
+    }
+
+    fun onMenuOpenChanged(
+        open: Boolean,
+        query: String,
+    ) {
+        menuOpen = open
+        if (!open) dismissIfIdle(query)
+    }
+
+    private fun dismissIfIdle(query: String) {
+        if (!menuOpen && !inputFocused && query.isNotEmpty()) {
+            dismissed = true
+        }
+    }
+}
+
+private fun Modifier.dismissSuggestionsOnTap(
+    enabled: Boolean,
+    onDismiss: () -> Unit,
+): Modifier =
+    if (!enabled) {
+        this
+    } else {
+        pointerInput(onDismiss) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (event.changes.any { it.changedToDownIgnoreConsumed() }) {
+                        onDismiss()
+                    }
                 }
             }
         }
     }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

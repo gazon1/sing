@@ -533,6 +533,7 @@ class SearchViewModelTest {
             vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
             runCurrent()
             assertEquals(SavedSearchId("ss-1"), vm.stateFlow.value.activeSavedSearchId)
+            assertEquals("state:completed", vm.stateFlow.value.query.text)
 
             vm.onIntent(SearchIntent.OnQueryChange("state:completed extra"))
             runCurrent()
@@ -540,6 +541,11 @@ class SearchViewModelTest {
             val state = vm.stateFlow.value
             assertEquals("state:completed extra", state.query.text)
             assertNull(state.activeSavedSearchId)
+            assertEquals(
+                listOf("state:completed"),
+                fakeSavedSearchRepo.allSavedSearches.map { it.queryString },
+                "editing the field must not rewrite the saved search",
+            )
         }
 
     @Test
