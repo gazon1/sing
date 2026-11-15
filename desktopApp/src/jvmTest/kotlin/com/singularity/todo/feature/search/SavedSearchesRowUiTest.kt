@@ -14,6 +14,7 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.clickTagFirst
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.countNodesWithTagInAnyRoot
 import com.singularity.todo.test.helpers.longClickTag
@@ -22,6 +23,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -374,6 +376,59 @@ class SavedSearchesRowUiTest {
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
             assertFalse(countNodesWithTagInAnyRoot(TestTags.SavedSearches.SEARCH_MENU_DELETE) > 0)
+        }
+
+    @Test
+    fun `opening another chip's menu closes the first`() =
+        // One row, one menu. The chip that asked last is the one whose menu is up;
+        // the earlier chip's menu does not stay behind it.
+        runIsolatedComposeTest {
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = rowFixture,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
+            waitForIdle()
+
+            longClickTag(TestTags.SavedSearches.chip("Overdue"))
+            waitForIdle()
+            longClickTag(TestTags.SavedSearches.chip("Work"))
+            waitForIdle()
+
+            // One menu in the tree, and it is the one the second chip asked for.
+            // A second menu would be two nodes in the popup window.
+            assertEquals(1, countNodesWithTagInAnyRoot(TestTags.SavedSearches.SEARCH_MENU_DELETE))
+        }
+
+    @Test
+    fun `renaming from the menu calls back and closes the menu`() =
+        runIsolatedComposeTest {
+            val renamed = mutableListOf<Pair<SavedSearchId, String>>()
+
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = rowFixture,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { id, name -> renamed += id to name },
+                    onDelete = {},
+                )
+            }
+            waitForIdle()
+
+            longClickTag(TestTags.SavedSearches.chip("Overdue"))
+            waitForIdle()
+            clickTagFirst(TestTags.SavedSearches.SEARCH_MENU_RENAME_BUTTON)
+            waitForIdle()
+
+            assertEquals(listOf(rowFixture[0].id to "Overdue"), renamed)
+            awaitTagGone(TestTags.SavedSearches.SEARCH_MENU_DELETE)
         }
 
     private val rowFixture =

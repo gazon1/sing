@@ -11,10 +11,15 @@ import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.nav.PreviewSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -25,6 +30,7 @@ import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagFirst
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.countNodesWithTagInAnyRoot
 import com.singularity.todo.test.helpers.dragUpOnTag
 import com.singularity.todo.test.helpers.longClickTag
@@ -38,6 +44,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+
+// The domain `Tag` shares its name with JUnit's annotation, and the annotation is
+// the one this file spells the usual way: `@Tag("slow")` on the class.
+private typealias TagRecord = com.singularity.todo.feature.tags.Tag
 
 @Tag("slow")
 @Tag("slow:compose")
@@ -70,6 +80,35 @@ class SearchSuggestionInteractionUiTest {
             userId = UserId("user-a"),
         )
 
+    private fun note(title: String) =
+        Note(
+            id = NoteId("n-${title.lowercase().replace(' ', '-')}"),
+            userId = UserId("user-a"),
+            title = title,
+            createdAt = now,
+            updatedAt = now,
+        )
+
+    private fun project(name: String) =
+        Project(
+            id = ProjectId("p-${name.lowercase().replace(' ', '-')}"),
+            name = name,
+            color = 0,
+            createdAt = now,
+            updatedAt = now,
+            userId = UserId("user-a"),
+        )
+
+    private fun tag(name: String) =
+        TagRecord(
+            id = TagId("g-${name.lowercase().replace(' ', '-')}"),
+            name = name,
+            color = 0,
+            createdAt = now,
+            updatedAt = now,
+            userId = UserId("user-a"),
+        )
+
     private fun resultsOf(vararg titles: String) =
         SearchResults(
             tasks = titles.map { IndexedRecord(task(it)) }.toImmutableList(),
@@ -81,9 +120,24 @@ class SearchSuggestionInteractionUiTest {
     /** A navigator that remembers what the screen asked it to open. */
     private class RecordingSearchNavigator : SearchNavigator({}) {
         val openedTasks = mutableListOf<TaskId>()
+        val openedNotes = mutableListOf<NoteId>()
+        val openedProjects = mutableListOf<ProjectId>()
+        val openedTags = mutableListOf<TagId>()
 
         override fun openTask(taskId: TaskId) {
             openedTasks += taskId
+        }
+
+        override fun openNote(noteId: NoteId) {
+            openedNotes += noteId
+        }
+
+        override fun openProject(projectId: ProjectId) {
+            openedProjects += projectId
+        }
+
+        override fun openTag(tagId: TagId) {
+            openedTags += tagId
         }
     }
 
@@ -441,11 +495,81 @@ class SearchSuggestionInteractionUiTest {
             assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
         }
 
+    /**
+     * A result is a control of its own, and the dismissal must not take its click.
+     *
+     * All four kinds are exercised because each draws its own `onClick`: a wiring
+     * missed in one of them would open the record and leave the row over the answer
+     * the person just opened. The project and the tag are the same card, but the
+     * callback is a different one, so each is asked.
+     */
     @Test
-    fun `tapping a result dismisses suggestions and navigates`() =
+    fun `every kind of result navigates and dismisses the suggestions`() =
+        runIsolatedComposeTest {
+            val navigator = RecordingSearchNavigator()
+            val task = task("Buy milk")
+            val note = note("Note one")
+            val project = project("Project one")
+            val tag = tag("Tag one")
+            setContent {
+                SearchScreenContent(
+                    state =
+                        SearchUiState(
+                            query = FieldOwnedText.empty().seeded("work"),
+                            savedSearches = searches,
+                            results =
+                                SearchResults(
+                                    tasks = persistentListOf(IndexedRecord(task)),
+                                    notes = persistentListOf(IndexedRecord(note)),
+                                    projects = persistentListOf(IndexedRecord(project)),
+                                    tags = persistentListOf(IndexedRecord(tag)),
+                                ),
+                        ),
+                    onIntent = {},
+                    navigator = navigator,
+                )
+            }
+
+            fun showSuggestionsAgain() {
+                clickTag(TestTags.SEARCH_INPUT)
+                waitForIdle()
+                assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+            }
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
+            clickTag(TestTags.taskItem("Buy milk"))
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+            assertEquals(listOf(task.id), navigator.openedTasks)
+
+            showSuggestionsAgain()
+            clickText("Note one")
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+            assertEquals(listOf(note.id), navigator.openedNotes)
+
+            showSuggestionsAgain()
+            clickText("Project one")
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+            assertEquals(listOf(project.id), navigator.openedProjects)
+
+            showSuggestionsAgain()
+            clickText("Tag one")
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Work"))
+            assertEquals(listOf(tag.id), navigator.openedTags)
+        }
+
+    /**
+     * A pin is a control inside a result card, not the card: the action runs and
+     * the row stays. A results-wide tap handler that swallowed the button would
+     * lose the pin.
+     */
+    @Test
+    fun `pinning a result runs the action and keeps the suggestions`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            val navigator = RecordingSearchNavigator()
             val task = task("Buy milk")
             setContent {
                 SearchScreenContent(
@@ -462,21 +586,19 @@ class SearchSuggestionInteractionUiTest {
                                 ),
                         ),
                     onIntent = { intents += it },
-                    navigator = navigator,
+                    navigator = PreviewSearchNavigator(),
                 )
             }
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
-            clickTag(TestTags.taskItem("Buy milk"))
+            clickTag(TestTags.TASK_CARD_PIN_BUTTON)
             waitForIdle()
 
-            awaitTagGone(TestTags.SavedSearches.chip("Work"))
-            assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
-            assertEquals(listOf(task.id), navigator.openedTasks)
             assertEquals(
-                emptyList<SearchIntent.OnQueryChange>(),
-                intents.filterIsInstance<SearchIntent.OnQueryChange>(),
+                listOf(task.id),
+                intents.filterIsInstance<SearchIntent.OnTogglePin>().map { it.taskId },
             )
+            assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
         }
 
     @Test
