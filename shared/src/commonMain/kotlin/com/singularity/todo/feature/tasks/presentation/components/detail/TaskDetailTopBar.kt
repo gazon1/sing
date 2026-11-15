@@ -77,7 +77,7 @@ fun TaskDetailTopBar(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.testTag(TestTags.TASK_DETAIL_BAR_TITLE),
+                    textModifier = Modifier.testTag(TestTags.TASK_DETAIL_BAR_TITLE),
                 )
             }
         },

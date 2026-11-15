@@ -321,9 +321,12 @@ private fun RowScope.TitleText(
     onClick: () -> Unit,
 ) {
     val title = titleState.text.toString()
-    val baseModifier =
+    // The tag and the description belong to the node a test or a flow reads the
+    // title from, so they ride on the text. The weight belongs to the row, so it
+    // rides on the block: a weight on the text inside `LinkifiedText` would resolve
+    // against the selection container rather than against the row.
+    val textModifier =
         Modifier
-            .weight(1f)
             .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
             .semantics { contentDescription = "Task title" }
     if (title.isEmpty()) {
@@ -333,7 +336,11 @@ private fun RowScope.TitleText(
             color = placeholderTextColor(),
             maxLines = TITLE_MAX_LINES,
             overflow = TextOverflow.Ellipsis,
-            modifier = baseModifier.clickable(onClick = onClick),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .then(textModifier)
+                    .clickable(onClick = onClick),
         )
     } else {
         LinkifiedText(
@@ -343,7 +350,8 @@ private fun RowScope.TitleText(
             maxLines = TITLE_MAX_LINES,
             overflow = TextOverflow.Ellipsis,
             onClick = onClick,
-            modifier = baseModifier,
+            modifier = Modifier.weight(1f),
+            textModifier = textModifier,
         )
     }
 }

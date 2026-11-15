@@ -1,30 +1,19 @@
 package com.singularity.todo.core.ui.text
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -40,13 +29,30 @@ import androidx.compose.ui.text.style.TextOverflow
  * inside. The text is selectable: a person who wants to copy a sentence that
  * contains a link should not have to give up the link to do it.
  *
- * When [onClick] is provided, taps on plain text invoke it while taps on links
- * still open/navigate the link.
+ * When [onClick] is provided, a tap on plain text invokes it while a tap on a link
+ * still opens or navigates that link. The split is Compose's own: each link is laid
+ * over its range as a child that takes the tap for itself, so the text's
+ * [clickable] never sees a tap that landed on a link.
+ *
+ * @param text the text to show.
+ * @param modifier applied to the selection container: the layout of the block as a
+ *   whole. A `weight` belongs here, because it resolves against the parent row only
+ *   while it is on the row's own child.
+ * @param textModifier applied to the text itself — its test tag, its semantics, its
+ *   identity. A tag here names the node a test or a flow reads the text from.
+ * @param style the text style.
+ * @param color the text colour.
+ * @param maxLines the maximum number of lines.
+ * @param overflow how to render text that does not fit.
+ * @param onClick what a tap on plain text does, or null for text that is only read.
+ * @param onInternalLink what to do with an internal link. Defaults to the handler
+ *   provided by [LocalInternalLinkHandler].
  */
 @Composable
 fun LinkifiedText(
     text: String,
     modifier: Modifier = Modifier,
+    textModifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current,
     color: Color = Color.Unspecified,
     maxLines: Int = Int.MAX_VALUE,
@@ -55,54 +61,22 @@ fun LinkifiedText(
     onInternalLink: InternalLinkHandler = LocalInternalLinkHandler.current,
 ) {
     val spans = remember(text) { TextLinkDetector.detect(text) }
-    val onTextClickState = rememberUpdatedState(onClick)
-    val internalHandlerState = rememberUpdatedState(onInternalLink)
-    val uriHandlerState = rememberUpdatedState(rememberAppUriHandler(onInternalLink))
+    val handler by rememberUpdatedState(onInternalLink)
+    val uriHandler = rememberAppUriHandler(onInternalLink)
     val primary = MaterialTheme.colorScheme.primary
     val linkStyles =
         remember(primary) {
             TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
         }
-    val dispatchLinksByAnnotation = onClick == null
     val annotated =
-        remember(text, spans, linkStyles, dispatchLinksByAnnotation) {
+        remember(text, spans, linkStyles, uriHandler) {
             buildLinkifiedAnnotated(
                 text = text,
                 spans = spans,
                 linkStyles = linkStyles,
-                dispatchLinks = dispatchLinksByAnnotation,
-                onWeb = { uriHandlerState.value.openUri(it) },
-                onInternal = { internalHandlerState.value(it) },
+                onWeb = { uriHandler.openUri(it) },
+                onInternal = { handler(it) },
             )
-        }
-    var layout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
-    val tapModifier =
-        when {
-            onClick == null -> {
-                Modifier
-            }
-
-            spans.isEmpty() -> {
-                Modifier.clickable { onTextClickState.value?.invoke() }
-            }
-
-            else -> {
-                Modifier
-                    .semantics {
-                        onClick {
-                            onTextClickState.value?.invoke()
-                            true
-                        }
-                    }.pointerInput(text, spans) {
-                        detectLinkifiedTap(
-                            layout = { layout },
-                            spans = spans,
-                            onWeb = { uriHandlerState.value.openUri(it) },
-                            onInternal = { internalHandlerState.value(it) },
-                            onText = { onTextClickState.value?.invoke() },
-                        )
-                    }
-            }
         }
     SelectionContainer(modifier = modifier) {
         Text(
@@ -111,17 +85,22 @@ fun LinkifiedText(
             color = color,
             maxLines = maxLines,
             overflow = overflow,
-            onTextLayout = { layout = it },
-            modifier = tapModifier,
+            modifier = if (onClick == null) textModifier else textModifier.clickable(onClick = onClick),
         )
     }
 }
 
+/**
+ * The text with each detected link attached to its range.
+ *
+ * Every link carries its own interaction listener: a link without one is a coloured
+ * range that does nothing when tapped, and an accessibility service is handed that
+ * same nothing. Null when the text has no links, so the caller draws plain text.
+ */
 private fun buildLinkifiedAnnotated(
     text: String,
     spans: List<TextLinkSpan>,
     linkStyles: TextLinkStyles,
-    dispatchLinks: Boolean,
     onWeb: (String) -> Unit,
     onInternal: (TextLink.Internal) -> Unit,
 ): AnnotatedString? {
@@ -137,7 +116,7 @@ private fun buildLinkifiedAnnotated(
                         LinkAnnotation.Url(
                             url = link.url,
                             styles = linkStyles,
-                            linkInteractionListener = if (dispatchLinks) ({ onWeb(link.url) }) else null,
+                            linkInteractionListener = { onWeb(link.url) },
                         ),
                         start,
                         end,
@@ -149,7 +128,7 @@ private fun buildLinkifiedAnnotated(
                         LinkAnnotation.Clickable(
                             tag = link.target.url,
                             styles = linkStyles,
-                            linkInteractionListener = if (dispatchLinks) ({ onInternal(link) }) else null,
+                            linkInteractionListener = { onInternal(link) },
                         ),
                         start,
                         end,
@@ -159,76 +138,3 @@ private fun buildLinkifiedAnnotated(
         }
     }
 }
-
-private suspend fun PointerInputScope.detectLinkifiedTap(
-    layout: () -> TextLayoutResult?,
-    spans: List<TextLinkSpan>,
-    onWeb: (String) -> Unit,
-    onInternal: (TextLink.Internal) -> Unit,
-    onText: () -> Unit,
-) {
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        val up = waitForUpOrCancellation() ?: return@awaitEachGesture
-        if (!isQuickTap(down.position, up.position, up.uptimeMillis - down.uptimeMillis)) {
-            return@awaitEachGesture
-        }
-        val result = layout() ?: return@awaitEachGesture
-        val downLink = result.linkAt(down.position, spans)
-        val upLink = result.linkAt(up.position, spans)
-        when {
-            downLink != null && downLink == upLink -> {
-                when (downLink) {
-                    is TextLink.Web -> onWeb(downLink.url)
-                    is TextLink.Internal -> onInternal(downLink)
-                }
-            }
-
-            downLink == null && upLink == null -> {
-                onText()
-            }
-
-            else -> {
-                Unit
-            }
-        }
-    }
-}
-
-private fun TextLayoutResult.linkAt(
-    position: Offset,
-    spans: List<TextLinkSpan>,
-): TextLink? {
-    val plainText = layoutInput.text.text
-    if (plainText.isEmpty() || lineCount == 0) return null
-    if (position.y < 0f || position.y > size.height.toFloat()) return null
-    val clampedY = position.y.coerceIn(0f, (size.height - 1).coerceAtLeast(0).toFloat())
-    val line = getLineForVerticalPosition(clampedY).coerceIn(0, lineCount - 1)
-    if (position.x < getLineLeft(line) || position.x > getLineRight(line)) return null
-    val visibleEnd = getLineEnd(line, visibleEnd = true)
-    if (visibleEnd <= 0) return null
-    val rawOffset = getOffsetForPosition(position).coerceIn(0, plainText.length)
-    val candidates = listOf(rawOffset, rawOffset - 1).distinct().filter { it in plainText.indices }
-    for (offset in candidates) {
-        if (offset >= visibleEnd) continue
-        val span = spans.firstOrNull { offset in it.range } ?: continue
-        val box = getBoundingBox(offset)
-        if (
-            position.x >= box.left &&
-            position.x <= box.right &&
-            position.y >= box.top &&
-            position.y <= box.bottom
-        ) {
-            return span.link
-        }
-    }
-    return null
-}
-
-private fun PointerInputScope.isQuickTap(
-    start: Offset,
-    end: Offset,
-    durationMs: Long,
-): Boolean =
-    (end - start).getDistance() < viewConfiguration.touchSlop &&
-        durationMs < viewConfiguration.longPressTimeoutMillis

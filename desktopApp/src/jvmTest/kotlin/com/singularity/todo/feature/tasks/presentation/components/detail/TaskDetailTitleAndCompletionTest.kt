@@ -12,8 +12,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -307,7 +309,7 @@ class TaskDetailTitleAndCompletionTest {
         }
 
     @Test
-    fun `dragging over a linked title does not open the link or enter edit mode`() =
+    fun `a drag across a link from plain text does not open the link`() =
         runIsolatedComposeTest(width = 360, height = 800) {
             val opened = mutableListOf<String>()
             setContent {
@@ -319,22 +321,111 @@ class TaskDetailTitleAndCompletionTest {
                             }
                         },
                 ) {
-                    editor(title = "https://example.com")
+                    editor(title = "Visit https://a.test")
+                }
+            }
+
+            // The drag starts on "Visit " and crosses the address. A link takes only a
+            // tap that begins and ends inside its own range, so crossing it is not a
+            // tap on it. (Whether the drag opens the field is `clickable`'s question
+            // and is the same as it was before the title was linkified.)
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTouchInput {
+                down(Offset(2f, 12f))
+                moveTo(Offset(width - 2f, 12f))
+                up()
+            }
+            assertTrue(opened.isEmpty(), "a drag must not activate link: $opened")
+        }
+
+    @Test
+    fun `long pressing plain text does not turn the title into a field`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val opened = mutableListOf<String>()
+            setContent {
+                CompositionLocalProvider(
+                    LocalUriHandler provides
+                        object : UriHandler {
+                            override fun openUri(uri: String) {
+                                opened += uri
+                            }
+                        },
+                ) {
+                    // Short enough for one line, so the left edge is plain text on the
+                    // line the press lands on: a wrapped title puts the address under
+                    // the middle of the node.
+                    editor(title = "Visit https://a.test")
+                }
+            }
+
+            // A long press on plain text belongs to selection, not to tapping.
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTouchInput {
+                longClick(Offset(2f, 12f))
+            }
+            assertTrue(opened.isEmpty(), "a long press must not activate link: $opened")
+            assertTrue(
+                !awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+                    .fetchSemanticsNode()
+                    .config
+                    .contains(SemanticsProperties.EditableText),
+                "a long press must not turn the title into a field",
+            )
+        }
+
+    @Test
+    fun `tapping an internal link in the hero title opens it and does not enter edit mode`() =
+        runIsolatedComposeTest(width = 360, height = 800) {
+            val opened = mutableListOf<String>()
+            setContent {
+                CompositionLocalProvider(
+                    LocalInternalLinkHandler provides { opened += it.target.url },
+                ) {
+                    editor(title = "note://abc123")
                 }
             }
 
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTouchInput {
-                down(Offset(width * 0.2f, height / 2f))
-                moveTo(Offset(width * 0.8f, height / 2f))
-                up()
+                click(Offset(width * 0.2f, height / 2f))
             }
-            assertTrue(opened.isEmpty(), "drag must not activate link: $opened")
 
-            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTouchInput {
-                click(Offset(width - 4f, height / 2f))
+            assertEquals(listOf("note://abc123"), opened)
+            assertTrue(
+                !awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+                    .fetchSemanticsNode()
+                    .config
+                    .contains(SemanticsProperties.EditableText),
+                "a link tap must not enter edit mode",
+            )
+        }
+
+    @Test
+    fun `linkified text routes an internal link while a text click is set`() =
+        runIsolatedComposeTest(width = 360, height = 200) {
+            val internal = mutableListOf<String>()
+            val platform = mutableListOf<String>()
+            val textClicks = mutableListOf<String>()
+            setContent {
+                CompositionLocalProvider(
+                    LocalInternalLinkHandler provides { internal += it.target.url },
+                    LocalUriHandler provides
+                        object : UriHandler {
+                            override fun openUri(uri: String) {
+                                platform += uri
+                            }
+                        },
+                ) {
+                    LinkifiedText(
+                        text = "note://abc123",
+                        modifier = Modifier.testTag(LINK_TAG),
+                        onClick = { textClicks += "text" },
+                    )
+                }
             }
-            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("edited")
-            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "edited")
+
+            awaitTag(LINK_TAG).performTouchInput { click(Offset(60f, 12f)) }
+
+            assertEquals(listOf("note://abc123"), internal)
+            assertTrue(platform.isEmpty(), "an internal link must not leave the app: $platform")
+            assertTrue(textClicks.isEmpty(), "a link tap must not count as a text tap: $textClicks")
         }
 
     @Test
