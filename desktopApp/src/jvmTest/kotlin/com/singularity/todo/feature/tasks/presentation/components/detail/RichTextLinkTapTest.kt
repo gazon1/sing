@@ -13,6 +13,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
+import com.singularity.todo.core.ui.text.rememberAppUriHandler
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
@@ -79,7 +80,36 @@ class RichTextLinkTapTest {
             }
         }
 
+    @Test
+    fun `an internal link is dispatched through the app handler`() =
+        runIsolatedComposeTest {
+            var opened: String? = null
+            setContent {
+                SingularityTheme {
+                    val state =
+                        remember {
+                            RichTextState().apply {
+                                setHtml("""<p><a href="note://n1">note</a></p>""")
+                            }
+                        }
+                    val appHandler = rememberAppUriHandler { link -> opened = link.target.url }
+                    CompositionLocalProvider(LocalUriHandler provides appHandler) {
+                        RichText(
+                            state = state,
+                            modifier = Modifier.testTag(INTERNAL_TAG),
+                        )
+                    }
+                }
+            }
+
+            awaitTag(INTERNAL_TAG).performTouchInput { click(Offset(4f, center.y)) }
+            runOnIdle {
+                assertEquals("note://n1", opened, "the internal link was not dispatched")
+            }
+        }
+
     private companion object {
         const val TAG = "rich-description"
+        const val INTERNAL_TAG = "rich-internal-description"
     }
 }

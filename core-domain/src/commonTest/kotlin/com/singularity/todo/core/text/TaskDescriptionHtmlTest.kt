@@ -89,4 +89,51 @@ class TaskDescriptionHtmlTest {
 
         assertEquals("Visible", TaskDescriptionHtml.htmlToPlainText(html))
     }
+
+    @Test
+    fun `common named entities decode`() {
+        assertEquals(
+            "© € ™ £ ¥ ¢ « » • ′ −",
+            TaskDescriptionHtml.htmlToPlainText(
+                "<p>&copy; &euro; &trade; &pound; &yen; &cent; &laquo; &raquo; &bull; &prime; &minus;</p>",
+            ),
+        )
+    }
+
+    @Test
+    fun `an emoji numeric entity decodes as a surrogate pair`() {
+        assertEquals("\uD83D\uDE00", TaskDescriptionHtml.htmlToPlainText("&#x1F600;"))
+    }
+
+    @Test
+    fun `a lone surrogate is left literal instead of producing invalid text`() {
+        assertEquals("&#xD800;", TaskDescriptionHtml.htmlToPlainText("&#xD800;"))
+        assertEquals("&#xDFFF;", TaskDescriptionHtml.htmlToPlainText("&#xDFFF;"))
+    }
+
+    @Test
+    fun `nbsp collapses to a space`() {
+        assertEquals("A B", TaskDescriptionHtml.htmlToPlainText("A&nbsp;B"))
+    }
+
+    @Test
+    fun `nested blocks keep their line order`() {
+        assertEquals(
+            "one\ntwo\nthree",
+            TaskDescriptionHtml.htmlToPlainText("<blockquote><p>one</p><p>two</p></blockquote><p>three</p>"),
+        )
+    }
+
+    @Test
+    fun `plain text to html round-trips through the projection`() {
+        val text = "Tom & Jerry < 3\nsecond line"
+        val html = TaskDescriptionHtml.plainTextToHtml(text)
+
+        assertEquals(text, TaskDescriptionHtml.htmlToPlainText(html))
+    }
+
+    @Test
+    fun `a malformed numeric entity is left literal`() {
+        assertEquals("&#xZZ;", TaskDescriptionHtml.htmlToPlainText("&#xZZ;"))
+    }
 }

@@ -266,6 +266,18 @@ private val NAMED_ENTITIES: Map<String, String> =
         "hellip" to "\u2026",
         "rarr" to "\u2192",
         "larr" to "\u2190",
+        "copy" to "\u00A9",
+        "reg" to "\u00AE",
+        "trade" to "\u2122",
+        "euro" to "\u20AC",
+        "pound" to "\u00A3",
+        "yen" to "\u00A5",
+        "cent" to "\u00A2",
+        "laquo" to "\u00AB",
+        "raquo" to "\u00BB",
+        "bull" to "\u2022",
+        "prime" to "\u2032",
+        "minus" to "\u2212",
     )
 
 private fun decodeNumericEntity(entity: String): String? {
@@ -281,6 +293,10 @@ private fun decodeNumericEntity(entity: String): String? {
             return null
         }
     if (codePoint !in 0..0x10FFFF) return null
+    // A lone surrogate is not a character: it cannot be encoded, and letting it
+    // through would put invalid text into the plain projection. The entity stays
+    // literal instead.
+    if (codePoint in 0xD800..0xDFFF) return null
     return if (codePoint <= 0xFFFF) {
         codePoint.toChar().toString()
     } else {

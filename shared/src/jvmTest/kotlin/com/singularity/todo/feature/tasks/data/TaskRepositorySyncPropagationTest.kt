@@ -27,6 +27,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -269,6 +270,37 @@ class TaskRepositorySyncPropagationTest {
         }
 
     // ── REQ-WP-020: outgoing links are persisted on the source entity ───────────
+
+    @Test
+    fun `a plain-only update drops the stale rich description`() =
+        runTest {
+            repo.create(
+                task(id = "t1", description = "Old").copy(
+                    descriptionHtml = "<p><strong>Old</strong></p>",
+                ),
+            )
+            assertEquals(
+                "<p><strong>Old</strong></p>",
+                db.taskDao().getByIdForUser("t1", user.value)?.descriptionHtml,
+            )
+
+            // A writer that only knows plain text: the HTML field is absent, and
+            // the old rendering must not survive the write.
+            val result =
+                repo.update(
+                    task(id = "t1", description = "New").copy(
+                        userId = user,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now(),
+                    ),
+                )
+            assertTrue(result.isSuccess, "update failed: ${result.exceptionOrNull()}")
+
+            val stored = db.taskDao().getByIdForUser("t1", user.value)
+            assertNotNull(stored)
+            assertEquals("New", stored.description)
+            assertNull(stored.descriptionHtml, "the stale HTML must not survive a plain-only write")
+        }
 
     @Test
     fun `create with task link persists outgoing_links on the created task`() =
