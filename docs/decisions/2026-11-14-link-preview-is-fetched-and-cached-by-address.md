@@ -146,7 +146,11 @@ the redirect, TLS or hostname checks to get it.
   mostly-unassigned space outside global unicast (`4000::/3`) and — worse — to 6to4,
   whose `2002:7f00:1::` is 127.0.0.1 wearing an IPv6 address. Only `2000::/3` is
   allowed, and the four prefixes that carry an IPv4 address (mapped, compatible,
-  NAT64, 6to4) are judged by the address they carry.
+  NAT64, 6to4) are judged by the address they carry. Global unicast is not uniform:
+  the special-purpose registry marks some blocks inside it as not globally reachable,
+  so documentation `3fff::/20`, benchmarking `2001:2::/48` and the deprecated ORCHID
+  prefix `2001:10::/28` are refused by name. Blocks inside it that *are* globally
+  reachable (ORCHIDv2, the DETs prefix, the anycast and AS112 addresses) stay allowed.
 - **Eviction owns its files.** `LinkPreviewCache.put` deletes the images of the entries
   it evicts, rather than reporting them to the caller. The first version reported
   *addresses* where the caller needed *keys*, so every evicted image leaked — a file
@@ -158,7 +162,10 @@ the redirect, TLS or hostname checks to get it.
   its answer is discarded. Otherwise a card appeared after the user had asked for none.
 - **Dot segments, and only dot segments.** `removeDotSegments` keeps empty segments:
   `/a//b` and `/a/b` are two resources on a server that distinguishes them, and
-  collapsing them is rewriting the address rather than normalising it.
+  collapsing them is rewriting the address rather than normalising it. It follows
+  RFC 3986 §5.2.4's loop rather than splitting on `/` and popping the last piece: the
+  root is a floor, so `/../a` is `/a` (not `a`, which glued the host to the path), and
+  a trailing `/.` or `/..` keeps its slash, so `/a/.` is `/a/` and `/a/..` is `/`.
 - **A cancelled owner ends its flight.** `fetchOnce` cancels the deferred in a
   `finally`, so a waiter cannot outlive the fetch it waits on; the waiter then takes
   the work over rather than inheriting somebody else's cancellation.

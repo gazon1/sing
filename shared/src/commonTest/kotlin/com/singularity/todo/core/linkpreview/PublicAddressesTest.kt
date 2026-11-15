@@ -46,8 +46,19 @@ class PublicAddressesTest {
                 Arguments.of("2002:7f00:1::1"),
                 Arguments.of("2002:a00:1::1"),
                 Arguments.of("2002::1"),
-                // Outside global unicast 2000::/3 and unassigned by anyone.
+                // Special-purpose blocks that sit *inside* global unicast 2000::/3 but
+                // are not globally reachable: documentation 3fff::/20, benchmarking
+                // 2001:2::/48, the deprecated ORCHID prefix 2001:10::/28.
+                Arguments.of("3fff::1"),
+                Arguments.of("3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff"),
+                Arguments.of("2001:2::1"),
+                Arguments.of("2001:2:0:ffff:ffff:ffff:ffff:ffff"),
+                Arguments.of("2001:10::1"),
+                Arguments.of("2001:1f:ffff:ffff:ffff:ffff:ffff:ffff"),
+                // Outside global unicast 2000::/3 (unassigned space, deprecated
+                // site-local, SRv6 SIDs) and Teredo inside it.
                 Arguments.of("4000::1"),
+                Arguments.of("5f00::1"),
                 Arguments.of("fec0::1"),
                 Arguments.of("2001::1"),
                 Arguments.of("not-an-address"),
@@ -62,6 +73,19 @@ class PublicAddressesTest {
                 Arguments.of("172.32.0.1"),
                 Arguments.of("2606:2800:220:1:248:1893:25c8:1946"),
                 Arguments.of("2a00:1450:4001:80f::200e"),
+                // Just past the non-global blocks: the end of 3fff::/20 is 3fff:0fff:…,
+                // so 3fff:1000:: is ordinary global unicast; 2001:2::/48 ends at
+                // 2001:2:0:ffff:…; ORCHIDv2 2001:20::/28 is globally reachable (only the
+                // deprecated 2001:10::/28 is refused).
+                Arguments.of("3fff:1000::1"),
+                Arguments.of("2001:2:1::1"),
+                Arguments.of("2001:20::1"),
+                Arguments.of("2001:30::1"),
+                // Globally reachable allocations inside the 2001::/23 protocol block:
+                // the PCP/TURN/DNS-SD anycast addresses, AMT, and AS112-v6.
+                Arguments.of("2001:1::1"),
+                Arguments.of("2001:3::1"),
+                Arguments.of("2001:4:112::1"),
             )
     }
 

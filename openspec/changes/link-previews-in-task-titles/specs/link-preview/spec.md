@@ -41,20 +41,34 @@ the others stay in the title untouched.
 
 ### Requirement: REQ-LINKPREVIEW-002
 
-A preview **MUST NOT** reach a non-public address, and **MUST** judge every redirect
-target as well as the address the title names.
+A preview **MUST NOT** make a request to a non-public address: every address it
+obtains — the typed host, every address a name resolves to, and every redirect
+target — **MUST** be judged before the request, and no request **MUST** go out when
+any such address is non-public.
 
 **Rationale:** the address is untrusted input. A page that answers with a redirect
 to a loopback address is the attack this rule exists for, and judging only the typed
 address lets it through.
 
-Only global unicast is reachable. An address in a form that carries an IPv4 address
-(mapped, compatible, NAT64, 6to4) is judged by the address it carries, so
-`2002:7f00:1::` is loopback and is refused.
+Only global unicast is reachable, and inside it the blocks the registries mark not
+globally reachable are refused as well — documentation (`2001:db8::/32`, `3fff::/20`),
+benchmarking (`2001:2::/48`), the discarded and deprecated prefixes, and Teredo. An
+address in a form that carries an IPv4 address (mapped, compatible, NAT64, 6to4) is
+judged by the address it carries, so `2002:7f00:1::` is loopback and is refused.
 
-**Test coverage:** `PublicAddressesTest` (every spelling of a private address),
-`PageFetcherTest` (a redirect into the local network is refused and the target is
-not requested at all).
+**Known limitation — DNS rebinding.** The judgement happens before the connection,
+and the transport resolves the name again to open it. A DNS answer that changes
+between the two therefore reaches an address the fetch did not judge. Closing this
+needs a transport pinned to a judged address while keeping the name for `Host`, TLS
+SNI and certificate verification; Ktor does not expose that, and hand-writing one for
+a decorative card is the larger risk. The limitation is accepted in
+`docs/decisions/2026-11-14-link-preview-is-fetched-and-cached-by-address.md`; a
+deployment that needs the stronger property must add the pinned transport.
+
+**Test coverage:** `PublicAddressesTest` (every spelling of a private address, and the
+non-global blocks inside global unicast), `PublicAddressesOracleTest` (the policy
+against the IANA special-purpose blocks), `PageFetcherTest` (a redirect into the local
+network is refused and the target is not requested at all).
 
 #### Scenario: A redirect into the local network is refused
 
@@ -68,6 +82,13 @@ not requested at all).
 - **Given** a title naming `http://[2002:7f00:1::1]/`
 - **When** the preview is fetched
 - **Then** it is refused, because 6to4 carries 127.0.0.1 inside it
+
+#### Scenario: A non-global block inside global unicast is refused
+
+- **Given** a title naming `http://[3fff::1]/` or `http://[2001:2::1]/`
+- **When** the preview is fetched
+- **Then** it is refused, because documentation `3fff::/20` and benchmarking
+  `2001:2::/48` are inside `2000::/3` but are not globally reachable
 
 #### Scenario: A redirect to an address carrying credentials is refused
 

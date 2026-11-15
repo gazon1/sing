@@ -177,6 +177,12 @@ object PublicAddresses {
      * for one. Global unicast is `2000::/3`; everything else is refused unless it is a
      * form that *carries* an IPv4 address, which is then judged as that address.
      *
+     * Global unicast is not uniform either: the special-purpose registry marks blocks
+     * inside it as not globally reachable — documentation `3fff::/20`, benchmarking
+     * `2001:2::/48`, the deprecated ORCHID prefix `2001:10::/28` — and those are refused
+     * by name. The blocks inside it that *are* globally reachable (ORCHIDv2, the DETs
+     * prefix, the anycast and AS112 addresses) are deliberately left alone.
+     *
      * ## The embedded forms
      *
      * Four prefixes put an IPv4 address inside an IPv6 one, and each is judged by the
@@ -214,18 +220,8 @@ object PublicAddresses {
                 isPublicIv4(intArrayOf(groups[1] shr 8, groups[1] and 0xff, groups[2] shr 8, groups[2] and 0xff))
             }
 
-            // Teredo 2001::/32 — the embedded address is the client's, behind a relay.
-            isPrefix(groups, 0x2001, 0x0000) -> {
-                false
-            }
-
-            // Documentation 2001:db8::/32.
-            isPrefix(groups, 0x2001, 0x0db8) -> {
-                false
-            }
-
-            // Discard 100::/64.
-            first == 0x0100 && groups[1] == 0 && groups[2] == 0 && groups[3] == 0 -> {
+            // Teredo, documentation, benchmarking, deprecated ORCHID, discard.
+            isSpecialPurpose(groups) -> {
                 false
             }
 
@@ -249,8 +245,60 @@ object PublicAddresses {
                 false
             }
 
-            // Global unicast is 2000::/3 and nothing else in this space is handed out.
+            // Global unicast 2000::/3, less the non-global special blocks refused above.
             first and 0xe000 == 0x2000 -> {
+                true
+            }
+
+            else -> {
+                false
+            }
+        }
+    }
+
+    /**
+     * Whether [groups] is a special-purpose block a preview must not reach.
+     *
+     * The special-purpose registry marks blocks inside global unicast as not globally
+     * reachable too, so the allowlist has to name them: documentation `2001:db8::/32`
+     * and `3fff::/20`, benchmarking `2001:2::/48`, and the deprecated ORCHID prefix
+     * `2001:10::/28`. Teredo is here because the address it carries belongs to the
+     * client behind a relay, and `100::/64` because it is discarded by protocol.
+     *
+     * The blocks inside global unicast that *are* globally reachable — ORCHIDv2
+     * `2001:20::/28`, the DETs prefix `2001:30::/28`, the anycast addresses and
+     * AS112-v6 — are deliberately absent and fall through to the allowlist.
+     */
+    private fun isSpecialPurpose(groups: IntArray): Boolean {
+        val first = groups[0]
+        return when {
+            // Teredo 2001::/32 — the embedded address is the client's, behind a relay.
+            isPrefix(groups, 0x2001, 0x0000) -> {
+                true
+            }
+
+            // Documentation 2001:db8::/32.
+            isPrefix(groups, 0x2001, 0x0db8) -> {
+                true
+            }
+
+            // Benchmarking 2001:2::/48.
+            isPrefix(groups, 0x2001, 0x0002) && groups[2] == 0 -> {
+                true
+            }
+
+            // Deprecated ORCHID prefix 2001:10::/28.
+            first == 0x2001 && groups[1] and 0xfff0 == 0x0010 -> {
+                true
+            }
+
+            // Documentation 3fff::/20, assigned by IANA in 2024.
+            first == 0x3fff && groups[1] <= 0x0fff -> {
+                true
+            }
+
+            // Discard 100::/64.
+            first == 0x0100 && groups[1] == 0 && groups[2] == 0 && groups[3] == 0 -> {
                 true
             }
 

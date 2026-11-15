@@ -169,4 +169,21 @@ class PreviewUrlsTest {
         assertEquals("https://e.com/a/b", PreviewUrls.resolve("/a/x/../b", "https://e.com/root"))
         assertEquals("https://e.com/a//c", PreviewUrls.resolve("/a//b/../c", "https://e.com/root"))
     }
+
+    @Test
+    fun `climbing above the root stays at the root`() {
+        // The slash before the first segment is the root, not a segment `..` may remove.
+        // Popping it produced `https://example.coma` — the host glued to the path.
+        assertEquals("https://example.com/a", PreviewUrls.resolve("/../a", "https://example.com/root"))
+        assertEquals("https://example.com/a", PreviewUrls.resolve("../../a", "https://example.com/root"))
+        assertEquals("https://example.com/a", PreviewUrls.resolve("/../../a", "https://example.com/"))
+    }
+
+    @Test
+    fun `a trailing dot segment keeps its directory slash`() {
+        // RFC 3986 §5.2.4 replaces `/.` and `/..` with `/`: both name a directory.
+        assertEquals("https://e.com/a/", PreviewUrls.resolve("/a/.", "https://e.com/root"))
+        assertEquals("https://e.com/", PreviewUrls.resolve("/a/..", "https://e.com/root"))
+        assertEquals("https://e.com/", PreviewUrls.resolve("/..", "https://e.com/root"))
+    }
 }

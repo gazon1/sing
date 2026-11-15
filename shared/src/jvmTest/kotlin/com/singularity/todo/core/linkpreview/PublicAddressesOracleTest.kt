@@ -179,6 +179,10 @@ class PublicAddressesOracleTest {
         val RESERVED_V6 =
             listOf(
                 "2001:db8::/32", // documentation
+                "2001:2::/48", // benchmarking
+                "2001:10::/28", // deprecated ORCHID
+                "3fff::/20", // documentation, assigned 2024
+                "5f00::/16", // Segment Routing (SRv6) SIDs
                 "100::/64", // discard
             )
 
@@ -255,8 +259,23 @@ class PublicAddressesOracleTest {
                 "100::1",
                 "101::",
                 "2001::1",
+                "2001:2::1",
+                "2001:2:0:ffff:ffff:ffff:ffff:ffff",
+                "2001:2:1::1",
+                "2001:10::1",
+                "2001:1f:ffff:ffff:ffff:ffff:ffff:ffff",
+                "2001:20::1",
+                "2001:30::1",
+                "2001:1::1",
+                "2001:3::1",
+                "2001:4:112::1",
                 "2001:db8::1",
                 "2001:db8::ffff",
+                "3fff::",
+                "3fff::1",
+                "3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff",
+                "3fff:1000::1",
+                "5f00::1",
                 "2002::1",
                 "2002:a00:1::1",
                 "2002:7f00:1::1",

@@ -161,16 +161,64 @@ object PreviewUrls {
      * is the `//` in `/a//b`, and a server may serve that as a different resource from
      * `/a/b`. The first version dropped empty segments along with the dots, which is not
      * normalisation — it is rewriting the address into one the page did not name.
+     *
+     * The root is a floor, not a segment that `..` may remove: `/../a` is `/a`, not `a`,
+     * and a trailing `/.` or `/..` keeps the slash that makes it a directory (so `/a/.`
+     * is `/a/` and `/a/..` is `/`). Splitting on `/` and popping the last written piece
+     * got both wrong — the first wrote `https://example.coma`, the second dropped the
+     * final slash — so the standard's own loop is used instead.
      */
     private fun removeDotSegments(path: String): String {
-        val output = mutableListOf<String>()
-        for (segment in path.split('/')) {
-            when (segment) {
-                "." -> Unit
-                ".." -> if (output.isNotEmpty()) output.removeAt(output.lastIndex)
-                else -> output += segment
+        var input = path
+        val output = StringBuilder()
+        while (input.isNotEmpty()) {
+            when {
+                input.startsWith("../") -> {
+                    input = input.removePrefix("../")
+                }
+
+                input.startsWith("./") -> {
+                    input = input.removePrefix("./")
+                }
+
+                input.startsWith("/./") -> {
+                    input = "/" + input.removePrefix("/./")
+                }
+
+                input == "/." -> {
+                    input = "/"
+                }
+
+                input.startsWith("/../") -> {
+                    input = "/" + input.removePrefix("/../")
+                    output.dropLastSegment()
+                }
+
+                input == "/.." -> {
+                    input = "/"
+                    output.dropLastSegment()
+                }
+
+                input == "." || input == ".." -> {
+                    input = ""
+                }
+
+                else -> {
+                    // Move one segment — its leading `/`, if any, up to the next `/`.
+                    val start = if (input.startsWith("/")) 1 else 0
+                    val next = input.indexOf('/', start)
+                    val end = if (next < 0) input.length else next
+                    output.append(input, 0, end)
+                    input = input.substring(end)
+                }
             }
         }
-        return output.joinToString("/")
+        return output.toString()
+    }
+
+    /** Removes the last segment of [this], leaving the slash before it in place. */
+    private fun StringBuilder.dropLastSegment() {
+        val slash = lastIndexOf("/")
+        setLength(if (slash < 0) 0 else slash)
     }
 }
