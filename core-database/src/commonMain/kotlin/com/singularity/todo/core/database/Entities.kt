@@ -75,6 +75,16 @@ data class TaskEntity(
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,
+    /**
+     * The rich description the editor writes, or null for a task that has never
+     * been through the rich editor.
+     *
+     * `description` stays the plain-text projection because the full-text index
+     * is an external-content table over this row: Room's triggers copy
+     * `description` into `tasks_fts` verbatim, so markup stored there would
+     * become searchable words.
+     */
+    @ColumnInfo("description_html") val descriptionHtml: String? = null,
     @Embedded val sync: SyncColumns = SyncColumns(),
 )
 

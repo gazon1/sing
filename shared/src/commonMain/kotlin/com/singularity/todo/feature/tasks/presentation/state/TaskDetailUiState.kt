@@ -44,7 +44,7 @@ data class TaskDetailUi(
      */
     val titleDraft: Revisioned<String> = Revisioned.initial(task.title),
     /** Draft description owned by VM — prevents mirror-state in Composable. */
-    val descriptionDraft: Revisioned<String> = Revisioned.initial(task.description ?: ""),
+    val descriptionDraft: Revisioned<String> = Revisioned.initial(task.descriptionRichHtml),
     val project: Project? = null,
     val tags: ImmutableList<Tag> = persistentListOf(),
     val checklist: ImmutableList<ChecklistItem> = persistentListOf(),

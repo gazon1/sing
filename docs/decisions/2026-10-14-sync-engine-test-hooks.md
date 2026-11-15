@@ -1,16 +1,17 @@
 ---
-title: "ADR: SyncEngine test hooks for G4/G5 integration tests"
+title: "ADR: G4/G5 sync scenarios are tested through API and scope fakes"
 date: 2026-10-14
-status: open
+status: accepted
 tags: [sync, testing, architecture]
-description: Engine-level injection points to enable G4 (sign-out mid-cycle) and G5 (scope null during syncOnce) integration tests.
+description: The G4 (sign-out mid-cycle) and G5 (scope going null during syncOnce) scenarios are integration tests over the engine's existing seams — the fake API and the fake scope provider — with no test callback in the production constructor.
 ---
 
-# ADR: SyncEngine test hooks for G4/G5 integration tests
+# ADR: G4/G5 sync scenarios are tested through API and scope fakes
 
 ## Context
 
-`SyncEngineIntegrationTest.kt` (2026-10-14) covers 4 integration test gaps. G4 and G5 require behaviour that cannot be tested without engine-level hooks:
+`SyncEngineIntegrationTest.kt` (2026-10-14) covers 4 integration test gaps. G4 and G5
+need a condition that arrives **while `syncOnce` is running**:
 
 ### G4 — SignOut mid-cycle
 
@@ -21,7 +22,9 @@ syncOnce() starts
   → pull phase runs
 ```
 
-The `active` scope was captured at the start of `syncOnce`. The session change in the middle does not affect the push phase. But `PullPhase` needs to handle the signed-out session gracefully. Without an injection point, we cannot simulate a mid-cycle sign-out.
+The `active` scope is captured at the start of `syncOnce`. The session change in the
+middle does not affect the push phase, but `PullPhase` has to handle the signed-out
+session gracefully.
 
 ### G5 — Scope null during syncOnce
 
@@ -32,77 +35,104 @@ syncOnce() starts
   → push phase runs
 ```
 
-The scope disappearing mid-cycle should not abort the current push (which already read `active`). The scheduler should stop. Without a cancellation or injection hook, we cannot test this.
+The scope disappearing mid-cycle must not abort the current push (which already read
+`active`), and the scheduler must stop.
 
 ## Decision
 
-### Hook 1: `onPushCompleted` callback in `SyncEngine.syncOnce`
+Both conditions are injected **through the seams the engine already has** — the
+`SyncApiClient` and `SyncScopeProvider` dependencies — in `SyncEngineIntegrationTest`,
+and no production code carries a test-only path.
 
-`onPushCompletedCallback: ((PhaseResult<PushSummary>, SyncScope) -> Unit)?` — a constructor parameter of `SyncEngine` with a `null` default (no-op in production). The callback is invoked synchronously between the push and pull phases, inside the engine's lock.
+### G4 — the fake API signs out while push is in flight
 
-```kotlin
-// SyncEngine.syncOnce() — after push phase, before pull phase
-val pushResult = pushPhase.push(active)
-onPushCompletedCallback?.invoke(pushResult, active)  // G4 injection point
-val pullResult = pullPhase.pull(active, sinceLsn = cursor)
-```
-
-**Usage for G4**: Set the callback to change `FakeSyncAuthRepository.set(Session.SignedOut)` — when push completes and the callback fires, the session is changed. Pull phase then runs with the new session.
-
-### Hook 2: `MidFlightScopeNullProvider`
-
-`ThrowingSyncScopeProvider` already exists in `SyncEngineFakes.kt` for simulating scope read failures. For G5, a new `MidFlightScopeNullProvider` was added:
+The session is changed from inside the fake's `batchPush`. `PushPhase.push()` reads
+the session once when it starts, so the cycle's push finishes with the session and
+scope it began with; `PullPhase` reads the session when it starts and sees
+`SignedOut`:
 
 ```kotlin
-class MidFlightScopeNullProvider(initialScope: SyncScope) : SyncScopeProvider {
-    private var readCount = 0
-    override val current: Flow<SyncScope?> = flow {
-        readCount++
-        emit(if (readCount == 1) initialScope else null)
+val api = object : FakeSyncApiClient() {
+    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
+        signOutHelper?.invoke()   // authRepository.set(Session.SignedOut)
+        return BatchPushResponse(request.patches.map { PatchResult(it.patchId, ok = true) })
     }
 }
 ```
 
-A test using this in G5 would:
+There is no seam between `pushPhase.push()` and `pullPhase.pull()`, so this is the
+closest injection the engine has. Push had already read everything the sign-out could
+change, so the behaviour is the same as landing it strictly after push returns.
 
-1. `syncOnce()` reads scope successfully → `active = scope`
-2. Scope provider switches to `null` after first emission
-3. Push phase uses the captured `active` scope
-4. Test verifies push succeeded, scheduler stopped
+Verified by `sign out during push — push finishes with its session and pull runs
+signed out`.
 
-### Helper: `buildTestableSyncEngine`
+### G5 — the fake scope provider clears the scope mid-cycle
 
-A factory function in `SyncEngineFakes.kt` that accepts `onPushCompletedCallback` and all other engine dependencies, wiring them into a `SyncEngine` instance:
+`FakeSyncScopeProvider` is mutable (`set(null)`), and `ThrowingSyncScopeProvider`
+already covers a scope read that fails. Clearing the scope from inside `batchPush`, or
+between two `syncOnce` calls, reproduces both halves of the scenario:
 
 ```kotlin
-val engine = buildTestableSyncEngine(
-    authRepository = auth,
-    onPushCompletedCallback = { _, _ -> auth.set(Session.SignedOut) },
-    scopeProvider = MidFlightScopeNullProvider(scope),
-    scope = engineScope,
-)
-engine.syncOnce()  // G4 or G5 scenario runs
+val api = object : FakeSyncApiClient() {
+    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
+        scopeProvider.set(null)   // the scope disappears during push
+        return BatchPushResponse(request.patches.map { PatchResult(it.patchId, ok = true) })
+    }
+}
 ```
+
+Verified by `syncOnce that started with valid scope completes even if scope becomes
+null` and `syncOnce with nulling scope mid-cycle — push uses captured scope`.
+
+## Considered, and removed
+
+The first version of this decision put the injection points in the engine itself:
+
+- an `onPushCompletedCallback` constructor parameter, invoked between push and pull;
+- a `MidFlightScopeNullProvider` that emits the scope once and `null` afterwards;
+- a `buildTestableSyncEngine` factory that wires the callback in.
+
+They were implemented, and then removed: each fake above produces the same condition
+without a slot in a production constructor. They are recorded here because the G4/G5
+tests were written against them first, and because the removal is the decision.
+
+## Why the scenario was not a test-only subclass
+
+A `TestableSyncEngine` subclass that overrides `syncOnce()` does not work in this
+module structure:
+
+- `syncOnce` is `internal` in `SyncEngine`, which is defined in `commonMain`;
+- `jvmTest` is a separate source set / module boundary;
+- `internal` members are not accessible across this boundary, so `override` is illegal.
+
+That constraint is why the injection was first placed in the constructor. The fakes
+made the question moot: `batchPush` and `SyncScopeProvider.current` are both reached
+from the engine, so both can be controlled from the test without touching the engine.
 
 ## Consequences
 
-- **Positive**: Enables G4/G5 integration tests; G5 fakes are in `jvmTest` so they never ship
-- **Neutral**: Callback is optional — production code path is unchanged; `null` default means no behaviour change
-- **Negative**: A callback slot in production constructor is a mild smell; mitigated by the explicit `?.invoke()` no-op default
+- **Positive**: G4 and G5 are integration tests over the real `syncOnce`, and the
+  production constructor has no test-only parameter.
+- **Positive**: the fakes live in `jvmTest`, so nothing they carry can ship.
+- **Neutral**: the G5 scenario depends on `FakeSyncScopeProvider` being mutable; a
+  future provider that is not mutable would need its own fake with the same seam.
 
-## Why not a test-only subclass
+## Resolution
 
-The ADR originally considered Option B — a `TestableSyncEngine` subclass that overrides `syncOnce()`. This does not work in this Kotlin module structure:
+Resolved 2026-11-15: the G4/G5 scenarios are tested; the hooks this ADR first proposed
+are gone.
 
-- `syncOnce` is `internal` in `SyncEngine`, which is defined in `commonMain`
-- `jvmTest` is a separate source set / module boundary
-- `internal` members are not accessible across this boundary, so `override` is illegal
-
-The callback approach (Option A) is the only viable path. It is a one-line addition to the engine's constructor with a null default, and it achieves the same effect.
+Verified: `SyncEngineIntegrationTest` covers G4 and G5 as described above.
+`onPushCompletedCallback`, `MidFlightScopeNullProvider` and `buildTestableSyncEngine`
+no longer exist, and `SyncEngine`'s constructor takes no test callback. The decision —
+these two scenarios are covered — stands; the mechanism is the fakes.
 
 ## Links
 
 - `SyncEngineIntegrationTest.kt` — issue #628
 - `SyncEngine.kt` — engine under test
+- `SyncEngineFakes.kt` — `FakeSyncApiClient`, `FakeSyncScopeProvider`,
+  `ThrowingSyncScopeProvider`
 - `SwitchingSyncScopeProvider` — existing switching scope provider
 - `ThrowingSyncScopeProvider` — existing throwing scope provider

@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.core.ui.rich
 
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks

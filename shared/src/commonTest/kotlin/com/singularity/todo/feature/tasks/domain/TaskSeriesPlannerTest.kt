@@ -152,6 +152,25 @@ class TaskSeriesPlannerTest {
     }
 
     @Test
+    fun `every member carries the rich description of the template`() {
+        val rich =
+            base.copy(
+                description = "Pay the rent",
+                descriptionHtml = "<p>Pay the <strong>rent</strong></p>",
+            )
+        val plan =
+            TaskSeriesPlanner.plan(
+                base = rich,
+                dates = listOf(LocalDate(2026, 10, 15), LocalDate(2026, 10, 17)),
+                now = now,
+                userId = userId,
+            )
+
+        assertTrue(plan.all { it.description == "Pay the rent" })
+        assertTrue(plan.all { it.descriptionHtml == "<p>Pay the <strong>rent</strong></p>" })
+    }
+
+    @Test
     fun `no member carries a repeat rule`() {
         val plan =
             TaskSeriesPlanner.plan(

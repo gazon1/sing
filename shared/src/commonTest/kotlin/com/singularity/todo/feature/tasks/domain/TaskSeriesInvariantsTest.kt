@@ -35,9 +35,13 @@ class TaskSeriesInvariantsTest {
         title: String = "Pay the rent",
         priority: TaskPriority = TaskPriority.None,
         series: TaskSeriesId? = seriesId,
+        description: String? = null,
+        descriptionHtml: String? = null,
     ) = Task(
         id = TaskId(id),
         title = title,
+        description = description,
+        descriptionHtml = descriptionHtml,
         priority = priority,
         seriesId = series,
         userId = alice,
@@ -81,6 +85,32 @@ class TaskSeriesInvariantsTest {
         val members = listOf(member("s1"), member("s2", priority = TaskPriority.High))
 
         assertEquals(listOf(TaskSharedField.Priority), TaskSeriesInvariants.divergedFields(members))
+    }
+
+    @Test
+    fun `a formatting-only difference is a description divergence`() {
+        val members =
+            listOf(
+                member("s1", description = "Pay the rent", descriptionHtml = "<p>Pay the <strong>rent</strong></p>"),
+                member("s2", description = "Pay the rent", descriptionHtml = "<p>Pay the rent</p>"),
+            )
+
+        assertEquals(
+            listOf(TaskSharedField.Description),
+            TaskSeriesInvariants.divergedFields(members),
+            "two renderings of the same words are still two descriptions",
+        )
+    }
+
+    @Test
+    fun `a plain-only difference is a description divergence`() {
+        val members =
+            listOf(
+                member("s1", description = "Pay the rent", descriptionHtml = "<p>Pay the rent</p>"),
+                member("s2", description = "Pay the rent now", descriptionHtml = "<p>Pay the rent</p>"),
+            )
+
+        assertEquals(listOf(TaskSharedField.Description), TaskSeriesInvariants.divergedFields(members))
     }
 
     @Test
@@ -139,6 +169,57 @@ class TaskSeriesInvariantsTest {
             toRealign.map { it.id.value },
             "a member that already agrees is not written again",
         )
+    }
+
+    @Test
+    fun `aligning copies both the plain text and the html of the description`() {
+        val source =
+            member(
+                "s1",
+                description = "Pay the rent",
+                descriptionHtml = "<p>Pay the <strong>rent</strong></p>",
+            )
+        val members = listOf(source, member("s2", description = "Old", descriptionHtml = "<p>Old</p>"))
+
+        val aligned = TaskSeriesInvariants.alignedTo(members, source)
+
+        assertEquals("Pay the rent", aligned[1].description)
+        assertEquals("<p>Pay the <strong>rent</strong></p>", aligned[1].descriptionHtml)
+    }
+
+    @Test
+    fun `realigning copies both the plain text and the html of the description`() {
+        val source =
+            member(
+                "s1",
+                description = "Pay the rent",
+                descriptionHtml = "<p>Pay the <strong>rent</strong></p>",
+            )
+        val members = listOf(source, member("s2", description = "Old", descriptionHtml = "<p>Old</p>"))
+
+        val toRealign = TaskSeriesInvariants.membersToRealign(members, source)
+
+        assertEquals(1, toRealign.size)
+        assertEquals("Pay the rent", toRealign.single().description)
+        assertEquals("<p>Pay the <strong>rent</strong></p>", toRealign.single().descriptionHtml)
+    }
+
+    @Test
+    fun `a member that already agrees keeps its description pair`() {
+        val source =
+            member(
+                "s1",
+                description = "Pay the rent",
+                descriptionHtml = "<p>Pay the <strong>rent</strong></p>",
+            )
+        val same =
+            member(
+                "s2",
+                description = "Pay the rent",
+                descriptionHtml = "<p>Pay the <strong>rent</strong></p>",
+            )
+
+        assertEquals(emptyList(), TaskSeriesInvariants.membersToRealign(listOf(source, same), source))
     }
 
     @Test

@@ -61,8 +61,11 @@ object TaskDomain {
         endTime: kotlinx.datetime.LocalTime? = null,
         accentColor: Long? = null,
         emoji: String? = null,
+        estimateMinutes: Int? = null,
+        isPinned: Boolean = false,
         someday: Boolean = false,
         recurrence: RecurrenceSpec? = null,
+        descriptionHtml: String? = null,
     ): Either<AppError.Validation, CreateTaskInput> {
         val trimmed: String =
             when (val v = validateTitle(title)) {
@@ -87,8 +90,11 @@ object TaskDomain {
                 endTime = endTime,
                 accentColor = accentColor,
                 emoji = emoji,
+                estimateMinutes = estimateMinutes,
+                isPinned = isPinned,
                 someday = someday,
                 recurrence = recurrence,
+                descriptionHtml = descriptionHtml,
             ),
         )
     }
@@ -123,11 +129,14 @@ object TaskDomain {
             endTime = input.endTime,
             accentColor = input.accentColor,
             emoji = input.emoji,
+            estimateMinutes = input.estimateMinutes,
+            isPinned = input.isPinned,
             someday = input.someday,
             recurrence = input.recurrence,
             createdAt = createdAt,
             updatedAt = updatedAt,
             userId = userId,
+            descriptionHtml = input.descriptionHtml,
         )
 
     /**

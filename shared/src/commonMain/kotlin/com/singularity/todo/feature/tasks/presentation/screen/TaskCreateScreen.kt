@@ -9,13 +9,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.core.ui.rich.LinkKind
+import com.singularity.todo.core.ui.rich.LinkResult
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
@@ -85,6 +89,7 @@ fun TaskCreateScreen(
 
     val state by vm.stateFlow.collectAsStateWithLifecycle()
     val projectsRepo: ProjectsRepository = koinInject()
+    val internalLinkRepo: InternalLinkRepository = koinInject()
     val projects by projectsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val selectedProject = state.draft.projectId?.let { id -> projects.firstOrNull { it.id.value == id } }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -100,7 +105,16 @@ fun TaskCreateScreen(
         }
     }
 
-    val titleError = TaskTitleValidation.error(state.draft.title.text)
+    // A pristine form is not an edit in progress: the red line appears once the
+    // person has touched the draft or tried to save it, not on the first frame.
+    // The disabled button already says what is missing, and a complaint before
+    // the first keystroke reads as a screen that opened broken (UXF-12).
+    //
+    // The ViewModel recomputes this message on every edit and after a refused
+    // save, and withholds it on the very first pass. Reading it from there is
+    // how "after interaction" needs no second flag here — and how a
+    // persistence failure, which is another message, does not arm this line.
+    val titleError = state.error.takeIf { it == TaskTitleValidation.REQUIRED_MESSAGE }
 
     LaunchedEffect(state.error) {
         val message = state.error ?: return@LaunchedEffect
@@ -173,7 +187,7 @@ fun TaskCreateScreen(
                 attachments = remember(attachmentItems) { attachmentItems.toImmutableList() },
                 recurrence = state.draft.recurrence,
                 isPinned = state.draft.isPinned,
-                estimateMinutes = null,
+                estimateMinutes = state.draft.estimateMinutes,
                 blockedBy = persistentSetOf(),
                 relatedTasks = persistentListOf(),
             ),
@@ -184,6 +198,17 @@ fun TaskCreateScreen(
                 onBack = guardedBack,
                 // Create mode: no task exists yet, so there is nothing to complete.
                 onCheckToggle = null,
+                searchInternalLinks = { query ->
+                    val notes =
+                        internalLinkRepo
+                            .searchNotes(query, SearchMode.Word)
+                            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+                    val tasks =
+                        internalLinkRepo
+                            .searchTasks(query, SearchMode.Word)
+                            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+                    notes + tasks
+                },
                 priority =
                     RowCallbacks(
                         onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
@@ -227,7 +252,12 @@ fun TaskCreateScreen(
                     ToggleCallbacks(
                         onToggle = { vm.onIntent(TaskCreateIntent.PinToggled) },
                     ),
-                estimate = null,
+                estimate =
+                    RowCallbacks(
+                        onChange = { minutes -> vm.onIntent(TaskCreateIntent.SetEstimate(minutes)) },
+                        onClick = { sheets.show(TaskEditorSheet.Estimate) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetEstimate(null)) },
+                    ),
                 onTimeEntryAdd = null,
                 onTimeEntrySave = null,
                 checklist =

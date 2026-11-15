@@ -8,6 +8,7 @@ import com.singularity.todo.core.serialization.WireNamed
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -329,6 +330,18 @@ data class Task(
     val serverVersion: Long = 0,
     /** Sync field. Hybrid Logical Clock timestamp; null for local-only tasks. */
     val hlc: Hlc? = null,
+    /**
+     * The rich description as the editor writes it, or null when the task has
+     * never been through the rich editor.
+     *
+     * [description] stays the plain-text projection: it is what the full-text
+     * index, AI prompts and calendar bodies read. This field is what the editor
+     * loads and the read-only renderer renders. [TaskDescriptionHtml] is the only
+     * place that converts between the two; a writer that only changes
+     * [description] drops this field on the way to the database, so a stale
+     * rendering cannot survive a plain write.
+     */
+    val descriptionHtml: String? = null,
 ) : SyncableEntity,
     Searchable {
     /**
@@ -340,6 +353,15 @@ data class Task(
      */
     override val searchableSurfaces: List<String?>
         get() = listOf(title, description)
+
+    /**
+     * The description's rich HTML, with legacy plain text escaped.
+     *
+     * One read boundary for the editor and any other renderer: a task written
+     * before the rich description existed has no [descriptionHtml], and its
+     * plain text must be shown literally rather than interpreted as markup.
+     */
+    val descriptionRichHtml: String get() = TaskDescriptionHtml.canonical(descriptionHtml, description)
 
     val isCompleted: Boolean get() = completedAt != null
     val isTrashed: Boolean get() = archivedAt != null
@@ -403,9 +425,21 @@ data class CreateTaskInput(
     val accentColor: Long? = null,
     val emoji: String? = null,
     val estimateMinutes: Int? = null,
+    /**
+     * Whether the new task is pinned.
+     *
+     * The editor offers the pin as a row on both surfaces, so a draft that set it
+     * has to reach the row that carries it: a row whose value the write drops is a
+     * row that does nothing.
+     */
+    val isPinned: Boolean = false,
     val someday: Boolean = false,
     /**
      * The recurrence rule for the new task, or null for a non-recurring task.
      */
     val recurrence: RecurrenceSpec? = null,
+    /**
+     * The rich description as the editor wrote it. See [Task.descriptionHtml].
+     */
+    val descriptionHtml: String? = null,
 )

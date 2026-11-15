@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
@@ -89,7 +90,7 @@ class TaskDraftSlot(
         scope.launch {
             descriptionEdits.debounce(debounceMs).collect { edit ->
                 val task = taskFlow.value ?: return@collect
-                write(task, edit) { copy(description = edit.description.ifBlank { null }) }
+                write(task, edit) { withDescriptionHtml(edit.description) }
             }
         }
     }
@@ -131,8 +132,8 @@ class TaskDraftSlot(
      */
     fun seed(
         title: String,
-        description: String,
-    ) = draftState.seed(title, description)
+        descriptionHtml: String,
+    ) = draftState.seed(title, descriptionHtml)
 
     /**
      * Forces a write of the current draft if it differs from the original, bypassing
@@ -146,10 +147,10 @@ class TaskDraftSlot(
                 write(task, TaskDetailIntent.Domain.TitleChanged(draft.title.value)) { copy(title = draft.title.value) }
             }
         }
-        if (draft.description.value != (task.description ?: "")) {
+        if (draft.description.value != task.descriptionRichHtml) {
             scope.launch {
                 write(task, TaskDetailIntent.Domain.DescriptionChanged(draft.description.value)) {
-                    copy(description = draft.description.value.ifBlank { null })
+                    withDescriptionHtml(draft.description.value)
                 }
             }
         }
@@ -169,3 +170,16 @@ class TaskDraftSlot(
         }
     }
 }
+
+/**
+ * Sets the description from the editor's HTML.
+ *
+ * The rich field carries the markup and the plain field carries its projection:
+ * one write, so the full-text index and every plain-text reader keep seeing the
+ * text a person wrote.
+ */
+private fun Task.withDescriptionHtml(html: String): Task =
+    copy(
+        descriptionHtml = html.ifBlank { null },
+        description = TaskDescriptionHtml.plainText(html).ifBlank { null },
+    )

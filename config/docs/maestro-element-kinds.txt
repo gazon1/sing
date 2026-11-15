@@ -129,6 +129,7 @@ profile_create_name_input field
 profile_item_personal item
 profile_item_work item
 project_card_childless item
+project_card_emoji_flow item
 project_card_latecomer item
 project_card_project_alpha item
 project_card_roadmap item
@@ -136,7 +137,10 @@ project_child_row_child item
 project_child_row_grandchild item
 project_detail_children_chip button
 project_detail_quick_add field
+project_detail_tasks_header text
 project_editor_name_input field
+project_icon_no_matches text
+project_icon_search field
 projects_create_button button
 proposals_empty text
 recurrence_option_daily dialog
@@ -192,6 +196,7 @@ task_editor_due_date_row_label text
 task_editor_due_date_row_placeholder text
 task_editor_due_date_row_someday text
 task_editor_due_row item
+task_editor_estimate_row item
 task_editor_more_parameters_row item
 task_editor_more_parameters_sheet dialog
 task_editor_pin_row item

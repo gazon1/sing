@@ -1069,6 +1069,15 @@ object TestTags {
     fun projectPickerRow(projectId: String) = "project_picker_row_${slug(projectId)}"
 
     /**
+     * The hierarchy list in the task editor's project picker.
+     *
+     * The search field also carries a scroll action (a text field scrolls its own
+     * content), so "the picker's scrollable" has to name the list rather than the
+     * first node that can scroll.
+     */
+    const val PROJECT_PICKER_LIST = "project_picker_list"
+
+    /**
      * The folder a project without a stored icon is drawn with.
      *
      * The fallback is a `Folder` Material glyph, and no accessible name can
