@@ -10,11 +10,11 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ui.theme.SingularityTheme
+import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -67,13 +67,13 @@ class RichTextLinkTapTest {
             }
 
             // The link is at the start of the line, the ordinary text after it.
-            onNodeWithTag(TAG).performTouchInput { click(Offset(4f, center.y)) }
+            awaitTag(TAG).performTouchInput { click(Offset(4f, center.y)) }
             runOnIdle {
                 assertEquals("https://example.com", opened, "the link tap did not open the link")
                 assertEquals(0, parentClicks, "the link tap also entered editing")
             }
 
-            onNodeWithTag(TAG).performTouchInput { click(Offset(width - 4f, center.y)) }
+            awaitTag(TAG).performTouchInput { click(Offset(width - 4f, center.y)) }
             runOnIdle {
                 assertEquals(1, parentClicks, "a tap on ordinary text did not reach the parent")
             }
