@@ -103,12 +103,20 @@ class PageFetcher(client: HttpClient, private val addresses: HostAddressResolver
      */
     private suspend fun refusalReason(url: String): String? {
         val scheme = url.substringBefore("://", "").lowercase()
-        if (scheme != "http" && scheme != "https") return "Only http and https addresses are previewed"
+        // Credentials in an address are somebody's login. A preview has no use for them,
+        // and this app holds a token for its own backend — none of that belongs at a
+        // stranger's site. Ktor does not turn them into an `Authorization` header today,
+        // but "the client happens not to" is not a reason to pass them along.
+        val carriesCredentials = url.substringAfter("://").substringBefore('/').contains('@')
         val host = PreviewUrls.host(url)
-        if (host.isBlank()) return "The address names no host"
-        val resolved = if (PublicAddresses.isLiteral(host)) emptyList() else addresses.resolve(host)
-        if (!PublicAddresses.isFetchable(host, resolved)) return "The address is not a public one"
-        return null
+        val resolved = if (host.isBlank() || PublicAddresses.isLiteral(host)) emptyList() else addresses.resolve(host)
+        return when {
+            scheme != "http" && scheme != "https" -> "Only http and https addresses are previewed"
+            carriesCredentials -> "The address carries credentials"
+            host.isBlank() -> "The address names no host"
+            !PublicAddresses.isFetchable(host, resolved) -> "The address is not a public one"
+            else -> null
+        }
     }
 
     /** The `Location` of a redirect response, or null when the response is not one. */

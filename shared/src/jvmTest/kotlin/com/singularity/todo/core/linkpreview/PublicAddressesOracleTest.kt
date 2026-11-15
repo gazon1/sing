@@ -48,6 +48,14 @@ class PublicAddressesOracleTest {
         mapOf(
             "100.64.0.0" to "carrier-grade NAT",
             "100.127.255.255" to "carrier-grade NAT",
+            // Unassigned space outside global unicast `2000::/3`. The reference calls
+            // these ordinary because nothing reserved them; the policy refuses them
+            // because nothing assigned them either, and "nobody said no" is not the
+            // allowlist a fetch should use.
+            "101::" to "unassigned space outside 2000::/3",
+            "2002::1" to "6to4 for 0.0.0.1 — the embedded address decides",
+            "2002:a00:1::1" to "6to4 for 10.0.0.1",
+            "2002:7f00:1::1" to "6to4 for 127.0.0.1",
         )
 
     /**
@@ -92,12 +100,22 @@ class PublicAddressesOracleTest {
         // the address it embeds. `getEmbeddedIPv4Address()` alone is not that test: it
         // returns the low 32 bits of *any* address, so a real public IPv6 address would be
         // judged as `0.0.0.1`. The embedding has to be established first.
-        if (embedsIpv4()) return getEmbeddedIPv4Address().routable()
+        // Every form that carries an IPv4 address is judged by the address it carries.
+        // 6to4 matters as much as the mapped forms: `2002:7f00:1::` is 127.0.0.1
+        // reached through a 6to4 prefix, and judging the outer address would call it an
+        // ordinary IPv6 address and never look inside.
+        embeddedIpv4()?.let { return it.routable() }
         return RESERVED_V6.none { inBlock(this, it) }
     }
 
-    /** Whether [this] is one of the forms that carries an IPv4 address inside it. */
-    private fun IPv6Address.embedsIpv4(): Boolean = isIPv4Mapped || isIPv4Compatible || inBlock(this, "64:ff9b::/96")
+    /** The IPv4 address [this] carries, or null when it carries none. */
+    private fun IPv6Address.embeddedIpv4(): IPv4Address? =
+        when {
+            isIPv4Mapped || isIPv4Compatible -> getEmbeddedIPv4Address()
+            is6To4 -> get6To4IPv4Address()
+            inBlock(this, "64:ff9b::/96") -> getEmbeddedIPv4Address()
+            else -> null
+        }
 
     @Test
     fun `the classifier agrees with the reference on every address in the table`() {

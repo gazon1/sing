@@ -48,6 +48,10 @@ target as well as the address the title names.
 to a loopback address is the attack this rule exists for, and judging only the typed
 address lets it through.
 
+Only global unicast is reachable. An address in a form that carries an IPv4 address
+(mapped, compatible, NAT64, 6to4) is judged by the address it carries, so
+`2002:7f00:1::` is loopback and is refused.
+
 **Test coverage:** `PublicAddressesTest` (every spelling of a private address),
 `PageFetcherTest` (a redirect into the local network is refused and the target is
 not requested at all).
@@ -58,6 +62,17 @@ not requested at all).
 - **When** the preview is fetched
 - **Then** the redirect target is not requested
 - **And** the preview is unavailable
+
+#### Scenario: A 6to4 address that wraps a private one is refused
+
+- **Given** a title naming `http://[2002:7f00:1::1]/`
+- **When** the preview is fetched
+- **Then** it is refused, because 6to4 carries 127.0.0.1 inside it
+
+#### Scenario: A redirect to an address carrying credentials is refused
+
+- **Given** a page that redirects to `https://user:pass@example.com/`
+- **Then** the redirect target is refused before it is requested
 
 #### Scenario: A name that resolves to a private address is refused
 

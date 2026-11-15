@@ -154,54 +154,108 @@ object PublicAddresses {
         return out
     }
 
+    /**
+     * Whether the eight groups are a public unicast IPv6 address.
+     *
+     * ## An allowlist, not a denylist
+     *
+     * The first version refused a list of known-bad prefixes and allowed everything
+     * else (`else -> true`). That is the wrong shape for this question: the space
+     * outside global unicast is *large and mostly unassigned*, so "allowed unless
+     * named" says yes to addresses the registries have never handed out — `4000::/3`,
+     * for one. Global unicast is `2000::/3`; everything else is refused unless it is a
+     * form that *carries* an IPv4 address, which is then judged as that address.
+     *
+     * ## The embedded forms
+     *
+     * Four prefixes put an IPv4 address inside an IPv6 one, and each is judged by the
+     * address it carries rather than by its own appearance — otherwise
+     * `2002:7f00:1::` (6to4 for 127.0.0.1) is "an IPv6 address in a public-looking
+     * range" and the loopback behind it is never seen:
+     *
+     * - IPv4-mapped `::ffff:0:0/96`
+     * - IPv4-compatible `::/96` (deprecated, still parsed by every stack)
+     * - NAT64 `64:ff9b::/96`
+     * - 6to4 `2002::/16`, whose next 32 bits are the IPv4 address
+     *
+     * Teredo `2001::/32` is refused outright: it carries an IPv4 address, but the one it
+     * carries belongs to the *client* behind a relay, and a preview has no business
+     * reaching it.
+     *
+     * Malformed input is refused by [parseIpv6] returning null, which [isPublic] reads
+     * as "not public".
+     */
     private fun isPublicIv6(groups: IntArray): Boolean {
         val first = groups[0]
-        val leadingZeros = groups.take(5).all { it == 0 }
         return when {
-            // Unspecified (::) and loopback (::1).
-            groups.take(7).all { it == 0 } && groups[7] <= 1 -> false
+            // IPv4-mapped and IPv4-compatible: the last 32 bits are the address.
+            groups.take(5).all { it == 0 } && (groups[5] == 0 || groups[5] == 0xffff) -> {
+                isPublicIv4(embeddedIpv4(groups))
+            }
 
-            // IPv4-mapped (::ffff:0:0/96) and IPv4-compatible: judge the embedded IPv4.
-            leadingZeros && (groups[5] == 0 || groups[5] == 0xffff) -> isPublicIv4(embeddedIpv4(groups))
+            // NAT64 64:ff9b::/96: the last 32 bits are the address.
+            isPrefix(groups, 0x64, 0xff9b) && groups.take(6).drop(2).all { it == 0 } -> {
+                isPublicIv4(embeddedIpv4(groups))
+            }
 
-            // NAT64 (64:ff9b::/96) embeds an IPv4 address the same way.
-            isNat64(groups) -> isPublicIv4(embeddedIpv4(groups))
+            // 6to4 2002::/16: groups 1 and 2 are the address.
+            isPrefix(groups, 0x2002) -> {
+                isPublicIv4(intArrayOf(groups[1] shr 8, groups[1] and 0xff, groups[2] shr 8, groups[2] and 0xff))
+            }
 
-            // unique local fc00::/7
-            first and 0xfe00 == 0xfc00 -> false
+            // Teredo 2001::/32 — the embedded address is the client's, behind a relay.
+            isPrefix(groups, 0x2001, 0x0000) -> {
+                false
+            }
 
-            // link-local fe80::/10
-            first and 0xffc0 == 0xfe80 -> false
+            // Documentation 2001:db8::/32.
+            isPrefix(groups, 0x2001, 0x0db8) -> {
+                false
+            }
 
-            // deprecated site-local fec0::/10 — still not the public internet
-            first and 0xffc0 == 0xfec0 -> false
+            // Discard 100::/64.
+            first == 0x0100 && groups[1] == 0 && groups[2] == 0 && groups[3] == 0 -> {
+                false
+            }
 
-            // multicast ff00::/8
-            first and 0xff00 == 0xff00 -> false
+            // Unique local fc00::/7.
+            first and 0xfe00 == 0xfc00 -> {
+                false
+            }
 
-            // documentation 2001:db8::/32
-            first == 0x2001 && groups[1] == 0x0db8 -> false
+            // Link-local fe80::/10.
+            first and 0xffc0 == 0xfe80 -> {
+                false
+            }
 
-            // Teredo 2001::/32
-            first == 0x2001 && groups[1] == 0 -> false
+            // Deprecated site-local fec0::/10.
+            first and 0xffc0 == 0xfec0 -> {
+                false
+            }
 
-            // discard 100::/64
-            first == 0x0100 && groups[1] == 0 && groups[2] == 0 && groups[3] == 0 -> false
+            // Multicast ff00::/8.
+            first and 0xff00 == 0xff00 -> {
+                false
+            }
 
-            else -> true
+            // Global unicast is 2000::/3 and nothing else in this space is handed out.
+            first and 0xe000 == 0x2000 -> {
+                true
+            }
+
+            else -> {
+                false
+            }
         }
     }
+
+    /** Whether the first [values] of [groups] are exactly those. */
+    private fun isPrefix(
+        groups: IntArray,
+        vararg values: Int,
+    ): Boolean = values.indices.all { groups[it] == values[it] }
 
     /** The last 32 bits of an address that embeds one, as four IPv4 octets. */
     private fun embeddedIpv4(groups: IntArray): IntArray =
         intArrayOf(groups[6] shr 8, groups[6] and 0xff, groups[7] shr 8, groups[7] and 0xff)
-
-    /** The NAT64 well-known prefix `64:ff9b::/96`, which embeds an IPv4 address. */
-    private fun isNat64(groups: IntArray): Boolean =
-        groups[0] == 0x64 &&
-            groups[1] == 0xff9b &&
-            groups[2] == 0 &&
-            groups[3] == 0 &&
-            groups[4] == 0 &&
-            groups[5] == 0
 }

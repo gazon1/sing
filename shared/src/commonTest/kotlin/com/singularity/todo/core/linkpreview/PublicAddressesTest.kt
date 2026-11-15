@@ -41,6 +41,15 @@ class PublicAddressesTest {
                 Arguments.of("::ffff:127.0.0.1"),
                 Arguments.of("::ffff:10.0.0.1"),
                 Arguments.of("64:ff9b::7f00:1"),
+                // 6to4: the embedded IPv4 is the address, so these are loopback,
+                // private and "this network" reached through a 2002::/16 prefix.
+                Arguments.of("2002:7f00:1::1"),
+                Arguments.of("2002:a00:1::1"),
+                Arguments.of("2002::1"),
+                // Outside global unicast 2000::/3 and unassigned by anyone.
+                Arguments.of("4000::1"),
+                Arguments.of("fec0::1"),
+                Arguments.of("2001::1"),
                 Arguments.of("not-an-address"),
                 Arguments.of(""),
             )

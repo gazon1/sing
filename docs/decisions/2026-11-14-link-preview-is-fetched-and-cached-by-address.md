@@ -114,6 +114,12 @@ The behaviour itself, unchanged:
 - **The oracle is a slow test.** It runs in the `slow` population, not on every pull
   request, because it is a sweep rather than a unit test. The fast tests keep a hand-
   written table of the cases people hit.
+- **IPv6 is an allowlist, not a denylist.** The first version refused a list of
+  known-bad prefixes and allowed everything else, which says yes to the large,
+  mostly-unassigned space outside global unicast (`4000::/3`) and — worse — to 6to4,
+  whose `2002:7f00:1::` is 127.0.0.1 wearing an IPv6 address. Only `2000::/3` is
+  allowed, and the four prefixes that carry an IPv4 address (mapped, compatible,
+  NAT64, 6to4) are judged by the address they carry.
 - **Eviction owns its files.** `LinkPreviewCache.put` deletes the images of the entries
   it evicts, rather than reporting them to the caller. The first version reported
   *addresses* where the caller needed *keys*, so every evicted image leaked — a file
@@ -123,6 +129,18 @@ The behaviour itself, unchanged:
   started.** A page already in flight when the user turns previews off is allowed to
   finish — cancelling it would need a job handle per caller and would buy nothing — but
   its answer is discarded. Otherwise a card appeared after the user had asked for none.
+- **Dot segments, and only dot segments.** `removeDotSegments` keeps empty segments:
+  `/a//b` and `/a/b` are two resources on a server that distinguishes them, and
+  collapsing them is rewriting the address rather than normalising it.
+- **A cancelled owner ends its flight.** `fetchOnce` cancels the deferred in a
+  `finally`, so a waiter cannot outlive the fetch it waits on; the waiter then takes
+  the work over rather than inheriting somebody else's cancellation.
+- **Dismissals are bounded where they are written.** A person can dismiss all day
+  without opening a new page, so a bound that lived only in `put` would never run for
+  them; `hide` trims in the same `edit`.
+- **Credentials are refused.** A URL carrying user info is refused before the request:
+  the preview has no use for somebody's login, and Ktor not turning it into an
+  `Authorization` header today is not a guarantee for tomorrow.
 - **Ktor does not collapse `..`.** `URLBuilder.takeFrom` implements RFC 3986 §5.2 but not
   §5.2.4, so `PreviewUrls` keeps a small dot-segment collapser. Removing it would make
   `/post/deep/../a.png` and `/post/a.png` two cache entries for one page.

@@ -3,6 +3,7 @@ package com.singularity.todo.core.linkpreview
 import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 
 /**
  * What the screen reads: the preview state of one address, and the way to dismiss it.
@@ -69,7 +71,8 @@ interface LinkPreviewRepository {
 class LinkPreviewRepositoryImpl(
     private val source: PageSource,
     private val cache: LinkPreviewCache,
-    private val enabled: Flow<Boolean>,
+    /** Whether the user has left link previews on; see `Tasks.linkPreviewsEnabled`. */
+    private val linkPreviewsEnabled: Flow<Boolean>,
     private val clock: kotlin.time.Clock,
     private val dispatcher: CoroutineDispatcher,
 ) : LinkPreviewRepository {
@@ -77,7 +80,7 @@ class LinkPreviewRepositoryImpl(
         if (url == null) return flowOf(LinkPreviewState.None)
         val key = PreviewUrls.keyOf(url)
         return combine(
-            enabled,
+            linkPreviewsEnabled,
             cache.observeHidden(key),
             cache.observe(key),
         ) { on, hidden, preview ->
@@ -94,7 +97,7 @@ class LinkPreviewRepositoryImpl(
         val key = PreviewUrls.keyOf(url)
         // Turned off, dismissed, or fresh: three reasons to answer without a request.
         // Read in this order because it is the order of cheapness.
-        if (!enabled.first()) return LinkPreviewState.None
+        if (!linkPreviewsEnabled.first()) return LinkPreviewState.None
         if (cache.observeHidden(key).first()) return LinkPreviewState.Hidden
         if (cache.isFresh(key)) {
             return cache.cached(key)?.let(LinkPreviewState::Ready) ?: LinkPreviewState.Loading
@@ -124,10 +127,17 @@ class LinkPreviewRepositoryImpl(
             }
         if (!isOwner) {
             // The owner's coroutine holds the fetch, so a caller that gives up cancels
-            // only its own `await` and leaves the answer coming for the others.
-            return flight.await()
+            // only its own `await` and leaves the answer coming for the others. If the
+            // *owner* is cancelled, the deferred is cancelled with it — and this caller,
+            // still alive, takes the work over rather than inheriting somebody else's
+            // cancellation. `ensureActive` is what tells the two apart: this coroutine's
+            // own cancellation is rethrown, the owner's is not.
+            val waited = runCatchingCancellable { flight.await() }
+            if (waited.isSuccess) return waited.getOrThrow()
+            coroutineContext.ensureActive()
+            return fetchOnce(url, key)
         }
-        return try {
+        try {
             val state =
                 withContext(dispatcher) {
                     runCatchingCancellable { fetchAndStore(url, key) }
@@ -140,10 +150,15 @@ class LinkPreviewRepositoryImpl(
             // would buy nothing — but its answer must not put a card on the screen after
             // the user asked for none. Checked here, where the answer is *returned*,
             // rather than only before the request where it was *started*.
-            val settled = if (enabled.first()) state else LinkPreviewState.None
+            val settled = if (linkPreviewsEnabled.first()) state else LinkPreviewState.None
             flight.complete(settled)
-            settled
+            return settled
         } finally {
+            // Ends the flight for the waiters on **every** path, cancellation included.
+            // A deferred completed normally is already done, so `cancel()` there is a
+            // no-op; a deferred left open would hang every waiter for the life of its
+            // scope, which is the leak this `finally` exists to prevent.
+            flight.cancel()
             mutex.withLock { inFlight.remove(key, flight) }
         }
     }

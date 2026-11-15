@@ -87,7 +87,7 @@ class LinkPreviewRepositoryTest {
     ) = LinkPreviewRepositoryImpl(
         source = source,
         cache = cache,
-        enabled = MutableStateFlow(enabled),
+        linkPreviewsEnabled = MutableStateFlow(enabled),
         clock = clock,
         dispatcher = dispatcher,
     )
@@ -277,7 +277,7 @@ class LinkPreviewRepositoryTest {
                 LinkPreviewRepositoryImpl(
                     source = slow,
                     cache = LinkPreviewCache(MemoryPreferences(), MapFileSystem(), "/previews", clock),
-                    enabled = enabled,
+                    linkPreviewsEnabled = enabled,
                     clock = clock,
                     dispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -290,5 +290,76 @@ class LinkPreviewRepositoryTest {
             // not be handed back as something to put on screen.
             assertEquals(LinkPreviewState.None, inFlight.await())
             assertEquals(LinkPreviewState.None, repo.observe(url).first())
+        }
+
+    @Test
+    fun `an owner that is cancelled does not leave its waiters hanging`() =
+        runTest {
+            // A waiter must not outlive the fetch it is waiting on. If the owner is
+            // cancelled mid-flight and its deferred is never completed, every waiter
+            // hangs for the life of its scope — a leak that looks like a slow screen.
+            val source = FakeSource(mapOf(url to html))
+            val gate = CompletableDeferred<Unit>()
+            val slow =
+                object : PageSource {
+                    override suspend fun fetch(
+                        url: String,
+                        maxBytes: Int,
+                        kind: FetchKind,
+                    ): FetchedPage {
+                        if (kind == FetchKind.Html) gate.await()
+                        return source.fetch(url, maxBytes, kind)
+                    }
+                }
+            val repo = repository(slow, dispatcher = StandardTestDispatcher(testScheduler))
+            val owner = async { repo.refresh(url) }
+            runCurrent()
+            val waiter = async { repo.refresh(url) }
+            runCurrent()
+
+            owner.cancel()
+            runCurrent()
+            gate.complete(Unit)
+            runCurrent()
+
+            // The waiter must get an answer — a cancellation is an answer too — rather
+            // than waiting forever for an owner that is gone.
+            assertTrue(waiter.isCompleted, "a waiter must not outlive the owner that was cancelled")
+            runCatching { waiter.await() }
+        }
+
+    @Test
+    fun `a waiter that gives up does not cancel the owner's fetch`() =
+        runTest {
+            val source = FakeSource(mapOf(url to html))
+            val gate = CompletableDeferred<Unit>()
+            var pageFetches = 0
+            val slow =
+                object : PageSource {
+                    override suspend fun fetch(
+                        url: String,
+                        maxBytes: Int,
+                        kind: FetchKind,
+                    ): FetchedPage {
+                        if (kind == FetchKind.Html) {
+                            pageFetches++
+                            gate.await()
+                        }
+                        return source.fetch(url, maxBytes, kind)
+                    }
+                }
+            val repo = repository(slow, dispatcher = StandardTestDispatcher(testScheduler))
+            val owner = async { repo.refresh(url) }
+            runCurrent()
+            val waiter = async { repo.refresh(url) }
+            runCurrent()
+
+            waiter.cancel()
+            runCurrent()
+            gate.complete(Unit)
+            runCurrent()
+
+            assertTrue(owner.await() is LinkPreviewState.Ready)
+            assertEquals(1, pageFetches, "the owner's fetch must survive a waiter giving up")
         }
 }

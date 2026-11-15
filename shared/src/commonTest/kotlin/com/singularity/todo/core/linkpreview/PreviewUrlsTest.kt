@@ -154,4 +154,19 @@ class PreviewUrlsTest {
     fun `a non-default port is part of the key`() {
         assertTrue(PreviewUrls.keyOf("https://e.com:8443/a") != PreviewUrls.keyOf("https://e.com/a"))
     }
+
+    @Test
+    fun `a repeated slash is part of the address`() {
+        // `/a//b` and `/a/b` are two resources on a server that distinguishes them. Only
+        // `.` and `..` are normalised; an empty segment stays.
+        assertEquals("https://e.com/a//b", PreviewUrls.resolve("/a//b", "https://e.com/root"))
+        assertEquals("https://e.com/a//b", PreviewUrls.resolve("https://e.com/a//b", "https://e.com/x"))
+    }
+
+    @Test
+    fun `dot segments are removed and empty segments kept`() {
+        assertEquals("https://e.com/a/b", PreviewUrls.resolve("/a/./b", "https://e.com/root"))
+        assertEquals("https://e.com/a/b", PreviewUrls.resolve("/a/x/../b", "https://e.com/root"))
+        assertEquals("https://e.com/a//c", PreviewUrls.resolve("/a//b/../c", "https://e.com/root"))
+    }
 }

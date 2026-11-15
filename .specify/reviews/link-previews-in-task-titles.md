@@ -4,7 +4,7 @@ verdict: pass
 date: 2026-11-14
 pr: https://github.com/gazon1/sing/pull/2958
 reviewed: d06509b8bdcd2af0ac205677c3d7b9f0e1359b83
-documents: sha256:e9306706d573306352a35bbb392093cfcb1583d91007ff1f7158d031efd1917a
+documents: sha256:c52cfe3f5cdf6f3470decb787f44c1348729d1385d7ccc9602384708fa3b066a
 ---
 
 ## What was reviewed
@@ -131,3 +131,47 @@ connects to the name. A DNS answer that changes between the two is out of reach 
 pinned-IP transport, which Ktor's engines do not expose, and writing one is a larger
 change than this feature justifies. It is recorded in the ADR as the known limit. Any
 future fix must not weaken the redirect, TLS or hostname checks to get there.
+
+## Fourth pass — the security and concurrency audit
+
+Five defects, all fixed, each with a test checked to fail without its fix:
+
+1. **The IPv6 policy was a denylist, not an allowlist.** `else -> true` said yes to the
+   unassigned space outside global unicast (`4000::/3`) and to 6to4 — where
+   `2002:7f00:1::` is 127.0.0.1 wearing an IPv6 address. Only `2000::/3` is allowed
+   now, and the four prefixes that carry an IPv4 address (mapped, compatible, NAT64,
+   6to4) are judged by the address they carry.
+2. **A cancelled owner left its waiters hanging.** If the coroutine that owned a
+   single-flight fetch was cancelled, its deferred was never completed and every waiter
+   waited for the life of its scope. The flight is now cancelled in a `finally`, and a
+   waiter that is still alive takes the work over.
+3. **Dismissals were unbounded in practice.** The limit lived in `put`, so a person who
+   only dismissed cards — never opening a new page — accumulated them without end
+   (measured: 700 markers against a bound of 500). `hide` now trims in the same `edit`.
+4. **Credentials in a URL were not refused.** Ktor does not turn them into an
+   `Authorization` header today, but passing somebody's login to a stranger's site on
+   the strength of "the client happens not to" is not a decision worth making.
+5. **`collapseDots` collapsed `//`.** `/a//b` became `/a/b`, which is a different
+   resource on a server that distinguishes them. It is now RFC 3986 §5.2.4: dot
+   segments go, empty segments stay.
+
+### Two corrections to my own earlier reporting
+
+The IPv6 and dot-segment fixes were each reported with a negative control. The first
+attempt at both **silently failed to apply the revert** — the string I replaced did not
+match the file — and I reported "control passed" for a control that never ran. Re-run
+against the real code, both fail as they should. A control that did not execute is worse
+than no control, because it is cited as evidence.
+
+### On the CI failures
+
+Six blocking static gates fail on this branch. Five are pre-existing on `main` and name
+files this branch never touches (`04-pick-emoji.yaml`, `SavedSearchesRow.kt`, two
+long-standing ADRs, and a detekt-governance failure that passes locally — it is a
+missing artifact in the CI cache). The sixth was mine: `check-dead-settings` could not
+see the setting being read because the consumer named its parameter `enabled`. Renaming
+it to `linkPreviewsEnabled` makes the read visible and is a better name anyway. The
+gate passes.
+
+`RecurrenceStringsResourceTest` still fails, and still fails on a clean tree of this
+branch; it asserts a resource string this branch never touches.

@@ -436,7 +436,7 @@ fun coreModule(): org.koin.core.module.Module =
             LinkPreviewRepositoryImpl(
                 source = get(),
                 cache = get(),
-                enabled = get<SettingsRepository>().linkPreviewsEnabled,
+                linkPreviewsEnabled = get<SettingsRepository>().linkPreviewsEnabled,
                 clock = get(),
                 dispatcher = get(),
             )

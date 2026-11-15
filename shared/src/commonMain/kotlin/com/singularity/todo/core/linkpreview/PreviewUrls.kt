@@ -139,15 +139,7 @@ object PreviewUrls {
         val parsed = parse(url) ?: return url
         val path = parsed.encodedPath
         if (!path.contains("/.")) return url
-        val segments = mutableListOf<String>()
-        for (segment in path.split('/')) {
-            when (segment) {
-                "", "." -> Unit
-                ".." -> if (segments.isNotEmpty()) segments.removeAt(segments.lastIndex)
-                else -> segments += segment
-            }
-        }
-        val collapsed = "/" + segments.joinToString("/")
+        val collapsed = removeDotSegments(path)
         return buildString {
             append(parsed.protocol.name.lowercase())
             append("://")
@@ -160,5 +152,25 @@ object PreviewUrls {
             parsed.encodedQuery.takeIf { it.isNotEmpty() }?.let { append('?').append(it) }
             parsed.encodedFragment.takeIf { it.isNotEmpty() }?.let { append('#').append(it) }
         }
+    }
+
+    /**
+     * RFC 3986 §5.2.4 dot-segment removal.
+     *
+     * Only `.` and `..` as whole segments are removed. An **empty** segment is kept: it
+     * is the `//` in `/a//b`, and a server may serve that as a different resource from
+     * `/a/b`. The first version dropped empty segments along with the dots, which is not
+     * normalisation — it is rewriting the address into one the page did not name.
+     */
+    private fun removeDotSegments(path: String): String {
+        val output = mutableListOf<String>()
+        for (segment in path.split('/')) {
+            when (segment) {
+                "." -> Unit
+                ".." -> if (output.isNotEmpty()) output.removeAt(output.lastIndex)
+                else -> output += segment
+            }
+        }
+        return output.joinToString("/")
     }
 }

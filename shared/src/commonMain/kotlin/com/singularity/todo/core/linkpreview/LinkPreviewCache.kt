@@ -218,9 +218,19 @@ class LinkPreviewCache(
      */
     fun imagePath(key: String): String = "$imageDir/${codec.fileName(key)}.img"
 
-    /** Records that the user dismissed [key]'s preview. */
+    /**
+     * Records that the user dismissed [key]'s preview.
+     *
+     * The bound is enforced here, not only on the next [put]: a person who dismisses
+     * cards and never opens a new page writes no entries at all, so a limit that lived
+     * only in the write path would never run for them. The trimming is inside the same
+     * `edit`, so the store never holds more than [MAX_ENTRIES] of them.
+     */
     suspend fun hide(key: String) {
-        dataStore.edit { prefs -> prefs[codec.hiddenKey(key)] = HIDDEN }
+        dataStore.edit { prefs ->
+            prefs[codec.hiddenKey(key)] = HIDDEN
+            evictOldestDismissals(prefs)
+        }
     }
 
     /**

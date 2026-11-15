@@ -262,4 +262,23 @@ class LinkPreviewCacheTest {
             cache.forget(PreviewUrls.keyOf("https://example.com/a"))
             assertNull(cache.cached("https://example.com/a"))
         }
+
+    @Test
+    fun `dismissals stay bounded when nothing but dismissing happens`() =
+        runTest {
+            // A person can dismiss cards all day without opening a page that is not
+            // already cached, so `put` is never called and a bound that lives only there
+            // never runs. The limit has to hold on the write that creates the record.
+            val store = MemoryPreferences()
+            val cache = cache(store)
+            repeat(LinkPreviewCache.MAX_ENTRIES + 200) { index ->
+                cache.hide("https://example.com/$index")
+            }
+            val markers =
+                store.data.value
+                    .asMap()
+                    .keys
+                    .count { it.name.startsWith("link_preview.hidden.") }
+            assertEquals(LinkPreviewCache.MAX_ENTRIES, markers)
+        }
 }
