@@ -1,0 +1,83 @@
+# Search: the suggestion row's lifecycle on a device — selection, outside tap,
+# focus, clear, and a tap on a result while the row is on screen.
+#
+# The saved search the flow works with is created by `07-saved-search`, which is
+# also the only way to make one from a wiped profile: the row — and the "Save"
+# chip in it — is drawn only once a saved search exists. Running that flow first
+# is what gives this one its fixture, and it ends with the saved search selected.
+#
+# The chip is addressed by the id its name produces, not by the name: the name is
+# the runner's run id plus words, so the id template is the stable selector, and
+# `saved_search_chip_${RUN_ID}_my_saved_query` is the shape `TestTags.SavedSearches.chip`
+# gives it.
+appId: com.singularity.todo
+name: search-suggestion-dismissal
+tags:
+  - search
+---
+- runFlow: 07-saved-search.yaml
+
+# The suggestion the flow selected is gone from the row, and the query it carries
+# is the one that runs: the seeded task is what the stored query finds.
+- extendedWaitUntil:
+    notVisible:
+      id: saved_search_chip_${RUN_ID}_my_saved_query
+    timeout: 8000
+# The row is collapsed, not removed: the current query can still be saved.
+- assertVisible:
+    id: search_save_chip
+- extendedWaitUntil:
+    visible:
+      id: task_item_savedalpha2026
+    timeout: 8000
+
+# Clearing the field brings every suggestion back — an empty field offers all of
+# them, and the clear is the field's own button.
+- tapOn:
+    id: search_clear_button
+- extendedWaitUntil:
+    visible:
+      id: search_empty_placeholder
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: saved_search_chip_${RUN_ID}_my_saved_query
+    timeout: 8000
+
+# An outside tap dismisses the row and leaves the query alone: the field is empty,
+# so the idle prompt is the thing under the tap and it is still what the screen
+# says after the dismissal.
+- tapOn:
+    id: search_empty_placeholder
+- extendedWaitUntil:
+    notVisible:
+      id: saved_search_chip_${RUN_ID}_my_saved_query
+    timeout: 8000
+- assertVisible:
+    id: search_empty_placeholder
+
+# Focusing the field again offers them again.
+- tapOn:
+    id: search_input
+- extendedWaitUntil:
+    visible:
+      id: saved_search_chip_${RUN_ID}_my_saved_query
+    timeout: 8000
+
+# A result is tapped while the row is on screen. The tap dismisses the row and
+# still opens the task — an outside tap that swallowed the result's own click
+# would leave the person on a screen that looks like it ignored them.
+- tapOn:
+    id: search_input
+- inputText: "Saved2026"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: saved_search_chip_${RUN_ID}_my_saved_query
+    timeout: 8000
+- tapOn:
+    id: task_item_savedalpha2026
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000

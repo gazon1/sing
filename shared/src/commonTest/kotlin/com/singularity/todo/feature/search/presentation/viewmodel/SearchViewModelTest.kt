@@ -514,6 +514,106 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun `editing a loaded saved search clears activeSavedSearchId`() =
+        runTest {
+            fakeSavedSearchRepo.seedSavedSearch(
+                SavedSearch(
+                    id = SavedSearchId("ss-1"),
+                    userId = UserId("user-a"),
+                    name = "Completed",
+                    queryString = "state:completed",
+                    createdAt = NOW,
+                    updatedAt = NOW,
+                ),
+            )
+
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+            assertEquals(SavedSearchId("ss-1"), vm.stateFlow.value.activeSavedSearchId)
+            assertEquals("state:completed", vm.stateFlow.value.query.text)
+
+            vm.onIntent(SearchIntent.OnQueryChange("state:completed extra"))
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals("state:completed extra", state.query.text)
+            assertNull(state.activeSavedSearchId)
+            assertEquals(
+                listOf("state:completed"),
+                fakeSavedSearchRepo.allSavedSearches.map { it.queryString },
+                "editing the field must not rewrite the saved search",
+            )
+        }
+
+    @Test
+    fun `clearing the query of a loaded saved search clears activeSavedSearchId`() =
+        runTest {
+            fakeSavedSearchRepo.seedSavedSearch(
+                SavedSearch(
+                    id = SavedSearchId("ss-1"),
+                    userId = UserId("user-a"),
+                    name = "Completed",
+                    queryString = "state:completed",
+                    createdAt = NOW,
+                    updatedAt = NOW,
+                ),
+            )
+
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+            assertEquals(SavedSearchId("ss-1"), vm.stateFlow.value.activeSavedSearchId)
+
+            vm.onIntent(SearchIntent.OnQueryChange(""))
+            runCurrent()
+
+            assertEquals("", vm.stateFlow.value.query.text)
+            assertNull(vm.stateFlow.value.activeSavedSearchId)
+            assertEquals(
+                listOf("state:completed"),
+                fakeSavedSearchRepo.allSavedSearches.map { it.queryString },
+                "clearing the field must not rewrite the saved search",
+            )
+        }
+
+    @Test
+    fun `loading a saved search again restores the query it stored`() =
+        runTest {
+            fakeSavedSearchRepo.seedSavedSearch(
+                SavedSearch(
+                    id = SavedSearchId("ss-1"),
+                    userId = UserId("user-a"),
+                    name = "Completed",
+                    queryString = "state:completed",
+                    createdAt = NOW,
+                    updatedAt = NOW,
+                ),
+            )
+
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+            vm.onIntent(SearchIntent.OnQueryChange("state:completed extra"))
+            runCurrent()
+            assertNull(vm.stateFlow.value.activeSavedSearchId)
+
+            // The edit was the field's, so the stored query never saw it: loading the
+            // search again is the way back to what it says.
+            vm.onIntent(SearchIntent.OnLoadSavedSearch(SavedSearchId("ss-1")))
+            runCurrent()
+
+            assertEquals("state:completed", vm.stateFlow.value.query.text)
+            assertEquals(SavedSearchId("ss-1"), vm.stateFlow.value.activeSavedSearchId)
+        }
+
+    @Test
     fun `OnDeleteSavedSearch removes it from the repository`() =
         runTest {
             fakeSavedSearchRepo.seedSavedSearch(

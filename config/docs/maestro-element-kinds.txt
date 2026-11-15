@@ -157,6 +157,9 @@ saved_agenda_menu_delete menu
 saved_agenda_menu_edit menu
 saved_agenda_name_input field
 saved_agenda_save_button button
+# The chip a search-suggestion wait addresses. The wait is for a chip the person
+# taps or reads — the same kind as the Save chip beside it.
+saved_search_chip_${RUN_ID}_my_saved_query button
 search_empty_placeholder text
 search_empty_results text
 search_filter_apply_button button

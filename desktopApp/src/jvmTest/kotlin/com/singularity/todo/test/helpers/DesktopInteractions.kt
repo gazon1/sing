@@ -332,3 +332,27 @@ fun DesktopComposeUiTest.dragChatMessagesDown() {
 fun DesktopComposeUiTest.dragChatMessagesUp() {
     awaitTag(TestTags.CHAT_MESSAGES).performTouchInput { swipeUp() }
 }
+
+/**
+ * Presses [tag] and drags the finger up by [distancePx], without letting go on the way.
+ *
+ * The gesture a scrollable list sees as a scroll. It is not [swipeUp] because the node
+ * it is addressed by can be small — an empty state's title is a line of text — and a
+ * swipe across a line of text travels less than the touch slop, which a gesture
+ * detector reads as a tap. The distance is the point: past the slop, and the drag is
+ * a drag.
+ *
+ * @param tag the node the press starts on.
+ * @param distancePx how far the finger travels, in pixels.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.dragUpOnTag(
+    tag: String,
+    distancePx: Float = 120f,
+) {
+    awaitTag(tag).performTouchInput {
+        down(center)
+        moveBy(Offset(0f, -distancePx))
+        up()
+    }
+}

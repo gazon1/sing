@@ -215,6 +215,51 @@ class SearchPendingStateScenarioTest {
                 clickText("High priority")
 
                 awaitTagTextEquals(TestTags.SEARCH_INPUT, "priority:high")
+                // The selection is a dismissal, and the row it was selected from is
+                // the row that goes.
+                awaitTagGone(TestTags.SavedSearches.chip("High priority"))
+            } finally {
+                fakes.close()
+            }
+        }
+
+    /**
+     * A saved search may carry an empty query, and loading it must not read as a
+     * clear.
+     *
+     * This is the ordering the screen's rule is about, and it is asked of the real
+     * ViewModel, the real bridge and the real field: the ViewModel writes the
+     * active id and the query, the field is pulled to the query a frame later, and
+     * the screen must still tell "the field is empty because a search was loaded"
+     * from "the field is empty because the person cleared it". The first keeps the
+     * row down; the second brings it back.
+     */
+    @Test
+    fun a_saved_search_with_an_empty_query_keeps_the_row_down() =
+        runIsolatedComposeTest(width = 420, height = 900) {
+            val fakes = SearchFakes()
+            try {
+                // The name is what makes it a suggestion for "milk"; the stored
+                // query is empty, which is what the screen must not read as a clear.
+                fakes.seedSavedSearch(id = "ss-empty", name = "Milk everything", query = "")
+                showSearch(fakes.viewModel())
+
+                typeIntoTag(TestTags.SEARCH_INPUT, "milk")
+                awaitTagGone(TestTags.SEARCH_LOADING)
+                assertTagDisplayed(TestTags.SavedSearches.chip("Milk everything"))
+
+                clickTag(TestTags.SavedSearches.chip("Milk everything"))
+
+                // The load empties the field. The field being empty is not a clear.
+                awaitTagTextEquals(TestTags.SEARCH_INPUT, "")
+                awaitTagGone(TestTags.SavedSearches.chip("Milk everything"))
+                assertTagDisplayed(TestTags.SavedSearches.SAVE_CHIP)
+
+                // And the other reading of the same empty field does bring it back:
+                // this is what makes the pair of tests a contract rather than a
+                // snapshot of one state.
+                clickTag(TestTags.SEARCH_INPUT)
+                assertTagDisplayed(TestTags.SavedSearches.chip("Milk everything"))
             } finally {
                 fakes.close()
             }

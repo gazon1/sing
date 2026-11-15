@@ -7,6 +7,7 @@ package com.singularity.todo.feature.search
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -40,13 +41,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,6 +68,7 @@ import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
+import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -142,94 +151,186 @@ fun SearchScreenContent(
             source = state.querySource,
             onTextChanged = { onIntent(SearchIntent.OnQueryChange(it)) },
         )
+    val focusManager = LocalFocusManager.current
+
+    // The suggestions' one piece of state. Every trigger either hides the row — a
+    // selection, a mode change, the filter sheet, an outside tap — or brings it back:
+    // the field was emptied, or it was focused again.
+    //
+    // Focus *loss* is deliberately not a trigger. On desktop the field loses the
+    // focus on the way down of any press outside it, so hiding the row there would
+    // take the chip out from under the finger before its tap — and its long press —
+    // could land; the tap did not run, because the control it was meant for was
+    // gone. And on Android a press outside a field does not take its focus at all,
+    // so the trigger would be a no-op there. The tap is the event that says the
+    // person went elsewhere, and the tap is what the row listens for. The window's
+    // own focus is not a substitute: it flips for this screen's popups and dialogs.
+    // See `docs/decisions/2026-11-15-suggestions-follow-taps-not-focus-loss.md`.
+    var suggestionsDismissed by remember { mutableStateOf(false) }
+
+    fun dismissSuggestions() {
+        suggestionsDismissed = true
+        focusManager.clearFocus()
+    }
+
+    fun dismissThen(action: () -> Unit = {}) {
+        dismissSuggestions()
+        action()
+    }
+
+    // The field emptying brings the suggestions back — the field's own text, which
+    // is what the person sees; the ViewModel's copy arrives a frame later carrying
+    // the same text. A loaded saved search is not a clear even when its query is
+    // empty: the load writes the field from outside, and the row would come back the
+    // moment the selection dismissed it. The loaded search is what tells the two
+    // apart — a clear has none, because editing drops it.
+    val fieldIsEmpty by remember(queryState) { derivedStateOf { queryState.text.isEmpty() } }
+    LaunchedEffect(fieldIsEmpty, state.activeSavedSearchId) {
+        if (fieldIsEmpty && state.activeSavedSearchId == null) suggestionsDismissed = false
+    }
 
     // Back with the keyboard up closes the keyboard and nothing else: leaving the
     // screen on the same press would discard the field the person is typing into.
     ImeAwareBackHandler { navigator.back() }
 
-    SearchSheetHosts(
-        showFilterSheet = overlay.sheet is SearchDialog.Filter,
-        showSaveDialog = overlay.sheet is SearchDialog.Save,
-        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.pair,
-        activeFilter = state.activeFilter,
-        query = state.query.text,
-        onDismissFilterSheet = { overlay.dismissSheet() },
-        onApplyFilter = { filter ->
-            onIntent(SearchIntent.OnApplyFilter(filter))
-            overlay.dismissSheet()
-        },
-        onDismissSaveDialog = { overlay.dismissSheet() },
-        onSaveSearch = { name ->
-            onIntent(SearchIntent.OnSaveCurrentSearch(name))
-            overlay.dismissSheet()
-        },
-        onDismissRename = { overlay.dismissSheet() },
-        onRename = { id, newName ->
-            onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
-            overlay.dismissSheet()
-        },
-    )
+    SearchSheetsHost(overlay = overlay, state = state, onIntent = onIntent)
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text("Search") },
-                actions = {
-                    IconButton(onClick = { overlay.show(SearchDialog.Filter) }) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Filter")
-                    }
-                },
-            )
-        },
+        topBar = { SearchTopBar(onFilter = { dismissThen { overlay.show(SearchDialog.Filter) } }) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         RefreshableContent {
-            Column(modifier = Modifier.padding(padding)) {
-                SearchInputBar(queryState = queryState)
-
-                SearchModeSwitch(
-                    mode = state.mode,
-                    onModeChange = { onIntent(SearchIntent.OnModeChange(it)) },
-                )
-
-                if (state.savedSearches.isNotEmpty()) {
-                    SavedSearchesRow(
-                        savedSearches = state.savedSearches,
-                        activeSavedSearchId = state.activeSavedSearchId,
-                        onLoadSearch = { id -> onIntent(SearchIntent.OnLoadSavedSearch(id)) },
-                        onSaveClick = { overlay.show(SearchDialog.Save) },
-                        onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
-                        onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
-                        query = state.query.text,
-                    )
-                }
-
-                SearchOutcome(
-                    content = searchContent(state.query.text, state.results, state.isSearching),
-                    results = state.results,
-                    activeFilter = state.activeFilter,
-                    projectsById = state.projectsById,
-                    navigator = navigator,
-                    onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
-                    onClearQuery = { queryState.clearText() },
-                    onClearFilters = {
-                        // The structured constraints go, the free text and the mode
-                        // stay — and the filter that goes through the intent is the
-                        // one the search runs.
-                        state.activeFilter?.let { filter ->
-                            onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
-                        }
-                    },
-                )
-            }
+            SearchScreenBody(
+                modifier = Modifier.padding(padding),
+                state = state,
+                onIntent = onIntent,
+                navigator = navigator,
+                queryState = queryState,
+                suggestionsDismissed = suggestionsDismissed,
+                onInputFocusChanged = { focused -> if (focused) suggestionsDismissed = false },
+                onDismissSuggestions = { dismissSuggestions() },
+                onShowSaveDialog = { dismissThen { overlay.show(SearchDialog.Save) } },
+                onShowRenameDialog = { id, newName ->
+                    dismissThen { overlay.show(SearchDialog.Rename(id to newName)) }
+                },
+            )
         }
+    }
+}
+
+@Composable
+private fun SearchScreenBody(
+    modifier: Modifier,
+    state: SearchUiState,
+    onIntent: (SearchIntent) -> Unit,
+    navigator: SearchNavigator,
+    queryState: TextFieldState,
+    suggestionsDismissed: Boolean,
+    onInputFocusChanged: (Boolean) -> Unit,
+    onDismissSuggestions: () -> Unit,
+    onShowSaveDialog: () -> Unit,
+    onShowRenameDialog: (SavedSearchId, String) -> Unit,
+) {
+    val queryText = state.query.text
+    val hasSavedSearches = state.savedSearches.isNotEmpty()
+    val showSuggestions = hasSavedSearches && !suggestionsDismissed
+    Column(modifier = modifier.fillMaxSize()) {
+        SearchInputBar(
+            queryState = queryState,
+            onFocusChanged = onInputFocusChanged,
+        )
+
+        SearchModeSwitch(
+            mode = state.mode,
+            onModeChange = {
+                onDismissSuggestions()
+                onIntent(SearchIntent.OnModeChange(it))
+            },
+        )
+
+        if (hasSavedSearches) {
+            SavedSearchesRow(
+                savedSearches = state.savedSearches,
+                activeSavedSearchId = state.activeSavedSearchId,
+                onLoadSearch = { id ->
+                    onDismissSuggestions()
+                    onIntent(SearchIntent.OnLoadSavedSearch(id))
+                },
+                onSaveClick = onShowSaveDialog,
+                onRename = onShowRenameDialog,
+                onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                query = queryText,
+                showSuggestions = showSuggestions,
+            )
+        }
+
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .dismissSuggestionsOnTap(
+                        enabled = showSuggestions,
+                        onDismiss = onDismissSuggestions,
+                    ),
+        ) {
+            SearchOutcome(
+                content = searchContent(queryText, state.results, state.isSearching),
+                results = state.results,
+                activeFilter = state.activeFilter,
+                projectsById = state.projectsById,
+                navigator = navigator,
+                onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
+                onResultOpened = onDismissSuggestions,
+                onClearQuery = { queryState.clearText() },
+                onClearFilters = {
+                    // The structured constraints go, the free text and the mode
+                    // stay — and the filter that goes through the intent is the
+                    // one the search runs.
+                    state.activeFilter?.let { filter ->
+                        onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+                    }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Dismisses the suggestions when the results are tapped, using the standard tap
+ * detector.
+ *
+ * `detectTapGestures` is the framework's own "this was a tap" answer: it cancels on
+ * a drag, so scrolling the results is not a tap, and it lets every control under the
+ * finger take the press first — a tap on a result card never reaches this detector,
+ * so the card's own click is what runs. The detector is here, on the results, and not
+ * on the whole screen: a press on the field is not an outside tap, it is the person
+ * coming back to type.
+ *
+ * The hand-written pointer loop this replaced existed only because a dismissal used
+ * to be triggered by focus loss, which fires on the way *down* of the press and took
+ * the tapped control out of the tree before its click could run. The tap is the
+ * trigger now, and a tap has a standard detector.
+ */
+@Composable
+private fun Modifier.dismissSuggestionsOnTap(
+    enabled: Boolean,
+    onDismiss: () -> Unit,
+): Modifier {
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+    return if (!enabled) {
+        this
+    } else {
+        pointerInput(Unit) { detectTapGestures { currentOnDismiss() } }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchInputBar(queryState: TextFieldState) {
+private fun SearchInputBar(
+    queryState: TextFieldState,
+    onFocusChanged: (Boolean) -> Unit = {},
+) {
     // The screen is opened to be typed into: the field asks for the focus once,
     // when it appears. A person who came here to type should not have to tap
     // the field first.
@@ -244,6 +345,7 @@ private fun SearchInputBar(queryState: TextFieldState) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .focusRequester(focusRequester)
+                .onFocusChanged { onFocusChanged(it.isFocused) }
                 .testTag(TestTags.SEARCH_INPUT),
         placeholder = { Text("Search tasks, notes, projects...") },
         leadingIcon = { Icon(Icons.Filled.Search, null) },
@@ -270,6 +372,55 @@ private fun SearchInputBar(queryState: TextFieldState) {
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color.Transparent,
             ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchTopBar(onFilter: () -> Unit) {
+    TopAppBar(
+        title = { Text("Search") },
+        actions = {
+            IconButton(onClick = onFilter) {
+                Icon(Icons.Filled.Tune, contentDescription = "Filter")
+            }
+        },
+    )
+}
+
+/**
+ * The screen's overlay state, wired to the presentational sheet hosts.
+ *
+ * The hosts are a list, not a state: one place says which sheet the overlay holds
+ * and hands each host the callbacks that close it and the intent it sends.
+ */
+@Composable
+private fun SearchSheetsHost(
+    overlay: OverlayState<SearchDialog>,
+    state: SearchUiState,
+    onIntent: (SearchIntent) -> Unit,
+) {
+    SearchSheetHosts(
+        showFilterSheet = overlay.sheet is SearchDialog.Filter,
+        showSaveDialog = overlay.sheet is SearchDialog.Save,
+        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.pair,
+        activeFilter = state.activeFilter,
+        query = state.query.text,
+        onDismissFilterSheet = { overlay.dismissSheet() },
+        onApplyFilter = { filter ->
+            onIntent(SearchIntent.OnApplyFilter(filter))
+            overlay.dismissSheet()
+        },
+        onDismissSaveDialog = { overlay.dismissSheet() },
+        onSaveSearch = { name ->
+            onIntent(SearchIntent.OnSaveCurrentSearch(name))
+            overlay.dismissSheet()
+        },
+        onDismissRename = { overlay.dismissSheet() },
+        onRename = { id, newName ->
+            onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
+            overlay.dismissSheet()
+        },
     )
 }
 
@@ -328,6 +479,7 @@ private fun SearchOutcome(
     projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+    onResultOpened: () -> Unit,
     onClearQuery: () -> Unit,
     onClearFilters: () -> Unit,
 ) {
@@ -390,6 +542,7 @@ private fun SearchOutcome(
                 projectsById = projectsById,
                 navigator = navigator,
                 onPin = onPin,
+                onResultOpened = onResultOpened,
             )
         }
     }
@@ -401,6 +554,7 @@ private fun SearchResultsList(
     projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+    onResultOpened: () -> Unit,
 ) {
     val blockedTaskIds =
         remember(results) {
@@ -418,7 +572,10 @@ private fun SearchResultsList(
                 val project = hit.record.projectId?.let { projectsById[it] }
                 TaskCard(
                     task = hit.record,
-                    onClick = { navigator.openTask(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openTask(hit.record.id)
+                    },
                     today = systemToday(),
                     blockedTaskIds = blockedTaskIds,
                     matchRanges = hit.ranges,
@@ -436,7 +593,10 @@ private fun SearchResultsList(
             items(results.notes, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.title.ifBlank { "Untitled" },
-                    onClick = { navigator.openNote(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openNote(hit.record.id)
+                    },
                     matchRanges = hit.ranges,
                     column = SearchColumn.TITLE,
                 )
@@ -447,7 +607,10 @@ private fun SearchResultsList(
             items(results.projects, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
-                    onClick = { navigator.openProject(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openProject(hit.record.id)
+                    },
                     matchRanges = hit.ranges,
                     column = SearchColumn.NAME,
                 )
@@ -458,7 +621,10 @@ private fun SearchResultsList(
             items(results.tags, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
-                    onClick = { navigator.openTag(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openTag(hit.record.id)
+                    },
                     matchRanges = hit.ranges,
                     column = SearchColumn.NAME,
                 )

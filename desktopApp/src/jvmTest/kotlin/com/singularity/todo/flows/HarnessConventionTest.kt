@@ -454,6 +454,11 @@ class HarnessConventionTest {
                 "CalendarTopBarNarrowTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
                 "DesktopBackClosesWindowTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
                 "SearchScreenSheetSmokeTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
+                // The Filter action is the search screen's top-bar button, not a drawer
+                // entry, and the bar has no scrollable parent for the scroll-aware
+                // helper to scroll.
+                "SearchSuggestionInteractionUiTest.kt" to
+                    "the Filter action is the search top bar's own button, not a drawer entry",
                 // The profile avatar is drawn inside the account card, not in the
                 // navigation drawer. It has no scrollable parent at all — the
                 // scroll-aware helper would fail on it.

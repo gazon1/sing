@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,8 @@ import kotlinx.collections.immutable.toImmutableList
  * @param onRename what the long-press menu asks for.
  * @param onDelete what the long-press menu asks for.
  * @param modifier the modifier applied to the row.
+ * @param showSuggestions when false, the suggested saved-search chips are hidden;
+ *   the Save chip stays so the current query can still be saved.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -86,8 +89,39 @@ fun SavedSearchesRow(
     onDelete: (SavedSearchId) -> Unit,
     modifier: Modifier = Modifier,
     query: String = "",
+    showSuggestions: Boolean = true,
 ) {
     val suggestions = remember(savedSearches, query) { savedSearchSuggestions(savedSearches, query) }
+    var openMenuId by remember { mutableStateOf<String?>(null) }
+
+    fun setMenuOpen(
+        id: String,
+        open: Boolean,
+    ) {
+        // Two chips can ask in the same frame — one closes while the other opens —
+        // and only the one that asked decides its own state.
+        openMenuId =
+            if (open) {
+                id
+            } else if (openMenuId == id) {
+                null
+            } else {
+                openMenuId
+            }
+    }
+
+    LaunchedEffect(suggestions, showSuggestions) {
+        // A menu belongs to a chip that is on the row. The chip can leave it without
+        // the person closing the menu — the row is hidden by a dismissal, or the
+        // search the person deleted is the one whose menu is open — and the id would
+        // survive it: the next time the row came back, the menu would be open over a
+        // chip nobody pressed. The write is to local state only, and it does not
+        // change either key, so this cannot feed itself.
+        val menuIsStale =
+            openMenuId != null &&
+                (!showSuggestions || suggestions.none { it.id.raw == openMenuId })
+        if (menuIsStale) openMenuId = null
+    }
 
     LazyRow(
         modifier = modifier,
@@ -111,34 +145,40 @@ fun SavedSearchesRow(
             )
         }
 
-        // The query hid every saved search. Said in the row's own place, so the
-        // screen neither draws an empty row nor a panel over the results.
-        if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
-            item {
-                SelectableText(
-                    text = "No saved searches match",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier =
-                        Modifier
-                            .testTag(TestTags.SavedSearches.NO_MATCH)
-                            .padding(horizontal = 4.dp),
+        if (showSuggestions) {
+            // The query hid every saved search. Said in the row's own place, so the
+            // screen neither draws an empty row nor a panel over the results.
+            if (query.isNotBlank() && suggestions.isEmpty() && savedSearches.isNotEmpty()) {
+                item {
+                    // Selectable: the line explains why nothing is offered, and a
+                    // person who wants to quote it can take it as it is written.
+                    SelectableText(
+                        text = "No saved searches match",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.SavedSearches.NO_MATCH)
+                                .padding(horizontal = 4.dp),
+                    )
+                }
+            }
+
+            // Saved search chips
+            items(
+                items = suggestions,
+                key = { it.id.raw },
+            ) { saved ->
+                SavedSearchChipWithMenu(
+                    saved = saved,
+                    isActive = saved.id == activeSavedSearchId,
+                    menuExpanded = openMenuId == saved.id.raw,
+                    onMenuExpandedChange = { expanded -> setMenuOpen(saved.id.raw, expanded) },
+                    onClick = { onLoadSearch(saved.id) },
+                    onRename = { newName -> onRename(saved.id, newName) },
+                    onDelete = { onDelete(saved.id) },
                 )
             }
-        }
-
-        // Saved search chips
-        items(
-            items = suggestions,
-            key = { it.id.raw },
-        ) { saved ->
-            SavedSearchChipWithMenu(
-                saved = saved,
-                isActive = saved.id == activeSavedSearchId,
-                onClick = { onLoadSearch(saved.id) },
-                onRename = { newName -> onRename(saved.id, newName) },
-                onDelete = { onDelete(saved.id) },
-            )
         }
     }
 }
@@ -148,11 +188,12 @@ fun SavedSearchesRow(
 private fun SavedSearchChipWithMenu(
     saved: SavedSearch,
     isActive: Boolean,
+    menuExpanded: Boolean,
+    onMenuExpandedChange: (Boolean) -> Unit,
     onClick: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
     // Anchored, not seeded: the chip lives as long as the list does, and the saved
     // name can change underneath it — the rename is applied elsewhere, the list is
     // refreshed, the name comes back from a sync. A one-way seed would leave the
@@ -176,13 +217,13 @@ private fun SavedSearchChipWithMenu(
                     .testTag(TestTags.SavedSearches.chip(saved.name))
                     .combinedClickable(
                         onClick = onClick,
-                        onLongClick = { showMenu = true },
+                        onLongClick = { onMenuExpandedChange(true) },
                     ),
         )
 
         DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
+            expanded = menuExpanded,
+            onDismissRequest = { onMenuExpandedChange(false) },
             // Renders in its own popup window — mapTestTagsAsResourceIds required
             // so Maestro id: selectors can find items inside the menu.
             modifier = Modifier.mapTestTagsAsResourceIds(),
@@ -210,7 +251,7 @@ private fun SavedSearchChipWithMenu(
                                     onRename(renamed)
                                     renameState.setTextAndPlaceCursorAtEnd(saved.name)
                                 }
-                                showMenu = false
+                                onMenuExpandedChange(false)
                             },
                             modifier =
                                 Modifier
@@ -231,7 +272,7 @@ private fun SavedSearchChipWithMenu(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 onClick = {
                     onDelete()
-                    showMenu = false
+                    onMenuExpandedChange(false)
                 },
                 leadingIcon = {},
                 modifier = Modifier.testTag(TestTags.SavedSearches.SEARCH_MENU_DELETE),
