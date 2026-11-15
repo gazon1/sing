@@ -18,7 +18,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The cache answers without a fetch, forgets one address at a time, and expires.
+ * The cache answers without a fetch, keeps its bounds, and expires.
  *
  * The clock is the injected one, so "six hours later" is a value rather than a wait.
  */
@@ -101,31 +101,6 @@ class LinkPreviewCacheTest {
             cache.hide("https://example.com/a")
             assertTrue(cache.observeHidden("https://example.com/a").first())
             assertFalse(cache.observeHidden("https://example.com/b").first())
-        }
-
-    @Test
-    fun `forgetting removes the entry and its image`() =
-        runTest {
-            val files = MapFileSystem()
-            val cache = cache(files = files)
-            cache.put(preview("https://example.com/a"))
-            cache.putImage("https://example.com/a", byteArrayOf(1, 2, 3))
-            assertTrue(cache.imagePathOrNull("https://example.com/a") != null)
-
-            cache.forget("https://example.com/a")
-
-            assertNull(cache.cached("https://example.com/a"))
-            assertNull(cache.imagePathOrNull("https://example.com/a"))
-        }
-
-    @Test
-    fun `forgetting one address leaves another one alone`() =
-        runTest {
-            val cache = cache()
-            cache.put(preview("https://example.com/a"))
-            cache.put(preview("https://example.com/b"))
-            cache.forget("https://example.com/a")
-            assertEquals("A page", cache.cached("https://example.com/b")?.title)
         }
 
     @Test
@@ -250,17 +225,6 @@ class LinkPreviewCacheTest {
                 cache.imagePathOrNull(oldest),
                 "the image of an evicted entry must not survive it — an orphan file is shown as current",
             )
-        }
-
-    @Test
-    fun `a missing image file is not an error`() =
-        runTest {
-            val cache = cache()
-            // No image was ever written: forgetting the entry must still succeed, because
-            // a preview with no picture is the ordinary case.
-            cache.put(preview("https://example.com/a"))
-            cache.forget(PreviewUrls.keyOf("https://example.com/a"))
-            assertNull(cache.cached("https://example.com/a"))
         }
 
     @Test

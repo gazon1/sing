@@ -55,14 +55,25 @@ object PublicAddresses {
 
     // ── IPv4 ──────────────────────────────────────────────────────────────────
 
-    /** Four dotted decimal octets, or null. */
+    /**
+     * Four dotted decimal octets, or null.
+     *
+     * A part with a leading zero (`0177`) is **not** an octet. Some resolvers read that
+     * spelling as octal — `0177.0.0.1` is 127.0.0.1 to them — while the JVMs this app
+     * ships on read it as 177.0.0.1. Both behaviours exist in the wild, so a string two
+     * stacks disagree about must not be judged by this parser's opinion of it: refusing
+     * it as a literal sends it down [isFetchable]'s resolver branch, where the platform's
+     * own answer decides. `0` alone is fine — only *padding* is ambiguous.
+     */
     private fun parseIpv4(text: String): IntArray? {
         val parts = text.split('.')
         if (parts.size != 4) return null
         val octets = IntArray(4)
         for ((index, part) in parts.withIndex()) {
-            val value = part.toIntOrNull() ?: return null
-            if (value !in 0..255) return null
+            // A padded octet is ambiguous between stacks; see above.
+            val padded = part.length > 1 && part.startsWith('0')
+            val value = part.toIntOrNull()
+            if (padded || value == null || value !in 0..255) return null
             octets[index] = value
         }
         return octets

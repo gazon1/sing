@@ -74,6 +74,13 @@ not requested at all).
 - **Given** a page that redirects to `https://user:pass@example.com/`
 - **Then** the redirect target is refused before it is requested
 
+#### Scenario: A padded IPv4 spelling is judged by the resolver, not by us
+
+- **Given** a title naming `http://0177.0.0.1/`
+- **Then** the string is not treated as an address literal, because two stacks read it
+  differently, and the platform resolver's answer is what is judged
+- **And** if that answer is loopback, no request is made
+
 #### Scenario: A name that resolves to a private address is refused
 
 - **Given** a host name that resolves to `10.0.0.1`

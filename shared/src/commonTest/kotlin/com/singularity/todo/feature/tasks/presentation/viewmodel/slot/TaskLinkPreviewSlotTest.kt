@@ -56,8 +56,6 @@ class TaskLinkPreviewSlotTest {
         override suspend fun hide(url: String) {
             hidden += url
         }
-
-        override suspend fun forget(url: String) = Unit
     }
 
     private fun draft(title: String) =

@@ -72,6 +72,28 @@ The behaviour itself, unchanged:
 5. The preview follows the **title draft**. A fresh entry costs no request, and concurrent
    requests for one address share a single flight.
 
+# Known limit: DNS rebinding
+
+The fetcher resolves a host name, judges **every** address the answer contains, and then
+hands the *name* to Ktor, which resolves it again to open the connection. A DNS answer
+that changes between the judgement and the connect therefore reaches an address nobody
+judged. This is a time-of-check/time-of-use gap, and pre-checking a name cannot close it.
+
+**Accepted, not fixed.** Closing it needs a transport that connects to a pinned address
+while keeping the original name for the `Host` header, TLS SNI and certificate
+verification. Ktor's engines do not expose that, so it means writing an HTTP transport —
+for a decorative card, that is a larger risk than the gap: a hand-written transport that
+gets SNI, redirect and certificate handling subtly wrong is worse than a card that can be
+made to fetch a private page.
+
+What the current design does guarantee: the scheme, the host, and every redirect target
+are judged before any of them is requested; a name that resolves to nothing is refused; a
+name that resolves to *any* non-public address is refused; the picture goes through the
+same checks; no credentials are sent; and the reply is size- and type-bounded.
+
+Anyone who needs the stronger property must add the pinned transport, and must not weaken
+the redirect, TLS or hostname checks to get it.
+
 # Rationale
 
 - **One fetcher for a page and its picture.** The picture's address came from the
@@ -114,6 +136,11 @@ The behaviour itself, unchanged:
 - **The oracle is a slow test.** It runs in the `slow` population, not on every pull
   request, because it is a sweep rather than a unit test. The fast tests keep a hand-
   written table of the cases people hit.
+- **A padded octet is not a literal.** `0177.0.0.1` is 127.0.0.1 to a resolver that
+  reads octal and 177.0.0.1 to the JVMs this app ships on. Two stacks disagree, so this
+  parser refuses to have an opinion: a part with a leading zero is not an octet, the
+  string is not a literal, and the platform resolver — the one the connecting stack uses
+  — decides. `0` alone is fine; only padding is ambiguous.
 - **IPv6 is an allowlist, not a denylist.** The first version refused a list of
   known-bad prefixes and allowed everything else, which says yes to the large,
   mostly-unassigned space outside global unicast (`4000::/3`) and — worse — to 6to4,

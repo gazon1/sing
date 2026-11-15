@@ -41,9 +41,6 @@ interface LinkPreviewRepository {
 
     /** Dismisses the preview of [url] until the user asks for it again. */
     suspend fun hide(url: String)
-
-    /** Forgets a cached address, for a title edit that no longer points at it. */
-    suspend fun forget(url: String)
 }
 
 /**
@@ -171,10 +168,6 @@ class LinkPreviewRepositoryImpl(
 
     override suspend fun hide(url: String) {
         cache.hide(PreviewUrls.keyOf(url))
-    }
-
-    override suspend fun forget(url: String) {
-        cache.forget(PreviewUrls.keyOf(url))
     }
 
     /**

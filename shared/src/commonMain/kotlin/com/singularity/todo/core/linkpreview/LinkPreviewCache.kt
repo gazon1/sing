@@ -233,21 +233,6 @@ class LinkPreviewCache(
         }
     }
 
-    /**
-     * Drops the stored entry for [key], and its image, when the address is no longer
-     * one a task points at.
-     *
-     * Called after a title edit so a link that was removed leaves nothing behind. It
-     * removes exactly one address: another task may still show the same page, and its
-     * entry is not this task's to drop.
-     *
-     * [key] is a cache key, not an address — see [PreviewUrls.keyOf].
-     */
-    suspend fun forget(key: String) {
-        dataStore.edit { prefs -> prefs.remove(codec.entryKey(key)) }
-        deleteImage(key)
-    }
-
     companion object {
         /** How long an entry is trusted before it is refreshed in the background. */
         const val REFRESH_AFTER_MILLIS: Long = 6 * 60 * 60 * 1000L

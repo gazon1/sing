@@ -257,4 +257,32 @@ class PageFetcherTest {
                 fetcher(engine).fetch("https://example.com/a", 1024, FetchKind.Html)
             }
         }
+
+    @Test
+    fun `a padded-octet host that resolves to loopback is never requested`() =
+        runTest {
+            // `0177.0.0.1` is 127.0.0.1 to a resolver that reads octal. The policy must
+            // not accept its own decimal reading of the string instead — the request is
+            // refused on what the resolver said, and nothing goes out.
+            val engine = MockEngine { respondError(HttpStatusCode.OK) }
+            val loopback =
+                object : HostAddressResolver {
+                    override suspend fun resolve(host: String): List<String> = listOf("127.0.0.1")
+                }
+            val page = PageFetcher(client(engine), loopback)
+            assertFailsWith<PreviewFetchException> {
+                page.fetch("http://0177.0.0.1/", 1024, FetchKind.Html)
+            }
+            assertEquals(0, engine.requestHistory.size, "a loopback answer must stop the request")
+        }
+
+    @Test
+    fun `an address carrying credentials is refused before a request`() =
+        runTest {
+            val engine = MockEngine { respondError(HttpStatusCode.OK) }
+            assertFailsWith<PreviewFetchException> {
+                fetcher(engine).fetch("https://user:secret@example.com/x", 1024, FetchKind.Html)
+            }
+            assertEquals(0, engine.requestHistory.size)
+        }
 }

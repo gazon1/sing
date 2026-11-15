@@ -99,4 +99,29 @@ class PublicAddressesTest {
         assertTrue(PublicAddresses.isFetchable("93.184.216.34", emptyList()))
         assertFalse(PublicAddresses.isFetchable("127.0.0.1", emptyList()))
     }
+
+    @Test
+    fun `a padded octet is not a literal, so the platform resolver decides`() {
+        // `0177.0.0.1` is 127.0.0.1 to a resolver that reads octal and 177.0.0.1 to one
+        // that reads decimal. Two stacks disagree, so this parser must not have an
+        // opinion: the string is not a literal, and the answer comes from whichever
+        // resolver the connecting stack actually uses.
+        assertFalse(PublicAddresses.isLiteral("0177.0.0.1"))
+        assertFalse(PublicAddresses.isLiteral("001.002.003.004"))
+        // A bare zero is not padding.
+        assertTrue(PublicAddresses.isLiteral("0.0.0.0"))
+        assertTrue(PublicAddresses.isLiteral("10.0.0.1"))
+        // And a padded octet is never reported public on this parser's reading alone.
+        assertFalse(PublicAddresses.isPublic("0177.0.0.1"))
+    }
+
+    @Test
+    fun `a padded-octet host is judged by what it resolves to`() {
+        // On a resolver that reads it as loopback, this is refused; on one that reads it
+        // as 177.0.0.1, that address is what the connection reaches and what is judged.
+        assertFalse(PublicAddresses.isFetchable("0177.0.0.1", listOf("127.0.0.1")))
+        assertTrue(PublicAddresses.isFetchable("0177.0.0.1", listOf("177.0.0.1")))
+        // A resolver that answers nothing cannot be assumed safe.
+        assertFalse(PublicAddresses.isFetchable("0177.0.0.1", emptyList()))
+    }
 }

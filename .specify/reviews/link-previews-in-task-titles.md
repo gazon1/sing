@@ -4,7 +4,7 @@ verdict: pass
 date: 2026-11-14
 pr: https://github.com/gazon1/sing/pull/2958
 reviewed: d06509b8bdcd2af0ac205677c3d7b9f0e1359b83
-documents: sha256:c52cfe3f5cdf6f3470decb787f44c1348729d1385d7ccc9602384708fa3b066a
+documents: sha256:e0fc0eb89c98e2b292ed51f0dacf9ae779b78f469dd946dfdd06d5a3927b72ec
 ---
 
 ## What was reviewed
@@ -175,3 +175,30 @@ gate passes.
 
 `RecurrenceStringsResourceTest` still fails, and still fails on a clean tree of this
 branch; it asserts a resource string this branch never touches.
+
+## Fifth pass — padded IPv4, and a correction about CI
+
+**A padded octet could be judged by the wrong stack.** `0177.0.0.1` is 127.0.0.1 to a
+resolver that reads octal and 177.0.0.1 to the JVMs this app ships on — both behaviours
+exist. The parser accepted it as `177.0.0.1` on its own reading and called it public. A
+part with a leading zero is no longer an octet, so the string is not a literal and the
+platform resolver decides; an end-to-end test asserts that a resolver answer of loopback
+stops the request before it is made. The negative control fails without the guard.
+
+**DNS rebinding is now stated, not merely mentioned.** The ADR had no section for it —
+the earlier verdict claimed one did. It does now: the gap, why closing it needs a pinned
+transport, what the design does guarantee, and the constraint that a future fix must not
+weaken the redirect, TLS or hostname checks.
+
+**Two dead methods removed.** `LinkPreviewRepository.forget` and
+`LinkPreviewCache.forget` were declared, implemented, tested — and called by nothing in
+production. `find-unwired-surfaces.py` cannot see this (it reports unused Koin bindings),
+so the only defence is reading the call graph. Deleted with their tests.
+
+**I was wrong about CI, and the reason matters.** I reported
+`RecurrenceStringsResourceTest` as pre-existing because it failed on a stashed clean tree
+*of this branch*. That tree was 20 commits behind `origin/main`, which had already fixed
+it (`471c367bc6`, `trim = false`). After merging main the test passes, and so do the other
+five static gates I had called pre-existing — main had fixed those too. The lesson is the
+one the review pressed: compare against the actual base, not against a stale copy of your
+own branch.
