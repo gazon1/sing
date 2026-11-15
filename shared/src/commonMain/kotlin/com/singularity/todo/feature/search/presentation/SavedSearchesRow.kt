@@ -77,7 +77,6 @@ import kotlinx.collections.immutable.toImmutableList
  * @param modifier the modifier applied to the row.
  * @param showSuggestions when false, the suggested saved-search chips are hidden;
  *   the Save chip stays so the current query can still be saved.
- * @param onMenuOpenChanged reports whether any suggestion chip's context menu is open.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +90,6 @@ fun SavedSearchesRow(
     modifier: Modifier = Modifier,
     query: String = "",
     showSuggestions: Boolean = true,
-    onMenuOpenChanged: (Boolean) -> Unit = {},
 ) {
     val suggestions = remember(savedSearches, query) { savedSearchSuggestions(savedSearches, query) }
     var openMenuId by remember { mutableStateOf<String?>(null) }
@@ -100,7 +98,9 @@ fun SavedSearchesRow(
         id: String,
         open: Boolean,
     ) {
-        val next =
+        // Two chips can ask in the same frame — one closes while the other opens —
+        // and only the one that asked decides its own state.
+        openMenuId =
             if (open) {
                 id
             } else if (openMenuId == id) {
@@ -108,26 +108,19 @@ fun SavedSearchesRow(
             } else {
                 openMenuId
             }
-        if (next == openMenuId) return
-        val wasOpen = openMenuId != null
-        openMenuId = next
-        val isOpen = next != null
-        if (wasOpen != isOpen) onMenuOpenChanged(isOpen)
     }
 
     LaunchedEffect(suggestions, showSuggestions) {
-        // A menu belongs to a chip that is on the row. The chip can leave the row
-        // without the person closing the menu — the row is hidden by a dismissal, or
-        // the search the person deleted is the one whose menu is open — and the menu
-        // would then be an id with nothing behind it: the screen would keep believing
-        // a menu is open and stop dismissing the row around it.
+        // A menu belongs to a chip that is on the row. The chip can leave it without
+        // the person closing the menu — the row is hidden by a dismissal, or the
+        // search the person deleted is the one whose menu is open — and the id would
+        // survive it: the next time the row came back, the menu would be open over a
+        // chip nobody pressed. The write is to local state only, and it does not
+        // change either key, so this cannot feed itself.
         val menuIsStale =
             openMenuId != null &&
                 (!showSuggestions || suggestions.none { it.id.raw == openMenuId })
-        if (menuIsStale) {
-            openMenuId = null
-            onMenuOpenChanged(false)
-        }
+        if (menuIsStale) openMenuId = null
     }
 
     LazyRow(

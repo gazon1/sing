@@ -7,8 +7,7 @@ package com.singularity.todo.feature.search
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -54,7 +53,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -154,35 +152,36 @@ fun SearchScreenContent(
             onTextChanged = { onIntent(SearchIntent.OnQueryChange(it)) },
         )
     val focusManager = LocalFocusManager.current
-    var suggestionsDismissed by remember { mutableStateOf(false) }
-    var inputFocused by remember { mutableStateOf(false) }
-    var suggestionMenuOpen by remember { mutableStateOf(false) }
-    var pointerPressed by remember { mutableStateOf(false) }
 
-    fun dismissThen(action: () -> Unit = {}) {
+    // The suggestions' one piece of state. Every trigger either hides the row — a
+    // selection, a mode change, the filter sheet, an outside tap — or brings it back:
+    // the field was emptied, or it was focused again.
+    //
+    // Focus *loss* is deliberately not a trigger. On desktop the field loses the
+    // focus on the way down of any press outside it, so hiding the row there would
+    // take the chip out from under the finger before its tap — and its long press —
+    // could land; the tap did not run, because the control it was meant for was
+    // gone. And on Android a press outside a field does not take its focus at all,
+    // so the trigger would be a no-op there. The tap is the event that says the
+    // person went elsewhere, and the tap is what the row listens for.
+    var suggestionsDismissed by remember { mutableStateOf(false) }
+
+    fun dismissSuggestions() {
         suggestionsDismissed = true
         focusManager.clearFocus()
+    }
+
+    fun dismissThen(action: () -> Unit = {}) {
+        dismissSuggestions()
         action()
     }
 
-    fun dismissSuggestionsIfIdle() {
-        if (!suggestionMenuOpen && !inputFocused && !pointerPressed) suggestionsDismissed = true
-    }
-
-    // A tap below the field is an outside tap whatever the field's focus does: the
-    // tap did not land in the field, and the row goes. The focus is not consulted
-    // here on purpose — on a platform where tapping elsewhere does not take the
-    // field's focus, that would leave the row up over the results.
-    fun dismissSuggestionsForTap() {
-        if (!suggestionMenuOpen && !pointerPressed) suggestionsDismissed = true
-    }
-
-    // The field emptying is what brings the suggestions back — the field's own text,
-    // which is what the person sees; the ViewModel's copy arrives a frame later
-    // carrying the same text. A loaded saved search is not a clear even when its
-    // query is empty: the load writes the field from outside, and the row would come
-    // back the moment the selection dismissed it. The loaded search is what tells
-    // the two apart — a clear has none, because editing drops it.
+    // The field emptying brings the suggestions back — the field's own text, which
+    // is what the person sees; the ViewModel's copy arrives a frame later carrying
+    // the same text. A loaded saved search is not a clear even when its query is
+    // empty: the load writes the field from outside, and the row would come back the
+    // moment the selection dismissed it. The loaded search is what tells the two
+    // apart — a clear has none, because editing drops it.
     val fieldIsEmpty by remember(queryState) { derivedStateOf { queryState.text.isEmpty() } }
     LaunchedEffect(fieldIsEmpty, state.activeSavedSearchId) {
         if (fieldIsEmpty && state.activeSavedSearchId == null) suggestionsDismissed = false
@@ -207,19 +206,8 @@ fun SearchScreenContent(
                 navigator = navigator,
                 queryState = queryState,
                 suggestionsDismissed = suggestionsDismissed,
-                onInputFocusChanged = { focused ->
-                    inputFocused = focused
-                    if (focused) suggestionsDismissed = false else dismissSuggestionsIfIdle()
-                },
-                onMenuOpenChanged = { open ->
-                    suggestionMenuOpen = open
-                    if (!open) dismissSuggestionsIfIdle()
-                },
-                onPressChanged = { pressed, travelled ->
-                    pointerPressed = pressed
-                    if (!pressed && !travelled) dismissSuggestionsForTap()
-                },
-                onDismissSuggestions = { dismissThen() },
+                onInputFocusChanged = { focused -> if (focused) suggestionsDismissed = false },
+                onDismissSuggestions = { dismissSuggestions() },
                 onShowSaveDialog = { dismissThen { overlay.show(SearchDialog.Save) } },
                 onShowRenameDialog = { id, newName ->
                     dismissThen { overlay.show(SearchDialog.Rename(id to newName)) }
@@ -238,8 +226,6 @@ private fun SearchScreenBody(
     queryState: TextFieldState,
     suggestionsDismissed: Boolean,
     onInputFocusChanged: (Boolean) -> Unit,
-    onMenuOpenChanged: (Boolean) -> Unit,
-    onPressChanged: (pressed: Boolean, travelled: Boolean) -> Unit,
     onDismissSuggestions: () -> Unit,
     onShowSaveDialog: () -> Unit,
     onShowRenameDialog: (SavedSearchId, String) -> Unit,
@@ -253,101 +239,87 @@ private fun SearchScreenBody(
             onFocusChanged = onInputFocusChanged,
         )
 
-        // Everything under the field. The press tracking sits here rather than on
-        // the whole screen because a press on the field is not an outside tap: it
-        // is the person coming back to type.
-        Column(
+        SearchModeSwitch(
+            mode = state.mode,
+            onModeChange = {
+                onDismissSuggestions()
+                onIntent(SearchIntent.OnModeChange(it))
+            },
+        )
+
+        if (hasSavedSearches) {
+            SavedSearchesRow(
+                savedSearches = state.savedSearches,
+                activeSavedSearchId = state.activeSavedSearchId,
+                onLoadSearch = { id ->
+                    onDismissSuggestions()
+                    onIntent(SearchIntent.OnLoadSavedSearch(id))
+                },
+                onSaveClick = onShowSaveDialog,
+                onRename = onShowRenameDialog,
+                onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                query = queryText,
+                showSuggestions = showSuggestions,
+            )
+        }
+
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .trackPresses(onPressChanged),
+                    .dismissSuggestionsOnTap(
+                        enabled = showSuggestions,
+                        onDismiss = onDismissSuggestions,
+                    ),
         ) {
-            SearchModeSwitch(
-                mode = state.mode,
-                onModeChange = {
-                    onDismissSuggestions()
-                    onIntent(SearchIntent.OnModeChange(it))
+            SearchOutcome(
+                content = searchContent(queryText, state.results, state.isSearching),
+                results = state.results,
+                activeFilter = state.activeFilter,
+                projectsById = state.projectsById,
+                navigator = navigator,
+                onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
+                onResultOpened = onDismissSuggestions,
+                onClearQuery = { queryState.clearText() },
+                onClearFilters = {
+                    // The structured constraints go, the free text and the mode
+                    // stay — and the filter that goes through the intent is the
+                    // one the search runs.
+                    state.activeFilter?.let { filter ->
+                        onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
+                    }
                 },
             )
-
-            if (hasSavedSearches) {
-                SavedSearchesRow(
-                    savedSearches = state.savedSearches,
-                    activeSavedSearchId = state.activeSavedSearchId,
-                    onLoadSearch = { id ->
-                        onDismissSuggestions()
-                        onIntent(SearchIntent.OnLoadSavedSearch(id))
-                    },
-                    onSaveClick = onShowSaveDialog,
-                    onRename = onShowRenameDialog,
-                    onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
-                    query = queryText,
-                    showSuggestions = showSuggestions,
-                    onMenuOpenChanged = onMenuOpenChanged,
-                )
-            }
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                SearchOutcome(
-                    content = searchContent(queryText, state.results, state.isSearching),
-                    results = state.results,
-                    activeFilter = state.activeFilter,
-                    projectsById = state.projectsById,
-                    navigator = navigator,
-                    onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
-                    onClearQuery = { queryState.clearText() },
-                    onClearFilters = {
-                        // The structured constraints go, the free text and the mode
-                        // stay — and the filter that goes through the intent is the
-                        // one the search runs.
-                        state.activeFilter?.let { filter ->
-                            onIntent(SearchIntent.OnApplyFilter(filter.withoutStructuredConstraints()))
-                        }
-                    },
-                )
-            }
         }
     }
 }
 
 /**
- * Reports the body's presses, from the down to the lift, without consuming them.
+ * Dismisses the suggestions when the results are tapped, using the standard tap
+ * detector.
  *
- * A press is watched in the [PointerEventPass.Initial] pass and never consumed: the
- * control under the finger — a saved-search chip, a result card — still owns the
- * press, and *its* click is the thing that has to run. This is an observer, not a
- * handler, which is why it is a raw pointer loop rather than `clickable`: a
- * `clickable` here would compete with the controls for the press instead of
- * watching it.
+ * `detectTapGestures` is the framework's own "this was a tap" answer: it cancels on
+ * a drag, so scrolling the results is not a tap, and it lets every control under the
+ * finger take the press first — a tap on a result card never reaches this detector,
+ * so the card's own click is what runs. The detector is here, on the results, and not
+ * on the whole screen: a press on the field is not an outside tap, it is the person
+ * coming back to type.
  *
- * The screen needs the answer because losing the field's focus is a dismissal
- * trigger, and a press outside the field takes that focus *on the way down*. A row
- * that vanished at the down would remove the chip under the finger before the tap
- * (or the long press) could land on it — so the dismissal waits for the lift, and
- * this is what tells it when the press is over.
- *
- * `travelled` separates the two lifts: a thumb that moved past the touch slop was
- * scrolling the results, and the row must not disappear under it.
+ * The hand-written pointer loop this replaced existed only because a dismissal used
+ * to be triggered by focus loss, which fires on the way *down* of the press and took
+ * the tapped control out of the tree before its click could run. The tap is the
+ * trigger now, and a tap has a standard detector.
  */
 @Composable
-private fun Modifier.trackPresses(onPressedChanged: (pressed: Boolean, travelled: Boolean) -> Unit): Modifier {
-    val currentOnPressedChanged by rememberUpdatedState(onPressedChanged)
-    return pointerInput(Unit) {
-        val touchSlop = viewConfiguration.touchSlop
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            var travelled = false
-            currentOnPressedChanged(true, travelled)
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                val change = event.changes.firstOrNull { it.id == down.id }
-                if (change != null && (change.position - down.position).getDistance() > touchSlop) {
-                    travelled = true
-                }
-                if (event.changes.none { it.pressed }) break
-            }
-            currentOnPressedChanged(false, travelled)
-        }
+private fun Modifier.dismissSuggestionsOnTap(
+    enabled: Boolean,
+    onDismiss: () -> Unit,
+): Modifier {
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+    return if (!enabled) {
+        this
+    } else {
+        pointerInput(Unit) { detectTapGestures { currentOnDismiss() } }
     }
 }
 
@@ -505,6 +477,7 @@ private fun SearchOutcome(
     projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+    onResultOpened: () -> Unit,
     onClearQuery: () -> Unit,
     onClearFilters: () -> Unit,
 ) {
@@ -567,6 +540,7 @@ private fun SearchOutcome(
                 projectsById = projectsById,
                 navigator = navigator,
                 onPin = onPin,
+                onResultOpened = onResultOpened,
             )
         }
     }
@@ -578,6 +552,7 @@ private fun SearchResultsList(
     projectsById: ImmutableMap<ProjectId, Project>,
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+    onResultOpened: () -> Unit,
 ) {
     val blockedTaskIds =
         remember(results) {
@@ -595,7 +570,10 @@ private fun SearchResultsList(
                 val project = hit.record.projectId?.let { projectsById[it] }
                 TaskCard(
                     task = hit.record,
-                    onClick = { navigator.openTask(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openTask(hit.record.id)
+                    },
                     today = systemToday(),
                     blockedTaskIds = blockedTaskIds,
                     matchRanges = hit.ranges,
@@ -613,7 +591,10 @@ private fun SearchResultsList(
             items(results.notes, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.title.ifBlank { "Untitled" },
-                    onClick = { navigator.openNote(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openNote(hit.record.id)
+                    },
                     matchRanges = hit.ranges,
                     column = SearchColumn.TITLE,
                 )
@@ -624,7 +605,10 @@ private fun SearchResultsList(
             items(results.projects, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
-                    onClick = { navigator.openProject(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openProject(hit.record.id)
+                    },
                     matchRanges = hit.ranges,
                     column = SearchColumn.NAME,
                 )
@@ -635,7 +619,10 @@ private fun SearchResultsList(
             items(results.tags, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
-                    onClick = { navigator.openTag(hit.record.id) },
+                    onClick = {
+                        onResultOpened()
+                        navigator.openTag(hit.record.id)
+                    },
                     matchRanges = hit.ranges,
                     column = SearchColumn.NAME,
                 )

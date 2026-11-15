@@ -13,12 +13,17 @@ import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickText
+import com.singularity.todo.test.helpers.countNodesWithTagInAnyRoot
+import com.singularity.todo.test.helpers.longClickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -301,6 +306,74 @@ class SavedSearchesRowUiTest {
 
             assertTagNotExists(TestTags.SavedSearches.chip("Overdue"))
             assertTagDisplayed(TestTags.SavedSearches.chip("Old"))
+        }
+
+    @Test
+    fun `removing the chip whose menu is open leaves no menu behind`() =
+        // The menu's id lives in the row, so the row is where the rule that the id
+        // belongs to a chip is proved: the chip the person deleted cannot leave an
+        // id that a later list would render as an open menu.
+        runIsolatedComposeTest {
+            val searches = mutableStateOf(rowFixture)
+
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = searches.value,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
+            waitForIdle()
+
+            longClickTag(TestTags.SavedSearches.chip("Overdue"))
+            waitForIdle()
+            assertTrue(countNodesWithTagInAnyRoot(TestTags.SavedSearches.SEARCH_MENU_DELETE) > 0)
+
+            searches.value = rowFixture.filter { it.name != "Overdue" }.toImmutableList()
+            waitForIdle()
+
+            awaitTagGone(TestTags.SavedSearches.chip("Overdue"))
+            awaitTagGone(TestTags.SavedSearches.SEARCH_MENU_DELETE)
+        }
+
+    @Test
+    fun `hiding the row closes its menu and showing it again does not re-open it`() =
+        // The row is hidden while the suggestions are dismissed and comes back when
+        // the field is focused. A menu is not part of what comes back: the id that
+        // was open when the row went must not pop a menu over a chip nobody pressed.
+        runIsolatedComposeTest {
+            val showSuggestions = mutableStateOf(true)
+
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = rowFixture,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                    showSuggestions = showSuggestions.value,
+                )
+            }
+            waitForIdle()
+
+            longClickTag(TestTags.SavedSearches.chip("Overdue"))
+            waitForIdle()
+            assertTrue(countNodesWithTagInAnyRoot(TestTags.SavedSearches.SEARCH_MENU_DELETE) > 0)
+
+            showSuggestions.value = false
+            waitForIdle()
+            awaitTagGone(TestTags.SavedSearches.chip("Overdue"))
+            awaitTagGone(TestTags.SavedSearches.SEARCH_MENU_DELETE)
+
+            showSuggestions.value = true
+            waitForIdle()
+
+            assertTagDisplayed(TestTags.SavedSearches.chip("Overdue"))
+            assertFalse(countNodesWithTagInAnyRoot(TestTags.SavedSearches.SEARCH_MENU_DELETE) > 0)
         }
 
     private val rowFixture =
