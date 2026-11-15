@@ -59,42 +59,51 @@ fun LinkifiedText(
     val internalHandlerState = rememberUpdatedState(onInternalLink)
     val uriHandlerState = rememberUpdatedState(rememberAppUriHandler(onInternalLink))
     val primary = MaterialTheme.colorScheme.primary
-    val linkStyles = remember(primary) {
-        TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
-    }
+    val linkStyles =
+        remember(primary) {
+            TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
+        }
     val dispatchLinksByAnnotation = onClick == null
-    val annotated = remember(text, spans, linkStyles, dispatchLinksByAnnotation) {
-        buildLinkifiedAnnotated(
-            text = text,
-            spans = spans,
-            linkStyles = linkStyles,
-            dispatchLinks = dispatchLinksByAnnotation,
-            onWeb = { uriHandlerState.value.openUri(it) },
-            onInternal = { internalHandlerState.value(it) },
-        )
-    }
+    val annotated =
+        remember(text, spans, linkStyles, dispatchLinksByAnnotation) {
+            buildLinkifiedAnnotated(
+                text = text,
+                spans = spans,
+                linkStyles = linkStyles,
+                dispatchLinks = dispatchLinksByAnnotation,
+                onWeb = { uriHandlerState.value.openUri(it) },
+                onInternal = { internalHandlerState.value(it) },
+            )
+        }
     var layout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
-    val tapModifier = when {
-        onClick == null -> Modifier
-        spans.isEmpty() -> Modifier.clickable { onTextClickState.value?.invoke() }
-        else ->
-            Modifier
-                .semantics {
-                    onClick {
-                        onTextClickState.value?.invoke()
-                        true
+    val tapModifier =
+        when {
+            onClick == null -> {
+                Modifier
+            }
+
+            spans.isEmpty() -> {
+                Modifier.clickable { onTextClickState.value?.invoke() }
+            }
+
+            else -> {
+                Modifier
+                    .semantics {
+                        onClick {
+                            onTextClickState.value?.invoke()
+                            true
+                        }
+                    }.pointerInput(text, spans) {
+                        detectLinkifiedTap(
+                            layout = { layout },
+                            spans = spans,
+                            onWeb = { uriHandlerState.value.openUri(it) },
+                            onInternal = { internalHandlerState.value(it) },
+                            onText = { onTextClickState.value?.invoke() },
+                        )
                     }
-                }
-                .pointerInput(text, spans) {
-                    detectLinkifiedTap(
-                        layout = { layout },
-                        spans = spans,
-                        onWeb = { uriHandlerState.value.openUri(it) },
-                        onInternal = { internalHandlerState.value(it) },
-                        onText = { onTextClickState.value?.invoke() },
-                    )
-                }
-    }
+            }
+        }
     SelectionContainer(modifier = modifier) {
         Text(
             text = annotated ?: AnnotatedString(text),
@@ -123,25 +132,29 @@ private fun buildLinkifiedAnnotated(
             val start = span.range.first
             val end = span.range.last + 1
             when (val link = span.link) {
-                is TextLink.Web -> addLink(
-                    LinkAnnotation.Url(
-                        url = link.url,
-                        styles = linkStyles,
-                        linkInteractionListener = if (dispatchLinks) ({ onWeb(link.url) }) else null,
-                    ),
-                    start,
-                    end,
-                )
+                is TextLink.Web -> {
+                    addLink(
+                        LinkAnnotation.Url(
+                            url = link.url,
+                            styles = linkStyles,
+                            linkInteractionListener = if (dispatchLinks) ({ onWeb(link.url) }) else null,
+                        ),
+                        start,
+                        end,
+                    )
+                }
 
-                is TextLink.Internal -> addLink(
-                    LinkAnnotation.Clickable(
-                        tag = link.target.url,
-                        styles = linkStyles,
-                        linkInteractionListener = if (dispatchLinks) ({ onInternal(link) }) else null,
-                    ),
-                    start,
-                    end,
-                )
+                is TextLink.Internal -> {
+                    addLink(
+                        LinkAnnotation.Clickable(
+                            tag = link.target.url,
+                            styles = linkStyles,
+                            linkInteractionListener = if (dispatchLinks) ({ onInternal(link) }) else null,
+                        ),
+                        start,
+                        end,
+                    )
+                }
             }
         }
     }
@@ -164,13 +177,20 @@ private suspend fun PointerInputScope.detectLinkifiedTap(
         val downLink = result.linkAt(down.position, spans)
         val upLink = result.linkAt(up.position, spans)
         when {
-            downLink != null && downLink == upLink -> when (downLink) {
-                is TextLink.Web -> onWeb(downLink.url)
-                is TextLink.Internal -> onInternal(downLink)
+            downLink != null && downLink == upLink -> {
+                when (downLink) {
+                    is TextLink.Web -> onWeb(downLink.url)
+                    is TextLink.Internal -> onInternal(downLink)
+                }
             }
 
-            downLink == null && upLink == null -> onText()
-            else -> Unit
+            downLink == null && upLink == null -> {
+                onText()
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
 }
