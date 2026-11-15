@@ -9,6 +9,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -96,7 +97,12 @@ class TaskCreateViewModel(
             }
 
             is TaskCreateIntent.DescriptionChanged -> {
-                updateDraft { it.copy(description = it.description.echoed(intent.description)) }
+                updateDraft {
+                    it.copy(
+                        descriptionHtml = it.descriptionHtml.echoed(intent.description),
+                        description = it.description.echoed(TaskDescriptionHtml.plainText(intent.description)),
+                    )
+                }
             }
 
             is TaskCreateIntent.SetPriority -> {

@@ -359,7 +359,7 @@ class TaskDetailCoordinator(
                 .collect { task ->
                     loadable.value = task
                     taskLoad.value = if (task == null) TaskLoad.Missing else TaskLoad.Found(task)
-                    if (task != null) draft.seed(task.title, task.description ?: "")
+                    if (task != null) draft.seed(task.title, task.descriptionRichHtml)
                 }
         }
         scope.launch {

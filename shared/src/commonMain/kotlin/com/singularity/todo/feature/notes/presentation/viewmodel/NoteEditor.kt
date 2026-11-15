@@ -13,10 +13,10 @@ import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
+import com.singularity.todo.core.ui.rich.LinkKind
+import com.singularity.todo.core.ui.rich.LinkResult
 import com.singularity.todo.feature.notes.EditorState.Editing
 import com.singularity.todo.feature.notes.ExtractActionsResult
-import com.singularity.todo.feature.notes.LinkKind
-import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteAiAction
 import com.singularity.todo.feature.notes.NoteAiResult

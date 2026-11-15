@@ -28,6 +28,8 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | File | Shape | Field |
 |---|---|---|
 | `core/ui/components/ChatInputBar.kt` | local | the input bar's state — the bar takes the state, the screen creates it |
+| `core/ui/rich/InternalLinkPickerSheet.kt` | local | the link's text |
+| `core/ui/rich/LinkUrlDialog.kt` | local | the URL |
 | `feature/agenda/presentation/screen/SavedAgendaContent.kt` | bridged | the saved view's name |
 | `feature/agenda/presentation/screen/SavedAgendaScreen.kt` | local | the regexp sheet's pattern |
 | `feature/ai/chat/ChatScreen.kt` | local, bridged | the chat input (bridged) and the `ChatInputBar` states (local) |
@@ -41,8 +43,6 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/calendarSync/presentation/CalendarSyncSettingsScreen.kt` | bridged | the Google client id |
 | `feature/checklist/components/ChecklistEditorSheet.kt` | local | the item's text |
 | `feature/genui/render/material3/input/TextFieldRenderer.kt` | bridged | the GenUI input — the server can rewrite it (see the owned source) |
-| `feature/notes/components/InternalLinkPickerSheet.kt` | local | the link's text |
-| `feature/notes/presentation/screen/LinkUrlDialog.kt` | local | the URL |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | bridged | the title — the AI rewrites it |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | local, bridged | the quick-add row (local) and the search query (bridged) |
 | `feature/profile/ProfileSwitcherScreen.kt` | local | the profile's name |

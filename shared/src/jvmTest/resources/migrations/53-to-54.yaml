@@ -1,0 +1,27 @@
+# The semantics of the v53 → v54 upgrade, as data.
+#
+# The step adds `tasks.description_html`, the rich description the editor
+# writes. It changes no existing value on purpose: a task written before the
+# rich editor has no rich description, and its plain `description` must still be
+# the text the user typed — markup characters included. The read boundary
+# escapes that text so it is shown literally, never interpreted as HTML.
+from: 53
+to: 54
+scenarios:
+  - name: a legacy description survives and gains no rich column
+    seed:
+      - task: t-legacy
+        columns:
+          description: "<b>not bold</b> & 2 < 3"
+    expect:
+      - sql: "SELECT description FROM tasks WHERE id = 't-legacy'"
+        equals: "<b>not bold</b> & 2 < 3"
+      - sql: "SELECT description_html FROM tasks WHERE id = 't-legacy'"
+        equals: null
+
+  - name: a task with no description gains a null rich column
+    seed:
+      - task: t-empty
+    expect:
+      - sql: "SELECT description_html FROM tasks WHERE id = 't-empty'"
+        equals: null

@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.notes.components
+package com.singularity.todo.core.ui.rich
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.DropdownMenu
@@ -50,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.richeditor.model.HeadingStyle
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.feature.notes.EditorAction
 
 /**
  * Pure extension that maps an [EditorAction] onto a [RichTextState].
@@ -87,6 +87,9 @@ internal fun RichTextState.apply(action: EditorAction): RichTextState =
 
         // handled via dialog, not toolbar
         EditorAction.InternalLink -> this
+
+        // handled via dialog, not toolbar
+        EditorAction.RemoveLink -> apply { removeLink() }
 
         // handled via dialog, not toolbar
         EditorAction.AlignLeft -> apply { toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start)) }
@@ -150,6 +153,10 @@ internal fun RichTextState.isActive(action: EditorAction): Boolean =
 
         EditorAction.InternalLink -> {
             false
+        }
+
+        EditorAction.RemoveLink -> {
+            isLink
         }
 
         EditorAction.AlignLeft -> {
@@ -255,6 +262,10 @@ internal fun toolbarButtonFor(action: EditorAction): ToolbarButton =
         EditorAction.InternalLink -> {
             ToolbarButton(action, Icons.Filled.Link, "Internal link")
         }
+
+        EditorAction.RemoveLink -> {
+            ToolbarButton(action, Icons.Filled.LinkOff, "Remove link")
+        }
     }
 
 /** The row, from [EditorAction.primary]. */
@@ -302,15 +313,19 @@ private fun activeActionTint(isActive: Boolean): Color =
  * [onHtmlChange] so the parent stays in control of when (and how) the new HTML
  * is persisted.
  *
- * Placed in [androidx.compose.material3.Scaffold.bottomBar] by [com.singularity.todo.feature.notes.NoteEditorScreenContent].
+ * Placed in [androidx.compose.material3.Scaffold.bottomBar] by the editor host.
+ *
+ * The link actions and the AI action are optional: a surface that has no link
+ * picker or no AI affordance passes `null`, and the toolbar does not offer an
+ * action it cannot perform.
  */
 @Composable
 fun EditorToolbar(
     richTextState: RichTextState,
     onHtmlChange: () -> Unit,
-    onAiClick: () -> Unit,
-    onLinkClick: () -> Unit,
-    onInternalLinkClick: () -> Unit,
+    onAiClick: (() -> Unit)? = null,
+    onLinkClick: (() -> Unit)? = null,
+    onInternalLinkClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
@@ -401,6 +416,18 @@ fun EditorToolbar(
             modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
             overflowButtons.forEach { button ->
+                val isVisible =
+                    when (button.action) {
+                        EditorAction.ExternalLink -> onLinkClick != null
+
+                        EditorAction.InternalLink -> onInternalLinkClick != null
+
+                        // A link can only be removed while the selection is on one.
+                        EditorAction.RemoveLink -> richTextState.isLink
+
+                        else -> true
+                    }
+                if (!isVisible) return@forEach
                 val isActive = richTextState.isActive(button.action)
                 DropdownMenuItem(
                     text = { Text(button.label) },
@@ -408,12 +435,12 @@ fun EditorToolbar(
                         when (button.action) {
                             is EditorAction.ExternalLink -> {
                                 overflowExpanded = false
-                                onLinkClick()
+                                onLinkClick?.invoke()
                             }
 
                             is EditorAction.InternalLink -> {
                                 overflowExpanded = false
-                                onInternalLinkClick()
+                                onInternalLinkClick?.invoke()
                             }
 
                             else -> {
@@ -429,14 +456,16 @@ fun EditorToolbar(
             }
         }
 
-        // AI improve button (spacer)
-        IconButton(onClick = onAiClick) {
-            Icon(
-                Icons.Filled.AutoAwesome,
-                contentDescription = "AI improve",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp),
-            )
+        // AI improve button (spacer), when the surface has an AI affordance.
+        if (onAiClick != null) {
+            IconButton(onClick = onAiClick) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = "AI improve",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
         }
     }
 }

@@ -2,6 +2,8 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks
+import com.singularity.todo.core.ui.rich.LinkKind
+import com.singularity.todo.core.ui.rich.urlFor
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

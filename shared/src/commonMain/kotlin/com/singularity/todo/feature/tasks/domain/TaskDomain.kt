@@ -65,6 +65,7 @@ object TaskDomain {
         isPinned: Boolean = false,
         someday: Boolean = false,
         recurrence: RecurrenceSpec? = null,
+        descriptionHtml: String? = null,
     ): Either<AppError.Validation, CreateTaskInput> {
         val trimmed: String =
             when (val v = validateTitle(title)) {
@@ -93,6 +94,7 @@ object TaskDomain {
                 isPinned = isPinned,
                 someday = someday,
                 recurrence = recurrence,
+                descriptionHtml = descriptionHtml,
             ),
         )
     }
@@ -134,6 +136,7 @@ object TaskDomain {
             createdAt = createdAt,
             updatedAt = updatedAt,
             userId = userId,
+            descriptionHtml = input.descriptionHtml,
         )
 
     /**

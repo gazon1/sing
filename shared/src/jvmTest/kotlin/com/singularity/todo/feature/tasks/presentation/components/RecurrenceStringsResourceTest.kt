@@ -108,8 +108,8 @@ class RecurrenceStringsResourceTest {
 
     @Test
     fun `the weekday separator is a resource in both bundles`() {
-        assertEquals(", ", bundleString("values", "recurrence_weekday_separator"))
-        assertEquals(", ", bundleString("values-ru", "recurrence_weekday_separator"))
+        assertEquals(", ", bundleString("values", "recurrence_weekday_separator", trim = false))
+        assertEquals(", ", bundleString("values-ru", "recurrence_weekday_separator", trim = false))
     }
 
     private companion object {

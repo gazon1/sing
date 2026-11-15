@@ -9,13 +9,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.core.ui.rich.LinkKind
+import com.singularity.todo.core.ui.rich.LinkResult
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
@@ -85,6 +89,7 @@ fun TaskCreateScreen(
 
     val state by vm.stateFlow.collectAsStateWithLifecycle()
     val projectsRepo: ProjectsRepository = koinInject()
+    val internalLinkRepo: InternalLinkRepository = koinInject()
     val projects by projectsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val selectedProject = state.draft.projectId?.let { id -> projects.firstOrNull { it.id.value == id } }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -193,6 +198,17 @@ fun TaskCreateScreen(
                 onBack = guardedBack,
                 // Create mode: no task exists yet, so there is nothing to complete.
                 onCheckToggle = null,
+                searchInternalLinks = { query ->
+                    val notes =
+                        internalLinkRepo
+                            .searchNotes(query, SearchMode.Word)
+                            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+                    val tasks =
+                        internalLinkRepo
+                            .searchTasks(query, SearchMode.Word)
+                            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+                    notes + tasks
+                },
                 priority =
                     RowCallbacks(
                         onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
