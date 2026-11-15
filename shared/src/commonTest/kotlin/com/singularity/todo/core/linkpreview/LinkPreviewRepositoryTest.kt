@@ -255,4 +255,40 @@ class LinkPreviewRepositoryTest {
                 source.requested.filter { it != "https://example.com/cover.png" }.sorted(),
             )
         }
+
+    @Test
+    fun `a result that lands after the setting is turned off is not shown`() =
+        runTest {
+            val source = FakeSource(mapOf(url to html))
+            val enabled = MutableStateFlow(true)
+            val gate = CompletableDeferred<Unit>()
+            val slow =
+                object : PageSource {
+                    override suspend fun fetch(
+                        url: String,
+                        maxBytes: Int,
+                        kind: FetchKind,
+                    ): FetchedPage {
+                        if (kind == FetchKind.Html) gate.await()
+                        return source.fetch(url, maxBytes, kind)
+                    }
+                }
+            val repo =
+                LinkPreviewRepositoryImpl(
+                    source = slow,
+                    cache = LinkPreviewCache(MemoryPreferences(), MapFileSystem(), "/previews", clock),
+                    enabled = enabled,
+                    clock = clock,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                )
+            val inFlight = async { repo.refresh(url) }
+            runCurrent()
+            // The user turns the feature off while the page is on the wire.
+            enabled.value = false
+            gate.complete(Unit)
+            // The answer may still be cached — a later opt-in should find it — but it must
+            // not be handed back as something to put on screen.
+            assertEquals(LinkPreviewState.None, inFlight.await())
+            assertEquals(LinkPreviewState.None, repo.observe(url).first())
+        }
 }

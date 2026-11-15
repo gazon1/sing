@@ -4,7 +4,7 @@ verdict: pass
 date: 2026-11-14
 pr: https://github.com/gazon1/sing/pull/2958
 reviewed: d06509b8bdcd2af0ac205677c3d7b9f0e1359b83
-documents: sha256:c9cfb459baae38b86293a06a565492ed2a2af7f513aeb1f81c8ed82b6b2f8f76
+documents: sha256:e9306706d573306352a35bbb392093cfcb1583d91007ff1f7158d031efd1917a
 ---
 
 ## What was reviewed
@@ -95,3 +95,39 @@ One bug was found in the review's own test, worth recording because it is the ki
 passes for the wrong reason: the single-flight test initially counted *every* `fetch`,
 and the preview image is a legitimate second fetch, so it reported two calls when there
 was one page fetch. It now counts page fetches only.
+
+## Third pass — the package audit
+
+A further audit of the cache and concurrency behaviour found four defects, all fixed,
+each with a test that was **checked to fail without its fix**:
+
+1. **Every evicted image leaked.** `put` reported *addresses* to the caller, and
+   `forget` treated its argument as a *key*, so the delete hit a path that was never
+   written. An orphan file then rendered as the current picture. `put` now deletes the
+   images of what it evicts itself; there is no second owner and no cleanup pass.
+2. **`https://e.com:443/a` and `https://e.com/a` were two cache entries.** A default
+   port is not part of the address. Only a port that changes it is kept.
+3. **An answer that landed after the setting was turned off was still shown.** The
+   toggle was read before the request but not before the answer was returned. The fetch
+   is still allowed to finish — cancelling it needs a job handle per caller and buys
+   nothing — but its answer is discarded.
+4. **A late refresh could overwrite the card with a link the title no longer named.**
+   The slot compared nothing after `refresh` returned. It now checks that the title
+   still names the address before putting the answer on screen.
+
+The third pass also added fetcher cases the audit asked for: a redirect with no
+`Location`, a relative `Location`, and a cancellation that must stay a cancellation
+rather than becoming a fetch failure.
+
+Worth recording: the first version of test 4 **passed with the guard removed**, because
+the collector coroutine overwrote the stale value regardless of order. It was rewritten
+to hold the fetch open until the title had moved on, which is what makes the two orders
+distinguishable — a test that cannot fail is not a test.
+
+## Still open, deliberately
+
+**DNS rebinding.** The fetcher judges the addresses a name resolves to, then Ktor
+connects to the name. A DNS answer that changes between the two is out of reach without a
+pinned-IP transport, which Ktor's engines do not expose, and writing one is a larger
+change than this feature justifies. It is recorded in the ADR as the known limit. Any
+future fix must not weaken the redirect, TLS or hostname checks to get there.

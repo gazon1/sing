@@ -114,6 +114,12 @@ drops the stored file; an unchanged one keeps it), `TaskLinkPreviewSlotTest`.
 - **When** the detail opens
 - **Then** no card is drawn, and the address in the title is still tappable
 
+#### Scenario: An evicted entry takes its image with it
+
+- **Given** the cache is at its bound and the oldest entry has a picture
+- **When** another entry is stored
+- **Then** the oldest entry and its picture are both gone, and no orphan file is shown
+
 #### Scenario: The page names a different picture on refresh
 
 - **Given** a preview whose page named one picture
@@ -143,10 +149,17 @@ to the task would be a second source of truth about a page nobody edited.
 
 ### Requirement: REQ-LINKPREVIEW-006
 
-With link previews turned off, the app **SHALL NOT** make any request for a preview.
+With link previews turned off, the app **SHALL NOT** make any request for a preview,
+and an answer that arrives after the switch is turned off **MUST NOT** be shown.
 
 **Test coverage:** `LinkPreviewRepositoryTest` (the toggle is read before the
 request; the source is never asked).
+
+#### Scenario: The switch is turned off while a page is loading
+
+- **Given** a preview is being fetched
+- **When** the person turns link previews off before it answers
+- **Then** no card appears, and the answer is not shown when it lands
 
 #### Scenario: The toggle is off
 

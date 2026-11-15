@@ -206,4 +206,55 @@ class PageFetcherTest {
                 fetcher(engine).fetch("https://example.com/a", 1024, FetchKind.Html)
             }
         }
+
+    @Test
+    fun `a redirect with no location is refused rather than read as a page`() =
+        runTest {
+            val engine =
+                MockEngine {
+                    respond(content = "", status = HttpStatusCode.Found)
+                }
+            assertFailsWith<PreviewFetchException> {
+                fetcher(engine).fetch("https://example.com/a", 1024, FetchKind.Html)
+            }
+        }
+
+    @Test
+    fun `a relative location is resolved against the page that sent it`() =
+        runTest {
+            val engine =
+                MockEngine { request ->
+                    when (request.url.encodedPath) {
+                        "/a" -> {
+                            respond(
+                                content = "",
+                                status = HttpStatusCode.Found,
+                                headers = headersOf(HttpHeaders.Location, "/b"),
+                            )
+                        }
+
+                        else -> {
+                            respond(
+                                content = "<title>B</title>",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "text/html"),
+                            )
+                        }
+                    }
+                }
+            val page = fetcher(engine).fetch("https://example.com/a", 1024, FetchKind.Html)
+            assertEquals("https://example.com/b", page.finalUrl)
+        }
+
+    @Test
+    fun `a cancelled fetch stays cancelled`() =
+        runTest {
+            // Cancellation must travel as itself. `runCatchingCancellable` is the helper
+            // that guarantees it; a plain `runCatching` here would turn the cancellation
+            // into a `PreviewFetchException` and the caller would keep waiting forever.
+            val engine = MockEngine { throw kotlinx.coroutines.CancellationException("stop") }
+            assertFailsWith<kotlinx.coroutines.CancellationException> {
+                fetcher(engine).fetch("https://example.com/a", 1024, FetchKind.Html)
+            }
+        }
 }

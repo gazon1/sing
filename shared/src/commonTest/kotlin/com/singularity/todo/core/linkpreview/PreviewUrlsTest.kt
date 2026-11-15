@@ -142,4 +142,16 @@ class PreviewUrlsTest {
     fun `a blank reference resolves to nothing`() {
         assertNull(PreviewUrls.resolve("   ", "https://example.com/"))
     }
+
+    @Test
+    fun `a default port is not part of the key`() {
+        // `https://e.com:443/a` and `https://e.com/a` are the same page; one entry.
+        assertEquals(PreviewUrls.keyOf("https://e.com/a"), PreviewUrls.keyOf("https://e.com:443/a"))
+        assertEquals(PreviewUrls.keyOf("http://e.com/a"), PreviewUrls.keyOf("http://e.com:80/a"))
+    }
+
+    @Test
+    fun `a non-default port is part of the key`() {
+        assertTrue(PreviewUrls.keyOf("https://e.com:8443/a") != PreviewUrls.keyOf("https://e.com/a"))
+    }
 }

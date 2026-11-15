@@ -63,7 +63,11 @@ object PreviewUrls {
                 append(parsed.protocol.name.lowercase())
                 append("://")
                 append(parsed.host.lowercase())
-                if (parsed.specifiedPort != 0) {
+                // A port that is the scheme's default is not part of the address: Ktor
+                // reports `specifiedPort == 0` for an omitted one, and 443 for
+                // `https://e.com:443` — the same page under two spellings, and one cache
+                // entry. Only a port that changes the address is kept.
+                if (parsed.specifiedPort != 0 && parsed.specifiedPort != parsed.protocol.defaultPort) {
                     append(':')
                     append(parsed.specifiedPort)
                 }

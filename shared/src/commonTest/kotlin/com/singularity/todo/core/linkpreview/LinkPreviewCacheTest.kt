@@ -145,7 +145,7 @@ class LinkPreviewCacheTest {
                 cache.put(preview("https://example.com/$index", at = index.toLong()))
             }
             val evicted = cache.put(preview("https://example.com/new", at = 10_000L)).evicted
-            assertEquals(listOf("https://example.com/0"), evicted)
+            assertEquals(1, evicted)
             assertNull(cache.cached("https://example.com/0"))
             assertEquals("A page", cache.cached("https://example.com/new")?.title)
         }
@@ -154,7 +154,7 @@ class LinkPreviewCacheTest {
     fun `a cache under the bound evicts nothing`() =
         runTest {
             val cache = cache()
-            assertTrue(cache.put(preview("https://example.com/a")).evicted.isEmpty())
+            assertEquals(0, cache.put(preview("https://example.com/a")).evicted)
         }
 
     @Test
@@ -226,5 +226,40 @@ class LinkPreviewCacheTest {
             }
             // The most recent dismissals are the ones a person is still living with.
             assertTrue(cache.observeHidden("https://example.com/${LinkPreviewCache.MAX_ENTRIES + 4}").first())
+        }
+
+    @Test
+    fun `an evicted entry takes its image with it`() =
+        runTest {
+            val files = MapFileSystem()
+            val cache = cache(files = files)
+            // A non-normalised address on purpose: the entry's key is not the string the
+            // preview carries, and the first version of the eviction path passed the
+            // address where a key was expected — so every evicted file leaked.
+            repeat(LinkPreviewCache.MAX_ENTRIES) { index ->
+                cache.put(preview("HTTPS://Example.COM/$index", at = index.toLong()))
+            }
+            val oldest = PreviewUrls.keyOf("HTTPS://Example.COM/0")
+            cache.putImage(oldest, byteArrayOf(1))
+            assertTrue(cache.imagePathOrNull(oldest) != null)
+
+            val outcome = cache.put(preview("HTTPS://Example.COM/new", at = 10_000L))
+
+            assertEquals(1, outcome.evicted)
+            assertNull(
+                cache.imagePathOrNull(oldest),
+                "the image of an evicted entry must not survive it — an orphan file is shown as current",
+            )
+        }
+
+    @Test
+    fun `a missing image file is not an error`() =
+        runTest {
+            val cache = cache()
+            // No image was ever written: forgetting the entry must still succeed, because
+            // a preview with no picture is the ordinary case.
+            cache.put(preview("https://example.com/a"))
+            cache.forget(PreviewUrls.keyOf("https://example.com/a"))
+            assertNull(cache.cached("https://example.com/a"))
         }
 }

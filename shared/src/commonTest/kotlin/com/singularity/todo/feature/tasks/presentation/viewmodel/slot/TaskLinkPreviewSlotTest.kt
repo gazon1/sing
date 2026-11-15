@@ -6,6 +6,7 @@ import com.singularity.todo.core.linkpreview.LinkPreviewState
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailDraft
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -30,12 +31,26 @@ class TaskLinkPreviewSlotTest {
         val hidden = mutableListOf<String>()
         var stored: LinkPreviewState = LinkPreviewState.Loading
 
+        /** What [refresh] answers, when it differs from [stored]. */
+        var refreshResult: LinkPreviewState? = null
+
+        /** Run when [refresh] is called, so a test can change the title mid-flight. */
+        var onRefresh: suspend () -> Unit = {}
+
+        /** Answers per address, so a test can say what the *new* address shows. */
+        val byUrl = mutableMapOf<String, LinkPreviewState>()
+
         override fun observe(url: String?): Flow<LinkPreviewState> =
-            if (url == null) flowOf(LinkPreviewState.None) else flowOf(stored)
+            when {
+                url == null -> flowOf(LinkPreviewState.None)
+                else -> flowOf(byUrl[url] ?: stored)
+            }
 
         override suspend fun refresh(url: String): LinkPreviewState {
             refreshed += url
-            return stored
+            val answer = refreshResult ?: stored
+            onRefresh()
+            return answer
         }
 
         override suspend fun hide(url: String) {
@@ -156,5 +171,43 @@ class TaskLinkPreviewSlotTest {
             val slot = TaskLinkPreviewSlot(previews, testSlotScope(backgroundScope), draft("Buy milk"))
             runCurrent()
             assertEquals(LinkPreviewState.None, slot.state.value)
+        }
+
+    @Test
+    fun `an answer for an address the title no longer names is not shown`() =
+        runTest {
+            // The title names one address when the fetch starts and another when it
+            // finishes. The card describes the title *now*, so the late answer for the
+            // first address must not replace what the collector is showing. The fetch is
+            // held open until the title has moved on, which is what makes the two orders
+            // distinguishable — otherwise whichever coroutine runs last wins, and a broken
+            // guard would pass.
+            val previews = FakePreviews()
+            previews.stored = LinkPreviewState.Ready(preview("https://example.com/a"))
+            val draft = draft("read https://example.com/a")
+            val slot = TaskLinkPreviewSlot(previews, testSlotScope(backgroundScope), draft)
+            runCurrent()
+
+            val gate = CompletableDeferred<Unit>()
+            previews.refreshResult = LinkPreviewState.Ready(preview("https://example.com/a"))
+            previews.onRefresh = { gate.await() }
+            slot.onIntent(TaskDetailIntent.Domain.RefreshLinkPreview)
+            runCurrent()
+
+            // The title moves to an address that has no card of its own.
+            previews.byUrl["https://example.com/b"] = LinkPreviewState.None
+            draft.value = draft.value.copy(title = Revisioned.initial("now https://example.com/b"))
+            runCurrent()
+            assertEquals(LinkPreviewState.None, slot.state.value)
+
+            // Now the fetch for the *old* address lands.
+            gate.complete(Unit)
+            runCurrent()
+
+            assertEquals(
+                LinkPreviewState.None,
+                slot.state.value,
+                "a card for the address the title no longer names must not be shown",
+            )
         }
 }

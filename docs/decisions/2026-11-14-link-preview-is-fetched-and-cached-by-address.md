@@ -114,6 +114,15 @@ The behaviour itself, unchanged:
 - **The oracle is a slow test.** It runs in the `slow` population, not on every pull
   request, because it is a sweep rather than a unit test. The fast tests keep a hand-
   written table of the cases people hit.
+- **Eviction owns its files.** `LinkPreviewCache.put` deletes the images of the entries
+  it evicts, rather than reporting them to the caller. The first version reported
+  *addresses* where the caller needed *keys*, so every evicted image leaked — a file
+  nobody points at, which the card then showed as current. A cache that deletes what it
+  displaced needs no second owner and no cleanup pass.
+- **The setting is checked where the answer is returned, not only where the request is
+  started.** A page already in flight when the user turns previews off is allowed to
+  finish — cancelling it would need a job handle per caller and would buy nothing — but
+  its answer is discarded. Otherwise a card appeared after the user had asked for none.
 - **Ktor does not collapse `..`.** `URLBuilder.takeFrom` implements RFC 3986 §5.2 but not
   §5.2.4, so `PreviewUrls` keeps a small dot-segment collapser. Removing it would make
   `/post/deep/../a.png` and `/post/a.png` two cache entries for one page.

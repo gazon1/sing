@@ -74,7 +74,17 @@ class TaskLinkPreviewSlot(
         when (intent) {
             TaskDetailIntent.Domain.RefreshLinkPreview -> {
                 val url = PreviewUrls.primaryIn(draftFlow.value.title.value) ?: return
-                scope.launch { _state.value = previews.refresh(url) }
+                scope.launch {
+                    val state = previews.refresh(url)
+                    // The title may have changed while the page was in flight. The card
+                    // describes *the address in the title now*, so a late answer for an
+                    // address the title no longer names must not be put on screen — the
+                    // collector already shows the newer one, and this would overwrite it
+                    // with a card for a link the user has since edited away.
+                    if (PreviewUrls.primaryIn(draftFlow.value.title.value) == url) {
+                        _state.value = state
+                    }
+                }
             }
 
             TaskDetailIntent.Domain.HideLinkPreview -> {

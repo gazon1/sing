@@ -128,12 +128,21 @@ class LinkPreviewRepositoryImpl(
             return flight.await()
         }
         return try {
-            withContext(dispatcher) {
-                runCatchingCancellable { fetchAndStore(url, key) }
-                    .getOrElse {
-                        cache.cached(key)?.let(LinkPreviewState::Ready) ?: LinkPreviewState.Unavailable
-                    }
-            }.also { flight.complete(it) }
+            val state =
+                withContext(dispatcher) {
+                    runCatchingCancellable { fetchAndStore(url, key) }
+                        .getOrElse {
+                            cache.cached(key)?.let(LinkPreviewState::Ready) ?: LinkPreviewState.Unavailable
+                        }
+                }
+            // The setting can be turned off while the page is in flight. The fetch itself
+            // is left to finish — cancelling it would need a job handle per caller and
+            // would buy nothing — but its answer must not put a card on the screen after
+            // the user asked for none. Checked here, where the answer is *returned*,
+            // rather than only before the request where it was *started*.
+            val settled = if (enabled.first()) state else LinkPreviewState.None
+            flight.complete(settled)
+            settled
         } finally {
             mutex.withLock { inFlight.remove(key, flight) }
         }
@@ -174,7 +183,7 @@ class LinkPreviewRepositoryImpl(
                 imageUrl = metadata.imageUrl,
                 fetchedAt = clock.now().toEpochMilliseconds(),
             )
-        cache.put(preview).evicted.forEach { evicted -> cache.forget(evicted) }
+        cache.put(preview)
         metadata.imageUrl?.let { image -> runCatchingCancellable { storeImage(key, image) } }
         return LinkPreviewState.Ready(preview)
     }

@@ -69,11 +69,11 @@ class LinkPreviewCache(
     /**
      * What storing a preview displaced.
      *
-     * @property evicted the addresses whose entries were dropped to stay under the
-     *   bound, so the caller can drop the images stored beside them. Empty in the
-     *   ordinary case.
+     * @property evicted how many entries the bound dropped. The files that belonged to
+     *   them were deleted by [put] itself — the count is for the caller's own bookkeeping
+     *   and for a test to assert against.
      */
-    data class PutOutcome(val evicted: List<String>)
+    data class PutOutcome(val evicted: Int)
 
     private val codec = PreviewRecordCodec()
 
@@ -101,22 +101,31 @@ class LinkPreviewCache(
     /**
      * Stores [preview] under its own key, replacing any previous entry.
      *
-     * When the new entry names a different picture than the old one, the old file is
-     * deleted here: the entry is the only thing that knows which picture it means, and a
-     * file nothing points at is a file that keeps being shown.
+     * Two files can lose their owner here, and both are deleted: the picture of the
+     * entry this write replaced, when the new entry names a different one, and the
+     * pictures of whatever the bound pushed out. Deleting them is this method's job
+     * because it is the only one that knows *which* entries are gone — a caller told
+     * "these addresses went" would have to remember to turn an address back into a key,
+     * and the first version of this got that wrong and leaked every evicted file.
      */
     suspend fun put(preview: LinkPreview): PutOutcome {
-        var evicted = emptyList<String>()
-        var staleImage = false
+        var evictedKeys = emptyList<String>()
+        var replacedImage = false
         val key = PreviewUrls.keyOf(preview.url)
         dataStore.edit { prefs ->
             val previous = prefs[codec.entryKey(key)]?.let(codec::decode)
             prefs[codec.entryKey(key)] = codec.encode(preview.clamped())
-            staleImage = previous != null && previous.imageUrl != preview.imageUrl
-            evicted = evictOldest(prefs)
+            replacedImage = previous != null && previous.imageUrl != preview.imageUrl
+            evictedKeys = evictOldest(prefs)
         }
-        if (staleImage) runCatchingCancellable { fileSystem.delete(imagePath(key)) }
-        return PutOutcome(evicted)
+        if (replacedImage) deleteImage(key)
+        for (evictedKey in evictedKeys) deleteImage(evictedKey)
+        return PutOutcome(evicted = evictedKeys.size)
+    }
+
+    /** Deletes [key]'s image. A missing file and a failed delete are both fine. */
+    private suspend fun deleteImage(key: String) {
+        runCatchingCancellable { fileSystem.delete(imagePath(key)) }
     }
 
     /**
@@ -127,7 +136,10 @@ class LinkPreviewCache(
      * forever. The dismissed records are bounded the same way — a flag is small, but a
      * person who dismissed many previews over a year would still carry every one.
      *
-     * @return the addresses whose entries were removed.
+     * @return the **keys** of the entries removed, so the caller can delete their
+     *   images. Keys, not addresses: the caller deletes a file by key, and a list of
+     *   addresses would have to be converted back — which is exactly the mistake that
+     *   leaked every evicted file.
      */
     private fun evictOldest(prefs: MutablePreferences): List<String> {
         val entries =
@@ -136,10 +148,10 @@ class LinkPreviewCache(
                 .filterKeys { codec.isEntryKey(it) }
                 .mapNotNull { (key, value) ->
                     val decoded = (value as? String)?.let(codec::decode) ?: return@mapNotNull null
-                    decoded.url to decoded.fetchedAt
+                    codec.urlKeyOf(key) to decoded.fetchedAt
                 }
         val dropped = entries.sortedBy { it.second }.take((entries.size - MAX_ENTRIES).coerceAtLeast(0))
-        dropped.forEach { (url, _) -> prefs.remove(codec.entryKey(PreviewUrls.keyOf(url))) }
+        dropped.forEach { (key, _) -> prefs.remove(codec.entryKey(key)) }
         evictOldestDismissals(prefs)
         return dropped.map { it.first }
     }
@@ -212,16 +224,18 @@ class LinkPreviewCache(
     }
 
     /**
-     * Drops the stored entry for [key], and its image, when [key] is no longer the
-     * address the task points at.
+     * Drops the stored entry for [key], and its image, when the address is no longer
+     * one a task points at.
      *
      * Called after a title edit so a link that was removed leaves nothing behind. It
      * removes exactly one address: another task may still show the same page, and its
      * entry is not this task's to drop.
+     *
+     * [key] is a cache key, not an address — see [PreviewUrls.keyOf].
      */
     suspend fun forget(key: String) {
         dataStore.edit { prefs -> prefs.remove(codec.entryKey(key)) }
-        runCatchingCancellable { fileSystem.delete(imagePath(key)) }
+        deleteImage(key)
     }
 
     companion object {
