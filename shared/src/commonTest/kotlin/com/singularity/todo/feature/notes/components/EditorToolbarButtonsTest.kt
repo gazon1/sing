@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.notes.components
 
-import com.singularity.todo.feature.notes.EditorAction
+import com.singularity.todo.core.ui.rich.EditorAction
+import com.singularity.todo.core.ui.rich.toolbarButtonFor
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

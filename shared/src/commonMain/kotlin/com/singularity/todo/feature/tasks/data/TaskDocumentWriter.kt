@@ -34,7 +34,7 @@ class TaskDocumentWriter(
         document.tags?.let { tags -> writeTags(task.id, tags, uid) }
         // The row's own time, not the clock: a document write must not re-stamp
         // a row whose timestamp is part of the state being written.
-        saveOutgoingLinks(task.id, task.description, task.updatedAt.toEpochMilliseconds())
+        saveOutgoingLinks(task.id, task.description, task.descriptionHtml, task.updatedAt.toEpochMilliseconds())
         document.blockedBy?.let { deps -> writeBlockingDependencies(task.id, deps, uid) }
     }
 
@@ -53,12 +53,13 @@ class TaskDocumentWriter(
     private suspend fun saveOutgoingLinks(
         id: TaskId,
         description: String?,
+        descriptionHtml: String?,
         updatedAt: Long,
     ) {
         val rows =
             taskDao.setOutgoingLinksForUser(
                 id = id.value,
-                linksJson = linksJsonOf(description),
+                linksJson = linksJsonOf(description, descriptionHtml),
                 updatedAt = updatedAt,
                 userId = currentUser.scopedUserId.value.value,
             )

@@ -211,6 +211,46 @@ class GeneratedMigrationScenarioTest {
                     ),
                 ),
             ),
+            Scenario(
+                from = 53,
+                to = 54,
+                name = "a legacy description survives and gains no rich column",
+                seed = listOf(
+                    MigrationSeed.LegacyTask(
+                        id = "t-legacy",
+                        columns = mapOf(
+                            "description" to "<b>not bold</b> & 2 < 3",
+                        ),
+                    ),
+                ),
+                expect = listOf(
+                    MigrationExpect(
+                        sql = "SELECT description FROM tasks WHERE id = 't-legacy'",
+                        equals = "<b>not bold</b> & 2 < 3",
+                    ),
+                    MigrationExpect(
+                        sql = "SELECT description_html FROM tasks WHERE id = 't-legacy'",
+                        equals = "null",
+                    ),
+                ),
+            ),
+            Scenario(
+                from = 53,
+                to = 54,
+                name = "a task with no description gains a null rich column",
+                seed = listOf(
+                    MigrationSeed.LegacyTask(
+                        id = "t-empty",
+                        columns = mapOf(),
+                    ),
+                ),
+                expect = listOf(
+                    MigrationExpect(
+                        sql = "SELECT description_html FROM tasks WHERE id = 't-empty'",
+                        equals = "null",
+                    ),
+                ),
+            ),
         )
 
         @JvmStatic

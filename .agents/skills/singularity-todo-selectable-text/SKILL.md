@@ -158,7 +158,7 @@ when the answer is "excluded".
 | `feature/archive/ArchiveScreen.kt` | excluded | its rows are task cards, and the gesture is theirs |
 | `feature/calendar/presentation/components/calendar/CalendarSelectionBar.kt` | excluded | the count of the chosen days and the bar's button labels |
 | `feature/checklist/components/ChecklistItemRow.kt` | excluded | the overflow menu's item label |
-| `feature/notes/components/InternalLinkPickerSheet.kt` | excluded | the search field's placeholder |
+| `core/ui/rich/InternalLinkPickerSheet.kt` | excluded | the search field's placeholder |
 | `feature/notes/components/NoteCard.kt` | excluded | the row swipes — the gesture belongs to the card |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | excluded | its empty state is rendered by the shared EmptyState component, which is selectable |
 | `feature/projects/presentation/components/EditorParentPickerSheet.kt` | excluded | the picker's option label |

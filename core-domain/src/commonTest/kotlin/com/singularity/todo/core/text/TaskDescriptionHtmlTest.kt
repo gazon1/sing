@@ -1,0 +1,92 @@
+package com.singularity.todo.core.text
+
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+@Tag("fast")
+class TaskDescriptionHtmlTest {
+    @Test
+    fun `legacy plain text is escaped and read literally`() {
+        val html = TaskDescriptionHtml.canonical(html = null, plain = "<b>not bold</b> & 2 < 3")
+
+        assertEquals("&lt;b&gt;not bold&lt;/b&gt; &amp; 2 &lt; 3", html)
+        assertEquals("<b>not bold</b> & 2 < 3", TaskDescriptionHtml.plainText(html))
+    }
+
+    @Test
+    fun `legacy line breaks survive the projection`() {
+        val html = TaskDescriptionHtml.canonical(html = null, plain = "first\nsecond")
+
+        assertEquals("first<br>second", html)
+        assertEquals("first\nsecond", TaskDescriptionHtml.plainText(html))
+    }
+
+    @Test
+    fun `matching html and plain keep the html`() {
+        val html = "<p><strong>Milk</strong> &amp; eggs</p><p>Second line</p>"
+        val plain = "Milk & eggs\nSecond line"
+
+        assertEquals(html, TaskDescriptionHtml.storedHtml(html, plain))
+        assertEquals(html, TaskDescriptionHtml.canonical(html, plain))
+    }
+
+    @Test
+    fun `a plain write drops stale html`() {
+        val stale = "<p><strong>Old</strong></p>"
+
+        assertNull(TaskDescriptionHtml.storedHtml(stale, plain = "New"))
+        assertEquals("New", TaskDescriptionHtml.canonical(stale, plain = "New"))
+        assertEquals("New", TaskDescriptionHtml.plainText(TaskDescriptionHtml.canonical(stale, plain = "New")))
+    }
+
+    @Test
+    fun `html without a plain projection derives one`() {
+        val html = "<p>Hello <a href=\"note://n1\">world</a></p>"
+
+        assertEquals("Hello world", TaskDescriptionHtml.storedPlain(html, plain = null))
+        assertEquals("Hello world", TaskDescriptionHtml.plainText(html))
+        assertEquals(html, TaskDescriptionHtml.canonical(html, plain = null))
+    }
+
+    @Test
+    fun `html entities and numeric entities decode for search`() {
+        assertEquals(
+            "Tom & Jerry \u2014 3",
+            TaskDescriptionHtml.htmlToPlainText("<p>Tom &amp; Jerry &mdash; 3</p>"),
+        )
+        assertEquals(
+            "A B",
+            TaskDescriptionHtml.htmlToPlainText("<p>A&#32;B</p>"),
+        )
+    }
+
+    @Test
+    fun `malformed html keeps the text that is not a tag`() {
+        assertEquals("a < b", TaskDescriptionHtml.htmlToPlainText("a < b"))
+        assertEquals("a b", TaskDescriptionHtml.htmlToPlainText("a </ b> b"))
+    }
+
+    @Test
+    fun `empty content stays empty`() {
+        assertEquals("", TaskDescriptionHtml.canonical(null, null))
+        assertEquals("", TaskDescriptionHtml.plainText(null))
+        assertEquals("", TaskDescriptionHtml.plainTextToHtml(""))
+        assertNull(TaskDescriptionHtml.storedHtml("<p></p>", plain = ""))
+    }
+
+    @Test
+    fun `block tags become line breaks and excess blank lines collapse`() {
+        val html = "<h1>Title</h1><p>One</p><p>Two</p><br><p>Three</p>"
+
+        assertEquals("Title\nOne\nTwo\nThree", TaskDescriptionHtml.htmlToPlainText(html))
+    }
+
+    @Test
+    fun `script and style content is not searchable text`() {
+        val html = "<p>Visible</p><script>hidden()</script><style>.x{}</style>"
+
+        assertEquals("Visible", TaskDescriptionHtml.htmlToPlainText(html))
+    }
+}

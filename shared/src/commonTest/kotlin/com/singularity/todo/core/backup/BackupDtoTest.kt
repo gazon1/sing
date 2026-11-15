@@ -26,6 +26,7 @@ class BackupDtoTest {
                 id = "task-1",
                 title = "Test Task",
                 description = "Description",
+                descriptionHtml = "<p>Description</p>",
                 priority = TaskPriority.High,
                 kind = TaskKind.Task,
                 projectId = "proj-1",
@@ -60,6 +61,7 @@ class BackupDtoTest {
         assertEquals("task-1", dto.id)
         assertEquals("Test Task", dto.title)
         assertEquals("Description", dto.description)
+        assertEquals("<p>Description</p>", dto.descriptionHtml)
         // The payload speaks the format's own names, not the constants' names:
         // a backup is read by a build whose constants may have been renamed.
         assertEquals("high", dto.priority)

@@ -54,11 +54,13 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.reminders.ReminderOffsetState
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
+import com.singularity.todo.core.text.TextSource
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.rich.LinkResult
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -97,7 +99,9 @@ import kotlin.time.Instant
  * @param onCheckToggle Called when the completion checkbox is toggled. `null` hides the
  *   checkbox — Create mode has no task to complete yet, and a checkbox that does nothing
  *   is worse than no checkbox.
- * @param descriptionState The description's field state, bridged by the caller.
+ * @param descriptionSource The description's source, in HTML. The owner built it;
+ *   legacy plain text is already escaped by [com.singularity.todo.core.text.TaskDescriptionHtml].
+ * @param onDescriptionChange called with the description's HTML as the user edits.
  * @param priority Current priority value.
  * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
  * @param dueDate Current due date (null means not set).
@@ -142,7 +146,10 @@ private fun TaskEditorContent(
     titleError: String?,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
-    descriptionState: TextFieldState,
+    descriptionSource: TextSource,
+    onDescriptionChange: (String) -> Unit,
+    alwaysEditableDescription: Boolean = false,
+    onSearchInternalLinks: (suspend (String) -> List<LinkResult>)? = null,
     priority: TaskPriority,
     onPriorityClear: (() -> Unit)?,
     dueDate: LocalDate?,
@@ -295,7 +302,11 @@ private fun TaskEditorContent(
 
                 // Description
                 TaskDescriptionField(
-                    descriptionState = descriptionState,
+                    taskId = taskId,
+                    source = descriptionSource,
+                    onDescriptionChange = onDescriptionChange,
+                    alwaysEditable = alwaysEditableDescription,
+                    onSearchInternalLinks = onSearchInternalLinks,
                 )
             }
 
@@ -639,7 +650,9 @@ fun TaskEditorContent(
         model = model,
         callbacks = callbacks,
         titleState = rememberBridgedTextFieldState(titleSource, onTitleChange),
-        descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
+        descriptionSource = descriptionSource,
+        onDescriptionChange = onDescriptionChange,
+        onSearchInternalLinks = callbacks.searchInternalLinks,
         isCompleted = isCompleted,
         now = now,
         sheets = sheets,
@@ -689,7 +702,10 @@ fun TaskCreateEditorContent(
         model = model,
         callbacks = callbacks,
         titleState = rememberBridgedTextFieldState(titleSource, onTitleChange),
-        descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
+        descriptionSource = descriptionSource,
+        onDescriptionChange = onDescriptionChange,
+        alwaysEditableDescription = true,
+        onSearchInternalLinks = callbacks.searchInternalLinks,
         isCompleted = false,
         now = now,
         sheets = sheets,
@@ -724,7 +740,10 @@ private fun TaskEditorScaffold(
     model: TaskEditorModel,
     callbacks: TaskEditorCallbacks,
     titleState: TextFieldState,
-    descriptionState: TextFieldState,
+    descriptionSource: TextSource,
+    onDescriptionChange: (String) -> Unit,
+    alwaysEditableDescription: Boolean = false,
+    onSearchInternalLinks: (suspend (String) -> List<LinkResult>)? = null,
     isCompleted: Boolean,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
@@ -752,7 +771,10 @@ private fun TaskEditorScaffold(
         titleError = titleError,
         isCompleted = isCompleted,
         onCheckToggle = callbacks.onCheckToggle,
-        descriptionState = descriptionState,
+        descriptionSource = descriptionSource,
+        onDescriptionChange = onDescriptionChange,
+        alwaysEditableDescription = alwaysEditableDescription,
+        onSearchInternalLinks = onSearchInternalLinks,
         priority = model.priority,
         onPriorityClear = callbacks.priority.withoutClearWhen(isCompleted).onClear,
         dueDate = model.dueDate,
@@ -838,7 +860,8 @@ private fun TaskEditorContentEmptyPreview() =
             titleError = null,
             isCompleted = false,
             onCheckToggle = null,
-            descriptionState = TextFieldState(""),
+            descriptionSource = StaticText(""),
+            onDescriptionChange = {},
             priority = TaskPriority.None,
             onPriorityClear = null,
             dueDate = null,
@@ -863,7 +886,8 @@ private fun TaskEditorContentFilledPreview() =
             titleError = null,
             isCompleted = false,
             onCheckToggle = null,
-            descriptionState = TextFieldState("Milk, eggs, bread"),
+            descriptionSource = StaticText("<p>Milk, eggs, bread</p>"),
+            onDescriptionChange = {},
             priority = TaskPriority.High,
             onPriorityClear = {},
             dueDate = today,
@@ -893,7 +917,8 @@ private fun TaskEditorContentDarkPreview() =
             titleError = null,
             isCompleted = false,
             onCheckToggle = null,
-            descriptionState = TextFieldState(""),
+            descriptionSource = StaticText(""),
+            onDescriptionChange = {},
             priority = TaskPriority.Urgent,
             onPriorityClear = {},
             dueDate = today,

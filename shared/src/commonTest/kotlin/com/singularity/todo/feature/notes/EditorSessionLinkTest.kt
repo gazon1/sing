@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.ui.text.TextRange
 import com.mohamedrejeb.richeditor.model.RichTextState
+import com.singularity.todo.core.ui.rich.EditorSession
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains

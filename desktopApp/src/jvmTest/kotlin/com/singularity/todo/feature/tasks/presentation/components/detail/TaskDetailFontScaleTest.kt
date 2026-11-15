@@ -197,10 +197,12 @@ class TaskDetailFontScaleTest {
     fun `the title and the description stay reachable at the large font scale`() {
         val reading = readingAt(scale = 1.5f, longValues = false)
 
-        // The description is a field, and it stays one.
+        // The description is text until it is tapped, like the title: the detail
+        // shows the task, and the rich field opens on a tap. What has to survive
+        // the scale is the tap, not a field that is always live.
         assertTrue(
-            "description" in reading.editable,
-            "the description stopped being editable at the large font scale",
+            "description" in reading.pressable,
+            "the description stopped answering a tap at the large font scale",
         )
         // The title is not a field until it is tapped — the detail shows the task,
         // and the field opens on a tap. What has to survive the scale is the tap.
