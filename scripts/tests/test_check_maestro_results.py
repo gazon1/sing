@@ -341,12 +341,30 @@ class ScopeTest(unittest.TestCase):
             path.write_text(body)
         return list(flows)
 
-    def test_full_is_the_whole_catalogue(self):
+    def test_full_is_the_automated_catalogue(self):
+        """The automated full scope excludes flows that cannot run in CI."""
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            catalogue = self._tree(root)
+            flows = {
+                'Maestro/flows/smoke/01-launch-today.yaml': 'tags:\n- smoke\n---\nappId: x\n',
+                'Maestro/flows/tasks/create-task.yaml': 'appId: x\n---\nlaunchApp: x\n',
+                'Maestro/flows/notes/create-note.yaml': 'tags:\n- smoke\n- notes\n---\nappId: x\n',
+                'Maestro/flows/auth/08-signup-network-error.yaml': 'tags:\n- auth-live\n- manual\n---\nappId: x\n',
+            }
+            for name, body in flows.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body)
+            catalogue = list(flows)
             selected, findings = mod.scope_flows(mod.SCOPE_FULL, catalogue, root)
-        self.assertEqual(selected, catalogue)
+        self.assertEqual(
+            selected,
+            [
+                'Maestro/flows/smoke/01-launch-today.yaml',
+                'Maestro/flows/tasks/create-task.yaml',
+                'Maestro/flows/notes/create-note.yaml',
+            ],
+        )
         self.assertEqual(findings, [])
 
     def test_smoke_is_the_tagged_subset_not_the_directory(self):
@@ -368,7 +386,7 @@ class ScopeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             selected, findings = mod.scope_flows(
-                mod.SCOPE_SMOKE, ['Maestro/flows/gone.yaml'], root
+                mod.SCOPE_FULL, ['Maestro/flows/gone.yaml'], root
             )
         self.assertEqual(selected, [])
         self.assertEqual(len(findings), 1)
@@ -430,11 +448,21 @@ class MeasurementTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        root = pathlib.Path(tmp.name)
+        self.root = pathlib.Path(tmp.name)
+        # The scope reads flow files to apply include/exclude tags, so the
+        # catalogue entries must exist as files in the tree it measures.
+        for flow in self.CATALOGUE:
+            path = self.root / flow
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tags = ['smoke'] if '/smoke/' in flow else []
+            if tags:
+                path.write_text('tags:\n' + ''.join(f'- {t}\n' for t in tags) + '---\nappId: x\n')
+            else:
+                path.write_text('appId: x\n---\n- launchApp\n')
         # The registry knows every cause these tests fail on, so that the
         # findings below are the ones the test is about.
         self.registry = write_registry(
-            root / 'debt.yaml',
+            self.root / 'debt.yaml',
             causes=(
                 ('No visible element found: id: a', 818, 'product', 'accepted', 5),
                 ('No visible element found: id: b', 819, 'product', 'accepted', 5),
@@ -444,7 +472,7 @@ class MeasurementTest(unittest.TestCase):
 
     def _measure(self, reports, floor=0, scope=mod.SCOPE_FULL):
         return mod.measure(
-            scope, self.CATALOGUE, reports, floor, mod.ROOT, self.registry
+            scope, self.CATALOGUE, reports, floor, self.root, self.registry
         )
 
     def _report(self, flow, failure=None):
@@ -511,11 +539,16 @@ class MeasurementTest(unittest.TestCase):
             'Maestro/flows/a/01-open.yaml',
             'Maestro/flows/b/01-open.yaml',
         ]
+        root = self.root / 'stems'
+        for flow in catalogue:
+            path = root / flow
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('appId: x\n---\n- launchApp\n')
         reports = [
             mod.Report(name='01-open.xml', flow=catalogue[0], messages=()),
         ]
         measurement = mod.measure(
-            mod.SCOPE_FULL, catalogue, reports, 0, mod.ROOT, self.registry
+            mod.SCOPE_FULL, catalogue, reports, 0, root, self.registry
         )
         kinds = [f.kind for f in measurement.findings]
         self.assertIn('two flows, one report', kinds)
@@ -532,12 +565,16 @@ class CauseRuleTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        root = pathlib.Path(tmp.name)
-        self.registry = write_registry(root / 'debt.yaml')
+        self.root = pathlib.Path(tmp.name)
+        for flow in self.CATALOGUE:
+            path = self.root / flow
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('appId: x\n---\n- launchApp\n')
+        self.registry = write_registry(self.root / 'debt.yaml')
 
     def _measure(self, reports, floor=5):
         return mod.measure(
-            mod.SCOPE_FULL, self.CATALOGUE, reports, floor, mod.ROOT, self.registry
+            mod.SCOPE_FULL, self.CATALOGUE, reports, floor, self.root, self.registry
         )
 
     def _report(self, flow, failure=None):

@@ -51,19 +51,25 @@ class SuiteSelectionTest(unittest.TestCase):
     """The mapping from a suite name to what the runner selects."""
 
     def test_smoke_is_selected_by_tag(self):
-        target, tags = suite_selection(_FLOWS, "smoke")
+        target, tags, exclude_tags = suite_selection(_FLOWS, "smoke")
         self.assertEqual(target, _FLOWS)
         self.assertEqual(tags, [SMOKE_TAG])
+        self.assertEqual(exclude_tags, [])
 
-    def test_full_is_every_flow_under_the_root(self):
-        target, tags = suite_selection(_FLOWS, "full")
+    def test_full_is_every_automatable_flow_under_the_root(self):
+        target, tags, exclude_tags = suite_selection(_FLOWS, "full")
         self.assertEqual(target, _FLOWS)
-        self.assertEqual(tags, [], "the full suite must not be filtered by a tag")
+        self.assertEqual(tags, [], "the automated full suite must not be filtered by a tag")
+        self.assertEqual(
+            exclude_tags,
+            ["manual", "auth-live"],
+            "the automated full suite must exclude flows CI cannot run",
+        )
 
     def test_the_smoke_selection_is_not_the_smoke_directory(self):
         """The defect: the selection was `Maestro/flows/smoke/`, so a flow
         tagged `smoke` anywhere else never ran in the smoke suite."""
-        target, _tags = suite_selection(_FLOWS, "smoke")
+        target, _tags, _exclude = suite_selection(_FLOWS, "smoke")
         self.assertNotEqual(target, _SMOKE_DIR)
 
 
@@ -161,9 +167,10 @@ class RunnerBuildsTheSelectionTest(unittest.TestCase):
         argv = self._argv_for("smoke")
         self.assertEqual(argv[argv.index("--flow") + 1], str(_FLOWS))
 
-    def test_the_full_suite_passes_no_tag(self):
+    def test_the_full_suite_excludes_non_automatable_flows(self):
         argv = self._argv_for("full")
         self.assertNotIn("--tags", argv)
+        self.assertEqual(argv[argv.index("--exclude-tags") + 1], "manual,auth-live")
         self.assertEqual(argv[argv.index("--flow") + 1], str(_FLOWS))
 
 

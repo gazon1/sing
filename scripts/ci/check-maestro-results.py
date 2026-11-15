@@ -129,6 +129,12 @@ SCOPES = (SCOPE_FULL, SCOPE_SMOKE)
 #: suite than the one that ran.
 SMOKE_TAG = "smoke"
 
+#: Tags that keep a flow out of the automated CI full suite. `manual` flows are
+#: run by hand; `auth-live` flows need a real auth provider/network the CI build
+#: does not have. The gate measures the automated suite, so a flow carrying
+#: either tag is not part of the `full` scope.
+AUTOMATED_FULL_EXCLUDE_TAGS = {"manual", "auth-live"}
+
 #: How many distinct messages a group prints before it says "and N more".
 GROUP_DETAIL_LIMIT = 8
 
@@ -482,14 +488,12 @@ def scope_flows(
 ) -> tuple[list[str], list[Finding]]:
     """The flows of the catalogue that the scope runs.
 
-    `full` is the whole catalogue. `smoke` is the flows that declare the
-    `smoke` tag — the same selection the runner makes, read by the same
-    reader, because a scope built by a different rule measures a different
-    suite than the one that ran.
+    `full` is the automated full suite: every flow in the catalogue except
+    flows that are not automatable in CI (tagged `manual` or `auth-live`).
+    `smoke` is the flows that declare the `smoke` tag — the same selection the
+    runner makes, read by the same reader, because a scope built by a different
+    rule measures a different suite than the one that ran.
     """
-    if scope == SCOPE_FULL:
-        return list(catalogue), []
-
     findings: list[Finding] = []
     selected: list[str] = []
     for flow in catalogue:
@@ -502,7 +506,12 @@ def scope_flows(
                 )
             )
             continue
-        if SMOKE_TAG in flow_tags_text(path.read_text(encoding="utf-8")):
+        tags = set(flow_tags_text(path.read_text(encoding="utf-8")))
+        if scope == SCOPE_FULL:
+            if not (tags & AUTOMATED_FULL_EXCLUDE_TAGS):
+                selected.append(flow)
+            continue
+        if SMOKE_TAG in tags:
             selected.append(flow)
     return selected, findings
 

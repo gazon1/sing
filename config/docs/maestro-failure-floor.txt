@@ -26,8 +26,10 @@
 # cause registry, not a list of names somebody has to remember to update.
 #
 # Scopes:
-#   full  — every flow in the catalogue (config/docs/maestro-flows.txt); the
-#           nightly's four shards together.
+#   full  — the automated full suite: every flow in the catalogue
+#           (config/docs/maestro-flows.txt) except flows tagged `manual` or
+#           `auth-live`, which are run by hand and cannot pass on the CI build.
+#           The nightly's four shards together run this suite.
 #   smoke — the flows that declare the `smoke` tag; the suite a pull request
 #           runs. The tag, not the directory: most smoke flows live outside
 #           Maestro/flows/smoke/, and the runner filters on the tag.

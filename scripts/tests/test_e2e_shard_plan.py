@@ -69,24 +69,28 @@ class TestThePlanAndTheRunnerAgree(unittest.TestCase):
         # shard.
         from emulator.maestro._flow import collect_flows, suite_selection
 
-        target, tags = suite_selection(ROOT / "Maestro" / "flows", "full")
+        target, tags, exclude_tags = suite_selection(ROOT / "Maestro" / "flows", "full")
         self.assertEqual(
             [str(p) for p in plan.collect_flows(target)],
             [str(p) for p in collect_flows(target)],
         )
-        self.assertEqual(
-            suite_selection(ROOT / "Maestro" / "flows", "smoke")[1],
-            ["smoke"],
-            tags,
-        )
+        self.assertEqual(tags, [])
+        self.assertEqual(exclude_tags, ["manual", "auth-live"])
+        smoke = suite_selection(ROOT / "Maestro" / "flows", "smoke")
+        self.assertEqual(smoke[1], ["smoke"])
+        self.assertEqual(smoke[2], [])
 
     def test_every_flow_belongs_to_exactly_one_shard(self):
-        flows = plan.collect_flows(ROOT / "Maestro" / "flows")
+        from emulator.maestro._flow import collect_flows, filter_flows_excluding_tags, suite_selection
+
+        target, tags, exclude_tags = suite_selection(ROOT / "Maestro" / "flows", "full")
+        flows = collect_flows(target)
+        selected = filter_flows_excluding_tags(flows, exclude_tags) if exclude_tags else list(flows)
         shards = plan.read_plan()["full"]
         seen: list[pathlib.Path] = []
         for shard in range(1, shards + 1):
-            seen.extend(plan.shard_flows(flows, shard, shards))
-        self.assertEqual(sorted(seen), sorted(flows))
+            seen.extend(plan.shard_flows(selected, shard, shards))
+        self.assertEqual(sorted(seen), sorted(selected))
 
 
 class TestTheCommandLine(unittest.TestCase):
@@ -120,6 +124,21 @@ class TestTheCommandLine(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("Maestro/flows", out)
         self.assertIn("run-maestro-e2e.py", out)
+        self.assertIn("excludes", out)
+
+    def test_the_full_suite_excludes_manual_and_auth_live_flows(self):
+        from emulator.maestro._flow import flow_tags
+
+        code, out, _ = self._run(["--suite", "full", "--shard", "1", "--json"])
+        self.assertEqual(code, 0)
+        import json
+        data = json.loads(out)
+        self.assertEqual(data["exclude_tags"], ["manual", "auth-live"])
+        for path in data["selected"]:
+            self.assertFalse(
+                {"manual", "auth-live"} & set(flow_tags(ROOT / path)),
+                path,
+            )
 
     def test_the_smoke_shard_marks_the_flows_the_suite_selects(self):
         code, out, _ = self._run(["--suite", "smoke", "--shard", "1"])
