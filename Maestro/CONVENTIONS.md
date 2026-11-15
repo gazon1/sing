@@ -136,14 +136,39 @@ clears state says so in its header.
 
 ### Automated suites vs manual flows
 
-The tag is the selection. A flow tagged `manual` or `auth-live` is run by hand
-against the environment it needs (a real auth provider/network, or a
-non-stubbed build); the automated `full` CI run excludes them, so the default
+There are four sets, and only two of them run in CI:
+
+| Set | What it is | How it runs |
+|---|---|---|
+| The catalogue | every flow in the tree, recorded in `config/docs/maestro-flows.txt` | never as a whole |
+| The automated `full` suite | every flow in the catalogue except flows tagged `manual` or `auth-live` | nightly, four shards |
+| The `smoke` suite | every flow that declares `smoke` — the tag, not the directory | every pull request |
+| Manual flows | flows tagged `manual` or `auth-live` | by hand, against the build/environment they name |
+
+The tag is the selection, not a note. A flow tagged `manual` or `auth-live` is
+run by hand against the environment it needs (a real auth provider/network, or
+a non-stubbed build); the automated `full` CI run excludes both, so the default
 run never executes a flow that cannot pass on the CI APK
-(`TEST_AUTH_BYPASS=true`, StubAuthRepository). The smoke suite is every flow
-tagged `smoke` and does not include these flows. Manual flows stay in the
-catalogue and in the tree; run them explicitly when the right build/environment
-is available.
+(`TEST_AUTH_BYPASS=true`, StubAuthRepository). The exclusion applies only to
+the automated run: both tags stay in the catalogue and in the tree.
+
+The selection lives in `scripts/src/emulator/maestro/_flow.py`
+(`suite_selection` describes it, `select_suite_flows` applies it); the runner,
+the shard planner, the results gate and the Allure converter read it from
+there, so they cannot disagree about what a suite contains. A `smoke` flow must
+not also carry `manual` or `auth-live` — the smoke suite runs in CI, and
+`scripts/tests/test_maestro_suite_selection.py` checks that invariant.
+
+To run an excluded flow, name it. The runner applies no exclusion unless one is
+asked for:
+
+```bash
+just ui-maestro Maestro/flows/auth/08-signup-network-error.yaml
+```
+
+`--exclude-tags manual,auth-live` (or `EXCLUDE_TAGS=manual,auth-live`)
+reproduces the automated `full` selection; without it the CLI runs whatever
+`--flow` selects.
 
 ### Dates and locale
 

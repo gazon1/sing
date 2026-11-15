@@ -116,6 +116,104 @@ def manifest(out: pathlib.Path) -> dict:
     return json.loads((out / mod.MANIFEST_NAME).read_text())
 
 
+class ScopeTest(unittest.TestCase):
+    """The expected suite is the one the runner ran, not the whole catalogue."""
+
+    FLOW_TAGS = {
+        "Maestro/flows/tasks/create-task.yaml": [],
+        "Maestro/flows/notes/create-note.yaml": ["smoke"],
+        "Maestro/flows/auth/08-signup-network-error.yaml": ["manual", "auth-live"],
+    }
+
+    def _tree(self, root: pathlib.Path) -> list[str]:
+        for flow, tags in self.FLOW_TAGS.items():
+            write_flow(root, flow, pathlib.PurePosixPath(flow).stem, tags)
+        return list(self.FLOW_TAGS)
+
+    def test_full_scope_excludes_manual_and_auth_live(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            catalogue = self._tree(root)
+            findings: list[dict] = []
+            selected = mod.scope_flows(mod.FULL, catalogue, root, findings)
+        self.assertEqual(
+            selected,
+            [
+                "Maestro/flows/tasks/create-task.yaml",
+                "Maestro/flows/notes/create-note.yaml",
+            ],
+        )
+        self.assertEqual(findings, [])
+
+    def test_smoke_scope_is_the_tagged_subset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            catalogue = self._tree(root)
+            findings: list[dict] = []
+            selected = mod.scope_flows(mod.SMOKE, catalogue, root, findings)
+        self.assertEqual(selected, ["Maestro/flows/notes/create-note.yaml"])
+        self.assertEqual(findings, [])
+
+    def test_a_missing_flow_is_still_a_finding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            catalogue = self._tree(root) + ["Maestro/flows/gone.yaml"]
+            findings: list[dict] = []
+            selected = mod.scope_flows(mod.FULL, catalogue, root, findings)
+        self.assertNotIn("Maestro/flows/gone.yaml", selected)
+        self.assertEqual([finding["kind"] for finding in findings], ["flow file missing"])
+
+    def test_an_excluded_flow_is_not_missing_from_a_correct_full_run(self) -> None:
+        """The converter must not expect the flows the automated run leaves out.
+
+        The full suite is the automatable catalogue, so a correct set of
+        results has no report for a `manual` flow — and that absence is not a
+        missing test. Counting it as one would describe every nightly as
+        incomplete and make its manifest unpublishable.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            catalogue = self._tree(root)
+            (root / "catalogue.txt").write_text("\n".join(catalogue) + "\n")
+            shard = write_shard(
+                root,
+                "s1",
+                environment={
+                    "kind": "emulator",
+                    "api": 36,
+                    "shard": 1,
+                    "shards": 1,
+                    "commit": "abcdef1234567",
+                },
+            )
+            for flow in (
+                "Maestro/flows/tasks/create-task.yaml",
+                "Maestro/flows/notes/create-note.yaml",
+            ):
+                write_report(shard, flow, pathlib.PurePosixPath(flow).stem)
+            out = root / "out"
+            code, err = run(
+                [
+                    "--results", str(shard),
+                    "--scope", "full",
+                    "--root", str(root),
+                    "--catalogue", str(root / "catalogue.txt"),
+                    "--out", str(out),
+                    "--run-id", "1",
+                    "--run-number", "1",
+                    "--run-attempt", "1",
+                    "--commit", "abcdef1234567",
+                    "--maestro-version", "2.10.0",
+                    "--apk-sha256", "deadbeef",
+                    "--task-outcome", "passed",
+                ]
+            )
+            self.assertEqual(code, 0, err)
+            data = manifest(out)
+        self.assertEqual(data["missing"], [])
+        self.assertTrue(data["publishable"], data["findings"])
+
+
 class IdentityTest(unittest.TestCase):
     def test_conversion_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

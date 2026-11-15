@@ -82,6 +82,13 @@ def filter_flows_excluding_tags(flows: list[Path], tags: list[str]) -> list[Path
     return [f for f in flows if not (excluded & set(flow_tags(f)))]
 
 
+def _suite_tags(suite: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The include and exclude tags of a suite. One place both readers share."""
+    if suite == SUITE_SMOKE:
+        return (SMOKE_TAG,), ()
+    return (), AUTOMATED_FULL_EXCLUDE_TAGS
+
+
 def suite_selection(flows_root: Path, suite: str) -> tuple[Path, list[str], list[str]]:
     """Return the flow target, the include-tag filter and the exclude-tag filter.
 
@@ -102,19 +109,31 @@ def suite_selection(flows_root: Path, suite: str) -> tuple[Path, list[str], list
     not automatable in CI (tagged `manual` or `auth-live`). Those keep living in
     the catalogue and can be run explicitly by hand, but they must not be part of
     the default automated full run.
+
+    This describes the selection; :func:`select_suite_flows` applies it to a
+    collected catalogue. Both read :func:`_suite_tags`, so they cannot disagree.
     """
-    if suite == SUITE_SMOKE:
-        return flows_root, [SMOKE_TAG], []
-    return flows_root, [], list(AUTOMATED_FULL_EXCLUDE_TAGS)
+    include_tags, exclude_tags = _suite_tags(suite)
+    return flows_root, list(include_tags), list(exclude_tags)
 
 
-def suite_flows(flows_root: Path, suite: str) -> list[Path]:
-    """Return the flows a suite selects, in the runner's order."""
-    target, include_tags, exclude_tags = suite_selection(flows_root, suite)
-    flows = collect_flows(target)
-    if include_tags:
-        flows = filter_flows_by_tag(flows, include_tags)
-    return filter_flows_excluding_tags(flows, exclude_tags)
+def select_suite_flows(flows: list[Path], suite: str) -> list[Path]:
+    """The flows of `suite`, in the order given, without modifying the catalogue.
+
+    This is the one selector every reader of a suite uses — the shard planner,
+    the results gate and the Allure converter. The runner passes the same
+    description to the CLI, which filters the flows it is about to run. A second
+    implementation would be a second place for "what the suite is" to be wrong,
+    and the disagreement would surface as a gate that measures a different set of
+    flows than the one that ran.
+
+    The filter is the suite's, not a policy about the flows: `manual` and
+    `auth-live` flows stay in the catalogue and remain runnable by hand — the
+    exclusion only keeps them out of an automated run.
+    """
+    include_tags, exclude_tags = _suite_tags(suite)
+    selected = filter_flows_by_tag(flows, list(include_tags))
+    return filter_flows_excluding_tags(selected, list(exclude_tags))
 
 
 def smoke_flows(flows_root: Path) -> list[Path]:
@@ -124,4 +143,4 @@ def smoke_flows(flows_root: Path) -> list[Path]:
     tag is the selection, and a flow in that directory that lost its tag is
     a defect the tag test reports, not a flow to keep by accident.
     """
-    return filter_flows_by_tag(collect_flows(flows_root), [SMOKE_TAG])
+    return select_suite_flows(collect_flows(flows_root), SUITE_SMOKE)

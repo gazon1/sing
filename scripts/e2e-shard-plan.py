@@ -71,8 +71,7 @@ def _runner_modules():
     try:
         from emulator.maestro._flow import (
             collect_flows,
-            filter_flows_by_tag,
-            filter_flows_excluding_tags,
+            select_suite_flows,
             suite_selection,
         )
     except ImportError as exc:
@@ -80,7 +79,7 @@ def _runner_modules():
             "the runner's flow discovery could not be imported "
             f"({exc}). Install the tooling first: pip install -e scripts/src"
         ) from exc
-    return collect_flows, filter_flows_by_tag, filter_flows_excluding_tags, suite_selection
+    return collect_flows, select_suite_flows, suite_selection
 
 
 def read_plan(path: pathlib.Path = PLAN_FILE) -> dict[str, int]:
@@ -119,7 +118,7 @@ def collect_flows(target: pathlib.Path = FLOWS_ROOT) -> list[pathlib.Path]:
     A thin re-export of the runner's own function, so a caller of this module
     gets the runner's list rather than a second implementation of it.
     """
-    collect, _, _, _ = _runner_modules()
+    collect, _, _ = _runner_modules()
     return collect(target)
 
 
@@ -207,14 +206,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        collect_flows, filter_flows_by_tag, filter_flows_excluding_tags, suite_selection = _runner_modules()
+        collect_flows, select_suite_flows, suite_selection = _runner_modules()
     except ValueError as exc:
         print(f"e2e shard plan: {exc}", file=sys.stderr)
         return 1
     target, tags, exclude_tags = suite_selection(FLOWS_ROOT, suite)
     flows = collect_flows(target)
-    selected = filter_flows_by_tag(flows, tags) if tags else list(flows)
-    selected = filter_flows_excluding_tags(selected, exclude_tags)
+    selected = select_suite_flows(flows, suite)
     mine = shard_flows(selected, shard, shards)
     commands = local_commands(suite, shard, shards)
 

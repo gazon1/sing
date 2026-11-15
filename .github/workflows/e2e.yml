@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "smoke = the tagged subset, full = every flow; shards per config/docs/e2e-shards.txt"
+        description: "smoke = the tagged subset, full = every automatable flow; shards per config/docs/e2e-shards.txt"
         type: choice
         options: [smoke, full]
         default: smoke
@@ -346,6 +346,10 @@ jobs:
           # failure would have looked like a boot problem rather than a
           # misnamed one.
           AVD: ${{ needs.setup-avd.outputs.avd_name }}
+        # `--suite full` is the automated suite: the runner excludes flows
+        # tagged `manual`/`auth-live`, which need a build/environment CI does
+        # not have. They stay in the catalogue and run by hand — the contract
+        # is in Maestro/CONVENTIONS.md.
         run: |
           python3 scripts/run-maestro-e2e.py \
             --apk apk \

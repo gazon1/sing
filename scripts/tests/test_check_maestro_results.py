@@ -367,6 +367,40 @@ class ScopeTest(unittest.TestCase):
         )
         self.assertEqual(findings, [])
 
+    def test_an_excluded_flow_is_not_expected_to_report(self):
+        """A flow the automated suite never runs has no report, and is not a finding.
+
+        The gate measures the suite that ran. A `manual` flow that produced no
+        report did not stop being covered — it was never part of the automated
+        run, and counting it as missing would fail every nightly.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            flows = {
+                'Maestro/flows/tasks/create-task.yaml': 'appId: x\n---\nlaunchApp: x\n',
+                'Maestro/flows/auth/08-signup-network-error.yaml': 'tags:\n- manual\n---\nappId: x\n',
+            }
+            for name, body in flows.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body)
+            measurement = mod.measure(
+                mod.SCOPE_FULL,
+                list(flows),
+                [
+                    mod.Report(
+                        name='create-task.xml',
+                        flow='Maestro/flows/tasks/create-task.yaml',
+                        messages=(),
+                    )
+                ],
+                0,
+                root,
+                write_registry(root / 'debt.yaml'),
+            )
+        self.assertEqual(measurement.expected, ['Maestro/flows/tasks/create-task.yaml'])
+        self.assertNotIn('flow did not report', [f.kind for f in measurement.findings])
+
     def test_smoke_is_the_tagged_subset_not_the_directory(self):
         """The tag is the selection: most smoke flows live outside the directory."""
         with tempfile.TemporaryDirectory() as tmp:

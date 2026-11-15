@@ -81,16 +81,29 @@ class TestThePlanAndTheRunnerAgree(unittest.TestCase):
         self.assertEqual(smoke[2], [])
 
     def test_every_flow_belongs_to_exactly_one_shard(self):
-        from emulator.maestro._flow import collect_flows, filter_flows_excluding_tags, suite_selection
+        from emulator.maestro._flow import collect_flows, select_suite_flows, suite_selection
 
-        target, tags, exclude_tags = suite_selection(ROOT / "Maestro" / "flows", "full")
+        target, _, _ = suite_selection(ROOT / "Maestro" / "flows", "full")
         flows = collect_flows(target)
-        selected = filter_flows_excluding_tags(flows, exclude_tags) if exclude_tags else list(flows)
+        selected = select_suite_flows(flows, "full")
         shards = plan.read_plan()["full"]
         seen: list[pathlib.Path] = []
         for shard in range(1, shards + 1):
             seen.extend(plan.shard_flows(selected, shard, shards))
         self.assertEqual(sorted(seen), sorted(selected))
+
+    def test_no_shard_contains_a_manual_or_auth_live_flow(self):
+        from emulator.maestro._flow import collect_flows, flow_tags, select_suite_flows
+
+        flows = collect_flows(ROOT / "Maestro" / "flows")
+        selected = select_suite_flows(flows, "full")
+        shards = plan.read_plan()["full"]
+        for shard in range(1, shards + 1):
+            for flow in plan.shard_flows(selected, shard, shards):
+                self.assertFalse(
+                    {"manual", "auth-live"} & set(flow_tags(flow)),
+                    f"{flow} is in shard {shard} but is not automatable",
+                )
 
 
 class TestTheCommandLine(unittest.TestCase):
