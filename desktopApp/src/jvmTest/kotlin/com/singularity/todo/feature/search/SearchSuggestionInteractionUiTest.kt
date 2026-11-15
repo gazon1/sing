@@ -5,6 +5,7 @@ package com.singularity.todo.feature.search
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.IndexedRecord
@@ -145,17 +146,7 @@ class SearchSuggestionInteractionUiTest {
     fun `selecting a suggestion loads it and dismisses suggestions`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("wo"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(query = "wo", intents = intents)
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickTag(TestTags.SavedSearches.chip("Work"))
@@ -170,17 +161,7 @@ class SearchSuggestionInteractionUiTest {
     fun `outside tap dismisses suggestions without changing the query`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("zzzz"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(query = "zzzz", intents = intents)
 
             assertTagDisplayed(TestTags.SavedSearches.NO_MATCH)
             assertTagFocused(TestTags.SEARCH_INPUT)
@@ -197,13 +178,7 @@ class SearchSuggestionInteractionUiTest {
     @Test
     fun `outside tap dismisses suggestions with empty query`() =
         runIsolatedComposeTest {
-            setContent {
-                SearchScreenContent(
-                    state = SearchUiState(query = FieldOwnedText.empty(), savedSearches = searches),
-                    onIntent = {},
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(query = "")
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickTag(TestTags.SEARCH_EMPTY_PLACEHOLDER)
@@ -218,17 +193,7 @@ class SearchSuggestionInteractionUiTest {
     fun `opening filter dismisses suggestions without changing the query`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(intents = intents)
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickContentDescription("Filter")
@@ -246,17 +211,7 @@ class SearchSuggestionInteractionUiTest {
     @Test
     fun `focusing the input restores dismissed suggestions`() =
         runIsolatedComposeTest {
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = {},
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen()
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickTag(TestTags.SEARCH_MODE_CONTAINS)
@@ -276,18 +231,7 @@ class SearchSuggestionInteractionUiTest {
     fun `switching mode dismisses suggestions without changing the query`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                            mode = SearchMode.Word,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(intents = intents)
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickTag(TestTags.SEARCH_MODE_CONTAINS)
@@ -387,17 +331,7 @@ class SearchSuggestionInteractionUiTest {
     @Test
     fun `opening a menu keeps suggestions visible`() =
         runIsolatedComposeTest {
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = {},
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen()
 
             // The query narrows the row to the one search it matches, and the menu
             // belongs to that chip. Taking the field's focus away is not a dismissal
@@ -414,17 +348,7 @@ class SearchSuggestionInteractionUiTest {
     fun `save opens the dialog after the suggestions are dismissed`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(intents = intents)
 
             clickTag(TestTags.SEARCH_MODE_CONTAINS)
             waitForIdle()
@@ -446,17 +370,7 @@ class SearchSuggestionInteractionUiTest {
     fun `renaming from the menu does not change the query`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(intents = intents)
 
             longClickTag(TestTags.SavedSearches.chip("Work"))
             waitForIdle()
@@ -511,24 +425,16 @@ class SearchSuggestionInteractionUiTest {
             val note = note("Note one")
             val project = project("Project one")
             val tag = tag("Tag one")
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                            results =
-                                SearchResults(
-                                    tasks = persistentListOf(IndexedRecord(task)),
-                                    notes = persistentListOf(IndexedRecord(note)),
-                                    projects = persistentListOf(IndexedRecord(project)),
-                                    tags = persistentListOf(IndexedRecord(tag)),
-                                ),
-                        ),
-                    onIntent = {},
-                    navigator = navigator,
-                )
-            }
+            showScreen(
+                results =
+                    SearchResults(
+                        tasks = persistentListOf(IndexedRecord(task)),
+                        notes = persistentListOf(IndexedRecord(note)),
+                        projects = persistentListOf(IndexedRecord(project)),
+                        tags = persistentListOf(IndexedRecord(tag)),
+                    ),
+                navigator = navigator,
+            )
 
             fun showSuggestionsAgain() {
                 clickTag(TestTags.SEARCH_INPUT)
@@ -571,24 +477,7 @@ class SearchSuggestionInteractionUiTest {
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
             val task = task("Buy milk")
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                            results =
-                                SearchResults(
-                                    tasks = persistentListOf(IndexedRecord(task)),
-                                    notes = persistentListOf(),
-                                    projects = persistentListOf(),
-                                    tags = persistentListOf(),
-                                ),
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(results = resultsOf("Buy milk"), intents = intents)
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             clickTag(TestTags.TASK_CARD_PIN_BUTTON)
@@ -604,19 +493,7 @@ class SearchSuggestionInteractionUiTest {
     @Test
     fun `dragging the results does not dismiss suggestions`() =
         runIsolatedComposeTest {
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("work"),
-                            savedSearches = searches,
-                            results = resultsOf("Buy milk", "Buy bread"),
-                            isSearching = false,
-                        ),
-                    onIntent = {},
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(results = resultsOf("Buy milk", "Buy bread"))
 
             assertTagDisplayed(TestTags.SavedSearches.chip("Work"))
             dragUpOnTag(TestTags.taskItem("Buy milk"))
@@ -629,18 +506,7 @@ class SearchSuggestionInteractionUiTest {
     fun `editing a loaded saved search dispatches the query the field holds`() =
         runIsolatedComposeTest {
             val intents = mutableListOf<SearchIntent>()
-            setContent {
-                SearchScreenContent(
-                    state =
-                        SearchUiState(
-                            query = FieldOwnedText.empty().seeded("tag:work"),
-                            activeSavedSearchId = work.id,
-                            savedSearches = searches,
-                        ),
-                    onIntent = { intents += it },
-                    navigator = PreviewSearchNavigator(),
-                )
-            }
+            showScreen(query = "tag:work", activeSavedSearchId = work.id, intents = intents)
 
             assertTagTextEquals(TestTags.SEARCH_INPUT, "tag:work")
             typeIntoTag(TestTags.SEARCH_INPUT, "tag:work x")
@@ -648,4 +514,36 @@ class SearchSuggestionInteractionUiTest {
 
             assertEquals("tag:work x", intents.filterIsInstance<SearchIntent.OnQueryChange>().last().query)
         }
+
+    /**
+     * Mounts the screen over one static state: state in, intents out.
+     *
+     * The two tests that need a *transition* — the clear, and the load of a saved
+     * search with an empty query — mount their own state holder instead, because the
+     * transition is what they are about.
+     */
+    private fun DesktopComposeUiTest.showScreen(
+        query: String = "work",
+        activeSavedSearchId: SavedSearchId? = null,
+        mode: SearchMode = SearchMode.Word,
+        results: SearchResults = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+        savedSearches: ImmutableList<SavedSearch> = searches,
+        intents: MutableList<SearchIntent> = mutableListOf(),
+        navigator: SearchNavigator = PreviewSearchNavigator(),
+    ) {
+        setContent {
+            SearchScreenContent(
+                state =
+                    SearchUiState(
+                        query = FieldOwnedText.empty().seeded(query),
+                        activeSavedSearchId = activeSavedSearchId,
+                        mode = mode,
+                        results = results,
+                        savedSearches = savedSearches,
+                    ),
+                onIntent = { intents += it },
+                navigator = navigator,
+            )
+        }
+    }
 }
