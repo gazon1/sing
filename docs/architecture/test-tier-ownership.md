@@ -56,11 +56,14 @@ cannot:
   that draws the emoji and the project that is reopened afterwards. No unit test
   walks that path, and no unit test should.
 
-**The desktop's 13 scenarios are not ported to the device on purpose.** They are
-the desktop's own observations — how its font draws a sequence, how its chip
-breaks a line — and a device copy would assert the device's font, not the
-desktop's. The device tier keeps what only a device can observe: the platform
-keyboard, the real IME, the system font.
+**The desktop's render observations are not observable on a device, so they are
+not ported on purpose.** They are the desktop's own observations — how its font
+draws a sequence, how its chip breaks a line — and a device copy would assert
+the device's font, not the desktop's. The picker's field contract is the other
+way round: the desktop's `IconPickerCustomEmojiTest` and the device's
+`IconPickerCustomInputTest` cover the same rule on their own platforms, each
+with the platform's own field. The device tier keeps what only a device can
+observe: the platform keyboard, the real IME, the system font.
 
 **What no tier can see** is which glyph the font chose: a font without the
 sequence draws one tofu box, and the ink rules cannot tell that from a composed
