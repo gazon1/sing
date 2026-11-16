@@ -67,14 +67,17 @@ Concretely:
    holds no catalog, parses nothing and validates nothing; it preserves the
    exact Unicode string. Task and profile emoji fields stay strings.
 
-3. **The custom field takes any text, verbatim.** The picker's free-text field
-   accepts any non-blank text, trimmed, as the project's icon. It is not
-   checked against the catalog and not parsed: the provider holds some of the
-   app's own forms (`🕊️`, `1️⃣`) as *variants* rather than as entries of their
-   own, so "is it in the catalog?" would reject values the app itself stores.
-   Empty or whitespace-only input adds nothing. #2932 owns the product decision
-   on stricter validation; until then this is the behavior, and it is pinned by
-   `IconPickerCustomInputTest`.
+3. **The custom field takes any text, trimmed.** The picker's free-text field
+   accepts any non-blank text as the project's icon. The text is **trimmed** —
+   the outer whitespace is dropped, the inner whitespace is kept — and what
+   survives is taken as it is: not checked against the catalog, not parsed, no
+   normalization, no stripped variation selector, no split ZWJ sequence. It is
+   not checked against the catalog because the provider holds some of the app's
+   own forms (`🕊️`, `1️⃣`) as *variants* rather than as entries of their own,
+   so "is it in the catalog?" would reject values the app itself stores. Empty
+   or whitespace-only input adds nothing. #2932 owns the product decision on
+   stricter validation; until then this is the behavior, and it is pinned by
+   `IconPickerCustomInputTest` on both platforms.
 
 4. **The retained helpers keep their real semantics.** `visibleLength()` counts
    code points — not visible characters and not grapheme clusters. The library's
@@ -86,13 +89,27 @@ Concretely:
    reasoning; what is new here is that the semantics are now stated correctly
    everywhere they are repeated.
 
-5. **A platform proves only itself.** Android's `ProjectIconEmojiRenderTest`
-   and the desktop's own render test assert the same three things — the box has
-   ink, no ink touches the box's edge (the glyph was not clipped), the glyph is
-   centred — because the two platforms use different fonts and a font that
-   composes a sequence on one can draw it as two glyphs on the other. An
-   Android screenshot does not establish desktop correctness, and the desktop
-   check does not establish Android's.
+5. **A platform proves only itself.** Each platform's render test asserts what
+   that platform can show, and the two do not assert the same things:
+
+   - **Android** (`ProjectIconEmojiRenderTest`) asserts that the sequence
+     reaches the screen as *one text node*, that the icon box has ink, and that
+     no ink touches the box's border. A font that drew the sequence wider than
+     the box would clip it at the edge, and that is what a sequence the font
+     refuses to compose looks like. It does not check the centring.
+   - **Desktop** (`ProjectIconEmojiRenderTest`) asserts the same two pixel
+     rules inside the icon box, plus that the ink is centred.
+   - **The picker** is checked where each platform can check it: on the
+     desktop the chip paints ink and the composed chip is laid out on one
+     line, the height of a single emoji beside it (two glyphs do not fit the
+     chip's width and would wrap); on Android the sheet shows the composed
+     sequence as one node, both from the recent row and from the catalog's own
+     search results.
+
+   An Android screenshot does not establish desktop correctness, and the desktop
+   check does not establish Android's: the two platforms use different fonts,
+   and a font that composes a sequence on one can draw it as two glyphs on the
+   other.
 
 ## Rationale
 
@@ -104,7 +121,8 @@ that *is* an emoji library. Stating the boundary once, in the decision that
 survives, is what keeps the next reader from re-deriving it.
 
 **The library's data answers the questions the app actually asks.** Measured
-against the installed Google provider (1906 emoji):
+against the Google provider the app installs — Vanniktech Emoji 0.24.1, the
+version `gradle/libs.versions.toml` pins:
 
 | Value | Catalog entry | Variant of |
 |---|---|---|
@@ -114,6 +132,10 @@ against the installed Google provider (1906 emoji):
 | `🧘🏽` (skin tone) | — | `🧘` |
 | `🕊️` (variation selector) | — | `🕊` |
 | `1️⃣` (keycap) | — | `1⃣` |
+
+The catalog's size is the library's business and changes with every version it
+pinned, so it is not written down here; what matters is the shape of the data,
+and that shape is stable.
 
 So a composed sequence is one emoji to the library — a family is not four
 people — and the app's own stored forms are the library's forms, byte for byte.
@@ -152,7 +174,11 @@ bound in their own words rather than implying more than they prove.
   contradict the code they describe.
 - The custom field's contract is written down and pinned. #2932 can tighten it
   with a baseline in hand; until then no value the app stores is rejected by
-  the field that produced it.
+  the field that produced it. The contract is pinned on both platforms — a
+  shared composable is not a shared test, because the platform owns the text
+  input and the semantics tree — and the value the field hands over is pinned
+  at the editor too, so the chain from the field to the saved project has no
+  untested link in it.
 - Emoji literals stay legal in the source. There is no global scanner and no
   blanket ban: the values under test *are* emoji, and a test that cannot name
   them cannot assert on them.
@@ -162,9 +188,10 @@ bound in their own words rather than implying more than they prove.
   touches neither its scope nor its storage.
 - Tests: `EmojiCatalogTest` pins the composed forms in the library's data and
   the difference between the code-point count and an emoji count;
-  `IconPickerCustomInputTest` pins the custom field's contract;
-  `ProjectIconEmojiRenderTest` (desktop) and `ProjectIconEmojiRenderTest`
-  (Android) pin the rendering per platform.
+  `IconPickerCustomInputTest` (desktop and Android) pins the custom field's
+  contract; `ProjectEditorViewModelTest` pins that a custom icon is what the
+  saved project stores; `ProjectIconEmojiRenderTest` (desktop) and
+  `ProjectIconEmojiRenderTest` (Android) pin the rendering per platform.
 
 ## Links
 
@@ -183,5 +210,7 @@ bound in their own words rather than implying more than they prove.
   `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectIcon.kt`
 - Tests: `shared/src/commonTest/kotlin/com/singularity/todo/core/emoji/EmojiCatalogTest.kt`,
   `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/projects/IconPickerCustomInputTest.kt`,
+  `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/IconPickerCustomInputTest.kt`,
   `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectIconEmojiRenderTest.kt`,
-  `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/ProjectIconEmojiRenderTest.kt`
+  `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/ProjectIconEmojiRenderTest.kt`,
+  `shared/src/jvmTest/kotlin/com/singularity/todo/feature/projects/ProjectEditorViewModelTest.kt`
