@@ -172,6 +172,33 @@ class ProjectEditorViewModelTest {
             assertEquals(Emoji("🧑‍💻"), vm.stateFlow.value.icon)
         }
 
+    /**
+     * The value the picker hands over is the value the project stores.
+     *
+     * The picker trims what the user typed and hands the string over; this is
+     * the rest of that path — the icon reaches the repository unchanged, so
+     * what a project stores is what the user saw in the field. The value here
+     * is ordinary text with a space in it rather than an emoji, because the
+     * field accepts any text and the boundaries below it keep the string as
+     * it is.
+     */
+    @Test
+    fun `a custom icon is what the saved project stores`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
+            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("rocket ship")))
+            vm.onIntent(ProjectEditorIntent.Save)
+
+            val saved = fakeProjectsRepo.observeAll().first().single()
+            assertEquals(
+                Emoji("rocket ship"),
+                saved.icon,
+                "the text the picker handed over is what the repository stores",
+            )
+            assertEquals(Emoji("rocket ship"), vm.stateFlow.value.icon)
+        }
+
     @Test
     fun `no icon at all is not remembered`() =
         runTest {
