@@ -75,6 +75,77 @@ data class TaskHealth(
 }
 
 /**
+ * The stagnation window a stored staleness setting means.
+ *
+ * `0` in the setting is "leave it at the default", not "every task is stagnant the
+ * moment it is created": a zero-day window would flag each undated task on the day
+ * it was made, which is not a signal. So the setting is translated here, once, and
+ * the two surfaces that classify by it — the statistics screen and the AI tools —
+ * ask this function rather than each deciding for itself. They did decide for
+ * themselves, and they disagreed: the tools passed `0` straight into the selector
+ * and reported every undated task as stagnant while the statistics tab reported
+ * none.
+ *
+ * @return the window to use, or `null` to leave [Selector.Stagnant] at its own
+ *   [Selector.Stagnant.DEFAULT_STAGNATION_THRESHOLD].
+ */
+fun stagnationWindowOf(stalenessDays: Int): Duration? = if (stalenessDays > 0) stalenessDays.days else null
+
+/**
+ * The bucket rule, resolved once and applied to any number of tasks.
+ *
+ * ## Why this is the only precedence
+ *
+ * The precedence is a product decision — overdue first, then blocked, then
+ * stagnant — and it was written twice: here for the statistics summary and again
+ * in the AI tools, with nothing holding the two together. Each copy was free to
+ * drift, and the drift would show as one screen calling a task "blocked" while the
+ * other called it "stagnant", with no test able to see it because the two agreed
+ * on the day they were written.
+ *
+ * So the rule lives here. The selectors are built once per instance rather than
+ * once per task, because the evaluator asks the same question about every task in
+ * the list.
+ *
+ * ## What it does not decide
+ *
+ * The reference date, the blocked set and the "last touched" timestamp come from
+ * [SelectorContext], which the caller builds. That is deliberate: a surface that
+ * counts what is *open* filters the finished tasks out before asking (both current
+ * callers do), and a surface that reports on one task wants the finished task to
+ * say "fine" rather than to disappear.
+ *
+ * @param stagnationWindow the window to classify by, or `null` for the selector's
+ *   own default — see [stagnationWindowOf].
+ */
+class HealthRules(stagnationWindow: Duration? = null) {
+    private val overdue: Selector = Selector.DateBucket(RelativeBucket.Overdue)
+    private val blocked: Selector = Selector.Blocked
+    private val stagnant: Selector =
+        stagnationWindow?.let { Selector.Stagnant(it) } ?: Selector.Stagnant()
+
+    /**
+     * The bucket [task] belongs to: overdue, else blocked, else stagnant, else fine.
+     *
+     * A finished task is [TaskHealthBucket.FINE]: it is not late, not waiting and
+     * not neglected, whatever the edges around it say.
+     */
+    fun bucketOf(
+        task: Task,
+        context: SelectorContext,
+    ): TaskHealthBucket {
+        if (task.isCompleted) return TaskHealthBucket.FINE
+
+        return when {
+            overdue.matches(task, context) -> TaskHealthBucket.OVERDUE
+            blocked.matches(task, context) -> TaskHealthBucket.BLOCKED
+            stagnant.matches(task, context) -> TaskHealthBucket.STAGNANT
+            else -> TaskHealthBucket.FINE
+        }
+    }
+}
+
+/**
  * Counts the buckets across a whole task list.
  *
  * ## Why the aggregate takes the blocked set rather than the list
@@ -112,7 +183,9 @@ data class TaskHealthSummary(
  * Any changes to Selector semantics are automatically reflected here without a second
  * place to maintain.
  *
- * Precedence: OVERDUE > BLOCKED > STAGNANT > FINE.
+ * Precedence: OVERDUE > BLOCKED > STAGNANT > FINE. It is owned by [HealthRules],
+ * which the AI tools also classify through, so the screen and the tools cannot
+ * disagree about the same task.
  * Overdue and Stagnant are mutually exclusive (Overdue requires `dueDate != null`,
  * Stagnant requires `dueDate == null`), so there is no ambiguity.
  *
@@ -130,34 +203,17 @@ fun summarizeTaskHealthFromSelectors(
     val open = allTasks.filter { !it.isCompleted && !it.isTrashed }
     val blockedIds = Blocking.blockedTaskIds(allTasks)
     val context = SelectorContext(today = today, now = now, blockedIds = blockedIds, lastActivityOf = lastActivityOf)
-
-    // Selector mirrors — one per TaskHealthBucket with meaningful precedence order.
-    val overdueSelector = Selector.DateBucket(RelativeBucket.Overdue)
-    val blockedSelector = Selector.Blocked
-    val stagnantSelector =
-        stagnationWindow?.let { Selector.Stagnant(it) }
-            ?: Selector.Stagnant() // null window → use Selector's built-in default threshold
+    val rules = HealthRules(stagnationWindow)
 
     val perTask =
         open.map { task ->
-            when {
-                overdueSelector.matches(task, context) -> {
-                    TaskHealth(TaskHealthBucket.OVERDUE)
-                }
-
-                blockedSelector.matches(task, context) -> {
-                    TaskHealth(TaskHealthBucket.BLOCKED)
-                }
-
-                stagnantSelector.matches(task, context) -> {
-                    val stalled = now - lastActivityOf(task)
-                    TaskHealth(TaskHealthBucket.STAGNANT, stalledFor = stalled)
-                }
-
-                else -> {
-                    TaskHealth(TaskHealthBucket.FINE)
-                }
-            }
+            val bucket = rules.bucketOf(task, context)
+            // Only a stagnant task carries a duration: it is the one bucket whose
+            // answer is a "how long", and the median in the summary is built from it.
+            TaskHealth(
+                bucket = bucket,
+                stalledFor = if (bucket == TaskHealthBucket.STAGNANT) now - lastActivityOf(task) else null,
+            )
         }
 
     val counts =

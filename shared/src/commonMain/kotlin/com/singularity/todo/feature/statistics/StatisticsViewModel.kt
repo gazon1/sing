@@ -8,6 +8,7 @@ import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
+import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.logic.summarizeTaskHealthFromSelectors
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -184,13 +185,12 @@ class StatisticsViewModel(
                 // Selector-based computation: null stagnationWindow means "use built-in default"
                 // (Selector.Stagnant uses 21.days by default). Passing a non-null Duration
                 // from the settings overrides that default.
-                val stagnationWindow =
-                    if (stalenessDays > 0) {
-                        (stalenessDays.toLong() * 86_400_000L).milliseconds
-                    } else {
-                        // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
-                        null
-                    }
+                //
+                // The translation from the stored setting is `stagnationWindowOf`, not an
+                // inline millisecond multiply: the AI tools read the same setting, and the
+                // two used to disagree about what the stored `0` means. One function, two
+                // callers, one answer.
+                val stagnationWindow = stagnationWindowOf(stalenessDays)
                 // Typed nullable on purpose: the catch below emits null, and a
                 // non-null zero summary is what made the screen's "Task health
                 // unavailable" branch unreachable.

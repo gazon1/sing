@@ -461,6 +461,7 @@ private fun StatCard(
     value: String,
     modifier: Modifier = Modifier,
     testTag: String? = null,
+    hint: String? = null,
 ) {
     Card(modifier = if (testTag != null) modifier.testTag(testTag) else modifier) {
         Column(
@@ -478,6 +479,18 @@ private fun StatCard(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // What the number means, not just what it counts. A card that says
+            // "3" and "Blocked" leaves the user to work out whether that is a
+            // problem to act on and where tapping goes; the hint states the rule the
+            // count was made with, which is the part they cannot see.
+            hint?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
     }
 }
@@ -539,6 +552,7 @@ private fun HealthTabContent(
             StatCard(
                 title = bucket.displayLabel(),
                 value = summary[bucket].toString(),
+                hint = bucket.explanation(),
                 // Every bucket in `actionable` is a problem the user can open —
                 // the list itself is what makes a bucket actionable, so there is
                 // nothing to test here.
@@ -587,6 +601,25 @@ private fun TaskHealthBucket.displayLabel(): String =
         TaskHealthBucket.BLOCKED -> "Blocked"
         TaskHealthBucket.STAGNANT -> "Not touched in a while"
         TaskHealthBucket.FINE -> "On track"
+    }
+
+/**
+ * The rule the count was made with, in the user's words.
+ *
+ * The card is a number and a label, and neither says *why* a task is in the bucket
+ * or what tapping will show. The rule is the part a user cannot infer from the
+ * number — "blocked" reads like a status they set, and "not touched in a while" is
+ * a threshold they configured and did not see restated.
+ *
+ * It states the same predicate the classification uses, and no more: a hint that
+ * invented a second reason would be a second model of health in prose.
+ */
+private fun TaskHealthBucket.explanation(): String =
+    when (this) {
+        TaskHealthBucket.OVERDUE -> "Past the due date and still open"
+        TaskHealthBucket.BLOCKED -> "Waiting on something that is not finished"
+        TaskHealthBucket.STAGNANT -> "Undated, and idle past your staleness threshold"
+        TaskHealthBucket.FINE -> "Open, on time, and recently touched"
     }
 
 /** Whole days, because a partial day is noise on a retention-scale number. */
