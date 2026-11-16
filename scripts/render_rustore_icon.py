@@ -11,7 +11,7 @@ the alpha channel is emitted as a separate `*-opacity` attribute instead.
 Usage:
     python3 scripts/render_rustore_icon.py --out build/rustore/icon-512.png
 
-Requires: cairosvg (pip install cairosvg).
+Requires: cairosvg and pillow (pip install cairosvg pillow).
 """
 
 import argparse
@@ -112,9 +112,13 @@ def main() -> int:
     try:
         import cairosvg
     except ImportError:
-        print("cairosvg is required: pip install cairosvg", file=sys.stderr)
+        print("cairosvg is required: pip install cairosvg pillow", file=sys.stderr)
         return 1
-    from PIL import Image, ImageDraw
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        print("pillow is required: pip install cairosvg pillow", file=sys.stderr)
+        return 1
 
     def render(svg: str, size: int) -> "Image.Image":
         png = cairosvg.svg2png(bytestring=svg.encode(), output_width=size, output_height=size)
