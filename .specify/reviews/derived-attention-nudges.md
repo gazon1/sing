@@ -3,8 +3,8 @@ change: derived-attention-nudges
 verdict: pass
 date: 2026-11-16
 pr: 2997
-reviewed: a400102670941202089509680bfc7981052e04b8
-documents: sha256:679fad1845de054836bd131dfc0503aaae4920a63a0b89042e4b6f984a050307
+reviewed: 60d79826ae10792ede9ec93940898dbe8cf32839
+documents: sha256:a799522433ae0668a5c64469a55eb986ebe4d965826cca618304c1726aa7f601
 ---
 
 ## What was reviewed
@@ -16,15 +16,16 @@ carries the first and writes down the second as a decision without code.
 
 The contract under review:
 
-- `openspec/changes/derived-attention-nudges/specs/tasks/spec.md` — REQ-TH-010..017
+- `openspec/changes/derived-attention-nudges/specs/tasks/spec.md` — REQ-TH-010..018
   (the list, one reason per item, the order, what is named, the due-soon window, the
-  project deadline, opening and setting an item aside, the bounded list and its count).
+  project deadline, opening and setting an item aside, the bounded list and its count,
+  and the two readings of the Health tab as separate).
 - `openspec/changes/derived-attention-nudges/proposal.md`
 - `docs/decisions/2026-11-16-derived-attention-nudges-in-app-first.md` — the ADR,
   including the trigger, deduplication, expiry and invalidation contract for the
   Phase-2 OS delivery.
 
-The code under review (`3f39c83eb2..a400102670`):
+The code under review (`3f39c83eb2..60d79826ae`):
 
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/AttentionNudges.kt`
   — the derivation.
@@ -34,12 +35,15 @@ The code under review (`3f39c83eb2..a400102670`):
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/di/TasksDiModule.kt`,
   `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt`.
 - `shared/src/commonTest/.../AttentionNudgesTest.kt`,
+  `shared/src/commonTest/.../AttentionNudgesAgreementTest.kt`,
   `shared/src/jvmTest/.../StatisticsViewModelTest.kt`,
   `desktopApp/src/jvmTest/.../StatisticsHealthTabFlowTest.kt` — the tests.
 
-Three separate review rounds were held against this change: the first found ten
-defects, the second six, the third three. Every finding of the first two rounds was
-fixed; the third round's findings are dispositioned below.
+Four separate review rounds were held against this change: the first found ten
+defects, the second six, the third three, and the fourth two. Every finding of the
+first three rounds was fixed; the third round's third finding was recorded rather
+than changed, and the fourth round changed it. The fourth round's findings are
+dispositioned below.
 
 ## What was found, and what was done about it
 
@@ -105,6 +109,30 @@ lifetime and the determinism of the list by reading them. It found three things:
    The contract does not require the list to outlive a health failure, and the failure
    is reported as its own state, so this is recorded rather than changed.
 
+**Round four — the two findings that were recorded, and one more.**
+
+The fourth round was held against the change as it stood after the third round's
+fixes, and it found two things worth changing. Both are in the same area: the tab
+shows two readings of the same rows, and neither was free-standing.
+
+1. *P1.* The list decided the state of a task with its own `when` over the date
+   buckets and the blocking selector — a second copy of the rule the Health tab's
+   counts are made with. The list now asks the health classifier the state of a
+   task, and keeps only the order of the reasons as its own rule; the one place
+   where that order differs from the counts' precedence is written into REQ-TH-011
+   and REQ-TH-014 and pinned by a new test. `AttentionNudgesAgreementTest` drives
+   the two production entry points over one fixture and asserts that they call one
+   task the same thing, and pins the one case where they answer differently.
+2. *P2.* The tab returned early when the health query failed, so a ready list was
+   thrown off the screen by the failure of the other reading. The tab now shows
+   whichever reading it has, each failure is reported in its own words, and a failed
+   reading is not shown as an empty one. REQ-TH-018 states this, and the new
+   desktop test — a ViewModel whose settings cannot answer the read the counts
+   depend on — fails against the old tab.
+
+The third round's third finding is therefore no longer a record of a known
+limitation: it is the second finding of this round, and it is fixed.
+
 ## What was deliberately not done
 
 - **No Phase-2 code.** The ADR writes down the trigger, the deduplication rule, the
@@ -125,20 +153,24 @@ lifetime and the determinism of the list by reading them. It found three things:
 
 ## Verification
 
+The fourth round was verified with:
+
 ```
-./gw :shared:jvmTest --quiet -Pcoverage.enabled=false            # 5526 tests, 0 failures
+./gw :shared:jvmTest --quiet -Pcoverage.enabled=false            # 4945 tests, 0 failures
 ./gw :shared:archTest --quiet -Pcoverage.enabled=false            # 305 tests, 0 failures
 ./gw :desktopApp:test -Ptest.tags=all --quiet -Pcoverage.enabled=false
-                                                               # 683 tests, 2 failures
+                                                               # 684 tests, 1 failure
+./gw :desktopApp:test -Ptest.tags=slow --tests "*StatisticsHealthTabFlowTest*"
+                                                               # 6 tests, 0 failures
 python3 scripts/lint-changed.py                                   # detekt + ktlint: no findings
 npx --yes "@fission-ai/openspec@1.14.0" validate --all --json --strict   # 101/101 valid
 easement check                                                    # 0 violations
 ```
 
-The two desktop failures are `AllureRetryAttachmentTest` and
-`CoroutineDiagnosticsTest`, both harness tests that time out with "After waiting for
-1m, the test body did not run to completion" when the machine is loaded; both were
-re-run in isolation and passed, and neither file is touched by this change.
+The one desktop failure is `AllureRetryAttachmentTest`, a harness test that times
+out with "After waiting for 1m, the test body did not run to completion" when the
+machine is loaded; it was re-run in isolation and passed, and its file is not touched
+by this change.
 
 The two timezone tests were run against the reverted implementation — the one that
 reads `TimeZone.currentSystemDefault()` — and failed there before they were kept.
