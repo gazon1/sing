@@ -5,7 +5,6 @@ import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
-import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
@@ -75,12 +74,7 @@ class JvmBackupCodec : BackupCodec {
 
     override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> =
         runCatchingCancellable {
-            val input = source.openRead()
-            try {
-                decodeZip(input.asInputStream())
-            } finally {
-                input.close()
-            }
+            decodeZip(source.openRead().asInputStream())
         }
 
     private fun decodeZip(stream: java.io.InputStream): BackupCodec.CodecReadResult {

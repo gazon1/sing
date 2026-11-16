@@ -2,7 +2,6 @@
 
 package com.singularity.todo.core.backup
 
-import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
@@ -130,32 +129,25 @@ class BackupCodecContractTest {
         }
 
     @Test
-    fun `importFromSource streams without buffering the archive and works for a non-repeatable source`() =
+    fun `importFromSource streams without buffering the archive and reads in small chunks`() =
         runTest {
             val manifest = """{"v":1}""".toByteArray()
             val payload = """{"tasks":[]}""".toByteArray()
             sut.export(manifest, payload, emptyList(), backupPath, fs)
             val zipBytes = fs.readBytes(backupPath)
 
-            var opened = 0
-            val source =
-                object : FileSource {
-                    override suspend fun readBytes(): ByteArray =
-                        error("importFromSource must stream, not buffer the whole archive")
-
-                    override suspend fun openRead(): ByteSource {
-                        opened++
-                        if (opened > 1) error("source is non-repeatable")
-                        return ByteArraySource(zipBytes)
-                    }
-                }
+            val source = TrackingFileSource(zipBytes, maxChunk = 5)
 
             val result = sut.importFromSource(source)
 
             assertTrue(result.isSuccess)
-            assertContentEquals(manifest, result.getOrThrow().manifestBytes)
-            assertContentEquals(payload, result.getOrThrow().payloadBytes)
-            assertEquals(1, opened, "the source must be opened exactly once")
+            val read = result.getOrThrow()
+            assertContentEquals(manifest, read.manifestBytes)
+            assertContentEquals(payload, read.payloadBytes)
+            assertEquals(1, source.opened, "the source must be opened exactly once")
+            val input = source.lastOpened ?: error("source was never opened")
+            assertTrue(input.readCalls > 1, "zip decode must consume the source in multiple reads")
+            assertEquals(1, input.closeCalls, "the source must be closed exactly once on success")
             fs.delete(backupPath)
         }
 
@@ -167,16 +159,19 @@ class BackupCodecContractTest {
             sut.export(manifest, payload, emptyList(), backupPath, fs)
             val truncated = fs.readBytes(backupPath).let { it.copyOf(it.size / 2) }
 
+            val input = ChunkedByteSource(truncated, maxChunk = 4)
             val source =
                 object : FileSource {
                     override suspend fun readBytes(): ByteArray = error("must stream")
 
-                    override suspend fun openRead(): ByteSource = ByteArraySource(truncated)
+                    override suspend fun openRead(): ByteSource = input
                 }
 
             val result = sut.importFromSource(source)
 
             assertTrue(result.isFailure, "truncated archive must fail")
+            assertEquals(1, input.closeCalls, "the source must be closed exactly once on decode error")
+            fs.delete(backupPath)
         }
 
     /**
@@ -196,5 +191,50 @@ class BackupCodecContractTest {
             }
         }
         return bytes.toByteArray()
+    }
+
+    private class TrackingFileSource(
+        private val bytes: ByteArray,
+        private val maxChunk: Int,
+    ) : FileSource {
+        var opened = 0
+        var lastOpened: ChunkedByteSource? = null
+
+        override suspend fun readBytes(): ByteArray =
+            error("importFromSource must stream, not buffer the whole archive")
+
+        override suspend fun openRead(): ByteSource {
+            opened++
+            if (opened > 1) error("source is non-repeatable")
+            return ChunkedByteSource(bytes, maxChunk).also { lastOpened = it }
+        }
+    }
+
+    private class ChunkedByteSource(
+        private val bytes: ByteArray,
+        private val maxChunk: Int,
+    ) : ByteSource {
+        private var position = 0
+        var readCalls = 0
+            private set
+        var closeCalls = 0
+            private set
+
+        override fun read(
+            buffer: ByteArray,
+            offset: Int,
+            length: Int,
+        ): Int {
+            if (position >= bytes.size) return -1
+            readCalls++
+            val count = minOf(length, maxChunk.coerceAtLeast(1), bytes.size - position)
+            bytes.copyInto(buffer, offset, position, position + count)
+            position += count
+            return count
+        }
+
+        override fun close() {
+            closeCalls++
+        }
     }
 }
