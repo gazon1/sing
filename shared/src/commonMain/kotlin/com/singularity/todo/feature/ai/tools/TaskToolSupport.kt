@@ -1,17 +1,17 @@
 package com.singularity.todo.feature.ai.tools
 
-import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
-import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
-import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import com.singularity.todo.feature.tasks.domain.logic.HealthRules
 import com.singularity.todo.feature.tasks.domain.logic.TaskCognitiveLoad
 import com.singularity.todo.feature.tasks.domain.logic.TaskCognitiveLoadCalculator
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealth
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
+import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 
 /**
  * The parts of reading a task that two tools share.
@@ -41,10 +40,11 @@ internal object TaskToolSupport {
         tasks: List<Task>,
         clock: Clock,
         zone: TimeZone,
-    ): SelectorContext =
-        SelectorContext(
-            today = clock.now().toLocalDateTime(zone).date,
-            now = clock.now(),
+    ): SelectorContext {
+        val now = clock.now()
+        return SelectorContext(
+            today = now.toLocalDateTime(zone).date,
+            now = now,
             blockedIds = Blocking.blockedTaskIds(tasks),
             // A task completed an hour ago may still carry an old `updatedAt`, so the
             // finished moment counts as the last movement. The statistics screen uses the
@@ -52,6 +52,7 @@ internal object TaskToolSupport {
             // other has been told two things.
             lastActivityOf = { task -> maxOf(task.updatedAt, task.completedAt ?: task.updatedAt) },
         )
+    }
 
     /**
      * The tasks of [selection], named by their titles.
@@ -59,18 +60,31 @@ internal object TaskToolSupport {
      * For the tools that plan rather than list: asked for a named set, they work on
      * that set — the app's set, with the app's rules — instead of on a list of strings
      * the model made up.
+     *
+     * @param stagnationWindow the stored staleness threshold the caller read, so that
+     *   `stagnant` means the user's window here as it does everywhere else. A tool that
+     *   omitted it would answer `stagnant` with the selector's 21-day default while
+     *   `list_tasks` answered with the setting.
      */
     suspend fun select(
         selection: TaskSelection,
         taskRepository: TaskRepository,
         clock: Clock,
         zone: TimeZone,
+        stagnationWindow: kotlin.time.Duration = TaskHealth.DEFAULT_STAGNATION_WINDOW,
     ): List<String> {
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = context(all, clock, zone)
         val matched =
             all
-                .filter { TaskSelectionResolver.matches(TaskSelectionRequest(selection = selection), it, context) }
+                .filter {
+                    TaskSelectionResolver.matches(
+                        request = TaskSelectionRequest(selection = selection),
+                        task = it,
+                        context = context,
+                        stagnationWindow = stagnationWindow,
+                    )
+                }
         // Cap the set sent to the model; report the remainder as a count.
         val capped = matched.take(50)
         return capped.map { it.title } +
@@ -156,7 +170,11 @@ internal object TaskToolSupport {
         stalenessDays: Int,
     ): TaskHealthSummary {
         val open = tasks.filter { !it.isCompleted && !it.isTrashed }
-        val perTask = open.map { task -> bucket(task, context, stalenessDays) }
+        // One rule for the whole list: the selectors are built once here rather than
+        // per task, which is the same reason the statistics screen builds its window
+        // once.
+        val rules = HealthRules(stagnationWindowOf(stalenessDays))
+        val perTask = open.map { task -> rules.bucketOf(task, context) }
         val loads = open.map { task -> TaskCognitiveLoadCalculator.loadOf(task.estimateMinutes, 0) }
         return TaskHealthSummary(
             totalOpen = open.size,
@@ -174,28 +192,18 @@ internal object TaskToolSupport {
     /**
      * The health bucket of [task], named the way the app names it.
      *
-     * The precedence is the app's: overdue first, then blocked, then stagnant. A task
-     * that is both overdue and blocked is reported as overdue, because that is the one
-     * the user can act on today — and the card still says what it is waiting on.
+     * The precedence and the staleness default are not restated here: [HealthRules]
+     * owns them, and [summarizeTaskHealthFromSelectors] — what the statistics screen
+     * counts with — classifies through the same object. The copy that used to live
+     * here passed `stalenessDays` straight into the selector, so a stored `0` (which
+     * the statistics screen reads as "use the 21-day default") made every undated
+     * task stagnant on this path and none on that one.
      */
     private fun bucket(
         task: Task,
         context: SelectorContext,
         stalenessDays: Int,
-    ): TaskHealthBucket {
-        if (task.isCompleted) return TaskHealthBucket.FINE
-
-        val overdue = Selector.DateBucket(RelativeBucket.Overdue)
-        val blocked = Selector.Blocked
-        val stagnant = Selector.Stagnant(stalenessDays.days)
-
-        return when {
-            overdue.matches(task, context) -> TaskHealthBucket.OVERDUE
-            blocked.matches(task, context) -> TaskHealthBucket.BLOCKED
-            stagnant.matches(task, context) -> TaskHealthBucket.STAGNANT
-            else -> TaskHealthBucket.FINE
-        }
-    }
+    ): TaskHealthBucket = HealthRules(stagnationWindowOf(stalenessDays)).bucketOf(task, context)
 
     /** How many steps the task is broken into, by subtask. */
     private fun subtaskCount(

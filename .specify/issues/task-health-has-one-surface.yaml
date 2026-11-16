@@ -1,0 +1,19 @@
+---
+version: '1.0'
+type: openspec-change
+slug: task-health-has-one-surface
+date: 2026-11-15
+title: task-health-has-one-surface
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+  - 2026-11-15-task-health-has-one-classifier
+tags: [tasks, agenda, statistics, ai]
+documents:
+  proposal: openspec/changes/task-health-has-one-surface/proposal.md
+  tasks: openspec/changes/task-health-has-one-surface/tasks.md
+specs_dir: openspec/changes/task-health-has-one-surface/specs
+is_stub: false
+openspec_path: openspec/changes/task-health-has-one-surface
+issue: https://github.com/gazon1/sing/issues/2977

@@ -10,14 +10,17 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
+import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
 import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
 import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.nav.AgendaStartRoute
+import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -118,10 +121,7 @@ fun AgendaNavContent(
         }
 
         AgendaStartRoute.Stagnant -> {
-            AgendaScreen(
-                definition = AgendaPresets.byStagnant(),
-                contextMenuHost = contextMenuHost,
-            )
+            StagnantAgendaContent(contextMenuHost = contextMenuHost)
         }
 
         AgendaStartRoute.Overdue -> {
@@ -215,9 +215,79 @@ private fun TodayAgendaContent(
 }
 
 /**
+ * The Stagnant drill-down: the tasks the user's own staleness threshold calls
+ * stagnant.
+ *
+ * The Statistics card that opens this list counts with the stored threshold, and
+ * `AgendaPresets.byStagnant()` defaults to 21 days. Those are the same number on a
+ * fresh install and different on any install where the user moved the slider — so
+ * the card said "12" and the list it opened held a different set. The count and the
+ * list have to answer the same question, so the threshold is read here, exactly as
+ * the Today tab reads its work hours. [stagnantDefinition] is the decision.
+ *
+ * The stored `0` goes through [stagnationWindowOf] for the same reason: it means
+ * "the default", not "every undated task is stagnant".
+ *
+ * ## Why it waits for the stored value instead of starting from the default
+ *
+ * `AgendaScreen` builds its ViewModel from the definition it is given, and
+ * `koinViewModel` returns that same instance for as long as the entry lives. So the
+ * *first* definition the screen is composed with is the one it keeps. Starting from
+ * the default 21 days and swapping the definition once DataStore answers would leave
+ * the ViewModel evaluating the default while the card above counted the stored
+ * threshold — the mismatch this function exists to remove, re-introduced one layer
+ * down. The sentinel is the same one the Today tab uses for its work hours: render
+ * nothing until the value is real, then build the definition once.
+ */
+@Composable
+private fun StagnantAgendaContent(
+    contextMenuHost: @Composable (
+        taskUi: TaskUi,
+        offset: DpOffset,
+        onDismiss: () -> Unit,
+        onIntent: (AgendaIntent) -> Unit,
+    ) -> Unit = { _, _, _, _ -> },
+) {
+    val tasksSettings: TasksSettingsRepository = koinInject()
+    // -1 is "not read yet"; 0 is a real setting that means "use the default".
+    val stalenessDays by tasksSettings.stalenessThresholdDays.collectAsStateWithLifecycle(-1)
+
+    if (stalenessDays < 0) return
+
+    val definition = remember(stalenessDays) { stagnantDefinition(stalenessDays) }
+
+    AgendaScreen(
+        definition = definition,
+        contextMenuHost = contextMenuHost,
+    )
+}
+
+/**
+ * The definition the Stagnant drill-down evaluates, from the stored threshold.
+ *
+ * A pure function, so the decision the screen makes can be pinned by a test without
+ * mounting it: [StagnantAgendaContent] only supplies the setting.
+ *
+ * The stored `0`/negative value means "the default", which [stagnationWindowOf]
+ * translates and the preset's own default completes — so this never builds a
+ * zero-day window that would make every undated task stagnant on arrival.
+ */
+internal fun stagnantDefinition(stalenessDays: Int): AgendaDefinition =
+    AgendaPresets.byStagnant(
+        stagnationWindowOf(stalenessDays) ?: Selector.Stagnant.DEFAULT_STAGNATION_THRESHOLD,
+    )
+
+/**
  * Maps this route to an [AgendaDefinition].
  *
  * Use when you need the definition without the screen wrapper.
+ *
+ * The Stagnant branch is the one preset whose definition a pure function cannot
+ * state: its threshold is a stored setting, and reading it needs the settings port.
+ * The screen owns the real definition ([StagnantAgendaContent]); this returns the
+ * default-window one, which is what a caller with no settings can honestly offer.
+ * The two produce the same sections — a section id, a header and one selector —
+ * and differ only in the window value.
  */
 fun AgendaStartRoute.toDefinition(): AgendaDefinition =
     when (this) {

@@ -9,9 +9,11 @@ import com.singularity.todo.core.ai.encode
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealth
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
+import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.logic.wireName
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -91,11 +93,22 @@ class ListTasksTool(
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = TaskToolSupport.context(all, clock, timeZoneProvider.current())
         val stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first()
+        // The same window the health counts below use. Passing nothing to `matches`
+        // left `selection=stagnant` on the selector's 21-day default while
+        // `health.stagnant` used the stored threshold, so one response could report
+        // "stagnant: 0" beside a page of tasks that same response called stagnant.
+        val stagnationWindow = stagnationWindowOf(stalenessDays)
 
         val selected =
             all
-                .filter { TaskSelectionResolver.matches(request, it, context) }
-                .sortedWith(ORDER)
+                .filter {
+                    TaskSelectionResolver.matches(
+                        request = request,
+                        task = it,
+                        context = context,
+                        stagnationWindow = stagnationWindow ?: TaskHealth.DEFAULT_STAGNATION_WINDOW,
+                    )
+                }.sortedWith(ORDER)
 
         val fingerprint = TaskSelectionResolver.fingerprint(request)
         val start = startOffset(args.cursor, fingerprint)
