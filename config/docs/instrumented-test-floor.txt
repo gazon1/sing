@@ -67,11 +67,11 @@
 # the drift is recorded rather than carried: the rewrite is from a full run, and the
 # rise is almost entirely the earlier classes, not this change.
 #
-# This change added one class and two tests on top of that: `TaskDetailOverflowActionsTest`
-# (#2883) — the task detail's overflow, on the Android shell. One tap opens the menu and
-# one tap on a row performs it, asserted where the write lands rather than on the menu
-# closing. The scenario had no test at any tier: `PopupReachabilityTest` opens the menu
-# and never presses a row.
+# The change before this one added one class and two tests on top of that drift:
+# `TaskDetailOverflowActionsTest` (#2883) — the task detail's overflow, on the Android
+# shell. One tap opens the menu and one tap on a row performs it, asserted where the
+# write lands rather than on the menu closing. The scenario had no test at any tier:
+# `PopupReachabilityTest` opens the menu and never presses a row.
 #
 # The rewrite was taken from a full run that delivered 15 classes and 47 tests.
 # Three of those 47 failed — the two `MenuSheetBoundsTest` cases described below
