@@ -30,7 +30,10 @@ toolchain pinned to 21; Android sits at `minSdk` 26.
 The version catalog pins `com.vanniktech:emoji:0.24.1` (Apache-2.0) and `:shared`
 declares it as an `implementation` dependency of `commonMain`. No call site is
 migrated: `core/emoji/EmojiLibraryApi.kt` only references the common API, and
-issue #2919 replaces it with the catalog and search the picker reads.
+issue #2919 replaces it with the catalog and search the picker reads. #2919 did
+that work: the probe is gone, and `core/emoji/EmojiCatalog.kt` reads the
+installed provider (ADR
+`2026-11-16-the-emoji-library-owns-the-data-and-the-app-owns-the-glyph.md`).
 
 ## Rationale
 
@@ -63,7 +66,8 @@ concern and belongs to #2919, not to the dependency check.
   `EmojiProvider` that was installed. #2919 must not plan on `categories()`.
 - Provider classes are platform-only, so installing a provider needs a platform
   seam (an `expect`/`actual` with the provider in `androidMain` and `jvmMain`),
-  the same shape as `platformModule()`.
+  the same shape as `platformModule()` — which is the seam
+  `core/emoji/EmojiCatalog.kt` reads through now.
 - `CharSequence.emojiInformation()` is the current text API
   (`visualLength`, `isOnlyEmojis`, `emojiCount`, `emojiRanges`); the
   `isOnlyEmojis()` / `emojis()` / `emojisCount()` extensions are deprecated.
@@ -72,14 +76,17 @@ concern and belongs to #2919, not to the dependency check.
   provider's catalog and is **not** a general Unicode grapheme counter, so it
   is not interchangeable with the app's own `visibleLength()`, which counts
   code points (ADR `2026-11-13-the-emoji-helpers-have-no-library-equivalent.md`).
-- Nothing installs a provider yet, so the library is not on any runtime path;
-  `core/emoji/EmojiLibraryApi.kt` is a compile-time probe and #2919 removes it.
+- When this decision was taken nothing installed a provider yet, so the library
+  was on no runtime path. #2919 put it on one: `core/emoji/EmojiCatalog.kt`
+  installs the provider once and reads its catalog and search from it.
 
 ## Links
 
 - Issues: #2918, parent #2917; follow-ups #2919, #2920, #2921, #2922
 - Upstream: <https://github.com/vanniktech/Emoji/releases/tag/0.24.1>
 - Files: `gradle/libs.versions.toml`, `shared/build.gradle.kts`,
-  `shared/src/commonMain/kotlin/com/singularity/todo/core/emoji/EmojiLibraryApi.kt`
+  `shared/src/commonMain/kotlin/com/singularity/todo/core/emoji/EmojiCatalog.kt`
 - Decisions: `2026-11-12-project-identity-is-one-icon-composable.md` — its
-  "no emoji library" constraint is revisited by #2922, not by this entry.
+  "no emoji library" constraint is revisited by #2922, not by this entry;
+  `2026-11-16-the-emoji-library-owns-the-data-and-the-app-owns-the-glyph.md` —
+  where the library's data and the app's glyph are separated.
