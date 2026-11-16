@@ -51,8 +51,10 @@
 # one did not.
 #
 # The loss is acknowledged here rather than regenerated silently: the tier was 8
-# classes and 25 tests after that removal. `CreateTaskFlowTest` is not back — the
-# scenario it held is owned by the desktop tier — but the tier gained one class it
+# classes and 25 tests after that removal. The class is in the suite again — three
+# tests, counted by the floor below — so this paragraph records a decision that was
+# later reversed rather than a state that still holds; the floor counts what the
+# tree holds, and the tree holds the class. The tier also gained one class it
 # did not have before that removal: `TaskEditorDraftTest`. One of its two tests owns
 # what only a device can observe — an editor restoring a draft that outlived the
 # process — and the other holds the harness helper to its boundary: the editor's
@@ -103,9 +105,10 @@
 # The run this floor was taken from delivered 48 tests and had four failures: the
 # three described below, and one more — a JUnit assertion in this branch's own
 # `IconPickerCustomInputTest`, written with the message in the wrong position, so
-# it failed on every run. That one is fixed here, and the suite was re-run to
-# confirm it. The floor records what the suite *delivered*, so the numbers were
-# sound either way; the failure is stated rather than buried.
+# it failed on every run. That one is fixed here, and the class was re-run on the
+# emulator to confirm it: ten tests, no failures. The floor records what the suite
+# *delivered*, so the numbers were sound either way; the failure is stated rather
+# than buried.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
 classes 15
