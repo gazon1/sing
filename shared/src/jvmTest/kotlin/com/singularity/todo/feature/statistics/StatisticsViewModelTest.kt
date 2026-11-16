@@ -7,6 +7,7 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -34,7 +35,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -48,18 +48,36 @@ class StatisticsViewModelTest {
      * Statistics bucket by "today" and "last 7 days", so a real clock makes this
      * suite depend on the day it runs. A fixed instant makes the window explicit:
      * every task below lands inside the same 7-day range.
+     *
+     * The instant sits early in the UTC day on purpose: in the zone this test
+     * injects it is already the next day, and in every zone a test machine is
+     * likely to be in it is still this day. The day the ViewModel reads
+     * therefore depends on the injected zone, and a ViewModel that read the
+     * machine's zone instead would name a different day — which is exactly what
+     * this test is here to catch.
      */
-    private val testNow: Instant = Instant.parse("2026-01-15T12:00:00Z")
+    private val testNow: Instant = Instant.parse("2026-01-15T10:00:00Z")
+
+    /**
+     * The zone the ViewModel sees.
+     *
+     * UTC+14 is the far end of the clock on purpose: at [testNow] the day here
+     * is one day ahead of the UTC day and of the day in every other ordinary
+     * zone, so a test that let the ViewModel fall back to the machine's zone
+     * would answer with the wrong day and fail.
+     */
+    private val testZone: TimeZone = TimeZone.of("Pacific/Kiritimati")
 
     /**
      * The day the ViewModel sees.
      *
-     * The ViewModel reads the day in the system's own time zone, so the test has
-     * to read it the same way — a test that hard-coded a day would disagree with
-     * the screen on every machine that is not in UTC.
+     * The ViewModel reads the day in the injected zone, and the test injects a
+     * fixed one — a test that hard-coded a day would disagree with the screen on
+     * every machine that is not in that zone, and a test that read the machine's
+     * zone would move with the clock.
      */
     private val today: kotlinx.datetime.LocalDate =
-        testNow.toLocalDateTime(TimeZone.currentSystemDefault()).date
+        testNow.toLocalDateTime(testZone).date
 
     private fun task(
         id: String,
@@ -96,6 +114,7 @@ class StatisticsViewModelTest {
                     currentUser = currentUser,
                     clock = clock,
                     settingsRepository = settings,
+                    timeZone = FixedTimeZone(testZone),
                 ),
             crashReporter = reporter,
             scope = testScope(backgroundScope),
@@ -326,6 +345,11 @@ class StatisticsViewModelTest {
      *
      * The list is derived, so the test drives the derivation the way the screen
      * does: a task due today is named, and the state says so.
+     *
+     * The reason it gives is the part that pins the day: the task is due on
+     * the day the injected zone names, and in the machine's own zone it would
+     * be due tomorrow. A ViewModel that read the machine's zone would say
+     * "Due tomorrow" here and fail.
      */
     @Test
     fun `the attention items reach the state`() =
@@ -341,37 +365,6 @@ class StatisticsViewModelTest {
             assertTrue(nudges is AttentionNudgesState.Ready, "the attention items land in the state, got $nudges")
             assertEquals(listOf("task:t1"), nudges.nudges.map { it.key })
             assertEquals("Due today", nudges.nudges.first().reason)
-        }
-
-    /**
-     * Setting an item aside hides it, and touches nothing else.
-     *
-     * The dismissal is a statement about the shortlist, not about the work: the
-     * task is still open, still has its due date, and is still in the repository
-     * exactly as it was.
-     */
-    @Test
-    fun `setting an item aside hides it and changes nothing else`() =
-        runTest {
-            val repo = FakeTaskRepository()
-            repo.seed(task("t1", dueDate = today))
-            repo.seed(task("t2", dueDate = today))
-
-            val vm = createVm(repo)
-            runCurrent()
-            runCurrent()
-
-            vm.onIntent(StatisticsIntent.DismissNudge("task:t1"))
-
-            assertEquals(
-                listOf("task:t2"),
-                vm.state.value.visibleNudges
-                    .map { it.key },
-            )
-            val stored = repo.get(TaskId.fromString("t1"))
-            assertNotNull(stored, "the dismissed task is still in the repository")
-            assertEquals(today, stored.dueDate, "the dismissed task still has its due date")
-            assertNull(stored.completedAt, "the dismissed task is still open")
         }
 
     /**
@@ -411,6 +404,17 @@ class StatisticsViewModelTest {
         advanceTimeBy(10_000)
         runCurrent()
     }
+}
+
+/**
+ * A fixed zone, so the day the ViewModel reads is the day the test means.
+ *
+ * The ViewModel asks the injected [TimeZoneProvider] for the zone; a test that
+ * let it fall back to the machine's zone would say "today" differently on
+ * every machine it runs on.
+ */
+private class FixedTimeZone(private val zone: TimeZone) : TimeZoneProvider {
+    override fun current(): TimeZone = zone
 }
 
 /**

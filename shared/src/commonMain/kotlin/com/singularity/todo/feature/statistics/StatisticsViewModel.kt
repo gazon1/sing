@@ -5,6 +5,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeConstants
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
@@ -21,11 +22,8 @@ import com.singularity.todo.feature.timetracking.domain.logic.bucketByProject
 import com.singularity.todo.feature.timetracking.domain.logic.mergeIntervalsWithOpen
 import com.singularity.todo.feature.timetracking.domain.logic.splitAtMidnight
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -39,8 +37,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -58,32 +54,9 @@ data class StatisticsUiState(
     val health: TaskHealthState = TaskHealthState.Loading,
     /** The attention items for the Health tab, and what the query behind them is doing. */
     val nudges: AttentionNudgesState = AttentionNudgesState.Loading,
-    /**
-     * The attention items the user set aside for now.
-     *
-     * Transient on purpose: it lives in this state, so it is gone when the screen
-     * is left, and it changes nothing about the task or the project it names.
-     */
-    val dismissedNudgeKeys: ImmutableSet<String> = persistentSetOf(),
     val loading: Boolean = true,
     val rangeDays: Int = 7,
 ) {
-    /**
-     * The attention items the screen shows: the derived ones, minus the ones the
-     * user set aside.
-     *
-     * The dismissal is applied here rather than in the query, so the derived list
-     * stays the truth about the tasks and the dismissal stays a statement about
-     * the shortlist.
-     */
-    val visibleNudges: ImmutableList<AttentionNudge>
-        get() =
-            (nudges as? AttentionNudgesState.Ready)
-                ?.nudges
-                ?.filterNot { it.key in dismissedNudgeKeys }
-                ?.toImmutableList()
-                ?: persistentListOf()
-
     /** Time-tracking data for the insights tab. */
     data class InsightsData(
         val loading: Boolean = true,
@@ -137,14 +110,6 @@ data class ProjectInsightsBucket(val projectId: String?, val projectName: String
 
 sealed interface StatisticsIntent : MviIntent {
     data class SetRange(val days: Int) : StatisticsIntent
-
-    /**
-     * Sets one attention item aside for now.
-     *
-     * The dismissal is transient: it lives in the state, so it is gone when the
-     * screen is left, and it changes nothing about the task or the project.
-     */
-    data class DismissNudge(val key: String) : StatisticsIntent
 }
 
 /**
@@ -230,7 +195,7 @@ class StatisticsViewModel(
                 deps.settingsRepository.stalenessThresholdDays,
             ) { tasks, stalenessDays ->
                 val now = deps.clock.now()
-                val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                val today = todayAt(deps.clock, deps.timeZone.current())
                 // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
                 // TaskCompletionSlot copies `completedAt` without bumping `updatedAt`,
                 // so a task finished this morning would otherwise read as untouched
@@ -294,7 +259,7 @@ class StatisticsViewModel(
                 },
             ) { tasks, projects ->
                 val now = deps.clock.now()
-                val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                val today = todayAt(deps.clock, deps.timeZone.current())
                 // Typed nullable on purpose: the catch below emits null, and a
                 // non-null empty list is what made the screen's "unavailable"
                 // branch unreachable.
@@ -333,7 +298,7 @@ class StatisticsViewModel(
                 .distinctUntilChanged()
                 .flatMapLatest { days ->
                     val now = deps.clock.now()
-                    val zone = TimeZone.currentSystemDefault()
+                    val zone = deps.timeZone.current()
                     val nowMs = now.toEpochMilliseconds()
                     val startMs = nowMs - (days * TimeConstants.MILLIS_PER_DAY)
                     val userId = deps.currentUser.current
@@ -400,16 +365,6 @@ class StatisticsViewModel(
                 // never comes, and the screen would wait on it forever.
                 if (days == currentState.rangeDays) return
                 updateState { it.copy(rangeDays = days, loading = true) }
-            }
-
-            is StatisticsIntent.DismissNudge -> {
-                // Setting an item aside is a statement about the shortlist, not
-                // about the work: nothing here touches the task or the project.
-                val key = intent.key
-                if (key in currentState.dismissedNudgeKeys) return
-                updateState {
-                    it.copy(dismissedNudgeKeys = (it.dismissedNudgeKeys + key).toImmutableSet())
-                }
             }
         }
     }

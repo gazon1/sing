@@ -57,7 +57,10 @@ an ordered list and puts it on the surface that already means "attention".
   most relevant items first, a bounded number of them, and the count of the rest.
 - Each nudge opens the item it names, and states the one reason it is there.
 - A transient "not now" dismissal of a single nudge, which changes nothing about the
-  task or the project and does not survive leaving the screen.
+  task or the project and does not survive leaving the screen. The dismissal is held
+  by the screen itself: a ViewModel outlives the screen — the navigation keeps the
+  Statistics entry alive while another destination is on top of it — so a dismissal
+  held there would outlive the visit it belonged to.
 - The contract for the later OS-level delivery — when a nudge may raise a system
   notification, how repeats are suppressed, how long a raised notification stays
   valid, and what invalidates it — written down in the ADR, **not implemented**.
@@ -74,7 +77,9 @@ an ordered list and puts it on the surface that already means "attention".
 - Stagnation as a nudge signal. #2980's relevance order does not name it, and the
   Health tab already counts it as its own bucket.
 - A nudge for a task whose project is closed, for a deferred task, or for finished or
-  discarded work. A nudge is about work the user still intends to do.
+  discarded work. A nudge is about work the user still intends to do. A deferred task
+  is not named on its own, but it is still *unfinished*, so it counts towards a
+  project's deadline — that one is about a body of work rather than about one row.
 - Any AI, model call or natural-language generation. The reasons are stated by the
   rules that produce them.
 

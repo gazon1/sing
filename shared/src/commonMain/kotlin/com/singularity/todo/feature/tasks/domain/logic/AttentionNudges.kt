@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
+import com.singularity.todo.core.ui.monthAbbreviation
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
@@ -83,7 +84,9 @@ data class AttentionNudge(
  *
  * - **Finished, discarded and deferred work.** A nudge is about work still to do.
  *   Deferred work was parked on purpose; a nudge for it would be the app arguing
- *   with the user.
+ *   with the user. A deferred task is still *unfinished*, though, so it counts
+ *   towards a project's deadline — that one is about a body of work rather than
+ *   about one row.
  * - **Work in a closed project.** A closed project says its work is finished.
  * - **Stagnation.** The attention list answers "what should I deal with first", and
  *   an idle task is not more urgent than a late one. Stagnation is the Health tab's
@@ -106,6 +109,38 @@ fun buildAttentionNudges(
     val blockedIds = Blocking.blockedTaskIds(tasks)
     val context = SelectorContext(today = today, now = now, blockedIds = blockedIds)
 
+    val taskNudges = taskNudges(tasks, closedProjectIds, context, today)
+    val projectNudges = projectNudges(projects, tasks, today)
+
+    return (taskNudges + projectNudges)
+        .sortedWith(
+            // `compareBy` on a nullable date puts the nulls **first**, so the
+            // sort says so itself: within one kind, an item without a date goes
+            // last, not ahead of the items that have one. An item with no date
+            // has no claim on being early. The kind still comes first — a
+            // dateless item of a more relevant kind outranks a dated one of a
+            // less relevant kind.
+            compareBy<Ranked>(
+                { it.nudge.signal.ordinal },
+                { it.dueDate == null },
+                { it.dueDate },
+                { it.nudge.key },
+            ),
+        ).map { it.nudge }
+}
+
+/**
+ * The attention items that are about one task.
+ *
+ * Each task contributes at most one item, under the first signal it matches —
+ * the order of the `when` is the relevance order.
+ */
+private fun taskNudges(
+    tasks: List<Task>,
+    closedProjectIds: Set<ProjectId>,
+    context: SelectorContext,
+    today: LocalDate,
+): List<Ranked> {
     val overdue = Selector.DateBucket(RelativeBucket.Overdue)
     val dueSoon =
         Selector.AnyOf(
@@ -116,82 +151,90 @@ fun buildAttentionNudges(
         )
     val blocked = Selector.Blocked
 
-    val taskNudges =
-        tasks
-            .filter { it.isAttentionCandidate(closedProjectIds) }
-            .mapNotNull { task ->
-                val dueDate = task.dueDate
-                when {
-                    overdue.matches(task, context) -> {
-                        dueDate?.let { date ->
-                            Ranked(
-                                task.nudge(AttentionSignal.OVERDUE, "Overdue since ${date.relativeLabel(today)}"),
-                                date,
-                            )
-                        }
-                    }
-
-                    dueSoon.matches(task, context) -> {
-                        dueDate?.let { date ->
-                            Ranked(
-                                task.nudge(AttentionSignal.DUE_SOON, "Due ${date.relativeLabel(today)}"),
-                                date,
-                            )
-                        }
-                    }
-
-                    blocked.matches(task, context) -> {
+    return tasks
+        .filter { it.isAttentionCandidate(closedProjectIds) }
+        .mapNotNull { task ->
+            val dueDate = task.dueDate
+            when {
+                overdue.matches(task, context) -> {
+                    dueDate?.let { date ->
                         Ranked(
-                            task.nudge(AttentionSignal.BLOCKED, "Waiting on something that is not finished"),
-                            dueDate,
+                            task.nudge(AttentionSignal.OVERDUE, "Overdue since ${date.relativeLabel(today)}"),
+                            date,
                         )
                     }
+                }
 
-                    else -> {
-                        null
+                dueSoon.matches(task, context) -> {
+                    dueDate?.let { date ->
+                        Ranked(
+                            task.nudge(AttentionSignal.DUE_SOON, "Due ${date.relativeLabel(today)}"),
+                            date,
+                        )
                     }
                 }
-            }
 
-    // A project's deadline is a promise about a body of work, so it is worth
-    // attention while the promise is unmet: the deadline has arrived, the project
-    // is still open, and there is work left in it. A deferred task still counts as
-    // work left — it is parked, not finished.
+                blocked.matches(task, context) -> {
+                    Ranked(
+                        task.nudge(AttentionSignal.BLOCKED, "Waiting on something that is not finished"),
+                        dueDate,
+                    )
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
+}
+
+/**
+ * The attention items that are about a project.
+ *
+ * A project's deadline is a promise about a body of work, so it is worth
+ * attention while the promise is unmet: the deadline has arrived, the project
+ * is still open, and there is work left in it. A deferred task still counts as
+ * work left — it is parked, not finished.
+ */
+private fun projectNudges(
+    projects: List<Project>,
+    tasks: List<Task>,
+    today: LocalDate,
+): List<Ranked> {
     val unfinishedByProject =
         tasks
             .filter { !it.isCompleted && !it.isTrashed }
             .groupingBy { it.projectId }
             .eachCount()
 
-    val projectNudges =
-        projects
-            .filter { !it.isDeleted && it.closedAt == null }
-            .mapNotNull { project ->
-                val deadline = project.dueDate
-                if (deadline == null || deadline > today) return@mapNotNull null
-                val unfinished = unfinishedByProject[project.id] ?: 0
-                if (unfinished == 0) return@mapNotNull null
-                val noun = if (unfinished == 1) "task" else "tasks"
-                Ranked(
-                    AttentionNudge(
-                        key = projectKey(project.id),
-                        signal = AttentionSignal.PROJECT_DEADLINE,
-                        title = project.name,
-                        reason = "Its deadline has passed with $unfinished unfinished $noun",
-                        destination = AttentionDestination.Project(project.id),
-                    ),
-                    deadline,
-                )
-            }
-
-    return (taskNudges + projectNudges)
-        .sortedWith(
-            compareBy(
-                { it.nudge.signal.ordinal },
-                { it.dueDate },
-                { it.nudge.key },
-            ),
-        ).map { it.nudge }
+    return projects
+        .filter { !it.isDeleted && it.closedAt == null }
+        .mapNotNull { project ->
+            val deadline = project.dueDate
+            if (deadline == null || deadline > today) return@mapNotNull null
+            val unfinished = unfinishedByProject[project.id] ?: 0
+            if (unfinished == 0) return@mapNotNull null
+            val noun = if (unfinished == 1) "task" else "tasks"
+            // A deadline that is today has not passed yet, and saying it has
+            // would be the app accusing the user of being late on the day the
+            // date arrived.
+            val reason =
+                if (deadline < today) {
+                    "Its deadline has passed with $unfinished unfinished $noun"
+                } else {
+                    "Its deadline is today with $unfinished unfinished $noun"
+                }
+            Ranked(
+                AttentionNudge(
+                    key = projectKey(project.id),
+                    signal = AttentionSignal.PROJECT_DEADLINE,
+                    title = project.name,
+                    reason = reason,
+                    destination = AttentionDestination.Project(project.id),
+                ),
+                deadline,
+            )
+        }
 }
 
 /**
@@ -229,9 +272,14 @@ private fun Task.nudge(
 private fun LocalDate.relativeLabel(today: LocalDate): String =
     when (this) {
         today -> "today"
+
         today.plus(1, DateTimeUnit.DAY) -> "tomorrow"
+
         today.minus(1, DateTimeUnit.DAY) -> "yesterday"
-        else -> toString()
+
+        // "Sep 8", the way the rest of the app writes a date — an ISO date in a
+        // reason line reads like a log entry, not like something said to a person.
+        else -> "${monthAbbreviation(month)} $dayOfMonth"
     }
 
 private fun taskKey(id: TaskId): String = "task:${id.value}"

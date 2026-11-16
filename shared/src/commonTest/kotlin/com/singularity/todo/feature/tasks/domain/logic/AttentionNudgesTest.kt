@@ -99,6 +99,19 @@ class AttentionNudgesTest {
         assertEquals("Overdue since yesterday", list.first().reason)
     }
 
+    /**
+     * A date further off is written the way the app writes dates.
+     *
+     * An ISO date in a reason line reads like a log entry; "Oct 2" reads like
+     * something said to a person.
+     */
+    @Test
+    fun `a date further off is written the way the app writes dates`() {
+        val list = nudges(listOf(task("t1", due = today.minus(5, DateTimeUnit.DAY))))
+
+        assertEquals("Overdue since Oct 2", list.first().reason)
+    }
+
     @Test
     fun `a task due today or tomorrow is named as due soon`() {
         val list =
@@ -221,6 +234,26 @@ class AttentionNudgesTest {
         assertTrue(list.isEmpty(), "a met deadline is not a problem: $list")
     }
 
+    /**
+     * A deadline that is today has not passed yet.
+     *
+     * The reason said "its deadline has passed" for a deadline that arrived
+     * today — the app accusing the user of being late on the day the date
+     * arrived.
+     */
+    @Test
+    fun `a project whose deadline is today says so`() {
+        val project = project("p1", due = today)
+        val list =
+            nudges(
+                tasks = listOf(task("t1", projectId = project.id)),
+                projects = listOf(project),
+            )
+
+        assertEquals(1, list.size)
+        assertEquals("Its deadline is today with 1 unfinished task", list.first().reason)
+    }
+
     @Test
     fun `a project whose deadline has not arrived is not named`() {
         val project = project("p1", due = today.plus(1, DateTimeUnit.DAY))
@@ -250,6 +283,11 @@ class AttentionNudgesTest {
 
         assertEquals(1, list.size)
         assertEquals(AttentionSignal.PROJECT_DEADLINE, list.first().signal)
+        assertEquals(
+            "Its deadline has passed with 1 unfinished task",
+            list.first().reason,
+            "a deferred task is unfinished work, and the count says so",
+        )
     }
 
     // ── The order ──────────────────────────────────────────────────────────────
@@ -295,18 +333,97 @@ class AttentionNudgesTest {
         assertEquals(listOf("task:earlier", "task:later"), list.map { it.key })
     }
 
+    /**
+     * Two items of the same kind and the same date are told apart by their own
+     * identity.
+     *
+     * The tie-break is what makes the order a fact about the list rather than a
+     * fact about how the rows happened to arrive.
+     */
     @Test
-    fun `the same list twice gives the same order`() {
-        val blocker = task("blocker")
-        val tasks =
-            listOf(
-                blocker,
-                task("a", due = today),
-                task("b", blockedBy = setOf(blocker.id)),
-                task("c", due = today.minus(3, DateTimeUnit.DAY)),
+    fun `items of the same kind and the same date are ordered by their identity`() {
+        val list =
+            nudges(
+                listOf(
+                    task("b", due = today),
+                    task("a", due = today),
+                ),
             )
 
-        assertEquals(nudges(tasks).map { it.key }, nudges(tasks).map { it.key })
+        assertEquals(listOf("task:a", "task:b"), list.map { it.key })
+    }
+
+    /**
+     * An item without a date goes after the items that have one.
+     *
+     * Kotlin's own comparison puts a null first, which would have put a
+     * waiting task with no due date ahead of a task that is late — the list
+     * would have said "this first" about an item with no date to be early by.
+     */
+    @Test
+    fun `an item without a date goes after the items that have one`() {
+        val blocker = task("blocker")
+        val list =
+            nudges(
+                listOf(
+                    blocker,
+                    task("waiting", blockedBy = setOf(blocker.id)),
+                    task("late", due = today.minus(1, DateTimeUnit.DAY)),
+                ),
+            )
+
+        assertEquals(listOf("task:late", "task:waiting"), list.map { it.key })
+    }
+
+    /**
+     * Within one kind, an item without a date goes after the ones that have one.
+     *
+     * The test above cannot carry that rule on its own: it compares two
+     * different kinds, and the kind already decides the order. The rule only
+     * shows itself between two items of the *same* kind — and the waiting kind
+     * is the one that can carry a dateless item, because a waiting task keeps
+     * its due date when it has one.
+     *
+     * So: two waiting tasks, one dated and one not. The dated one is first.
+     */
+    @Test
+    fun `within one kind an item without a date goes last`() {
+        val blocker = task("blocker")
+        val list =
+            nudges(
+                listOf(
+                    blocker,
+                    task("waiting-undated", blockedBy = setOf(blocker.id)),
+                    task("waiting-dated", due = today.plus(5, DateTimeUnit.DAY), blockedBy = setOf(blocker.id)),
+                ),
+            )
+
+        assertEquals(listOf("task:waiting-dated", "task:waiting-undated"), list.map { it.key })
+    }
+
+    /**
+     * The kind still comes first: an item without a date of a more relevant
+     * kind outranks a dated item of a less relevant kind.
+     */
+    @Test
+    fun `the kind outranks the date even when one item has no date`() {
+        val blocker = task("blocker")
+        val project = project("p1", due = today.minus(1, DateTimeUnit.DAY))
+        val list =
+            nudges(
+                tasks =
+                    listOf(
+                        blocker,
+                        task("waiting", blockedBy = setOf(blocker.id)),
+                        task("mine", projectId = project.id),
+                    ),
+                projects = listOf(project),
+            )
+
+        assertEquals(
+            listOf(AttentionSignal.BLOCKED, AttentionSignal.PROJECT_DEADLINE),
+            list.map { it.signal },
+        )
     }
 
     // ── The key ────────────────────────────────────────────────────────────────

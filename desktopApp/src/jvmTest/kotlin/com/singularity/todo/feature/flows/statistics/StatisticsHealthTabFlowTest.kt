@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.flows.statistics
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
@@ -9,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -17,9 +19,12 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.Tag
 import org.koin.core.Koin
+import org.koin.core.module.Module
+import org.koin.dsl.module
 import kotlin.test.Test
 import kotlin.time.Instant
 
@@ -40,6 +45,7 @@ import kotlin.time.Instant
  * - selecting the Health tab puts the bucket cards on screen
  * - the attention items are on that tab, one row per item, with a stable id
  * - setting an item aside takes the row off the screen
+ * - the list says how many items it did not show, in every state
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -72,36 +78,175 @@ class StatisticsHealthTabFlowTest {
      * rather than counting rows — and the dismissal is asserted on the same
      * row, which is the only thing that says the dismissal removed *that* item
      * and not another one.
+     *
+     * The two rows are also what pins the day: the overdue task is late in the
+     * injected zone, and the due-soon task is due tomorrow in it — which in the
+     * machine's own zone is two days ahead and would not be on the list at all.
      */
     @Test
     fun the_attention_items_are_on_the_health_tab_and_can_be_set_aside() =
         runDesktopAppTest(
             clock = CLOCK,
+            overrides = timeZoneOverride,
             checkA11y = true,
         ) { koin ->
-            seedOverdueTask(koin)
+            seedAttentionTasks(koin)
 
             tapTab("Statistics")
             clickTag(TestTags.STATISTICS_TAB_HEALTH)
 
-            assertTagDisplayed(TestTags.attentionNudge(NUDGE_KEY))
+            assertTagDisplayed(TestTags.attentionNudge(OVERDUE_KEY))
+            assertTagDisplayed(TestTags.attentionNudge(DUE_SOON_KEY))
 
-            clickTag(TestTags.attentionNudgeDismiss(NUDGE_KEY))
+            clickTag(TestTags.attentionNudgeDismiss(OVERDUE_KEY))
 
-            awaitTagGone(TestTags.attentionNudge(NUDGE_KEY))
+            awaitTagGone(TestTags.attentionNudge(OVERDUE_KEY))
         }
 
-    /** A task whose due date has passed — the first thing the list names. */
-    private suspend fun seedOverdueTask(koin: Koin) {
+    /**
+     * A dismissal does not survive leaving the screen.
+     *
+     * The dismissal is a statement about this visit to the screen, not a
+     * setting: the user sets an item aside for now, and "now" ends when they
+     * walk away from the screen. The navigation keeps the Statistics entry
+     * alive while another destination is on top of it, so a dismissal held in
+     * the ViewModel would still be there on the way back — the item the user
+     * set aside would stay set aside, and the list would keep lying about
+     * what needs attention.
+     */
+    @Test
+    fun a_dismissal_does_not_survive_leaving_the_screen() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            overrides = timeZoneOverride,
+            checkA11y = true,
+        ) { koin ->
+            seedAttentionTasks(koin)
+
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+            assertTagDisplayed(TestTags.attentionNudge(OVERDUE_KEY))
+
+            clickTag(TestTags.attentionNudgeDismiss(OVERDUE_KEY))
+            awaitTagGone(TestTags.attentionNudge(OVERDUE_KEY))
+
+            // Leave the screen and come back to it.
+            tapTab("Inbox")
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+
+            // The item the user set aside is on the list again.
+            assertTagDisplayed(TestTags.attentionNudge(OVERDUE_KEY))
+        }
+
+    /**
+     * The list says how many items it did not show.
+     *
+     * A shortlist that hides its own size reads as "that is all of it", and it
+     * is not: seven items are late and the list shows five.
+     */
+    @Test
+    fun the_list_says_how_many_items_it_did_not_show() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            overrides = timeZoneOverride,
+            checkA11y = true,
+        ) { koin ->
+            seedOverdueTasks(koin, count = 7)
+
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+
+            assertTagTextEquals(TestTags.ATTENTION_NUDGES_MORE, "and 2 more")
+        }
+
+    /**
+     * The count survives an emptied list.
+     *
+     * The user set every item the list showed aside, and the list shows none
+     * of them now. The count is what the list owes the user in every state —
+     * a count that vanished as the list emptied would be a count that only
+     * appeared when it was convenient.
+     */
+    @Test
+    fun the_count_survives_an_emptied_list() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            overrides = timeZoneOverride,
+            checkA11y = true,
+        ) { koin ->
+            seedOverdueTasks(koin, count = 2)
+
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+
+            listOf("task:count-1", "task:count-2").forEach { key ->
+                clickTag(TestTags.attentionNudgeDismiss(key))
+                awaitTagGone(TestTags.attentionNudge(key))
+            }
+
+            assertTagTextEquals(TestTags.ATTENTION_NUDGES_MORE, "2 items are not shown right now")
+        }
+
+    /**
+     * The two tasks the list names: one whose due date has passed, and one due
+     * tomorrow in the zone the screen reads.
+     */
+    private suspend fun seedAttentionTasks(koin: Koin) {
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val task =
+        val overdue =
             testTask(
-                id = TaskId(TASK_ID),
+                id = TaskId(OVERDUE_TASK_ID),
                 title = "Late task",
                 dueDate = today.minus(1, DateTimeUnit.DAY),
                 userId = userId,
             )
-        koin.get<TaskRepository>().upsert(TaskDocument.of(task))
+        val dueSoon =
+            testTask(
+                id = TaskId(DUE_SOON_TASK_ID),
+                title = "Task due tomorrow",
+                dueDate = today.plus(1, DateTimeUnit.DAY),
+                userId = userId,
+            )
+        val repository = koin.get<TaskRepository>()
+        repository.upsert(TaskDocument.of(overdue))
+        repository.upsert(TaskDocument.of(dueSoon))
+    }
+
+    /**
+     * Tasks whose due date has passed — the first thing the list names.
+     *
+     * The ids carry their number, so the order the list shows them in is the
+     * order the test expects: same kind, same date, and the key breaks the tie.
+     */
+    private suspend fun seedOverdueTasks(
+        koin: Koin,
+        count: Int,
+    ) {
+        val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
+        val repository = koin.get<TaskRepository>()
+        repeat(count) { index ->
+            val task =
+                testTask(
+                    id = TaskId("count-${index + 1}"),
+                    title = "Late task ${index + 1}",
+                    dueDate = today.minus(1, DateTimeUnit.DAY),
+                    userId = userId,
+                )
+            repository.upsert(TaskDocument.of(task))
+        }
+    }
+
+    /**
+     * The zone the screen reads the day in.
+     *
+     * The screen asks the injected [TimeZoneProvider] for the zone, so the test
+     * replaces it with a fixed one — a test that read the machine's own zone
+     * would answer with a different day on every machine it runs on, and would
+     * pin the old behaviour instead of the contract.
+     */
+    private object FixedZone : TimeZoneProvider {
+        override fun current(): TimeZone = ZONE
     }
 
     private companion object {
@@ -109,15 +254,29 @@ class StatisticsHealthTabFlowTest {
         val CLOCK: FakeClock = FakeClock(FIXED_NOW)
 
         /**
+         * UTC+14, so that at [FIXED_NOW] the day here is already the next day.
+         *
+         * A task due tomorrow in this zone is two days ahead in the machine's
+         * own zone, and would not be on the list at all — so the rows this test
+         * waits for only appear if the screen read the injected zone.
+         */
+        val ZONE: TimeZone = TimeZone.of("Pacific/Kiritimati")
+
+        /**
          * The day the Statistics screen sees.
          *
-         * The screen reads the day in the system's own time zone, so the test
-         * reads it the same way — a hard-coded day would disagree with the
-         * screen on every machine that is not in UTC.
+         * The screen reads the day in the injected zone, and the test injects a
+         * fixed one — a hard-coded day would disagree with the screen on every
+         * machine that is not in that zone.
          */
-        val today: LocalDate = FIXED_NOW.toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val today: LocalDate = FIXED_NOW.toLocalDateTime(ZONE).date
 
-        const val TASK_ID = "nudge-overdue"
-        const val NUDGE_KEY = "task:$TASK_ID"
+        /** The zone the screen reads, swapped in for the machine's own. */
+        val timeZoneOverride: Module = module { single<TimeZoneProvider> { FixedZone } }
+
+        const val OVERDUE_TASK_ID = "nudge-overdue"
+        const val DUE_SOON_TASK_ID = "nudge-due-soon"
+        const val OVERDUE_KEY = "task:$OVERDUE_TASK_ID"
+        const val DUE_SOON_KEY = "task:$DUE_SOON_TASK_ID"
     }
 }

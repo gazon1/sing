@@ -67,6 +67,23 @@ the task or the project. A dismissal that were stored would need its own table, 
 own sync story and its own expiry rule; the in-app version needs none of that, and it
 answers the only question it is asked ("not now").
 
+The screen's own state, and not the ViewModel's, is the point. A ViewModel outlives
+the screen it belongs to: the navigation keeps the Statistics entry alive while
+another destination is on top of it, so a dismissal held in the ViewModel would still
+be there when the user came back — the item they set aside would stay set aside, and
+the list would go on claiming that nothing needs attention. Plain screen state (not
+saveable state) ends with the visit it belongs to.
+
+Two more decisions the list makes explicit, because both are places where the
+obvious reading of "the same rules as everywhere else" would be wrong:
+
+- **An item with no date goes last.** A task that waits on something and has no due
+  date has no claim on being early, and sorting it ahead of the items that have a
+  date would say "this first" about an item that cannot be.
+- **A deferred task is not named, but it is still unfinished.** It is parked, not
+  done, so it counts towards a project's deadline — a deadline is a promise about a
+  body of work rather than about one row.
+
 **The OS-delivery contract is written here, and no notification code is written
 yet.** When the second phase comes, it starts from these rules:
 
@@ -115,7 +132,12 @@ platforms behave the same will deliver nothing on one of them.
   `Blocking` rather than written again, so the list cannot disagree with the counts
   beside it.
 - The nudge list is bounded on screen and says how many items it did not show — the
-  list is a shortlist, and a shortlist that hides its own size is a lie.
+  list is a shortlist, and a shortlist that hides its own size is a lie. The count
+  is of the items the list did not show, whether they were left out by the bound or
+  set aside by the user.
+- The screen reads "today" through the injected time-zone provider, the way the
+  agenda does. Two surfaces that disagreed about what today is would show two
+  different lists of the same tasks.
 - **No notification exists.** The contract above is a decision, not an
   implementation: when the second phase starts, it starts by turning each bullet into
   a rule a test can pin, and by deciding what happens on a device that was off.

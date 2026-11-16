@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -57,8 +58,11 @@ import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration
@@ -72,6 +76,28 @@ fun StatisticsScreen(
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    // The items the user set aside for now.
+    //
+    // The state lives in the screen and not in the ViewModel, because its
+    // lifetime is the screen's: the contract is that a dismissal does not
+    // survive leaving the screen, and a ViewModel outlives the screen — the
+    // navigation keeps the Statistics entry alive while another destination is
+    // on top of it, so a dismissal held there would still be there when the
+    // user came back. Plain `remember` (not `rememberSaveable`) is what makes
+    // the promise true: the state goes when the screen leaves the composition,
+    // and it is not restored when the screen comes back.
+    //
+    // It changes nothing about the task or the project it names: the dismissal
+    // is a statement about the shortlist, not about the work.
+    var dismissedNudgeKeys by remember { mutableStateOf<ImmutableSet<String>>(persistentSetOf()) }
+
+    val allNudges =
+        (state.nudges as? AttentionNudgesState.Ready)?.nudges ?: persistentListOf()
+    val visibleNudges =
+        remember(allNudges, dismissedNudgeKeys) {
+            allNudges.filterNot { it.key in dismissedNudgeKeys }.toImmutableList()
+        }
 
     RefreshableContent {
         Column(
@@ -144,8 +170,11 @@ fun StatisticsScreen(
                     HealthTabContent(
                         health = state.health,
                         nudges = state.nudges,
-                        visibleNudges = state.visibleNudges,
-                        onDismissNudge = { key -> viewModel.onIntent(StatisticsIntent.DismissNudge(key)) },
+                        allNudges = allNudges,
+                        visibleNudges = visibleNudges,
+                        onDismissNudge = { key ->
+                            dismissedNudgeKeys = (dismissedNudgeKeys + key).toImmutableSet()
+                        },
                         onBucketClick = { bucket ->
                             when (bucket) {
                                 // Overdue navigates to the dedicated Overdue preset — one section,
@@ -532,6 +561,7 @@ private fun StatCard(
 private fun HealthTabContent(
     health: TaskHealthState,
     nudges: AttentionNudgesState,
+    allNudges: ImmutableList<AttentionNudge>,
     visibleNudges: ImmutableList<AttentionNudge>,
     onDismissNudge: (String) -> Unit,
     onBucketClick: (TaskHealthBucket) -> Unit,
@@ -560,6 +590,7 @@ private fun HealthTabContent(
         // which is the question the counts only hint at.
         AttentionNudgesSection(
             state = nudges,
+            all = allNudges,
             visible = visibleNudges,
             onDismiss = onDismissNudge,
             onClick = onNudgeClick,
@@ -621,6 +652,7 @@ private fun HealthTabContent(
 @Composable
 private fun AttentionNudgesSection(
     state: AttentionNudgesState,
+    all: ImmutableList<AttentionNudge>,
     visible: ImmutableList<AttentionNudge>,
     onDismiss: (String) -> Unit,
     onClick: (AttentionNudge) -> Unit,
@@ -632,10 +664,31 @@ private fun AttentionNudgesSection(
     }
 
     if (visible.isEmpty()) {
+        // The count is unconditional: the list says how many items it did not
+        // show, and the state where the user set them all aside is a state
+        // where it showed none of them. A count that vanished as the list
+        // emptied would be a count that only appeared when it was convenient.
+        //
+        // The wording does not say the items were set aside, because some of
+        // them may only be below the bound — and it does not say nothing needs
+        // attention, because these items do need attention. It says what is
+        // true: the list is showing none of them, and there are this many.
+        val hidden = all.size
         Text(
-            text = "Nothing needs attention right now",
+            text =
+                if (hidden == 0) {
+                    "Nothing needs attention right now"
+                } else {
+                    notShownLabel(hidden)
+                },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                if (hidden == 0) {
+                    Modifier
+                } else {
+                    Modifier.testTag(TestTags.ATTENTION_NUDGES_MORE)
+                },
         )
         return
     }
@@ -646,7 +699,8 @@ private fun AttentionNudgesSection(
         fontWeight = FontWeight.SemiBold,
     )
 
-    visible.take(MAX_VISIBLE_NUDGES).forEach { nudge ->
+    val shown = visible.take(MAX_VISIBLE_NUDGES)
+    shown.forEach { nudge ->
         Row(
             modifier =
                 Modifier
@@ -678,7 +732,11 @@ private fun AttentionNudgesSection(
         }
     }
 
-    val hidden = visible.size - MAX_VISIBLE_NUDGES
+    // The count is taken from the whole list, not from what is left of it after
+    // the dismissals. An item the user set aside is still an item this list did
+    // not show, and the count is about what the list did not show — the items
+    // left out by the bound and the items the user set aside are both counted.
+    val hidden = all.size - shown.size
     if (hidden > 0) {
         Text(
             text = "and $hidden more",
@@ -691,6 +749,20 @@ private fun AttentionNudgesSection(
 
 /** How many attention items the Health tab shows at once. */
 private const val MAX_VISIBLE_NUDGES = 5
+
+/**
+ * The sentence for the state where the list shows nothing.
+ *
+ * It carries the count, because the count is what the list owes the user in
+ * every state, and it says "not shown" rather than "set aside", because an
+ * item can be hidden by the bound rather than by the user's own hand.
+ */
+private fun notShownLabel(count: Int): String =
+    if (count == 1) {
+        "1 item is not shown right now"
+    } else {
+        "$count items are not shown right now"
+    }
 
 /** The card's test tag, or null for a bucket that never gets a card. */
 private fun TaskHealthBucket.testTag(): String? =

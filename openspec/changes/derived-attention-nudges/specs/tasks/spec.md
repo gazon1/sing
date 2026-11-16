@@ -57,7 +57,8 @@ reason, the most urgent one, is what makes the list a shortlist.
 
 The attention list **SHALL** be ordered: items that outrank others come first, and
 items of the same kind **SHALL** be ordered by the date that makes them due, earliest
-first, and by their own identity when the dates are the same.
+first, and by their own identity when the dates are the same. An item that has no date
+at all **SHALL** come after the items of its kind that have one.
 
 **Rationale:** the list is a shortlist, so its order is the answer to "what first?".
 An order that changed between two openings of the same screen would make the list
@@ -77,6 +78,21 @@ it became more urgent or because the list is not stable.
 - **When** the attention list is shown
 - **Then** the task due today is above the task that is waiting
 
+#### Scenario: An item without a date comes last
+
+- **Given** a task that is waiting on an unfinished prerequisite and has no due date, and
+  a task that is past its due date
+- **When** the attention list is shown
+- **Then** the task that is past its due date is above the task that is waiting
+- **And** the task that is waiting is above any other task of its kind that has no date
+  either
+
+#### Scenario: Items that are equal are told apart
+
+- **Given** two tasks that are both past their due date and due on the same day
+- **When** the attention list is shown
+- **Then** the same one of the two is first every time
+
 ---
 
 ### Requirement: REQ-TH-013
@@ -88,6 +104,10 @@ belongs to a project whose work was declared finished.
 **Rationale:** the list is a set of things to act on, and each of those is work the
 user has not finished. Work they deferred was parked on purpose, work in a finished
 project is over, and finished or discarded work is not late — it is done.
+
+Deferred work is not named, but it is not finished either: a task the user set aside
+for later still counts as unfinished work when a project's deadline arrives, because a
+deadline is a promise about a body of work rather than about one row.
 
 #### Scenario: Work the user set aside is not named
 
@@ -154,6 +174,21 @@ still open — and worth nothing once the work is finished, even if the date has
 - **When** the attention list is shown
 - **Then** the project is not on it
 
+#### Scenario: A deadline that arrives today
+
+- **Given** an open project whose deadline is today and which holds an unfinished task
+- **When** the attention list is shown
+- **Then** the project is on it
+- **And** the reason it gives is that its deadline is today, not that it has passed
+
+#### Scenario: Deferred work still counts as unfinished work
+
+- **Given** an open project whose deadline has passed and whose only unfinished task has
+  been set aside for later
+- **When** the attention list is shown
+- **Then** the project is on it
+- **And** the deferred task itself is not on the list
+
 ---
 
 ### Requirement: REQ-TH-016
@@ -189,12 +224,19 @@ work, so it must not touch the work.
 - **When** the user leaves the screen and comes back to it
 - **Then** the item is on the list again
 
+#### Scenario: Setting an item aside is not kept by the app
+
+- **Given** an attention item the user set aside for now
+- **When** the app is closed and opened again
+- **Then** the item is on the list again
+
 ---
 
 ### Requirement: REQ-TH-017
 
 The attention list **SHALL** show a bounded number of items at a time, and **SHALL**
-say how many items it did not show.
+say how many items it did not show. The count **SHALL** be of the items the list did
+not show, whether they were left out by the bound or set aside by the user.
 
 **Rationale:** the list exists to be a shortlist. A list of every late task in a
 year's backlog is the backlog again, and the items below the fold are the ones the
@@ -206,3 +248,15 @@ honest: the user knows the shortlist is a shortlist.
 - **Given** more attention items than the list shows at once
 - **When** the list is shown
 - **Then** it says how many items it did not show
+
+#### Scenario: An item the user set aside counts as one it did not show
+
+- **Given** more attention items than the list shows at once
+- **When** the user sets one of them aside
+- **Then** the count still says how many items the list did not show
+
+#### Scenario: The count survives an emptied list
+
+- **Given** attention items the user has set aside, one after another
+- **When** the list is shown
+- **Then** it still says how many items it did not show
