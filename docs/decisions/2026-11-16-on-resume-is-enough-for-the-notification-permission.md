@@ -1,11 +1,11 @@
 ---
-title: "ON_RESUME is enough: the notification permission cannot go stale without a process restart or a resume"
+title: "ON_RESUME is enough: on the measured platform the notification permission cannot go stale without a restart or a resume"
 date: 2026-11-16
 status: accepted
 tags: [android, notifications, permissions, lifecycle, reminders]
 ---
 
-# ON_RESUME is enough: the permission cannot go stale without a restart or a resume
+# ON_RESUME is enough: on the measured platform the permission cannot go stale without a restart or a resume
 
 ## Context
 
@@ -42,50 +42,65 @@ polling, no second state holder.
 
 ## Rationale
 
-Measured on Android 15 / API 35 (targetSdk 36), app at `e30a09c`, using
-`logcat -b events` (`wm_on_*_called`, `am_kill`) plus `dumpsys package` and `dumpsys
-window`.
+### The measurement
 
-**The shade premise is structurally true.** Expanding and collapsing the notification
-shade emits no `wm_on_pause_called`, `wm_on_stop_called` or `wm_on_resume_called` — the
-shade is a window, not an Activity transition, and the app window merely loses focus.
-So a grant change made *from the shade itself* would indeed not deliver `ON_RESUME`.
+**Conditions.** One physical device — Android 15 / API 35, `RMX3938` — with the app
+built at `e30a09c` and `targetSdk 36`, measured on 2026-11-16. The instrument was
+`logcat -b events` (`wm_on_*_called`, `am_kill`) plus `dumpsys package` and
+`dumpsys window`. This is one device and one API level. It records what that platform
+did; it is not a contract that every supported release or OEM will always behave the
+same way.
 
-**But every path that turns notifications off kills the process.** Revoking the
-permission while the app was resumed:
+### What was observed
 
-```
-$ adb shell pm revoke com.singularity.todo android.permission.POST_NOTIFICATIONS
-$ adb shell pidof com.singularity.todo          # empty
-I am_kill : [0,25046,com.singularity.todo,0,permissions revoked,305660]
-```
+1. **The shade is a window.** Expanding and collapsing the notification shade emitted
+   no `wm_on_pause_called`, `wm_on_stop_called` or `wm_on_resume_called` — the app
+   window only lost focus. So a grant change made *from the shade itself* would not
+   deliver `ON_RESUME`.
+2. **Revoking the permission killed the process.** Revoking it while the app was
+   resumed:
 
-And the real thing — the app's notification settings screen, the «Вкл.» switch tapped
-while the app was paused:
+   ```
+   $ adb shell pm revoke com.singularity.todo android.permission.POST_NOTIFICATIONS
+   $ adb shell pidof com.singularity.todo          # empty
+   I am_kill : [0,25046,com.singularity.todo,0,permissions revoked,305660]
+   ```
 
-```
-I am_kill : [0,24502,com.singularity.todo,700,PermissionHelper,333744]
-```
+   And the real thing — the app's notification settings screen, the switch tapped while
+   the app was paused:
 
-This is platform behaviour, not an OEM quirk: revoking a runtime permission goes
-through `PermissionManagerService` and calls `killUid(REASON_PERMISSION_CHANGE)`. After
-the kill the remembered Compose state does not exist. The next launch builds it from
-`remember(context) { mutableStateOf(readNotificationPermission(context)) }`, which reads
-the live grant. The observed end-to-end story — toggle off in Settings, press back —
-relaunched the app (`am_proc_start ... top-activity`, fresh `wm_on_create_called`) and
-the state was correct. **A revoked permission cannot be displayed stale, because there
-is no screen left to display it.**
+   ```
+   I am_kill : [0,24502,com.singularity.todo,700,PermissionHelper,333744]
+   ```
+3. **Granting did not kill the process.** `pid` was unchanged across `pm grant`.
+   Returning from system settings delivered `wm_on_resume_called` on `MainActivity`,
+   and the runtime permission dialog was answered by the
+   `ActivityResultContracts.RequestPermission` callback.
 
-**Every path that turns notifications on delivers a resume or the launcher callback.**
-Granting does not kill the process (`pid` unchanged across `pm grant`), and:
+### What is concluded from it
 
-- returning from system settings delivers `wm_on_resume_called` on `MainActivity`;
-- the runtime permission dialog is answered by the
-  `ActivityResultContracts.RequestPermission` callback, which the implementation already
-  consumes via `hasPermissions = granted`.
+- A revocation cannot leave a stale screen *on this build*: the process is killed, so
+  the remembered Compose state no longer exists, and the next launch rebuilds it from
+  `readNotificationPermission(context)`. The observed end-to-end story — toggle off in
+  Settings, press back — relaunched the app (`am_proc_start ... top-activity`, fresh
+  `wm_on_create_called`) and the state was correct. There is no screen left to display
+  a stale value.
+- A grant reaches the app either on `ON_RESUME` (system settings) or through the
+  launcher callback (the dialog), so the re-read covers it.
+- Therefore the `ON_RESUME`-only observer covers every path exercised here, and the
+  case that worried the review (option 2 above) has no reachable trigger on this
+  platform.
 
-So the state is refreshed exactly where it can be wrong, and the case that worry about
-(point 2 above) has no reachable trigger.
+### What these conclusions do not cover
+
+The mechanism behind observation 2 is AOSP's `PermissionManagerService` calling
+`killUid(REASON_PERMISSION_CHANGE)` on a runtime-permission change, which is why the
+behaviour is expected beyond this one device. It was **not** measured on API 33 or
+API 34, and it was not measured on other OEM builds. So the decision is not a promise
+that every supported version behaves identically; it is a decision that the surviving
+paths are covered on the measured platform, and that the residual is observable rather
+than hidden. If a supported release stops killing the process on revoke, this decision
+is the thing to re-measure: the guarantee rests on the kill, not on the resume.
 
 Two residuals are known and accepted rather than fixed:
 
@@ -109,9 +124,12 @@ Two residuals are known and accepted rather than fixed:
   replays `ON_RESUME`), background/foreground trips, and `removeObserver` — instead of
   calling `onStateChanged` by hand, so registration and cleanup are covered rather than
   assumed.
-- The composable wiring itself (that `DisposableEffect` adds *this* observer) is still
-  untested: `androidHostTest` deliberately declares no Compose test rule. That gap is
-  written down in the test's KDoc rather than papered over.
+- The composable wiring is covered on the device by
+  `NotificationPermissionRequesterComposeTest`: it mounts the production composable
+  under a controlled `LifecycleOwner` and asserts that a resume reaches the rendered
+  state, that disposal removes the observer, and that swapping the owner moves it. The
+  grant is answered by a fake `Context`, so that test covers the wiring, not the OS —
+  the OS half is what the measurement above records.
 - If a future Android release stops killing the process on revoke, this decision is the
   thing to re-measure — the guarantee it rests on is the kill, not the resume.
 
@@ -119,6 +137,7 @@ Two residuals are known and accepted rather than fixed:
 
 - `shared/src/androidMain/kotlin/com/singularity/todo/core/notifications/NotificationPermissionRequester.kt`
 - `shared/src/androidHostTest/kotlin/com/singularity/todo/core/notifications/NotificationPermissionRequesterTest.kt`
+- `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/NotificationPermissionRequesterComposeTest.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskDetailContent.kt` (the consumer)
 - `docs/decisions/2026-10-07-reminders-capability-gate.md` (the write path, which reads capability live)
 - Issue #2903, PR #2996

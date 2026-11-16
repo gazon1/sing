@@ -33,22 +33,12 @@ import org.robolectric.annotation.Config
  * `ON_RESUME` to an observer added while the screen is already resumed, or about the
  * `removeObserver` in `DisposableEffect`'s `onDispose`.
  *
- * What is still not covered is the composable wiring itself — that `DisposableEffect`
- * in `rememberNotificationPermissionRequester` adds and removes *this* observer. That
- * needs a Compose UI test rule, and `androidHostTest` deliberately declares none
- * (`shared/build.gradle.kts` explains why: no consumer, and `check-dependency-usage`
- * flags a dependency nothing uses). The test below covers the observer half, which is
- * where the filtering and the read live.
- *
- * ## Why `ON_RESUME` is the whole of the production contract
- *
- * Measured on Android 15 (see
- * `docs/decisions/2026-11-16-on-resume-is-enough-for-the-notification-permission.md`):
- * revoking `POST_NOTIFICATIONS` kills the app process, and granting it is either
- * followed by `ON_RESUME` (system settings) or reported by the launch
- * `RequestPermission` callback. The notification shade is a window, not an Activity
- * transition, and delivers no lifecycle event — but nothing reachable from it changes
- * the grant without one of the two paths above.
+ * This class covers the observer half: the filtering and the read. The composable
+ * wiring — that `DisposableEffect` in `rememberNotificationPermissionRequester` adds
+ * and removes *this* observer, moves it when the `LifecycleOwner` changes, and stops
+ * writing after disposal — is covered on the device by
+ * `NotificationPermissionRequesterComposeTest`. `androidHostTest` declares no Compose
+ * test rule, so it cannot host that test.
  */
 @RunWith(RobolectricTestRunner::class)
 class NotificationPermissionRequesterTest {
@@ -219,8 +209,9 @@ class NotificationPermissionRequesterTest {
         val owner = TestOwner()
         owner.lifecycle.addObserver(notificationPermissionResumeObserver { reads++ })
 
-        // INITIALIZED → STARTED → CREATED walks ON_CREATE, ON_START, ON_PAUSE, ON_STOP
-        // without ever reaching ON_RESUME.
+        // INITIALIZED → STARTED → CREATED dispatches ON_CREATE, ON_START and ON_STOP,
+        // without ever reaching ON_RESUME. There is no ON_PAUSE: a pause only exists
+        // on the way down from RESUMED, and this owner never gets there.
         owner.registry.currentState = Lifecycle.State.STARTED
         owner.registry.currentState = Lifecycle.State.CREATED
 
