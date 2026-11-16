@@ -88,28 +88,91 @@ object Prompts {
         """.trimIndent()
 
     /**
-     * The prompt of the daily planning tool.
+     * The prompt of the morning briefing.
      *
      * The planning is a scenario of its own, and it has one rule the rest of the app
      * does not: the plan has to fit. A list of five important tasks is not a plan when
      * the five together are twenty hours, so the prompt asks for the plan that fits —
      * and the buffer is part of it, because a day planned to the minute is a day that
      * fails at the first thing that takes longer than expected.
+     *
+     * The other rule is grounding. The task facts include a health bucket, and health
+     * is the app's classification, not the model's: the model may explain why a task
+     * is overdue, but it may not decide that it is. The same goes for a missing
+     * estimate — unknown is not zero.
      */
     val weeklyPlanSystem =
         """
-        You are a daily planning assistant. Given the user's current tasks, suggest
-        which 3-5 tasks to focus on, and in what order.
+        You are a daily planning assistant. You are given today's date, the user's time
+        zone, and facts about the tasks they selected. Build a morning briefing from
+        those facts.
 
-        A plan has to fit. Prefer the tasks that are due, the ones that are blocked on
-        nothing, and the ones whose estimate is small enough to finish. If the tasks
-        you were given do not fit into a day, say so by planning fewer of them — do
-        not plan a day that cannot happen.
+        Each task carries: health (fine, overdue, blocked or stagnant), due date and
+        time, priority, estimate in minutes, blockers and project. Health is already
+        classified by the app — explain it, never redefine it. A missing estimate is
+        unknown, not zero: do not call a task small without one. Do not invent a due
+        date, blocker, estimate, dependency or project that the facts do not contain.
 
-        Leave room: the plan is a set of anchors, not a schedule to the minute. A task
-        that is large goes in with its first action, not as a block of hours.
+        Use these section titles, in this order:
+        - Needs attention: overdue and blocked tasks, each with a short reason grounded
+          in the facts (how late, what it waits on).
+        - Today: tasks due today.
+        - Coming up: only near-term deadlines that change what to do today.
+        - Suggested focus: 3-5 tasks in the order they should be done, each with a
+          short reason. The set has to fit: prefer what is due and unblocked, and plan
+          fewer tasks rather than a day that cannot happen. Leave room; the plan is
+          anchors, not a minute schedule.
 
-        Return a JSON object with an "items" field containing an array of task titles, in the order they should be done.
+        A task may appear in more than one section, but list it once in "items".
+        "items" is the focus workload and the only place the day is counted. Put the
+        focus titles there in order, and repeat them in Suggested focus with reasons.
+
+        "firstAction" is one physical next step for the top task, one sentence starting
+        with a verb. Include it only when the facts support it; otherwise leave it out.
+
+        An empty day or incomplete facts get a short, honest answer: say what is
+        missing instead of filling it.
+
+        Return only JSON:
+        {"items": ["..."], "sections": [{"title": "Needs attention", "items": ["..."]}], "firstAction": "..."}
+        """.trimIndent()
+
+    /**
+     * The prompt of the evening review.
+     *
+     * The review is bounded by what the app actually stored. Completion is a timestamp,
+     * not a duration; there is no saved morning plan to compare against; and nothing
+     * this tool returns changes a task. The prompt states all three, because each one
+     * is a claim the model would otherwise be free to invent.
+     */
+    val eveningReviewSystem =
+        """
+        You are an evening reviewer. You are given the tasks the user selected, the
+        tasks completed on their local day (taken from completedAt), and facts about
+        what is still open.
+
+        Only say what the facts support. A completion is a task whose completedAt falls
+        today in the user's zone — do not infer how long it took or how much effort it
+        cost. There is no saved morning plan: never say a task was part of it. An open
+        task can be still relevant, overdue, blocked, or possibly obsolete; say which
+        from its facts and do not guess when the facts are silent.
+
+        Use these section titles, in this order:
+        - Completed today: the tasks actually completed today.
+        - Still open: unfinished tasks that still matter, and what is next for them.
+        - Overdue: unfinished tasks past their due date, with how late.
+        - Needs review: tasks that look stuck or obsolete (stagnant, or overdue long
+          enough to question), phrased as something for the user to decide.
+
+        Carry-over and rescheduling are suggestions only. Nothing is changed by this
+        tool: never say a date was moved or a task reopened. Leave "items" empty — an
+        evening review is not a focus set.
+
+        If a completion timestamp is missing, omit the claim. An empty day is a valid
+        answer.
+
+        Return only JSON:
+        {"items": [], "sections": [{"title": "Completed today", "items": ["..."]}], "firstAction": null}
         """.trimIndent()
 
     /**
@@ -249,7 +312,50 @@ object Prompts {
 
     fun clusterNotesUser(notes: List<String>): String = "Notes:\n${notes.joinToString("\n") { "- $it" }}"
 
-    fun weeklyPlanUser(tasks: List<String>): String = "Current tasks:\n${tasks.joinToString("\n") { "- $it" }}"
+    /**
+     * The facts a planning call is answered from.
+     *
+     * [tasks] and [completedToday] are JSON so that the model reads the same fields the
+     * tool computed, without the prompt re-stating the shape. [omitted] and
+     * [completedTodayOmitted] are stated, because a truncated list that does not say so
+     * reads as the whole selection. [namedTasks] is the legacy path: titles the caller
+     * made up, with no task facts — the prompt says so, so the model does not treat a
+     * bare title as a grounded one.
+     */
+    fun weeklyPlanUser(
+        mode: String,
+        today: String,
+        timeZone: String,
+        tasks: String,
+        omitted: Int,
+        completedToday: String? = null,
+        completedTodayOmitted: Int = 0,
+        namedTasks: List<String> = emptyList(),
+    ): String =
+        buildString {
+            appendLine("Mode: $mode")
+            appendLine("Today: $today (time zone: $timeZone)")
+            appendLine("Task facts (JSON): $tasks")
+            if (omitted > 0) {
+                appendLine(
+                    "$omitted more task(s) in the selection were left out to keep the " +
+                        "context small; say the list is partial when that changes the answer.",
+                )
+            }
+            completedToday?.let { completedJson ->
+                appendLine("Completed today (JSON): $completedJson")
+                if (completedTodayOmitted > 0) {
+                    appendLine(
+                        "$completedTodayOmitted more task(s) completed today were left out " +
+                            "to keep the context small; say the completion list is partial.",
+                    )
+                }
+            }
+            if (namedTasks.isNotEmpty()) {
+                appendLine("Tasks named by the caller (titles only, no task facts):")
+                namedTasks.forEach { appendLine("- $it") }
+            }
+        }.trimEnd()
 
     fun projectReviewUser(
         projectName: String,

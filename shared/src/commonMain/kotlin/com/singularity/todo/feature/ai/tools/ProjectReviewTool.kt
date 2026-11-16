@@ -12,9 +12,7 @@ import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
-import com.singularity.todo.feature.tasks.domain.logic.TaskHealth
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
-import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -41,16 +39,14 @@ class ProjectReviewTool(
         val tasks =
             args.selection
                 ?.let { selection ->
-                    TaskToolSupport.select(
+                    TaskPlanSupport.select(
                         selection = selection,
                         taskRepository = taskRepository,
                         clock = clock,
                         zone = timeZoneProvider.current(),
                         // The user's threshold, so `stagnant` means the same set here as
                         // in the list tool and on the statistics screen.
-                        stagnationWindow =
-                            stagnationWindowOf(tasksSettingsRepository.stalenessThresholdDays.first())
-                                ?: TaskHealth.DEFAULT_STAGNATION_WINDOW,
+                        stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first(),
                     )
                 }
                 ?: args.tasks

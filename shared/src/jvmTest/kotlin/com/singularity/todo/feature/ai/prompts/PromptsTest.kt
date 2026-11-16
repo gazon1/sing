@@ -33,11 +33,49 @@ class PromptsTest {
     }
 
     @Test
-    fun `weeklyPlanUser formats task list`() {
-        val result = Prompts.weeklyPlanUser(listOf("Task A", "Task B", "Task C"))
-        assertTrue(result.contains("- Task A"))
-        assertTrue(result.contains("- Task B"))
-        assertTrue(result.contains("- Task C"))
+    fun `weeklyPlanUser states the mode, the day and the facts`() {
+        val result =
+            Prompts.weeklyPlanUser(
+                mode = "morning",
+                today = "2026-03-10",
+                timeZone = "Europe/Berlin",
+                tasks = """[{"id":"t1","title":"Task A","health":"overdue"}]""",
+                omitted = 0,
+            )
+        assertTrue(result.contains("Mode: morning"))
+        assertTrue(result.contains("Today: 2026-03-10 (time zone: Europe/Berlin)"))
+        assertTrue(result.contains("\"title\":\"Task A\""))
+        assertTrue(result.contains("\"health\":\"overdue\""))
+    }
+
+    @Test
+    fun `weeklyPlanUser says when the selection was truncated`() {
+        val result =
+            Prompts.weeklyPlanUser(
+                mode = "morning",
+                today = "2026-03-10",
+                timeZone = "UTC",
+                tasks = "[]",
+                omitted = 7,
+            )
+        assertTrue(result.contains("7 more task(s)"), result)
+    }
+
+    @Test
+    fun `weeklyPlanUser carries completions and named tasks`() {
+        val result =
+            Prompts.weeklyPlanUser(
+                mode = "evening",
+                today = "2026-03-10",
+                timeZone = "UTC",
+                tasks = "[]",
+                omitted = 0,
+                completedToday = """[{"id":"t2","title":"Done"}]""",
+                namedTasks = listOf("Loosely named task"),
+            )
+        assertTrue(result.contains("Completed today (JSON)"))
+        assertTrue(result.contains("\"title\":\"Done\""))
+        assertTrue(result.contains("- Loosely named task"))
     }
 
     @Test

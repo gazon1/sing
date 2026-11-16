@@ -15,11 +15,9 @@ import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
 import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.logic.wireName
-import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
-import kotlin.comparisons.nullsLast
 import kotlin.time.Clock
 
 /**
@@ -108,7 +106,7 @@ class ListTasksTool(
                         context = context,
                         stagnationWindow = stagnationWindow ?: TaskHealth.DEFAULT_STAGNATION_WINDOW,
                     )
-                }.sortedWith(ORDER)
+                }.sortedWith(TaskPlanSupport.ORDER)
 
         val fingerprint = TaskSelectionResolver.fingerprint(request)
         val start = startOffset(args.cursor, fingerprint)
@@ -222,19 +220,5 @@ class ListTasksTool(
 
         /** The most a reader may ask for in one page. */
         const val MAX_LIMIT = 100
-
-        /**
-         * The order the tasks come back in.
-         *
-         * Pinned first, then by due date, then by priority, then by id. The last one
-         * matters: a page boundary needs an order with no ties, or two tasks with the
-         * same due date could swap places between two calls and the reader would see
-         * one of them twice.
-         */
-        private val ORDER: Comparator<Task> =
-            compareByDescending<Task> { it.isPinned }
-                .thenBy(nullsLast()) { it.dueDate }
-                .thenByDescending { it.priority.ordinal }
-                .thenBy { it.id.value }
     }
 }
