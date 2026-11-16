@@ -45,10 +45,13 @@ both ends removed; what survives the trim is taken as it is.**
   never converts one representation into another, which is the same rule the icon
   itself follows (`2026-11-14-project-icons-are-emoji-or-nothing`): a non-blank string
   is a value.
-- The whitespace that comes off is the whitespace `trim()` removes on the platform the
-  app runs on — spaces, tabs, newlines and the space separators (a no-break space, an
-  em space) on JVM and Android, which is where this app runs. Nothing inside the value
-  is touched.
+- The whitespace that comes off is the whitespace `trim()` removes: the
+  characters for which Kotlin says `isWhitespace` holds — spaces, tabs, newlines
+  and the space separators (a no-break space, an em space) on JVM and Android,
+  which is where this app runs. Nothing else is whitespace to `trim()`, so
+  nothing else goes: a zero-width space at the edge of the value survives it,
+  and so does every character inside the value. The promise is "trimmed, then
+  taken as it is", not "stripped of the invisible characters".
 - The guarantee is about a **well-formed** string. The field is fed by a keyboard,
   which cannot produce an unpaired surrogate, and a malformed UTF-16 sequence would
   not survive the JSON of the sync document either. Nothing in the picker validates

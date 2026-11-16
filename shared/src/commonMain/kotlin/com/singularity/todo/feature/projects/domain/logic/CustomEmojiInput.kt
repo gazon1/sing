@@ -15,6 +15,14 @@ import com.singularity.todo.core.emoji.Emoji
  * `2026-11-14-project-icons-are-emoji-or-nothing`: a non-blank string is a
  * value, and the picker never converts one into another.
  *
+ * The trim is Kotlin's `trim()`, and that is exactly what it promises: the
+ * characters it removes are the ones for which `Char.isWhitespace` holds —
+ * spaces, tabs, line breaks and the Unicode space separators, a no-break
+ * space or an em space among them. Nothing else is whitespace, so nothing else
+ * goes: a zero-width space at the edge of the value stays, and so does every
+ * character inside it. The contract is not "strip the invisible characters",
+ * and this rule is not a Unicode whitespace parser of its own.
+ *
  * Blank input is not a value: it picks nothing at all. The sheet stays open,
  * the field keeps what was typed, and nothing is stored — there is no icon to
  * remember and no icon to fall back from.

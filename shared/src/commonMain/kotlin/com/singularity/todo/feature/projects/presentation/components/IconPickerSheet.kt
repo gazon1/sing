@@ -62,9 +62,11 @@ import kotlinx.collections.immutable.ImmutableList
  *   against the catalog, because the provider holds some of the app's own
  *   forms (`🕊️`, `1️⃣`) as *variants* rather than as entries of their own, so
  *   "is it in the catalog?" is the wrong question;
- * - the text is **trimmed** — the outer whitespace is dropped and the inner
- *   whitespace is kept — and then taken as it is: no normalization, no
- *   stripped variation selector, no split ZWJ sequence;
+ * - the text is **trimmed** — the characters Kotlin's `trim()` removes at the
+ *   ends (spaces, tabs, line breaks and the Unicode space separators, a
+ *   no-break space or an em space among them) are dropped and everything else
+ *   is kept, the inner characters included — and then taken as it is: no
+ *   normalization, no stripped variation selector, no split ZWJ sequence;
  * - an empty or whitespace-only field adds nothing. The sheet stays open and
  *   nothing is picked, so a stray space cannot become a project icon.
  *
