@@ -316,10 +316,11 @@ object Prompts {
      * The facts a planning call is answered from.
      *
      * [tasks] and [completedToday] are JSON so that the model reads the same fields the
-     * tool computed, without the prompt re-stating the shape. [omitted] is stated,
-     * because a truncated list that does not say so reads as the whole selection.
-     * [namedTasks] is the legacy path: titles the caller made up, with no task facts —
-     * the prompt says so, so the model does not treat a bare title as a grounded one.
+     * tool computed, without the prompt re-stating the shape. [omitted] and
+     * [completedTodayOmitted] are stated, because a truncated list that does not say so
+     * reads as the whole selection. [namedTasks] is the legacy path: titles the caller
+     * made up, with no task facts — the prompt says so, so the model does not treat a
+     * bare title as a grounded one.
      */
     fun weeklyPlanUser(
         mode: String,
@@ -328,6 +329,7 @@ object Prompts {
         tasks: String,
         omitted: Int,
         completedToday: String? = null,
+        completedTodayOmitted: Int = 0,
         namedTasks: List<String> = emptyList(),
     ): String =
         buildString {
@@ -340,7 +342,15 @@ object Prompts {
                         "context small; say the list is partial when that changes the answer.",
                 )
             }
-            completedToday?.let { appendLine("Completed today (JSON): $it") }
+            completedToday?.let { completedJson ->
+                appendLine("Completed today (JSON): $completedJson")
+                if (completedTodayOmitted > 0) {
+                    appendLine(
+                        "$completedTodayOmitted more task(s) completed today were left out " +
+                            "to keep the context small; say the completion list is partial.",
+                    )
+                }
+            }
             if (namedTasks.isNotEmpty()) {
                 appendLine("Tasks named by the caller (titles only, no task facts):")
                 namedTasks.forEach { appendLine("- $it") }

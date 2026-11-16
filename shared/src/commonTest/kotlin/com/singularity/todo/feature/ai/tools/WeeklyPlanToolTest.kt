@@ -130,7 +130,7 @@ class WeeklyPlanToolTest {
                 "\"estimateMinutes\":90",
                 "\"health\":\"overdue\"",
                 "\"projectId\":\"work\"",
-                "\"title\":\"Get sign-off\"",
+                "\"blockedBy\":[{\"id\":\"blocker\",\"title\":\"Get sign-off\"}]",
                 "\"health\":\"blocked\"",
             ).forEach { fact ->
                 assertTrue(text.contains(fact), "the prompt must carry $fact:\n$text")
@@ -210,6 +210,13 @@ class WeeklyPlanToolTest {
                     completedAt = Instant.parse("2026-03-10T23:30:00Z"),
                 ),
             )
+            repo.add(
+                task(
+                    id = "yesterday",
+                    title = "Finished yesterday",
+                    completedAt = Instant.parse("2026-03-09T12:00:00Z"),
+                ),
+            )
             val executor = FakePlanExecutor("""{"items":[]}""")
             val tool =
                 WeeklyPlanTool(
@@ -231,6 +238,71 @@ class WeeklyPlanToolTest {
                 text.contains("Finished after midnight"),
                 "a completion after local midnight is tomorrow's:\n$text",
             )
+            assertFalse(
+                text.contains("Finished yesterday"),
+                "a completion from a previous day is not today's:\n$text",
+            )
+        }
+
+    @Test
+    fun `an evening review without a selection still gets the unfinished tasks`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.add(task(id = "open", title = "Open task"))
+            repo.add(task(id = "late", title = "Late task", dueDate = LocalDate(2026, 3, 8)))
+            repo.add(task(id = "blocker", title = "Waiting on"))
+            repo.add(
+                task(
+                    id = "blocked",
+                    title = "Blocked task",
+                    blockedBy = setOf(TaskId("blocker")),
+                ),
+            )
+            repo.add(
+                task(
+                    id = "done",
+                    title = "Done today",
+                    completedAt = Instant.parse("2026-03-10T08:00:00Z"),
+                ),
+            )
+            val executor = FakePlanExecutor("""{"items":[]}""")
+
+            tool(executor, repo).execute(WeeklyPlanInput(mode = PlanMode.EVENING))
+
+            val text = textOf(executor)
+            listOf(
+                "Open task",
+                "Late task",
+                "\"health\":\"overdue\"",
+                "Blocked task",
+                "\"health\":\"blocked\"",
+                "Completed today (JSON)",
+                "Done today",
+            ).forEach { fact ->
+                assertTrue(text.contains(fact), "the evening review must carry $fact:\n$text")
+            }
+        }
+
+    @Test
+    fun `the completed list is bounded like the open one`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repeat(55) { index ->
+                repo.add(
+                    task(
+                        id = "done-" + index.toString().padStart(2, '0'),
+                        title = "Done $index",
+                        completedAt = Instant.parse("2026-03-10T08:00:00Z"),
+                    ),
+                )
+            }
+            val executor = FakePlanExecutor("""{"items":[]}""")
+
+            tool(executor, repo).execute(WeeklyPlanInput(mode = PlanMode.EVENING))
+
+            val text = textOf(executor)
+            assertEquals(50, Regex("\"completedAt\":\"").findAll(text).count())
+            assertTrue(text.contains("5 more task(s) completed today"), text)
         }
 
     @Test

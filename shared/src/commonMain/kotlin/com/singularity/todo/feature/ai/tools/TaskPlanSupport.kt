@@ -100,7 +100,8 @@ internal object TaskPlanSupport {
             today = context.today,
             tasks = matched.take(LIMIT).map { planTask(it, all, context, rules) },
             total = matched.size,
-            completedToday = completedToday.map { planTask(it, all, context, rules) },
+            completedToday = completedToday.take(LIMIT).map { planTask(it, all, context, rules) },
+            completedTodayTotal = completedToday.size,
         )
     }
 
@@ -119,7 +120,7 @@ internal object TaskPlanSupport {
             priority = task.priority.name,
             estimateMinutes = task.estimateMinutes,
             health = rules.bucketOf(task, context).name.lowercase(),
-            blockedBy = Blocking.activeBlockers(task, allTasks).map { it.title },
+            blockedBy = Blocking.activeBlockers(task, allTasks).map { PlanBlocker(it.id.value, it.title) },
             projectId = task.projectId?.value,
             completedAt = task.completedAt?.toString(),
         )

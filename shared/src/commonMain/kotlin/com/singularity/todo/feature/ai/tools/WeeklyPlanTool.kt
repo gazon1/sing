@@ -100,15 +100,19 @@ class WeeklyPlanTool(
 
     override suspend fun execute(args: WeeklyPlanInput): String {
         val zone = timeZoneProvider.current()
+        val evening = args.mode == PlanMode.EVENING
+        // An evening review without a named set is still a review of the open day:
+        // asking for nothing but completions would leave the overdue, blocked and
+        // still-relevant tasks out of the answer that is supposed to name them.
+        val selection = args.selection ?: if (evening) TaskSelection.ACTIVE_NOT_DEFERRED else null
         val facts =
             TaskPlanSupport.facts(
-                selection = args.selection,
+                selection = selection,
                 taskRepository = taskRepository,
                 clock = clock,
                 zone = zone,
                 stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first(),
             )
-        val evening = args.mode == PlanMode.EVENING
         val p =
             prompt(Prompt.Empty, KoogClock.System) {
                 system(if (evening) Prompts.eveningReviewSystem else Prompts.weeklyPlanSystem)
@@ -120,6 +124,8 @@ class WeeklyPlanTool(
                         tasks = planJson(facts.tasks),
                         omitted = facts.total - facts.tasks.size,
                         completedToday = if (evening) planJson(facts.completedToday) else null,
+                        completedTodayOmitted =
+                            if (evening) facts.completedTodayTotal - facts.completedToday.size else 0,
                         namedTasks = args.tasks,
                     ),
                 )
@@ -159,7 +165,8 @@ class WeeklyPlanTool(
                 "briefing: what needs attention, what is due today, what is coming up, a " +
                 "3-5 task focus set that fits the day, and the first physical action. " +
                 "mode=evening reviews the day instead: what was completed today, what is " +
-                "still open, overdue or blocked, and what needs a decision. " +
+                "still open, overdue or blocked, and what needs a decision. Without a " +
+                "selection, an evening review reads every unfinished task that is not deferred. " +
                 "Each task comes with its due date and time, priority, estimate, health " +
                 "(fine, overdue, blocked or stagnant), blockers and project. Health is " +
                 "classified by the app, not by you: do not redefine it, and do not invent " +

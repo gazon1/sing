@@ -132,11 +132,20 @@ internal data class PlanTask(
     val estimateMinutes: Int? = null,
     /** `fine`, `overdue`, `blocked` or `stagnant`. */
     val health: String,
-    /** The titles of the unfinished tasks this one is waiting on. */
-    val blockedBy: List<String> = emptyList(),
+    /** The unfinished tasks this one is waiting on. */
+    val blockedBy: List<PlanBlocker> = emptyList(),
     val projectId: String? = null,
     val completedAt: String? = null,
 )
+
+/**
+ * A task another one waits on.
+ *
+ * The id travels with the title because two tasks can share a title, and a reader told
+ * only "waiting on Review" cannot tell which review.
+ */
+@Serializable
+internal data class PlanBlocker(val id: String, val title: String)
 
 /**
  * The facts a planning call is built from.
@@ -144,11 +153,15 @@ internal data class PlanTask(
  * @property total how many tasks the selection holds, so a truncated page says so
  *   instead of silently dropping the rest.
  * @property completedToday the tasks whose `completedAt` falls on [today] in the
- *   caller's zone — the only completion fact the app can honestly report.
+ *   caller's zone — the only completion fact the app can honestly report — bounded
+ *   like [tasks].
+ * @property completedTodayTotal how many tasks were completed today, so the omitted
+ *   ones are stated rather than silently dropped.
  */
 internal data class PlanFacts(
     val today: LocalDate,
     val tasks: List<PlanTask>,
     val total: Int,
     val completedToday: List<PlanTask>,
+    val completedTodayTotal: Int,
 )

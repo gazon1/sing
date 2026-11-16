@@ -37,14 +37,15 @@ what the morning planned — would have to be invented.
 
 ## Decision
 
-Option 3. `TaskToolSupport.planFacts` reads the live tasks once, resolves the selection
+Option 3. `TaskPlanSupport.facts` reads the live tasks once, resolves the selection
 through `TaskSelectionResolver`, orders with the same comparator `list_tasks` uses
-(now `TaskToolSupport.ORDER`), caps the page at 50 and reports the remainder as
+(now `TaskPlanSupport.ORDER`), caps the page at 50 and reports the remainder as
 `total`. Each task becomes a `PlanTask`: id, title, due date and time, priority,
-estimate, health bucket, blocker titles, project id, and `completedAt` when there is
-one. Membership and health are not re-decided at the prompt boundary. `select` — what
-`project_review` and the legacy titles path use — delegates to the same facts, so the
-two plan paths cannot resolve different sets.
+estimate, health bucket, blockers (id and title, so two tasks with the same title stay
+distinguishable), project id, and `completedAt` when there is one. Membership and
+health are not re-decided at the prompt boundary. `select` — what `project_review` and
+the legacy titles path use — delegates to the same facts, so the two plan paths cannot
+resolve different sets.
 
 `weekly_plan` keeps its name and gains `mode: morning|evening`, defaulting to morning.
 The output keeps `items` — the focus titles, in order — and adds `sections` and
@@ -54,9 +55,12 @@ description read the same tool.
 
 The evening review is bounded by storage. "Completed today" is a task whose
 `completedAt` falls on today in the user's zone, and that is the only completion fact
-the tool sends. The prompt states that there is no saved morning plan to compare
-against and that carry-over is advice; the tool has no write path, so a suggestion
-cannot become a mutation.
+the tool sends. Both the open page and the completed page are capped at the same
+limit, and each states how many were left out. An evening call without a selection
+defaults to `active_not_deferred`: a review that knew only completions could not name
+the overdue, blocked or still-relevant tasks it exists to name. The prompt states that
+there is no saved morning plan to compare against and that carry-over is advice; the
+tool has no write path, so a suggestion cannot become a mutation.
 
 ## Rationale
 
