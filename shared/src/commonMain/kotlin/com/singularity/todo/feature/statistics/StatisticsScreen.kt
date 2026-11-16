@@ -56,6 +56,7 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.tasks.domain.logic.AttentionDestination
 import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -567,16 +568,6 @@ private fun HealthTabContent(
     onBucketClick: (TaskHealthBucket) -> Unit,
     onNudgeClick: (AttentionNudge) -> Unit,
 ) {
-    if (health is TaskHealthState.Unavailable) {
-        // The query failed: the health of the task list is unknown, which
-        // is not the same as "no problems".
-        EmptyState(
-            title = "Task health unavailable",
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-
     val scrollState = rememberScrollState()
     Column(
         modifier =
@@ -596,50 +587,77 @@ private fun HealthTabContent(
             onClick = onNudgeClick,
         )
 
-        if (health is TaskHealthState.Loading) {
-            // The query has not landed yet. Saying "unavailable" here showed a
-            // broken-looking screen on a perfectly healthy database, for as
-            // long as the first computation took.
-            Text("Loading…", style = MaterialTheme.typography.bodyLarge)
-            return@Column
+        // The counts and the list are two readings of the same rows, and each is
+        // available on its own. A failure of one query must not take the other's
+        // answer off the screen — the tab used to return early on an unavailable
+        // health summary, which threw away a list that had been read
+        // successfully. Each failure is reported in its own words, where it
+        // happened.
+        when (health) {
+            TaskHealthState.Loading -> {
+                // The query has not landed yet. Saying "unavailable" here showed a
+                // broken-looking screen on a perfectly healthy database, for as
+                // long as the first computation took.
+                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+            }
+
+            TaskHealthState.Unavailable -> {
+                // The query failed: the health of the task list is unknown, which
+                // is not the same as "no problems".
+                EmptyState(title = "Task health unavailable")
+            }
+
+            is TaskHealthState.Ready -> {
+                HealthBucketCards(health.summary, onBucketClick)
+            }
         }
+    }
+}
 
-        val summary = (health as TaskHealthState.Ready).summary
+/**
+ * The counts: how much of the open task list is late, waiting or idle.
+ *
+ * Split out of [HealthTabContent] so that the tab's own structure — the list, the
+ * counts, and the state each of them is in — is readable at a glance.
+ */
+@Composable
+private fun HealthBucketCards(
+    summary: TaskHealthSummary,
+    onBucketClick: (TaskHealthBucket) -> Unit,
+) {
+    StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
 
-        StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
+    summary.actionable.forEach { bucket ->
+        StatCard(
+            title = bucket.displayLabel(),
+            value = summary[bucket].toString(),
+            hint = bucket.explanation(),
+            // Every bucket in `actionable` is a problem the user can open —
+            // the list itself is what makes a bucket actionable, so there is
+            // nothing to test here.
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onBucketClick(bucket) },
+            testTag = bucket.testTag(),
+        )
+    }
 
-        summary.actionable.forEach { bucket ->
-            StatCard(
-                title = bucket.displayLabel(),
-                value = summary[bucket].toString(),
-                hint = bucket.explanation(),
-                // Every bucket in `actionable` is a problem the user can open —
-                // the list itself is what makes a bucket actionable, so there is
-                // nothing to test here.
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onBucketClick(bucket) },
-                testTag = bucket.testTag(),
-            )
-        }
-
-        summary.medianStalledFor?.let { stalled ->
-            Text(
-                text = "Median time untouched: ${stalled.formatDays()}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
+    summary.medianStalledFor?.let { stalled ->
         Text(
-            text =
-                summary.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
-                    ?: "Completion rate: nothing created yet",
+            text = "Median time untouched: ${stalled.formatDays()}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+
+    Text(
+        text =
+            summary.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
+                ?: "Completion rate: nothing created yet",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /**
@@ -657,12 +675,45 @@ private fun AttentionNudgesSection(
     onDismiss: (String) -> Unit,
     onClick: (AttentionNudge) -> Unit,
 ) {
-    if (state !is AttentionNudgesState.Ready) {
-        // The query has not landed, or it failed. The tab says so where it says
-        // so about the health buckets; the list is not a second health summary.
-        return
-    }
+    when (state) {
+        // The query has not landed yet, and the tab already says it is loading
+        // about the counts. A second "loading" line would be noise.
+        AttentionNudgesState.Loading -> {
+            Unit
+        }
 
+        // The query failed: what needs attention is unknown, which is not the
+        // same as "nothing needs attention". The list says so where it can be
+        // seen — a list that is silently absent reads as an answer, and the
+        // counts beside it would then be the only thing on the tab.
+        AttentionNudgesState.Unavailable -> {
+            Text(
+                text = "The attention list is unavailable",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        is AttentionNudgesState.Ready -> {
+            AttentionNudgeRows(all, visible, onDismiss, onClick)
+        }
+    }
+}
+
+/**
+ * The rows of the attention list, and the count of the items it did not show.
+ *
+ * Split out of [AttentionNudgesSection] so that the section's own structure — a
+ * list that is loading, a list that failed, and a list that is ready — is
+ * readable at a glance.
+ */
+@Composable
+private fun AttentionNudgeRows(
+    all: ImmutableList<AttentionNudge>,
+    visible: ImmutableList<AttentionNudge>,
+    onDismiss: (String) -> Unit,
+    onClick: (AttentionNudge) -> Unit,
+) {
     if (visible.isEmpty()) {
         // The count is unconditional: the list says how many items it did not
         // show, and the state where the user set them all aside is a state

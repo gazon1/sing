@@ -22,6 +22,12 @@ import kotlin.time.Instant
  * ones after it. An item that qualifies under several signals appears once, under
  * the most relevant one — a task that is both late and waiting is late, and a list
  * that named both reasons would be twice as long and no more useful.
+ *
+ * The order is this list's own rule and not the health classifier's precedence: a
+ * task that is due today *and* waiting is named as due soon, while the counts
+ * beside it still count it as waiting. The two answers are about different
+ * questions — "which reason is more useful now" and "what is wrong with this task"
+ * — and the change's contract says so.
  */
 enum class AttentionSignal {
     /** Past its due date, still open. */
@@ -72,15 +78,23 @@ data class AttentionNudge(
  * first edit, so the list is rebuilt from the rows every time it is shown. This is
  * the same rule `TaskComputed` states for every other derived value.
  *
- * ## Why the existing rules are asked, not rewritten
+ * ## Why the state of a task is asked, not decided here
  *
- * Overdue is `TaskComputed.isOverdue` — the rule the health buckets and the agenda
- * use. Blocked is `Blocking.blockedTaskIds`, which reads only the edges that block
- * (a task that follows up on another is not waiting for it). Due soon is the app's
- * own two date buckets. Each is asked through `Selector.matches`, so the list asks
- * the same rules the counts ask. It names a subset of what they count, though: the
- * counts cover deferred work and work in a closed project, and the list names
- * neither.
+ * Whether a task is late, and whether it is waiting, is answered by the health
+ * classifier — the same one the Health tab's counts are made with. The list does not
+ * decide either of them: a second copy of that decision is free to drift, and the
+ * drift shows up as a tab calling one task late while the card beside it counts the
+ * same task as fine. So the list asks [HealthRules] the question the counts ask.
+ *
+ * What the list owns is the *order* of the reasons, and that order is not the
+ * classifier's precedence. The classifier has no "due soon" bucket, and the list
+ * puts a task that is due today above one that is merely waiting — a task due today
+ * that also waits is named as due soon, while the counts still call it waiting.
+ * That difference is a decision, and it is written down in the change's contract
+ * rather than left to the two rules to disagree about.
+ *
+ * The list names a subset of what the counts count: the counts cover deferred work
+ * and work in a closed project, and the list names neither.
  *
  * ## What is left out, and why
  *
@@ -110,8 +124,14 @@ fun buildAttentionNudges(
     val closedProjectIds = projects.filter { it.closedAt != null }.map { it.id }.toSet()
     val blockedIds = Blocking.blockedTaskIds(tasks)
     val context = SelectorContext(today = today, now = now, blockedIds = blockedIds)
+    // One owner of the state of a task. The counts beside this list are made with
+    // the same classifier, so asking it here is what keeps the two from calling one
+    // task two things. The default stagnation window is the right one to ask with:
+    // the window only decides the "idle" bucket, and this list never names a task
+    // for being idle.
+    val rules = HealthRules()
 
-    val taskNudges = taskNudges(tasks, closedProjectIds, context, today)
+    val taskNudges = taskNudges(tasks, closedProjectIds, context, rules, today)
     val projectNudges = projectNudges(projects, tasks, today)
 
     return (taskNudges + projectNudges)
@@ -134,16 +154,21 @@ fun buildAttentionNudges(
 /**
  * The attention items that are about one task.
  *
- * Each task contributes at most one item, under the first signal it matches —
- * the order of the `when` is the relevance order.
+ * Each task contributes at most one item, under the first signal it matches — the
+ * order of the `when` is the relevance order.
+ *
+ * The state of the task comes from the classifier; the order of the reasons is
+ * this list's own rule. Where the two answer differently — a task that is due
+ * today *and* waiting — the list's order decides which reason is named, and the
+ * counts beside the list still count the task as waiting.
  */
 private fun taskNudges(
     tasks: List<Task>,
     closedProjectIds: Set<ProjectId>,
     context: SelectorContext,
+    rules: HealthRules,
     today: LocalDate,
 ): List<Ranked> {
-    val overdue = Selector.DateBucket(RelativeBucket.Overdue)
     val dueSoon =
         Selector.AnyOf(
             listOf(
@@ -151,14 +176,19 @@ private fun taskNudges(
                 Selector.DateBucket(RelativeBucket.Tomorrow),
             ),
         )
-    val blocked = Selector.Blocked
 
     return tasks
         .filter { it.isAttentionCandidate(closedProjectIds) }
         .mapNotNull { task ->
+            // The state of the task — is it late, is it waiting — is the
+            // classifier's answer, not this list's.
+            val state = rules.bucketOf(task, context)
+            // "Due soon" is a window rather than a state, and the classifier has
+            // no bucket for it: the app's own date buckets answer it.
+            val dueWithinTwoDays = dueSoon.matches(task, context)
             val dueDate = task.dueDate
             when {
-                overdue.matches(task, context) -> {
+                state == TaskHealthBucket.OVERDUE -> {
                     dueDate?.let { date ->
                         Ranked(
                             task.nudge(AttentionSignal.OVERDUE, "Overdue since ${date.relativeLabel(today)}"),
@@ -167,7 +197,7 @@ private fun taskNudges(
                     }
                 }
 
-                dueSoon.matches(task, context) -> {
+                dueWithinTwoDays -> {
                     dueDate?.let { date ->
                         Ranked(
                             task.nudge(AttentionSignal.DUE_SOON, "Due ${date.relativeLabel(today)}"),
@@ -176,7 +206,7 @@ private fun taskNudges(
                     }
                 }
 
-                blocked.matches(task, context) -> {
+                state == TaskHealthBucket.BLOCKED -> {
                     Ranked(
                         task.nudge(AttentionSignal.BLOCKED, "Waiting on something that is not finished"),
                         dueDate,

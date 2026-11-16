@@ -39,10 +39,22 @@ relevant one that applies to it: a task past its due date outranks one that is m
 due soon, which outranks one that is waiting, which outranks a project whose deadline
 has arrived.
 
+Whether a task is late, and whether it is waiting, **SHALL** be decided by the same
+rule that decides the health counts of the task list, so that the list and the counts
+can never call one task two things. Where that rule and the order above give different
+answers for one task, the order above **SHALL** decide which reason the item names.
+
 **Rationale:** a task can be late *and* waiting on something, and a project can have a
 deadline *and* hold late tasks. Naming every reason makes the list long and tells the
 user nothing about where to start; naming none makes it a list of accusations. One
 reason, the most urgent one, is what makes the list a shortlist.
+
+And the state of a task is decided in one place. The list and the counts beside it
+answer the same question — is this task late, is it waiting — and two copies of that
+answer are free to drift apart, which shows up as a tab calling one task late while
+the card beside it counts the same task as fine. The rule is asked rather than
+written again. The order of the reasons is the list's own rule, and it is stated here
+so that a task which is both due soon and waiting has one answer rather than two.
 
 #### Scenario: One item, one reason
 
@@ -50,6 +62,13 @@ reason, the most urgent one, is what makes the list a shortlist.
 - **When** the attention list is shown
 - **Then** the task appears once
 - **And** the reason it gives is that it is past its due date
+
+#### Scenario: The list and the counts call one task the same thing
+
+- **Given** a task that is past its due date
+- **When** the attention list and the health counts are both shown
+- **Then** the list names the task as late
+- **And** the counts count the task as late
 
 ---
 
@@ -127,12 +146,20 @@ deadline is a promise about a body of work rather than about one row.
 ### Requirement: REQ-TH-014
 
 "Due soon" **SHALL** mean due today or due tomorrow, judged by the day, and **SHALL**
-include a task due today even when that task is also waiting on something.
+include a task due today even when that task is also waiting on something: the list's
+own order puts a task that is due today above one that is merely waiting, even though
+the health counts call that task waiting.
 
 **Rationale:** a shortlist needs a window, and the window has to be one the user can
 predict. "Today and tomorrow" is the window the app already uses to group the next
 two days of work, so a task that shows up on the agenda's Today list is a task that
 appears on the attention list — and the two never disagree about what "today" means.
+
+The counts and the list answer different questions about a task that is due today and
+waiting: the counts say what is wrong with it, the list says what to do about it
+today. A list that answered with "waiting" would point at a task the user cannot
+start, so it names the nearer deadline — and the difference is stated here so that it
+is a decision and not a drift.
 
 #### Scenario: The window is today and tomorrow
 
@@ -147,6 +174,7 @@ appears on the attention list — and the two never disagree about what "today" 
 - **When** the attention list is shown
 - **Then** the task is on it
 - **And** the reason it gives is that it is due soon
+- **And** the health counts count that task as waiting
 
 ---
 
@@ -260,3 +288,44 @@ honest: the user knows the shortlist is a shortlist.
 - **Given** attention items the user has set aside, one after another
 - **When** the list is shown
 - **Then** it still says how many items it did not show
+
+---
+
+### Requirement: REQ-TH-018
+
+The attention list and the health counts **SHALL** be two separate readings, each read by
+its own query, and each **SHALL** be shown whenever it is available. The failure of one
+reading **SHALL NOT** take the other's answer off the screen, and each failure **SHALL**
+be reported in its own words, where it happened.
+
+A reading that failed **SHALL NOT** be shown as a reading that found nothing.
+
+**Rationale:** the two readings answer different questions and are gathered by different
+queries, so one of them can fail while the other succeeds. A screen that shows only the
+first thing it managed to read is not a screen with independent parts — it is a screen
+that pretends to have one source, and the user is left looking at an empty space with no
+way to tell a failure from an absence.
+
+And a failure has to be said. "Nothing needs attention" and "we could not find out what
+needs attention" are different answers, and a user cannot tell them apart from a screen
+that shows neither.
+
+#### Scenario: The list survives a failed count
+
+- **Given** the health counts cannot be read
+- **When** the Health tab is shown
+- **Then** the attention list is still shown
+- **And** the tab says that the counts are unavailable
+
+#### Scenario: The counts survive a failed list
+
+- **Given** the attention list cannot be read
+- **When** the Health tab is shown
+- **Then** the health counts are still shown
+- **And** the tab says that the list is unavailable
+
+#### Scenario: A failure is not an empty reading
+
+- **Given** the health counts cannot be read
+- **When** the Health tab is shown
+- **Then** the counts are not shown as zero of every kind of problem

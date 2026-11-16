@@ -103,6 +103,10 @@ sourceSets {
             // tests mount the production App() inside. :shared declares koin-compose
             // as `implementation`, so it is not visible transitively here.
             implementation(libs.koin.compose)
+            // The `viewModel` definition DSL, for the tests that replace a
+            // ViewModel binding. :shared declares koin-compose-viewmodel as
+            // `implementation`, so it is not visible transitively here.
+            implementation(libs.koin.compose.viewmodel)
             // Date arithmetic in the calendar flows. Same reason as koin-compose.
             implementation(libs.kotlinx.datetime)
             // ViewModel is the supertype of every VM under test; :shared declares

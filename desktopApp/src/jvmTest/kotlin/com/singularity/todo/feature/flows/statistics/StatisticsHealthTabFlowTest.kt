@@ -2,8 +2,11 @@ package com.singularity.todo.feature.flows.statistics
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.statistics.StatisticsDeps
+import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -11,10 +14,13 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagTextEquals
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -24,6 +30,7 @@ import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.Tag
 import org.koin.core.Koin
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import kotlin.test.Test
 import kotlin.time.Instant
@@ -46,6 +53,7 @@ import kotlin.time.Instant
  * - the attention items are on that tab, one row per item, with a stable id
  * - setting an item aside takes the row off the screen
  * - the list says how many items it did not show, in every state
+ * - the list stays on screen when the counts behind it fail
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -189,6 +197,37 @@ class StatisticsHealthTabFlowTest {
         }
 
     /**
+     * The list stays on screen when the counts behind it fail.
+     *
+     * The list and the counts are two readings of the same rows, and each is read
+     * by its own query. The tab used to return early when the health query
+     * failed, which took a list that had been read successfully off the screen —
+     * the collector had its own state, and the screen pretended it did not.
+     *
+     * So the failure of one query must not hide the other's answer, and the
+     * failure must be said: "Task health unavailable" is not the same answer as
+     * an empty list, and the user cannot tell them apart if the tab shows
+     * neither.
+     */
+    @Test
+    fun the_attention_list_stays_when_the_counts_fail() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            overrides = healthUnavailableOverride,
+            checkA11y = true,
+        ) { koin ->
+            seedAttentionTasks(koin)
+
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+
+            // The list is there …
+            assertTagDisplayed(TestTags.attentionNudge(OVERDUE_KEY))
+            // … and the failure of the counts is said, not swallowed.
+            assertTextDisplayed("Task health unavailable")
+        }
+
+    /**
      * The two tasks the list names: one whose due date has passed, and one due
      * tomorrow in the zone the screen reads.
      */
@@ -249,6 +288,22 @@ class StatisticsHealthTabFlowTest {
         override fun current(): TimeZone = ZONE
     }
 
+    /**
+     * Settings whose staleness window cannot be read.
+     *
+     * The counts read that window from the settings, so a failure of that read
+     * is what makes the counts unavailable. The list reads the tasks and the
+     * projects and nothing else — which is the point of the test: the two
+     * readings fail on their own.
+     *
+     * The rest of the settings are the real ones: only the one read is broken,
+     * so the test does not describe a different app.
+     */
+    private class UnreadableStalenessSettings(delegate: SettingsRepository) : SettingsRepository by delegate {
+        override val stalenessThresholdDays: Flow<Int> =
+            flow { throw IllegalStateException("the staleness window cannot be read") }
+    }
+
     private companion object {
         val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
         val CLOCK: FakeClock = FakeClock(FIXED_NOW)
@@ -273,6 +328,37 @@ class StatisticsHealthTabFlowTest {
 
         /** The zone the screen reads, swapped in for the machine's own. */
         val timeZoneOverride: Module = module { single<TimeZoneProvider> { FixedZone } }
+
+        /**
+         * The Health tab with the counts broken and the list intact.
+         *
+         * The ViewModel is replaced rather than the settings, because the
+         * settings are read by more than the counts — replacing them would
+         * describe a different app. The replacement reads the same settings,
+         * except for the one read the counts depend on.
+         *
+         * The zone is replaced here too: the replacement ViewModel is built from
+         * the same graph, and the graph's own zone is the machine's.
+         */
+        val healthUnavailableOverride: Module =
+            module {
+                single<TimeZoneProvider> { FixedZone }
+                viewModel<StatisticsViewModel> {
+                    StatisticsViewModel(
+                        deps =
+                            StatisticsDeps(
+                                taskRepository = get(),
+                                timeTrackingRepo = get(),
+                                projectsRepo = get(),
+                                currentUser = get(),
+                                clock = get(),
+                                settingsRepository = UnreadableStalenessSettings(get()),
+                                timeZone = get(),
+                            ),
+                        crashReporter = get(),
+                    )
+                }
+            }
 
         const val OVERDUE_TASK_ID = "nudge-overdue"
         const val DUE_SOON_TASK_ID = "nudge-due-soon"

@@ -54,12 +54,36 @@ The four signals — overdue, due soon (today or tomorrow), blocked, project dea
 are ordered by relevance, and an item that qualifies under several appears once,
 under the most relevant one.
 
+The state of a task is decided in one place. Whether a task is late, and whether it
+is waiting, is answered by the health classifier — the same object the Health tab's
+counts are made with — and the list asks it that question instead of deciding it
+again. A second copy of that rule is free to drift, and the drift shows up as a tab
+calling one task late while the card beside it counts the same task as fine.
+
+The *order* of the reasons is the list's own rule, and it is deliberately not the
+classifier's precedence. The classifier has no "due soon" bucket, and the list puts a
+task that is due today above one that is merely waiting. So a task that is due today
+and waits on something is named by the list as due soon, while the counts still call
+it waiting: the counts say what is wrong with the task, the list says what the user
+can do about it today. That difference is written into the change's contract, so it
+is a decision rather than a drift — and the state of the task is still the
+classifier's answer on both surfaces.
+
 The list lives on the **Statistics Health tab**, above the bucket cards. That tab
 already means "what needs attention", already loads the whole task list, and already
 drills down into buckets; adding a section there is a smaller change than a new
 screen, and it puts the shortlist next to the counts it refines. Agenda Today was
 rejected: it already renders overdue and today sections with per-row badges, so a
 nudge list there would show the same tasks twice on one screen.
+
+The two readings on that tab are independent, and the screen says so. The list and the
+counts are gathered by different queries — the list reads the tasks and the projects,
+the counts read the tasks and the settings — so one of them can fail while the other
+succeeds. The tab shows whichever reading it has: a failed count does not take a ready
+list off the screen, and a failed list does not take the counts off the screen. Each
+failure is reported in its own words, where it happened, because "we could not find out
+what needs attention" and "nothing needs attention" are different answers, and a screen
+that shows neither leaves the user unable to tell them apart.
 
 A nudge can be **set aside for now**. The dismissal is transient — it lives in the
 screen's own state, it is gone when the screen is left, and it changes nothing about
@@ -128,17 +152,28 @@ platforms behave the same will deliver nothing on one of them.
   (the cards) and which to deal with first (the list).
 - Nothing is stored, so nothing can go stale, and there is no migration, no sync
   conflict and no backup question.
-- The rules for overdue, due soon and blocked are asked of the selectors and
-  `Blocking` rather than written again, so the list asks the same rules the
-  counts ask. It names a subset of what they count: the counts cover deferred
-  work and work in a closed project, and the list names neither. A deferred task
-  with a past due date is therefore counted as overdue by the card beside the
+- The state of a task — late, waiting — is asked of the health classifier rather
+  than decided again, so the list and the counts cannot classify one task two ways.
+  "Due soon" is asked of the app's own date buckets, because the classifier has no
+  bucket for it. The list names a subset of what the counts count: the counts cover
+  deferred work and work in a closed project, and the list names neither. A deferred
+  task with a past due date is therefore counted as overdue by the card beside the
   list and not named by the list — a difference between the two surfaces, not a
   disagreement about the rule they both ask.
+- One case where the two surfaces answer differently is a decision and not an
+  accident: a task that is due today *and* waits on something is named by the list
+  as due soon, while the counts still call it waiting. The list's order decides
+  which reason is named, and the change's contract says so.
 - The nudge list is bounded on screen and says how many items it did not show — the
   list is a shortlist, and a shortlist that hides its own size is a lie. The count
   is of the items the list did not show, whether they were left out by the bound or
   set aside by the user.
+- The two readings on the Health tab fail separately, and each failure is reported
+  where it happened. A ready list stays on screen when the counts cannot be read,
+  and the tab says the counts are unavailable rather than showing them as zero of
+  every kind of problem. The tab used to return early on an unavailable count,
+  which threw away a list that had been read successfully and made the tab look
+  as if it had a single source.
 - The screen reads "today" through the injected time-zone provider, the way the
   agenda does. Two surfaces that disagreed about what today is would show two
   different lists of the same tasks.
