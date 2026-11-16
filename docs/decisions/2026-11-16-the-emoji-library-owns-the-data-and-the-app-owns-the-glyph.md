@@ -77,7 +77,8 @@ Concretely:
    so "is it in the catalog?" would reject values the app itself stores. Empty
    or whitespace-only input adds nothing. #2932 owns the product decision on
    stricter validation; until then this is the behavior, and it is pinned by
-   `IconPickerCustomInputTest` on both platforms.
+   `IconPickerCustomEmojiTest` (desktop) and `IconPickerCustomInputTest`
+   (Android).
 
 4. **The retained helpers keep their real semantics.** `visibleLength()` counts
    code points — not visible characters and not grapheme clusters. The library's
@@ -189,10 +190,11 @@ bound in their own words rather than implying more than they prove.
   touches neither its scope nor its storage.
 - Tests: `EmojiCatalogTest` pins the composed forms in the library's data and
   the difference between the code-point count and an emoji count;
-  `IconPickerCustomInputTest` (desktop and Android) pins the custom field's
-  contract; `ProjectEditorViewModelTest` pins that a custom icon is what the
-  saved project stores; `ProjectIconEmojiRenderTest` (desktop) and
-  `ProjectIconEmojiRenderTest` (Android) pin the rendering per platform.
+  `IconPickerCustomEmojiTest` (desktop) and `IconPickerCustomInputTest`
+  (Android) pin the custom field's contract; `ProjectEditorViewModelTest` pins
+  that a custom icon is what the saved project stores;
+  `ProjectIconEmojiRenderTest` (desktop) and `ProjectIconEmojiRenderTest`
+  (Android) pin the rendering per platform.
 
 ## Links
 
@@ -210,7 +212,7 @@ bound in their own words rather than implying more than they prove.
   `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/IconPickerSheet.kt`,
   `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectIcon.kt`
 - Tests: `shared/src/commonTest/kotlin/com/singularity/todo/core/emoji/EmojiCatalogTest.kt`,
-  `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/projects/IconPickerCustomInputTest.kt`,
+  `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/projects/IconPickerCustomEmojiTest.kt`,
   `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/IconPickerCustomInputTest.kt`,
   `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectIconEmojiRenderTest.kt`,
   `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/ProjectIconEmojiRenderTest.kt`,

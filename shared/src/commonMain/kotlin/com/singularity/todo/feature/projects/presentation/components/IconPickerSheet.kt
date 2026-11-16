@@ -70,7 +70,8 @@ import kotlinx.collections.immutable.ImmutableList
  *
  * #2932 owns the product decision on whether stricter validation belongs
  * here. Until then this is the behavior, and it is pinned by
- * `IconPickerCustomInputTest`.
+ * `CustomEmojiInputTest` (shared), `IconPickerCustomEmojiTest` (desktop) and
+ * `IconPickerCustomInputTest` (Android).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

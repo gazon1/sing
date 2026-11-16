@@ -1,5 +1,5 @@
 ---
-title: "The custom emoji field takes free text; the value is trimmed and kept verbatim"
+title: "The custom emoji field takes free text; the value is trimmed and taken as it is"
 date: 2026-11-16
 status: accepted
 tags: [projects, ui, emoji]
@@ -33,7 +33,7 @@ verified — and, explicitly, not to invent a stricter rule than the code has.
 ## Decision
 
 **The custom field takes free text. The value is the typed text with the whitespace at
-both ends removed; everything else is kept exactly as it was typed.**
+both ends removed; what survives the trim is taken as it is.**
 
 - Blank input (empty, or nothing but whitespace) picks **nothing**: the sheet stays
   open, the field keeps its text, nothing is stored and nothing is remembered in the
@@ -92,8 +92,13 @@ it rather than changing it.
   `IconPickerCustomEmojiTest` (desktop) asserts the binding: what the field holds is
   what the button hands back, a blank field picks nothing and keeps its text, and the
   pick is handed back exactly once.
-- The Android custom entry is covered by `Maestro/flows/projects/05-custom-emoji.yaml`:
-  it types a ZWJ sequence into the field on a device, through the platform keyboard,
+- The Android custom entry is covered twice over, at two levels.
+  `IconPickerCustomInputTest` (Android) drives the real sheet on a device: the
+  field's contract, and the sheet drawing a composed sequence as one node — from
+  the recent row and from the catalog's own search results, which also proves the
+  provider is installed on Android.
+  `Maestro/flows/projects/05-custom-emoji.yaml` is the end-to-end half: it
+  types a ZWJ sequence into the field on a device, through the platform keyboard,
   checks that the project draws it, and then reopens the project and checks that the
   emoji is still there. There is no Save to press: the pick is written through
   `updateProject` when it happens, so the value is in the row before the next screen
