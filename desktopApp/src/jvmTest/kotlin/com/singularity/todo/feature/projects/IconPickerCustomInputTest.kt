@@ -33,8 +33,8 @@ import kotlin.test.assertTrue
  * - an **empty or whitespace-only** field adds nothing. The sheet stays open
  *   and nothing is picked, so a stray space cannot become a project icon.
  *
- * "Trimmed, then verbatim" is the whole contract. A field that kept the
- * outer spaces would store an icon that no longer looks like what the user
+ * "Trimmed, then taken as it is" is the whole contract. A field that kept
+ * the outer spaces would store an icon that no longer looks like what the user
  * typed; a field that trimmed the inner ones would cut a phrase in half.
  *
  * #2932 owns the product decision on whether stricter validation belongs
