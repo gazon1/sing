@@ -27,10 +27,15 @@ import kotlin.test.assertTrue
  *   value that is a perfectly good composed emoji — the provider stores some
  *   of the app's own forms (`🕊️`, `1️⃣`) as *variants*, not as entries of
  *   their own, so "is it in the catalog?" is the wrong question;
- * - the value is taken **verbatim**: no normalization, no stripped variation
- *   selector, no split ZWJ sequence. What the user typed is what is stored;
+ * - the text is **trimmed**: the outer whitespace is dropped and the inner
+ *   whitespace is kept. What survives the trim is then taken as it is — no
+ *   normalization, no stripped variation selector, no split ZWJ sequence;
  * - an **empty or whitespace-only** field adds nothing. The sheet stays open
  *   and nothing is picked, so a stray space cannot become a project icon.
+ *
+ * "Trimmed, then verbatim" is the whole contract. A field that kept the
+ * outer spaces would store an icon that no longer looks like what the user
+ * typed; a field that trimmed the inner ones would cut a phrase in half.
  *
  * #2932 owns the product decision on whether stricter validation belongs
  * here. This test pins today's behavior so that decision has a baseline.
@@ -154,6 +159,82 @@ class IconPickerCustomInputTest {
                 picked.value.codePointCount(0, picked.value.length),
                 "the four people and their three joiners are still there",
             )
+        }
+
+    /**
+     * The outer whitespace is dropped.
+     *
+     * A field that kept the spaces around the text would store an icon that
+     * no longer looks like what the user typed, and the spaces would be
+     * invisible in the picker.
+     */
+    @Test
+    fun `outer whitespace is trimmed from the value`() =
+        runIsolatedComposeTest {
+            val picks = pickerPicks()
+
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "  marketing  ")
+            clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(listOf(Emoji("marketing")), picks, "the outer spaces are gone")
+        }
+
+    /**
+     * The inner whitespace is kept.
+     *
+     * Trimming is about the edges of the value, not about the spaces inside
+     * it: a phrase is one value, and cutting it in half would store something
+     * the user never typed.
+     */
+    @Test
+    fun `inner whitespace is kept in the value`() =
+        runIsolatedComposeTest {
+            val picks = pickerPicks()
+
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "rocket ship")
+            clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(listOf(Emoji("rocket ship")), picks, "the inner space is still there")
+        }
+
+    /**
+     * The sequences the catalog holds as entries of their own.
+     *
+     * A flag and a keycap are several code points each, and the field has to
+     * hand them back as they were typed — the catalog's idea of what one emoji
+     * is does not get a say here.
+     */
+    @Test
+    fun `a flag is added unchanged`() =
+        runIsolatedComposeTest {
+            val picks = pickerPicks()
+
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "🇬🇧")
+            clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(listOf(Emoji("🇬🇧")), picks)
+        }
+
+    @Test
+    fun `a skin-tone form is added unchanged`() =
+        runIsolatedComposeTest {
+            val picks = pickerPicks()
+
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "🧘🏽")
+            clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(listOf(Emoji("🧘🏽")), picks)
+        }
+
+    @Test
+    fun `a keycap is added unchanged`() =
+        runIsolatedComposeTest {
+            val picks = pickerPicks()
+
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "1️⃣")
+            clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(listOf(Emoji("1️⃣")), picks)
         }
 
     /**
