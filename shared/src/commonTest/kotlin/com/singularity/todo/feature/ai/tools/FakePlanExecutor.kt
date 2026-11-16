@@ -4,8 +4,8 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.model.PromptExecutor
-import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.llm.OpenAILLMProvider
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
@@ -81,7 +81,13 @@ class FakePlanExecutor(private val answer: String, private val failure: Throwabl
          *
          * The provider is never contacted — the tool only carries the model into the
          * prompt — so the id is a name and nothing more.
+         *
+         * The provider is `OpenAILLMProvider` and not `LLMProvider.OpenAI`: Koog
+         * initialises the two in a cycle, and whichever one starts decides the
+         * other's state — when a provider class starts first, `LLMProvider.OpenAI`
+         * is left null for the rest of the JVM, and a test that runs after
+         * `KnownModels` (which names the provider class) would read that null.
          */
-        val TEST_MODEL: LLModel = LLModel(LLMProvider.OpenAI, "test-model", emptyList(), null, null)
+        val TEST_MODEL: LLModel = LLModel(OpenAILLMProvider, "test-model", emptyList(), null, null)
     }
 }
