@@ -7,7 +7,9 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
+import com.singularity.todo.feature.tasks.domain.logic.buildAttentionNudges
 import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.logic.summarizeTaskHealthFromSelectors
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -19,8 +21,11 @@ import com.singularity.todo.feature.timetracking.domain.logic.bucketByProject
 import com.singularity.todo.feature.timetracking.domain.logic.mergeIntervalsWithOpen
 import com.singularity.todo.feature.timetracking.domain.logic.splitAtMidnight
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -51,9 +56,34 @@ data class StatisticsUiState(
     val insights: InsightsData = InsightsData(),
     /** Task-health buckets for the Health tab, and what the query behind them is doing. */
     val health: TaskHealthState = TaskHealthState.Loading,
+    /** The attention items for the Health tab, and what the query behind them is doing. */
+    val nudges: AttentionNudgesState = AttentionNudgesState.Loading,
+    /**
+     * The attention items the user set aside for now.
+     *
+     * Transient on purpose: it lives in this state, so it is gone when the screen
+     * is left, and it changes nothing about the task or the project it names.
+     */
+    val dismissedNudgeKeys: ImmutableSet<String> = persistentSetOf(),
     val loading: Boolean = true,
     val rangeDays: Int = 7,
 ) {
+    /**
+     * The attention items the screen shows: the derived ones, minus the ones the
+     * user set aside.
+     *
+     * The dismissal is applied here rather than in the query, so the derived list
+     * stays the truth about the tasks and the dismissal stays a statement about
+     * the shortlist.
+     */
+    val visibleNudges: ImmutableList<AttentionNudge>
+        get() =
+            (nudges as? AttentionNudgesState.Ready)
+                ?.nudges
+                ?.filterNot { it.key in dismissedNudgeKeys }
+                ?.toImmutableList()
+                ?: persistentListOf()
+
     /** Time-tracking data for the insights tab. */
     data class InsightsData(
         val loading: Boolean = true,
@@ -61,6 +91,24 @@ data class StatisticsUiState(
         val projectBuckets: ImmutableList<ProjectInsightsBucket> = persistentListOf(),
         val totalMs: Long = 0L,
     )
+}
+
+/**
+ * The Health tab's attention items, and what the query behind them is doing.
+ *
+ * The three states are separate for the same reason the health buckets' are: a
+ * null list cannot tell "the query has not landed yet" from "the query failed",
+ * and the screen said "unavailable" for both.
+ */
+sealed interface AttentionNudgesState {
+    /** The query has not landed yet. */
+    data object Loading : AttentionNudgesState
+
+    /** The query failed: what needs attention is unknown. */
+    data object Unavailable : AttentionNudgesState
+
+    /** The attention items, computed. */
+    data class Ready(val nudges: ImmutableList<AttentionNudge>) : AttentionNudgesState
 }
 
 /**
@@ -89,6 +137,14 @@ data class ProjectInsightsBucket(val projectId: String?, val projectName: String
 
 sealed interface StatisticsIntent : MviIntent {
     data class SetRange(val days: Int) : StatisticsIntent
+
+    /**
+     * Sets one attention item aside for now.
+     *
+     * The dismissal is transient: it lives in the state, so it is gone when the
+     * screen is left, and it changes nothing about the task or the project.
+     */
+    data class DismissNudge(val key: String) : StatisticsIntent
 }
 
 /**
@@ -223,6 +279,51 @@ class StatisticsViewModel(
             }
         }
 
+        // ── Attention items ────────────────────────────────────────────────────
+        // A separate collector for the same reason the health one is separate: the
+        // attention items need the project list as well as the task list, and
+        // folding that into the health query would make a failure of the project
+        // read look like a failure of the health of the tasks.
+        scope.launch {
+            combine(
+                retryTransient("statistics.nudges.tasks") {
+                    deps.taskRepository.observeByFilter(TaskFilter.All)
+                },
+                retryTransient("statistics.nudges.projects") {
+                    deps.projectsRepo.observeAllIncludingClosed()
+                },
+            ) { tasks, projects ->
+                val now = deps.clock.now()
+                val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                // Typed nullable on purpose: the catch below emits null, and a
+                // non-null empty list is what made the screen's "unavailable"
+                // branch unreachable.
+                val nudges: List<AttentionNudge>? =
+                    buildAttentionNudges(
+                        tasks = tasks,
+                        projects = projects,
+                        today = today,
+                        now = now,
+                    )
+                nudges
+            }.catch { error ->
+                // The failure crossed a channel hop, and a channel carries a *copy* of
+                // the throwable — the original is its cause, so the copy is unwrapped
+                // before it is reported.
+                val reported = error.cause ?: error
+                crashReporter.report(reported, ATTENTION_NUDGES_FAILED)
+                emit(null)
+            }.collect { nudges ->
+                updateState {
+                    it.copy(
+                        nudges =
+                            nudges?.let { list -> AttentionNudgesState.Ready(list.toImmutableList()) }
+                                ?: AttentionNudgesState.Unavailable,
+                    )
+                }
+            }
+        }
+
         // ── Time-tracking insights (recomputed when rangeDays changes) ────────
         scope.launch {
             state
@@ -300,6 +401,16 @@ class StatisticsViewModel(
                 if (days == currentState.rangeDays) return
                 updateState { it.copy(rangeDays = days, loading = true) }
             }
+
+            is StatisticsIntent.DismissNudge -> {
+                // Setting an item aside is a statement about the shortlist, not
+                // about the work: nothing here touches the task or the project.
+                val key = intent.key
+                if (key in currentState.dismissedNudgeKeys) return
+                updateState {
+                    it.copy(dismissedNudgeKeys = (it.dismissedNudgeKeys + key).toImmutableSet())
+                }
+            }
         }
     }
 
@@ -307,6 +418,7 @@ class StatisticsViewModel(
         // Machine-shaped grouping keys — these leave the device.
         const val TASK_STATISTICS_FAILED = "statistics.tasks_failed"
         const val TASK_HEALTH_FAILED = "statistics.health_failed"
+        const val ATTENTION_NUDGES_FAILED = "statistics.nudges_failed"
         const val TIME_INSIGHTS_FAILED = "statistics.insights_failed"
     }
 

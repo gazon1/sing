@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +52,8 @@ import com.singularity.todo.core.ui.theme.DataStatusColors
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.tasks.domain.logic.AttentionDestination
+import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
@@ -140,6 +143,9 @@ fun StatisticsScreen(
                 2 -> {
                     HealthTabContent(
                         health = state.health,
+                        nudges = state.nudges,
+                        visibleNudges = state.visibleNudges,
+                        onDismissNudge = { key -> viewModel.onIntent(StatisticsIntent.DismissNudge(key)) },
                         onBucketClick = { bucket ->
                             when (bucket) {
                                 // Overdue navigates to the dedicated Overdue preset — one section,
@@ -159,6 +165,21 @@ fun StatisticsScreen(
 
                                 // FINE is healthy — no drill-down target.
                                 TaskHealthBucket.FINE -> { // no-op
+                                }
+                            }
+                        },
+                        onNudgeClick = { nudge ->
+                            when (val destination = nudge.destination) {
+                                is AttentionDestination.Task -> {
+                                    navCallbacks?.navigate(
+                                        AppDestination.TasksGraph(
+                                            AppDestination.TasksStartRoute.Detail(destination.id),
+                                        ),
+                                    )
+                                }
+
+                                is AttentionDestination.Project -> {
+                                    navCallbacks?.navigate(AppDestination.ProjectDetail(destination.id))
                                 }
                             }
                         },
@@ -510,32 +531,21 @@ private fun StatCard(
 @Composable
 private fun HealthTabContent(
     health: TaskHealthState,
+    nudges: AttentionNudgesState,
+    visibleNudges: ImmutableList<AttentionNudge>,
+    onDismissNudge: (String) -> Unit,
     onBucketClick: (TaskHealthBucket) -> Unit,
+    onNudgeClick: (AttentionNudge) -> Unit,
 ) {
-    val summary =
-        when (health) {
-            TaskHealthState.Loading -> {
-                // The query has not landed yet. Saying "unavailable" here showed a
-                // broken-looking screen on a perfectly healthy database, for as
-                // long as the first computation took.
-                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
-                return
-            }
-
-            TaskHealthState.Unavailable -> {
-                // The query failed: the health of the task list is unknown, which
-                // is not the same as "no problems".
-                EmptyState(
-                    title = "Task health unavailable",
-                    modifier = Modifier.fillMaxSize(),
-                )
-                return
-            }
-
-            is TaskHealthState.Ready -> {
-                health.summary
-            }
-        }
+    if (health is TaskHealthState.Unavailable) {
+        // The query failed: the health of the task list is unknown, which
+        // is not the same as "no problems".
+        EmptyState(
+            title = "Task health unavailable",
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
 
     val scrollState = rememberScrollState()
     Column(
@@ -546,6 +556,25 @@ private fun HealthTabContent(
                 .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // The shortlist comes before the counts: it answers "what do I do first",
+        // which is the question the counts only hint at.
+        AttentionNudgesSection(
+            state = nudges,
+            visible = visibleNudges,
+            onDismiss = onDismissNudge,
+            onClick = onNudgeClick,
+        )
+
+        if (health is TaskHealthState.Loading) {
+            // The query has not landed yet. Saying "unavailable" here showed a
+            // broken-looking screen on a perfectly healthy database, for as
+            // long as the first computation took.
+            Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+            return@Column
+        }
+
+        val summary = (health as TaskHealthState.Ready).summary
+
         StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
 
         summary.actionable.forEach { bucket ->
@@ -581,6 +610,87 @@ private fun HealthTabContent(
         )
     }
 }
+
+/**
+ * The attention items: the few things worth doing first, each with the one reason
+ * it is there and a way into it.
+ *
+ * The list is bounded, and it says how many items it did not show — a shortlist
+ * that hides its own size reads as "that is all of it", and it is not.
+ */
+@Composable
+private fun AttentionNudgesSection(
+    state: AttentionNudgesState,
+    visible: ImmutableList<AttentionNudge>,
+    onDismiss: (String) -> Unit,
+    onClick: (AttentionNudge) -> Unit,
+) {
+    if (state !is AttentionNudgesState.Ready) {
+        // The query has not landed, or it failed. The tab says so where it says
+        // so about the health buckets; the list is not a second health summary.
+        return
+    }
+
+    if (visible.isEmpty()) {
+        Text(
+            text = "Nothing needs attention right now",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    Text(
+        text = "Needs attention",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
+
+    visible.take(MAX_VISIBLE_NUDGES).forEach { nudge ->
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick(nudge) }
+                    .testTag(TestTags.attentionNudge(nudge.key)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = nudge.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = nudge.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(
+                onClick = { onDismiss(nudge.key) },
+                modifier = Modifier.testTag(TestTags.attentionNudgeDismiss(nudge.key)),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Set aside for now",
+                )
+            }
+        }
+    }
+
+    val hidden = visible.size - MAX_VISIBLE_NUDGES
+    if (hidden > 0) {
+        Text(
+            text = "and $hidden more",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(TestTags.ATTENTION_NUDGES_MORE),
+        )
+    }
+}
+
+/** How many attention items the Health tab shows at once. */
+private const val MAX_VISIBLE_NUDGES = 5
 
 /** The card's test tag, or null for a bucket that never gets a card. */
 private fun TaskHealthBucket.testTag(): String? =

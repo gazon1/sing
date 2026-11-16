@@ -508,6 +508,7 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_SECTION` | `attachments_section` | |
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
+| `ATTENTION_NUDGES_MORE` | `attention_nudges_more` | |
 | `CHAT_INPUT` | `chat_input` | |
 | `CHAT_MESSAGES` | `chat_messages` | |
 | `Calendar.CANCEL_SELECTION` | `calendar_cancel_selection` | |
@@ -607,6 +608,8 @@ use the expanded string directly).
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
+| `attentionNudge("task:t1")` | `"task:t1"` | `attention_nudge_task_t1` | Attention items on the Statistics Health tab |
+| `attentionNudgeDismiss("task:t1")` | `"task:t1"` | `attention_nudge_dismiss_task_t1` | The button that sets an attention item aside |
 <!-- GENERATED:END -->
 
 ## Agenda top-bar overflow (rows that live in a menu)

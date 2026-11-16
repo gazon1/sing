@@ -89,6 +89,7 @@ object TagsMd {
             "Calendar",
             "Calendar sync",
             "Search filters",
+            "Statistics",
         )
 
     // ─── Rendering ─────────────────────────────────────────────────────────────
@@ -455,6 +456,14 @@ object TagsMd {
 
             "SavedSearches.chip" -> {
                 DynamicMeta(fnName, "Search", "My search", "Saved search chips")
+            }
+
+            "attentionNudge" -> {
+                DynamicMeta(fnName, "Statistics", "task:t1", "Attention items on the Statistics Health tab")
+            }
+
+            "attentionNudgeDismiss" -> {
+                DynamicMeta(fnName, "Statistics", "task:t1", "The button that sets an attention item aside")
             }
 
             // A new dynamic function must be described here, not silently dropped:

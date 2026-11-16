@@ -27,11 +27,14 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -48,9 +51,20 @@ class StatisticsViewModelTest {
      */
     private val testNow: Instant = Instant.parse("2026-01-15T12:00:00Z")
 
+    /**
+     * The day the ViewModel sees.
+     *
+     * The ViewModel reads the day in the system's own time zone, so the test has
+     * to read it the same way — a test that hard-coded a day would disagree with
+     * the screen on every machine that is not in UTC.
+     */
+    private val today: kotlinx.datetime.LocalDate =
+        testNow.toLocalDateTime(TimeZone.currentSystemDefault()).date
+
     private fun task(
         id: String,
         completed: Boolean = false,
+        dueDate: kotlinx.datetime.LocalDate? = null,
     ): Task {
         val now = testNow
         return Task(
@@ -60,24 +74,25 @@ class StatisticsViewModelTest {
             createdAt = now,
             updatedAt = now,
             completedAt = if (completed) now else null,
+            dueDate = dueDate,
         )
     }
 
     private fun TestScope.createVm(
         repo: FakeTaskRepository = FakeTaskRepository(),
         reporter: CrashReportingPort = NoOpCrashReportingPort(),
+        projects: FakeProjectsRepository? = null,
     ): StatisticsViewModel {
         val clock = FakeClock(testNow)
         val currentUser = FakeProfileAwareCurrentUser()
         val timeTracking = FakeTimeTrackingRepository(clock)
-        val projects = FakeProjectsRepository(currentUser)
         val settings = FakeSettingsRepository(testUserId.value)
         return StatisticsViewModel(
             deps =
                 StatisticsDeps(
                     taskRepository = repo,
                     timeTrackingRepo = timeTracking,
-                    projectsRepo = projects,
+                    projectsRepo = projects ?: FakeProjectsRepository(currentUser),
                     currentUser = currentUser,
                     clock = clock,
                     settingsRepository = settings,
@@ -142,6 +157,7 @@ class StatisticsViewModelTest {
             listOf(
                 "statistics.tasks_failed",
                 "statistics.health_failed",
+                "statistics.nudges_failed",
                 "statistics.insights_failed",
             ).forEach { key ->
                 val reported = reporter.reports.firstOrNull { it.second == key }
@@ -219,9 +235,9 @@ class StatisticsViewModelTest {
             runCurrent()
             runCurrent()
 
-            // Three collectors observe the task list: the task statistics, the
-            // task health, and the time-tracking insights.
-            assertEquals(3, repo.observeByFilterCalls, "one observation per collector")
+            // Four collectors observe the task list: the task statistics, the
+            // task health, the attention items, and the time-tracking insights.
+            assertEquals(4, repo.observeByFilterCalls, "one observation per collector")
 
             vm.onIntent(StatisticsIntent.SetRange(30))
             runCurrent()
@@ -230,7 +246,7 @@ class StatisticsViewModelTest {
             // The range changed, so the two collectors that draw on it observe
             // the list again. The health collector does not depend on the range.
             assertEquals(
-                5,
+                6,
                 repo.observeByFilterCalls,
                 "one more observation per range-dependent collector",
             )
@@ -300,6 +316,88 @@ class StatisticsViewModelTest {
             assertTrue(
                 reporter.breadcrumbs.any { it.contains("statistics.tasks") },
                 "a retried failure must leave a breadcrumb: ${reporter.breadcrumbs}",
+            )
+        }
+
+    // ── The attention items ───────────────────────────────────────────────────
+
+    /**
+     * The attention items reach the state.
+     *
+     * The list is derived, so the test drives the derivation the way the screen
+     * does: a task due today is named, and the state says so.
+     */
+    @Test
+    fun `the attention items reach the state`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.seed(task("t1", dueDate = today))
+
+            val vm = createVm(repo)
+            runCurrent()
+            runCurrent()
+
+            val nudges = vm.state.value.nudges
+            assertTrue(nudges is AttentionNudgesState.Ready, "the attention items land in the state, got $nudges")
+            assertEquals(listOf("task:t1"), nudges.nudges.map { it.key })
+            assertEquals("Due today", nudges.nudges.first().reason)
+        }
+
+    /**
+     * Setting an item aside hides it, and touches nothing else.
+     *
+     * The dismissal is a statement about the shortlist, not about the work: the
+     * task is still open, still has its due date, and is still in the repository
+     * exactly as it was.
+     */
+    @Test
+    fun `setting an item aside hides it and changes nothing else`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.seed(task("t1", dueDate = today))
+            repo.seed(task("t2", dueDate = today))
+
+            val vm = createVm(repo)
+            runCurrent()
+            runCurrent()
+
+            vm.onIntent(StatisticsIntent.DismissNudge("task:t1"))
+
+            assertEquals(
+                listOf("task:t2"),
+                vm.state.value.visibleNudges
+                    .map { it.key },
+            )
+            val stored = repo.get(TaskId.fromString("t1"))
+            assertNotNull(stored, "the dismissed task is still in the repository")
+            assertEquals(today, stored.dueDate, "the dismissed task still has its due date")
+            assertNull(stored.completedAt, "the dismissed task is still open")
+        }
+
+    /**
+     * A failed attention query must not read as "nothing needs attention".
+     *
+     * An empty list is exactly what a healthy task list looks like, so a broken
+     * query standing in for a working one would tell the user there is nothing
+     * to do. The failure is a state of its own.
+     */
+    @Test
+    fun `a failed attention query leaves the list unavailable`() =
+        runTest {
+            val reporter = RecordingCrashReportingPort()
+
+            val vm = createVm(FailingTaskRepository(IllegalStateException("no attention today")), reporter)
+            runCurrent()
+            settleRetries()
+
+            assertEquals(
+                AttentionNudgesState.Unavailable,
+                vm.state.value.nudges,
+                "a failed query must not read as an empty list",
+            )
+            assertNotNull(
+                reporter.reports.firstOrNull { it.second == "statistics.nudges_failed" },
+                "the failed attention query must be reported",
             )
         }
 

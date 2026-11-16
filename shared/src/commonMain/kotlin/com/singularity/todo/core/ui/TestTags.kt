@@ -1943,6 +1943,21 @@ object TestTags {
     const val STATISTICS_TAB_TASKS = "statistics_tab_tasks"
     const val STATISTICS_TAB_TIME = "statistics_tab_time"
     const val STATISTICS_TAB_HEALTH = "statistics_tab_health"
+
+    /**
+     * One attention item on the Statistics Health tab.
+     *
+     * The item's key is its identity — `task:<id>` or `project:<id>` — so the tag
+     * names the item rather than its position, which is what a test needs when it
+     * asserts that a *particular* item is gone.
+     */
+    fun attentionNudge(key: String) = "attention_nudge_${slug(key)}"
+
+    /** The button that sets one attention item aside for now. */
+    fun attentionNudgeDismiss(key: String) = "attention_nudge_dismiss_${slug(key)}"
+
+    /** The line that says how many attention items the list did not show. */
+    const val ATTENTION_NUDGES_MORE = "attention_nudges_more"
 }
 
 /**
