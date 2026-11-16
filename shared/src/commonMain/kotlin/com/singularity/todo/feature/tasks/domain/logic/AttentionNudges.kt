@@ -77,8 +77,10 @@ data class AttentionNudge(
  * Overdue is `TaskComputed.isOverdue` — the rule the health buckets and the agenda
  * use. Blocked is `Blocking.blockedTaskIds`, which reads only the edges that block
  * (a task that follows up on another is not waiting for it). Due soon is the app's
- * own two date buckets. Each is asked through `Selector.matches`, so the list cannot
- * disagree with the counts shown beside it.
+ * own two date buckets. Each is asked through `Selector.matches`, so the list asks
+ * the same rules the counts ask. It names a subset of what they count, though: the
+ * counts cover deferred work and work in a closed project, and the list names
+ * neither.
  *
  * ## What is left out, and why
  *

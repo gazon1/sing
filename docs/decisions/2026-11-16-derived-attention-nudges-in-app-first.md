@@ -129,8 +129,12 @@ platforms behave the same will deliver nothing on one of them.
 - Nothing is stored, so nothing can go stale, and there is no migration, no sync
   conflict and no backup question.
 - The rules for overdue, due soon and blocked are asked of the selectors and
-  `Blocking` rather than written again, so the list cannot disagree with the counts
-  beside it.
+  `Blocking` rather than written again, so the list asks the same rules the
+  counts ask. It names a subset of what they count: the counts cover deferred
+  work and work in a closed project, and the list names neither. A deferred task
+  with a past due date is therefore counted as overdue by the card beside the
+  list and not named by the list — a difference between the two surfaces, not a
+  disagreement about the rule they both ask.
 - The nudge list is bounded on screen and says how many items it did not show — the
   list is a shortlist, and a shortlist that hides its own size is a lie. The count
   is of the items the list did not show, whether they were left out by the bound or
