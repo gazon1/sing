@@ -603,7 +603,9 @@ class TaskCreateViewModelTest {
             advanceTimeBy(1_000)
             runCurrent()
 
-            val created = fakeTaskRepo.tasks.value.values.first()
+            val created =
+                fakeTaskRepo.tasks.value.values
+                    .first()
             assertEquals(date, created.dueDate, "the seeded date must survive the save")
             assertEquals(projectId, created.projectId, "the seeded project must survive the save")
             assertEquals(listOf(tagId), created.tags, "the seeded tags must survive the save")
@@ -628,7 +630,9 @@ class TaskCreateViewModelTest {
             advanceTimeBy(1_000)
             runCurrent()
 
-            val created = fakeTaskRepo.tasks.value.values.first()
+            val created =
+                fakeTaskRepo.tasks.value.values
+                    .first()
             val items = fakeChecklistRepository.items.value.values
             assertEquals(1, items.size, "the checklist item must be written")
             assertEquals("Buy milk", items.first().title)
@@ -649,7 +653,9 @@ class TaskCreateViewModelTest {
             advanceTimeBy(1_000)
             runCurrent()
 
-            val created = fakeTaskRepo.tasks.value.values.first()
+            val created =
+                fakeTaskRepo.tasks.value.values
+                    .first()
             val attachments = fakeAttachmentRepository.observeAll().first()
             assertEquals(1, attachments.size, "the attachment must be written")
             assertEquals("https://example.com/spec", attachments.first().url)

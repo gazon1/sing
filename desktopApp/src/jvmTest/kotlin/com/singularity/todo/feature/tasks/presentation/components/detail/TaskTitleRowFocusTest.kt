@@ -54,7 +54,10 @@ class TaskTitleRowFocusTest {
         }
 
     @Composable
-    private fun titleRow(alwaysEditable: Boolean, autoFocus: Boolean) {
+    private fun titleRow(
+        alwaysEditable: Boolean,
+        autoFocus: Boolean,
+    ) {
         SingularityTheme(themeMode = ThemeMode.Light) {
             TaskTitleRow(
                 taskId = "t1",

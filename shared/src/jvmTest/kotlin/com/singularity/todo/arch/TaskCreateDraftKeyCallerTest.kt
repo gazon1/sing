@@ -63,18 +63,22 @@ class TaskCreateDraftKeyCallerTest {
         assertTrue(
             missing.isEmpty() && extra.isEmpty(),
             "The map from a draft key to the create editor has changed.\n" +
-                (if (missing.isNotEmpty()) {
-                    "\nThese prepared-draft flows no longer carry their key:\n" +
-                        missing.joinToString("\n") { "  - $it" }
-                } else {
-                    ""
-                }) +
-                (if (extra.isNotEmpty()) {
-                    "\nThese call sites now carry a draft key:\n" +
-                        extra.joinToString("\n") { "  - $it" }
-                } else {
-                    ""
-                }) +
+                (
+                    if (missing.isNotEmpty()) {
+                        "\nThese prepared-draft flows no longer carry their key:\n" +
+                            missing.joinToString("\n") { "  - $it" }
+                    } else {
+                        ""
+                    }
+                ) +
+                (
+                    if (extra.isNotEmpty()) {
+                        "\nThese call sites now carry a draft key:\n" +
+                            extra.joinToString("\n") { "  - $it" }
+                    } else {
+                        ""
+                    }
+                ) +
                 "\n\nA capture flow must not carry a draft key: the editor reads the key's " +
                 "absence as \"capture\" and focuses the title, so a key that names no prepared " +
                 "draft leaves the screen unfocused. A new prepared-draft flow must write its " +
@@ -150,11 +154,7 @@ class TaskCreateDraftKeyCallerTest {
      * @param function the function the call sits in.
      * @param expression the argument the call carries as its draft key.
      */
-    private data class Site(
-        val path: String,
-        val function: String,
-        val expression: String,
-    ) {
+    private data class Site(val path: String, val function: String, val expression: String) {
         fun describe(): String = "$path#$function -> $expression"
     }
 
@@ -238,8 +238,7 @@ class TaskCreateDraftKeyCallerTest {
             .firstOrNull { argument ->
                 val trimmed = argument.trim()
                 trimmed.startsWith("$name =") || trimmed.startsWith("$name=")
-            }
-            ?.substringAfter('=')
+            }?.substringAfter('=')
             ?.trim()
 
     /** The value of the argument at [position], when the call passes it positionally. */
@@ -264,11 +263,19 @@ class TaskCreateDraftKeyCallerTest {
         var start = 0
         for (index in arguments.indices) {
             when (arguments[index]) {
-                '(', '[', '{' -> depth++
-                ')', ']', '}' -> depth--
-                ',' -> if (depth == 0) {
-                    result += arguments.substring(start, index)
-                    start = index + 1
+                '(', '[', '{' -> {
+                    depth++
+                }
+
+                ')', ']', '}' -> {
+                    depth--
+                }
+
+                ',' -> {
+                    if (depth == 0) {
+                        result += arguments.substring(start, index)
+                        start = index + 1
+                    }
                 }
             }
         }
