@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.unit.dp
@@ -110,6 +111,21 @@ class ProjectIconEmojiRenderTest {
      * The icon surface is not the only place a project emoji is drawn: the
      * picker shows it as a chip, and a chip that shows a person technologist as
      * two glyphs is a different defect from the one the icon box would show.
+     *
+     * Two things are checked, and only two:
+     *
+     * - the chip paints ink — something was drawn;
+     * - the chip lays the sequence out on **one line**, the same height as a
+     *   single emoji beside it. A font that refuses to compose the sequence
+     *   lays it out as two glyphs side by side, and two glyphs do not fit the
+     *   chip's 24dp of content width, so the text wraps. That is a measure of
+     *   the layout, not of the shape of the glyph, which is why it is safe to
+     *   assert on a machine whose fonts differ from the developer's.
+     *
+     * What it does **not** check is that the chip was not clipped: the chip's
+     * own bounds are the text's bounds, so a clipped glyph would be cut at the
+     * edge of the very image the check reads. The icon-box test above is where
+     * the clipping rule lives, because there the box is bigger than the text.
      */
     @Test
     fun `the picker paints a composed sequence`() =
@@ -118,18 +134,15 @@ class ProjectIconEmojiRenderTest {
                 ScreenWithOwners {
                     IconPickerSheet(
                         currentIcon = null,
-                        recentEmojis = persistentListOf("🧑‍💻"),
+                        recentEmojis = persistentListOf(COMPOSED, SINGLE),
                         onPick = {},
                         onDismiss = {},
                     )
                 }
             }
 
-            val pixels =
-                onAllNodesWithText("🧑‍💻", useUnmergedTree = true)
-                    .onFirst()
-                    .captureToImage()
-                    .toPixelMap()
+            val composed = onAllNodesWithText(COMPOSED, useUnmergedTree = true).onFirst()
+            val pixels = composed.captureToImage().toPixelMap()
 
             // The chip has no background of its own, so the backdrop is the
             // colour that covers most of the chip's box — whatever it is on
@@ -156,6 +169,19 @@ class ProjectIconEmojiRenderTest {
                         abs(color.blue - Color(backdrop).blue) > INK_THRESHOLD
                 }
             assertTrue(ink > 0, "the picker chip painted nothing for the composed sequence")
+
+            val composedBounds = composed.getUnclippedBoundsInRoot()
+            val singleBounds =
+                onAllNodesWithText(SINGLE, useUnmergedTree = true)
+                    .onFirst()
+                    .getUnclippedBoundsInRoot()
+            val composedHeight = (composedBounds.bottom - composedBounds.top).value
+            val singleHeight = (singleBounds.bottom - singleBounds.top).value
+            assertTrue(
+                abs(composedHeight - singleHeight) <= 2f,
+                "the composed sequence is not laid out on one line: " +
+                    "$composedHeight tall beside a single emoji's $singleHeight",
+            )
         }
 
     private fun isInk(color: Color): Boolean =
@@ -175,6 +201,12 @@ class ProjectIconEmojiRenderTest {
         val BACKGROUND = Color.Magenta
 
         const val INK_THRESHOLD = 0.1f
+
+        /** The composed sequence the picker's chip is checked with. */
+        const val COMPOSED = "🧑‍💻"
+
+        /** A single emoji, the yardstick the composed chip's line height is read against. */
+        const val SINGLE = "😀"
 
         val SEQUENCES =
             listOf(
