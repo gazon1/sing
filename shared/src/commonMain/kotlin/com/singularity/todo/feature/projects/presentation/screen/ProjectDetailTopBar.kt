@@ -88,6 +88,13 @@ fun ProjectDetailTopBar(
                     modifier = Modifier.mapTestTagsAsResourceIds(),
                 ) {
                     DropdownMenuItem(
+                        text = { Text("Project brief") },
+                        onClick = {
+                            overflowMenuOpen = false
+                            actions.onGenerateBrief()
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text(if (isArchived) "Unarchive" else "Archive") },
                         onClick = {
                             overflowMenuOpen = false

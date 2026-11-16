@@ -27,6 +27,7 @@ import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.components.ActiveSheet
 import com.singularity.todo.feature.projects.presentation.components.ConfirmBlockedCloseDialog
 import com.singularity.todo.feature.projects.presentation.components.CurrentProjectContent
+import com.singularity.todo.feature.projects.presentation.components.ProjectBriefSheet
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
@@ -60,6 +61,7 @@ fun ProjectDetailContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val draftState by viewModel.draftState.state.collectAsStateWithLifecycle()
     val recentEmojis by viewModel.recentEmojis.collectAsStateWithLifecycle(persistentListOf())
+    val briefState by viewModel.briefState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     val actions = rememberProjectDetailActions(sheets = sheets, nav = nav, viewModel = viewModel)
@@ -172,6 +174,13 @@ fun ProjectDetailContent(
     // first request. The dialog is drawn from the state, so it survives a rotation
     // instead of disappearing under the user's finger.
     BlockedCloseDialog(content = contentState as? ProjectDetailUiState.Content, actions = actions)
+
+    // The brief is drawn over the whole screen, so it is not one of the overlay
+    // sheets: it has its own state, and it comes and goes with it.
+    ProjectBriefSheet(
+        state = briefState,
+        onDismiss = { actions.onDismissBrief() },
+    )
 }
 
 // ─── Blocked close ─────────────────────────────────────────────────────────────

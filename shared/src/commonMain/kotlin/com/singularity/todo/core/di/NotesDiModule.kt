@@ -27,7 +27,6 @@ import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUse
 import com.singularity.todo.feature.search.data.InternalLinkRepositoryImpl
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.scope.Scope
 import org.koin.dsl.module
 import kotlin.time.Clock
 
@@ -128,18 +127,3 @@ fun notesModule(): org.koin.core.module.Module =
             )
         }
     }
-
-/**
- * Reports an AI binding that exists but cannot be created.
- *
- * The note editor treats the AI as optional: a missing binding hides the AI
- * button, and a *broken* one must do the same rather than crash the editor. It
- * must not do the same *silently* — a broken binding is a defect, and this is
- * where it leaves a trace.
- */
-private fun Scope.reportBrokenAi(failure: Throwable) {
-    getOrNull<Logger>()?.w(
-        "An AI binding exists but cannot be created — the note editor continues without AI",
-        failure,
-    )
-}

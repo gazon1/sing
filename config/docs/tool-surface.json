@@ -303,7 +303,7 @@
             "name": "project_review",
             "toolClass": "ProjectReviewTool",
             "domain": "ai",
-            "description": "Review a project, identify risks, and suggest the next action.",
+            "description": "Review a project, identify risks, and suggest the next action. With a projectId the review is grounded in the project's own tasks, their health (fine, overdue, blocked or stagnant) and the notes attached to them; without one it reviews the task titles the caller names.",
             "readOnly": false,
             "destructive": false,
             "idempotent": false,
