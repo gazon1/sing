@@ -62,9 +62,43 @@ describe the current branch.
 Consequence for a title-only capture from Inbox: **four taps** — FAB, title,
 back (dismiss the IME), Save. Two of them are not needed for the task to exist.
 
-4. **A capture meets eight fields.** The hierarchy dump of the create screen
-   lists title, description, checklist, attachments, priority, estimate, due
-   date, start date.
+4. **The capture screen is not a two-field screen.** The device's hierarchy
+   dump of the create screen lists eight rows on the first screen: title,
+   description, checklist, attachments, priority, estimate, due date, start
+   date. That is what fits above the fold, not the whole form: the create
+   editor renders **twelve** fields in total — the eight above plus project,
+   tags, recurrence and pin (`TaskCreateScreen` passes callbacks for exactly
+   those four more; workflow-state, reminder, deadline and dependencies belong
+   to the detail flow). An earlier draft of this record said "a capture meets
+   eight fields"; that was the visible subset presented as the whole.
+
+### Tap-count comparison
+
+| Scenario | Taps | Basis |
+|---|---|---|
+| Current Create | 4 | **measured** on the device (FAB → title → back → Save) |
+| Create after the #2982 fixes | 2 | **projected** from the two fixes (FAB → Save); to be re-measured on a device once #2982 lands |
+| Quick Add (hypothetical composer) | 2 | **projected**; the surface does not exist in the repository |
+
+Method:
+
+- Only taps are counted. Typing the title is not a tap, and neither is
+  dismissing a keyboard that opened itself.
+- Opening and closing the IME are counted only when the user has to do them
+  for the action to be reachable. Today the user must close the IME to reach
+  Save (one tap); after the fixes the IME opens on its own and stays out of the
+  way (no tap).
+- A value is labelled *measured* only when it was observed on the device, and
+  *projected* when it follows from a change that is not implemented yet. The
+  second row becomes a measured row when #2982 is re-measured; the third row
+  cannot become one without building the surface.
+- The seeds do not change the tap sequence: the Today, project, tag and
+  calendar-day entries reach the same editor with a prefilled value, so they
+  are the same four / two / two.
+
+**Conclusion:** once the current Create is fixed, Quick Add has no proven
+advantage in taps. Any other advantage (the list staying visible, the editor
+not taking the screen) has to be argued separately.
 
 ### What could not be measured
 
@@ -76,34 +110,91 @@ frequency is claimed here — a guessed frequency cannot justify a new surface.
 
 ### Entry-point inventory
 
-| Entry point | Opens | Seeds | After save |
-|---|---|---|---|
-| Shell FAB — Today | `TasksStartRoute.Create()` | `today` via the graph's `initialDueDate` | back to the caller |
-| Shell FAB — Inbox / Upcoming / Blocked / Stagnant / Overdue | `Create()` | none | back to the caller |
-| Shell FAB — project drill-down | `Create(projectId)` | project | back to the caller |
-| Shell FAB — tag / multi-tag drill-down | `Create(tagIds)` | tags | back to the caller |
-| Agenda — section create | `Create(draftKey = agendaSection(id))` | section draft | back to the caller |
-| Agenda — multi-date pick | `Create(draftKey)` | dates in the draft | back to the caller |
-| Calendar — single day | `Create()` + `initialDueDate` | that day | back to the caller |
-| Calendar — multi-day pick | `Create(draftKey)` | days in the draft | back to the caller |
-| Desktop — "New Task" menu / Ctrl+N | `Create()` | none | back to the caller |
-| Projects — project detail inline composer | inline field, `CreateTaskUseCase` | title + project | stays in place |
-| Notes — inline `QuickAddRow` | inline field | title | opens the note editor |
+Every production path that creates a task, and what it opens:
 
-Every one of these already carries its context into the editor, and the
-return-to-source-tab contract is covered by `Maestro/flows/tasks/16-return-to-source-tab.yaml`.
+| Entry point | Opens | Seeds | `draftKey` | Expected scenario |
+|---|---|---|---|---|
+| Shell FAB — Today | `TasksStartRoute.Create()` + graph `initialDueDate` | today | `null` | capture with a date |
+| Shell FAB — Inbox / Upcoming / Blocked / Stagnant / Overdue | `Create()` | none | `null` | pure capture |
+| Shell FAB — project drill-down | `Create(projectId)` | project | `null` | capture in a project |
+| Shell FAB — tag drill-down | `Create(tagIds)` | one tag | `null` | capture with a tag |
+| Shell FAB — multi-tag drill-down | `Create(tagIds)` | several tags | `null` | capture with tags |
+| Calendar — single day | `Create()` + `initialDueDate` | that day | `null` | capture with a date |
+| Calendar — multi-day pick | `Create(draftKey)` | the picked days, in a prepared draft | `calendar_multi_date` | prepared draft |
+| Agenda — section create | `Create(draftKey)` | the section's prefill, in a prepared draft | `agenda_section(id)` | prepared draft |
+| Agenda — multi-date pick | `Create(draftKey)` | the picked days, in a prepared draft | `agenda_multi_date` | prepared draft |
+| Desktop — "New Task" menu / Ctrl+N | `Create()` | none | `null` | pure capture |
+| Projects — project detail inline composer | an inline field, `CreateTaskUseCase` | title + project | — | capture in place |
+| Notes — inline `QuickAddRow` | an inline field | title | — | capture in place |
+| Search | nothing — the search screen does not create tasks | — | — | — |
+| MCP server | its own path, not the UI | — | — | — |
+
+`TasksNavigator.openCreate(initialDueDate)` exists but has no production
+caller (the preview helper overrides it with a no-op); it is not an entry
+point.
+
+Two things the table says plainly:
+
+- Every entry point that opens `TaskCreateScreen` already carries its context
+  into the editor, and the return-to-source-tab contract is covered by
+  `Maestro/flows/tasks/16-return-to-source-tab.yaml`.
+- **Every capture entry point passes `draftKey == null`, and every entry point
+  that passes a `draftKey` opens a prepared draft.** See the next section.
+
+### What `draftKey` actually means
+
+`draftKey` is not a scenario type. It is the key under which a *prepared
+draft* was written to the `DraftStore` before the editor opened; the editor
+restores that draft instead of starting empty, and `TaskCreateViewModel`
+cleans up exactly that key on save or discard. Auditing every production
+caller:
+
+- Three flows pass a `draftKey`: the agenda section create
+  (`TaskDraftKeys.agendaSection(id)`), the agenda multi-date pick
+  (`AGENDA_MULTI_DATE`) and the calendar multi-date pick
+  (`CALENDAR_MULTI_DATE`). Each of them **writes the prepared draft first**
+  (`AgendaViewModel`, `CalendarViewModel`) and then opens the editor with the
+  key of what it wrote.
+- Every other flow passes `null`: the FAB variants, the calendar single-day
+  entry, and the desktop menu / Ctrl+N.
+
+So `draftKey == null` and "this is a capture flow" coincide today — but they
+coincide because the prepared-draft flows are the only ones that prepare a
+draft, not because the key says so. Three things must stay apart:
+
+- the **absence of a draft id** — "there is nothing to restore";
+- the **user's intent** — what the person came to do (unknowable from the
+  route);
+- the **type of the UI scenario** — capture vs. prepared draft.
+
+**Decision:** do not add a route field. The rule "`draftKey == null` ⇒ the
+editor focuses the title" is correct for every caller that exists, needs no
+new plumbing, and cannot drift away from the seeded flows as long as the
+mapping holds. **But it is an invariant, not a type**, and it is recorded as
+one here: if a capture flow ever needs its own draft key (per-tab drafts, a
+draft per list), the inference breaks and an explicit flag must replace it
+before that happens. A regression test pins the current mapping so the change
+cannot land silently.
+
+The historical reason the title does not grab the focus is narrower than it
+looks. `TaskTitleRow` says the flows that fill the create editor "scroll it
+into view first, and an IME opening under them changes what that scroll
+means". The create editor does not scroll imperatively today — the only scroll
+in it is the column's own, and `bringIntoViewOnFocus` follows a focus that
+already happened. The prepared-draft flows are therefore left alone by the
+focus rule as a conservative choice, not because a scroll exists.
 
 ### Scenario matrix
 
 | Scenario | Current flow (measured) | Quick Add candidate | Verdict |
 |---|---|---|---|
-| 1. Inbox capture | FAB → tap title → type → dismiss IME → Save; 4 taps, no context | FAB → sheet → type → Add; list stays visible | Candidate is not cheaper in taps; the gap is the two extra taps, not the surface |
-| 2. Today capture | as above; date pre-filled and visible in the editor | same + a date chip | Same conclusion; the prefill already shows the context |
-| 3. Project capture | as above; project row visible in the editor | same + a project chip | Same |
-| 4. Tag-scoped capture | as above; tags row visible | same + tag chips | Same |
-| 5. Calendar capture | `Create()` + `initialDueDate`; date visible in the editor | sheet + date chip | Same; a chip and an editor row carry the same information |
+| 1. Inbox capture | FAB → tap title → type → dismiss IME → Save; 4 taps, no context | FAB → composer → type → Add; 2 taps, the list stays visible | No proven advantage in taps; the advantage, if any, is that the list stays visible |
+| 2. Today capture | as above; the date is pre-filled and visible in the editor | the same, plus a date chip | Same conclusion; the prefill already shows the context |
+| 3. Project capture | as above; the project row is visible in the editor | the same, plus a project chip | Same |
+| 4. Tag-scoped capture | as above; the tags row is visible | the same, plus tag chips | Same |
+| 5. Calendar capture | `Create()` + `initialDueDate`; the date is visible in the editor | a sheet plus a date chip | Same; a chip and an editor row carry the same information |
 | 6. Capture then enrich | Save → back to the list → tap the task → Detail (1 tap) | Save → Detail (0 taps) | The candidate saves one tap, at the cost of a new route and a new event contract |
-| 7. Cancel / interruption | Autosaved draft survives process death under a scoped key; the back guard asks before discarding | own draft key, own cleanup policy | The candidate adds a second draft to keep apart from the full-create draft — a risk the issue itself names |
+| 7. Cancel / interruption | the autosaved draft survives process death under a scoped key; the back guard asks before discarding | its own draft key, its own cleanup policy | The candidate adds a second draft to keep apart from the full-create draft — a risk the issue itself names |
 
 ## Decision
 
@@ -111,17 +202,13 @@ return-to-source-tab contract is covered by `Maestro/flows/tasks/16-return-to-so
 state machine, no duplicated validation, no second draft key.
 
 **The capture gap is closed inside the existing Create flow**, as a bounded
-implementation issue of its own:
+implementation issue of its own (#2982):
 
 1. **Title-first focus.** The create screen focuses the title when it was
-   opened as a capture — that is, when no `draftKey` was passed. A `draftKey`
-   means a prepared draft (agenda section, agenda multi-date, calendar
-   multi-date): those flows scroll the editor to a row, and the code already
-   warns that an IME opening under that scroll changes what the scroll means.
-   The rule "`draftKey == null` ⇒ focus the title" needs no new route field,
-   no new seed field and no new plumbing, and cannot drift from the seeded
-   flows: the same condition that says "this editor has a prepared draft" says
-   "do not steal the focus".
+   opened as a capture — that is, when no `draftKey` was passed. The rule is
+   an invariant of today's callers, not a new route field; see
+   "What `draftKey` actually means". The prepared-draft flows (agenda section,
+   agenda multi-date, calendar multi-date) are left as they are.
 2. **The Save button stays reachable with the keyboard open.** `TaskSaveBar` is
    used by `TaskCreateScreen` only, so giving it `imePadding()` is a
    create-only change.
@@ -141,10 +228,13 @@ return-to-source-tab contract that Maestro pins.
 **The measured gap is two defects, not a missing surface.** Everything the
 measurement found is attributable to two properties of the existing screen: the
 title does not take focus, and the save bar sits under the IME. Fixing those
-removes 100% of the measured cost of capture. A second surface would remove
-the same two taps while adding a route, a state owner, a draft key to keep
-apart from `task_create_draft`, a seed contract of its own, an "expand to the
-full editor" path back into the editor, and a test matrix for all of it.
+removes the two measured frictions — the manual move of the focus onto the
+title, and the manual dismissal of the keyboard to reach Save. It does not
+remove the whole cost of capture: the twelve-field form is still there, and
+that cost is neither measured nor disputed here. A second surface would
+remove the same two taps while adding a route, a state owner, a draft key to
+keep apart from `task_create_draft`, a seed contract of its own, an "expand to
+the full editor" path back into the editor, and a test matrix for all of it.
 
 **A title-first surface is already the house pattern — inline, not a route.**
 The notes list and the project detail both capture with a title-only field
@@ -184,14 +274,16 @@ already own.
 
 ### Negative / risks
 
-- The create screen still shows eight fields for a title-only capture. That
-  cost is visual, not interactive, and it is an assumption rather than an
-  observation — no user study has been run.
+- The create screen still shows twelve fields for a title-only capture, eight
+  of them above the fold. That cost is visual, not interactive, and it is an
+  assumption rather than an observation — no user study has been run.
 - Rapid multi-capture stays "FAB → type → Save → list". The Quick Add
   candidate would not have been faster here either: it also leaves the list.
-- Autofocus interacts with the flows that scroll the editor. The
-  `draftKey == null` rule keeps those flows out of it, and the regression
-  suites for the agenda and calendar multi-date paths are the guard.
+- Autofocus interacts with the prepared-draft flows. The `draftKey == null`
+  rule keeps those flows out of it, and the regression suites for the agenda
+  and calendar multi-date paths are the guard. If the mapping of entry points
+  to `draftKey` ever changes, the rule has to change with it — the invariant
+  is recorded above and pinned by a test.
 
 ### Non-goals
 
@@ -203,13 +295,20 @@ already own.
 ### Trigger to reopen
 
 Reopen #2886 when a measurement shows that the *surface* is the problem, not
-the two taps. The measurement is available today and needs no new code: over
-the tasks a user has created, count the share that carry **only a title** —
-empty description, no checklist, no recurrence, no priority, no estimate, no
-attachments. If that share is high, the authoring fields in the create screen
-are dead weight for most captures, and a compact composer earns its cost. If
-the share is low, users do author in the create screen and the full editor is
-the right surface.
+the two taps. The cheapest available signal is a heuristic: over the tasks a
+user has created, count the share that carry **only a title** — empty
+description, no checklist, no recurrence, no priority, no estimate, no
+attachments.
+
+Its limits, stated so it is not read as more than it is:
+
+- it is a proxy, not the user's intent — a task with only a title can be a
+  deliberate one-line capture or a task the person intends to enrich later;
+- a low share does not prove that the full editor is the right surface; it
+  only means this particular signal does not argue for a compact composer;
+- the heuristic needs no new code and no analytics, but a real answer needs a
+  real sample — the repository has none, and the device data is test residue;
+- it is one input among several, not a product requirement.
 
 Until such a measurement exists, the honest position is the one this record
 takes: the flow was made faster; whether it should also be made smaller is
@@ -217,12 +316,15 @@ still unknown.
 
 ## Links
 
-- Issue #2886 (the decision), #2872 (parent programme), #2871 (the comparison
+- Issue #2886 (the decision), #2982 (the bounded implementation of the
+  capture-first fix), #2872 (parent programme), #2871 (the comparison
   research).
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskTitleRow.kt`
   — focus follows a tap, never the field's existence.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskSaveBar.kt`
   — used by the create screen only; no `imePadding()` today.
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskDraftKeys.kt`
+  — the prepared-draft keys; the only three callers that pass one.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/usecase/CreateTaskFromDraft.kt`
   — already returns the created `TaskId`.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskCreateViewModel.kt`
