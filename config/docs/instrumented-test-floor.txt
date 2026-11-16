@@ -73,11 +73,11 @@
 # closing. The scenario had no test at any tier: `PopupReachabilityTest` opens the menu
 # and never presses a row.
 #
-# The rewrite was taken from a full run that delivered 13 classes and 36 tests. Two
-# of those 36 — both in `MenuSheetBoundsTest` — failed with `StaleObjectException`,
-# and that is worth stating plainly rather than burying: the floor records what the
-# suite *delivered*, not what passed, so the numbers are sound, but the run was not
-# green.
+# The rewrite was taken from a full run that delivered 15 classes and 47 tests.
+# Three of those 47 failed — the two `MenuSheetBoundsTest` cases described below
+# and one `TaskDetailImeInsetsTest` case — and that is worth stating plainly
+# rather than burying: the floor records what the suite *delivered*, not what
+# passed, so the numbers are sound, but the run was not green.
 #
 # The failure is not this change's, and that was measured rather than assumed:
 # `MenuSheetBoundsTest` fails 2/2 on this device with `TaskDetailOverflowActionsTest`
@@ -87,9 +87,18 @@
 # older than this change. It is not fixed here — that would be a different PR — but it
 # means a `connectedDebugAndroidTest` run on this device is red for a reason this
 # branch does not cause, and nobody should read that red as this change's.
+# `TaskDetailImeInsetsTest` measures where the focused fields sit above the soft
+# keyboard, and it failed on a host that was busy running this suite; nothing in
+# this change touches the task detail's fields or the insets.
+#
+# What this raise added is one class and nine tests: `IconPickerCustomInputTest`
+# — the icon picker's free-text field on a device (the field's `trim()` contract,
+# and the sheet drawing a composed sequence as one node). The suite's own growth
+# is what the floor had to follow, and a floor that does not follow stops asking
+# its question.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
-classes 14
-tests 38
+classes 15
+tests 47
 skipped 0
 # GENERATED:END
