@@ -129,6 +129,7 @@ profile_create_name_input field
 profile_item_personal item
 profile_item_work item
 project_card_childless item
+project_card_custom_emoji_flow item
 project_card_emoji_flow item
 project_card_latecomer item
 project_card_project_alpha item
@@ -139,6 +140,8 @@ project_detail_children_chip button
 project_detail_quick_add field
 project_detail_tasks_header text
 project_editor_name_input field
+project_icon_custom_add button
+project_icon_custom_field field
 project_icon_no_matches text
 project_icon_search field
 projects_create_button button
