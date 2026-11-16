@@ -1,12 +1,21 @@
 package com.singularity.todo.core.text
 
 /**
- * Number of visible characters in this string.
+ * The number of Unicode code points in this string.
  *
  * [String.length] counts UTF-16 code units, so a character outside the Basic
  * Multilingual Plane — every emoji above U+FFFF, `🎉` among them — is charged
- * twice. A name the user reads as 25 characters measures 50 and is rejected by a
- * 50-character limit that its own error message says it satisfies.
+ * twice. Counting code points instead charges such a character once.
+ *
+ * This is a code-point count, not a count of visible characters and not a count
+ * of grapheme clusters: `🇬🇧` is 2, `🧑‍💻` is 3, `👨‍👩‍👧‍👦` is 7. The helper stays
+ * because it is a pure count with no provider behind it — the library's
+ * emoji-aware count knows only its own catalog and needs an installed provider
+ * (ADR `2026-11-13-the-emoji-helpers-have-no-library-equivalent.md`).
+ *
+ * Which quantity a name limit should bound — code points, catalog-recognized
+ * emoji units or grapheme clusters — is open in #2933. Until that decision,
+ * the behavior stays as it is, so names already accepted stay accepted.
  *
  * Use this wherever the limit is one a person reads as "characters". Do **not**
  * use it for a limit defined over an alphabet that is already ASCII: there the

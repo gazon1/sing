@@ -22,7 +22,9 @@ wrapped in the menu and the picker; the menu also passed the project name as the
 description, so a screen reader announced the same project twice.
 
 The parent issue (#2861) rules out both extremes: one universal row composable for every surface,
-and a second identity model or emoji library.
+and a second identity model. The emoji library is no longer ruled out: #2917 adopted Vanniktech
+for the shared emoji data, and this decision adds no emoji infrastructure of its own (ADR
+`2026-11-16-the-emoji-library-owns-the-data-and-the-app-owns-the-glyph.md`).
 
 ## Idea
 
@@ -66,8 +68,10 @@ owns `size`, `tint` and selection; the resolver, fallback and glyph rendering do
 - **One line is a property of the row, not of the title.** The menu and the picker are compact
   scanned lists; the card has room to wrap. Keeping the policy on the two compact surfaces avoids a
   global truncation rule the card does not need.
-- **No new dependency or abstraction.** The issue forbids an emoji library, a sprite sheet, a
-  duplicate resolver and a global row-height abstraction; this decision adds none.
+- **No new abstraction.** The issue forbids a sprite sheet, a duplicate resolver and a global
+  row-height abstraction; this decision adds none. The app-wide emoji infrastructure is
+  Vanniktech's (ADR `2026-11-16-the-emoji-library-owns-the-data-and-the-app-owns-the-glyph.md`):
+  the library owns the catalog and the search, this decision owns the glyph.
 
 ## Consequences
 
@@ -79,19 +83,21 @@ owns `size`, `tint` and selection; the resolver, fallback and glyph rendering do
 - The card keeps its 32dp colour circle and 20dp glyph — the contract fixes the glyph source, not
   the layout.
 - Hierarchy, row height and search in the picker remain out of scope (#2864, #2865, #2866).
-- Tests: `ProjectIconResolverTest` pins composed sequences and the fallback;
-  `desktopApp … ProjectIdentityTest` pins the fallback seam, the menu row's one-line policy, its
-  `Role.Button` and expander independence; `ProjectPickerSemanticsTest` pins `selected` on project
-  rows and "No project" and a single `onSelect` per tap; Android `ProjectIconEmojiRenderTest` pins
-  that the four composed sequences paint inside the icon box without clipping, and the compact row
-  on the platform.
+- Tests: `desktopApp … ProjectIdentityTest` pins the fallback seam, the stored glyph reaching the
+  text layer, the menu row's one-line policy, its `Role.Button` and expander independence;
+  `ProjectPickerSemanticsTest` pins `selected` on project rows and "No project" and a single
+  `onSelect` per tap; Android `ProjectIconEmojiRenderTest` and the desktop
+  `ProjectIconEmojiRenderTest` pin that the composed sequences paint inside the icon box without
+  clipping, each on its own platform.
 
 ## Links
 
-- Issues: #2863, parent #2861, follow-ups #2864, #2865, #2866, #2867
+- Issues: #2863, parent #2861, follow-ups #2864, #2865, #2866, #2867; the emoji-library
+  constraint is revisited by #2922
 - Research: `docs/research/2862-project-navigation-comparison.md`
-- Code: `feature/projects/.../components/ProjectIcon.kt`, `ProjectIconResolver.kt`,
-  `ProjectIconRegistry.kt`, `feature/projects/.../components/ProjectTreeSection.kt`,
+- Code: `feature/projects/.../components/ProjectIcon.kt`,
+  `feature/projects/.../components/ProjectTreeSection.kt`,
   `feature/tasks/.../ProjectPickerSheet.kt`
 - Decisions: `2026-11-12-android-menu-roots-only.md`,
-  `2026-11-10-the-menu-projects-section-is-folded-by-default.md`
+  `2026-11-10-the-menu-projects-section-is-folded-by-default.md`,
+  `2026-11-16-the-emoji-library-owns-the-data-and-the-app-owns-the-glyph.md`

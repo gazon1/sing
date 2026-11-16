@@ -50,6 +50,31 @@ import com.singularity.todo.feature.projects.domain.logic.customEmojiFromInput
 import com.vanniktech.emoji.EmojiCategory
 import kotlinx.collections.immutable.ImmutableList
 
+/**
+ * The sheet where a project gets its icon.
+ *
+ * The icon is picked from the library's catalog, from the recently used row, or
+ * typed into the free-text field at the bottom.
+ *
+ * The free-text field's contract is the app's own:
+ *
+ * - it takes **any** text. It is not restricted to one emoji and not checked
+ *   against the catalog, because the provider holds some of the app's own
+ *   forms (`🕊️`, `1️⃣`) as *variants* rather than as entries of their own, so
+ *   "is it in the catalog?" is the wrong question;
+ * - the text is **trimmed** — the characters Kotlin's `trim()` removes at the
+ *   ends (spaces, tabs, line breaks and the Unicode space separators, a
+ *   no-break space or an em space among them) are dropped and everything else
+ *   is kept, the inner characters included — and then taken as it is: no
+ *   normalization, no stripped variation selector, no split ZWJ sequence;
+ * - an empty or whitespace-only field adds nothing. The sheet stays open and
+ *   nothing is picked, so a stray space cannot become a project icon.
+ *
+ * #2932 owns the product decision on whether stricter validation belongs
+ * here. Until then this is the behavior, and it is pinned by
+ * `CustomEmojiInputTest` (shared), `IconPickerCustomEmojiTest` (desktop) and
+ * `IconPickerCustomInputTest` (Android).
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun IconPickerSheet(

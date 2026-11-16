@@ -49,18 +49,27 @@ import android.graphics.Color as AndroidColor
  * says nothing about a font. This test renders the same four composed sequences
  * on a device, inside the icon box, and asserts:
  *
- * - the sequence reaches the platform as one text node;
+ * - the sequence reaches the platform as one text node — a node carrying the
+ *   whole sequence, not one node per piece;
  * - the box has ink, so a glyph was painted;
  * - no ink touches the box's border, so the drawn glyph is not clipped — which
  *   is what a sequence the font refuses to compose looks like (two glyphs are
- *   wider than the 24dp box and get clipped at its edge);
- * - the text is one line tall.
+ *   wider than the 24dp box and get clipped at its edge).
+ *
+ * The text is on one line by construction rather than by assertion:
+ * `ProjectIcon` sets `maxLines = 1` and `softWrap = false`, so a sequence that
+ * the font would lay out as two glyphs is clipped instead of wrapped, and the
+ * border rule above is what catches it.
  *
  * It does not fingerprint which glyph the font chose: two different composed
  * renderings both paint inside the box, and telling them apart needs a golden
  * image, not a rule. A font that lacks the sequence draws one tofu box, which
  * also paints inside the box without touching the border — the ink rule cannot
  * catch that. The bound is stated rather than hidden.
+ *
+ * The desktop has its own `ProjectIconEmojiRenderTest`, which checks the
+ * centring this one does not: an Android screenshot says nothing about how the
+ * desktop draws anything.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest

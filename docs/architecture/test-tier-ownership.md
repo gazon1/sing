@@ -22,8 +22,53 @@ not.
 | secure store recovery | desktop JVM | the decision — erase and reopen — is pure, and the JVM tier asserts all three of its outcomes | **kept deliberately** — the device class is not the recovery policy: it is the real `EncryptedSharedPreferences`/Keystore IO, which no fake can stand in for. The recovery in a fresh process is covered by `Maestro/flows/auth/12-unreadable-store-recovers.yaml`, because the keystore caches its keyset per process. | desktop JVM + device |
 | create a task from the FAB | desktop JVM | the desktop flow test drives the FAB and the editor that opens from it, in seconds | **removed** — the device copy asserted the same scenario; the instrumented floor is updated below and the loss acknowledged. The device tier keeps the FAB's *visibility* contract in `NavigationSmokeTest` — which tab shows it — which is a different assertion about a different thing. | desktop JVM |
 | shell / navigation reachability | desktop JVM | the JVM tier renders the *desktop* shell, and the reachability of that shell is what it asserts | **kept deliberately** — only a device can observe the *Android* shell (`AndroidShellNav3`), which is a different shell with a different set of destinations; the device copy is that observation, not a second copy of the desktop one. The Maestro smoke flow stays as the device-level entry check. | desktop JVM + device + Maestro |
-| custom emoji entry: the typed value becomes the project's icon | the rule in common code (`customEmojiFromInput`, asserted by `CustomEmojiInputTest`) | the rule is one function, and it is the same function every platform calls | **kept deliberately** — the desktop test drives the *sheet*: it proves what the field holds is what the button hands back. The device flow drives the *app*: the platform keyboard, the sheet, and the icon the project draws. A value that never leaves the field, or that the app drops on the way to the project, is invisible to the desktop copy — so the device copy asserts the other half, not the same half twice. | desktop JVM + device (Maestro) |
+| custom emoji entry: the typed value becomes the project's icon | the rule in common code (`customEmojiFromInput`, asserted by `CustomEmojiInputTest`) | the rule is one function, and it is the same function every platform calls | **kept deliberately** — the desktop test drives the *sheet*: it proves what the field holds is what the button hands back. The device flow drives the *app*: the platform keyboard, the sheet, and the icon the project draws. A value that never leaves the field, or that the app drops on the way to the project, is invisible to the desktop copy — so the device copy asserts the other half, not the same half twice. | desktop JVM + device (instrumentation + Maestro) |
 | a project icon crosses the persistence boundaries unchanged | desktop JVM | the boundaries are our own code — the column, the backup DTO and the sync document — and the rule is one string crossing all of them | **kept deliberately** — the boundary test walks the model and the mappers, not a database, so `ProjectIconRoomRoundTripTest` writes the composed sequences into a real SQLite and reads them back. The device flow sees the icon *drawn*, not the bytes. | desktop JVM (mapper + real SQLite) |
+
+## The emoji scenarios, by tier
+
+The emoji work (#2917 and the issues under it) has its own rows, because the rule
+is one rule and the platforms only differ in what they can *see*.
+
+| Scenario | Shared rule | Desktop JVM | Android device | Maestro |
+|---|---|---|---|---|
+| the custom field's rule: blank picks nothing, a value is trimmed and taken as it is | `CustomEmojiInputTest` — one function (`customEmojiFromInput`), called by every platform | `IconPickerCustomEmojiTest` — the desktop sheet: what the field holds is what the button hands back | `IconPickerCustomInputTest` — the device sheet and the device's own field | `projects/05-custom-emoji.yaml` — the whole scenario, on a device |
+| a composed sequence keeps its code points (ZWJ, flag, skin tone, variation selector, keycap) | the same rule, over `COMPOSED_PROJECT_ICONS` | the picker's own value is handed back unchanged | the device picks one and the sheet draws it as one node | the flow types a ZWJ sequence and the project draws it |
+| a value the catalog does not know is still a value | the same rule, over the unknown values | the field hands back what was typed | the device field does the same | — |
+| the icon crosses the storage boundaries unchanged | `ProjectIconBoundaryTest`, `ProjectDocumentWriteTest`, `BackupRoundTripTest`, `ProjectIconRoomRoundTripTest` | the mapper and a real SQLite | the device flow sees the icon *drawn*, not the bytes | — |
+| the platform's own font draws the sequence as one glyph | — | `ProjectIconEmojiRenderTest` — the desktop font's pixels: the ink fits the box, touches no edge, sits in the middle | `ProjectIconEmojiRenderTest` (Android) — the device font's pixels: ink is there and touches no edge | the flow sees the glyph in the app, not its metrics |
+
+**The platform copies are not copies.** Each one observes something the shared rule
+cannot:
+
+- **Android owns its own text input.** The device test drives the sheet on a
+  real device and puts the text into the field through the platform's own
+  text-input pipeline — the action the device's field implements, not a string
+  the test hands to the repository. The **real IME** is the Maestro flow's: it
+  types through the platform keyboard on a device, which is the only place the
+  keyboard itself is exercised, and it is the flow that owns the whole user
+  scenario anyway. The desktop test types with the desktop's own input.
+- **Desktop owns Compose Desktop's own drawing.** The desktop font and the device
+  font are different fonts, and a font that composes a sequence on one platform can
+  draw it as two glyphs on the other — the desktop render test measures the
+  desktop's pixels, the Android one measures the device's.
+- **Maestro owns the whole user scenario.** The keyboard, the pick, the project
+  that draws the emoji and the project that is reopened afterwards. No unit test
+  walks that path, and no unit test should.
+
+**The desktop's render observations are not observable on a device, so they are
+not ported on purpose.** They are the desktop's own observations — how its font
+draws a sequence, how its chip breaks a line — and a device copy would assert
+the device's font, not the desktop's. The picker's field contract is the other
+way round: the desktop's `IconPickerCustomEmojiTest` and the device's
+`IconPickerCustomInputTest` cover the same rule on their own platforms, each
+with the platform's own field. The device tier keeps what only a device can
+observe: the platform keyboard, the real IME, the system font.
+
+**What no tier can see** is which glyph the font chose: a font without the
+sequence draws one tofu box, and the ink rules cannot tell that from a composed
+glyph. The bound is stated in the render test's own documentation rather than
+left to a reader to discover.
 
 ## What was removed, and what the floors say
 
@@ -37,10 +82,11 @@ Three copies went, each because the scenario had an owner that could assert it:
 
 The instrumented tier lost one class and three tests; `TaskEditorDraftTest` later
 added one class and two tests for a scenario only a device can observe (a persisted
-draft being restored). `config/docs/instrumented-test-floor.txt` records 8 classes
-and 25 tests, with the loss acknowledged in that file's notes rather than regenerated
-silently. The android host tier lost four tests, and its six classes deliver 13
-again — the number `config/docs/test-runs-baseline.txt` records.
+draft being restored). `config/docs/instrumented-test-floor.txt` records the tier's
+current floor — fifteen classes and forty-eight tests — with the loss acknowledged in
+that file's notes rather than regenerated silently. The android host tier lost four
+tests, and its six classes deliver 13 again — the number
+`config/docs/test-runs-baseline.txt` records.
 
 ## The four features that had no end-to-end flow
 

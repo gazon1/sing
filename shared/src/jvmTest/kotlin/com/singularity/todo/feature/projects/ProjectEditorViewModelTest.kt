@@ -172,6 +172,39 @@ class ProjectEditorViewModelTest {
             assertEquals(Emoji("🧑‍💻"), vm.stateFlow.value.icon)
         }
 
+    /**
+     * A composed sequence is what the saved project stores.
+     *
+     * The picker hands the icon over as a string of code points, and this is
+     * the rest of that path: the sequence reaches the repository unchanged, so
+     * what a project stores is what the user saw in the field. The value here
+     * is a ZWJ family — seven code points that a boundary that normalizes,
+     * splits or drops a code point would change on the way through.
+     *
+     * The free-text value is pinned one link further up, by the picker's own
+     * tests on both platforms (`IconPickerCustomEmojiTest` on the desktop,
+     * `IconPickerCustomInputTest` on Android): the field holds "rocket ship"
+     * with its inner space, and hands that back unchanged. This test is about
+     * the link between the picker and the repository, and the sibling test
+     * above it covers that link for a picked emoji.
+     */
+    @Test
+    fun `a composed sequence is what the saved project stores`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
+            vm.onIntent(ProjectEditorIntent.IconChanged(Emoji("👨‍👩‍👧‍👦")))
+            vm.onIntent(ProjectEditorIntent.Save)
+
+            val saved = fakeProjectsRepo.observeAll().first().single()
+            assertEquals(
+                Emoji("👨‍👩‍👧‍👦"),
+                saved.icon,
+                "the sequence the picker handed over is what the repository stores",
+            )
+            assertEquals(Emoji("👨‍👩‍👧‍👦"), vm.stateFlow.value.icon)
+        }
+
     @Test
     fun `no icon at all is not remembered`() =
         runTest {

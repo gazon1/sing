@@ -117,6 +117,26 @@ class CustomEmojiInputTest {
     }
 
     @Test
+    fun `a character that is not whitespace stays at the edge`() {
+        // `trim()` removes the characters for which Kotlin says `isWhitespace`
+        // holds, and nothing else. A zero-width space is not one of them — it is
+        // neither a space separator nor a control character — so it survives the
+        // trim. The pin is that the rule is Kotlin's `trim()` and not a Unicode
+        // whitespace parser of this repository's own: the contract promises
+        // "trimmed, then taken as it is", not "stripped of the invisible".
+        assertEquals(
+            Emoji("\u200B🚀"),
+            customEmojiFromInput("\u200B🚀"),
+            "a zero-width space is not whitespace, so it stays",
+        )
+        assertEquals(
+            Emoji("🚀\u200B"),
+            customEmojiFromInput("🚀\u200B"),
+            "and it stays at the other end too",
+        )
+    }
+
+    @Test
     fun `an unknown sequence is a value, not a rejection`() {
         // A sequence no catalog lists, and a lone joiner: the picker has no
         // opinion about either, so it keeps what it was given.
