@@ -120,13 +120,22 @@ internal object ProjectBriefSupport {
         val buckets = open.map { rules.bucketOf(it, context) }
 
         val ordered = open.sortedWith(TaskPlanSupport.ORDER)
+
+        // The notes are read from the store already cut: the page is bounded by the
+        // query, so a project with a thousand attached notes still costs one small
+        // read and one short excerpt each. The total is a count of its own, so the
+        // prompt can say that the page is partial instead of implying it is all.
         val notes =
             if (projectTasks.isEmpty()) {
                 emptyList()
             } else {
-                notesRepository
-                    .watchForTasks(projectTasks.map { it.id }.toSet())
-                    .first()
+                notesRepository.watchForProject(projectId, NOTE_LIMIT).first()
+            }
+        val notesTotal =
+            if (projectTasks.isEmpty()) {
+                0
+            } else {
+                notesRepository.countForProject(projectId)
             }
 
         return ProjectBrief(
@@ -141,8 +150,8 @@ internal object ProjectBriefSupport {
             stagnant = buckets.count { it == TaskHealthBucket.STAGNANT },
             tasks = ordered.take(TASK_LIMIT).map { TaskPlanSupport.planTask(it, all, context, rules) },
             tasksTotal = open.size,
-            notes = notes.sortedWith(NOTE_ORDER).take(NOTE_LIMIT).map { it.toBriefNote() },
-            notesTotal = notes.size,
+            notes = notes.sortedWith(NOTE_ORDER).map { it.toBriefNote() },
+            notesTotal = notesTotal,
         )
     }
 

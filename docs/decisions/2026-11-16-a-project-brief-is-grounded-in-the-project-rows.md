@@ -60,14 +60,20 @@ project. Ordering is `TaskPlanSupport.ORDER`, the one the planner and the list t
 use, so truncation is deterministic.
 
 The notes arrive as titles and short excerpts, not as a corpus: a brief is a summary of
-the project, and note bodies are not context a review needs in full. `NotesRepository`
-gained one batch read (`watchForTasks`) and `NoteDao` the query behind it. No
-`Note.projectId` column, no migration, no note-per-task watcher.
+the project, and note bodies are not context a review needs in full. The page is cut in
+the store, not in the brief: `NoteDao` answers `watchByProjectForUser` with a join over
+`notes.task_id → tasks.project_id` and a `LIMIT`, and `countByProjectForUser` counts the
+rest, so the read is bounded, the caller's list of task ids never reaches the statement,
+and the count is what lets the prompt say that the page is partial. `NotesRepository`
+carries the two reads. No `Note.projectId` column, no migration, no note-per-task
+watcher.
 
 The brief reaches the user through the Project Detail screen: an entry in the existing
 top-bar overflow menu, a sheet that shows it, and a `StateFlow` of states on
 `ProjectDetailViewModel`. No new top-level destination, no second review tool, and no
-write path — the tool has none, so a suggestion cannot become a mutation.
+write path — the tool has none, so a suggestion cannot become a mutation. Closing the
+sheet cancels the request in flight, so an answer that arrives after the user closed it
+does not open the sheet again.
 
 ## Rationale
 
@@ -100,8 +106,8 @@ the facts do not carry.
   instead of reviewing a name.
 - The prompt gained one paragraph about facts versus invention, and a user prompt for
   the brief.
-- `NotesRepository` and `NoteDao` carry one batch read each, and the fake counts the
-  calls so a test can assert that a project's notes are read once.
+- `NotesRepository` and `NoteDao` carry one bounded read and one count each, and the
+  fake counts the calls so a test can assert that a project's notes are read once.
 - The brief is bounded by the page it carries; a project with fifty-five tasks states
   that five were left out.
 - The Project Detail screen gained an action and a sheet, not a destination.

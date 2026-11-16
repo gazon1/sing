@@ -25,7 +25,6 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
@@ -581,16 +580,20 @@ class NotesRepositoryImpl(
                 .map { list -> list.map { it.toNote() } }
         }
 
-    override fun watchForTasks(taskIds: Set<TaskId>): Flow<List<Note>> =
+    override fun watchForProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>> =
         currentUser.observeForCurrentUser { uid ->
-            if (taskIds.isEmpty()) {
-                flowOf(emptyList())
-            } else {
-                noteDao
-                    .watchByTasksForUser(taskIds.map { it.value }, uid.value)
-                    .map { list -> list.map { it.toNote() } }
-            }
+            noteDao
+                .watchByProjectForUser(projectId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
         }
+
+    override suspend fun countForProject(projectId: ProjectId): Int {
+        val uid = currentUser.scopedUserId.value
+        return noteDao.countByProjectForUser(projectId.value, uid.value)
+    }
 
     override suspend fun createForTask(
         id: NoteId,

@@ -226,7 +226,7 @@ class ProjectReviewToolTest {
             tasks.add(task(id = "two", title = "Second task", projectId = ProjectId("launch")))
             val projects = FakeProjectsRepository()
             projects.add(project("launch"))
-            val notes = FakeNotesRepository()
+            val notes = FakeNotesRepository(projectOfTask = { id -> tasks.tasks.value[id.value]?.projectId })
             notes.add(note("n1", "Kickoff notes", "one"))
             notes.add(note("n2", "Second thoughts", "two"))
             val executor = FakePlanExecutor("A short paragraph.")
@@ -238,8 +238,13 @@ class ProjectReviewToolTest {
             assertTrue(text.contains("Some context about Kickoff notes"), text)
             assertEquals(
                 1,
-                notes.watchForTasksCalls,
+                notes.watchForProjectCalls,
                 "the notes of a project are read in one batch, not one read per task",
+            )
+            assertEquals(
+                1,
+                notes.countForProjectCalls,
+                "the total behind the page is counted in one read",
             )
         }
 
@@ -266,7 +271,7 @@ class ProjectReviewToolTest {
             tasks.add(task(id = "one", title = "First task", projectId = ProjectId("launch")))
             val projects = FakeProjectsRepository()
             projects.add(project("launch"))
-            val notes = FakeNotesRepository()
+            val notes = FakeNotesRepository(projectOfTask = { id -> tasks.tasks.value[id.value]?.projectId })
             repeat(25) { index ->
                 notes.add(note("n" + index.toString().padStart(2, '0'), "Note $index", "one"))
             }

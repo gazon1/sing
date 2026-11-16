@@ -2818,6 +2818,14 @@ open class FakeAttachmentRepository(
 open class FakeNotesRepository(
     private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
     private val clock: Clock = FakeClock(),
+    /**
+     * Which project a task belongs to.
+     *
+     * The fake's stand-in for the join the store runs — `notes.task_id →
+     * tasks.project_id` — so a test that wants the notes of a project's tasks
+     * says which project its tasks are in.
+     */
+    private val projectOfTask: (TaskId) -> com.singularity.todo.feature.projects.domain.model.ProjectId? = { null },
 ) : com.singularity.todo.feature.notes.domain.port.NotesRepository {
     /** Exposes raw store map for tests that need direct map access. */
     val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store.state.value
@@ -3330,23 +3338,56 @@ open class FakeNotesRepository(
         }
 
     /**
-     * How many times the notes of a set of tasks were asked for.
+     * How many times the notes of a project were asked for.
      *
-     * The batch form exists so that a caller does not read the notes of a project
+     * The project form exists so that a caller does not read the notes of a project
      * one task at a time; this count is what a test asserts that with.
      */
-    var watchForTasksCalls: Int = 0
+    var watchForProjectCalls: Int = 0
         private set
 
-    override fun watchForTasks(taskIds: Set<TaskId>): Flow<List<com.singularity.todo.feature.notes.Note>> {
-        watchForTasksCalls++
+    /** How many times the notes of a project were counted. */
+    var countForProjectCalls: Int = 0
+        private set
+
+    override fun watchForProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> {
+        watchForProjectCalls++
         return currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
-                list.values.filter {
-                    it.taskId != null && it.taskId in taskIds && it.userId == uid && it.deletedAt == null
-                }
+                list.values
+                    .filter { it.userId == uid && it.deletedAt == null && it.belongsTo(projectId) }
+                    .sortedWith(noteOrder)
+                    .take(limit)
             }
         }
+    }
+
+    override suspend fun countForProject(projectId: com.singularity.todo.feature.projects.domain.model.ProjectId): Int {
+        countForProjectCalls++
+        val uid = currentUser.scopedUserId.value
+        return store.state.value.values
+            .count { it.userId == uid && it.deletedAt == null && it.belongsTo(projectId) }
+    }
+
+    /**
+     * The order the notes come back in — newest first, then by id.
+     *
+     * The id breaks the tie, so two calls cannot swap two notes that were written in
+     * the same second. The same order the store's query uses.
+     */
+    private val noteOrder: Comparator<com.singularity.todo.feature.notes.Note> =
+        compareByDescending<com.singularity.todo.feature.notes.Note> { it.createdAt }
+            .thenBy { it.id.value }
+
+    /** Whether the note hangs on a task of [projectId] — the fake's stand-in for the join. */
+    private fun com.singularity.todo.feature.notes.Note.belongsTo(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+    ): Boolean {
+        val taskId = taskId ?: return false
+        return projectOfTask(taskId) == projectId
     }
 
     override suspend fun createForTask(
