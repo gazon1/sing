@@ -1,10 +1,10 @@
 package com.singularity.todo.core.notifications
 
+import com.singularity.todo.test.helpers.binaryIsOnPath
+import com.singularity.todo.test.helpers.commandSucceeds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -161,7 +161,7 @@ class JvmNotifierTest {
      */
     @Test
     fun `the real probe agrees with the host's notify-send`() {
-        val expected = binaryIsOnPath("notify-send") && versionQueryAnswers("notify-send")
+        val expected = binaryIsOnPath("notify-send") && commandSucceeds("notify-send", "--version")
         val probed = JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported
 
         assertEquals(
@@ -173,22 +173,6 @@ class JvmNotifierTest {
                 "probe claims a host the host itself does not provide.",
         )
     }
-
-    /**
-     * Whether [name] `--version` exits 0, measured without the production helper.
-     *
-     * Bounded: a broken binary can hang on startup, and a test that waits for it
-     * would fail for the wrong reason.
-     */
-    private fun versionQueryAnswers(name: String): Boolean =
-        runCatching {
-            val process = ProcessBuilder(name, "--version").redirectErrorStream(true).start()
-            try {
-                process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0
-            } finally {
-                process.destroyForcibly()
-            }
-        }.getOrDefault(false)
 
     /**
      * The lookup must be able to say "no".
@@ -205,33 +189,6 @@ class JvmNotifierTest {
                 "say whether notify-send is on this host",
         )
     }
-
-    /**
-     * Whether a binary of that name is on this host's `PATH`, found by lookup.
-     *
-     * The operating system's own rule: every entry of `PATH`, in order, and the
-     * first directory that holds an executable file of that name is the one that
-     * would run. An empty entry means the current directory, exactly as the shell
-     * reads it — so it is not skipped here either.
-     */
-    private fun binaryIsOnPath(name: String): Boolean =
-        pathEntries().any { directory ->
-            File(directory, name).let { it.isFile && it.canExecute() }
-        }
-
-    /** This process's `PATH`, split the way the operating system splits it. */
-    private fun pathEntries(): List<String> =
-        pathVariable()
-            ?.split(File.pathSeparator)
-            .orEmpty()
-
-    /** The `PATH` this process was given, whatever the platform spells it. */
-    private fun pathVariable(): String? =
-        System
-            .getenv()
-            .entries
-            .firstOrNull { it.key.equals("PATH", ignoreCase = true) }
-            ?.value
 
     /**
      * `--replace` is what stops a reminder firing twice from stacking two notifications.

@@ -1,7 +1,6 @@
 package com.singularity.todo.detekt
 
 import dev.detekt.api.RuleSetProvider
-import org.junit.jupiter.api.Assumptions
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -26,23 +25,41 @@ import kotlin.test.fail
  * a block). This covers the *config* side, from the other direction and with the actual
  * rule names rather than the rule set ids.
  *
- * The test is skipped rather than failed when the config is absent, so the module still
- * tests standalone.
+ * The configuration is located deterministically from the repository root (the nearest
+ * ancestor of the working directory that contains `settings.gradle.kts`) so the same
+ * file is read on every host.
  */
 class DetektConfigWiringTest {
-    private val configFile: File? = repoRoot().resolve("config/detekt/detekt.yml").takeIf { it.isFile }
+    private val repoRoot: File = findRepoRoot()
+    private val configFile: File = repoRoot.resolve("config/detekt/detekt.yml")
 
-    private fun repoRoot(): File {
-        var dir = File(".").absoluteFile
+    private fun findRepoRoot(): File {
+        val start = File(".").absoluteFile
+        var dir = start
         while (dir.parentFile != null && !File(dir, "settings.gradle.kts").isFile) {
             dir = dir.parentFile
+        }
+        if (!File(dir, "settings.gradle.kts").isFile) {
+            fail(
+                "repository root not found: settings.gradle.kts is not in " +
+                    "${start.absolutePath} or any ancestor",
+            )
         }
         return dir
     }
 
+    private fun requireConfig(): File {
+        assertTrue(
+            configFile.isFile,
+            "detekt config not found at ${configFile.absolutePath} " +
+                "(repo root resolved from ${File(".").absolutePath} to ${repoRoot.absolutePath})",
+        )
+        return configFile
+    }
+
     /** Rule set id -> rule names detekt will look for, parsed from the top-level blocks. */
     private fun configuredRules(): Map<String, Set<String>> {
-        val text = configFile!!.readText()
+        val text = requireConfig().readText()
         val result = mutableMapOf<String, Set<String>>()
         var current: String? = null
         for (line in text.lines()) {
@@ -72,7 +89,6 @@ class DetektConfigWiringTest {
 
     @Test
     fun `every configured rule name is supplied by a registered provider`() {
-        Assumptions.assumeTrue(configFile != null, "config/detekt/detekt.yml not present")
         val provided = providedRules()
 
         val unknown = mutableListOf<String>()
@@ -88,7 +104,7 @@ class DetektConfigWiringTest {
         }
         if (unknown.isNotEmpty()) {
             fail(
-                "detekt.yml configures rule(s) that no registered provider supplies: " +
+                "detekt.yml at ${configFile.absolutePath} configures rule(s) that no registered provider supplies: " +
                     "${unknown.joinToString()}. detekt will silently not run them.",
             )
         }
@@ -96,7 +112,6 @@ class DetektConfigWiringTest {
 
     @Test
     fun `every provided custom rule has a block in detekt yml`() {
-        Assumptions.assumeTrue(configFile != null, "config/detekt/detekt.yml not present")
         val configured = configuredRules()
 
         val unconfigured = mutableListOf<String>()
@@ -112,7 +127,7 @@ class DetektConfigWiringTest {
         }
         if (unconfigured.isNotEmpty()) {
             fail(
-                "registered rule(s) with no detekt.yml block, so detekt never loads them: " +
+                "registered rule(s) with no block in detekt.yml at ${configFile.absolutePath}, so detekt never loads them: " +
                     "${unconfigured.joinToString()}. " +
                     "A rule that is implemented, packaged and registered but not configured " +
                     "has never run.",
@@ -122,12 +137,11 @@ class DetektConfigWiringTest {
 
     @Test
     fun `every provider supplies rules that construct without throwing`() {
-        Assumptions.assumeTrue(configFile != null, "config/detekt/detekt.yml not present")
         // Instantiating every provider's rules catches a Rule that throws on construction.
         for (provider in PROVIDERS) {
             val rules = provider.instance().rules
             assertTrue(rules.isNotEmpty(), "${provider.ruleSetId.value} supplies no rules")
-            for ((name, factory) in rules) {
+            for ((_, factory) in rules) {
                 factory(EMPTY_CONFIG)
             }
         }
