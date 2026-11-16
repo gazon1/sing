@@ -1,10 +1,10 @@
 ---
 change: link-previews-in-task-titles
 verdict: pass
-date: 2026-11-14
+date: 2026-11-16
 pr: https://github.com/gazon1/sing/pull/2958
-reviewed: d06509b8bdcd2af0ac205677c3d7b9f0e1359b83
-documents: sha256:e0fc0eb89c98e2b292ed51f0dacf9ae779b78f469dd946dfdd06d5a3927b72ec
+reviewed: d9bbe7ef3c49bd1aa0e65c6aa72bf41b7819059c
+documents: sha256:96b26f9990e8b44730fba78a450ae749913a6b890b231e54de18d6213b9ce69d
 ---
 
 ## What was reviewed
@@ -202,3 +202,44 @@ it (`471c367bc6`, `trim = false`). After merging main the test passes, and so do
 five static gates I had called pre-existing — main had fixed those too. The lesson is the
 one the review pressed: compare against the actual base, not against a stale copy of your
 own branch.
+
+## Sixth pass — the re-issue, after the contract moved
+
+The verdict above was written against `d06509b8`, and the contract has since grown:
+REQ-002, REQ-003, REQ-004 and REQ-006 each gained scenarios (the IPv6 policy as an
+allowlist, the single fetch two callers share, the picture that no longer matches the
+entry, the answer that lands after the switch is turned off), and the known DNS-rebinding
+limit was written down. The verdict therefore spoke for a contract that was no longer in
+the tree — `check-review-verdicts` said so on `main` as well, which is why it was
+re-reviewed rather than re-stamped.
+
+The re-review was a separate session's, read-only, aimed at whether the contract as it now
+stands is what the code does:
+
+- the contract documents at `d9bbe7ef3c` (`proposal.md`, `specs/link-preview/spec.md`)
+  against `core/linkpreview/` (`PublicAddresses.kt`, `PageFetcher.kt`,
+  `LinkPreviewRepository.kt`, `LinkPreviewCache.kt`, `PreviewUrls.kt`), the JVM resolver
+  actual, and the surface (`TaskLinkPreviewSlot`, `TaskLinkPreview`, `LinkPreviewCard`,
+  its wiring into `TaskDetailContent` and `CoreDiModule`);
+- the tests the spec names: `PublicAddressesTest`, `PublicAddressesOracleTest`,
+  `PageFetcherTest`, `LinkPreviewRepositoryTest`, `LinkPreviewCacheTest`,
+  `TaskLinkPreviewSlotTest`, `PreviewUrlsTest`.
+
+**No contract/implementation mismatch was found**, so the verdict stands and is re-issued
+with the digest the change carries now. Four things were noted, none of them blocking:
+
+- the prose under-enumerates the refused blocks — the policy refuses ORCHID `2001:10::/28`
+  by name and `5f00::/16` by being outside global unicast, and the spec names neither.
+  The behaviour is right; the sentence is vaguer than the code;
+- REQ-005 and REQ-007 carry no "Test coverage" line — REQ-005 *is* covered by
+  `TaskLinkPreviewSlotTest`, and REQ-007 holds by design, since no AI type is reachable
+  from `core/linkpreview/`;
+- "the address in the title is still tappable" holds in the read-only title, which uses
+  `LinkifiedText`, and not in the editing path, which is a plain `BasicTextField`;
+- the padded-IPv4 outcome is resolver-dependent — `0177.0.0.1` is not a literal, and the
+  JVM resolver answers `177.0.0.1`, so the loopback branch of that scenario does not
+  occur on the shipped platforms. The code matches the wording: the resolver decides.
+
+The DNS-rebinding limit is stated in both the spec and the ADR, and the code matches that
+claim — `PageFetcher` passes the *name* to Ktor and does not pin an address. The limit is
+still what the earlier passes recorded it to be.
