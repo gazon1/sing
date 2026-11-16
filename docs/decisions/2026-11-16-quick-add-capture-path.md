@@ -62,6 +62,29 @@ describe the current branch.
 Consequence for a title-only capture from Inbox: **four taps** — FAB, title,
 back (dismiss the IME), Save. Two of them are not needed for the task to exist.
 
+### Measured after the #2982 fixes
+
+The same device, the same measurement commands, the debug build of this branch
+(`./gw :androidApp:assembleDebug`) installed over the previous one with
+`adb install -r` — same signature, app data kept:
+
+1. **The title takes focus on open.** With the create screen opened from the
+   FAB, `mInputShown=true` — the keyboard is up without a tap on the field.
+2. **The Save button is above the keyboard.** IME frame `[0,993][720,1600]`;
+   the Save button's bounds are `[32,705][688,809]` — the whole button is
+   above the IME frame, where it was `[32,1216][688,1320]` before, entirely
+   inside it.
+3. **The task is saved with the keyboard open.** Typing the title and tapping
+   Save produced exactly one row in the device database
+   (`select … from tasks` — one title, one `id`); the IME closed and the screen
+   returned to the list. No second task, no second row.
+4. **The prepared-draft screens are unchanged.** The create screen opened with
+   the agenda's prepared draft (`agenda_multi_date_draft`) still reports
+   `mInputShown=false`: there the focus follows a tap, as intended.
+
+So the capture is now **two taps** (FAB → Save), and it was measured on the
+device rather than projected.
+
 4. **The capture screen is not a two-field screen.** The device's hierarchy
    dump of the create screen lists eight rows on the first screen: title,
    description, checklist, attachments, priority, estimate, due date, start
@@ -77,7 +100,7 @@ back (dismiss the IME), Save. Two of them are not needed for the task to exist.
 | Scenario | Taps | Basis |
 |---|---|---|
 | Current Create | 4 | **measured** on the device (FAB → title → back → Save) |
-| Create after the #2982 fixes | 2 | **projected** from the two fixes (FAB → Save); to be re-measured on a device once #2982 lands |
+| Create after the #2982 fixes | 2 | **measured** on the device (FAB → Save; the keyboard opens by itself and Save sits above it) |
 | Quick Add (hypothetical composer) | 2 | **projected**; the surface does not exist in the repository |
 
 Method:
@@ -90,8 +113,8 @@ Method:
   way (no tap).
 - A value is labelled *measured* only when it was observed on the device, and
   *projected* when it follows from a change that is not implemented yet. The
-  second row becomes a measured row when #2982 is re-measured; the third row
-  cannot become one without building the surface.
+  second row became a measured row when #2982 was built and re-measured; the
+  third row cannot become one without building the surface.
 - The seeds do not change the tap sequence: the Today, project, tag and
   calendar-day entries reach the same editor with a prefilled value, so they
   are the same four / two / two.
@@ -173,8 +196,10 @@ new plumbing, and cannot drift away from the seeded flows as long as the
 mapping holds. **But it is an invariant, not a type**, and it is recorded as
 one here: if a capture flow ever needs its own draft key (per-tab drafts, a
 draft per list), the inference breaks and an explicit flag must replace it
-before that happens. A regression test pins the current mapping so the change
-cannot land silently.
+before that happens. A regression gate pins the current mapping so the change
+cannot land silently: `TaskCreateDraftKeyCallerTest` (`:shared:archTest`) fails
+when a production caller starts carrying a draft key, and when a prepared-draft
+flow stops carrying its own.
 
 The historical reason the title does not grab the focus is narrower than it
 looks. `TaskTitleRow` says the flows that fill the create editor "scroll it
@@ -196,13 +221,41 @@ focus rule as a conservative choice, not because a scroll exists.
 | 6. Capture then enrich | Save → back to the list → tap the task → Detail (1 tap) | Save → Detail (0 taps) | The candidate saves one tap, at the cost of a new route and a new event contract |
 | 7. Cancel / interruption | the autosaved draft survives process death under a scoped key; the back guard asks before discarding | its own draft key, its own cleanup policy | The candidate adds a second draft to keep apart from the full-create draft — a risk the issue itself names |
 
+### Re-evaluation after the fixes
+
+The seven criteria from the issue, against the Create screen as it stands
+after #2982:
+
+| Criterion | Fixed Create | Quick Add candidate | Verdict |
+|---|---|---|---|
+| Quick title capture | the title is focused on open; typing starts at once | the same | equal |
+| Keyboard access | the IME opens by itself | the same | equal |
+| Saving without closing the keyboard | Save sits above the IME (`imePadding()`), measured | the same | equal |
+| Keeping the project/date context | the seed is visible in the form (the date row, the project row) | the same information as a chip | equal in substance; a chip is the same fact drawn smaller |
+| Number of actions | 2 taps, measured | 2 taps, projected | equal |
+| The list stays visible | no — the editor takes the screen | yes | **the one real difference**, and it is visual |
+| Access to the other fields | the whole form, right there | through an "expand" step | in the candidate's favour |
+
+The comparison settles where the issue wanted it settled: after the fixes,
+nothing that is measured gets better. The only difference left is that the
+Quick Add candidate would keep the list on screen while the editor covers it —
+and it buys that with an extra step to the fields the fixed Create already
+shows, and with the second route, the second state owner and the second draft
+key that the decision below refuses.
+
+The reopen criterion ("the share of tasks that carry only a title") is still
+unmeasured, and it is the only signal that could argue for the surface rather
+than for the layout. Nothing in the repository measures it.
+
 ## Decision
+
 
 **The separate Quick Add surface is deferred.** No new composer route, no second
 state machine, no duplicated validation, no second draft key.
 
 **The capture gap is closed inside the existing Create flow**, as a bounded
-implementation issue of its own (#2982):
+implementation issue of its own (#2982 — implemented, and measured on the
+device):
 
 1. **Title-first focus.** The create screen focuses the title when it was
    opened as a capture — that is, when no `draftKey` was passed. The rule is
@@ -266,7 +319,8 @@ already own.
 ### Positive
 
 - The two avoidable taps in every capture flow disappear, for every entry
-  point, without a new surface.
+  point, without a new surface. Implemented in #2982 and measured on the device:
+  the capture is two taps, and Save is reachable with the keyboard open.
 - No new concepts: no route, no state machine, no draft key, no duplicated
   validation, no second screen to keep in step with the editor.
 - The existing context contracts (Today date, project, tags, calendar day)
@@ -283,7 +337,7 @@ already own.
   rule keeps those flows out of it, and the regression suites for the agenda
   and calendar multi-date paths are the guard. If the mapping of entry points
   to `draftKey` ever changes, the rule has to change with it — the invariant
-  is recorded above and pinned by a test.
+  is recorded above and pinned by `TaskCreateDraftKeyCallerTest`.
 
 ### Non-goals
 
@@ -320,11 +374,15 @@ still unknown.
   capture-first fix), #2872 (parent programme), #2871 (the comparison
   research).
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskTitleRow.kt`
-  — focus follows a tap, never the field's existence.
+  — focus follows a tap by default; the create screen asks for it explicitly
+  (`autoFocus`), and only when it has no `draftKey`.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskSaveBar.kt`
-  — used by the create screen only; no `imePadding()` today.
+  — used by the create screen only; carries `imePadding()`, so Save stays above
+  the keyboard.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskDraftKeys.kt`
-  — the prepared-draft keys; the only three callers that pass one.
+  — the prepared-draft keys; the only three flows that pass one.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/TaskCreateDraftKeyCallerTest.kt`
+  — the gate that pins the mapping between a draft key and the create editor.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/usecase/CreateTaskFromDraft.kt`
   — already returns the created `TaskId`.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskCreateViewModel.kt`
