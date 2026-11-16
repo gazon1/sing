@@ -32,6 +32,15 @@ import kotlin.time.Clock
  */
 class FakePlanExecutor(private val answer: String, private val failure: Throwable? = null) : PromptExecutor() {
     /**
+     * The prompt the tool handed the model.
+     *
+     * A test that asks whether the tool sent facts rather than titles has to read what
+     * it sent; the answer alone cannot show it.
+     */
+    var lastPrompt: Prompt? = null
+        private set
+
+    /**
      * The answer the model "gave".
      *
      * @throws Throwable the failure the fake was built with, when it has one. The
@@ -43,6 +52,7 @@ class FakePlanExecutor(private val answer: String, private val failure: Throwabl
         model: LLModel,
         tools: List<ToolDescriptor>,
     ): Message.Assistant {
+        lastPrompt = prompt
         failure?.let { throw it }
         return Message.Assistant(
             parts = listOf(MessagePart.Text(answer)),

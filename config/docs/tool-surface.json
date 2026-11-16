@@ -457,7 +457,7 @@
             "name": "weekly_plan",
             "toolClass": "WeeklyPlanTool",
             "domain": "ai",
-            "description": "Suggest 3-5 tasks to focus on this week.",
+            "description": "Plan the user's day from their real tasks. mode=morning (the default) gives a briefing: what needs attention, what is due today, what is coming up, a 3-5 task focus set that fits the day, and the first physical action. mode=evening reviews the day instead: what was completed today, what is still open, overdue or blocked, and what needs a decision. Each task comes with its due date and time, priority, estimate, health (fine, overdue, blocked or stagnant), blockers and project. Health is classified by the app, not by you: do not redefine it, and do not invent a due date, blocker, estimate or project that the facts do not contain. A missing estimate is unknown, not zero. Carry-over is a suggestion; nothing is changed.",
             "readOnly": false,
             "destructive": false,
             "idempotent": false,

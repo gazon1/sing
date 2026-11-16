@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.ai.tools
 
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -111,4 +112,43 @@ data class TaskHealthSummary(
     val toxic: Int = 0,
     /** How much thinking the open tasks ask for, on average. */
     val averageLoad: Int = 0,
+)
+
+/**
+ * One task, as the planner needs it.
+ *
+ * Smaller than [TaskSummary] on purpose: a plan is about what to do next, so the
+ * facts it is grounded in are the ones that change the choice. It is not a second
+ * read surface — [health] comes from the same [HealthRules][com.singularity.todo.feature.tasks.domain.logic.HealthRules]
+ * every other surface uses, and membership comes from the selector.
+ */
+@Serializable
+internal data class PlanTask(
+    val id: String,
+    val title: String,
+    val dueDate: String? = null,
+    val dueTime: String? = null,
+    val priority: String = "None",
+    val estimateMinutes: Int? = null,
+    /** `fine`, `overdue`, `blocked` or `stagnant`. */
+    val health: String,
+    /** The titles of the unfinished tasks this one is waiting on. */
+    val blockedBy: List<String> = emptyList(),
+    val projectId: String? = null,
+    val completedAt: String? = null,
+)
+
+/**
+ * The facts a planning call is built from.
+ *
+ * @property total how many tasks the selection holds, so a truncated page says so
+ *   instead of silently dropping the rest.
+ * @property completedToday the tasks whose `completedAt` falls on [today] in the
+ *   caller's zone — the only completion fact the app can honestly report.
+ */
+internal data class PlanFacts(
+    val today: LocalDate,
+    val tasks: List<PlanTask>,
+    val total: Int,
+    val completedToday: List<PlanTask>,
 )
