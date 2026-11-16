@@ -371,8 +371,8 @@ still unknown.
 ## Links
 
 - Issue #2886 (the decision), #2982 (the bounded implementation of the
-  capture-first fix), #2872 (parent programme), #2871 (the comparison
-  research).
+  capture-first fix, pulled as PR #2988), #2872 (parent programme), #2871
+  (the comparison research).
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskTitleRow.kt`
   — focus follows a tap by default; the create screen asks for it explicitly
   (`autoFocus`), and only when it has no `draftKey`.
