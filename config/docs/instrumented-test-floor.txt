@@ -91,14 +91,24 @@
 # keyboard, and it failed on a host that was busy running this suite; nothing in
 # this change touches the task detail's fields or the insets.
 #
-# What this raise added is one class and nine tests: `IconPickerCustomInputTest`
-# — the icon picker's free-text field on a device (the field's `trim()` contract,
-# and the sheet drawing a composed sequence as one node). The suite's own growth
-# is what the floor had to follow, and a floor that does not follow stops asking
-# its question.
+# What the raise before this one added is one class and nine tests:
+# `IconPickerCustomInputTest` — the icon picker's free-text field on a device (the
+# field's `trim()` contract, and the sheet drawing a composed sequence as one node).
+# The suite's own growth is what the floor had to follow, and a floor that does not
+# follow stops asking its question.
+#
+# This raise added one test: the skin-tone form (`🧘🏽`) in the same class, which
+# now holds ten. The floor follows the suite to 15 classes and 48 tests.
+#
+# The run this floor was taken from delivered 48 tests and had four failures: the
+# three described below, and one more — a JUnit assertion in this branch's own
+# `IconPickerCustomInputTest`, written with the message in the wrong position, so
+# it failed on every run. That one is fixed here, and the suite was re-run to
+# confirm it. The floor records what the suite *delivered*, so the numbers were
+# sound either way; the failure is stated rather than buried.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
 classes 15
-tests 47
+tests 48
 skipped 0
 # GENERATED:END
