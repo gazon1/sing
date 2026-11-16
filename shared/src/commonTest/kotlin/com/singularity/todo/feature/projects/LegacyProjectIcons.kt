@@ -34,10 +34,24 @@ internal val LEGACY_MATERIAL_KEYS: List<String> =
 /**
  * Composed sequences: ZWJ person and family, flag, skin tone, variation selector and
  * keycap are each several code points that must not be split or normalized.
+ *
+ * The list is the one place the sequences are written down, so a value added here is
+ * checked at every boundary that runs a list — the backup, the sync document and the
+ * Room round-trip all run this list — without a second list that can drift from it.
  */
 internal val COMPOSED_PROJECT_ICONS: List<String> =
-    listOf("🧑‍💻", "🇬🇧", "🧘🏽", "🕊️", "👨‍👩‍👧‍👦", "1️⃣")
+    listOf(
+        "🧑‍💻",
+        "👨🏽‍🚀",
+        "🇬🇧",
+        "🇬🇪",
+        "🧘🏽",
+        "🕊️",
+        "❤️",
+        "👨‍👩‍👧‍👦",
+        "1️⃣",
+    )
 
 /** Every value a boundary test runs through: the retired keys, unknown text and composed sequences. */
 internal val STORED_PROJECT_ICONS: List<String> =
-    LEGACY_MATERIAL_KEYS + listOf("NotAKey", "marketing", "   ", "🏠") + COMPOSED_PROJECT_ICONS
+    LEGACY_MATERIAL_KEYS + listOf("NotAKey", "marketing", "   ", "🏠", "🔥✨") + COMPOSED_PROJECT_ICONS

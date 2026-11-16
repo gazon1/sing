@@ -1142,19 +1142,15 @@ object TestTags {
     const val PROJECT_ICON_NO_MATCHES = "project_icon_no_matches"
 
     /**
-     * The free-text emoji field of the project icon picker.
+     * The free-text field of the project icon picker.
      *
-     * The field takes any text, so a test cannot address it by what it holds —
-     * it names the field itself.
+     * The field takes text that is not in the catalog, so a test has to be able
+     * to type into it — and to say "the custom entry was empty" without reading
+     * the field's label.
      */
-    const val PROJECT_ICON_CUSTOM_INPUT = "project_icon_custom_input"
+    const val PROJECT_ICON_CUSTOM_FIELD = "project_icon_custom_field"
 
-    /**
-     * The control that adds the free-text emoji to the project.
-     *
-     * The picker's other ways to choose an emoji are the chips, so this one
-     * needs a name of its own for a test to say "the typed value was added".
-     */
+    /** The button that turns the custom field's text into the picked icon. */
     const val PROJECT_ICON_CUSTOM_ADD = "project_icon_custom_add"
 
     /** "No projects yet" empty state title on the projects list screen. */

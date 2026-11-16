@@ -3,6 +3,7 @@ package com.singularity.todo.core.sync
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.COMPOSED_PROJECT_ICONS
 import com.singularity.todo.feature.projects.LEGACY_MATERIAL_KEYS
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -174,20 +175,24 @@ class ProjectDocumentWriteTest {
     @Test
     fun `a project document carrying an emoji stores it byte-for-byte`() =
         runTest {
-            val db = FakeAppDatabase()
-            db.projectDao().upsert(row())
-            val repo = repository(db)
+            // Every composed sequence of the shared fixture, one document each: the
+            // sync boundary is where a value would be split, mapped or dropped.
+            COMPOSED_PROJECT_ICONS.forEach { sequence ->
+                val db = FakeAppDatabase()
+                db.projectDao().upsert(row())
+                val repo = repository(db)
 
-            fakeSyncDocumentWriter(projects = repo).upsert(
-                DocType.Project,
-                JsonObject(project(icon = Emoji("🧑‍💻")).toJson()),
-            )
+                fakeSyncDocumentWriter(projects = repo).upsert(
+                    DocType.Project,
+                    JsonObject(project(icon = Emoji(sequence)).toJson()),
+                )
 
-            assertEquals(
-                "🧑‍💻",
-                db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon,
-                "the pulled icon is the document's string, composed sequence and all",
-            )
+                assertEquals(
+                    sequence,
+                    db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.icon,
+                    "the pulled icon is the document's string, composed sequence and all",
+                )
+            }
         }
 
     @Test

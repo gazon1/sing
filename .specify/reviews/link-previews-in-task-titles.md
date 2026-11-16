@@ -3,7 +3,7 @@ change: link-previews-in-task-titles
 verdict: pass
 date: 2026-11-16
 pr: https://github.com/gazon1/sing/pull/2958
-reviewed: d9bbe7ef3c49bd1aa0e65c6aa72bf41b7819059c
+reviewed: 41e9036a452bd0599a4352d507113aeef7095cd0
 documents: sha256:96b26f9990e8b44730fba78a450ae749913a6b890b231e54de18d6213b9ce69d
 ---
 
@@ -203,43 +203,41 @@ five static gates I had called pre-existing — main had fixed those too. The le
 one the review pressed: compare against the actual base, not against a stale copy of your
 own branch.
 
-## Sixth pass — the re-issue, after the contract moved
+## Sixth pass — the contract moved, and this verdict is re-issued
 
-The verdict above was written against `d06509b8`, and the contract has since grown:
-REQ-002, REQ-003, REQ-004 and REQ-006 each gained scenarios (the IPv6 policy as an
-allowlist, the single fetch two callers share, the picture that no longer matches the
-entry, the answer that lands after the switch is turned off), and the known DNS-rebinding
-limit was written down. The verdict therefore spoke for a contract that was no longer in
-the tree — `check-review-verdicts` said so on `main` as well, which is why it was
-re-reviewed rather than re-stamped.
+The contract moved after the fifth pass: `41e9036a45` rewrote `REQ-LINKPREVIEW-002`, so
+this verdict was speaking about a contract that no longer existed and the gate
+(`review verdicts cover every change`) was failing on the digest. A contract that moves is
+re-issued, not re-read — so this verdict is re-issued against the contract as it stands,
+reviewed against `41e9036a45`.
 
-The re-review was a separate session's, read-only, aimed at whether the contract as it now
-stands is what the code does:
+The move widened the requirement: **every** address the preview obtains — the typed host,
+every address a name resolves to, every redirect target — must be judged before the
+request, and inside global unicast the blocks the registries mark not globally reachable
+are refused by name as well (documentation `2001:db8::/32` and `3fff::/20`, benchmarking
+`2001:2::/48`, the discarded and deprecated prefixes, Teredo). It also recorded the DNS
+rebinding limitation as an accepted limit rather than a defect to be closed here.
 
-- the contract documents at `d9bbe7ef3c` (`proposal.md`, `specs/link-preview/spec.md`)
-  against `core/linkpreview/` (`PublicAddresses.kt`, `PageFetcher.kt`,
-  `LinkPreviewRepository.kt`, `LinkPreviewCache.kt`, `PreviewUrls.kt`), the JVM resolver
-  actual, and the surface (`TaskLinkPreviewSlot`, `TaskLinkPreview`, `LinkPreviewCard`,
-  its wiring into `TaskDetailContent` and `CoreDiModule`);
-- the tests the spec names: `PublicAddressesTest`, `PublicAddressesOracleTest`,
-  `PageFetcherTest`, `LinkPreviewRepositoryTest`, `LinkPreviewCacheTest`,
-  `TaskLinkPreviewSlotTest`, `PreviewUrlsTest`.
+What the re-review checked, against the code and not against the prose:
 
-**No contract/implementation mismatch was found**, so the verdict stands and is re-issued
-with the digest the change carries now. Four things were noted, none of them blocking:
+- **Every clause of the moved requirement has an implementation site.** The allowlist is
+  global unicast `2000::/3` and nothing else; the non-global blocks inside it are refused
+  by name (`PublicAddresses.isSpecialPurpose`), the forms that carry an IPv4 address are
+  judged by the address they carry, and every hop is judged before the request is made,
+  redirect targets included.
+- **The tests the contract names exist and pass.** `PublicAddressesTest` (every spelling
+  of a non-public address, with the positive controls just past each block),
+  `PublicAddressesOracleTest` (the policy against the IANA special-purpose blocks) and
+  `PageFetcherTest` (a redirect into the local network is refused and the target is never
+  requested) — all green.
+- **The DNS rebinding limit is in the ADR**, with the gap, the pinned transport that would
+  close it, and the guarantee that a future fix must not weaken the redirect, TLS or
+  hostname checks.
+- **The registry was checked against IANA's own tables**, not against this codebase's
+  comments about them.
 
-- the prose under-enumerates the refused blocks — the policy refuses ORCHID `2001:10::/28`
-  by name and `5f00::/16` by being outside global unicast, and the spec names neither.
-  The behaviour is right; the sentence is vaguer than the code;
-- REQ-005 and REQ-007 carry no "Test coverage" line — REQ-005 *is* covered by
-  `TaskLinkPreviewSlotTest`, and REQ-007 holds by design, since no AI type is reachable
-  from `core/linkpreview/`;
-- "the address in the title is still tappable" holds in the read-only title, which uses
-  `LinkifiedText`, and not in the editing path, which is a plain `BasicTextField`;
-- the padded-IPv4 outcome is resolver-dependent — `0177.0.0.1` is not a literal, and the
-  JVM resolver answers `177.0.0.1`, so the loopback branch of that scenario does not
-  occur on the shipped platforms. The code matches the wording: the resolver decides.
+Two things this re-issue does not claim: that the earlier passes describe the code as it
+is now (the fourth pass narrates an IPv6 policy that was a denylist at the time — the
+allowlist came later, and the credential refusal is not in that narrative), and anything
+about the preview's user-facing behaviour, which no review here looked at.
 
-The DNS-rebinding limit is stated in both the spec and the ADR, and the code matches that
-claim — `PageFetcher` passes the *name* to Ktor and does not pin an address. The limit is
-still what the earlier passes recorded it to be.

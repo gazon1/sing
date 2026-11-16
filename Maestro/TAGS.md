@@ -318,6 +318,7 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
 | `PROJECT_ICON_CUSTOM_ADD` | `project_icon_custom_add` | |
 | `PROJECT_ICON_CUSTOM_INPUT` | `project_icon_custom_input` | |
+| `PROJECT_ICON_CUSTOM_FIELD` | `project_icon_custom_field` | |
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
 | `PROJECT_ICON_NO_MATCHES` | `project_icon_no_matches` | |
 | `PROJECT_ICON_RECENT_SECTION` | `project_icon_recent_section` | |
