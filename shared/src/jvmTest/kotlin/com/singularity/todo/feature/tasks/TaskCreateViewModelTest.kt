@@ -8,6 +8,8 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
@@ -28,6 +30,7 @@ import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -79,9 +82,16 @@ class TaskCreateViewModelTest {
             ),
         )
     private val fakeChecklistRepository = FakeChecklistRepository()
-    private val fakeAttachmentRepository = FakeAttachmentRepository()
 
-    private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
+    // The same user as the task's, so `observeAll` sees what the save wrote.
+    private val fakeAttachmentRepository = FakeAttachmentRepository(currentUser = fakeCurrentUser)
+
+    private fun createVm(
+        scope: CoroutineScope,
+        initialDueDate: LocalDate? = null,
+        initialProjectId: ProjectId? = null,
+        initialTagIds: Set<TagId> = emptySet(),
+    ): TaskCreateViewModel {
         val deps =
             TaskCreateDeps(
                 createFromDraft =
@@ -100,8 +110,10 @@ class TaskCreateViewModelTest {
             )
         return TaskCreateViewModel(
             deps = deps,
-            initialDueDate = null,
+            initialDueDate = initialDueDate,
             draftKey = null,
+            initialProjectId = initialProjectId,
+            initialTagIds = initialTagIds,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
     }
@@ -269,7 +281,6 @@ class TaskCreateViewModelTest {
         }
 
     // ─── SaveClicked — clears draft ─────────────────────────────────────────
-
     @Test
     fun `SaveClicked clears draft after successful save`() =
         runTest {
@@ -561,5 +572,87 @@ class TaskCreateViewModelTest {
             assertEquals(0, fakeTaskRepo.tasks.value.size, "an invalid draft must not reach the repository")
             assertEquals("Title is required", vm.state.value.error)
             assertFalse(vm.state.value.isSaving, "a rejected save must clear isSaving, not wedge the button")
+        }
+
+    // ─── Seeds ──────────────────────────────────────────────────────────────
+    //
+    // The capture flows seed the screen with a date, a project and tags (a FAB
+    // in a project, a task in a section). The seeds travel in the draft and the
+    // draft is what gets written, so a seed that is dropped here is dropped
+    // from the created task too.
+
+    @Test
+    fun `the seeded date, project and tags reach the created task`() =
+        runTest {
+            val date = LocalDate(2026, Month.OCTOBER, 5)
+            val projectId = ProjectId("project-1")
+            val tagId = TagId("tag-1")
+            val vm =
+                createVm(
+                    backgroundScope,
+                    initialDueDate = date,
+                    initialProjectId = projectId,
+                    initialTagIds = setOf(tagId),
+                )
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Seeded task"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val created = fakeTaskRepo.tasks.value.values.first()
+            assertEquals(date, created.dueDate, "the seeded date must survive the save")
+            assertEquals(projectId, created.projectId, "the seeded project must survive the save")
+            assertEquals(listOf(tagId), created.tags, "the seeded tags must survive the save")
+        }
+
+    // ─── Checklist and attachments ──────────────────────────────────────────
+    //
+    // Both are written after the task row, by the same save. A save that drops
+    // them leaves a task the user believes has a checklist and a link.
+
+    @Test
+    fun `the checklist item survives the save`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Task with a checklist"))
+            vm.onIntent(TaskCreateIntent.AddChecklistItem("Buy milk"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val created = fakeTaskRepo.tasks.value.values.first()
+            val items = fakeChecklistRepository.items.value.values
+            assertEquals(1, items.size, "the checklist item must be written")
+            assertEquals("Buy milk", items.first().title)
+            assertEquals(created.id.value, items.first().taskId, "the item must belong to the created task")
+        }
+
+    @Test
+    fun `the url attachment survives the save`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Task with a link"))
+            vm.onIntent(TaskCreateIntent.AddAttachmentUrl("https://example.com/spec", "Spec"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val created = fakeTaskRepo.tasks.value.values.first()
+            val attachments = fakeAttachmentRepository.observeAll().first()
+            assertEquals(1, attachments.size, "the attachment must be written")
+            assertEquals("https://example.com/spec", attachments.first().url)
+            assertEquals(created.id, attachments.first().taskId, "the attachment must belong to the created task")
         }
 }

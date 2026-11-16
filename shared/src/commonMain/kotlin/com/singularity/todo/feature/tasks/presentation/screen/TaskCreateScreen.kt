@@ -293,6 +293,18 @@ fun TaskCreateScreen(
         titleError = titleError,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheets = sheets,
+        // The capture case opens the keyboard by itself: the editor was opened to
+        // take a title, and a tap to get the keyboard is a tap between the person
+        // and the thing they came to do.
+        //
+        // A `draftKey` means a prepared draft — the agenda section, the agenda
+        // multi-date and the calendar multi-date flows, each of which writes the
+        // draft before opening the editor. Those keep the old behaviour: the focus
+        // follows a tap. The rule is an invariant of today's callers rather than a
+        // type, so if a capture flow ever needs its own draft key, the inference
+        // has to be replaced by an explicit flag before that lands
+        // (`docs/decisions/2026-11-16-quick-add-capture-path.md`).
+        autoFocusTitle = draftKey == null,
     )
 }
 
