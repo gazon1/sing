@@ -40,10 +40,11 @@ internal object TaskToolSupport {
         tasks: List<Task>,
         clock: Clock,
         zone: TimeZone,
-    ): SelectorContext =
-        SelectorContext(
-            today = clock.now().toLocalDateTime(zone).date,
-            now = clock.now(),
+    ): SelectorContext {
+        val now = clock.now()
+        return SelectorContext(
+            today = now.toLocalDateTime(zone).date,
+            now = now,
             blockedIds = Blocking.blockedTaskIds(tasks),
             // A task completed an hour ago may still carry an old `updatedAt`, so the
             // finished moment counts as the last movement. The statistics screen uses the
@@ -51,6 +52,7 @@ internal object TaskToolSupport {
             // other has been told two things.
             lastActivityOf = { task -> maxOf(task.updatedAt, task.completedAt ?: task.updatedAt) },
         )
+    }
 
     /**
      * The tasks of [selection], named by their titles.
