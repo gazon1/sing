@@ -305,6 +305,7 @@ fun tasksModule(): org.koin.core.module.Module =
                         currentUser = get(),
                         clock = get(),
                         settingsRepository = get(),
+                        timeZone = get(),
                     ),
                 crashReporter = get(),
             )

@@ -1,0 +1,19 @@
+---
+version: '1.0'
+type: openspec-change
+slug: derived-attention-nudges
+date: 2026-11-16
+title: derived-attention-nudges
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+  - 2026-11-16-derived-attention-nudges-in-app-first
+tags: [tasks, statistics, reminders, health]
+documents:
+  proposal: openspec/changes/derived-attention-nudges/proposal.md
+  tasks: openspec/changes/derived-attention-nudges/tasks.md
+specs_dir: openspec/changes/derived-attention-nudges/specs
+is_stub: false
+openspec_path: openspec/changes/derived-attention-nudges
+issue: https://github.com/gazon1/sing/issues/2980

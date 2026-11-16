@@ -1,0 +1,361 @@
+# Attention items are derived, ordered, and actionable
+
+**capability:** `tasks` | **status:** in progress
+
+This change adds requirements to the existing `tasks` capability rather than creating a
+new one: the behaviour it settles — what "overdue", "blocked" and "due today" mean —
+is already stated there, and the new list is a projection of those same rules rather
+than a second definition of them.
+
+---
+
+## ADDED Requirements
+
+### Requirement: REQ-TH-010
+
+The app **SHALL** offer a list of attention items computed from the task and project
+facts it already holds, and **SHALL NOT** keep that list anywhere: the list **SHALL**
+be rebuilt from the current rows every time it is shown.
+
+**Rationale:** an attention item is a statement about a row — it is late, it is due
+soon, it is waiting, its project ran out of time. Storing the statement would create
+a second version of the truth, which would disagree with the row it was derived from
+after the first edit, and the app already holds a rule that derived values are never
+stored.
+
+#### Scenario: The list follows the rows
+
+- **Given** a task that is due today
+- **When** the attention list is shown
+- **Then** the task is on it
+- **And** when the task's due date is moved to next month, the list no longer names it
+
+---
+
+### Requirement: REQ-TH-011
+
+An attention item **SHALL** state exactly one reason, and **SHALL** state the most
+relevant one that applies to it: a task past its due date outranks one that is merely
+due soon, which outranks one that is waiting, which outranks a project whose deadline
+has arrived.
+
+Whether a task is late, and whether it is waiting, **SHALL** be decided by the same
+rule that decides the health counts of the task list, so that the list and the counts
+can never call one task two things. Where that rule and the order above give different
+answers for one task, the order above **SHALL** decide which reason the item names.
+
+**Rationale:** a task can be late *and* waiting on something, and a project can have a
+deadline *and* hold late tasks. Naming every reason makes the list long and tells the
+user nothing about where to start; naming none makes it a list of accusations. One
+reason, the most urgent one, is what makes the list a shortlist.
+
+And the state of a task is decided in one place. The list and the counts beside it
+answer the same question — is this task late, is it waiting — and two copies of that
+answer are free to drift apart, which shows up as a tab calling one task late while
+the card beside it counts the same task as fine. The rule is asked rather than
+written again. The order of the reasons is the list's own rule, and it is stated here
+so that a task which is both due soon and waiting has one answer rather than two.
+
+#### Scenario: One item, one reason
+
+- **Given** a task that is past its due date and waits on an unfinished prerequisite
+- **When** the attention list is shown
+- **Then** the task appears once
+- **And** the reason it gives is that it is past its due date
+
+#### Scenario: The list and the counts call one task the same thing
+
+- **Given** a task that is past its due date
+- **When** the attention list and the health counts are both shown
+- **Then** the list names the task as late
+- **And** the counts count the task as late
+
+---
+
+### Requirement: REQ-TH-012
+
+The attention list **SHALL** be ordered: items that outrank others come first, and
+items of the same kind **SHALL** be ordered by the date that makes them due, earliest
+first, and by their own identity when the dates are the same. An item that has no date
+at all **SHALL** come after the items of its kind that have one.
+
+**Rationale:** the list is a shortlist, so its order is the answer to "what first?".
+An order that changed between two openings of the same screen would make the list
+untrustworthy — the user would not know whether the item that moved up did so because
+it became more urgent or because the list is not stable.
+
+#### Scenario: The order is stable
+
+- **Given** two tasks that are both past their due date, one due earlier than the other
+- **When** the attention list is shown twice without any change to the tasks
+- **Then** the earlier task is first both times
+
+#### Scenario: The most relevant kind comes first
+
+- **Given** a task that is waiting on an unfinished prerequisite and a task that is due
+  today
+- **When** the attention list is shown
+- **Then** the task due today is above the task that is waiting
+
+#### Scenario: An item without a date comes last
+
+- **Given** a task that is waiting on an unfinished prerequisite and has no due date, and
+  a task that is past its due date
+- **When** the attention list is shown
+- **Then** the task that is past its due date is above the task that is waiting
+- **And** the task that is waiting is above any other task of its kind that has no date
+  either
+
+#### Scenario: Items that are equal are told apart
+
+- **Given** two tasks that are both past their due date and due on the same day
+- **When** the attention list is shown
+- **Then** the same one of the two is first every time
+
+---
+
+### Requirement: REQ-TH-013
+
+The attention list **SHALL** name only work that is still to do: **SHALL NOT** name
+finished work, discarded work, work the user has set aside for later, or work that
+belongs to a project whose work was declared finished.
+
+**Rationale:** the list is a set of things to act on, and each of those is work the
+user has not finished. Work they deferred was parked on purpose, work in a finished
+project is over, and finished or discarded work is not late — it is done.
+
+Deferred work is not named, but it is not finished either: a task the user set aside
+for later still counts as unfinished work when a project's deadline arrives, because a
+deadline is a promise about a body of work rather than about one row.
+
+#### Scenario: Work the user set aside is not named
+
+- **Given** a task that is due today and has been set aside for later
+- **When** the attention list is shown
+- **Then** the task is not on it
+
+#### Scenario: A finished project is not named
+
+- **Given** a project whose work was declared finished, holding a task that is past its
+  due date
+- **When** the attention list is shown
+- **Then** neither the project nor the task is on it
+
+---
+
+### Requirement: REQ-TH-014
+
+"Due soon" **SHALL** mean due today or due tomorrow, judged by the day, and **SHALL**
+include a task due today even when that task is also waiting on something: the list's
+own order puts a task that is due today above one that is merely waiting, even though
+the health counts call that task waiting.
+
+**Rationale:** a shortlist needs a window, and the window has to be one the user can
+predict. "Today and tomorrow" is the window the app already uses to group the next
+two days of work, so a task that shows up on the agenda's Today list is a task that
+appears on the attention list — and the two never disagree about what "today" means.
+
+The counts and the list answer different questions about a task that is due today and
+waiting: the counts say what is wrong with it, the list says what to do about it
+today. A list that answered with "waiting" would point at a task the user cannot
+start, so it names the nearer deadline — and the difference is stated here so that it
+is a decision and not a drift.
+
+#### Scenario: The window is today and tomorrow
+
+- **Given** three open tasks due today, tomorrow and the day after
+- **When** the attention list is shown
+- **Then** the tasks due today and tomorrow are on it
+- **And** the task due the day after is not
+
+#### Scenario: A due-soon task that is also waiting
+
+- **Given** a task due today that waits on an unfinished prerequisite
+- **When** the attention list is shown
+- **Then** the task is on it
+- **And** the reason it gives is that it is due soon
+- **And** the health counts count that task as waiting
+
+---
+
+### Requirement: REQ-TH-015
+
+A project **SHALL** be named by the attention list only when it has a deadline that
+has arrived or passed, the project is still open, and at least one of its tasks is
+unfinished.
+
+**Rationale:** a deadline on a project is a promise about a body of work, not about
+one row. It is worth attention while the promise is unmet — that is, while the work is
+still open — and worth nothing once the work is finished, even if the date has passed.
+
+#### Scenario: A deadline with work left
+
+- **Given** an open project whose deadline has passed and which holds an unfinished
+  task
+- **When** the attention list is shown
+- **Then** the project is on it
+- **And** the reason it gives is that its deadline has passed
+
+#### Scenario: A deadline with the work already done
+
+- **Given** an open project whose deadline has passed and whose every task is finished
+- **When** the attention list is shown
+- **Then** the project is not on it
+
+#### Scenario: A deadline that arrives today
+
+- **Given** an open project whose deadline is today and which holds an unfinished task
+- **When** the attention list is shown
+- **Then** the project is on it
+- **And** the reason it gives is that its deadline is today, not that it has passed
+
+#### Scenario: Deferred work still counts as unfinished work
+
+- **Given** an open project whose deadline has passed and whose only unfinished task has
+  been set aside for later
+- **When** the attention list is shown
+- **Then** the project is on it
+- **And** the deferred task itself is not on the list
+
+---
+
+### Requirement: REQ-TH-016
+
+Each item on the attention list **SHALL** name one task or one project, **SHALL** say
+why it is there, and **SHALL** open that named item when the user selects it. The user
+**SHALL** be able to set one item aside for now, and doing so **SHALL NOT** change the
+task or the project in any way.
+
+**Rationale:** a list that cannot be opened is a list to read, not a list to act on.
+And a shortlist that cannot be trimmed is a list the user has to re-read every time:
+without a way to say "not now", the same item at the top is the first thing they see
+every morning. Setting an item aside is a statement about the shortlist, not about the
+work, so it must not touch the work.
+
+#### Scenario: Opening an item
+
+- **Given** an attention item naming a task
+- **When** the user selects it
+- **Then** that task opens
+
+#### Scenario: Setting an item aside changes nothing else
+
+- **Given** an attention item naming a task
+- **When** the user sets it aside for now
+- **Then** the item is no longer on the list
+- **And** the task itself is unchanged — it is still open, still has its due date, and
+  still has its dependencies
+
+#### Scenario: Setting an item aside does not survive leaving the screen
+
+- **Given** an attention item the user set aside for now
+- **When** the user leaves the screen and comes back to it
+- **Then** the item is on the list again
+
+#### Scenario: Setting an item aside is not kept by the app
+
+- **Given** an attention item the user set aside for now
+- **When** the app is closed and opened again
+- **Then** the item is on the list again
+
+---
+
+### Requirement: REQ-TH-017
+
+The attention list **SHALL** show a bounded number of items at a time, and **SHALL**
+say how many items it did not show. The count **SHALL** be of the items the list did
+not show, whether they were left out by the bound or set aside by the user.
+
+**Rationale:** the list exists to be a shortlist. A list of every late task in a
+year's backlog is the backlog again, and the items below the fold are the ones the
+user was never going to reach anyway. Saying how many are hidden keeps the list
+honest: the user knows the shortlist is a shortlist.
+
+#### Scenario: More items than the list shows
+
+- **Given** more attention items than the list shows at once
+- **When** the list is shown
+- **Then** it says how many items it did not show
+
+#### Scenario: An item the user set aside counts as one it did not show
+
+- **Given** more attention items than the list shows at once
+- **When** the user sets one of them aside
+- **Then** the count still says how many items the list did not show
+
+#### Scenario: The count survives an emptied list
+
+- **Given** attention items the user has set aside, one after another
+- **When** the list is shown
+- **Then** it still says how many items it did not show
+
+---
+
+### Requirement: REQ-TH-018
+
+The attention list and the health counts **SHALL** be two separate readings, each read by
+its own query, and each **SHALL** be shown whenever it is available. The failure of one
+reading **SHALL NOT** take the other's answer off the screen, and each failure **SHALL**
+be reported in its own words, where it happened.
+
+A reading that failed **SHALL NOT** be shown as a reading that found nothing.
+
+**Rationale:** the two readings answer different questions and are gathered by different
+queries, so one of them can fail while the other succeeds. A screen that shows only the
+first thing it managed to read is not a screen with independent parts — it is a screen
+that pretends to have one source, and the user is left looking at an empty space with no
+way to tell a failure from an absence.
+
+And a failure has to be said. "Nothing needs attention" and "we could not find out what
+needs attention" are different answers, and a user cannot tell them apart from a screen
+that shows neither.
+
+#### Scenario: The list survives a failed count
+
+- **Given** the health counts cannot be read
+- **When** the Health tab is shown
+- **Then** the attention list is still shown
+- **And** the tab says that the counts are unavailable
+
+#### Scenario: The counts survive a failed list
+
+- **Given** the attention list cannot be read
+- **When** the Health tab is shown
+- **Then** the health counts are still shown
+- **And** the tab says that the list is unavailable
+
+#### Scenario: A failure is not an empty reading
+
+- **Given** the health counts cannot be read
+- **When** the Health tab is shown
+- **Then** the counts are not shown as zero of every kind of problem
+
+---
+
+### Requirement: REQ-TH-019
+
+The attention list and the health counts **SHALL** be computed against the day the
+user is in, read at the moment of the computation, and **SHALL** be recomputed when
+that day moves — even when no task and no project row has changed.
+
+**Rationale:** "late", "due today" and "due tomorrow" are statements about a day, not
+about a row. A screen left open across midnight would otherwise keep naming
+yesterday: a task that became late overnight would not be named, and a task due
+today would still be called due soon. A list and a count that answer about different
+days are worse than a stale answer, because the user sees two truths side by side.
+
+The day is read where the user is: a traveller who opens the tab in another zone
+must be told about the day they are living in, not the day they left.
+
+#### Scenario: The day moves without any row changing
+
+- **Given** a task due today, and no task and no project has changed
+- **When** the day moves
+- **Then** the list and the counts name that task by what it is now
+- **And** the list and the counts speak about the same day
+
+#### Scenario: The day is read where the user is
+
+- **Given** the user is in a zone whose day differs from the one the screen was opened in
+- **When** the list or the counts are computed
+- **Then** they are computed against the day in the user's zone

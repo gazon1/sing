@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -51,11 +53,17 @@ import com.singularity.todo.core.ui.theme.DataStatusColors
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.tasks.domain.logic.AttentionDestination
+import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration
@@ -69,6 +77,28 @@ fun StatisticsScreen(
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    // The items the user set aside for now.
+    //
+    // The state lives in the screen and not in the ViewModel, because its
+    // lifetime is the screen's: the contract is that a dismissal does not
+    // survive leaving the screen, and a ViewModel outlives the screen — the
+    // navigation keeps the Statistics entry alive while another destination is
+    // on top of it, so a dismissal held there would still be there when the
+    // user came back. Plain `remember` (not `rememberSaveable`) is what makes
+    // the promise true: the state goes when the screen leaves the composition,
+    // and it is not restored when the screen comes back.
+    //
+    // It changes nothing about the task or the project it names: the dismissal
+    // is a statement about the shortlist, not about the work.
+    var dismissedNudgeKeys by remember { mutableStateOf<ImmutableSet<String>>(persistentSetOf()) }
+
+    val allNudges =
+        (state.nudges as? AttentionNudgesState.Ready)?.nudges ?: persistentListOf()
+    val visibleNudges =
+        remember(allNudges, dismissedNudgeKeys) {
+            allNudges.filterNot { it.key in dismissedNudgeKeys }.toImmutableList()
+        }
 
     RefreshableContent {
         Column(
@@ -140,6 +170,12 @@ fun StatisticsScreen(
                 2 -> {
                     HealthTabContent(
                         health = state.health,
+                        nudges = state.nudges,
+                        allNudges = allNudges,
+                        visibleNudges = visibleNudges,
+                        onDismissNudge = { key ->
+                            dismissedNudgeKeys = (dismissedNudgeKeys + key).toImmutableSet()
+                        },
                         onBucketClick = { bucket ->
                             when (bucket) {
                                 // Overdue navigates to the dedicated Overdue preset — one section,
@@ -159,6 +195,21 @@ fun StatisticsScreen(
 
                                 // FINE is healthy — no drill-down target.
                                 TaskHealthBucket.FINE -> { // no-op
+                                }
+                            }
+                        },
+                        onNudgeClick = { nudge ->
+                            when (val destination = nudge.destination) {
+                                is AttentionDestination.Task -> {
+                                    navCallbacks?.navigate(
+                                        AppDestination.TasksGraph(
+                                            AppDestination.TasksStartRoute.Detail(destination.id),
+                                        ),
+                                    )
+                                }
+
+                                is AttentionDestination.Project -> {
+                                    navCallbacks?.navigate(AppDestination.ProjectDetail(destination.id))
                                 }
                             }
                         },
@@ -510,33 +561,13 @@ private fun StatCard(
 @Composable
 private fun HealthTabContent(
     health: TaskHealthState,
+    nudges: AttentionNudgesState,
+    allNudges: ImmutableList<AttentionNudge>,
+    visibleNudges: ImmutableList<AttentionNudge>,
+    onDismissNudge: (String) -> Unit,
     onBucketClick: (TaskHealthBucket) -> Unit,
+    onNudgeClick: (AttentionNudge) -> Unit,
 ) {
-    val summary =
-        when (health) {
-            TaskHealthState.Loading -> {
-                // The query has not landed yet. Saying "unavailable" here showed a
-                // broken-looking screen on a perfectly healthy database, for as
-                // long as the first computation took.
-                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
-                return
-            }
-
-            TaskHealthState.Unavailable -> {
-                // The query failed: the health of the task list is unknown, which
-                // is not the same as "no problems".
-                EmptyState(
-                    title = "Task health unavailable",
-                    modifier = Modifier.fillMaxSize(),
-                )
-                return
-            }
-
-            is TaskHealthState.Ready -> {
-                health.summary
-            }
-        }
-
     val scrollState = rememberScrollState()
     Column(
         modifier =
@@ -546,41 +577,243 @@ private fun HealthTabContent(
                 .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
+        // The shortlist comes before the counts: it answers "what do I do first",
+        // which is the question the counts only hint at.
+        AttentionNudgesSection(
+            state = nudges,
+            all = allNudges,
+            visible = visibleNudges,
+            onDismiss = onDismissNudge,
+            onClick = onNudgeClick,
+        )
 
-        summary.actionable.forEach { bucket ->
-            StatCard(
-                title = bucket.displayLabel(),
-                value = summary[bucket].toString(),
-                hint = bucket.explanation(),
-                // Every bucket in `actionable` is a problem the user can open —
-                // the list itself is what makes a bucket actionable, so there is
-                // nothing to test here.
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onBucketClick(bucket) },
-                testTag = bucket.testTag(),
-            )
+        // The counts and the list are two readings of the same rows, and each is
+        // available on its own. A failure of one query must not take the other's
+        // answer off the screen — the tab used to return early on an unavailable
+        // health summary, which threw away a list that had been read
+        // successfully. Each failure is reported in its own words, where it
+        // happened.
+        when (health) {
+            TaskHealthState.Loading -> {
+                // The query has not landed yet. Saying "unavailable" here showed a
+                // broken-looking screen on a perfectly healthy database, for as
+                // long as the first computation took.
+                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+            }
+
+            TaskHealthState.Unavailable -> {
+                // The query failed: the health of the task list is unknown, which
+                // is not the same as "no problems".
+                EmptyState(title = "Task health unavailable")
+            }
+
+            is TaskHealthState.Ready -> {
+                HealthBucketCards(health.summary, onBucketClick)
+            }
+        }
+    }
+}
+
+/**
+ * The counts: how much of the open task list is late, waiting or idle.
+ *
+ * Split out of [HealthTabContent] so that the tab's own structure — the list, the
+ * counts, and the state each of them is in — is readable at a glance.
+ */
+@Composable
+private fun HealthBucketCards(
+    summary: TaskHealthSummary,
+    onBucketClick: (TaskHealthBucket) -> Unit,
+) {
+    StatCard("Open tasks", summary.totalOpen.toString(), Modifier.fillMaxWidth())
+
+    summary.actionable.forEach { bucket ->
+        StatCard(
+            title = bucket.displayLabel(),
+            value = summary[bucket].toString(),
+            hint = bucket.explanation(),
+            // Every bucket in `actionable` is a problem the user can open —
+            // the list itself is what makes a bucket actionable, so there is
+            // nothing to test here.
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onBucketClick(bucket) },
+            testTag = bucket.testTag(),
+        )
+    }
+
+    summary.medianStalledFor?.let { stalled ->
+        Text(
+            text = "Median time untouched: ${stalled.formatDays()}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    Text(
+        text =
+            summary.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
+                ?: "Completion rate: nothing created yet",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * The attention items: the few things worth doing first, each with the one reason
+ * it is there and a way into it.
+ *
+ * The list is bounded, and it says how many items it did not show — a shortlist
+ * that hides its own size reads as "that is all of it", and it is not.
+ */
+@Composable
+private fun AttentionNudgesSection(
+    state: AttentionNudgesState,
+    all: ImmutableList<AttentionNudge>,
+    visible: ImmutableList<AttentionNudge>,
+    onDismiss: (String) -> Unit,
+    onClick: (AttentionNudge) -> Unit,
+) {
+    when (state) {
+        // The query has not landed yet, and the tab already says it is loading
+        // about the counts. A second "loading" line would be noise.
+        AttentionNudgesState.Loading -> {
+            Unit
         }
 
-        summary.medianStalledFor?.let { stalled ->
+        // The query failed: what needs attention is unknown, which is not the
+        // same as "nothing needs attention". The list says so where it can be
+        // seen — a list that is silently absent reads as an answer, and the
+        // counts beside it would then be the only thing on the tab.
+        AttentionNudgesState.Unavailable -> {
             Text(
-                text = "Median time untouched: ${stalled.formatDays()}",
+                text = "The attention list is unavailable",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
+        is AttentionNudgesState.Ready -> {
+            AttentionNudgeRows(all, visible, onDismiss, onClick)
+        }
+    }
+}
+
+/**
+ * The rows of the attention list, and the count of the items it did not show.
+ *
+ * Split out of [AttentionNudgesSection] so that the section's own structure — a
+ * list that is loading, a list that failed, and a list that is ready — is
+ * readable at a glance.
+ */
+@Composable
+private fun AttentionNudgeRows(
+    all: ImmutableList<AttentionNudge>,
+    visible: ImmutableList<AttentionNudge>,
+    onDismiss: (String) -> Unit,
+    onClick: (AttentionNudge) -> Unit,
+) {
+    if (visible.isEmpty()) {
+        // The count is unconditional: the list says how many items it did not
+        // show, and the state where the user set them all aside is a state
+        // where it showed none of them. A count that vanished as the list
+        // emptied would be a count that only appeared when it was convenient.
+        //
+        // The wording does not say the items were set aside, because some of
+        // them may only be below the bound — and it does not say nothing needs
+        // attention, because these items do need attention. It says what is
+        // true: the list is showing none of them, and there are this many.
+        val hidden = all.size
         Text(
             text =
-                summary.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
-                    ?: "Completion rate: nothing created yet",
+                if (hidden == 0) {
+                    "Nothing needs attention right now"
+                } else {
+                    notShownLabel(hidden)
+                },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                if (hidden == 0) {
+                    Modifier
+                } else {
+                    Modifier.testTag(TestTags.ATTENTION_NUDGES_MORE)
+                },
+        )
+        return
+    }
+
+    Text(
+        text = "Needs attention",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
+
+    val shown = visible.take(MAX_VISIBLE_NUDGES)
+    shown.forEach { nudge ->
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick(nudge) }
+                    .testTag(TestTags.attentionNudge(nudge.key)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = nudge.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = nudge.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(
+                onClick = { onDismiss(nudge.key) },
+                modifier = Modifier.testTag(TestTags.attentionNudgeDismiss(nudge.key)),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Set aside for now",
+                )
+            }
+        }
+    }
+
+    // The count is taken from the whole list, not from what is left of it after
+    // the dismissals. An item the user set aside is still an item this list did
+    // not show, and the count is about what the list did not show — the items
+    // left out by the bound and the items the user set aside are both counted.
+    val hidden = all.size - shown.size
+    if (hidden > 0) {
+        Text(
+            text = "and $hidden more",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(TestTags.ATTENTION_NUDGES_MORE),
         )
     }
 }
+
+/** How many attention items the Health tab shows at once. */
+private const val MAX_VISIBLE_NUDGES = 5
+
+/**
+ * The sentence for the state where the list shows nothing.
+ *
+ * It carries the count, because the count is what the list owes the user in
+ * every state, and it says "not shown" rather than "set aside", because an
+ * item can be hidden by the bound rather than by the user's own hand.
+ */
+private fun notShownLabel(count: Int): String =
+    if (count == 1) {
+        "1 item is not shown right now"
+    } else {
+        "$count items are not shown right now"
+    }
 
 /** The card's test tag, or null for a bucket that never gets a card. */
 private fun TaskHealthBucket.testTag(): String? =
