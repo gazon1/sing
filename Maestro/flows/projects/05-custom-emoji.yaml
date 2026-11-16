@@ -1,0 +1,99 @@
+# Projects: type a custom emoji into the icon picker's free-text field.
+#
+# The picker offers the catalog and, below it, a field that takes any text. The
+# value is the typed text, trimmed — nothing between the field and the icon
+# validates, normalizes or looks it up, so a composed sequence reaches the icon
+# as the exact string it was typed as.
+#
+# The flow types one, checks that the project draws it, and then reopens the
+# project to see it again: the pick is written through `updateProject` when it
+# happens, so there is no Save to press and the icon is in the row before the
+# next screen is opened. The bytes themselves are the JVM tiers' business —
+# `ProjectIconBoundaryTest` carries the string through Room, the backup and the
+# sync document.
+#
+# The field is addressed by its test tag — it has no stable text of its own, and
+# the label is localised.
+#
+# The field takes a non-ASCII sequence, which the Maestro skill warns is not
+# portable: `inputText` typed the ZWJ sequence into the field on the device this
+# flow was run on (realme RMX3938, 0O65321F32204DD5, Maestro 2.10), but a runner
+# whose `inputText` cannot type non-ASCII gets an empty field and a red flow.
+appId: com.singularity.todo
+name: projects-custom-emoji
+tags:
+  - regression
+  - projects
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_all_projects
+      DEST_ID: projects_create_button
+- tapOn:
+    id: projects_create_button
+- extendedWaitUntil:
+    visible:
+      id: project_editor_name_input
+    timeout: 5000
+# The project is created with its name only; the icon is picked on the detail.
+- tapOn:
+    id: project_editor_name_input
+- inputText: "Custom Emoji Flow"
+- hideKeyboard
+- tapOn:
+    id: project_editor_save
+- extendedWaitUntil:
+    visible:
+      id: project_card_custom_emoji_flow
+    timeout: 8000
+- tapOn:
+    id: project_card_custom_emoji_flow
+- extendedWaitUntil:
+    visible:
+      id: project_detail_tasks_header
+    timeout: 8000
+# ── Custom entry: the field is below the catalog, so the sheet is scrolled ──
+- tapOn: "More"
+- scrollUntilVisible:
+    element:
+      id: project_icon_custom_field
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: project_icon_custom_field
+# A ZWJ sequence: several code points that have to reach the icon as one
+# string. The field takes them as typed — nothing splits or rewrites them.
+- inputText: "🧑‍💻"
+- hideKeyboard
+# Closing the keyboard can put the sheet back at its top, where the Add button
+# is below the fold — so the sheet is scrolled to it rather than waited for.
+- scrollUntilVisible:
+    element:
+      id: project_icon_custom_add
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: project_icon_custom_add
+# The sheet closes on the pick, and the detail draws what was picked.
+- extendedWaitUntil:
+    notVisible:
+      id: project_icon_custom_field
+    timeout: 5000
+- assertVisible: "🧑‍💻"
+# ── The value was written when it was picked: reopen and look again ────────
+- tapOn:
+    id: top_bar_back_button
+- extendedWaitUntil:
+    visible:
+      id: shell_bar_title
+      text: "Projects"
+    timeout: 8000
+- tapOn:
+    id: project_card_custom_emoji_flow
+- extendedWaitUntil:
+    visible:
+      id: project_detail_tasks_header
+    timeout: 8000
+- assertVisible: "🧑‍💻"

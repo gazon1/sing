@@ -316,6 +316,8 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_ICON_CUSTOM_ADD` | `project_icon_custom_add` | |
+| `PROJECT_ICON_CUSTOM_FIELD` | `project_icon_custom_field` | |
 | `PROJECT_ICON_FALLBACK` | `project_icon_fallback` | |
 | `PROJECT_ICON_NO_MATCHES` | `project_icon_no_matches` | |
 | `PROJECT_ICON_RECENT_SECTION` | `project_icon_recent_section` | |

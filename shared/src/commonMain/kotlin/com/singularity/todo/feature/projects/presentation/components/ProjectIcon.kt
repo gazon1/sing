@@ -52,8 +52,9 @@ fun ProjectIcon(
             fontSize = (size.value * 0.75f).sp,
             textAlign = TextAlign.Center,
             // A composed sequence — ZWJ, flag, skin tone, variation
-            // selector — is one grapheme and must stay one line; wrapping
-            // or ellipsizing would split a single glyph.
+            // selector — spans several code points that the platform
+            // draws as one glyph; wrapping or ellipsizing would split
+            // it.
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Clip,

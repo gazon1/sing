@@ -46,6 +46,7 @@ import com.singularity.todo.core.emoji.EmojiCatalog
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.feature.projects.domain.logic.customEmojiFromInput
 import com.vanniktech.emoji.EmojiCategory
 import kotlinx.collections.immutable.ImmutableList
 
@@ -147,12 +148,15 @@ private fun EmojiSection(
         OutlinedTextField(
             state = custom,
             label = { Text("Custom emoji") },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag(TestTags.PROJECT_ICON_CUSTOM_FIELD),
         )
-        TextButton(onClick = {
-            val v = custom.text.trim().toString()
-            if (v.isNotEmpty()) onPick(Emoji(v))
-        }) { Text("Add") }
+        // The field takes free text, so the value is whatever the user typed,
+        // trimmed — see `customEmojiFromInput`. Blank input picks nothing: the
+        // sheet stays open and nothing is stored.
+        TextButton(
+            onClick = { customEmojiFromInput(custom.text.toString())?.let(onPick) },
+            modifier = Modifier.testTag(TestTags.PROJECT_ICON_CUSTOM_ADD),
+        ) { Text("Add") }
     }
 }
 
