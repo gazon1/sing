@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
@@ -45,11 +46,25 @@ import kotlin.test.assertTrue
  * - the ink is centred, so the glyph sits in the middle of the box rather than
  *   hanging off one side.
  *
- * It does not fingerprint which glyph the font chose: two different composed
- * renderings both paint inside the box, and telling them apart needs a golden
- * image, not a rule. A font without the sequence draws one tofu box, which also
- * paints inside the box — the ink rule cannot catch that. The bound is stated
- * rather than hidden.
+ * A check that cannot fail is not a check, so every rule here has a control
+ * beside it — a value that must trip the rule — and the controls are in this
+ * file rather than in a comment about them:
+ *
+ * - `the icon box check sees a sequence the font draws as two glyphs` puts the
+ *   same characters without their joiner (`🧑💻`) into the same box and expects
+ *   them to be cut at the edge, next to a plain text value that is too wide for
+ *   the box on any font. Without those, "no ink at the edge" would also hold on
+ *   a box whose clipping was never detected.
+ * - `the picker check sees a sequence that wraps onto a second line` puts the
+ *   same unjoined sequence into the picker's chip and expects its ink to reach
+ *   lower than a single emoji's — the outcome the chip rule forbids for a
+ *   composed sequence.
+ *
+ * What it does **not** fingerprint is which glyph the font chose: two different
+ * composed renderings both paint inside the box, and telling them apart needs a
+ * golden image, not a rule. A font without the sequence draws one tofu box,
+ * which also paints inside the box — the ink rule cannot catch that. The bound
+ * is stated rather than hidden.
  */
 @Tag("slow")
 @Tag("slow:compose")
@@ -74,36 +89,83 @@ class ProjectIconEmojiRenderTest {
             }
 
             SEQUENCES.forEachIndexed { index, sequence ->
-                val pixels = unmergedNodeOfTag(boxTag(index)).captureToImage().toPixelMap()
-                var ink = 0
-                var borderInk = false
-                var left = pixels.width
-                var right = -1
-                for (y in 0 until pixels.height) {
-                    for (x in 0 until pixels.width) {
-                        if (!isInk(pixels[x, y])) continue
-                        ink++
-                        if (x < left) left = x
-                        if (x > right) right = x
-                        val onVerticalEdge = x == 0 || x == pixels.width - 1
-                        val onHorizontalEdge = y == 0 || y == pixels.height - 1
-                        if (onVerticalEdge || onHorizontalEdge) {
-                            borderInk = true
+                val ink = measureBox(unmergedNodeOfTag(boxTag(index)))
+
+                assertTrue(ink.count > 0, "'$sequence' painted nothing inside the icon box")
+                assertTrue(
+                    !ink.borderInk,
+                    "'$sequence' is clipped at the icon box's edge — the font drew it wider than one glyph",
+                )
+                val glyphCentre = (ink.left + ink.right) / 2
+                assertTrue(
+                    abs(glyphCentre - ink.width / 2) <= 2,
+                    "'$sequence' is not centred in the icon box: ink from ${ink.left} to ${ink.right} " +
+                        "in ${ink.width}px",
+                )
+            }
+        }
+
+    /**
+     * The control: the same rule, on values it must reject.
+     *
+     * The rule above says "no ink at the edge of the icon box". This test is
+     * what makes that sentence mean something — it puts two values into the
+     * same box and expects the rule to fire on both:
+     *
+     * - `🧑💻`, the same two emoji as `🧑‍💻` without the joiner between them.
+     *   A font that composes the sequence draws this as **two** glyphs, and two
+     *   glyphs are wider than the 24dp box, so the box cuts them and the ink
+     *   reaches the edge. This is the negative control the positive test needs:
+     *   it is the value that shows up when the sequence stops being composed.
+     * - `WWWWWWWW`, plain text that is too wide for the box on any font. It
+     *   proves the edge rule fires at all, independently of what a font does
+     *   with an emoji.
+     *
+     * The control assumes a font that draws the emoji: a font that draws
+     * neither has nothing to tell the two forms apart, and this test fails
+     * rather than passing quietly. A machine whose font cannot draw the
+     * sequence is a machine on which the positive test above says nothing
+     * either.
+     */
+    @Test
+    fun `the icon box check sees a sequence the font draws as two glyphs`() =
+        runIsolatedComposeTest {
+            val values = listOf(COMPOSED, UNJOINED, TOO_WIDE_TEXT)
+            setContent {
+                Column {
+                    values.forEachIndexed { index, sequence ->
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(ICON_BOX)
+                                    .background(BACKGROUND)
+                                    .testTag(boxTag(index)),
+                        ) {
+                            ProjectIcon(icon = Emoji(sequence), tint = Color.Black, size = ICON_BOX)
                         }
                     }
                 }
-
-                assertTrue(ink > 0, "'$sequence' painted nothing inside the icon box")
-                assertTrue(
-                    !borderInk,
-                    "'$sequence' is clipped at the icon box's edge — the font drew it wider than one glyph",
-                )
-                val glyphCentre = (left + right) / 2
-                assertTrue(
-                    abs(glyphCentre - pixels.width / 2) <= 2,
-                    "'$sequence' is not centred in the icon box: ink from $left to $right in ${pixels.width}px",
-                )
             }
+
+            val composed = measureBox(unmergedNodeOfTag(boxTag(0)))
+            val unjoined = measureBox(unmergedNodeOfTag(boxTag(1)))
+            val tooWide = measureBox(unmergedNodeOfTag(boxTag(2)))
+
+            assertTrue(
+                !composed.borderInk,
+                "'$COMPOSED' is clipped at the icon box's edge — the font drew it wider than one glyph",
+            )
+            assertTrue(
+                unjoined.borderInk,
+                "'$UNJOINED' was not clipped: without the joiner it is two glyphs, and two glyphs are " +
+                    "wider than the box. The edge rule cannot tell a composed sequence from an " +
+                    "uncomposed one",
+            )
+            assertTrue(
+                tooWide.borderInk,
+                "'$TOO_WIDE_TEXT' was not clipped: text wider than the box has to be cut at its edge, " +
+                    "or the edge rule never fires at all",
+            )
         }
 
     /**
@@ -172,6 +234,43 @@ class ProjectIconEmojiRenderTest {
         }
 
     /**
+     * The control: the same rule, on a value that must break it.
+     *
+     * The rule above says "the composed sequence's ink does not reach lower
+     * than a single emoji's". This test puts the unjoined sequence —
+     * `🧑💻`, the two emoji without the joiner — into the chip and expects its
+     * ink to reach **lower** than a single emoji's, by more than the same
+     * 10% tolerance. Two glyphs do not fit the chip's 24dp of content, so they
+     * wrap onto a second line and the ink moves down; that is the failure the
+     * rule above is there to catch, so the rule can catch it.
+     */
+    @Test
+    fun `the picker check sees a sequence that wraps onto a second line`() =
+        runIsolatedComposeTest {
+            setContent {
+                ScreenWithOwners {
+                    IconPickerSheet(
+                        currentIcon = null,
+                        recentEmojis = persistentListOf(COMPOSED, UNJOINED, SINGLE),
+                        onPick = {},
+                        onDismiss = {},
+                    )
+                }
+            }
+
+            val single = inkBox(topMostNodeWithText(SINGLE))
+            val unjoined = inkBox(topMostNodeWithText(UNJOINED))
+
+            val tolerance = (single.height * INK_TOLERANCE).roundToInt()
+            assertTrue(
+                unjoined.bottom > single.bottom + tolerance,
+                "'$UNJOINED' did not wrap in the chip: its ink reaches ${unjoined.bottom}, a single " +
+                    "emoji's ${single.bottom}. Two glyphs do not fit the chip's content width, so the " +
+                    "rule above would not have caught them either",
+            )
+        }
+
+    /**
      * The painted ink of a node: how many pixels differ from the backdrop, and
      * how far down the node they reach.
      *
@@ -181,40 +280,70 @@ class ProjectIconEmojiRenderTest {
      */
     private fun inkBox(node: SemanticsNodeInteraction): InkBox {
         val pixels = node.captureToImage().toPixelMap()
-        val colours =
-            buildList {
-                for (y in 0 until pixels.height) {
-                    for (x in 0 until pixels.width) {
-                        add(pixels[x, y].toArgb())
-                    }
-                }
-            }
-        val backdrop =
-            Color(
-                colours
-                    .groupingBy { it }
-                    .eachCount()
-                    .maxByOrNull { it.value }!!
-                    .key,
-            )
+        val backdrop = backdropColour(pixels)
         var count = 0
         var top = pixels.height
         var bottom = -1
         for (y in 0 until pixels.height) {
             for (x in 0 until pixels.width) {
-                val color = Color(pixels[x, y].toArgb())
-                val distance =
-                    abs(color.red - backdrop.red) +
-                        abs(color.green - backdrop.green) +
-                        abs(color.blue - backdrop.blue) +
-                        abs(color.alpha - backdrop.alpha)
-                if (distance <= INK_THRESHOLD) continue
+                if (!differsFrom(pixels[x, y], backdrop)) continue
                 count++
                 if (y < top) top = y
                 if (y > bottom) bottom = y
             }
         }
         return InkBox(count = count, top = top, bottom = bottom, height = pixels.height)
+    }
+
+    /**
+     * The backdrop of a node: the colour its corner has.
+     *
+     * The chip is a circle on a transparent sheet with the glyph in the
+     * middle, so the corner is the backdrop — and the check that it really is
+     * the backdrop (it covers more than half of the node) is what keeps a
+     * glyph that reached the corner from turning the whole node into ink.
+     */
+    private fun backdropColour(pixels: PixelMap): Color {
+        val corner = pixels[0, 0].toArgb()
+        var matching = 0
+        for (y in 0 until pixels.height) {
+            for (x in 0 until pixels.width) {
+                if (pixels[x, y].toArgb() == corner) matching++
+            }
+        }
+        assertTrue(
+            matching * 2 > pixels.width * pixels.height,
+            "the node's corner is not its backdrop — it covers $matching of " +
+                "${pixels.width * pixels.height} pixels, so the ink cannot be read",
+        )
+        return Color(corner)
+    }
+
+    /**
+     * The ink of an icon box: the painted pixels, how far they reach to the
+     * left and to the right, and whether they touch an edge.
+     *
+     * The box has a background of its own here, so the backdrop is known and
+     * only one pass over the pixels is needed.
+     */
+    private fun measureBox(node: SemanticsNodeInteraction): BoxInk {
+        val pixels = node.captureToImage().toPixelMap()
+        var count = 0
+        var left = pixels.width
+        var right = -1
+        var borderInk = false
+        for (y in 0 until pixels.height) {
+            for (x in 0 until pixels.width) {
+                if (!isInk(pixels[x, y])) continue
+                count++
+                if (x < left) left = x
+                if (x > right) right = x
+                val onVerticalEdge = x == 0 || x == pixels.width - 1
+                val onHorizontalEdge = y == 0 || y == pixels.height - 1
+                if (onVerticalEdge || onHorizontalEdge) borderInk = true
+            }
+        }
+        return BoxInk(count = count, left = left, right = right, width = pixels.width, borderInk = borderInk)
     }
 
     /**
@@ -227,16 +356,28 @@ class ProjectIconEmojiRenderTest {
     private fun SemanticsNodeInteractionsProvider.topMostNodeWithText(text: String): SemanticsNodeInteraction {
         val collection = onAllNodesWithText(text, useUnmergedTree = true)
         val nodes = collection.fetchSemanticsNodes()
-        val topmost = nodes.indices.minByOrNull { nodes[it].positionInRoot.y } ?: 0
+        assertTrue(nodes.isNotEmpty(), "no node shows the text '$text'")
+        val topmost = nodes.indices.minBy { nodes[it].positionInRoot.y }
         return collection[topmost]
     }
 
     private data class InkBox(val count: Int, val top: Int, val bottom: Int, val height: Int)
 
+    private data class BoxInk(val count: Int, val left: Int, val right: Int, val width: Int, val borderInk: Boolean)
+
     private fun isInk(color: Color): Boolean =
         abs(color.red - BACKGROUND.red) +
             abs(color.green - BACKGROUND.green) +
             abs(color.blue - BACKGROUND.blue) > INK_THRESHOLD
+
+    private fun differsFrom(
+        color: Color,
+        backdrop: Color,
+    ): Boolean =
+        abs(color.red - backdrop.red) +
+            abs(color.green - backdrop.green) +
+            abs(color.blue - backdrop.blue) +
+            abs(color.alpha - backdrop.alpha) > INK_THRESHOLD
 
     private fun boxTag(index: Int) = "project_icon_emoji_$index"
 
@@ -261,6 +402,13 @@ class ProjectIconEmojiRenderTest {
         /** The composed sequence the picker's chip is checked with. */
         const val COMPOSED = "🧑‍💻"
 
+        /**
+         * The same two emoji without the joiner between them: a font that
+         * composes the sequence draws this as two glyphs, and two glyphs do
+         * not fit the box or the chip. It is the control the checks above need.
+         */
+        const val UNJOINED = "🧑💻"
+
         /** A single emoji, the yardstick the composed chip's ink is read against. */
         const val SINGLE = "😀"
 
@@ -270,6 +418,10 @@ class ProjectIconEmojiRenderTest {
          */
         const val WRAPPING_CONTROL = "abcdefgh"
 
+        /** Plain text that is too wide for the icon box on any font. */
+        const val TOO_WIDE_TEXT = "WWWWWWWW"
+
+        /** The composed sequences the icon box is checked with. */
         val SEQUENCES =
             listOf(
                 "🧑‍💻", // ZWJ sequence — the imported person technologist

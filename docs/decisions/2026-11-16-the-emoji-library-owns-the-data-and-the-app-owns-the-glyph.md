@@ -108,6 +108,13 @@ Concretely:
      one node, both from the recent row and from the catalog's own search
      results.
 
+   Every desktop rule has a control beside it in the same file, so a check that
+   cannot fail is not left standing on its own: the same two emoji **without**
+   their joiner (`🧑💻`) are put into the same icon box and into the same chip,
+   because that is the value a font that refuses to compose produces, and
+   plain text too wide for the box is put beside it as a control that does not
+   depend on any font's idea of an emoji.
+
    An Android screenshot does not establish desktop correctness, and the desktop
    check does not establish Android's: the two platforms use different fonts,
    and a font that composes a sequence on one can draw it as two glyphs on the
@@ -158,6 +165,18 @@ and `1️⃣` each paint inside the box, none of them clipped at its edge, all o
 them centred. The check exists because it can fail: a font that refuses to
 compose a sequence draws it wider than the box, and the box cuts it.
 
+**The proof has teeth, and that is measured too.** In the same 24dp box the
+same two emoji without their joiner (`🧑💻`) are two glyphs: their ink runs
+from the first pixel to the last (1 to 23 of 24), so the edge rule fires on
+exactly the value the regression would produce — the composed sequence's ink
+runs from 3 to 21 and touches no edge. Plain text too wide for the box
+(`WWWWWWWW`) is cut at the edge as well, so the rule fires independently of
+what a font does with an emoji. In the picker's 40dp chip the same split
+shows up vertically: the composed sequence's ink reaches 25, a single emoji's
+25, and the unjoined sequence's 31 — the second line the chip's rule forbids.
+The negative control therefore fails the rule it is a control for, which is
+what makes the positive check mean something.
+
 **What the ink rule cannot catch is stated.** A font with no glyph for the
 sequence draws one tofu box — ink inside the box, no clipping — and the rule
 cannot tell that from a composed glyph. Both platforms' tests carry that
@@ -192,7 +211,8 @@ bound in their own words rather than implying more than they prove.
   the difference between the code-point count and an emoji count;
   `IconPickerCustomEmojiTest` (desktop) and `IconPickerCustomInputTest`
   (Android) pin the custom field's contract; `ProjectEditorViewModelTest` pins
-  that a custom icon is what the saved project stores;
+  that a composed sequence is what the saved project stores (the free-text
+  value is pinned one link up, by the picker's own tests on both platforms);
   `ProjectIconEmojiRenderTest` (desktop) and `ProjectIconEmojiRenderTest`
   (Android) pin the rendering per platform.
 
