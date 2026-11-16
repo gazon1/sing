@@ -17,6 +17,9 @@ alone. No cairosvg needed: only the SVG document is inspected.
 import importlib.util
 import pathlib
 import unittest
+import xml.etree.ElementTree as ET
+
+ANDROID = "{http://schemas.android.com/apk/res/android}"
 
 MODULE_PATH = (
     pathlib.Path(__file__).resolve().parent.parent / "render_rustore_icon.py"
@@ -71,6 +74,24 @@ class VectorToSvgTest(unittest.TestCase):
         self.assertIn('stroke="#FFFFFF"', svg)
         self.assertIn('stroke-opacity="0.2"', svg)
         self.assertIn('stroke-width="0.8"', svg)
+
+    def test_every_stroked_path_keeps_its_stroke(self):
+        """The grid is thirty-two lines, and one stroke is not a grid.
+
+        Counting is the point: a renderer that emitted a single stroke would
+        pass an `assertIn` check, and the store icon would lose its grid
+        without a single test going red.
+        """
+        source = self.res / "drawable" / "ic_launcher_background.xml"
+        stroked = [
+            element
+            for element in ET.parse(source).getroot().findall("path")
+            if element.get(ANDROID + "strokeColor") is not None
+        ]
+        svg = self.module.vector_to_svg(source)
+        self.assertEqual(len(stroked), 32)
+        self.assertEqual(svg.count('stroke="'), len(stroked))
+        self.assertEqual(svg.count('stroke-width="'), len(stroked))
 
     def test_no_eight_digit_hex_survives(self):
         layers = (
