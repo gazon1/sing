@@ -133,7 +133,7 @@ curl -s -H "Public-Token: $JWE" https://public-api.rustore.ru/public/v1/applicat
    (`singularity-0.2.2-android.apk`), подписан тем же ключом, что и остальные релизы;
    fingerprint сверяется с `vars.ANDROID_CERT_FINGERPRINT`. APK `v0.2.1` не грузить —
    из него пользователь не может выйти (п. 8).
-3. **Иконка**: PNG 512×512 — `scripts/render-rustore-icon.py` (см. п. 6).
+3. **Иконка**: PNG 512×512 — `scripts/render_rustore_icon.py` (см. п. 6).
 4. **Скриншоты**: минимум 3, до 10; PNG/JPG, до 3 МБ каждый, не выше 2160×3840,
    соотношение 16:9 (см. п. 6).
 5. **Карточка**: тексты из п. 7 — копируются как есть.
@@ -152,7 +152,7 @@ curl -s -H "Public-Token: $JWE" https://public-api.rustore.ru/public/v1/applicat
 
 ```bash
 pip install cairosvg
-python3 scripts/render-rustore-icon.py --out build/rustore/icon-512.png
+python3 scripts/render_rustore_icon.py --out build/rustore/icon-512.png
 ```
 
 ### Скриншоты

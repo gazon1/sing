@@ -5,8 +5,11 @@ RuStore wants a 512x512 PNG, but the repository only ships launcher bitmaps up t
 192x192 plus the two adaptive-icon vector layers. Rendering the vectors keeps the
 store icon identical to the adaptive icon on the device, at any resolution.
 
+Android VectorDrawable colors are ARGB (#AARRGGBB); SVG 1.1 has no 8-digit hex, so
+the alpha channel is emitted as a separate `*-opacity` attribute instead.
+
 Usage:
-    python3 scripts/render-rustore-icon.py --out build/rustore/icon-512.png
+    python3 scripts/render_rustore_icon.py --out build/rustore/icon-512.png
 
 Requires: cairosvg (pip install cairosvg).
 """
@@ -24,6 +27,29 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 RES = REPO_ROOT / "androidApp" / "src" / "main" / "res"
 
 
+def split_argb(color: str) -> tuple[str, str | None]:
+    """Split an Android color into an SVG color and an optional opacity.
+
+    `#AARRGGBB` becomes `("#RRGGBB", "0.267")`; `#RRGGBB` and named colors are
+    returned unchanged with no opacity.
+    """
+    if not color.startswith("#"):
+        return color, None
+    digits = color[1:]
+    if len(digits) == 8:
+        alpha = int(digits[0:2], 16) / 255
+        return "#" + digits[2:], f"{alpha:.3f}".rstrip("0").rstrip(".") or "0"
+    return color, None
+
+
+def _opacity_attrs(kind: str, color: str) -> str:
+    """Return the opacity attribute for a color, if the color carries alpha."""
+    _, opacity = split_argb(color)
+    if opacity is None:
+        return ""
+    return f' {kind}-opacity="{opacity}"'
+
+
 def vector_to_svg(path: Path) -> str:
     """Convert an Android VectorDrawable into an SVG document."""
     root = ET.parse(path).getroot()
@@ -37,22 +63,39 @@ def vector_to_svg(path: Path) -> str:
         gradient = element.find(f".//{AAPT}attr[@name='android:fillColor']/gradient")
         if gradient is not None:
             gradient_id = f"gradient{index}"
-            stops = "".join(
-                f'<stop offset="{item.get(ANDROID + "offset", "0")}" '
-                f'stop-color="{item.get(ANDROID + "color", "#000000")}"/>'
-                for item in gradient.findall("item")
-            )
+            stops = []
+            for item in gradient.findall("item"):
+                color = item.get(ANDROID + "color", "#000000")
+                stops.append(
+                    f'<stop offset="{item.get(ANDROID + "offset", "0")}" '
+                    f'stop-color="{split_argb(color)[0]}"'
+                    f'{_opacity_attrs("stop", color)}/>'
+                )
             defs.append(
                 f'<linearGradient id="{gradient_id}" gradientUnits="userSpaceOnUse" '
                 f'x1="{gradient.get(ANDROID + "startX", "0")}" '
                 f'y1="{gradient.get(ANDROID + "startY", "0")}" '
                 f'x2="{gradient.get(ANDROID + "endX", "0")}" '
-                f'y2="{gradient.get(ANDROID + "endY", "0")}">{stops}</linearGradient>'
+                f'y2="{gradient.get(ANDROID + "endY", "0")}">{"".join(stops)}</linearGradient>'
             )
             fill = f"url(#{gradient_id})"
-        elif len(fill) == 9 and fill.startswith("#"):
-            fill = "#" + fill[3:] + fill[1:3]  # #AARRGGBB -> #RRGGBBAA
-        body.append(f'<path d="{data}" fill="{fill}" fill-rule="nonzero"/>')
+            fill_opacity = ""
+        else:
+            fill_color, fill_opacity = split_argb(fill)
+            fill = fill_color
+        stroke = element.get(ANDROID + "strokeColor")
+        attributes = f'<path d="{data}" fill="{fill}" fill-rule="nonzero"'
+        if fill_opacity:
+            attributes += f' fill-opacity="{fill_opacity}"'
+        if stroke:
+            stroke_color, _ = split_argb(stroke)
+            attributes += (
+                f' stroke="{stroke_color}"'
+                f'{_opacity_attrs("stroke", stroke)}'
+                f' stroke-width="{element.get(ANDROID + "strokeWidth", "0")}"'
+            )
+        attributes += "/>"
+        body.append(attributes)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{vw}" height="{vh}" '
         f'viewBox="0 0 {vw} {vh}"><defs>{"".join(defs)}</defs>{"".join(body)}</svg>'
