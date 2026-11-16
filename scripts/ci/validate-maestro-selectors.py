@@ -294,6 +294,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # projectCard(...) — used in flows
     "project_card_project_alpha",
     "project_card_emoji_flow",
+    "project_card_custom_emoji_flow",
     # profileItem(...) — used in profile flows
     "profile_item_personal",
     "profile_item_work",

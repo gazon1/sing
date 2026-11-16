@@ -5,6 +5,7 @@ import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
 import com.singularity.todo.test.helpers.ScreenWithOwners
+import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -30,6 +31,14 @@ import kotlin.test.assertNull
  * (`CustomEmojiInputTest`); this test is the binding that puts it behind the
  * field and the button: the text the field holds is what the button hands
  * back.
+ *
+ * ## What a blank input must not do
+ *
+ * The field is a free-text field, so an empty one is a normal state and not an
+ * error. Nothing is picked, the sheet stays open with the text the user typed
+ * still in it, and the next attempt starts from there. A button that cleared
+ * the field, or that closed the sheet, would make the second attempt a
+ * different thing than the first.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("fast")
@@ -37,14 +46,14 @@ class IconPickerCustomEmojiTest {
     @Test
     fun `a typed emoji is picked exactly as it was typed`() =
         runIsolatedComposeTest {
-            var picked: Emoji? = null
+            val picks = mutableListOf<Emoji?>()
 
             setContent {
                 ScreenWithOwners {
                     IconPickerSheet(
                         currentIcon = null,
                         recentEmojis = persistentListOf(),
-                        onPick = { picked = it },
+                        onPick = { picks.add(it) },
                         onDismiss = {},
                     )
                 }
@@ -54,8 +63,9 @@ class IconPickerCustomEmojiTest {
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_FIELD, "🧑‍💻")
             clickTagScrolled(TestTags.PROJECT_ICON_CUSTOM_ADD)
 
-            assertEquals(Emoji("🧑‍💻"), picked, "the composed sequence was picked")
-            assertEquals("🧑‍💻", picked?.value, "and it survived byte for byte")
+            assertEquals(1, picks.size, "the pick was handed back once")
+            assertEquals(Emoji("🧑‍💻"), picks.single(), "the composed sequence was picked")
+            assertEquals("🧑‍💻", picks.single()?.value, "and it survived byte for byte")
         }
 
     @Test
@@ -82,6 +92,39 @@ class IconPickerCustomEmojiTest {
         }
 
     @Test
+    fun `a blank field picks nothing and keeps what was typed`() =
+        runIsolatedComposeTest {
+            val picks = mutableListOf<Emoji?>()
+
+            setContent {
+                ScreenWithOwners {
+                    IconPickerSheet(
+                        currentIcon = null,
+                        recentEmojis = persistentListOf(),
+                        onPick = { picks.add(it) },
+                        onDismiss = {},
+                    )
+                }
+            }
+
+            scrollToTag(TestTags.PROJECT_ICON_CUSTOM_FIELD)
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_FIELD, "   ")
+            clickTagScrolled(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(0, picks.size, "whitespace is not an icon")
+            // The sheet is still open — the field is there — and it still holds
+            // what was typed: a blank field is a state, not a reset.
+            assertTagTextEquals(TestTags.PROJECT_ICON_CUSTOM_FIELD, "   ")
+
+            // The field is still usable: the second attempt is the first one.
+            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_FIELD, "🧑‍💻")
+            clickTagScrolled(TestTags.PROJECT_ICON_CUSTOM_ADD)
+
+            assertEquals(1, picks.size, "the second attempt picked once")
+            assertEquals("🧑‍💻", picks.single()?.value, "and it picked what was typed")
+        }
+
+    @Test
     fun `an empty custom field picks nothing`() =
         runIsolatedComposeTest {
             var picked: Emoji? = null
@@ -98,9 +141,8 @@ class IconPickerCustomEmojiTest {
             }
 
             scrollToTag(TestTags.PROJECT_ICON_CUSTOM_FIELD)
-            typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_FIELD, "   ")
             clickTagScrolled(TestTags.PROJECT_ICON_CUSTOM_ADD)
 
-            assertNull(picked, "whitespace is not an icon")
+            assertNull(picked, "there is nothing to pick")
         }
 }

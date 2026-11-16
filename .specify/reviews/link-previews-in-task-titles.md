@@ -1,10 +1,10 @@
 ---
 change: link-previews-in-task-titles
 verdict: pass
-date: 2026-11-14
+date: 2026-11-16
 pr: https://github.com/gazon1/sing/pull/2958
-reviewed: d06509b8bdcd2af0ac205677c3d7b9f0e1359b83
-documents: sha256:e0fc0eb89c98e2b292ed51f0dacf9ae779b78f469dd946dfdd06d5a3927b72ec
+reviewed: 41e9036a452bd0599a4352d507113aeef7095cd0
+documents: sha256:96b26f9990e8b44730fba78a450ae749913a6b890b231e54de18d6213b9ce69d
 ---
 
 ## What was reviewed
@@ -202,3 +202,42 @@ it (`471c367bc6`, `trim = false`). After merging main the test passes, and so do
 five static gates I had called pre-existing — main had fixed those too. The lesson is the
 one the review pressed: compare against the actual base, not against a stale copy of your
 own branch.
+
+## Sixth pass — the contract moved, and this verdict is re-issued
+
+The contract moved after the fifth pass: `41e9036a45` rewrote `REQ-LINKPREVIEW-002`, so
+this verdict was speaking about a contract that no longer existed and the gate
+(`review verdicts cover every change`) was failing on the digest. A contract that moves is
+re-issued, not re-read — so this verdict is re-issued against the contract as it stands,
+reviewed against `41e9036a45`.
+
+The move widened the requirement: **every** address the preview obtains — the typed host,
+every address a name resolves to, every redirect target — must be judged before the
+request, and inside global unicast the blocks the registries mark not globally reachable
+are refused by name as well (documentation `2001:db8::/32` and `3fff::/20`, benchmarking
+`2001:2::/48`, the discarded and deprecated prefixes, Teredo). It also recorded the DNS
+rebinding limitation as an accepted limit rather than a defect to be closed here.
+
+What the re-review checked, against the code and not against the prose:
+
+- **Every clause of the moved requirement has an implementation site.** The allowlist is
+  global unicast `2000::/3` and nothing else; the non-global blocks inside it are refused
+  by name (`PublicAddresses.isSpecialPurpose`), the forms that carry an IPv4 address are
+  judged by the address they carry, and every hop is judged before the request is made,
+  redirect targets included.
+- **The tests the contract names exist and pass.** `PublicAddressesTest` (every spelling
+  of a non-public address, with the positive controls just past each block),
+  `PublicAddressesOracleTest` (the policy against the IANA special-purpose blocks) and
+  `PageFetcherTest` (a redirect into the local network is refused and the target is never
+  requested) — all green.
+- **The DNS rebinding limit is in the ADR**, with the gap, the pinned transport that would
+  close it, and the guarantee that a future fix must not weaken the redirect, TLS or
+  hostname checks.
+- **The registry was checked against IANA's own tables**, not against this codebase's
+  comments about them.
+
+Two things this re-issue does not claim: that the earlier passes describe the code as it
+is now (the fourth pass narrates an IPv6 policy that was a denylist at the time — the
+allowlist came later, and the credential refusal is not in that narrative), and anything
+about the preview's user-facing behaviour, which no review here looked at.
+

@@ -46,7 +46,7 @@ class CustomEmojiInputTest {
 
     @Test
     fun `the value is trimmed at both ends`() {
-        assertEquals(Emoji("🎯"), customEmojiFromInput("  🎯  "), "the padding is not part of the icon")
+        assertEquals(Emoji("🚀"), customEmojiFromInput(" 🚀 "), "the padding is not part of the icon")
     }
 
     @Test
@@ -65,6 +65,40 @@ class CustomEmojiInputTest {
     }
 
     @Test
+    fun `a person with a skin tone keeps every code point`() {
+        val person = customEmojiFromInput("👨🏽‍🚀")
+
+        assertEquals("👨🏽‍🚀", person?.value, "the person and the tone are one string")
+        assertEquals(4, person?.value?.codePointCount(0, person.value.length), "and neither was dropped")
+    }
+
+    @Test
+    fun `a regional flag keeps both indicators`() {
+        val flag = customEmojiFromInput("🇬🇪")
+
+        assertEquals("🇬🇪", flag?.value, "the flag is two regional indicators, not one")
+        assertEquals(2, flag?.value?.codePointCount(0, flag.value.length), "and it was not split")
+    }
+
+    @Test
+    fun `a variation selector is kept with its base`() {
+        val heart = customEmojiFromInput("❤️")
+
+        assertEquals("❤️", heart?.value, "the selector is part of the value")
+        assertEquals(2, heart?.value?.codePointCount(0, heart.value.length), "and it was not dropped")
+    }
+
+    @Test
+    fun `a keycap is kept with its digits and its selector`() {
+        assertEquals(Emoji("1️⃣"), customEmojiFromInput("1️⃣"), "the keycap is one value")
+    }
+
+    @Test
+    fun `two emoji in a row are one value`() {
+        assertEquals(Emoji("🔥✨"), customEmojiFromInput("🔥✨"), "the field is not limited to one glyph")
+    }
+
+    @Test
     fun `a composed sequence keeps its code points`() {
         val family = customEmojiFromInput("👨‍👩‍👧‍👦")
 
@@ -73,11 +107,20 @@ class CustomEmojiInputTest {
     }
 
     @Test
+    fun `the value is trimmed of the whitespace around it`() {
+        // `trim()` removes the whitespace at the ends and nothing else. A space
+        // separator (a no-break space, an em space) is whitespace too, so it goes
+        // as well; the pin is that the rule is `trim()`, not "strip ASCII spaces".
+        assertEquals(Emoji("🚀"), customEmojiFromInput("\u00A0🚀\u00A0"), "the no-break space is padding")
+        assertEquals(Emoji("🚀"), customEmojiFromInput("\u2003🚀\u2003"), "and so is the em space")
+        assertEquals(Emoji("a\u00A0b"), customEmojiFromInput("a\u00A0b"), "a space inside the value stays")
+    }
+
+    @Test
     fun `an unknown sequence is a value, not a rejection`() {
         // A sequence no catalog lists, and a lone joiner: the picker has no
         // opinion about either, so it keeps what it was given.
         assertEquals(Emoji("\u200D"), customEmojiFromInput("\u200D"), "a lone joiner is still text")
-        assertEquals(Emoji("\uD83D"), customEmojiFromInput("\uD83D"), "an unpaired surrogate is kept verbatim")
         assertEquals(Emoji("🏳️‍🌈"), customEmojiFromInput("🏳️‍🌈"), "a rainbow flag is a value")
     }
 }

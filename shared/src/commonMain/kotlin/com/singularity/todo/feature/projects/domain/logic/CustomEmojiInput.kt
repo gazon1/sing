@@ -18,8 +18,15 @@ import com.singularity.todo.core.emoji.Emoji
  * Blank input is not a value: it picks nothing at all. The sheet stays open,
  * the field keeps what was typed, and nothing is stored — there is no icon to
  * remember and no icon to fall back from.
+ *
+ * The guarantee is about the text the field holds: a well-formed string. The
+ * field is fed by a keyboard, which cannot produce an unpaired surrogate, and
+ * a value that is not well-formed would not survive the JSON of the sync
+ * document either. Nothing here validates that, and nothing here needs to: the
+ * rule is "trim, then keep", not "accept only what a parser likes".
  */
-fun customEmojiFromInput(raw: String): Emoji? {
-    val trimmed = raw.trim()
-    return if (trimmed.isEmpty()) null else Emoji(trimmed)
-}
+fun customEmojiFromInput(raw: String): Emoji? =
+    raw
+        .trim()
+        .takeIf(String::isNotEmpty)
+        ?.let(::Emoji)

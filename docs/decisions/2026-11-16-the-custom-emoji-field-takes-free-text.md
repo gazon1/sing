@@ -45,6 +45,14 @@ both ends removed; everything else is kept exactly as it was typed.**
   never converts one representation into another, which is the same rule the icon
   itself follows (`2026-11-14-project-icons-are-emoji-or-nothing`): a non-blank string
   is a value.
+- The whitespace that comes off is the whitespace `trim()` removes on the platform the
+  app runs on — spaces, tabs, newlines and the space separators (a no-break space, an
+  em space) on JVM and Android, which is where this app runs. Nothing inside the value
+  is touched.
+- The guarantee is about a **well-formed** string. The field is fed by a keyboard,
+  which cannot produce an unpaired surrogate, and a malformed UTF-16 sequence would
+  not survive the JSON of the sync document either. Nothing in the picker validates
+  that, and nothing in the picker needs to.
 
 The rule lives in one place, `customEmojiFromInput` (`feature/projects/domain/logic/`),
 so it can be asserted without a UI. The sheet calls it and does nothing else.
@@ -60,7 +68,7 @@ for a legacy key that a column still holds. A validation step would have to know
 difference between "not an emoji" and "not in the catalog", and the second one is not a
 defect — it is the reason the field exists.
 
-**A composed sequence is one string.** `🧑‍💻` is five code points. A parser that counts
+**A composed sequence is one string.** `🧑‍💻` is three code points. A parser that counts
 code points, splits a family into two entries or normalizes it into a different
 spelling all change what the user typed, and the change is invisible until an icon
 displays as the wrong glyph in a document that was exported to another device. Keeping
@@ -79,27 +87,38 @@ it rather than changing it.
 ## Consequences
 
 - The custom entry is covered: `CustomEmojiInputTest` (shared) asserts the rule —
-  blank, whitespace, ordinary text, a single emoji, trimming, and the composed
-  sequences of the shared fixture — and `IconPickerCustomEmojiTest` (desktop) asserts
-  the binding: what the field holds is what the button hands back.
+  blank, whitespace, ordinary text, a single emoji, trimming, the whitespace at the
+  edges, and every composed sequence of the shared fixture, byte for byte — and
+  `IconPickerCustomEmojiTest` (desktop) asserts the binding: what the field holds is
+  what the button hands back, a blank field picks nothing and keeps its text, and the
+  pick is handed back exactly once.
 - The Android custom entry is covered by `Maestro/flows/projects/05-custom-emoji.yaml`:
-  it types a ZWJ sequence into the field on a device, through the platform
-  keyboard, and checks that the project draws it. How the value is *stored* is
-  the question the JVM tiers answer — the picker applies the pick to the open
-  project, and the write happens on the editor's save.
+  it types a ZWJ sequence into the field on a device, through the platform keyboard,
+  checks that the project draws it, and then reopens the project and checks that the
+  emoji is still there. There is no Save to press: the pick is written through
+  `updateProject` when it happens, so the value is in the row before the next screen
+  opens. The bytes themselves are the JVM tiers' business. The flow types a non-ASCII
+  sequence, which the Maestro skill warns is not portable: it reached the field on the
+  device the flow was run on (realme RMX3938, 0O65321F32204DD5, Maestro 2.10), but a
+  runner whose `inputText` cannot type non-ASCII gets an empty field and a red flow.
 - The persistence boundaries are unchanged and already pinned
-  (`ProjectIconBoundaryTest`, `ProjectDocumentWriteTest`, `BackupRoundTripTest`): the
+  (`ProjectIconBoundaryTest`, `ProjectDocumentWriteTest`, `BackupRoundTripTest`); the
   icon is a Unicode string in Room, in the backup DTO and in the sync document, and
-  nothing converts it.
+  nothing converts it. `ProjectIconRoomRoundTripTest` is new in this change and is
+  the one that writes into a real SQLite: the boundary test walks the model and the
+  mappers, so it says nothing about what a database does with the column.
 - The recent-emoji history already stores opaque strings with an escaping scheme
   (`2026-11-13-the-recently-used-emoji-live-in-the-user-settings`), which is what a
   free-text field needs. A custom value with a separator character in it round-trips
   through the history unchanged.
 - The picker keeps its current Compose input UI. Nothing in the audit found a defect
   in it.
-- A value that is not an emoji is a value: the icon is drawn as one grapheme, clipped,
-  on one line (`ProjectIcon`), so a long text value is truncated on screen — the stored
-  value is still the whole string.
+- The test no longer asserts what happens to an unpaired surrogate. The guarantee
+  above is about a well-formed string, so pinning the behavior of a malformed one
+  would have promised more than the field is contracted to deliver.
+- A value that is not an emoji is a value: the icon is drawn as one line, clipped
+  (`ProjectIcon`, `maxLines = 1`, `overflow = Clip`), so a long text value is cut on
+  screen — the stored value is still the whole string.
 
 ## Links
 
@@ -107,6 +126,7 @@ it rather than changing it.
 - Code: `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/domain/logic/CustomEmojiInput.kt`,
   `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/IconPickerSheet.kt`
 - Tests: `shared/src/commonTest/.../feature/projects/domain/logic/CustomEmojiInputTest.kt`,
+  `shared/src/jvmTest/.../feature/projects/ProjectIconRoomRoundTripTest.kt`,
   `desktopApp/src/jvmTest/.../feature/projects/IconPickerCustomEmojiTest.kt`,
   `Maestro/flows/projects/05-custom-emoji.yaml`
 - Decisions: `2026-11-14-project-icons-are-emoji-or-nothing`,
