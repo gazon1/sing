@@ -1,11 +1,16 @@
 package com.singularity.todo.feature.reminders
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.notifications.JvmNotifier
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotifier
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.TestUsers
+import com.singularity.todo.test.helpers.binaryIsOnPath
+import com.singularity.todo.test.helpers.commandSucceeds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -105,6 +110,45 @@ class JvmReminderSchedulerCapabilityTest {
             "arming a timer nothing can display is the defect, not the fix",
         )
     }
+
+    /**
+     * The real capability probe must agree with the host it is talking about.
+     *
+     * Sibling to the notifier's host-probe check: the expected answer is derived by
+     * lookup and by independent `--version` runs (a different mechanism than the
+     * production probes, which go through [Subprocess.runQuietly]), so agreement is
+     * evidence rather than a restatement. On a host with or without systemd / notify-send
+     * the assertion still holds and still says something, so it skips nothing.
+     */
+    @Test
+    fun `the real capability probe agrees with the host's systemd and notifier`() {
+        val expectedSystemd = systemdAvailable()
+        val expectedNotifier = notifySendAvailable()
+        val expected = expectedSystemd && expectedNotifier
+        val probed =
+            JvmReminderScheduler(
+                clock = clock,
+                reminderRepo = FakeReminderRepository(),
+                notifier = JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)),
+            ).isSupported
+
+        assertEquals(
+            expected,
+            probed,
+            "the scheduler probe answered $probed but the host oracle answered " +
+                "systemd=$expectedSystemd notifier=$expectedNotifier (combined=$expected). " +
+                "Expected values are derived by PATH lookup and independent version queries " +
+                "for systemd-run (--user --version) and notify-send (--version), not by the " +
+                "production probe helper.",
+        )
+    }
+
+    private fun systemdAvailable(): Boolean =
+        binaryIsOnPath("systemd-run") &&
+            commandSucceeds("systemd-run", "--user", "--version")
+
+    private fun notifySendAvailable(): Boolean =
+        binaryIsOnPath("notify-send") && commandSucceeds("notify-send", "--version")
 
     // ─── Refusal ───────────────────────────────────────────────────────────────
 
