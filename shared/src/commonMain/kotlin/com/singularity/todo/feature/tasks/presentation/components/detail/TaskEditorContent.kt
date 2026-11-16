@@ -227,6 +227,13 @@ private fun TaskEditorContent(
      * form field, and a long one ellipsises instead of scrolling inside an input.
      */
     alwaysEditableTitle: Boolean = false,
+    /**
+     * Whether the title takes the focus as soon as the editor is composed.
+     *
+     * The capture case asks for it; the detail does not, and its title stays text
+     * until it is tapped. See [TaskTitleRow].
+     */
+    autoFocusTitle: Boolean = false,
 ) {
     // The scroll offset and the hero's measured height live outside the Scaffold so
     // the bar can read them: the title appears in the bar only once the hero is gone,
@@ -303,6 +310,7 @@ private fun TaskEditorContent(
                     titleError = titleError,
                     completedLabel = completedLabel,
                     alwaysEditable = alwaysEditableTitle,
+                    autoFocus = autoFocusTitle,
                 )
 
                 // Under the title and above the description: the hero's own extra, which
@@ -651,6 +659,8 @@ fun TaskEditorContent(
     barTitle: String? = null,
     /** The link preview under the title; see the private editor's [heroExtra]. */
     heroExtra: (@Composable () -> Unit)? = null,
+    /** Whether the title takes the focus when the editor opens. See [TaskTitleRow]. */
+    autoFocusTitle: Boolean = false,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -675,6 +685,7 @@ fun TaskEditorContent(
         completedLabel = completedLabel,
         barTitle = barTitle,
         heroExtra = heroExtra,
+        autoFocusTitle = autoFocusTitle,
     )
 }
 
@@ -710,6 +721,14 @@ fun TaskCreateEditorContent(
     sheets: DialogState<TaskEditorSheet>,
     titleError: String?,
     snackbarHost: (@Composable () -> Unit)? = null,
+    /**
+     * Whether the title takes the focus when the editor opens.
+     *
+     * The caller decides, not this function: whether an opening is a capture is the
+     * caller's knowledge (a prepared draft is a different opening), and the decision
+     * does not belong to a renderer.
+     */
+    autoFocusTitle: Boolean = false,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -733,6 +752,7 @@ fun TaskCreateEditorContent(
         // one, and a title that must be tapped before typing is a tap between the
         // person and the thing they opened the screen to do.
         alwaysEditableTitle = true,
+        autoFocusTitle = autoFocusTitle,
     )
 }
 
@@ -770,6 +790,7 @@ private fun TaskEditorScaffold(
     barTitle: String? = null,
     alwaysEditableTitle: Boolean = false,
     heroExtra: (@Composable () -> Unit)? = null,
+    autoFocusTitle: Boolean = false,
 ) {
     // The deadline is overdue when it sits before today. "Today" comes from the
     // same `now` the rest of the editor is given, so the row and the sheet that
@@ -844,6 +865,7 @@ private fun TaskEditorScaffold(
         completedLabel = completedLabel,
         alwaysEditableTitle = alwaysEditableTitle,
         heroExtra = heroExtra,
+        autoFocusTitle = autoFocusTitle,
     )
 
     TaskEditorSheetsHost(

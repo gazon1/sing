@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -30,6 +31,12 @@ import singularity_todo.shared.generated.resources.save_task
  *
  * [isLoading] swaps the label for a spinner. The button keeps its accessible
  * name while saving.
+ *
+ * The bar lifts above the keyboard. The app draws edge to edge and the editor's
+ * scaffold does not inset its bottom bar, so with the keyboard open the Save
+ * button sat entirely behind it — the user had to close the keyboard to reach
+ * the button that saves. `imePadding()` is the whole fix, and it is create-only:
+ * this bar is used by the create screen alone.
  */
 @Composable
 fun TaskSaveBar(
@@ -41,7 +48,10 @@ fun TaskSaveBar(
     val saveLabel = stringResource(Res.string.save_task)
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .imePadding(),
     ) {
         Button(
             onClick = onSaveClick,

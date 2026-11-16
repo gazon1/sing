@@ -13,6 +13,7 @@ import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagEnabled
+import com.singularity.todo.test.helpers.assertTagFocused
 import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTagTextEquals
@@ -64,6 +65,22 @@ class CreateTaskFlowTest {
 
             assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
             assertTagDisplayed(TestTags.TASK_EDITOR_SAVE)
+        }
+
+    /**
+     * The editor takes the focus, so the keyboard opens with it.
+     *
+     * The editor was opened to take a title, and a title that has to be tapped
+     * before it can be typed is a tap between the person and the thing they came
+     * to do. The focus is read from the field's `Focused` semantics — the same
+     * thing the IME reacts to.
+     */
+    @Test
+    fun the_editor_focuses_the_title_when_it_opens() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+            assertTagFocused(TestTags.TASK_EDITOR_TITLE_INPUT)
         }
 
     @Test
