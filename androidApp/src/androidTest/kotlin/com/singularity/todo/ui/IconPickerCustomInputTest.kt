@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
 /**
  * The picker's free-text field on a device.
  *
- * The desktop pins the field's contract in `IconPickerCustomInputTest`, and the
+ * The desktop pins the field's contract in `IconPickerCustomEmojiTest`, and the
  * two platforms run the same composable — but a shared composable is not a
  * shared test: the platform owns the text input, the semantics tree and the
  * keyboard, and each of them can break the contract on its own. So the device
@@ -35,7 +35,8 @@ import org.junit.runner.RunWith
  * - the field takes any text, and it is not checked against the catalog;
  * - the text is trimmed — the outer whitespace goes, the inner whitespace
  *   stays — and what survives is taken as it is;
- * - an empty or whitespace-only field adds nothing;
+ * - an empty or whitespace-only field adds nothing: no icon is picked, not
+ *   even the empty one, and the sheet does not close;
  * - the picker draws a composed sequence as one sequence.
  *
  * The last one is the Android half of what `ProjectIconEmojiRenderTest` proves
@@ -50,71 +51,97 @@ class IconPickerCustomInputTest {
 
     @Test
     fun an_ordinary_text_is_added_as_it_was_typed() {
-        val picks = showPicker()
+        val session = showPicker()
 
         typeIntoCustomField("marketing")
         pressAdd()
 
-        assertEquals(listOf(Emoji("marketing")), picks)
+        assertEquals(listOf(Emoji("marketing")), session.picks)
     }
 
     @Test
     fun a_composed_emoji_is_added_unchanged() {
-        val picks = showPicker()
+        val session = showPicker()
 
         typeIntoCustomField("🧑‍💻")
         pressAdd()
 
-        assertEquals(listOf(Emoji("🧑‍💻")), picks)
+        assertEquals(listOf(Emoji("🧑‍💻")), session.picks)
+        assertEquals(
+            "the sequence arrived as the exact string that was typed",
+            "🧑‍💻",
+            session.picks.single().value,
+        )
     }
 
     @Test
     fun a_flag_is_added_unchanged() {
-        val picks = showPicker()
+        val session = showPicker()
 
         typeIntoCustomField("🇬🇧")
         pressAdd()
 
-        assertEquals(listOf(Emoji("🇬🇧")), picks)
+        assertEquals(listOf(Emoji("🇬🇧")), session.picks)
+    }
+
+    /**
+     * A skin-tone form is several code points as well — the base and the
+     * modifier. It has to arrive as it was typed.
+     */
+    @Test
+    fun a_skin_tone_form_is_added_unchanged() {
+        val session = showPicker()
+
+        typeIntoCustomField("🧘🏽")
+        pressAdd()
+
+        assertEquals(listOf(Emoji("🧘🏽")), session.picks)
     }
 
     @Test
     fun outer_whitespace_is_trimmed_from_the_value() {
-        val picks = showPicker()
+        val session = showPicker()
 
         typeIntoCustomField("  marketing  ")
         pressAdd()
 
-        assertEquals("the outer spaces are gone", listOf(Emoji("marketing")), picks)
+        assertEquals("the outer spaces are gone", listOf(Emoji("marketing")), session.picks)
     }
 
     @Test
     fun inner_whitespace_is_kept_in_the_value() {
-        val picks = showPicker()
+        val session = showPicker()
 
         typeIntoCustomField("rocket ship")
         pressAdd()
 
-        assertEquals("the inner space is still there", listOf(Emoji("rocket ship")), picks)
+        assertEquals("the inner space is still there", listOf(Emoji("rocket ship")), session.picks)
     }
 
     @Test
     fun an_empty_field_adds_nothing() {
-        val picks = showPicker()
+        val session = showPicker()
 
         pressAdd()
 
-        assertTrue("an empty field picked ${picks.size} value(s)", picks.isEmpty())
+        assertTrue("an empty field picked ${session.picks.size} value(s)", session.picks.isEmpty())
+        assertEquals("an empty field picked the empty icon", 0, session.emptyPicks)
+        assertEquals("an empty field closed the sheet", 0, session.dismissals)
     }
 
     @Test
     fun a_whitespace_only_field_adds_nothing() {
-        val picks = showPicker()
+        val session = showPicker()
 
         typeIntoCustomField("   ")
         pressAdd()
 
-        assertTrue("a whitespace-only field picked ${picks.size} value(s)", picks.isEmpty())
+        assertTrue(
+            "a whitespace-only field picked ${session.picks.size} value(s)",
+            session.picks.isEmpty(),
+        )
+        assertEquals("a whitespace-only field picked the empty icon", 0, session.emptyPicks)
+        assertEquals("a whitespace-only field closed the sheet", 0, session.dismissals)
     }
 
     @Test
@@ -155,27 +182,46 @@ class IconPickerCustomInputTest {
      *
      * The sheet is drawn and driven here, so the assertions are about what a
      * user does in it: type into the field, press "Add".
+     *
+     * Three things are recorded, because "nothing happened" is three
+     * different claims: an icon was picked, the empty icon was picked, or the
+     * sheet was asked to close.
      */
-    private fun showPicker(recent: List<String> = emptyList()): MutableList<Emoji> {
-        val picked = mutableListOf<Emoji>()
+    private fun showPicker(recent: List<String> = emptyList()): PickerSession {
+        val session = PickerSession()
         compose.setContent {
             SingularityTheme {
                 IconPickerSheet(
                     currentIcon = null,
                     recentEmojis = persistentListOf<String>().addingAll(recent),
-                    onPick = { value -> value?.let(picked::add) },
-                    onDismiss = {},
+                    onPick = { value -> session.record(value) },
+                    onDismiss = { session.dismissals++ },
                 )
             }
         }
-        return picked
+        return session
     }
 
     private fun typeIntoCustomField(text: String) {
-        compose.onNodeWithTag(TestTags.PROJECT_ICON_CUSTOM_INPUT).performTextReplacement(text)
+        compose.onNodeWithTag(TestTags.PROJECT_ICON_CUSTOM_FIELD).performTextReplacement(text)
     }
 
     private fun pressAdd() {
         compose.onNodeWithTag(TestTags.PROJECT_ICON_CUSTOM_ADD).performClick()
+    }
+
+    private class PickerSession {
+        /** The icons the sheet handed back. */
+        val picks = mutableListOf<Emoji>()
+
+        /** How often the sheet handed back the empty icon. */
+        var emptyPicks = 0
+
+        /** How often the sheet asked to be closed. */
+        var dismissals = 0
+
+        fun record(value: Emoji?) {
+            if (value == null) emptyPicks++ else picks += value
+        }
     }
 }
