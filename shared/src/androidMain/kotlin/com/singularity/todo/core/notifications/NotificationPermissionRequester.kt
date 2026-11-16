@@ -24,8 +24,20 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  * On older Android: checks the system master notification toggle via
  * [NotificationManager.areNotificationsEnabled].
  *
- * The state is re-read on `ON_RESUME`, so returning from system settings or from the
- * runtime permission dialog shows the real state without polling.
+ * ## Why `ON_RESUME` is the whole of the refresh
+ *
+ * The state is re-read on `ON_RESUME`, so returning from system settings shows the real
+ * state without polling, and the runtime permission dialog is answered by [launcher]
+ * directly. The one case `ON_RESUME` does not observe — the notification shade, which is
+ * a window and delivers no lifecycle event — cannot change the grant without also
+ * killing the process: revoking a runtime permission goes through
+ * `PermissionManagerService.killUid(REASON_PERMISSION_CHANGE)`, so the remembered state
+ * is destroyed and the next launch reads the live grant. Measured on Android 15; see
+ * `docs/decisions/2026-11-16-on-resume-is-enough-for-the-notification-permission.md`.
+ *
+ * Two residuals are accepted rather than handled: a *grant* made from another pane in
+ * multi-window while this Activity stays `RESUMED` is picked up on the next resume, and
+ * per-channel importance is outside this port's contract.
  */
 @Composable
 actual fun rememberNotificationPermissionRequester(): NotificationPermissionRequester {
