@@ -73,8 +73,12 @@ class AndroidBackupCodec : BackupCodec {
 
     override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> =
         runCatchingCancellable {
-            val bytes = source.readBytes()
-            decodeZip(ByteArrayInputStream(bytes))
+            val input = source.openRead()
+            try {
+                decodeZip(input.asInputStream())
+            } finally {
+                input.close()
+            }
         }
 
     private fun decodeZip(stream: java.io.InputStream): BackupCodec.CodecReadResult {

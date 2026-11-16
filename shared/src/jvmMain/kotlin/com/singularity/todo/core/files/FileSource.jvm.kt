@@ -8,6 +8,19 @@ import java.io.File
  */
 class JvmFileSource(private val path: String) : FileSource {
     override suspend fun readBytes(): ByteArray = File(path).readBytes()
+
+    override suspend fun openRead(): ByteSource {
+        val stream = File(path).inputStream()
+        return object : ByteSource {
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int = stream.read(buffer, offset, length)
+
+            override fun close() = stream.close()
+        }
+    }
 }
 
 /**

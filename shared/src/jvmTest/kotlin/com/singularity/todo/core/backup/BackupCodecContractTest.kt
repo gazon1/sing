@@ -2,6 +2,9 @@
 
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.ByteArraySource
+import com.singularity.todo.core.files.ByteSource
+import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.test.fakes.MapFileSystem
 import kotlinx.coroutines.test.runTest
@@ -124,6 +127,56 @@ class BackupCodecContractTest {
             assertContentEquals(manifest, result.getOrThrow().manifestBytes)
             assertContentEquals(payload, result.getOrThrow().payloadBytes)
             fs.delete(backupPath)
+        }
+
+    @Test
+    fun `importFromSource streams without buffering the archive and works for a non-repeatable source`() =
+        runTest {
+            val manifest = """{"v":1}""".toByteArray()
+            val payload = """{"tasks":[]}""".toByteArray()
+            sut.export(manifest, payload, emptyList(), backupPath, fs)
+            val zipBytes = fs.readBytes(backupPath)
+
+            var opened = 0
+            val source =
+                object : FileSource {
+                    override suspend fun readBytes(): ByteArray =
+                        error("importFromSource must stream, not buffer the whole archive")
+
+                    override suspend fun openRead(): ByteSource {
+                        opened++
+                        if (opened > 1) error("source is non-repeatable")
+                        return ByteArraySource(zipBytes)
+                    }
+                }
+
+            val result = sut.importFromSource(source)
+
+            assertTrue(result.isSuccess)
+            assertContentEquals(manifest, result.getOrThrow().manifestBytes)
+            assertContentEquals(payload, result.getOrThrow().payloadBytes)
+            assertEquals(1, opened, "the source must be opened exactly once")
+            fs.delete(backupPath)
+        }
+
+    @Test
+    fun `importFromSource reports truncated input from a streaming source`() =
+        runTest {
+            val manifest = """{"v":1}""".toByteArray()
+            val payload = """{"tasks":[]}""".toByteArray()
+            sut.export(manifest, payload, emptyList(), backupPath, fs)
+            val truncated = fs.readBytes(backupPath).let { it.copyOf(it.size / 2) }
+
+            val source =
+                object : FileSource {
+                    override suspend fun readBytes(): ByteArray = error("must stream")
+
+                    override suspend fun openRead(): ByteSource = ByteArraySource(truncated)
+                }
+
+            val result = sut.importFromSource(source)
+
+            assertTrue(result.isFailure, "truncated archive must fail")
         }
 
     /**
