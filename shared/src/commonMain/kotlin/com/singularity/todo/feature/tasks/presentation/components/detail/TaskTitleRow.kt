@@ -82,6 +82,15 @@ fun TaskTitleRow(
      * tapped — the document-style rule this screen follows.
      */
     alwaysEditable: Boolean = false,
+    /**
+     * Whether the field takes the focus as soon as it is composed.
+     *
+     * Only the capture case asks for it: the create screen opened for a capture
+     * exists to take a title, and a keyboard that opens by itself is the
+     * difference between one tap and two. The detail never asks — it shows a
+     * task, and its title becomes a field when it is tapped, not before.
+     */
+    autoFocus: Boolean = false,
 ) {
     // The caller's modifier is the whole block's: the message is part of the title,
     // so the caller's padding or width has to cover the row and the line under it.
@@ -93,6 +102,7 @@ fun TaskTitleRow(
             isCompleted = isCompleted,
             onCheckToggle = onCheckToggle,
             alwaysEditable = alwaysEditable,
+            autoFocus = autoFocus,
         )
 
         // The completion date: a finished task says when it finished, in words.
@@ -137,6 +147,7 @@ private fun TitleFieldRow(
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
     alwaysEditable: Boolean,
+    autoFocus: Boolean,
 ) {
     // Whether the title is a field right now. Create starts in it; the detail starts
     // showing the title as text and enters the field when the title is tapped. One
@@ -144,10 +155,10 @@ private fun TitleFieldRow(
     // state, and this decides only how it is drawn.
     var editing by remember(alwaysEditable, taskId) { mutableStateOf(alwaysEditable) }
     val focusRequester = remember { FocusRequester() }
-    // Focus follows a *tap*, not the field's existence. Create composes the field
-    // immediately and must not grab the keyboard on its own: the flows that fill the
-    // create editor scroll it into view first, and an IME opening under them changes
-    // what that scroll means.
+    // Focus follows a *tap*, not the field's existence — except where the caller asks
+    // for it outright ([autoFocus]), which is the capture case: there the keyboard is
+    // the point of opening the screen, and a tap to get it is a tap between the person
+    // and the thing they came to do.
     var focusRequested by remember { mutableStateOf(false) }
     // A field reports "not focused" the first time it composes, before any focus has
     // arrived. Treating that as a blur would close the field in the same frame the tap
@@ -158,6 +169,15 @@ private fun TitleFieldRow(
         if (focusRequested) {
             focusRequester.requestFocus()
             focusRequested = false
+        }
+    }
+
+    // The caller's request, made once per composition. The `editing` guard matters:
+    // the detail's title is drawn as text until it is tapped, and a focus request
+    // against a field that is not composed would fail rather than wait.
+    LaunchedEffect(autoFocus, editing) {
+        if (autoFocus && editing) {
+            focusRequester.requestFocus()
         }
     }
 
