@@ -100,11 +100,12 @@ Concretely:
    - **Desktop** (`ProjectIconEmojiRenderTest`) asserts the same two pixel
      rules inside the icon box, plus that the ink is centred.
    - **The picker** is checked where each platform can check it: on the
-     desktop the chip paints ink and the composed chip is laid out on one
-     line, the height of a single emoji beside it (two glyphs do not fit the
-     chip's width and would wrap); on Android the sheet shows the composed
-     sequence as one node, both from the recent row and from the catalog's own
-     search results.
+     desktop the chip paints ink, and the composed chip's ink stays on one
+     line — its lower edge does not fall below the single emoji chip's — while
+     a control chip of plain text does wrap in the same 40dp box, so the
+     measurement can fail; on Android the sheet shows the composed sequence as
+     one node, both from the recent row and from the catalog's own search
+     results.
 
    An Android screenshot does not establish desktop correctness, and the desktop
    check does not establish Android's: the two platforms use different fonts,

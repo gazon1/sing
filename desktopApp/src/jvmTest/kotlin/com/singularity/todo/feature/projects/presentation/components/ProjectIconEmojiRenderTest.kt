@@ -11,10 +11,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.emoji.Emoji
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
@@ -24,6 +24,7 @@ import com.singularity.todo.test.helpers.unmergedNodeOfTag
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -106,21 +107,30 @@ class ProjectIconEmojiRenderTest {
         }
 
     /**
-     * The picker paints a composed sequence too.
+     * The picker paints a composed sequence on one line.
      *
      * The icon surface is not the only place a project emoji is drawn: the
      * picker shows it as a chip, and a chip that shows a person technologist as
      * two glyphs is a different defect from the one the icon box would show.
      *
-     * Two things are checked, and only two:
+     * What is measured, and how:
      *
      * - the chip paints ink — something was drawn;
-     * - the chip lays the sequence out on **one line**, the same height as a
-     *   single emoji beside it. A font that refuses to compose the sequence
-     *   lays it out as two glyphs side by side, and two glyphs do not fit the
-     *   chip's 24dp of content width, so the text wraps. That is a measure of
-     *   the layout, not of the shape of the glyph, which is why it is safe to
-     *   assert on a machine whose fonts differ from the developer's.
+     * - the ink's **lower edge** does not fall below the single emoji chip's.
+     *   The chip is a fixed 40dp box, so a sequence that does not fit cannot
+     *   make the node taller: it wraps onto a second line *inside* the same
+     *   box, and what the second line moves is the ink, not the node. Reading
+     *   the node's height cannot fail — the box pins it to 40dp whatever the
+     *   font does, which is why the earlier version of this check was
+     *   vacuous;
+     * - a control chip of plain text **does** wrap in the same box, so the
+     *   chip's content width really is narrow enough to break a line. Without
+     *   the control, the assertion above would also hold on a chip that could
+     *   never wrap, and would prove nothing.
+     *
+     * The bound is 10% of the chip's height. The ink of a second line lands
+     * about 15% lower than the first one's, so the margin separates the two
+     * cases without pinning the test to one font's metrics.
      *
      * What it does **not** check is that the chip was not clipped: the chip's
      * own bounds are the text's bounds, so a clipped glyph would be cut at the
@@ -134,55 +144,94 @@ class ProjectIconEmojiRenderTest {
                 ScreenWithOwners {
                     IconPickerSheet(
                         currentIcon = null,
-                        recentEmojis = persistentListOf(COMPOSED, SINGLE),
+                        recentEmojis = persistentListOf(COMPOSED, SINGLE, WRAPPING_CONTROL),
                         onPick = {},
                         onDismiss = {},
                     )
                 }
             }
 
-            val composed = onAllNodesWithText(COMPOSED, useUnmergedTree = true).onFirst()
-            val pixels = composed.captureToImage().toPixelMap()
+            val composed = inkBox(topMostNodeWithText(COMPOSED))
+            val single = inkBox(topMostNodeWithText(SINGLE))
+            val control = inkBox(topMostNodeWithText(WRAPPING_CONTROL))
 
-            // The chip has no background of its own, so the backdrop is the
-            // colour that covers most of the chip's box — whatever it is on
-            // this theme. Everything that differs from it is the glyph.
-            val colours =
-                buildList {
-                    for (y in 0 until pixels.height) {
-                        for (x in 0 until pixels.width) {
-                            add(pixels[x, y].toArgb())
-                        }
+            assertTrue(composed.count > 0, "the picker chip painted nothing for the composed sequence")
+
+            val tolerance = (composed.height * INK_TOLERANCE).roundToInt()
+            assertTrue(
+                composed.bottom <= single.bottom + tolerance,
+                "the composed sequence did not stay on one line: its ink reaches " +
+                    "${composed.bottom} in the chip, a single emoji's reaches ${single.bottom}",
+            )
+            assertTrue(
+                control.bottom > single.bottom + tolerance,
+                "the control text did not wrap in the same chip — its ink reaches " +
+                    "${control.bottom}, a single emoji's ${single.bottom}. The chip is wide enough " +
+                    "for one line, so the composed sequence's single line proves nothing",
+            )
+        }
+
+    /**
+     * The painted ink of a node: how many pixels differ from the backdrop, and
+     * how far down the node they reach.
+     *
+     * The chip has no background of its own, so the backdrop is the colour
+     * that covers most of the chip's box — whatever it is on this theme.
+     * Everything that differs from it is the glyph.
+     */
+    private fun inkBox(node: SemanticsNodeInteraction): InkBox {
+        val pixels = node.captureToImage().toPixelMap()
+        val colours =
+            buildList {
+                for (y in 0 until pixels.height) {
+                    for (x in 0 until pixels.width) {
+                        add(pixels[x, y].toArgb())
                     }
                 }
-            val backdrop =
+            }
+        val backdrop =
+            Color(
                 colours
                     .groupingBy { it }
                     .eachCount()
                     .maxByOrNull { it.value }!!
-                    .key
-            val ink =
-                colours.count {
-                    val color = Color(it)
-                    abs(color.red - Color(backdrop).red) +
-                        abs(color.green - Color(backdrop).green) +
-                        abs(color.blue - Color(backdrop).blue) > INK_THRESHOLD
-                }
-            assertTrue(ink > 0, "the picker chip painted nothing for the composed sequence")
-
-            val composedBounds = composed.getUnclippedBoundsInRoot()
-            val singleBounds =
-                onAllNodesWithText(SINGLE, useUnmergedTree = true)
-                    .onFirst()
-                    .getUnclippedBoundsInRoot()
-            val composedHeight = (composedBounds.bottom - composedBounds.top).value
-            val singleHeight = (singleBounds.bottom - singleBounds.top).value
-            assertTrue(
-                abs(composedHeight - singleHeight) <= 2f,
-                "the composed sequence is not laid out on one line: " +
-                    "$composedHeight tall beside a single emoji's $singleHeight",
+                    .key,
             )
+        var count = 0
+        var top = pixels.height
+        var bottom = -1
+        for (y in 0 until pixels.height) {
+            for (x in 0 until pixels.width) {
+                val color = Color(pixels[x, y].toArgb())
+                val distance =
+                    abs(color.red - backdrop.red) +
+                        abs(color.green - backdrop.green) +
+                        abs(color.blue - backdrop.blue) +
+                        abs(color.alpha - backdrop.alpha)
+                if (distance <= INK_THRESHOLD) continue
+                count++
+                if (y < top) top = y
+                if (y > bottom) bottom = y
+            }
         }
+        return InkBox(count = count, top = top, bottom = bottom, height = pixels.height)
+    }
+
+    /**
+     * The topmost node showing [text].
+     *
+     * The sheet shows the recent row above the catalog's grid, and the catalog
+     * contains some of the same emoji, so a plain text search finds two
+     * chips. The recent row is the one that is higher up.
+     */
+    private fun SemanticsNodeInteractionsProvider.topMostNodeWithText(text: String): SemanticsNodeInteraction {
+        val collection = onAllNodesWithText(text, useUnmergedTree = true)
+        val nodes = collection.fetchSemanticsNodes()
+        val topmost = nodes.indices.minByOrNull { nodes[it].positionInRoot.y } ?: 0
+        return collection[topmost]
+    }
+
+    private data class InkBox(val count: Int, val top: Int, val bottom: Int, val height: Int)
 
     private fun isInk(color: Color): Boolean =
         abs(color.red - BACKGROUND.red) +
@@ -202,11 +251,24 @@ class ProjectIconEmojiRenderTest {
 
         const val INK_THRESHOLD = 0.1f
 
+        /**
+         * How much lower the ink of a second line may reach, as a share of the
+         * chip's height. The measured gap between the first line's ink and the
+         * second one's is about 15% of the chip.
+         */
+        const val INK_TOLERANCE = 0.1f
+
         /** The composed sequence the picker's chip is checked with. */
         const val COMPOSED = "🧑‍💻"
 
-        /** A single emoji, the yardstick the composed chip's line height is read against. */
+        /** A single emoji, the yardstick the composed chip's ink is read against. */
         const val SINGLE = "😀"
+
+        /**
+         * Plain text that does not fit the chip's 24dp of content width, so it
+         * wraps and proves that the chip can show a second line at all.
+         */
+        const val WRAPPING_CONTROL = "abcdefgh"
 
         val SEQUENCES =
             listOf(
