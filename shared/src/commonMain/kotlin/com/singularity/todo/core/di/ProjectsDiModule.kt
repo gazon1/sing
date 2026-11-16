@@ -2,6 +2,7 @@ package com.singularity.todo.core.di
 
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
+import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.data.DataStoreProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
@@ -82,6 +83,12 @@ fun projectsModule(): org.koin.core.module.Module =
                 notificationsSettings = get(),
                 recentEmojiStore = get(),
                 clock = get(),
+                // The AI review is optional: it is bound in aiToolsModule, which
+                // exists only where AI is configured. `getOptionalOrNull`, not
+                // `getOrNull`: a binding that *exists* but cannot be created is a
+                // broken binding, not a missing feature, and it must not take the
+                // project detail screen down with it.
+                projectReview = getOptionalOrNull<ProjectReviewUseCase> { reportBrokenAi(it) },
                 crashReporter = get(),
             )
         }

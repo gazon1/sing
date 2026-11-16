@@ -106,7 +106,7 @@ internal object TaskPlanSupport {
     }
 
     /** The one task, projected for the planner. */
-    private fun planTask(
+    fun planTask(
         task: Task,
         allTasks: List<Task>,
         context: SelectorContext,

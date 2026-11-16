@@ -190,4 +190,20 @@ class ProjectReviewUseCase(private val tool: com.singularity.todo.feature.ai.too
                     .ProjectReviewInput(projectName, taskTitles),
             )
         }
+
+    /**
+     * Reviews the project the app knows by [projectId].
+     *
+     * The review is grounded in the project's own rows — its tasks, their health,
+     * the notes attached to them — rather than in a name and a list of titles.
+     */
+    suspend operator fun invoke(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+    ): Result<String> =
+        runCatchingCancellable {
+            tool.execute(
+                com.singularity.todo.feature.ai.tools
+                    .ProjectReviewInput(projectId = projectId.value),
+            )
+        }
 }

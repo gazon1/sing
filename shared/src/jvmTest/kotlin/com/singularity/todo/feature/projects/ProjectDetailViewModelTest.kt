@@ -4,7 +4,11 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.feature.ai.tools.FakePlanExecutor
+import com.singularity.todo.feature.ai.tools.ProjectReviewTool
+import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -15,6 +19,7 @@ import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.FakePreferencesDataStore
 import com.singularity.todo.feature.projects.presentation.RecentEmojiStore
+import com.singularity.todo.feature.projects.presentation.state.ProjectBriefUiState
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -25,6 +30,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeNotificationsSettingsRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
@@ -32,6 +38,7 @@ import com.singularity.todo.test.fakes.FakeProjectRemindersRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -70,6 +77,12 @@ private class CountingTaskRepository(private val delegate: TaskRepository) : Tas
 
 /** Fixed instant: this VM renders reminder dates, which depend on "today". */
 private val TEST_NOW: Instant = Instant.parse("2026-01-15T12:00:00Z")
+
+/** The brief is read in the user's own zone; UTC is enough to pin it in a test. */
+private val TEST_ZONE_PROVIDER =
+    object : TimeZoneProvider {
+        override fun current(): kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.UTC
+    }
 
 private fun testTaskIn(
     projectId: String,
@@ -113,6 +126,7 @@ class ProjectDetailViewModelTest {
         fakeProjectReminders: FakeProjectRemindersRepository = this.fakeProjectReminders,
         notificationsSettings: FakeNotificationsSettingsRepository = this.fakeNotificationSettings,
         recentEmojiStore: RecentEmojiStore = RecentEmojiStore(FakePreferencesDataStore(), scope = scope),
+        projectReview: ProjectReviewUseCase? = null,
     ): ProjectDetailViewModel {
         val vm =
             ProjectDetailViewModel(
@@ -135,6 +149,7 @@ class ProjectDetailViewModelTest {
                 notificationsSettings = notificationsSettings,
                 recentEmojiStore = recentEmojiStore,
                 clock = FakeClock(TEST_NOW),
+                projectReview = projectReview,
                 scope = AutoCloseableCoroutineScope(scope.coroutineContext),
             )
         return vm
@@ -624,5 +639,87 @@ class ProjectDetailViewModelTest {
             advanceUntilIdle()
             runCurrent()
             assertTrue(vm.stateFlow.value is ProjectDetailUiState.Error, "expected Error, got ${vm.stateFlow.value}")
+        }
+
+    @Test
+    fun `the brief is generated from this project's own rows`() =
+        runTest {
+            seedProject()
+            seedTask("Ship it")
+            val executor = FakePlanExecutor("A short paragraph.")
+            val vm =
+                createVm(
+                    scope = backgroundScope,
+                    projectReview =
+                        ProjectReviewUseCase(
+                            ProjectReviewTool(
+                                promptExecutor = executor,
+                                model = FakePlanExecutor.TEST_MODEL,
+                                taskRepository = fakeTaskRepo,
+                                projectsRepository = fakeProjectsRepo,
+                                notesRepository = FakeNotesRepository(),
+                                clock = FakeClock(TEST_NOW),
+                                timeZoneProvider = TEST_ZONE_PROVIDER,
+                                tasksSettingsRepository = FakeTasksSettingsRepository(),
+                            ),
+                        ),
+                )
+            advanceUntilIdle()
+            runCurrent()
+
+            vm.onIntent(ProjectDetailIntent.Domain.GenerateBrief)
+            advanceUntilIdle()
+            runCurrent()
+
+            val ready = vm.briefState.value
+            assertTrue(ready is ProjectBriefUiState.Ready, "expected a brief, got $ready")
+            assertEquals("A short paragraph.", ready.text)
+
+            vm.onIntent(ProjectDetailIntent.Domain.DismissBrief)
+            assertEquals(ProjectBriefUiState.Hidden, vm.briefState.value)
+        }
+
+    @Test
+    fun `closing the brief cancels the request that is still running`() =
+        runTest {
+            seedProject()
+            seedTask("Ship it")
+            // The model takes a second to answer, so the request is still running
+            // when the user closes the sheet.
+            val executor = FakePlanExecutor("A short paragraph.", delayMillis = 1_000)
+            val vm =
+                createVm(
+                    scope = backgroundScope,
+                    projectReview =
+                        ProjectReviewUseCase(
+                            ProjectReviewTool(
+                                promptExecutor = executor,
+                                model = FakePlanExecutor.TEST_MODEL,
+                                taskRepository = fakeTaskRepo,
+                                projectsRepository = fakeProjectsRepo,
+                                notesRepository = FakeNotesRepository(),
+                                clock = FakeClock(TEST_NOW),
+                                timeZoneProvider = TEST_ZONE_PROVIDER,
+                                tasksSettingsRepository = FakeTasksSettingsRepository(),
+                            ),
+                        ),
+                )
+            advanceUntilIdle()
+            runCurrent()
+
+            vm.onIntent(ProjectDetailIntent.Domain.GenerateBrief)
+            runCurrent()
+            assertTrue(
+                vm.briefState.value is ProjectBriefUiState.Loading,
+                "the brief is still being written: ${vm.briefState.value}",
+            )
+
+            vm.onIntent(ProjectDetailIntent.Domain.DismissBrief)
+            assertEquals(ProjectBriefUiState.Hidden, vm.briefState.value)
+
+            // The answer arrives after the sheet was closed — it must not reopen it.
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(ProjectBriefUiState.Hidden, vm.briefState.value)
         }
 }

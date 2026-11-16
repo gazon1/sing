@@ -107,13 +107,21 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
 
     fun onDeleteTask(taskId: TaskId) = block(ProjectDetailIntent.Domain.DeleteTask(taskId))
 
+    // ── Project brief ─────────────────────────────────────────────────────
+
+    /** Ask for the brief of this project. */
+    fun onGenerateBrief() = block(ProjectDetailIntent.Domain.GenerateBrief)
+
+    /** Close the brief; nothing is kept. */
+    fun onDismissBrief() = block(ProjectDetailIntent.Domain.DismissBrief)
+
     companion object {
         /**
          * No-op actions — для превью и unit-тестов в модуле shared.
          *
          * **Visibility is `internal`** so external consumers (androidApp, desktopApp)
          * cannot accidentally use this in production code — passing Empty makes
-         * all 22 dispatched intents no-ops, producing a silent no-action UI.
+         * every dispatched intent a no-op, producing a silent no-action UI.
          * Production callers must construct a real dispatcher via
          * `ProjectDetailActions { intent -> ... }`.
          */

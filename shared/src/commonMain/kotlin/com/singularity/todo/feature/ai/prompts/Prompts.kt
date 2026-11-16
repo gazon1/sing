@@ -1,5 +1,11 @@
 package com.singularity.todo.feature.ai.prompts
 
+import com.singularity.todo.feature.ai.tools.PlanTask
+import com.singularity.todo.feature.ai.tools.ProjectBrief
+import com.singularity.todo.feature.ai.tools.ProjectBriefNote
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+
 /**
  * All AI system prompts and prompt templates.
  * Migrated from 11 Flutter `.prompt` Handlebars files — Kotlin string templates.
@@ -182,6 +188,11 @@ object Prompts {
      * one action away from moving. A review that lists everything has not reviewed
      * anything, so the prompt asks for the risks that matter and one action that
      * would change the state.
+     *
+     * The facts it is given are the application's own — the tasks, their health, the
+     * notes attached to them — so the prompt also says where the boundary is: the
+     * model may read the facts and say what they mean, and it may not add goals,
+     * deadlines, progress or blockers the facts do not carry.
      */
     val projectReviewSystem =
         """
@@ -192,6 +203,11 @@ object Prompts {
         waits on something else, a task with no owner in the plan. Then name the one
         action that would change the state, and make it a physical action: something
         that can be done and seen to be done.
+
+        The facts are the application's own: the tasks, their health, their blockers,
+        the notes attached to them. Read them and say what they mean. Do not invent a
+        goal, a deadline, progress, a blocker or a piece of history that the facts do
+        not carry, and do not restate the task list — a review is not a list.
 
         Return a short paragraph.
         """.trimIndent()
@@ -361,6 +377,55 @@ object Prompts {
         projectName: String,
         tasks: List<String>,
     ): String = "Project: $projectName\nTasks:\n${tasks.joinToString("\n") { "- $it" }}"
+
+    /**
+     * The user prompt of a project brief.
+     *
+     * The facts of the project, in the order a reviewer reads them: what the
+     * project is, how much of it is left, how the app classifies what is left, and
+     * then the tasks themselves and the notes attached to them.
+     *
+     * Every bounded collection says what was left out. A reader that cannot see
+     * the whole project must be told that it cannot — otherwise a sample of fifty
+     * tasks reads as the project's whole work.
+     */
+    internal fun projectBriefUser(brief: ProjectBrief): String =
+        buildString {
+            appendLine("Project: ${brief.name} (id: ${brief.projectId})")
+            brief.description?.let { appendLine("Goal: $it") }
+            appendLine(
+                "Tasks: ${brief.totalTasks} in the project, ${brief.openTasks} open, " +
+                    "${brief.completedTasks} completed.",
+            )
+            appendLine(
+                "Health, as the app classifies it: ${brief.overdue} overdue, " +
+                    "${brief.blocked} blocked, ${brief.stagnant} stagnant.",
+            )
+            appendLine("Open tasks (JSON): ${brief.tasksJson()}")
+            if (brief.tasksTotal > brief.tasks.size) {
+                appendLine(
+                    "${brief.tasksTotal - brief.tasks.size} more open task(s) were left out " +
+                        "to keep the context small; the counts above cover all of them, so say " +
+                        "the task list is partial.",
+                )
+            }
+            if (brief.notes.isNotEmpty()) {
+                appendLine("Notes attached to the project's tasks (JSON): ${brief.notesJson()}")
+                if (brief.notesTotal > brief.notes.size) {
+                    appendLine(
+                        "${brief.notesTotal - brief.notes.size} more note(s) attached to the " +
+                            "project's tasks were left out; say the note list is partial.",
+                    )
+                }
+            }
+        }.trimEnd()
+
+    /** The open tasks of a brief, as JSON. */
+    private fun ProjectBrief.tasksJson(): String = Json.encodeToString(ListSerializer(PlanTask.serializer()), tasks)
+
+    /** The attached notes of a brief, as JSON. */
+    private fun ProjectBrief.notesJson(): String =
+        Json.encodeToString(ListSerializer(ProjectBriefNote.serializer()), notes)
 
     fun summarizeNoteUser(
         title: String,

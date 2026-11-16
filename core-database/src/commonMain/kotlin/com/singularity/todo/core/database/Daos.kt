@@ -1019,6 +1019,60 @@ interface NoteDao {
     ): Flow<List<NoteEntity>>
 
     /**
+     * Returns the notes attached to the tasks of one project, newest first, at most
+     * [limit] of them.
+     *
+     * The membership is decided in SQL — `notes.task_id → tasks.project_id` — so the
+     * read is bounded by [limit] and the caller's list of task ids never reaches the
+     * statement: a project with hundreds of tasks does not become a statement with
+     * hundreds of parameters.
+     *
+     * The order is `created_at DESC, id ASC`: the id breaks the tie, so two calls
+     * cannot swap two notes written in the same second.
+     */
+    @Query(
+        """
+        SELECT notes.* FROM notes
+        INNER JOIN tasks ON notes.task_id = tasks.id
+        WHERE tasks.project_id = :projectId
+          AND tasks.user_id = :userId
+          AND tasks.archived_at IS NULL
+          AND notes.user_id = :userId
+          AND notes.deleted_at IS NULL
+        ORDER BY notes.created_at DESC, notes.id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchByProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>>
+
+    /**
+     * Counts the notes attached to the tasks of one project — the total behind the
+     * page [watchByProjectForUser] returns.
+     *
+     * Same membership, no limit: the count is what makes a cut page say that it is
+     * cut.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM notes
+        INNER JOIN tasks ON notes.task_id = tasks.id
+        WHERE tasks.project_id = :projectId
+          AND tasks.user_id = :userId
+          AND tasks.archived_at IS NULL
+          AND notes.user_id = :userId
+          AND notes.deleted_at IS NULL
+        """,
+    )
+    suspend fun countByProjectForUser(
+        projectId: String,
+        userId: String,
+    ): Int
+
+    /**
      * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
      * [watchByTaskForUser] should be preferred for new code — this method is kept for backward
      * compatibility with existing wikilink-only notes.

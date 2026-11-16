@@ -580,6 +580,21 @@ class NotesRepositoryImpl(
                 .map { list -> list.map { it.toNote() } }
         }
 
+    override fun watchForProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchByProjectForUser(projectId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
+        }
+
+    override suspend fun countForProject(projectId: ProjectId): Int {
+        val uid = currentUser.scopedUserId.value
+        return noteDao.countByProjectForUser(projectId.value, uid.value)
+    }
+
     override suspend fun createForTask(
         id: NoteId,
         taskId: TaskId,

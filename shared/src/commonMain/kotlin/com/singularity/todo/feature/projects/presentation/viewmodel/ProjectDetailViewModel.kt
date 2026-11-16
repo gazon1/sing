@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
@@ -9,6 +10,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
+import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -22,6 +24,7 @@ import com.singularity.todo.feature.projects.presentation.RecentEmojiStore
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
+import com.singularity.todo.feature.projects.presentation.state.ProjectBriefUiState
 import com.singularity.todo.feature.projects.presentation.state.ProjectCloseConfirmation
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
@@ -38,9 +41,12 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -87,6 +93,14 @@ class ProjectDetailViewModel(
     private val notificationsSettings: NotificationsSettingsRepository,
     private val recentEmojiStore: RecentEmojiStore,
     val clock: Clock,
+    /**
+     * The AI review of this project, when AI is configured.
+     *
+     * Optional for the same reason the project list's review is: AI is not
+     * configured on every platform, and a project detail screen that cannot review
+     * is still a project detail screen.
+     */
+    private val projectReview: ProjectReviewUseCase? = null,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
@@ -129,6 +143,27 @@ class ProjectDetailViewModel(
      * type's KDoc for the arity reason.
      */
     private val hideBlockedFlow = MutableStateFlow(false)
+
+    /**
+     * What the project brief is doing.
+     *
+     * The brief is generated on demand and shown in a sheet, so its state is its
+     * own stream rather than a field of [ProjectDetailUiState]: the sheet is drawn
+     * over the whole screen, and a brief that only existed as a field would have
+     * to survive every re-layout of the content below it.
+     */
+    private val _briefState = MutableStateFlow<ProjectBriefUiState>(ProjectBriefUiState.Hidden)
+
+    /** The brief, for the sheet that shows it. */
+    val briefState: StateFlow<ProjectBriefUiState> = _briefState.asStateFlow()
+
+    /**
+     * The brief request that is running, if any.
+     *
+     * Held so that closing the sheet — or asking for a second brief — can cancel the
+     * request in flight instead of letting its answer arrive into a closed sheet.
+     */
+    private var briefJob: Job? = null
 
     private val visibilityFlow = combine(hideCompletedFlow, hideBlockedFlow, ::TaskVisibility)
 
@@ -555,10 +590,64 @@ class ProjectDetailViewModel(
                     taskRepo.restore(intent.taskId)
                 }
             }
+
+            // ── Project brief ─────────────────────────────────────────────
+            is ProjectDetailIntent.Domain.GenerateBrief -> {
+                generateBrief()
+            }
+
+            is ProjectDetailIntent.Domain.DismissBrief -> {
+                dismissBrief()
+            }
         }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Generates the brief for this project.
+     *
+     * The brief is grounded in the project's own rows — the tasks, their health, the
+     * notes attached to them — so the use case is given the project's id and nothing
+     * else: the model never gets to name the project it is talking about.
+     *
+     * The running request is held in [briefJob], so a dismissed sheet or a second
+     * request cancels the one in flight: a result that arrives after the user closed
+     * the sheet must not reopen it.
+     */
+    private fun generateBrief() {
+        val review = projectReview
+        if (review == null) {
+            _briefState.value = ProjectBriefUiState.Failed(AI_NOT_CONFIGURED)
+            return
+        }
+        briefJob?.cancel()
+        _briefState.value = ProjectBriefUiState.Loading
+        briefJob =
+            vmScope.launch {
+                val result = review(projectId)
+                // The sheet was closed, or another request took over, while the model
+                // was writing: this result owns nothing any more.
+                ensureActive()
+                _briefState.value =
+                    result.fold(
+                        onSuccess = { ProjectBriefUiState.Ready(it) },
+                        onFailure = { ProjectBriefUiState.Failed(it.toMessage("Brief failed")) },
+                    )
+            }
+    }
+
+    /**
+     * Closes the brief sheet and cancels the request behind it.
+     *
+     * Cancelling matters as much as hiding: a request that is still writing would
+     * otherwise put its answer into the state and open the sheet again.
+     */
+    private fun dismissBrief() {
+        briefJob?.cancel()
+        briefJob = null
+        _briefState.value = ProjectBriefUiState.Hidden
+    }
 
     /**
      * Closes the project and the tasks that are still open in it.

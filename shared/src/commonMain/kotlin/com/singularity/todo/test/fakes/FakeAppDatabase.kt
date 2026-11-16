@@ -149,7 +149,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun taskDao(): TaskDao =
         FakeTaskDao(_tasks, _taskTags, _taskDependencies, _tags, _projectTagGroups, _checklist)
 
-    override fun noteDao(): NoteDao = FakeNoteDao(_notes)
+    override fun noteDao(): NoteDao = FakeNoteDao(_notes, _tasks)
 
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
 
@@ -1145,7 +1145,10 @@ private class FakeTaskDao(
 
 // ─── NoteDao ──────────────────────────────────────────────────────────────────
 
-private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEntity>>) : NoteDao {
+private class FakeNoteDao(
+    private val store: MutableStateFlow<Map<String, NoteEntity>>,
+    private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
+) : NoteDao {
     override fun watchAll(userId: String): Flow<List<NoteEntity>> =
         store.map {
             it.values
@@ -1214,6 +1217,37 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
                 }.sortedByDescending { n -> n.createdAt }
                 .take(50)
         }
+
+    override fun watchByProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.userId == userId && n.deletedAt == null && n.hangsOnTaskOf(projectId)
+                }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
+                .take(limit)
+        }
+
+    override suspend fun countByProjectForUser(
+        projectId: String,
+        userId: String,
+    ): Int =
+        store.value.values.count { n ->
+            n.userId == userId && n.deletedAt == null && n.hangsOnTaskOf(projectId)
+        }
+
+    /**
+     * Whether the note hangs on a task of [projectId] — the fake's stand-in for the
+     * join the real query runs over `notes.task_id → tasks.project_id`.
+     */
+    private fun NoteEntity.hangsOnTaskOf(projectId: String): Boolean {
+        val taskId = taskId ?: return false
+        val task = tasks.value[taskId] ?: return false
+        return task.projectId == projectId && task.archivedAt == null
+    }
 
     override suspend fun upsert(note: NoteEntity) {
         store.update { it + (note.id to note) }

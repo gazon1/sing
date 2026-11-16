@@ -179,6 +179,30 @@ interface NotesRepository :
     fun watchForTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId): Flow<List<Note>>
 
     /**
+     * Watches the notes attached to the tasks of one project, newest first.
+     *
+     * The membership is the project's own tasks, decided by the store: a caller
+     * names the project, not a list of task ids. The page is bounded by [limit] —
+     * the read is bounded, not the caller's memory — so a project with a thousand
+     * attached notes still costs one small read.
+     *
+     * @param projectId the project whose tasks' notes are asked for.
+     * @param limit how many notes the page carries at most.
+     */
+    fun watchForProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>>
+
+    /**
+     * Counts the notes attached to the tasks of one project.
+     *
+     * The count behind the page [watchForProject] returns: it is what lets a
+     * caller say that the page is cut instead of implying that it is everything.
+     */
+    suspend fun countForProject(projectId: ProjectId): Int
+
+    /**
      * Creates a new note attached to [taskId] and returns its id.
      *
      * The caller owns [id]: the editor generates it before the note exists, so the

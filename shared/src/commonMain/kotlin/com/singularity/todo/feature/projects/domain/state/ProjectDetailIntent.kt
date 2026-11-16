@@ -132,5 +132,16 @@ sealed interface ProjectDetailIntent : MviIntent {
         data class DeleteTask(val taskId: TaskId) : Domain
 
         data class RestoreTask(val taskId: TaskId) : Domain
+
+        // ── Project brief ─────────────────────────────────────────────────
+
+        /**
+         * Generate the project brief: a review grounded in this project's own
+         * tasks, their health and the notes attached to them.
+         */
+        data object GenerateBrief : Domain
+
+        /** The brief sheet was closed; nothing was generated, and nothing is kept. */
+        data object DismissBrief : Domain
     }
 }
