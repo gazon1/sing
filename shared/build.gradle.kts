@@ -69,10 +69,16 @@ kotlin {
 
     android {
         namespace = "com.singularity.todo.shared"
-        compileSdk =
-            libs.versions.sdk.compile
-                .get()
-                .toInt()
+        compileSdk {
+            version =
+                release(
+                    libs.versions.sdk.compile
+                        .get()
+                        .toInt(),
+                ) {
+                    minorApiLevel = 1
+                }
+        }
         minSdk =
             libs.versions.sdk.min
                 .get()
