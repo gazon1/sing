@@ -678,4 +678,48 @@ class ProjectDetailViewModelTest {
             vm.onIntent(ProjectDetailIntent.Domain.DismissBrief)
             assertEquals(ProjectBriefUiState.Hidden, vm.briefState.value)
         }
+
+    @Test
+    fun `closing the brief cancels the request that is still running`() =
+        runTest {
+            seedProject()
+            seedTask("Ship it")
+            // The model takes a second to answer, so the request is still running
+            // when the user closes the sheet.
+            val executor = FakePlanExecutor("A short paragraph.", delayMillis = 1_000)
+            val vm =
+                createVm(
+                    scope = backgroundScope,
+                    projectReview =
+                        ProjectReviewUseCase(
+                            ProjectReviewTool(
+                                promptExecutor = executor,
+                                model = FakePlanExecutor.TEST_MODEL,
+                                taskRepository = fakeTaskRepo,
+                                projectsRepository = fakeProjectsRepo,
+                                notesRepository = FakeNotesRepository(),
+                                clock = FakeClock(TEST_NOW),
+                                timeZoneProvider = TEST_ZONE_PROVIDER,
+                                tasksSettingsRepository = FakeTasksSettingsRepository(),
+                            ),
+                        ),
+                )
+            advanceUntilIdle()
+            runCurrent()
+
+            vm.onIntent(ProjectDetailIntent.Domain.GenerateBrief)
+            runCurrent()
+            assertTrue(
+                vm.briefState.value is ProjectBriefUiState.Loading,
+                "the brief is still being written: ${vm.briefState.value}",
+            )
+
+            vm.onIntent(ProjectDetailIntent.Domain.DismissBrief)
+            assertEquals(ProjectBriefUiState.Hidden, vm.briefState.value)
+
+            // The answer arrives after the sheet was closed — it must not reopen it.
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(ProjectBriefUiState.Hidden, vm.briefState.value)
+        }
 }

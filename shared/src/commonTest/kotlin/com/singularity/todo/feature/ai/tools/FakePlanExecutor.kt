@@ -10,6 +10,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.streaming.StreamFrame
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlin.time.Clock
@@ -30,7 +31,18 @@ import kotlin.time.Clock
  * It does not stream and it does not moderate: the tool calls neither, and a fake
  * that pretended to would be a second thing to keep honest.
  */
-class FakePlanExecutor(private val answer: String, private val failure: Throwable? = null) : PromptExecutor() {
+class FakePlanExecutor(
+    private val answer: String,
+    private val failure: Throwable? = null,
+    /**
+     * How long the answer takes, in milliseconds of virtual time.
+     *
+     * A test that needs the request to still be running while it does something
+     * else — a user closing the sheet, say — needs an answer that has not arrived
+     * yet.
+     */
+    private val delayMillis: Long = 0,
+) : PromptExecutor() {
     /**
      * The prompt the tool handed the model.
      *
@@ -54,6 +66,7 @@ class FakePlanExecutor(private val answer: String, private val failure: Throwabl
     ): Message.Assistant {
         lastPrompt = prompt
         failure?.let { throw it }
+        if (delayMillis > 0) delay(delayMillis)
         return Message.Assistant(
             parts = listOf(MessagePart.Text(answer)),
             metaInfo = ResponseMetaInfo(timestamp = Clock.System.now()),

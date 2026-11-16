@@ -41,6 +41,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -154,6 +156,14 @@ class ProjectDetailViewModel(
 
     /** The brief, for the sheet that shows it. */
     val briefState: StateFlow<ProjectBriefUiState> = _briefState.asStateFlow()
+
+    /**
+     * The brief request that is running, if any.
+     *
+     * Held so that closing the sheet — or asking for a second brief — can cancel the
+     * request in flight instead of letting its answer arrive into a closed sheet.
+     */
+    private var briefJob: Job? = null
 
     private val visibilityFlow = combine(hideCompletedFlow, hideBlockedFlow, ::TaskVisibility)
 
@@ -587,7 +597,7 @@ class ProjectDetailViewModel(
             }
 
             is ProjectDetailIntent.Domain.DismissBrief -> {
-                _briefState.value = ProjectBriefUiState.Hidden
+                dismissBrief()
             }
         }
     }
@@ -600,6 +610,10 @@ class ProjectDetailViewModel(
      * The brief is grounded in the project's own rows — the tasks, their health, the
      * notes attached to them — so the use case is given the project's id and nothing
      * else: the model never gets to name the project it is talking about.
+     *
+     * The running request is held in [briefJob], so a dismissed sheet or a second
+     * request cancels the one in flight: a result that arrives after the user closed
+     * the sheet must not reopen it.
      */
     private fun generateBrief() {
         val review = projectReview
@@ -607,14 +621,32 @@ class ProjectDetailViewModel(
             _briefState.value = ProjectBriefUiState.Failed(AI_NOT_CONFIGURED)
             return
         }
+        briefJob?.cancel()
         _briefState.value = ProjectBriefUiState.Loading
-        vmScope.launch {
-            _briefState.value =
-                review(projectId).fold(
-                    onSuccess = { ProjectBriefUiState.Ready(it) },
-                    onFailure = { ProjectBriefUiState.Failed(it.toMessage("Brief failed")) },
-                )
-        }
+        briefJob =
+            vmScope.launch {
+                val result = review(projectId)
+                // The sheet was closed, or another request took over, while the model
+                // was writing: this result owns nothing any more.
+                ensureActive()
+                _briefState.value =
+                    result.fold(
+                        onSuccess = { ProjectBriefUiState.Ready(it) },
+                        onFailure = { ProjectBriefUiState.Failed(it.toMessage("Brief failed")) },
+                    )
+            }
+    }
+
+    /**
+     * Closes the brief sheet and cancels the request behind it.
+     *
+     * Cancelling matters as much as hiding: a request that is still writing would
+     * otherwise put its answer into the state and open the sheet again.
+     */
+    private fun dismissBrief() {
+        briefJob?.cancel()
+        briefJob = null
+        _briefState.value = ProjectBriefUiState.Hidden
     }
 
     /**
