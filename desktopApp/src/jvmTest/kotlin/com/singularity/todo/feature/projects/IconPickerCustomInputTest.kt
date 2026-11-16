@@ -30,8 +30,8 @@ import kotlin.test.assertTrue
  * - the text is **trimmed**: the outer whitespace is dropped and the inner
  *   whitespace is kept. What survives the trim is then taken as it is — no
  *   normalization, no stripped variation selector, no split ZWJ sequence;
- * - an **empty or whitespace-only** field adds nothing. The sheet stays open
- *   and nothing is picked, so a stray space cannot become a project icon.
+ * - an **empty or whitespace-only** field adds nothing: no icon is picked and
+ *   the sheet is not closed, so a stray space cannot become a project icon.
  *
  * "Trimmed, then taken as it is" is the whole contract. A field that kept
  * the outer spaces would store an icon that no longer looks like what the user
@@ -46,28 +46,32 @@ class IconPickerCustomInputTest {
     @Test
     fun `an empty field adds nothing`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val session = pickerSession()
 
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
 
-            assertTrue(picks.isEmpty(), "an empty field picked ${picks.size} value(s)")
+            assertTrue(session.picks.isEmpty(), "an empty field picked ${session.picks.size} value(s)")
+            assertEquals(0, session.emptyPicks, "an empty field picked the empty icon")
+            assertEquals(0, session.dismissals, "an empty field closed the sheet")
         }
 
     @Test
     fun `a whitespace-only field adds nothing`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val session = pickerSession()
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "   ")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
 
-            assertTrue(picks.isEmpty(), "a whitespace-only field picked ${picks.size} value(s)")
+            assertTrue(session.picks.isEmpty(), "a whitespace-only field picked ${session.picks.size} value(s)")
+            assertEquals(0, session.emptyPicks, "a whitespace-only field picked the empty icon")
+            assertEquals(0, session.dismissals, "a whitespace-only field closed the sheet")
         }
 
     @Test
     fun `ordinary text is added as it was typed`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "marketing")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -78,7 +82,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `a single emoji is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "😀")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -89,7 +93,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `a composed sequence is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "🧑‍💻")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -112,7 +116,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `a form the catalog holds as a variant is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "🕊️")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -130,7 +134,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `an unknown sequence is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "a‍b")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -147,7 +151,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `the picked value keeps every code point`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "👨‍👩‍👧‍👦")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -171,7 +175,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `outer whitespace is trimmed from the value`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "  marketing  ")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -189,7 +193,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `inner whitespace is kept in the value`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "rocket ship")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -207,7 +211,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `a flag is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "🇬🇧")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -218,7 +222,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `a skin-tone form is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "🧘🏽")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -229,7 +233,7 @@ class IconPickerCustomInputTest {
     @Test
     fun `a keycap is added unchanged`() =
         runIsolatedComposeTest {
-            val picks = pickerPicks()
+            val picks = pickerSession().picks
 
             typeIntoTag(TestTags.PROJECT_ICON_CUSTOM_INPUT, "1️⃣")
             clickTag(TestTags.PROJECT_ICON_CUSTOM_ADD)
@@ -238,23 +242,42 @@ class IconPickerCustomInputTest {
         }
 
     /**
-     * The sheet, and the picks it hands back.
+     * The sheet, and what it hands back.
      *
      * The sheet is drawn and driven here, so the assertions are about what a
      * user does in it: type into the field, press "Add".
+     *
+     * Three things are recorded, because "nothing happened" is three
+     * different claims: an icon was picked, the empty icon was picked, or the
+     * sheet was closed.
      */
-    private fun DesktopComposeUiTest.pickerPicks(): MutableList<Emoji> {
-        val picked = mutableListOf<Emoji>()
+    private fun DesktopComposeUiTest.pickerSession(): PickerSession {
+        val session = PickerSession()
         setContent {
             ScreenWithOwners {
                 IconPickerSheet(
                     currentIcon = null,
                     recentEmojis = persistentListOf(),
-                    onPick = { value -> value?.let(picked::add) },
-                    onDismiss = {},
+                    onPick = { value -> session.record(value) },
+                    onDismiss = { session.dismissals++ },
                 )
             }
         }
-        return picked
+        return session
+    }
+
+    private class PickerSession {
+        /** The icons the sheet handed back. */
+        val picks = mutableListOf<Emoji>()
+
+        /** How often the sheet handed back the empty icon. */
+        var emptyPicks = 0
+
+        /** How often the sheet asked to be closed. */
+        var dismissals = 0
+
+        fun record(value: Emoji?) {
+            if (value == null) emptyPicks++ else picks += value
+        }
     }
 }
