@@ -1,7 +1,7 @@
 # Политика конфиденциальности — Singularity Todo
 
 **Приложение:** Singularity Todo (`com.singularity.todo`)
-**Версия документа:** 1.0 (актуально для версии 0.2.1)
+**Версия документа:** 1.0 (актуально для версий 0.2.x)
 **Разработчик:** Дробин Максим
 **Контакт:** [newbox2517@inbox.ru](mailto:newbox2517@inbox.ru)
 **Исходный код:** [https://github.com/gazon1/sing](https://github.com/gazon1/sing)
@@ -117,5 +117,6 @@ crash-отчётов: счётчики аналитики отключены, о
 
 ## 9. Контакты
 
-Вопросы по обработке данных: newbox2517@inbox.ru Исходный код и история изменений:  
-[https://github.com/gazon1/sing](https://github.com/gazon1/sing)
+Вопросы по обработке данных: [newbox2517@inbox.ru](mailto:newbox2517@inbox.ru)
+
+Исходный код и история изменений: [https://github.com/gazon1/sing](https://github.com/gazon1/sing)

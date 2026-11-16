@@ -22,6 +22,11 @@
 
 ## 2. Первая версия
 
+**В магазин идёт релиз `v0.2.2`, а не `v0.2.1`** (почему — в п. 8). Таблица ниже
+описывает проверенный предыдущий артефакт: по нему сверяются формат, размер и
+fingerprint сертификата. Сам загружаемый APK — артефакт джоба `release.yml` для тега
+`v0.2.2` (versionCode `2002`), его SHA-256 берётся из лога релиза.
+
 | Что | Значение |
 |---|---|
 | Тег релиза | `v0.2.1` (draft-релиз GitHub) |
@@ -76,9 +81,43 @@ GET  /public/v1/application/2063789931/version             → 403 (тот же 
 3. Токен живёт 900 секунд; каждый запрос — с заголовком `Public-Token: <jwe>`.
 
 ```bash
-JWE=$(python3 /tmp/rsauth.py 2351035476 | python3 -c 'import json,sys; print(json.load(sys.stdin)["body"]["jwe"])')
+JWE=$(python3 - <<'PY'
+import base64, datetime, json, os, subprocess, tempfile, urllib.request
+
+base = "https://public-api.rustore.ru"
+key_id = os.environ.get("RUSTORE_KEY_ID", "2351035476")
+der = base64.b64decode(os.environ["RUSTORE_KEY"])
+
+with tempfile.NamedTemporaryFile(suffix=".der") as key:
+    key.write(der)
+    key.flush()
+    ts = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
+    sig = base64.b64encode(
+        subprocess.run(
+            ["openssl", "dgst", "-sha512", "-sign", key.name],
+            input=(key_id + ts).encode(),
+            capture_output=True,
+            check=True,
+        ).stdout
+    ).decode()
+
+body = json.dumps({"keyId": key_id, "timestamp": ts, "signature": sig}).encode()
+req = urllib.request.Request(
+    base + "/public/auth/",
+    data=body,
+    headers={"Content-Type": "application/json"},
+)
+with urllib.request.urlopen(req, timeout=30) as response:
+    payload = json.loads(response.read())
+raw = payload["body"]
+print(json.loads(raw)["jwe"] if isinstance(raw, str) else raw["jwe"])
+PY
+)
 curl -s -H "Public-Token: $JWE" https://public-api.rustore.ru/public/v1/application
 ```
+
+`RUSTORE_KEY` — base64 приватного ключа (DER), `RUSTORE_KEY_ID` — его `keyId`.
+Приватный ключ пишется во временный файл на 15 секунд и удаляется вместе с ним.
 
 Секрет (`RUSTORE_KEY`) лежит в `~/.zshrc` и **никогда** не попадает в репозиторий,
 логи или CI-лог. В CI (#3001) — только GitHub Actions secrets.
@@ -88,10 +127,12 @@ curl -s -H "Public-Token: $JWE" https://public-api.rustore.ru/public/v1/applicat
 Порядок (по документации RuStore): черновик версии → APK → иконка и скриншоты →
 заполнение карточки → отправка на модерацию → публикация.
 
-1. **Черновик версии**: версия `0.2.1`, versionCode `2001` (RuStore требует, чтобы
-   versionCode новой версии был строго больше предыдущего).
-2. **APK**: `singularity-0.2.1-android.apk` из п. 2 (подписан тем же ключом, что и
-   остальные релизы; fingerprint сверяется с `vars.ANDROID_CERT_FINGERPRINT`).
+1. **Черновик версии**: версия `0.2.2`, versionCode `2002` (RuStore требует, чтобы
+   versionCode новой версии был строго больше предыдущей; у `v0.2.1` — `2001`).
+2. **APK**: артефакт джоба `release.yml` для тега `v0.2.2`
+   (`singularity-0.2.2-android.apk`), подписан тем же ключом, что и остальные релизы;
+   fingerprint сверяется с `vars.ANDROID_CERT_FINGERPRINT`. APK `v0.2.1` не грузить —
+   из него пользователь не может выйти (п. 8).
 3. **Иконка**: PNG 512×512 — `scripts/render-rustore-icon.py` (см. п. 6).
 4. **Скриншоты**: минимум 3, до 10; PNG/JPG, до 3 МБ каждый, не выше 2160×3840,
    соотношение 16:9 (см. п. 6).
