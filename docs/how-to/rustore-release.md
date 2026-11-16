@@ -17,7 +17,7 @@
 | RuStore application ID | `2063789931` | `GET /public/v1/application` |
 | company ID (разработчик) | `2351561732` | там же |
 | Package name | `com.singularity.todo` | `androidApp/build.gradle.kts` |
-| Платформа / устройство | `ANDROID` / `MOBILE` | там же |
+| Платформа / устройство | `ANDROID` / `MOBILE` | RuStore API, `GET /public/v1/application` |
 | Статус приложения | `NOT_PUBLISHED`, `versionCode: 0` | там же |
 | Имя приложения в Console | `" sing"` — с ведущим пробелом | там же, поле `appName` |
 | Ключ API | `keyId` пользователя (`RUSTORE_KEY_ID`); секрет в `RUSTORE_KEY` | RuStore Console → API |
@@ -183,7 +183,7 @@ curl -s -H "Public-Token: $JWE" https://public-api.rustore.ru/public/v1/applicat
 Скрипт рендерит их в PNG 512×512 (видимая область адаптивной иконки — 72 из 108 dp):
 
 ```bash
-pip install cairosvg
+pip install cairosvg pillow
 python3 scripts/render_rustore_icon.py --out build/rustore/icon-512.png
 ```
 
@@ -192,6 +192,16 @@ python3 scripts/render_rustore_icon.py --out build/rustore/icon-512.png
 поэтому альфа выносится в отдельный `*-opacity`; и штрихи (`strokeColor`,
 `strokeWidth`) у вектора есть — без них сетка фона не рисуется. На это есть тест
 `scripts/tests/test_render_rustore_icon.py`.
+
+Два свойства результата, о которых стоит знать до загрузки:
+
+- PNG получает альфа-маску со скруглёнными углами (радиус 64 при размере 512). Если
+  RuStore требует непрозрачный фон, маску надо снять — но по справке прозрачные углы
+  допустимы. Радиус задаётся флагом `--corner` и **не масштабируется** вместе с
+  `--size`: при размере 1024 радиус останется 64.
+- Рендер идёт из адаптивной иконки, поэтому логотип на нём крупнее, чем на
+  legacy-растре `mipmap-xxxhdpi/ic_launcher.png`. Сверять надо с тем, что
+  показывает устройство (адаптивная иконка), а не с legacy-картинкой.
 
 ### Скриншоты
 
@@ -244,6 +254,10 @@ adb exec-out screencap -p > shot-01-agenda.png
 https://raw.githubusercontent.com/gazon1/sing/main/docs/legal/PRIVACY.md
 ```
 
+Ссылка работает только после мержа этой ветки в `main`: до этого файл лежит в ветке
+PR, и raw-URL отдаёт 404. Либо вставьте текст политики в поле карточки из
+`docs/legal/PRIVACY.md`, либо залейте ветку в `main` до подачи на модерацию.
+
 **Краткое описание (`shortDescription`, ≤ 80):**
 
 > Планировщик задач и заметок с ИИ, календарём и синхронизацией.
@@ -293,9 +307,11 @@ https://raw.githubusercontent.com/gazon1/sing/main/docs/legal/PRIVACY.md
 
 > Приложение не содержит сервера разработчика: синхронизация идёт с тем Supabase,
 > который вы подключаете сами (свой URL и публичный anon-ключ). Без сервера всё
-> живёт в локальной базе. Бэкапы шифруются на устройстве (AES-GCM). ИИ-запросы уходят
-> провайдеру, которого выбрали вы. Календарь Google — по вашему запросу. Аналитики и
-> трекеров нет.
+> живёт в локальной базе. Бэкапы шифруются на устройстве (AES-GCM) и уходят в
+> приватный бакет вашего сервера; вложения входят в бэкап, в синхронизацию — нет.
+> ИИ-запросы уходят провайдеру, которого выбрали вы. Календарь Google — по вашему
+> запросу. Системное резервное копирование Android может скопировать файлы и
+> настройки в Google Drive. Аналитики и трекеров нет.
 > Подробности: https://raw.githubusercontent.com/gazon1/sing/main/docs/legal/PRIVACY.md
 
 **Данные для data-safety (`privacyDataTypes`):**
@@ -304,7 +320,7 @@ https://raw.githubusercontent.com/gazon1/sing/main/docs/legal/PRIVACY.md
 |---|---|
 | `EMAIL` | адрес аккаунта (только если заведена учётная запись) |
 | `USER_IDS` | идентификатор профиля/устройства |
-| `PHOTOS_AND_FILES` | вложения задач — только локально |
+| `PHOTOS_AND_FILES` | вложения задач — входят в зашифрованную резервную копию, которая выгружается на подключённый вами сервер; в синхронизацию не входят |
 | `CALENDAR` | события календаря Google — по запросу пользователя |
 | `APP_INTERACTIONS` | журнал использования ИИ — локально |
 | `CRASH_DATA` | локальный файл журнала, наружу не уходит |
