@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import io.qameta.allure.Epic
@@ -30,6 +31,18 @@ import kotlin.time.Instant
  * So this test drives the two production entry points over one fixture and
  * asserts they agree: the list and the counts must never call one task two
  * things.
+ *
+ * ## What this test does not do
+ *
+ * It does not repeat the rule. The precedence — overdue first, then waiting, then
+ * idle — belongs to [HealthRules], and this test asks it, the same way the list
+ * and the counts do. The version of this test that read the counts and picked the
+ * first non-empty bucket was a second copy of that precedence, and a test that
+ * holds a copy of the rule cannot notice the rule being forked: it would agree
+ * with itself.
+ *
+ * The rule's own boundaries live in [HealthClassificationAgreementTest], and the
+ * list's own rules live in `AttentionNudgesTest`; neither is repeated here.
  *
  * ## The one place they differ
  *
@@ -70,31 +83,34 @@ class AttentionNudgesAgreementTest {
         )
 
     /**
-     * The bucket the counts put [task] in.
+     * The context the rule is asked with.
      *
-     * The counts are made over a whole list, so the bucket of one task is read by
-     * counting that task and its prerequisites alone. A bucket does not depend on
-     * the other tasks in the list, but the blocked set does — a prerequisite that
-     * is not in the list is not waiting for anything.
+     * The same one the counts are made with: the day, the instant, and the
+     * prerequisites that are still standing in the way. A prerequisite that is
+     * not in the list is not waiting for anything — the blocked set is built
+     * from the whole list, which is why the rule is asked about a task in the
+     * company of its prerequisites.
      */
-    private fun bucketInTheCounts(
-        task: Task,
-        prerequisites: List<Task>,
-    ): TaskHealthBucket {
-        val summary = counts(listOf(task) + prerequisites)
-        return when {
-            summary[TaskHealthBucket.OVERDUE] > 0 -> TaskHealthBucket.OVERDUE
-            summary[TaskHealthBucket.BLOCKED] > 0 -> TaskHealthBucket.BLOCKED
-            summary[TaskHealthBucket.STAGNANT] > 0 -> TaskHealthBucket.STAGNANT
-            else -> TaskHealthBucket.FINE
-        }
-    }
+    private fun context(tasks: List<Task>): SelectorContext =
+        SelectorContext(
+            today = today,
+            now = now,
+            blockedIds = Blocking.blockedTaskIds(tasks),
+            lastActivityOf = { it.updatedAt },
+        )
 
-    /** The prerequisites of [task] that are still standing in the way. */
-    private fun prerequisitesOf(
+    /**
+     * The bucket the one rule puts [task] in.
+     *
+     * [HealthRules] is the only owner of the precedence, so this asks it rather
+     * than reading the counts and picking a bucket out of them: that was a
+     * second copy of the precedence, and two copies of one rule are free to
+     * drift — invisibly, while they still agree.
+     */
+    private fun bucketOf(
         task: Task,
         tasks: List<Task>,
-    ): List<Task> = tasks.filter { it.id in task.blockedBy }
+    ): TaskHealthBucket = HealthRules().bucketOf(task, context(tasks))
 
     @Test
     fun `the list and the health counts call one task the same thing`() {
@@ -111,17 +127,32 @@ class AttentionNudgesAgreementTest {
         val list = buildAttentionNudges(tasks, emptyList(), today, now)
         val summary = counts(tasks)
 
+        // The fixture is not empty: every assertion below would be true of a
+        // list that resolved to nothing.
         assertEquals(2, summary[TaskHealthBucket.OVERDUE], "the counts find the two late tasks")
+        assertEquals(2, summary[TaskHealthBucket.BLOCKED], "and the two tasks that wait")
         assertEquals(
             2,
             list.count { it.signal == AttentionSignal.OVERDUE },
-            "and the list names both of them",
+            "and the list names both of the late ones",
         )
 
+        // The rule and the counts are the same answer, counted the same way.
+        val open = tasks.filter { !it.isCompleted && !it.isTrashed }
+        val byRule = open.groupingBy { bucketOf(it, tasks) }.eachCount()
+        TaskHealthBucket.entries.forEach { bucket ->
+            assertEquals(
+                summary[bucket],
+                byRule[bucket] ?: 0,
+                "the counts and the rule agree about $bucket",
+            )
+        }
+
+        // And the list never contradicts the rule about a task it names.
         list.filter { it.destination is AttentionDestination.Task }.forEach { nudge ->
             val named = (nudge.destination as AttentionDestination.Task).id
             val task = tasks.first { it.id == named }
-            val bucket = bucketInTheCounts(task, prerequisitesOf(task, tasks))
+            val bucket = bucketOf(task, tasks)
             when (nudge.signal) {
                 AttentionSignal.OVERDUE -> {
                     assertEquals(

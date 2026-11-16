@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.platform.todayAt
+import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
@@ -131,6 +132,31 @@ class StatisticsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
+    /**
+     * The signal that the day the Health tab classifies by may have moved.
+     *
+     * Both readings on that tab — the counts and the attention list — decide
+     * "late" and "due soon" by comparing a date with the current day, so a
+     * night that went by while the screen stood open left both of them
+     * answering about yesterday: a task due today was still named "due soon"
+     * the next morning, and a task that became late was not named at all.
+     *
+     * The day itself is read fresh inside every computation, so this flow is
+     * only the *signal* that the day may have moved: it fires at each local
+     * midnight, and the computation that follows reads the day again. The zone
+     * it waits for is the one the screen was opened with; the day is read in
+     * the zone the provider names at the moment of the read.
+     *
+     * A zone change on its own therefore schedules nothing — the device offers
+     * no event for it — and the answer catches up at the next computation: the
+     * next daily refresh, the next change to the rows, or the next opening of
+     * the screen. That is enough for the case that matters, a user who travels
+     * and opens the tab again, and it costs no polling of its own.
+     */
+    private val dayTick: Flow<Unit> =
+        todayFlow(deps.clock, deps.timeZone.current())
+            .map { }
+
     init {
         addCloseable(scope)
 
@@ -193,7 +219,11 @@ class StatisticsViewModel(
                     deps.taskRepository.observeByFilter(TaskFilter.All)
                 },
                 deps.settingsRepository.stalenessThresholdDays,
-            ) { tasks, stalenessDays ->
+                // The counts are made by the day, so the day is an input: a
+                // screen left open across midnight used to keep yesterday's
+                // buckets until a task changed.
+                dayTick,
+            ) { tasks, stalenessDays, _ ->
                 val now = deps.clock.now()
                 val today = todayAt(deps.clock, deps.timeZone.current())
                 // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
@@ -257,7 +287,13 @@ class StatisticsViewModel(
                 retryTransient("statistics.nudges.projects") {
                     deps.projectsRepo.observeAllIncludingClosed()
                 },
-            ) { tasks, projects ->
+                // The list is made by the day too — "due today" and "due
+                // tomorrow" are a window on the calendar — so the list follows
+                // the day the same way the counts do. One day moving, both
+                // readings move: a list that kept yesterday's window beside
+                // today's counts would name two different days.
+                dayTick,
+            ) { tasks, projects, _ ->
                 val now = deps.clock.now()
                 val today = todayAt(deps.clock, deps.timeZone.current())
                 // Typed nullable on purpose: the catch below emits null, and a

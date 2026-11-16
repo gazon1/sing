@@ -329,3 +329,33 @@ that shows neither.
 - **Given** the health counts cannot be read
 - **When** the Health tab is shown
 - **Then** the counts are not shown as zero of every kind of problem
+
+---
+
+### Requirement: REQ-TH-019
+
+The attention list and the health counts **SHALL** be computed against the day the
+user is in, read at the moment of the computation, and **SHALL** be recomputed when
+that day moves — even when no task and no project row has changed.
+
+**Rationale:** "late", "due today" and "due tomorrow" are statements about a day, not
+about a row. A screen left open across midnight would otherwise keep naming
+yesterday: a task that became late overnight would not be named, and a task due
+today would still be called due soon. A list and a count that answer about different
+days are worse than a stale answer, because the user sees two truths side by side.
+
+The day is read where the user is: a traveller who opens the tab in another zone
+must be told about the day they are living in, not the day they left.
+
+#### Scenario: The day moves without any row changing
+
+- **Given** a task due today, and no task and no project has changed
+- **When** the day moves
+- **Then** the list and the counts name that task by what it is now
+- **And** the list and the counts speak about the same day
+
+#### Scenario: The day is read where the user is
+
+- **Given** the user is in a zone whose day differs from the one the screen was opened in
+- **When** the list or the counts are computed
+- **Then** they are computed against the day in the user's zone
