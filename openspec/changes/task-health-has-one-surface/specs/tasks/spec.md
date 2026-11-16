@@ -89,6 +89,24 @@ counts but the list omits differs by exactly this case.
 
 ---
 
+### Requirement: REQ-TH-008
+
+A request for the stagnant set **SHALL** use the configured threshold, whichever
+surface answers it, so that one response cannot report a task as stagnant in one
+place and outside the stagnant set in another.
+
+**Rationale:** the threshold is a user setting, and a tool that resolved the set with
+a built-in default while its own counts used the setting reported two answers in one
+response.
+
+#### Scenario: The set and the counts agree
+
+- **Given** the staleness threshold is configured away from its default
+- **When** a reader asks for the stagnant set and for the health counts in one request
+- **Then** both use the configured threshold
+
+---
+
 ### Requirement: REQ-TH-004
 
 A task's due date **SHALL** be judged by the day, not the instant: a task due

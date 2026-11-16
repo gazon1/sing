@@ -48,12 +48,32 @@ That is what was closed.
       definition, and a 30-day-idle task is selected by the 21-day window and not by
       the 60-day one. Verified to fail against the old `byStagnant()` call.
 - [x] **shared/**: the screen waits for the stored value before composing, because
-      `koinViewModel` keeps the first definition it is given — starting from the
-      default would leave the ViewModel evaluating 21 days under a 60-day card.
-      Test: covered by reading the code; a flow test could not tell the two windows
-      apart and was removed rather than kept as a green that proves nothing.
+      `koinViewModel` keys the ViewModel by class inside the entry's store — so the
+      *first* definition it is given is the one it keeps. Starting from the default and
+      swapping later would leave the ViewModel evaluating 21 days under a 60-day card.
+      Test: `StagnantDrilldownHonoursThresholdFlowTest` — under 60 days the 30-day task
+      is absent, under the 21-day default it is present. Verified to fail with the fix
+      reverted. (An earlier version of this test seeded two tasks through two
+      `tasks(koin)` calls; `TasksRobot` restarts its id counter per instance, so the
+      second seed overwrote the first and the test passed for the wrong reason. It now
+      uses one robot and asserts both tasks were stored.)
+- [x] **shared/**: reopening the drill-down after a threshold change uses the new value.
+      Test: `reopening_the_drill_down_after_a_threshold_change_uses_the_new_value` —
+      absent under 60, present under 21, with only a `goBack` between.
 - [x] **shared/**: a stored `0` reaches the preset as the default window, not zero days.
       Test: `an unset threshold becomes the default, not a zero-day window`.
+
+### What the lifecycle does and does not cover
+
+- **Loading** — the screen renders nothing until the stored value arrives (sentinel
+  `-1`; `0` is a real setting that means "default").
+- **Changing the threshold while the screen is open** — the list does not recompute,
+  because Koin keys the ViewModel by class and `koinViewModel` does not recreate on a
+  parameter change. This is **not reachable through the UI**: the only writer of the
+  setting is the Settings screen, which the user must open in place of the drill-down.
+  No refresh mechanism was added, because the review's rule is to add one only when the
+  existing lifecycle is proven insufficient for a reachable path.
+- **Closing and reopening** — re-reads the stored value; pinned by the test above.
 
 ## Phase 3 — the count explains itself
 

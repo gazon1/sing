@@ -35,12 +35,15 @@ So this change does not add a surface. It makes the existing ones honest.
 
 - One owner for the health precedence and for the meaning of the stored staleness
   threshold, in the tasks domain where the bucket vocabulary already lives.
-- The AI read tools and the Statistics summary both classify through it.
+- The AI read tools and the Statistics summary both classify through it, and every AI
+  tool resolves `selection=stagnant` with the stored threshold rather than the
+  selector's default.
 - The Stagnant drill-down reads the stored threshold, so the card's count and the
   list it opens describe the same set.
 - The health cards state the rule each count was made with.
-- A test that drives both surfaces over the same tasks and asserts they agree,
-  including the stored-`0` case and the window and due-date boundaries.
+- A test that drives both classifier surfaces over the same tasks and asserts they
+  agree, including the stored-`0` case and the window and due-date boundaries; and a
+  flow test that drives settings → card → drill-down on the production path.
 
 ### Out of scope
 

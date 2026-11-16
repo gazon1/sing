@@ -611,15 +611,23 @@ private fun TaskHealthBucket.displayLabel(): String =
  * number — "blocked" reads like a status they set, and "not touched in a while" is
  * a threshold they configured and did not see restated.
  *
- * It states the same predicate the classification uses, and no more: a hint that
- * invented a second reason would be a second model of health in prose.
+ * Each line restates the *whole* predicate the bucket is counted by, and no more:
+ *
+ * - overdue is `dueDate < today` on an open task;
+ * - blocked is an unfinished prerequisite, and only a dependency that blocks;
+ * - stagnant is an undated open task idle past the threshold;
+ * - fine is everything else that is open — which includes a task due next month that
+ *   has not been edited in a year. It is the *absence* of the three conditions, not
+ *   a claim that the task is fresh, so it must not say "recently touched": that is a
+ *   narrower condition than the bucket, and a user with a dated, unedited task would
+ *   be told something false about it.
  */
 private fun TaskHealthBucket.explanation(): String =
     when (this) {
         TaskHealthBucket.OVERDUE -> "Past the due date and still open"
         TaskHealthBucket.BLOCKED -> "Waiting on something that is not finished"
         TaskHealthBucket.STAGNANT -> "Undated, and idle past your staleness threshold"
-        TaskHealthBucket.FINE -> "Open, on time, and recently touched"
+        TaskHealthBucket.FINE -> "No overdue, blocked or stagnation condition"
     }
 
 /** Whole days, because a partial day is noise on a retention-scale number. */

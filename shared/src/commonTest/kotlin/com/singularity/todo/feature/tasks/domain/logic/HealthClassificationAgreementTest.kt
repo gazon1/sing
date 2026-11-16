@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
@@ -25,28 +24,14 @@ import kotlin.time.Instant
 /**
  * Holds the two surfaces that classify task health to one answer.
  *
- * ## Why this file exists
+ * The statistics screen and the AI read tools each used to own a copy of the
+ * overdue → blocked → stagnant precedence, and the copies had drifted. Both now
+ * classify through [HealthRules]; this test drives the two production entry points
+ * over one fixture and asserts they agree, so a future edit that re-forks the rule
+ * fails here.
  *
- * The precedence **overdue → blocked → stagnant → fine** was written twice: once for
- * the statistics screen's summary and once for the AI tools that report a task's
- * health to a reader. Nothing compared the two, so nothing could see them drift —
- * and they already had: the tools passed the stored staleness number straight into
- * the selector, while the statistics screen read a stored `0` as "use the 21-day
- * default". On a user who had never moved the slider the two agreed; on one who set
- * it to `0` the tools called every undated task stagnant and the card called none.
- *
- * Both now classify through [HealthRules], and this test is what holds them there:
- * it drives the statistics entry point ([summarizeTaskHealthFromSelectors]) and the
- * AI entry point ([TaskToolSupport.health]) over the same tasks and asserts the
- * counts are identical. A future edit that re-forks the rule fails here rather than
- * in front of a user who was told two different things about one task.
- *
- * ## Why the boundary tests are here and not in `TaskHealthTest`
- *
- * They are about the *rule*, and [TaskHealthTest] is about the summary arithmetic.
- * The window boundary in particular is where an off-by-one hides: `Selector.Stagnant`
- * matches on `>=`, so a task idle for exactly the window is stagnant and one idle a
- * millisecond less is not.
+ * The boundary tests live here rather than in [TaskHealthTest] because they are about
+ * the rule, not about the summary arithmetic.
  */
 @Tag("fast")
 @Epic("Tasks")
@@ -109,12 +94,13 @@ class HealthClassificationAgreementTest {
     }
 
     /**
-     * The problem buckets the two surfaces agree on, with empty buckets dropped.
+     * The problem buckets, empty ones dropped.
      *
-     * Only the three *actionable* buckets are compared: the AI DTO carries the three
-     * and no "fine", while the summary carries all four. Zero counts are dropped as
-     * well, so the comparison is about which buckets hold tasks rather than about
-     * which keys each shape happens to declare.
+     * Only the three actionable buckets are compared: the AI DTO carries the three and
+     * no "fine", while the summary carries all four. That makes the comparison about
+     * which buckets hold tasks rather than which keys each shape declares — which is
+     * why every agreement assertion is paired with an explicit non-zero expectation,
+     * so a fixture that silently resolved to nothing cannot pass as agreement.
      */
     private fun Map<TaskHealthBucket, Int>.problems(): Map<TaskHealthBucket, Int> =
         filterKeys { it != TaskHealthBucket.FINE }.filterValues { it > 0 }
@@ -122,11 +108,8 @@ class HealthClassificationAgreementTest {
     // ── The two surfaces agree ─────────────────────────────────────────────────
 
     /**
-     * The exact case the two used to disagree on: a stored `0`.
-     *
-     * `0` means "the default", so an undated task idle for 40 days is stagnant and one
-     * idle for 5 days is not. The AI path used to read `0` as a zero-day window and
-     * call both stagnant.
+     * A stored `0` means the default on both surfaces — the case they used to disagree
+     * on, because the AI path read `0` as a zero-day window.
      */
     @Test
     fun `a stored zero is the default window on both surfaces, not a zero-day window`() {
@@ -143,12 +126,7 @@ class HealthClassificationAgreementTest {
         assertEquals(statistics.problems(), ai.problems(), "the two surfaces report the same buckets")
     }
 
-    /**
-     * The user's own threshold, on a task either side of it.
-     *
-     * A 10-day task under a 30-day threshold is not stagnant; under a 7-day one it is.
-     * Both surfaces have to move together, because both read the same stored number.
-     */
+    /** A custom threshold moves both surfaces together. */
     @Test
     fun `a custom threshold moves both surfaces together`() {
         val tasks = listOf(task("idle-10", updated = now - 10.days))
@@ -176,13 +154,15 @@ class HealthClassificationAgreementTest {
     }
 
     /**
-     * The full precedence, driven through both surfaces at once.
+     * The full precedence on both surfaces: a task that is overdue, blocked and idle
+     * at once is one task in one bucket, and the surfaces agree on which.
      *
-     * A task that is overdue *and* blocked *and* idle is one task in one bucket, and
-     * both surfaces have to put it in the same one.
+     * Every problem bucket is non-empty here, so a fixture that resolved to nothing
+     * could not produce these numbers. This is the test that keeps the `.problems()`
+     * comparison honest.
      */
     @Test
-    fun `the precedence is one answer on both surfaces`() {
+    fun `the precedence is one answer on both surfaces, with every problem bucket non-empty`() {
         val blocker = task("blocker")
         val tasks =
             listOf(
@@ -209,46 +189,123 @@ class HealthClassificationAgreementTest {
         assertEquals(1, statistics.getValue(TaskHealthBucket.BLOCKED), "'blocked-idle' outranks stagnant")
         assertEquals(1, statistics.getValue(TaskHealthBucket.STAGNANT))
         assertEquals(2, statistics.getValue(TaskHealthBucket.FINE))
+        assertEquals(3, statistics.problems().values.sum(), "all three problem buckets carry a task")
         assertEquals(statistics.problems(), ai.problems(), "both surfaces put each task in one bucket")
     }
 
-    /**
-     * Completion and trash are out of the open set on both surfaces.
-     *
-     * A finished task is not a problem and is not open; a trashed one is neither.
-     */
+    // ── Completed and discarded work ───────────────────────────────────────────
+    //
+    // Two levels of responsibility, deliberately: `HealthRules.bucketOf` answers
+    // "fine" for a finished task on its own, and both callers also filter the open set
+    // before asking. These tests pin that a task which is overdue or blocked but is
+    // finished or discarded is not a problem on either surface, and is not open work.
+
     @Test
-    fun `finished and trashed tasks are not counted as problems by either surface`() {
+    fun `a finished overdue task is not overdue on either surface`() {
         val tasks =
             listOf(
-                task("done", updated = now - 90.days, completed = now - 1.days),
-                task("trashed", updated = now - 90.days, trashed = now - 1.days),
+                task(
+                    "finished-late",
+                    due = today.minus(5, DateTimeUnit.DAY),
+                    completed = now - 1.days,
+                ),
             )
 
         val statistics = statisticsCounts(tasks, stalenessDays = 21)
 
-        assertEquals(0, statistics.getValue(TaskHealthBucket.STAGNANT))
         assertEquals(0, statistics.getValue(TaskHealthBucket.OVERDUE))
-        assertEquals(emptyMap(), aiCounts(tasks, 21).problems(), "neither surface reports a problem")
+        assertEquals(0, statistics.getValue(TaskHealthBucket.FINE), "a finished task is not open work either")
+        assertEquals(emptyMap(), aiCounts(tasks, 21).problems(), "the AI reports no problem")
     }
 
-    /**
-     * A deferred task is still open work, and both surfaces say so the same way.
-     *
-     * Deferring moves a task out of the "do it now" lists; it does not finish it. The
-     * health rules therefore treat it like any other open undated task — and, more to
-     * the point of this file, they treat it *identically on both surfaces*, which is
-     * what the user sees when they open the card and the list it counts.
-     */
+    @Test
+    fun `a discarded overdue task is not overdue on either surface`() {
+        val tasks =
+            listOf(
+                task(
+                    "trashed-late",
+                    due = today.minus(5, DateTimeUnit.DAY),
+                    trashed = now - 1.days,
+                ),
+            )
+
+        val statistics = statisticsCounts(tasks, stalenessDays = 21)
+
+        assertEquals(0, statistics.getValue(TaskHealthBucket.OVERDUE))
+        assertEquals(emptyMap(), aiCounts(tasks, 21).problems(), "the AI reports no problem")
+    }
+
+    @Test
+    fun `a finished blocked task is not blocked on either surface`() {
+        val blocker = task("blocker")
+        val tasks =
+            listOf(
+                task("finished-blocked", blockedBy = setOf(blocker.id), completed = now - 1.days),
+                blocker,
+            )
+
+        val statistics = statisticsCounts(tasks, stalenessDays = 21)
+
+        assertEquals(0, statistics.getValue(TaskHealthBucket.BLOCKED))
+        assertEquals(emptyMap(), aiCounts(tasks, 21).problems(), "the AI reports no problem")
+    }
+
+    /** A discarded task is not counted as open work at all. */
+    @Test
+    fun `a discarded task is not counted in the statistics at all`() {
+        val tasks =
+            listOf(
+                task("trashed", updated = now - 90.days, trashed = now - 1.days),
+                task("live", updated = now - 90.days),
+            )
+
+        val summary =
+            summarizeTaskHealthFromSelectors(
+                allTasks = tasks,
+                today = today,
+                now = now,
+                stagnationWindow = stagnationWindowOf(21),
+                lastActivityOf = { it.updatedAt },
+            )
+
+        assertEquals(1, summary.totalOpen, "only the live task is open work")
+        assertEquals(1, summary[TaskHealthBucket.STAGNANT], "and it is the one counted as stagnant")
+    }
+
+    /** Both surfaces call the same tasks open. */
+    @Test
+    fun `both surfaces count the same open set`() {
+        val tasks =
+            listOf(
+                task("live"),
+                task("finished", completed = now - 1.days),
+                task("trashed", trashed = now - 1.days),
+            )
+
+        val context = TaskToolSupport.context(tasks, clock, zone)
+        val ai = TaskToolSupport.health(tasks, context, stalenessDays = 21)
+        val summary =
+            summarizeTaskHealthFromSelectors(
+                allTasks = tasks,
+                today = today,
+                now = now,
+                stagnationWindow = stagnationWindowOf(21),
+                lastActivityOf = { it.updatedAt },
+            )
+
+        assertEquals(1, summary.totalOpen)
+        assertEquals(summary.totalOpen, ai.totalOpen, "the two surfaces call the same tasks open")
+    }
+
+    /** A deferred task is still open work, and both surfaces class it the same way. */
     @Test
     fun `a deferred task is classed the same way on both surfaces`() {
         val tasks = listOf(task("someday-idle", updated = now - 40.days, someday = true))
 
         val statistics = statisticsCounts(tasks, stalenessDays = 21)
-        val ai = aiCounts(tasks, stalenessDays = 21)
 
         assertEquals(1, statistics.getValue(TaskHealthBucket.STAGNANT))
-        assertEquals(statistics.problems(), ai.problems())
+        assertEquals(statistics.problems(), aiCounts(tasks, 21).problems())
     }
 
     /** Nothing to classify is not an error and not a problem. */
@@ -260,14 +317,7 @@ class HealthClassificationAgreementTest {
 
     // ── Boundaries ─────────────────────────────────────────────────────────────
 
-    /**
-     * The stagnation window is inclusive: exactly the window is stagnant, one
-     * millisecond less is not.
-     *
-     * `Selector.Stagnant` matches on `elapsed >= threshold`, and the boundary is the
-     * one place an off-by-one would hide — a task the card counts and the list drops
-     * would differ by exactly this case.
-     */
+    /** The window is inclusive: exactly the threshold is stagnant, a millisecond less is not. */
     @Test
     fun `a task idle for exactly the window is stagnant, and a millisecond less is not`() {
         val window = 21.days
@@ -287,10 +337,7 @@ class HealthClassificationAgreementTest {
         assertEquals(TaskHealthBucket.FINE, rules.bucketOf(justUnder, context))
     }
 
-    /**
-     * The overdue boundary is the day, not the instant: due yesterday is overdue, due
-     * today is not, and due tomorrow is not.
-     */
+    /** Overdue is judged by the day: yesterday is late, today and tomorrow are not. */
     @Test
     fun `the overdue boundary is yesterday, today, tomorrow`() {
         val rules = HealthRules()
@@ -325,7 +372,36 @@ class HealthClassificationAgreementTest {
         assertEquals(7.days, stagnationWindowOf(7))
         assertEquals(90.days, stagnationWindowOf(90))
     }
-}
 
-/** A `Duration` component helper that reads better at the boundary than `1.milliseconds`. */
-private fun Int.toDurationMillis(): Duration = Duration.parse("${this}ms")
+    // ── The reference day and the last-activity timestamp ─────────────────────
+
+    /**
+     * Both surfaces resolve `today` from the same clock, and `lastActivityOf` from the
+     * same pair of timestamps.
+     *
+     * The AI path takes its zone as a parameter and the statistics path takes a date,
+     * so this asserts the *inputs agree*: a task due today is "today" to both, and a
+     * task's age is measured from the same instant by both.
+     */
+    @Test
+    fun `both surfaces resolve the same reference day and last-activity timestamp`() {
+        // Due today: late in a zone a day ahead, on time in UTC.
+        val tasks = listOf(task("due-today", due = today, updated = now - 30.days))
+
+        val context = TaskToolSupport.context(tasks, clock, zone)
+        val summary =
+            summarizeTaskHealthFromSelectors(
+                allTasks = tasks,
+                today = context.today,
+                now = context.now,
+                stagnationWindow = stagnationWindowOf(21),
+                lastActivityOf = context.lastActivityOf,
+            )
+        val ai = TaskToolSupport.health(tasks, context, stalenessDays = 21)
+
+        assertEquals(today, context.today, "the AI context resolves today from the clock it is given")
+        assertEquals(now, context.now, "and the same instant the summary is built from")
+        assertEquals(0, summary[TaskHealthBucket.OVERDUE], "due today is not late in UTC")
+        assertEquals(ai.overdue, summary[TaskHealthBucket.OVERDUE], "and the AI reads the same day")
+    }
+}

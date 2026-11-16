@@ -107,6 +107,24 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
             assertSeeded(koin, expected = ++seeded)
         }
 
+    /**
+     * An undated task last touched at [updatedAt].
+     *
+     * [givenUndated] seeds at the epoch, which is decades past any staleness
+     * threshold — fine for "is this stale at all", useless for "is this stale under
+     * *this* threshold". A test about the setting needs the task at a known age.
+     */
+    suspend fun givenUndatedAt(
+        title: String = "Buy milk",
+        updatedAt: Instant,
+    ): TasksRobot =
+        apply {
+            // The seed stamps `updatedAt` from `createdAt`, so setting the creation
+            // moment is how the last touch is placed.
+            seed(title = title, dueDate = null, createdAt = updatedAt)
+            assertSeeded(koin, expected = ++seeded)
+        }
+
     /** Asserts the task is rendered in the agenda, waiting for the list to settle. */
     fun assertInAgenda(title: String): TasksRobot =
         apply {

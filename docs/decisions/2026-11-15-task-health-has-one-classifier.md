@@ -53,6 +53,12 @@ three selectors, built once per instance, and answers `bucketOf(task, context)`.
 classifies through it. The stored-setting translation is `stagnationWindowOf(Int)`,
 also in that file, called by both.
 
+The same drift existed on the *selection* side: `TaskToolSupport.select` and
+`list_tasks` resolved `selection=stagnant` with `TaskSelectionResolver`'s 21-day
+default while the health counts beside them used the stored threshold, so one
+response could report "stagnant: 0" next to a page of tasks it called stagnant.
+Both now pass the translated window.
+
 The Stagnant drill-down reads the stored threshold the way the Today tab reads its
 work hours: a composable in `AgendaRouteMapping.kt` collects
 `stalenessThresholdDays` and builds the preset from it. The decision itself is a
@@ -84,11 +90,19 @@ at save time and wrong the moment the user moved the slider — the same defect 
 ## Consequences
 
 - The Statistics card and the list it opens now count the same tasks under any
-  configured threshold. `StagnantDefinitionTest` pins that the configured window
-  reaches the definition, and `HealthClassificationAgreementTest` pins that both
-  surfaces put each task in the same bucket, including the stored-`0` case.
+  configured threshold. `StagnantDrilldownHonoursThresholdFlowTest` pins the whole
+  chain on the production path — settings → card → route → list — in both directions,
+  and `StagnantDefinitionTest` pins the wiring decision itself.
+  `HealthClassificationAgreementTest` pins that both classifier surfaces put each task
+  in the same bucket, including the stored-`0` case.
 - The AI tools and the Statistics screen report identical counts. A future change
   to the precedence must edit `HealthRules`, and both surfaces move together.
+- `selection=stagnant` means the user's window in every AI tool, not the selector's
+  default, so `list_tasks` and the tools that plan from a named selection agree.
+- The health cards' hints restate the *whole* predicate. `FINE` says "No overdue,
+  blocked or stagnation condition" rather than "recently touched", because the bucket
+  also holds a dated task that has not been edited in a year — a narrower phrase would
+  be false about it.
 - `AgendaStartRoute.toDefinition()` returns the *default-window* Stagnant preset,
   because a pure function cannot read settings. The screen is the authority; the
   two produce the same sections and differ only in the window value. This is

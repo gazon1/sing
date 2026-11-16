@@ -12,10 +12,14 @@ import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealth
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
+import com.singularity.todo.feature.tasks.domain.logic.stagnationWindowOf
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
@@ -37,6 +41,7 @@ class WeeklyPlanTool(
     private val taskRepository: TaskRepository,
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
+    private val tasksSettingsRepository: TasksSettingsRepository,
 ) : SimpleTool<WeeklyPlanInput>(TypeToken.of(WeeklyPlanInput::class.java), NAME, DESCRIPTION) {
     private val logger = Logger.withTag("WeeklyPlan")
 
@@ -44,7 +49,17 @@ class WeeklyPlanTool(
         val tasks =
             args.selection
                 ?.let { selection ->
-                    TaskToolSupport.select(selection, taskRepository, clock, timeZoneProvider.current())
+                    TaskToolSupport.select(
+                        selection = selection,
+                        taskRepository = taskRepository,
+                        clock = clock,
+                        zone = timeZoneProvider.current(),
+                        // The user's threshold, so `stagnant` means the same set here as
+                        // in the list tool and on the statistics screen.
+                        stagnationWindow =
+                            stagnationWindowOf(tasksSettingsRepository.stalenessThresholdDays.first())
+                                ?: TaskHealth.DEFAULT_STAGNATION_WINDOW,
+                    )
                 }
                 ?: args.tasks
         val p =

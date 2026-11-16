@@ -6,6 +6,7 @@ import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.HealthRules
 import com.singularity.todo.feature.tasks.domain.logic.TaskCognitiveLoad
 import com.singularity.todo.feature.tasks.domain.logic.TaskCognitiveLoadCalculator
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealth
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
@@ -57,18 +58,31 @@ internal object TaskToolSupport {
      * For the tools that plan rather than list: asked for a named set, they work on
      * that set — the app's set, with the app's rules — instead of on a list of strings
      * the model made up.
+     *
+     * @param stagnationWindow the stored staleness threshold the caller read, so that
+     *   `stagnant` means the user's window here as it does everywhere else. A tool that
+     *   omitted it would answer `stagnant` with the selector's 21-day default while
+     *   `list_tasks` answered with the setting.
      */
     suspend fun select(
         selection: TaskSelection,
         taskRepository: TaskRepository,
         clock: Clock,
         zone: TimeZone,
+        stagnationWindow: kotlin.time.Duration = TaskHealth.DEFAULT_STAGNATION_WINDOW,
     ): List<String> {
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = context(all, clock, zone)
         val matched =
             all
-                .filter { TaskSelectionResolver.matches(TaskSelectionRequest(selection = selection), it, context) }
+                .filter {
+                    TaskSelectionResolver.matches(
+                        request = TaskSelectionRequest(selection = selection),
+                        task = it,
+                        context = context,
+                        stagnationWindow = stagnationWindow,
+                    )
+                }
         // Cap the set sent to the model; report the remainder as a count.
         val capped = matched.take(50)
         return capped.map { it.title } +
