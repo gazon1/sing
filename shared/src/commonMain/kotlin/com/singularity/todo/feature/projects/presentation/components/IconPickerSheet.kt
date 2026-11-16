@@ -147,12 +147,15 @@ private fun EmojiSection(
         OutlinedTextField(
             state = custom,
             label = { Text("Custom emoji") },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag(TestTags.PROJECT_ICON_CUSTOM_INPUT),
         )
-        TextButton(onClick = {
-            val v = custom.text.trim().toString()
-            if (v.isNotEmpty()) onPick(Emoji(v))
-        }) { Text("Add") }
+        TextButton(
+            onClick = {
+                val v = custom.text.trim().toString()
+                if (v.isNotEmpty()) onPick(Emoji(v))
+            },
+            modifier = Modifier.testTag(TestTags.PROJECT_ICON_CUSTOM_ADD),
+        ) { Text("Add") }
     }
 }
 
