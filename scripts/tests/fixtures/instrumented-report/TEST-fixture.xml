@@ -2,7 +2,7 @@
 <!--
   A fixture report for the instrumented test floor's positive control.
 
-  It has the shape of the real run — fourteen classes, thirty-eight tests, none
+  It has the shape of the real run — fifteen classes, forty-seven tests, none
   skipped — so the control can run the gate against a report that MEETS the
   floor and fail it by moving the floor, rather than by having no report at all.
 
@@ -19,7 +19,7 @@
 
   When the floor moves, this fixture has to move with it.
 -->
-<testsuite name="Fixture" tests="38" failures="0" errors="0" skipped="0">
+<testsuite name="Fixture" tests="47" failures="0" errors="0" skipped="0">
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_3"/>
@@ -43,6 +43,15 @@
   <testcase classname="com.singularity.todo.ui.EditorBackGuardTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.FailureBundleDeliveryTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.FailureBundleDeliveryTest" name="fixture_case_2"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_1"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_2"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_3"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_4"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_5"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_6"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_7"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_8"/>
+  <testcase classname="com.singularity.todo.ui.IconPickerCustomInputTest" name="fixture_case_9"/>
   <testcase classname="com.singularity.todo.ui.MenuSheetBoundsTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.MenuSheetBoundsTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_1"/>

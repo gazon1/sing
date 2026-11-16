@@ -35,10 +35,11 @@ Three copies went, each because the scenario had an owner that could assert it:
 
 The instrumented tier lost one class and three tests; `TaskEditorDraftTest` later
 added one class and two tests for a scenario only a device can observe (a persisted
-draft being restored). `config/docs/instrumented-test-floor.txt` records 8 classes
-and 25 tests, with the loss acknowledged in that file's notes rather than regenerated
-silently. The android host tier lost four tests, and its six classes deliver 13
-again — the number `config/docs/test-runs-baseline.txt` records.
+draft being restored). `config/docs/instrumented-test-floor.txt` records the tier's
+current floor — fifteen classes and forty-seven tests — with the loss acknowledged in
+that file's notes rather than regenerated silently. The android host tier lost four
+tests, and its six classes deliver 13 again — the number
+`config/docs/test-runs-baseline.txt` records.
 
 ## The four features that had no end-to-end flow
 
