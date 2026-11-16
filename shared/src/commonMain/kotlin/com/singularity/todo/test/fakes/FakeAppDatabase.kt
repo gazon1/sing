@@ -1215,6 +1215,20 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
                 .take(50)
         }
 
+    override fun watchByTasksForUser(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.taskId != null &&
+                        n.taskId in taskIds &&
+                        n.userId == userId &&
+                        n.deletedAt == null
+                }.sortedByDescending { n -> n.createdAt }
+        }
+
     override suspend fun upsert(note: NoteEntity) {
         store.update { it + (note.id to note) }
     }

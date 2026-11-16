@@ -25,6 +25,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
@@ -578,6 +579,17 @@ class NotesRepositoryImpl(
             noteDao
                 .watchByTaskForUser(taskId.value, uid.value)
                 .map { list -> list.map { it.toNote() } }
+        }
+
+    override fun watchForTasks(taskIds: Set<TaskId>): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            if (taskIds.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                noteDao
+                    .watchByTasksForUser(taskIds.map { it.value }, uid.value)
+                    .map { list -> list.map { it.toNote() } }
+            }
         }
 
     override suspend fun createForTask(

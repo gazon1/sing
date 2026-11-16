@@ -179,6 +179,17 @@ interface NotesRepository :
     fun watchForTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId): Flow<List<Note>>
 
     /**
+     * Watches the notes **attached** to any of [taskIds].
+     *
+     * The batch form of [watchForTask]: one read for the whole set, so a caller
+     * that needs the notes of many tasks — a project brief, say — does not open a
+     * watcher per task.
+     *
+     * @param taskIds the tasks whose attached notes are asked for.
+     */
+    fun watchForTasks(taskIds: Set<com.singularity.todo.feature.tasks.domain.model.TaskId>): Flow<List<Note>>
+
+    /**
      * Creates a new note attached to [taskId] and returns its id.
      *
      * The caller owns [id]: the editor generates it before the note exists, so the

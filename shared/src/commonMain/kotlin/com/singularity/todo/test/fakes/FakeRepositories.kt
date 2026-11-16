@@ -3329,6 +3329,26 @@ open class FakeNotesRepository(
             }
         }
 
+    /**
+     * How many times the notes of a set of tasks were asked for.
+     *
+     * The batch form exists so that a caller does not read the notes of a project
+     * one task at a time; this count is what a test asserts that with.
+     */
+    var watchForTasksCalls: Int = 0
+        private set
+
+    override fun watchForTasks(taskIds: Set<TaskId>): Flow<List<com.singularity.todo.feature.notes.Note>> {
+        watchForTasksCalls++
+        return currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter {
+                    it.taskId != null && it.taskId in taskIds && it.userId == uid && it.deletedAt == null
+                }
+            }
+        }
+    }
+
     override suspend fun createForTask(
         id: com.singularity.todo.feature.notes.NoteId,
         taskId: TaskId,

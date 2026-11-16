@@ -1019,6 +1019,27 @@ interface NoteDao {
     ): Flow<List<NoteEntity>>
 
     /**
+     * Returns the notes attached to any of [taskIds] (notes.task_id IN (:taskIds)),
+     * for the current user.
+     *
+     * The batch form of [watchByTaskForUser]: one read for the whole set, so a
+     * caller that needs the notes of many tasks does not open a watcher per task.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE task_id IN (:taskIds)
+          AND user_id = :userId
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        """,
+    )
+    fun watchByTasksForUser(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<NoteEntity>>
+
+    /**
      * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
      * [watchByTaskForUser] should be preferred for new code — this method is kept for backward
      * compatibility with existing wikilink-only notes.
