@@ -67,9 +67,11 @@ concern and belongs to #2919, not to the dependency check.
 - `CharSequence.emojiInformation()` is the current text API
   (`visualLength`, `isOnlyEmojis`, `emojiCount`, `emojiRanges`); the
   `isOnlyEmojis()` / `emojis()` / `emojisCount()` extensions are deprecated.
-  `visualLength` answers "visible characters" for emoji, which is the question
-  `visibleLength()` answers by code point — #2920 decides whether they are
-  interchangeable; this change does not.
+  `visualLength` counts each sequence the installed catalog recognizes as one
+  and charges everything else by its UTF-16 length — it knows only the
+  provider's catalog and is **not** a general Unicode grapheme counter, so it
+  is not interchangeable with the app's own `visibleLength()`, which counts
+  code points (ADR `2026-11-13-the-emoji-helpers-have-no-library-equivalent.md`).
 - Nothing installs a provider yet, so the library is not on any runtime path;
   `core/emoji/EmojiLibraryApi.kt` is a compile-time probe and #2919 removes it.
 
