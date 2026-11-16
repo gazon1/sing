@@ -72,7 +72,9 @@ wired temporarily on `:shared` and `:desktopApp` and the compile was rerun with 
 - `reportsDestination` produced `singularity-todo:shared-{classes,composables}.txt|csv` and
   `singularity-todo:desktopApp-{classes,composables}.*`; `metricsDestination` produced the
   `*-module.json` files.
-- Copied to `build-investigation/compose-stability-before/{shared,desktopApp}/`.
+- Copied to `build-investigation/compose-stability-before/{shared,desktopApp}/`. The copies are
+  committed with `:` replaced by `-`: Windows forbids a colon in a file name, and a tracked path
+  with one makes `actions/checkout` fail on a Windows runner.
 - Baseline classification: `Task`, `Project`, `TagGroup`, `Note` are `stable` in the shared report
   with the `@Immutable` annotations still in place; the desktop composables report is the
   consumer-side reference for the Stage 2 comparison.
