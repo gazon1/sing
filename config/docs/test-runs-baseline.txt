@@ -153,10 +153,10 @@
 # in the same commit that adds the tests.
 #
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
-desktopApp:test 62 0
-shared:archTest 219 0
-shared:jvmTest 4149 0
-shared:testAndroidHostTest 13 0
+desktopApp:test 251 0
+shared:archTest 255 0
+shared:jvmTest 4972 0
+shared:testAndroidHostTest 23 0
 core-domain:jvmTest 5 0
 mcp-server:test 0 0
 # GENERATED:END
