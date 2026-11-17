@@ -6,13 +6,16 @@ import android.net.Uri
 import android.os.Bundle
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
+import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
-import com.singularity.todo.core.seed.SeedArrival
 import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.seed.SeedFailure
 import com.singularity.todo.core.seed.SeedLinkKeys
-import com.singularity.todo.core.seed.SeedLinkLifecycle
+import com.singularity.todo.core.seed.SeedQueue
+import com.singularity.todo.core.seed.SeedRequest
+import com.singularity.todo.core.seed.SeedSequencer
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -27,8 +30,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.stubs.TestAuthStubs
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -160,26 +164,47 @@ import kotlin.time.Instant
  * the running MainActivity instead — a link that is then lost without a word.
  *
  * A link that arrives while a seed is still running is seeded too, with its own
- * parameters: it waits for the running seed to finish, so the seeds never write
- * at the same time. The newest link owns the screen, and the older one keeps
- * writing its rows without taking the screen away from it.
+ * parameters: it waits in the queue for the running seed, so the seeds never
+ * write at the same time. The newest link owns the screen, and the older one
+ * keeps writing its rows without taking the screen away from it.
  *
- * The seeds run in the order the links *arrived*, not in the order their
- * workers happen to start: a link that arrived first writes first even when its
- * worker reaches its gate last. The data on the device is therefore the data of
- * the link that owns the screen.
+ * The seeds run in the order the links *arrived*: the requests wait in a queue
+ * and one consumer runs them one at a time. The data on the device is
+ * therefore the data of the link that owns the screen.
  */
 class DebugSeedActivity :
     Activity(),
     KoinComponent {
     /**
-     * The seed links that reached this activity, and the order they ran in.
-     *
-     * One seed at a time, one arrival per link, and the newest arrival owns
-     * the screen — the rules live in [SeedLinkLifecycle] and the sequencer
-     * behind it, so that a test can hold them without an Android harness.
+     * Counts the links that arrived and says which one owns the screen.
      */
-    private val links = SeedLinkLifecycle<Intent>()
+    private val sequencer = SeedSequencer()
+
+    /**
+     * The queue the seed requests wait in.
+     *
+     * One queue, one consumer: the seeds run one at a time, in the order the
+     * links arrived. The rules live in [SeedQueue] and [SeedSequencer], so that
+     * a test can hold them without an Android harness.
+     */
+    private val queue = SeedQueue(sequencer)
+
+    /**
+     * The scope the consumer runs in.
+     *
+     * One scope for the whole activity, not one per link: the consumer is a
+     * single coroutine that lives as long as the activity does. It is not the
+     * `lifecycleScope`, because the destruction of the activity must not cut a
+     * seed in the middle of its write — the queue is closed instead, and the
+     * requests that are already in it run to the end.
+     *
+     * The scope comes from the project's own factory, so the dispatcher and the
+     * failure policy are the ones the rest of the app uses.
+     */
+    private val seedScope = createBackgroundScope(loggingBackgroundFailureHandler())
+
+    /** The link the activity is holding now. */
+    private var currentLink: Intent? = null
 
     /**
      * Takes a link that arrived at a live instance.
@@ -191,7 +216,7 @@ class DebugSeedActivity :
      * the old one, and the link would be lost as silently as it is when the
      * system hands it to another activity.
      *
-     * The link is seeded *here*, and not left to [onResume]: a link that
+     * The link is queued *here*, and not left to [onResume]: a link that
      * reaches an instance which is already resumed does not come with another
      * [onResume] — the activity is not restarted for it — so a link handled
      * only in [onResume] was simply dropped. Measured on the device: a second
@@ -202,7 +227,7 @@ class DebugSeedActivity :
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        links.onNewIntent(intent)
+        currentLink = intent
         handleSeedLink()
     }
 
@@ -220,13 +245,38 @@ class DebugSeedActivity :
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        links.onCreate(intent)
+        currentLink = intent
+
+        // The one consumer of the queue. It lives as long as the activity: it
+        // ends when the queue is closed and empty, and the scope goes with it.
+        seedScope.launch {
+            try {
+                queue.consume(
+                    seed = { requestParams -> seed(requestParams) },
+                    onSuccess = { request -> onSeedSucceeded(request) },
+                    onFailure = { request, error -> onSeedFailed(request, error) },
+                )
+            } finally {
+                // The consumer is the scope's only work. Once it is done there
+                // is nothing left to keep the scope alive.
+                seedScope.cancel()
+            }
+        }
+
         handleSeedLink()
     }
 
     override fun onResume() {
         super.onResume()
         handleSeedLink()
+    }
+
+    override fun onDestroy() {
+        // The queue is closed, not cancelled: the requests that are already in
+        // it still run — a seed that is writing must not lose its rows because
+        // the activity went away — and the consumer stops when it is empty.
+        queue.close()
+        super.onDestroy()
     }
 
     /**
@@ -239,30 +289,28 @@ class DebugSeedActivity :
      * state, but running it twice would write it twice.
      *
      * A link that arrives while a seed is still running is seeded too, with
-     * its own parameters — it waits for the running seed to finish first. Two
+     * its own parameters — it waits in the queue for the running seed. Two
      * seeds writing at the same time leave a profile that is neither one's
      * state: rows written over each other, and a `reset=content` that wipes
      * the rows the other seed is still writing. So the seeds run one at a
      * time, and the newest arrival owns the screen: the older run keeps
      * writing its own rows, but it does not bring the app up and does not show
      * its failure, because the newer launch owns those.
-     *
-     * The order is the order of the *arrivals*, not the order in which the
-     * workers happen to start: a worker that starts late still writes after the
-     * links that arrived before it, so the data on the device is the data of the
-     * link that owns the screen.
      */
     private fun handleSeedLink() {
-        val link = links.current() ?: return finish()
+        val link = currentLink ?: return finish()
         val uri = link.data ?: return finish()
 
+        // The parameters are read before the arrival is recorded: a link that
+        // carries nothing to seed is not an arrival, and it must not take the
+        // screen away from a link that does carry something.
         val params = parseParams(uri)
         if (params.isEmpty()) return finish()
 
         // Null when this link was handled already: the arrival is recorded by
         // the link's identity, so the resume that follows the arrival is not
         // a second seed.
-        val arrival: SeedArrival = links.arrive() ?: return
+        val arrival = sequencer.arrive(link) ?: return
 
         SeedLinkKeys.unknown(params.keys).forEach { key ->
             android.util.Log.w(
@@ -271,90 +319,96 @@ class DebugSeedActivity :
             )
         }
 
-        Thread {
-            try {
-                // The gate is the whole of the ordering: this seed does not
-                // start before the seed of the link that arrived before it has
-                // finished, and the gate is opened when the seed fails.
-                runBlocking { links.run(arrival) { seed(params) } }
-            } catch (e: Throwable) {
-                // One line with the reason in it. The message is what a runner
-                // greps for: the stack trace below it is for a reader who is
-                // already looking at the code.
-                android.util.Log.e(
-                    "DebugSeedActivity",
-                    "${SeedFailure.PREFIX}${e.message ?: e.javaClass.simpleName}",
-                    e,
-                )
-                // A failed seed does not bring the app up. The fixture the flow
-                // asked for is not there, so the flow has to fail *here* — at the
-                // seed — instead of later, on an assertion about a row that was
-                // never written. The reason is on the screen, so the failure
-                // reads without the logcat.
-                //
-                // A run that no longer owns the screen says nothing: a newer
-                // seed took over, and its screen is not this failure's to show.
-                runOnUiThread {
-                    if (links.ownsScreen(arrival)) showSeedFailure(e)
-                }
-                return@Thread
-            }
-            runOnUiThread {
-                // A run that no longer owns the screen stays quiet: a newer
-                // seed took over, and bringing the app up here would take the
-                // screen away from the launch that is still running.
-                if (!links.ownsScreen(arrival)) return@runOnUiThread
-                // Bring the real app up. When the seed link arrived
-                // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
-                // just re-activates it; when the link cold-started the process, we
-                // are the only activity in the task and finishing alone would dump
-                // the user (and the UI test) on the home screen.
-                //
-                // The task is cleared as well, so the app comes up on its first
-                // screen — the agenda — and not on whatever screen it was on. A
-                // seed link is a request to put the app in a known state: the
-                // flows that use it assert against the agenda, and with the old
-                // flags they got whatever the previous flow had left open. Measured
-                // on the device: the search flow that follows another search flow
-                // never saw `nav_tab_today`, because the app came up on the search
-                // screen the previous flow had left it on.
-                //
-                // CLEAR_TASK clears the task, not the data: the session, the
-                // profile and everything else in the database are untouched.
-                startActivity(
-                    Intent(this, com.singularity.todo.MainActivity::class.java).apply {
-                        addFlags(
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_CLEAR_TASK,
-                        )
-                    },
-                )
-                finish()
-            }
-        }.start()
+        // The queue is the order: the request waits for the one before it and
+        // runs on its own — no thread per link, and nothing blocking the main
+        // thread.
+        if (!queue.enqueue(SeedRequest(arrival, params))) {
+            android.util.Log.w(
+                "DebugSeedActivity",
+                "The seed queue is closed; the request was dropped",
+            )
+        }
     }
 
     /**
-     * The failure, on the screen.
+     * The seed is done: bring the real app up.
      *
-     * The activity stays up with the reason instead of bringing the app up: the
-     * flow waits for the app after every seed, so a seed that failed has to fail
-     * that wait — at the seed — rather than later, on an assertion about a row
-     * that was never written.
+     * When the seed link arrived warm, MainActivity is already beneath us and
+     * CLEAR_TOP|SINGLE_TOP just re-activates it; when the link cold-started the
+     * process, we are the only activity in the task and finishing alone would
+     * dump the user (and the UI test) on the home screen.
      *
-     * The reason carries a fixed prefix, so the tools that report it can find
-     * it by its text: the flow asserts that the prefix is not on the screen
-     * (`Maestro/helpers/seed.yaml`), the logcat line starts with it, and the
-     * runner greps the logcat for it. A plain view has no tag in the app's tag
-     * registry — that registry is for composables — so the text is the handle.
+     * The task is cleared as well, so the app comes up on its first screen —
+     * the agenda — and not on whatever screen it was on. A seed link is a
+     * request to put the app in a known state: the flows that use it assert
+     * against the agenda, and with the old flags they got whatever the
+     * previous flow had left open. Measured on the device: the search flow
+     * that follows another search flow never saw `nav_tab_today`, because the
+     * app came up on the search screen the previous flow had left it on.
+     *
+     * CLEAR_TASK clears the task, not the data: the session, the profile and
+     * everything else in the database are untouched.
      */
-    private fun showSeedFailure(error: Throwable) {
-        val view = android.widget.TextView(this)
-        view.text = "${SeedFailure.PREFIX}${error.message ?: error.javaClass.simpleName}"
-        view.setPadding(48, 48, 48, 48)
-        setContentView(view)
+    private fun onSeedSucceeded(request: SeedRequest) {
+        runOnUiThread {
+            // A run that no longer owns the screen stays quiet: a newer
+            // seed took over, and bringing the app up here would take the
+            // screen away from the launch that is still running.
+            if (!sequencer.ownsScreen(request.arrival)) return@runOnUiThread
+            if (isFinishing || isDestroyed) return@runOnUiThread
+            startActivity(
+                Intent(this, com.singularity.todo.MainActivity::class.java).apply {
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                    )
+                },
+            )
+            finish()
+        }
+    }
+
+    /**
+     * The seed failed.
+     *
+     * One line with the reason in it. The message is what a runner greps for:
+     * the stack trace below it is for a reader who is already looking at the
+     * code.
+     *
+     * A failed seed does not bring the app up. The fixture the flow asked for
+     * is not there, so the flow has to fail *here* — at the seed — instead of
+     * later, on an assertion about a row that was never written. The reason is
+     * on the screen, so the failure reads without the logcat.
+     *
+     * A run that no longer owns the screen does not show anything: a newer
+     * seed took over, and its screen is not this failure's to show. The log
+     * line is written either way — the diagnosis belongs to the seed that
+     * failed, whoever owns the screen.
+     */
+    private fun onSeedFailed(
+        request: SeedRequest,
+        error: Throwable,
+    ) {
+        android.util.Log.e(
+            "DebugSeedActivity",
+            "${SeedFailure.PREFIX}${error.message ?: error.javaClass.simpleName}",
+            error,
+        )
+        runOnUiThread {
+            if (!sequencer.ownsScreen(request.arrival)) return@runOnUiThread
+            if (isFinishing || isDestroyed) return@runOnUiThread
+
+            // The reason, on the screen. A plain view has no tag in the app's
+            // tag registry — that registry is for composables — so the text is
+            // the handle, and it carries the same fixed prefix the log line
+            // carries.
+            val view = android.widget.TextView(this)
+            view.text = "${SeedFailure.PREFIX}${error.message ?: error.javaClass.simpleName}"
+            view.setPadding(48, 48, 48, 48)
+            setContentView(view)
+        }
     }
 
     /**
@@ -761,21 +815,6 @@ class DebugSeedActivity :
         android.util.Log.i("DebugSeedActivity", "cleanup($prefixes) removed $removed entities")
     }
 
-    private fun parseParams(uri: Uri): Map<String, String> =
-        uri.encodedQuery
-            ?.split("&")
-            ?.mapNotNull { part ->
-                val kv = part.split("=", limit = 2)
-                if (kv.size == 2) {
-                    val key = Uri.decode(kv[0])
-                    val value = Uri.decode(kv[1])
-                    if (key.isNotBlank() && value.isNotBlank()) key to value else null
-                } else {
-                    null
-                }
-            }?.toMap()
-            ?: emptyMap()
-
     /**
      * Resolves a date expression to [LocalDate].
      *
@@ -852,22 +891,43 @@ class DebugSeedActivity :
             }
         }
     }
+}
 
-    /**
-     * Resolves a priority expression to a [TaskPriority].
-     *
-     * The spellings are the model's own names — `none`, `low`, `medium`, `high`,
-     * `urgent` — read case-insensitively.
-     *
-     * A priority that is not one of them fails the seed: a task that was asked
-     * for with a priority and got a different one is a fixture that looks right
-     * and is not, and a screenshot of it is a screenshot of the wrong thing.
-     */
-    private fun resolvePriority(expr: String?): TaskPriority {
-        if (expr == null) return TaskPriority.None
-        return TaskPriority.entries.firstOrNull { it.name.equals(expr.trim(), ignoreCase = true) }
-            ?: throw IllegalArgumentException(
-                "Unknown priority '$expr'; expected one of ${TaskPriority.entries.joinToString { it.name }}",
-            )
-    }
+/**
+ * The seed link's parameters, as the link spells them.
+ *
+ * A blank key or a blank value is not a parameter: a link that carries one
+ * seeds nothing with it, and a parameter the seed does not know is ignored.
+ */
+private fun parseParams(uri: Uri): Map<String, String> =
+    uri.encodedQuery
+        ?.split("&")
+        ?.mapNotNull { part ->
+            val kv = part.split("=", limit = 2)
+            if (kv.size == 2) {
+                val key = Uri.decode(kv[0])
+                val value = Uri.decode(kv[1])
+                if (key.isNotBlank() && value.isNotBlank()) key to value else null
+            } else {
+                null
+            }
+        }?.toMap()
+        ?: emptyMap()
+
+/**
+ * Resolves a priority expression to a [TaskPriority].
+ *
+ * The spellings are the model's own names — `none`, `low`, `medium`, `high`,
+ * `urgent` — read case-insensitively.
+ *
+ * A priority that is not one of them fails the seed: a task that was asked
+ * for with a priority and got a different one is a fixture that looks right
+ * and is not, and a screenshot of it is a screenshot of the wrong thing.
+ */
+private fun resolvePriority(expr: String?): TaskPriority {
+    if (expr == null) return TaskPriority.None
+    return TaskPriority.entries.firstOrNull { it.name.equals(expr.trim(), ignoreCase = true) }
+        ?: throw IllegalArgumentException(
+            "Unknown priority '$expr'; expected one of ${TaskPriority.entries.joinToString { it.name }}",
+        )
 }

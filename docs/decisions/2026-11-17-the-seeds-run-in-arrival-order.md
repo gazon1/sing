@@ -1,9 +1,10 @@
 ---
 title: "The seeds run in arrival order"
 date: 2026-11-17
-status: accepted
+status: superseded
 tags: [seed, android, testing, e2e]
 supersedes: 2026-11-17-the-seeds-run-one-at-a-time
+superseded-by: 2026-11-18-the-seeds-wait-in-a-queue
 ---
 
 # The seeds run in arrival order
