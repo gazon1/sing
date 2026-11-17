@@ -33,9 +33,10 @@ class JvmFileSourceTest {
                 val n = source.read(buffer, 0, buffer.size)
                 if (n < 0) break
                 assertTrue(n <= buffer.size, "read must not exceed requested length")
-                if (n == 0) continue
-                reads++
-                for (i in 0 until n) out += buffer[i]
+                if (n > 0) {
+                    reads++
+                    for (i in 0 until n) out += buffer[i]
+                }
             }
 
             assertTrue(reads > 1, "file must be read in multiple chunks")
