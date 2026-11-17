@@ -112,6 +112,11 @@ its sentences.
 - The rewrite is engine-agnostic in the sense that matters: it is applied to
   every report, and a CLI report does not match any of the runner's shapes,
   so it is left exactly as the CLI wrote it.
+- The runner is still an experimental path, and this decision does not make it
+  one: it is not installed through mise, CI does not run it, and the rewrite
+  covers the wordings measured here rather than every message the runner can
+  produce. The CLI stays the default until the runner has a CI check of its
+  own.
 
 ## Links
 
