@@ -3,6 +3,7 @@ package com.singularity.todo.debug
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
@@ -10,7 +11,7 @@ import com.singularity.todo.core.seed.ProjectSeed
 import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.seed.SeedFailure
 import com.singularity.todo.core.seed.SeedLinkKeys
-import com.singularity.todo.core.seed.SeedRunGuard
+import com.singularity.todo.core.seed.SeedSequencer
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -112,8 +113,9 @@ import kotlin.time.Instant
  *   wipes X and nothing else. For fixtures a flow *typed* rather than
  *   seeded, which carry no run id for `cleanup=` to match. The list of tables it
  *   reaches, and the ones it leaves alone, are in
- *   `docs/architecture/wipe-inventory.md`. NOT concurrency-safe — it wipes other
- *   runs' in-flight fixtures too.
+ *   `docs/architecture/wipe-inventory.md`. The seeds run one at a time, so a
+ *   wipe does not race another seed's writes — but it does wipe the rows a
+ *   flow typed itself.
  * - `session=anonymous|signedout|signedin` — changes the *session*, not the content:
  *   the app is put into a local (anonymous) session, into a signed-out one, or a
  *   session is installed in the app's own encrypted store — the store a real
@@ -157,17 +159,21 @@ import kotlin.time.Instant
  * the running MainActivity instead — a link that is then lost without a word.
  *
  * A link that arrives while a seed is still running is seeded too, with its own
- * parameters: the newest run owns the screen, and the older one keeps writing
- * its rows without taking the screen away from it.
+ * parameters: it waits for the running seed to finish, so the seeds never write
+ * at the same time. The newest link owns the screen, and the older one keeps
+ * writing its rows without taking the screen away from it.
  */
 class DebugSeedActivity :
     Activity(),
     KoinComponent {
-    /** The link whose seed has been handled — a link is handled once. */
-    private var handledLink: Intent? = null
-
-    /** The newest seed run owns the screen; an older one must stay quiet. */
-    private val runs = SeedRunGuard()
+    /**
+     * The seed links that reached this activity, and the order they ran in.
+     *
+     * One seed at a time, one arrival per link, and the newest arrival owns
+     * the screen — the rules live in [SeedSequencer] so that a test can hold
+     * them without an Android harness.
+     */
+    private val sequencer = SeedSequencer()
 
     /**
      * Takes a link that arrived at a live instance.
@@ -193,13 +199,30 @@ class DebugSeedActivity :
         handleSeedLink(intent)
     }
 
+    /**
+     * Takes the link the activity was started with.
+     *
+     * The launch link arrives here, and it has to be handled here: a link that
+     * reaches the activity while it is still starting arrives through
+     * [onNewIntent], and [setIntent] then replaces the link this activity was
+     * started with — the resume that would have seeded it sees the *new* link
+     * instead, and the launch link is never seeded at all. Measured on the
+     * device: a link that arrived three seconds after the first one, while the
+     * app was still starting, seeded the second link and dropped the first
+     * one without a word.
+     */
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleSeedLink(intent)
+    }
+
     override fun onResume() {
         super.onResume()
         handleSeedLink(intent)
     }
 
     /**
-     * Seeds what the link asks for — once per link.
+     * Seeds what the link asks for — once per link, one seed at a time.
      *
      * The link is handled where it arrives, so a link that reaches a live
      * instance is seeded even when no [onResume] follows it. The same link
@@ -207,32 +230,40 @@ class DebugSeedActivity :
      * and that second visit is not a second seed: a link is a definition of the
      * state, but running it twice would write it twice.
      *
-     * Two seeds can be in flight at once — the second link arrives while the
-     * first one is still running. Each run takes a number from [runs], and
-     * only the newest one owns the screen: the older run keeps writing its own
-     * rows, but it does not bring the app up and does not show its failure,
-     * because the newer launch owns those.
+     * A link that arrives while a seed is still running is seeded too, with
+     * its own parameters — it waits for the running seed to finish first. Two
+     * seeds writing at the same time leave a profile that is neither one's
+     * state: rows written over each other, and a `reset=content` that wipes
+     * the rows the other seed is still writing. So the seeds run one at a
+     * time, and the newest arrival owns the screen: the older run keeps
+     * writing its own rows, but it does not bring the app up and does not show
+     * its failure, because the newer launch owns those.
      */
     private fun handleSeedLink(link: Intent?) {
         if (link == null) return finish()
-        if (link === handledLink) return
-        handledLink = link
-
         val uri = link.data ?: return finish()
 
         val params = parseParams(uri)
+        if (params.isEmpty()) return finish()
+
+        // Null when this link was handled already: the arrival is recorded by
+        // the link's identity, so the resume that follows the arrival is not
+        // a second seed.
+        val arrival = sequencer.arrive(link) ?: return
+
         SeedLinkKeys.unknown(params.keys).forEach { key ->
             android.util.Log.w(
                 "DebugSeedActivity",
                 "Unknown seed query key '$key'; it was ignored",
             )
         }
-        if (params.isEmpty()) return finish()
 
-        val run = runs.startRun()
         Thread {
             try {
-                runBlocking { seed(params) }
+                // The lock is the whole of the ordering: this seed does not
+                // start before the running one has finished, and it is
+                // released when the seed fails.
+                runBlocking { sequencer.run { seed(params) } }
             } catch (e: Throwable) {
                 // One line with the reason in it. The message is what a runner
                 // greps for: the stack trace below it is for a reader who is
@@ -251,7 +282,7 @@ class DebugSeedActivity :
                 // A run that no longer owns the screen says nothing: a newer
                 // seed took over, and its screen is not this failure's to show.
                 runOnUiThread {
-                    if (runs.ownsScreen(run)) showSeedFailure(e)
+                    if (sequencer.ownsScreen(arrival)) showSeedFailure(e)
                 }
                 return@Thread
             }
@@ -259,7 +290,7 @@ class DebugSeedActivity :
                 // A run that no longer owns the screen stays quiet: a newer
                 // seed took over, and bringing the app up here would take the
                 // screen away from the launch that is still running.
-                if (!runs.ownsScreen(run)) return@runOnUiThread
+                if (!sequencer.ownsScreen(arrival)) return@runOnUiThread
                 // Bring the real app up. When the seed link arrived
                 // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
                 // just re-activates it; when the link cold-started the process, we

@@ -28,6 +28,24 @@ completion started MainActivity and finished the activity while a newer seed
 was still running, so the app came up before the newer seed's rows existed,
 and the newer seed's failure could never be shown.
 
+A later measurement (2026-11-17, the serialisation work) found the mirror
+image of the same gap. The activity was started by a link, and a second link
+arrived while the app was still starting — the app takes about four seconds
+to come up on this device. The second link arrived through `onNewIntent`,
+which replaced the link the activity had been started with; the resume that
+would have seeded the launch link then saw the *second* link instead. The
+first link was never seeded, without a word in the log:
+
+```
+21:28:00.071  START u0 {… dat=todo-debug://seed/… cmp=…/.debug.DebugSeedActivity}
+21:28:03.267  START u0 {… dat=todo-debug://seed/… cmp=…/.debug.DebugSeedActivity}   ← the second link
+21:28:03.850  Displayed com.singularity.todo/.debug.DebugSeedActivity
+21:28:04.304  I DebugSeedActivity: task 'SweepSecond' was Created
+```
+
+The 300 rows the first link asked for are nowhere in that log: only the
+second link's single task was seeded.
+
 ## Idea
 
 Handle the link where it arrives, and let the newest run own the screen.
@@ -38,19 +56,22 @@ rows and says nothing.
 
 ## Decision
 
-**The link is seeded in `onNewIntent` as well as in `onResume`.** The same
-Intent instance is handled once — the instance is the key — so the
-`onResume` that follows an `onNewIntent` does not seed a second time, and a
-link that arrives on its own is seeded even when no `onResume` follows it.
+**The link is seeded in `onCreate`, in `onNewIntent` and in `onResume`.**
+Each of them is a place where a link arrives: the launch link in `onCreate`,
+a link that reaches a live instance in `onNewIntent`, and a link that arrives
+with the activity itself in `onResume`. The same Intent instance is handled
+once — the instance is the key — so the `onResume` that follows an
+`onNewIntent` does not seed a second time, and the launch link is seeded
+before a second link can replace it.
 
 **The newest run owns the screen.** Every run takes a number from
-`SeedRunGuard`; only the newest one brings the app up and only the newest one
+`SeedSequencer`; only the newest one brings the app up and only the newest one
 shows its failure. An older run that finishes late writes its rows and stays
 silent.
 
-**No queue and no mutex.** The seeds run at the same time, each writing its
-own rows. A link is a definition of the state, and the last writer of a row
-wins — which is what a second seed of the same title means anyway.
+**The seeds run one at a time.** A link that arrives while a seed is running
+waits for it: two seeds writing at once leave a profile that is neither one's
+state. The rule and the lock are in `2026-11-17-the-seeds-run-one-at-a-time`.
 
 ## Rationale
 
@@ -78,6 +99,21 @@ The first seed's rows were written and nothing else happened; the second
 seed's rows were written and the app came up — once, and from the run that
 owns the screen.
 
+The *order* in this log changed with `2026-11-17-the-seeds-run-one-at-a-time`:
+the second seed now waits for the first one to finish instead of writing at
+the same time. What this log shows is what this decision is about — both links
+were handled, each with its own parameters, and only the newest run owned the
+screen.
+
+After the launch link was taken in `onCreate` as well, the same two links seed
+both their fixtures — the measurement is in
+`2026-11-17-the-seeds-run-one-at-a-time`:
+
+```
+21:31:50.578  I DebugSeedActivity: seeded 300 tasks with base title 'SweepFirst'
+21:31:51.008  I DebugSeedActivity: task 'SweepSecond' was Updated
+```
+
 A failed seed behaves the same way: the reason is on the screen and in the
 logcat, the app does not come up, and the next link seeds normally
 afterwards — the activity is not left in a state where the next link is lost.
@@ -89,7 +125,7 @@ afterwards — the activity is not left in a state where the next link is lost.
   for exists.
 - The app comes up when the *newest* run finishes. A slow first run no longer
   brings the app up while a newer run is still writing.
-- The older run's rows land after the app is up, and its failure is in the
+- The older run's rows land before the newer run's, and its failure is in the
   logcat but not on the screen — the screen belongs to the newer launch.
 - A link is still handled once per Intent instance. The same link sent again
   is a new instance and is seeded again, which is what a fixture that defines
@@ -99,9 +135,10 @@ afterwards — the activity is not left in a state where the next link is lost.
 
 - `androidApp/src/debug/kotlin/com/singularity/todo/debug/DebugSeedActivity.kt` —
   where the link is handled
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/seed/SeedRunGuard.kt` —
-  which run owns the screen
-- `shared/src/commonTest/kotlin/com/singularity/todo/core/seed/SeedRunGuardTest.kt` —
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/seed/SeedSequencer.kt` —
+  which run owns the screen, and which seeds run at a time
+- `shared/src/commonTest/kotlin/com/singularity/todo/core/seed/SeedSequencerTest.kt` —
   the rule, held
+- `2026-11-17-the-seeds-run-one-at-a-time` — the order the seeds run in
 - `Maestro/helpers/seed.yaml` — the flow-side contract: the seed is followed
   by a wait for the app
