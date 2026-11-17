@@ -154,7 +154,7 @@ junit-jupiter = "5.11.4"
 junit-jupiter-params = "5.11.4"
 junit-vintage-engine = "5.11.4"
 robolectric = "4.18"
-kotest-assertions = "5.9.1"
+kotest-assertions = "6.2.7"
 konsist = "0.18.1"
 
 # Allure test reporting
