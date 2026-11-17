@@ -163,7 +163,7 @@ allure = "2.35.5"
 # agent above, and it is versioned separately on purpose: the agent is on the
 # test classpath and cannot move without a test-suite change, the CLI only
 # reads the results the agent wrote. Nothing requires the two to agree.
-allure-commandline = "2.46.1"
+allure-commandline = "2.46.2"
 
 # Lint / Quality tools
 detekt = "2.0.0-alpha.6"
