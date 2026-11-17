@@ -21,5 +21,5 @@ jobs:
       # Advisory: the scanner reports vulnerabilities, it does not gate the build.
       # A finding opens an issue instead; the step name says so for the next reader.
       - name: "Advisory: OSV vulnerability scan (non-blocking)"
-        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.1
         continue-on-error: true
