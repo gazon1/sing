@@ -85,11 +85,21 @@ if [[ -n "$BASE" ]] && git merge-base --is-ancestor "$BASE" HEAD 2>/dev/null; th
     # Map changed files to modules via the shared module graph.
     if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
         mapfile -t CHANGED_KOTLIN_MODULES < <(python3 - "${CHANGED_FILES[@]}" <<'PYEOF'
+import importlib.util
+import pathlib
 import sys
-sys.path.insert(0, "scripts")
-from changed_modules import load_modules, path_modules
-modules = load_modules()
-prefixes = path_modules(modules)
+
+# The module graph is a script in the checkout, not an installed package, and
+# its name carries a hyphen: `import changed_modules` binds to whichever tree
+# the interpreter happens to see first, or to nothing at all. It is loaded by
+# path here, the way every other gate loads it.
+path = pathlib.Path("scripts/changed-modules.py")
+spec = importlib.util.spec_from_file_location("changed_modules", path)
+graph = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(graph)
+
+modules = graph.load_modules()
+prefixes = graph.path_modules(modules)
 seen = set()
 for path in sys.argv[1:]:
     for prefix, module in prefixes.items():
