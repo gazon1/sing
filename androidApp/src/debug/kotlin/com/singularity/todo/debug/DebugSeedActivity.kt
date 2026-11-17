@@ -10,6 +10,7 @@ import com.singularity.todo.core.seed.ProjectSeed
 import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.seed.SeedFailure
 import com.singularity.todo.core.seed.SeedLinkKeys
+import com.singularity.todo.core.seed.SeedRunGuard
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -154,11 +155,19 @@ import kotlin.time.Instant
  * [onNewIntent] takes the link that arrives at a live instance. Without both,
  * the system delivers a link whose data matches the app task's base intent to
  * the running MainActivity instead — a link that is then lost without a word.
+ *
+ * A link that arrives while a seed is still running is seeded too, with its own
+ * parameters: the newest run owns the screen, and the older one keeps writing
+ * its rows without taking the screen away from it.
  */
 class DebugSeedActivity :
     Activity(),
     KoinComponent {
-    private var seeding = false
+    /** The link whose seed has been handled — a link is handled once. */
+    private var handledLink: Intent? = null
+
+    /** The newest seed run owns the screen; an older one must stay quiet. */
+    private val runs = SeedRunGuard()
 
     /**
      * Takes a link that arrived at a live instance.
@@ -170,21 +179,46 @@ class DebugSeedActivity :
      * the old one, and the link would be lost as silently as it is when the
      * system hands it to another activity.
      *
-     * The guard is cleared as well: the instance is still marked as seeding
-     * from the link it ran before, and without clearing it [onResume] would
-     * skip the new link. A seed is a definition of the state, so running it
-     * again over the previous run's rows is safe.
+     * The link is seeded *here*, and not left to [onResume]: a link that
+     * reaches an instance which is already resumed does not come with another
+     * [onResume] — the activity is not restarted for it — so a link handled
+     * only in [onResume] was simply dropped. Measured on the device: a second
+     * seed link that arrived while the first seed was still running left no
+     * trace at all, and the first seed's completion brought the app up on its
+     * own terms.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        seeding = false
+        handleSeedLink(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        if (seeding) return
-        val uri = intent?.data ?: return finish()
+        handleSeedLink(intent)
+    }
+
+    /**
+     * Seeds what the link asks for — once per link.
+     *
+     * The link is handled where it arrives, so a link that reaches a live
+     * instance is seeded even when no [onResume] follows it. The same link
+     * instance comes back through [onResume] right after [onNewIntent] set it,
+     * and that second visit is not a second seed: a link is a definition of the
+     * state, but running it twice would write it twice.
+     *
+     * Two seeds can be in flight at once — the second link arrives while the
+     * first one is still running. Each run takes a number from [runs], and
+     * only the newest one owns the screen: the older run keeps writing its own
+     * rows, but it does not bring the app up and does not show its failure,
+     * because the newer launch owns those.
+     */
+    private fun handleSeedLink(link: Intent?) {
+        if (link == null) return finish()
+        if (link === handledLink) return
+        handledLink = link
+
+        val uri = link.data ?: return finish()
 
         val params = parseParams(uri)
         SeedLinkKeys.unknown(params.keys).forEach { key ->
@@ -195,7 +229,7 @@ class DebugSeedActivity :
         }
         if (params.isEmpty()) return finish()
 
-        seeding = true
+        val run = runs.startRun()
         Thread {
             try {
                 runBlocking { seed(params) }
@@ -213,10 +247,19 @@ class DebugSeedActivity :
                 // seed — instead of later, on an assertion about a row that was
                 // never written. The reason is on the screen, so the failure
                 // reads without the logcat.
-                runOnUiThread { showSeedFailure(e) }
+                //
+                // A run that no longer owns the screen says nothing: a newer
+                // seed took over, and its screen is not this failure's to show.
+                runOnUiThread {
+                    if (runs.ownsScreen(run)) showSeedFailure(e)
+                }
                 return@Thread
             }
             runOnUiThread {
+                // A run that no longer owns the screen stays quiet: a newer
+                // seed took over, and bringing the app up here would take the
+                // screen away from the launch that is still running.
+                if (!runs.ownsScreen(run)) return@runOnUiThread
                 // Bring the real app up. When the seed link arrived
                 // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
                 // just re-activates it; when the link cold-started the process, we
