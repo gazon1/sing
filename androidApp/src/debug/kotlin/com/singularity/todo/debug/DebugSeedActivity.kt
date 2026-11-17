@@ -21,6 +21,7 @@ import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.stubs.TestAuthStubs
 import kotlinx.coroutines.flow.first
@@ -49,7 +50,12 @@ import kotlin.time.Instant
  * - `desc=<text>`            — sets the description of the seeded task. A flow
  *   that filters by description needs the description to be there before the
  *   filter is applied; the parameter was asked for by such a flow and silently
- *   ignored, which made the flow assert against a task that had none.
+ *   ignored, which made the flow assert against a task that had none. On a note
+ *   it is the note's body instead — a note with a title and no text is an empty
+ *   screen.
+ * - `priority=<level>`       — sets the priority of the seeded task: `none`,
+ *   `low`, `medium`, `high` or `urgent`. A level that is not one of them fails
+ *   the seed rather than seeding a task with a priority nobody asked for.
  * - `note=<title>`           — seeds a note (one note with that title)
  * - `linkTo=<title>`         — makes the seeded note's body link to the task with
  *   that title. The link is written the way the app writes one — an anchor whose
@@ -64,6 +70,10 @@ import kotlin.time.Instant
  *   updated in place, so a seed that names an id that is already there renames
  *   it: a rename is a seed that owns the row and gives it another name.
  * - `project=<name>`         — seeds a project (one project with that name)
+ * - `inProject=<name>`       — puts the seeded task in the project with that
+ *   name. The name, not the id: the link that seeds the task cannot know the id
+ *   the app gave the project. A project that is not there fails the seed — a
+ *   task in no project is not the task the fixture asked for.
  * - `parent=<project id>`    — hangs the seeded project below the project with
  *   that id, for a nested fixture. The parent is named by id because the link
  *   that seeds the child cannot know a generated id. A parent that is not
@@ -75,7 +85,11 @@ import kotlin.time.Instant
  *   the menu's folded Projects section exists for it — and a hundred deep
  *   links are not a way to make one. The names share a prefix, so
  *   `cleanup=Bulk` sweeps them again.
- * - `profile=<name>`         — creates and switches to a profile
+ * - `profile=<name>`         — creates and switches to a profile. The switch
+ *   happens *before* anything is written or deleted, so a link that names a
+ *   profile writes into it — and a link that names one and resets wipes that
+ *   profile and nothing else. The demo dataset uses a profile of its own for
+ *   exactly that reason.
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
  * - `updatedAt=now|-22d|<ISO instant>` — stamps the task's created/updated
  *   timestamps. A task stamped "now" is never stagnant (the health window is 21
@@ -92,7 +106,9 @@ import kotlin.time.Instant
  * - `reset=content` — deletes instead of seeding: removes every row of the active
  *   profile's content — tasks, notes, projects, tags, reminders, attachments,
  *   saved views and the rest, archived, trashed and soft-deleted rows included —
- *   keeping the profile and session. For fixtures a flow *typed* rather than
+ *   keeping the profile and session. The *active* profile is the one the link's
+ *   own `profile=` switch named, so a link that says `profile=X&reset=content`
+ *   wipes X and nothing else. For fixtures a flow *typed* rather than
  *   seeded, which carry no run id for `cleanup=` to match. The list of tables it
  *   reaches, and the ones it leaves alone, are in
  *   `docs/architecture/wipe-inventory.md`. NOT concurrency-safe — it wipes other
@@ -133,11 +149,37 @@ import kotlin.time.Instant
  * [com.singularity.todo.MainActivity] up (CLEAR_TOP|SINGLE_TOP), whether it was
  * already beneath us or not. A seed that failed stays on its own screen with
  * the reason on it.
+ *
+ * A link always reaches this activity: it is declared `singleTask`, and
+ * [onNewIntent] takes the link that arrives at a live instance. Without both,
+ * the system delivers a link whose data matches the app task's base intent to
+ * the running MainActivity instead — a link that is then lost without a word.
  */
 class DebugSeedActivity :
     Activity(),
     KoinComponent {
     private var seeding = false
+
+    /**
+     * Takes a link that arrived at a live instance.
+     *
+     * The activity is `singleTask` (see the debug manifest), so a link that
+     * reaches a running instance arrives here instead of being delivered to
+     * whatever sits on top of the task. The default implementation of
+     * [Activity.onNewIntent] ignores the new intent — the activity would keep
+     * the old one, and the link would be lost as silently as it is when the
+     * system hands it to another activity.
+     *
+     * The guard is cleared as well: the instance is still marked as seeding
+     * from the link it ran before, and without clearing it [onResume] would
+     * skip the new link. A seed is a definition of the state, so running it
+     * again over the previous run's rows is safe.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        seeding = false
+    }
 
     override fun onResume() {
         super.onResume()
@@ -235,16 +277,24 @@ class DebugSeedActivity :
      * entity write: `switchTo` moves `activeProfileId`, which is what
      * `ProfileAwareCurrentUser.scopedUserId` resolves against, so it has to happen
      * before the first insert rather than alongside the others.
+     *
+     * The scoped identity is retargeted synchronously as well. The collector that
+     * follows the active profile is asynchronous, so a write in the same breath as
+     * the switch would pick up the *previous* profile's identity and put the rows
+     * in the wrong place — a reset that wiped the wrong profile's content, or a
+     * task that landed outside the profile it was seeded for.
      */
     private suspend fun switchToProfileIfRequested(
         params: Map<String, String>,
         profileRepo: ProfileRepository,
+        currentUser: ProfileAwareCurrentUser,
     ) {
         if (!params.containsKey(SeedLinkKeys.PROFILE)) return
         val profileName = params[SeedLinkKeys.PROFILE]!!
         val existing = profileRepo.findByName(profileName)
         if (existing != null) {
             profileRepo.switchTo(existing.id)
+            currentUser.switchToProfileNow(existing.id)
             return
         }
         val now = Clock.System.now()
@@ -260,6 +310,7 @@ class DebugSeedActivity :
             )
         profileRepo.create(newProfile)
         profileRepo.switchTo(newProfile.id)
+        currentUser.switchToProfileNow(newProfile.id)
     }
 
     /**
@@ -289,7 +340,14 @@ class DebugSeedActivity :
             }
 
             params.containsKey(SeedLinkKeys.NOTE) -> {
-                val spec = NoteSeed(title = params[SeedLinkKeys.NOTE]!!)
+                val spec =
+                    NoteSeed(
+                        title = params[SeedLinkKeys.NOTE]!!,
+                        // `desc=` is the note's body here: a note with a title and
+                        // no text is an empty screen, and the key already means
+                        // "the text this entity holds".
+                        body = params[SeedLinkKeys.DESC],
+                    )
                 val linkTo = params[SeedLinkKeys.LINK_TO]
                 if (linkTo == null) {
                     writer.writeNote(spec)
@@ -375,8 +433,10 @@ class DebugSeedActivity :
                 title = "$baseTitle$suffix",
                 description = params[SeedLinkKeys.DESC],
                 dueDate = params[SeedLinkKeys.DUE]?.let { resolveDate(it) },
+                priority = resolvePriority(params[SeedLinkKeys.PRIORITY]),
                 stamp = stamp,
                 dependsOnTitle = params[SeedLinkKeys.BLOCKED_BY],
+                projectName = params[SeedLinkKeys.IN_PROJECT],
                 id = id,
             )
         }
@@ -409,6 +469,18 @@ class DebugSeedActivity :
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
 
+        // Ensure default profile exists so repositories are functional.
+        profileRepo.ensureDefaults()
+
+        // The profile is switched BEFORE anything is written or deleted.
+        //
+        // A reset reaches the profile that is active when it runs, so a link that
+        // says `profile=X&reset=content` wipes X and nothing else: the demo
+        // dataset can therefore reset a profile of its own instead of the
+        // profile a person is using. The same is true of the seeding that
+        // follows — the rows land in the profile the link named.
+        switchToProfileIfRequested(params, profileRepo, currentUser)
+
         // Cleanup wins over seeding: a cleanup link carries no entity params, and
         // honouring both would mean a link that deletes the fixture it just made.
         //
@@ -435,9 +507,6 @@ class DebugSeedActivity :
             return
         }
 
-        // Ensure default profile exists so repositories are functional.
-        profileRepo.ensureDefaults()
-
         // A session link changes who the app thinks it is, and nothing else. It
         // is the same shape as the others: a side effect the flow asks for
         // explicitly, so that the states the app really has — a local session
@@ -447,12 +516,6 @@ class DebugSeedActivity :
             switchSession(params[SeedLinkKeys.SESSION]!!)
             return
         }
-
-        // Switch to the target profile BEFORE seeding any entity.
-        // This updates activeProfileId, which in turn updates
-        // ProfileAwareCurrentUser.scopedUserId — the identity the seeded rows are
-        // written under.
-        switchToProfileIfRequested(params, profileRepo)
 
         seedEntity(
             params = params,
@@ -701,5 +764,23 @@ class DebugSeedActivity :
                 }
             }
         }
+    }
+
+    /**
+     * Resolves a priority expression to a [TaskPriority].
+     *
+     * The spellings are the model's own names — `none`, `low`, `medium`, `high`,
+     * `urgent` — read case-insensitively.
+     *
+     * A priority that is not one of them fails the seed: a task that was asked
+     * for with a priority and got a different one is a fixture that looks right
+     * and is not, and a screenshot of it is a screenshot of the wrong thing.
+     */
+    private fun resolvePriority(expr: String?): TaskPriority {
+        if (expr == null) return TaskPriority.None
+        return TaskPriority.entries.firstOrNull { it.name.equals(expr.trim(), ignoreCase = true) }
+            ?: throw IllegalArgumentException(
+                "Unknown priority '$expr'; expected one of ${TaskPriority.entries.joinToString { it.name }}",
+            )
     }
 }

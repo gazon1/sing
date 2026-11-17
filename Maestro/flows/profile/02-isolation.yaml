@@ -56,11 +56,11 @@ tags:
 
 # 3. Switch to the Work profile, then seed a task while it is active.
 #
-# Two separate links, deliberately. DebugSeedActivity dispatches on a `when`
-# whose first matching key wins, so `?task=X&profile=Y` creates the task in the
-# *current* profile and silently ignores `profile=Y` — the seed lands in
-# Personal, and the assertion below then fails for a reason that has nothing to
-# do with isolation.
+# The profile is switched through the Profiles screen, and the seed link names
+# no profile: the seed activity switches to the profile a link names *before*
+# it writes, so `?task=X&profile=Y` would write into Y. This flow switches
+# through the UI on purpose — the switch it asserts on is the app's own, and
+# the seed lands in the profile that switch made active.
 - runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:

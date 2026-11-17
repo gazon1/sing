@@ -1,0 +1,47 @@
+# The capture manifest — the machine-readable half of the storyboard.
+#
+# The file names, the order and the screen behind each capture. The half that
+# says *why* each image is there is `STORYBOARD.md`, next to this file. Change
+# one, change the other.
+#
+# This file is not a flow and is not run: it holds no commands, only what a
+# capture produces. The flows that produce it land with #3004, and the command
+# that runs them lands with #3005 — the `flow:` paths below are where those
+# flows will live.
+#
+# The order is the store's order: the first image answers "what is this app",
+# and the rest follow the story the storyboard tells.
+#
+# The dataset every capture starts from is `../helpers/demo-dataset.yaml`; the
+# device profile is in `STORYBOARD.md`.
+captures:
+  - order: 1
+    file: 01-today.png
+    screen: Today
+    flow: Maestro/flows/capture/01-today.yaml
+    value: Your day, in one list — the app opens on what is due now.
+  - order: 2
+    file: 02-task-detail.png
+    screen: Task detail
+    flow: Maestro/flows/capture/02-task-detail.yaml
+    value: A task carries its context — when, how urgent, and where it belongs.
+  - order: 3
+    file: 03-project-detail.png
+    screen: Project detail
+    flow: Maestro/flows/capture/03-project-detail.yaml
+    value: Work is organised, not filed — projects hold tasks and nest.
+  - order: 4
+    file: 04-upcoming.png
+    screen: Upcoming
+    flow: Maestro/flows/capture/04-upcoming.yaml
+    value: Look ahead without a calendar.
+  - order: 5
+    file: 05-calendar.png
+    screen: Calendar
+    flow: Maestro/flows/capture/05-calendar.yaml
+    value: The month at a glance, on the calendar people already think in.
+  - order: 6
+    file: 06-notes.png
+    screen: Note preview
+    flow: Maestro/flows/capture/06-notes.yaml
+    value: Notes that point at the work — a note links back into the task.

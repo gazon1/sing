@@ -1,0 +1,134 @@
+# The demo dataset behind the store screenshots.
+#
+# This is a *definition* of the state a capture starts from: the same rows, the
+# same names, the same relative dates, every run. It is seeded through the
+# existing `todo-debug://seed` contract — one link per entity, the same way
+# every other fixture in this repository is written.
+#
+# Usage:
+#   env:
+#     QUERY: ""      # nothing; the dataset is fixed
+#
+# The dataset is *the* input of the capture set, so the content below is the
+# content the storyboard promises: the storyboard in `Maestro/capture/STORYBOARD.md`
+# names these tasks, projects and notes, and the two files must change together.
+#
+# Rules the content follows:
+#
+#   * Nothing personal. No names, no mailboxes, no phone numbers, no machine
+#     names, no paths — nothing that would identify the person who captured it.
+#   * The dates are relative (`today`, `+1d`, `+2d` …), never fixed. A fixed
+#     date in a store screenshot is a screenshot that goes stale: in a month
+#     every task in it is overdue. Relative dates keep the set true forever.
+#   * Every project and task name is unique across the set, so the row a flow
+#     asserts on is the row this file seeded.
+#   * The projects carry fixed ids (`demo-…`), so the child project can name its
+#     parent — the link that seeds a child cannot know a generated id.
+#
+# The dataset runs in a profile of its own — "Play demo" — and the links below
+# all land in it: the profile is switched first, and a reset reaches the active
+# profile alone. So a capture run resets its own profile and cannot destroy the
+# data of the profile someone is using on that device. The reset is still not
+# concurrency-safe inside that profile: it wipes whatever else is there, so a
+# capture run owns its device.
+#
+# The first links set up the profile and the session. `session=anonymous` puts
+# the app in a local session with no account attached, so no email address and no
+# user name can show up on any of the six screens.
+appId: com.singularity.todo
+name: demo-dataset
+---
+# The first links set up the profile the dataset lives in: a profile of its own,
+# and the local (anonymous) session, so no account is attached to any screen.
+# The switch happens before anything is written, so every row below lands in this
+# profile and the reset below reaches this profile alone.
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "profile=Play%20demo"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "session=anonymous"
+
+# ── A clean profile ────────────────────────────────────────────────────────
+# The content is wiped first: the capture set is a definition, and a definition
+# that starts from whatever the device happened to hold is not one. The wipe
+# reaches the profile that is active — the one above — and nothing else, so a
+# capture run cannot destroy the data of the profile a person is using.
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "reset=content"
+
+# ── The projects ───────────────────────────────────────────────────────────
+# Two roots and one child: on Android the menu lists the roots only, and a
+# child is reached through its parent — that is what makes the hierarchy a
+# hierarchy rather than a list.
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "project=Home%20renovation&id=demo-renovation"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "project=Kitchen&id=demo-kitchen&parent=demo-renovation"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "project=Website%20launch&id=demo-launch"
+
+# ── The tasks ──────────────────────────────────────────────────────────────
+# Three are due today — they are what the Today screen shows — and the rest
+# come due over the next five days, which is what the Upcoming timeline and the
+# calendar show. Two carry no project at all: a task without a project is
+# ordinary, and a set where everything belongs to something looks staged.
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Review%20the%20launch%20checklist&due=today&priority=high&inProject=Website%20launch&desc=Go%20through%20the%20launch%20plan%20once%20more%20before%20the%20announcement%20goes%20out."
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Order%20the%20kitchen%20tiles&due=today&priority=medium&inProject=Kitchen&desc=White%20subway%20tiles%2C%2015%20by%2015%20cm%2C%20120%20pieces."
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Book%20the%20electrician&due=today&desc=Ask%20for%20a%20quote%20for%20the%20new%20panel%20and%20the%20hallway%20sockets."
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Write%20the%20launch%20post&due=%2B1d&priority=medium&inProject=Website%20launch&desc=Hook%2C%20three%20features%2C%20one%20call%20to%20action."
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Measure%20the%20kitchen%20counter&due=%2B2d&inProject=Kitchen"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Send%20the%20deposit%20invoice&due=%2B3d&priority=high&inProject=Home%20renovation"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Renew%20the%20domain%20name&due=%2B4d&inProject=Website%20launch"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Practise%20the%20vocabulary%20list&due=%2B5d"
+
+# ── The notes ──────────────────────────────────────────────────────────────
+# The first note links to a task, so the Notes screen shows what notes are for:
+# text that points at the work. The link names the task by title — the link
+# that seeds the note cannot know the id the app gave the task.
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "note=Launch%20post%20outline&desc=Hook%2C%20three%20features%2C%20one%20call%20to%20action.&linkTo=Write%20the%20launch%20post"
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "note=Kitchen%20measurements&desc=The%20counter%20is%20240%20cm.%20The%20sink%20goes%20under%20the%20window."
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "note=Questions%20for%20the%20electrician&desc=Ask%20whether%20the%20meter%20is%20on%20our%20side%20of%20the%20wall."

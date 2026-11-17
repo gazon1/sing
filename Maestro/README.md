@@ -3,6 +3,15 @@
 End-to-end UI tests for the Android app, driven by [Maestro](https://maestro.mobile.dev)
 against a real device or emulator.
 
+> **The seed contract can delete data.** A `todo-debug://seed` link with
+> `reset=content` wipes every row of the active profile's content — tasks,
+> notes, projects, tags, reminders, attachments, saved views — and
+> `cleanup=<prefix>` deletes the rows whose title starts with that prefix. Both
+> are documented in [`helpers/seed.yaml`](helpers/seed.yaml). Run them only
+> against a device whose data you are willing to lose: the demo dataset resets
+> a profile of its own, but a hand-written `reset=content` reaches whichever
+> profile is active when it runs.
+
 ## Running
 
 ```bash
@@ -61,9 +70,13 @@ the mitigation experiments and their results are recorded in
 Maestro/
 ├── config.yaml                 # workspace metadata
 ├── TAGS.md                     # complete catalogue of Maestro-addressable ids
-├── helpers/                    # subflows — never run standalone
+├── helpers/                    # 21 subflows — never run standalone; the table is in CONVENTIONS.md
 │   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
-│   └── seed-task.yaml          # create one task titled "Buy milk"
+│   ├── seed.yaml               # the deep-link contract: one entity per link
+│   └── demo-dataset.yaml       # the fixed demo dataset behind the store screenshots
+├── capture/                    # the Google Play screenshot storyboard — not runnable flows
+│   ├── STORYBOARD.md           # why each screenshot is there, and the capture profile
+│   └── manifest.yaml           # the file names and the order
 └── flows/
     ├── smoke/                  # 5 of the 27 must-pass flows; the tag `smoke` selects all 27
     ├── nav/                    # bottom-bar navigation
