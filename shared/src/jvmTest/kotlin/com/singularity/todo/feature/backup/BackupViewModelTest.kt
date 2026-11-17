@@ -77,6 +77,8 @@ class BackupViewModelTest {
             override fun invoke(path: String): FileSource =
                 object : FileSource {
                     override suspend fun readBytes(): ByteArray = error("this test does not read files ($path)")
+
+                    override suspend fun openRead() = error("this test does not read files ($path)")
                 }
         }
 
@@ -381,6 +383,10 @@ class BackupViewModelTest {
                     override fun invoke(path: String): FileSource =
                         object : FileSource {
                             override suspend fun readBytes(): ByteArray = """{"version":1}""".encodeToByteArray()
+
+                            override suspend fun openRead() =
+                                com.singularity.todo.core.files
+                                    .ByteArraySource("""{"version":1}""".encodeToByteArray())
                         }
                 }
             val vm =
@@ -414,6 +420,8 @@ class BackupViewModelTest {
                     override fun invoke(path: String): FileSource =
                         object : FileSource {
                             override suspend fun readBytes(): ByteArray = throw java.io.FileNotFoundException(path)
+
+                            override suspend fun openRead() = throw java.io.FileNotFoundException(path)
                         }
                 }
             val vm = createVm(FakeBackupRepository(), fakeAuth(), backgroundScope, fileSourceFactory = factory)

@@ -20,6 +20,25 @@ class AndroidFileSource(private val context: Context, private val path: String) 
         } else {
             File(path).readBytes()
         }
+
+    override suspend fun openRead(): ByteSource {
+        val stream =
+            if (path.startsWith("content://")) {
+                context.contentResolver.openInputStream(Uri.parse(path))
+                    ?: throw java.io.FileNotFoundException("Cannot open: $path")
+            } else {
+                File(path).inputStream()
+            }
+        return object : ByteSource {
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int = stream.read(buffer, offset, length)
+
+            override fun close() = stream.close()
+        }
+    }
 }
 
 /**

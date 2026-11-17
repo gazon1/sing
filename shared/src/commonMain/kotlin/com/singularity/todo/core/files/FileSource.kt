@@ -15,6 +15,15 @@ interface FileSource {
      * @throws java.io.FileNotFoundException if the source cannot be opened.
      */
     suspend fun readBytes(): ByteArray
+
+    /**
+     * Opens this source for streaming reads.
+     *
+     * The caller owns the returned [ByteSource] and must [ByteSource.close] it.
+     * Prefer this over [readBytes] when the consumer can stream (e.g. zip decode),
+     * to avoid materializing the whole source in memory.
+     */
+    suspend fun openRead(): ByteSource = ByteArraySource(readBytes())
 }
 
 /**
