@@ -15,7 +15,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The seeds run one at a time, and the newest link owns the screen.
+ * The seeds run one at a time, in arrival order, and the newest link owns the
+ * screen.
  *
  * Two seed links can arrive at the debug activity while the first seed is
  * still running — it is `singleTask`, so the second link is delivered to the
@@ -36,9 +37,12 @@ class SeedSequencerTest {
             val events = mutableListOf<String>()
             val firstMayFinish = CompletableDeferred<Unit>()
 
+            val firstArrival = assertNotNull(sequencer.arrive(Any()))
+            val secondArrival = assertNotNull(sequencer.arrive(Any()))
+
             val first =
                 launch(start = CoroutineStart.UNDISPATCHED) {
-                    sequencer.run {
+                    sequencer.run(firstArrival) {
                         events += "first started"
                         firstMayFinish.await()
                         events += "first finished"
@@ -46,7 +50,7 @@ class SeedSequencerTest {
                 }
             val second =
                 launch {
-                    sequencer.run {
+                    sequencer.run(secondArrival) {
                         events += "second ran"
                     }
                 }
@@ -66,16 +70,56 @@ class SeedSequencerTest {
         }
 
     @Test
+    fun `a link that arrived first writes first, even when its worker starts last`() =
+        runTest {
+            val sequencer = SeedSequencer()
+            val events = mutableListOf<String>()
+
+            val firstArrival = assertNotNull(sequencer.arrive(Any()))
+            val secondArrival = assertNotNull(sequencer.arrive(Any()))
+
+            // The worker of the *second* link reaches the lock first — the
+            // scheduler is free to start it before the worker of the first one.
+            val second =
+                launch {
+                    sequencer.run(secondArrival) {
+                        events += "second ran"
+                    }
+                }
+            advanceUntilIdle()
+
+            // It must not write: the first link arrived first, so it writes
+            // first. The newest arrival owns the screen *and* has the last word
+            // on the data.
+            assertTrue(events.isEmpty())
+
+            // The worker of the first link starts only now.
+            val first =
+                launch {
+                    sequencer.run(firstArrival) {
+                        events += "first ran"
+                    }
+                }
+            advanceUntilIdle()
+
+            assertEquals(listOf("first ran", "second ran"), events)
+            assertTrue(first.isCompleted)
+            assertTrue(second.isCompleted)
+        }
+
+    @Test
     fun `a failed seed does not block the next link`() =
         runTest {
             val sequencer = SeedSequencer()
+            val firstArrival = assertNotNull(sequencer.arrive(Any()))
+            val secondArrival = assertNotNull(sequencer.arrive(Any()))
 
             assertFailsWith<IllegalStateException> {
-                sequencer.run { throw IllegalStateException("seed failed") }
+                sequencer.run(firstArrival) { throw IllegalStateException("seed failed") }
             }
 
             var ran = false
-            sequencer.run { ran = true }
+            sequencer.run(secondArrival) { ran = true }
 
             assertTrue(ran)
         }

@@ -8,10 +8,11 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
+import com.singularity.todo.core.seed.SeedArrival
 import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.seed.SeedFailure
 import com.singularity.todo.core.seed.SeedLinkKeys
-import com.singularity.todo.core.seed.SeedSequencer
+import com.singularity.todo.core.seed.SeedLinkLifecycle
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -162,6 +163,11 @@ import kotlin.time.Instant
  * parameters: it waits for the running seed to finish, so the seeds never write
  * at the same time. The newest link owns the screen, and the older one keeps
  * writing its rows without taking the screen away from it.
+ *
+ * The seeds run in the order the links *arrived*, not in the order their
+ * workers happen to start: a link that arrived first writes first even when its
+ * worker reaches its gate last. The data on the device is therefore the data of
+ * the link that owns the screen.
  */
 class DebugSeedActivity :
     Activity(),
@@ -170,10 +176,10 @@ class DebugSeedActivity :
      * The seed links that reached this activity, and the order they ran in.
      *
      * One seed at a time, one arrival per link, and the newest arrival owns
-     * the screen — the rules live in [SeedSequencer] so that a test can hold
-     * them without an Android harness.
+     * the screen — the rules live in [SeedLinkLifecycle] and the sequencer
+     * behind it, so that a test can hold them without an Android harness.
      */
-    private val sequencer = SeedSequencer()
+    private val links = SeedLinkLifecycle<Intent>()
 
     /**
      * Takes a link that arrived at a live instance.
@@ -196,7 +202,8 @@ class DebugSeedActivity :
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleSeedLink(intent)
+        links.onNewIntent(intent)
+        handleSeedLink()
     }
 
     /**
@@ -213,12 +220,13 @@ class DebugSeedActivity :
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleSeedLink(intent)
+        links.onCreate(intent)
+        handleSeedLink()
     }
 
     override fun onResume() {
         super.onResume()
-        handleSeedLink(intent)
+        handleSeedLink()
     }
 
     /**
@@ -238,9 +246,14 @@ class DebugSeedActivity :
      * time, and the newest arrival owns the screen: the older run keeps
      * writing its own rows, but it does not bring the app up and does not show
      * its failure, because the newer launch owns those.
+     *
+     * The order is the order of the *arrivals*, not the order in which the
+     * workers happen to start: a worker that starts late still writes after the
+     * links that arrived before it, so the data on the device is the data of the
+     * link that owns the screen.
      */
-    private fun handleSeedLink(link: Intent?) {
-        if (link == null) return finish()
+    private fun handleSeedLink() {
+        val link = links.current() ?: return finish()
         val uri = link.data ?: return finish()
 
         val params = parseParams(uri)
@@ -249,7 +262,7 @@ class DebugSeedActivity :
         // Null when this link was handled already: the arrival is recorded by
         // the link's identity, so the resume that follows the arrival is not
         // a second seed.
-        val arrival = sequencer.arrive(link) ?: return
+        val arrival: SeedArrival = links.arrive() ?: return
 
         SeedLinkKeys.unknown(params.keys).forEach { key ->
             android.util.Log.w(
@@ -260,10 +273,10 @@ class DebugSeedActivity :
 
         Thread {
             try {
-                // The lock is the whole of the ordering: this seed does not
-                // start before the running one has finished, and it is
-                // released when the seed fails.
-                runBlocking { sequencer.run { seed(params) } }
+                // The gate is the whole of the ordering: this seed does not
+                // start before the seed of the link that arrived before it has
+                // finished, and the gate is opened when the seed fails.
+                runBlocking { links.run(arrival) { seed(params) } }
             } catch (e: Throwable) {
                 // One line with the reason in it. The message is what a runner
                 // greps for: the stack trace below it is for a reader who is
@@ -282,7 +295,7 @@ class DebugSeedActivity :
                 // A run that no longer owns the screen says nothing: a newer
                 // seed took over, and its screen is not this failure's to show.
                 runOnUiThread {
-                    if (sequencer.ownsScreen(arrival)) showSeedFailure(e)
+                    if (links.ownsScreen(arrival)) showSeedFailure(e)
                 }
                 return@Thread
             }
@@ -290,7 +303,7 @@ class DebugSeedActivity :
                 // A run that no longer owns the screen stays quiet: a newer
                 // seed took over, and bringing the app up here would take the
                 // screen away from the launch that is still running.
-                if (!sequencer.ownsScreen(arrival)) return@runOnUiThread
+                if (!links.ownsScreen(arrival)) return@runOnUiThread
                 // Bring the real app up. When the seed link arrived
                 // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
                 // just re-activates it; when the link cold-started the process, we

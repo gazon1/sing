@@ -27,10 +27,11 @@
       again, with the database half-written. So it blocks, on purpose, for a seeder
       the developer is watching.
 
-      The blocking call now also carries the seed's lock: the seed runs under
-      the sequencer, so that two deep links never write at the same time.
+      The blocking call now also carries the seed's gate: the seed runs under
+      the sequencer, in arrival order, so that two deep links never write at
+      the same time.
     -->
-    <ID>NoRunBlocking:DebugSeedActivity.kt:DebugSeedActivity$runBlocking { sequencer.run { seed(params) } }</ID>
+    <ID>NoRunBlocking:DebugSeedActivity.kt:DebugSeedActivity$runBlocking { links.run(arrival) { seed(params) } }</ID>
 
     <!--
       Seed rows are stamped with the developer's real wall clock, and a scenario
