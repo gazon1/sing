@@ -95,14 +95,15 @@ HTTP-клиенте SDK, а решение «повторять или нет» 
 | общий таймаут запроса | SDK `KtorSupabaseHttpClient.applyDefaultConfiguration` | `HttpTimeout { requestTimeoutMillis = requestTimeout }`; `SupabaseClientBuilder.requestTimeout` по умолчанию — 10 с |
 | таймаут передачи в Storage | SDK `Storage.Config.transferTimeout` | 120 с; подставляется в **каждый** запрос Storage через `defaultRequest` — и в загрузку, и в скачивание, и в список |
 | таймаут соединения и сокета | — | не заданы: Ktor 3 трактует `null` как «таймаута нет», а SDK задаёт только `requestTimeoutMillis` |
-| клиент приложения | `core/network/HttpClientFactory.kt:58` | 10 с на соединение, 30 с на запрос — это клиент ИИ и календаря; бэкап через него **не ходит** |
+| клиент приложения | `core/network/HttpClientFactory.kt:58` | 10 с на соединение, 30 с на запрос — это клиент календаря и предпросмотра ссылок; бэкап через него **не ходит** (ИИ строит свой клиент сам) |
 
 Два клиента в приложении — не дублирование политики для бэкапа: свой (`createHttpClient`)
-обслуживает календарь и ИИ, чужой (SDK) — Storage. Бэкап пользуется только вторым.
+обслуживает календарь и предпросмотр ссылок, чужой (SDK) — Storage. Бэкап пользуется
+только вторым.
 
 ### Кто повторяет
 
-Никто — ни в одном слое:
+В пути бэкапа не повторяет никто — ни в одном слое:
 
 - `HttpRetry` не установлен нигде: ни в клиенте приложения, ни в клиенте SDK;
 - в `core/backup` и `feature/backup` нет ни повтора, ни backoff;
@@ -120,7 +121,7 @@ HTTP-клиенте SDK, а решение «повторять или нет» 
 | отмена (пользователем или экраном) | — | — | нет; `CancellationException` пробрасывается и `runCatchingCancellable` (`core/error/RunCatching.kt:23`), и `SupabaseBackupBucket.translating` (`core/backup/SupabaseBackupBucket.kt:155`) |
 | сессия отвергнута (401) | `UNAUTHORIZED` | `backup.unauthorized` | нет: `core/error/TransportFailure.kt:100` |
 | политика/сервер отвергли (403 и прочие ответы) | `REJECTED` | `backup.push_failed` | нет: тот же `classifyTransportFailure` |
-| сервера нет (404) | `MISSING` | `backup.not_found` | нет |
+| сервера нет (404, или код PGRST2*) | `MISSING` | `backup.not_found` | нет |
 | ответ не пришёл (таймаут, обрыв) | `NETWORK` | `backup.network_failed` | да — единственный класс, который стоит повторять |
 
 Классификация живёт в `core/transport/SupabaseTransportFailure.kt` (на шве SDK) и
