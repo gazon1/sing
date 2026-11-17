@@ -158,7 +158,7 @@ kotest-assertions = "5.9.1"
 konsist = "0.18.1"
 
 # Allure test reporting
-allure = "2.35.5"
+allure = "2.35.6"
 # The Allure CLI that renders the HTML report. A separate artifact from the
 # agent above, and it is versioned separately on purpose: the agent is on the
 # test classpath and cannot move without a test-suite change, the CLI only
