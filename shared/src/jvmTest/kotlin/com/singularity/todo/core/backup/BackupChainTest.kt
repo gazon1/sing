@@ -6,14 +6,13 @@ import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
-import com.singularity.todo.core.files.ByteSink
-import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeBackupBucket
 import com.singularity.todo.test.fakes.FakeDeviceKeyStore
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
@@ -161,7 +160,7 @@ class BackupChainTest {
             sourceDb.taskDao().deleteAllForUser(owner.value)
             export("b.zip")
 
-            val bucket = InMemoryBucket()
+            val bucket = FakeBackupBucket()
             val repository = repository(bucket)
             val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
             assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
@@ -218,7 +217,7 @@ class BackupChainTest {
                 "the link of a task that is gone is gone too",
             )
 
-            val bucket = InMemoryBucket()
+            val bucket = FakeBackupBucket()
             val repository = repository(bucket)
             val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
             assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
@@ -311,7 +310,7 @@ class BackupChainTest {
             // The device being restored holds that profile, owned by the other account.
             targetDb.profileDao().upsert(profile("p-theirs", "other-account"))
 
-            val bucket = InMemoryBucket()
+            val bucket = FakeBackupBucket()
             val repository = repository(bucket)
             val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
             assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
@@ -363,7 +362,7 @@ class BackupChainTest {
                 ),
             )
 
-            val bucket = InMemoryBucket()
+            val bucket = FakeBackupBucket()
             val repository = repository(bucket)
             val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
             assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
@@ -422,7 +421,7 @@ class BackupChainTest {
             renameTask("t-1", "after")
             export("b.zip")
 
-            val bucket = InMemoryBucket()
+            val bucket = FakeBackupBucket()
             val repository = repository(bucket)
             val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
             assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
@@ -672,54 +671,4 @@ class BackupChainTest {
             cursors = cursors,
             ioDispatcher = Dispatchers.Unconfined,
         )
-
-    /**
-     * A bucket that keeps the objects in memory.
-     *
-     * The push and the restore have to talk to the same bucket, so the bytes
-     * that went up are the bytes that come down — which is the whole point of
-     * the round trip.
-     */
-    private class InMemoryBucket : BackupBucket {
-        private val objects = mutableMapOf<String, ByteArray>()
-
-        override suspend fun upload(
-            path: String,
-            source: ByteSource,
-            sizeBytes: Long,
-        ) {
-            objects[path] = readAll(source)
-        }
-
-        override suspend fun download(
-            path: String,
-            sink: ByteSink,
-        ) {
-            val bytes = objects[path] ?: throw NoSuchElementException("no object at $path")
-            sink.write(bytes, 0, bytes.size)
-        }
-
-        override suspend fun list(prefix: String): List<BucketObject> =
-            objects.keys
-                .filter { it.startsWith(prefix) }
-                .map {
-                    BucketObject(
-                        path = it,
-                        updatedAtEpochMillis = 0L,
-                        sizeBytes = objects.getValue(it).size.toLong(),
-                    )
-                }
-    }
-}
-
-/** Everything the source yields, read in pieces. */
-private fun readAll(source: ByteSource): ByteArray {
-    var collected = ByteArray(0)
-    val buffer = ByteArray(1024)
-    while (true) {
-        val read = source.read(buffer, 0, buffer.size)
-        if (read < 0) break
-        collected += buffer.copyOfRange(0, read)
-    }
-    return collected
 }
