@@ -35,7 +35,7 @@ class AndroidFileSourceTest {
             val source = AndroidFileSource(context, file.absolutePath).openRead()
             val readBack = readAll(source, chunk = 5)
 
-            assertTrue(readBack.reads > 1, "file must be read in multiple chunks")
+            assertTrue("file must be read in multiple chunks", readBack.reads > 1)
             assertArrayEquals(bytes, readBack.bytes)
             assertFailsWith<IOException> { source.read(ByteArray(1), 0, 1) }
         }
@@ -53,7 +53,7 @@ class AndroidFileSourceTest {
             val readBack = readAll(source, chunk = 4)
 
             assertArrayEquals(bytes, readBack.bytes)
-            assertTrue(tracking.closed, "closing ByteSource must close the underlying content stream")
+            assertTrue("closing ByteSource must close the underlying content stream", tracking.closed)
         }
     }
 
@@ -79,9 +79,10 @@ class AndroidFileSourceTest {
         while (true) {
             val n = source.read(buffer, 0, buffer.size)
             if (n < 0) break
-            if (n == 0) continue
-            reads++
-            for (i in 0 until n) out += buffer[i]
+            if (n > 0) {
+                reads++
+                for (i in 0 until n) out += buffer[i]
+            }
         }
         source.close()
         return ReadBack(out.toByteArray(), reads)

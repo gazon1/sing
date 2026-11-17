@@ -193,10 +193,7 @@ class BackupCodecContractTest {
         return bytes.toByteArray()
     }
 
-    private class TrackingFileSource(
-        private val bytes: ByteArray,
-        private val maxChunk: Int,
-    ) : FileSource {
+    private class TrackingFileSource(private val bytes: ByteArray, private val maxChunk: Int) : FileSource {
         var opened = 0
         var lastOpened: ChunkedByteSource? = null
 
@@ -210,10 +207,7 @@ class BackupCodecContractTest {
         }
     }
 
-    private class ChunkedByteSource(
-        private val bytes: ByteArray,
-        private val maxChunk: Int,
-    ) : ByteSource {
+    private class ChunkedByteSource(private val bytes: ByteArray, private val maxChunk: Int) : ByteSource {
         private var position = 0
         var readCalls = 0
             private set

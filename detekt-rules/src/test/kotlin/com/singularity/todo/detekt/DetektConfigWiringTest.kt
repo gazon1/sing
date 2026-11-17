@@ -127,7 +127,8 @@ class DetektConfigWiringTest {
         }
         if (unconfigured.isNotEmpty()) {
             fail(
-                "registered rule(s) with no block in detekt.yml at ${configFile.absolutePath}, so detekt never loads them: " +
+                "registered rule(s) with no block in detekt.yml at " +
+                    "${configFile.absolutePath}, so detekt never loads them: " +
                     "${unconfigured.joinToString()}. " +
                     "A rule that is implemented, packaged and registered but not configured " +
                     "has never run.",
