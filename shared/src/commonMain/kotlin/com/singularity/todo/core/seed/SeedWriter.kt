@@ -271,20 +271,31 @@ class SeedWriter(
 
         val url = target?.let { InternalLinks.urlFor(InternalLinkSchemes.TASK, it.id.value) }
         val targetTitle = target?.title
+        val body = spec.body
         // The seed's own text comes first and the link follows it: a note that
         // points at a task reads as a note about something, not as a bare link.
         val markdown =
             when {
-                url == null || targetTitle == null -> spec.body
-                spec.body == null -> linkMarkdown(targetTitle, url)
-                else -> "${spec.body}\n\n${linkMarkdown(targetTitle, url)}"
+                url == null || targetTitle == null -> body
+                body == null -> linkMarkdown(targetTitle, url)
+                else -> "$body\n\n${linkMarkdown(targetTitle, url)}"
             }
         // A seed that names no body writes no body: the note keeps the text it
         // already has. A seed that names one writes it, link or no link — the text
         // is what the caller asked for, and a missing link target is not a reason
         // to drop it.
         if (markdown != null) {
-            notes.updateContent(noteId, spec.title, markdown, NoteContentMapper.toHtml(markdown)).getOrThrow()
+            // The link's HTML is written here rather than read back out of the
+            // Markdown: the editor keeps the *source* of a Markdown label, so an
+            // escaped title would show its backslash. The title is what the link
+            // is about, and the note shows the title.
+            val html =
+                when {
+                    url == null || targetTitle == null -> NoteContentMapper.toHtml(body.orEmpty())
+                    body == null -> linkHtml(targetTitle, url)
+                    else -> NoteContentMapper.toHtml(body) + linkHtml(targetTitle, url)
+                }
+            notes.updateContent(noteId, spec.title, markdown, html).getOrThrow()
         }
         // The links are the note's own: a re-seed with no target empties them
         // rather than leaving the previous run's link in place.
@@ -298,11 +309,55 @@ class SeedWriter(
      * The label is the target's title and the href is the shared grammar's URL,
      * which is what the app's link machinery reads — the seed writes the link the
      * editor would have written, not one of its own shape.
+     *
+     * The title is escaped: a title is text, and text must not be able to change
+     * the shape of the link it sits in. A `]` ends the label, so a title holding
+     * one would take the destination with it and the note would carry no link at
+     * all.
      */
     private fun linkMarkdown(
         title: String,
         url: String,
-    ): String = "[$title]($url)"
+    ): String = "[${escapeMarkdownLabel(title)}]($url)"
+
+    /**
+     * The HTML of the same link — the shape the editor writes.
+     *
+     * The HTML is written here rather than read back out of the markdown: the
+     * editor keeps the *source* of a markdown label, so the escaped title would
+     * show its backslash. The title is what the link is about, and the note shows
+     * the title.
+     */
+    private fun linkHtml(
+        title: String,
+        url: String,
+    ): String = """<p><a href="${escapeHtml(url)}" target="_blank">${escapeHtml(title)}</a></p>"""
+
+    /**
+     * Escapes the characters that would otherwise be read as markup.
+     *
+     * A title is text that came from a deep link, so it is escaped before it is
+     * written into the note's HTML: a title holding a `<` must not open a tag of
+     * its own.
+     */
+    private fun escapeHtml(value: String): String =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+
+    /**
+     * Escapes a link's label so that the title cannot change the link's shape.
+     *
+     * A `]` ends the label and a `[` opens one, so both are escaped — and the
+     * backslash is escaped first, so that a title holding one keeps it as text.
+     */
+    private fun escapeMarkdownLabel(title: String): String =
+        title
+            .replace("\\", "\\\\")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
 
     /**
      * Makes the profile hold exactly one live project for this seed.
