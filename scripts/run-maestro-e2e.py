@@ -232,6 +232,7 @@ def maestro_argv(
     shards: int | None,
     suite: str,
     junit_dir: Path,
+    engine: str | None = None,
 ) -> list[str]:
     """The argv for ``python3 -m emulator.maestro``.
 
@@ -252,6 +253,11 @@ def maestro_argv(
     ]
     if shard is not None and shards is not None:
         argv.extend(["--shard", str(shard), "--shards", str(shards)])
+    if engine:
+        # The executor is named in the argv, not left to an environment
+        # variable: a CI job that says which engine it asked for is a job whose
+        # report can be read.
+        argv.extend(["--engine", engine])
 
     # Flow selection by suite. The smoke suite is selected by *tag*: every flow
     # that declares `smoke` is part of it, wherever the flow lives. The
@@ -274,6 +280,7 @@ def run_maestro(
     shards: int | None,
     suite: str,
     junit_dir: Path,
+    engine: str | None = None,
 ) -> int:
     """Run Maestro flows via python3 -m emulator.maestro."""
     argv = maestro_argv(
@@ -282,6 +289,7 @@ def run_maestro(
         shards=shards,
         suite=suite,
         junit_dir=junit_dir,
+        engine=engine,
     )
 
     # MAESTRO_CONFIG for the config.yaml location
@@ -317,6 +325,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="Directory for JUnit XML (default: build/maestro-results)")
     parser.add_argument("--skip-device-check", action="store_true",
                         help="Skip ensure_device() — device is already running (workflow started it)")
+    parser.add_argument("--engine", default=None,
+                        choices=["maestro", "maestro-runner"],
+                        help=(
+                            "Which executor runs the flows (default: the Maestro CLI). "
+                            "'maestro-runner' reads the same flows without a JVM and is "
+                            "faster; see docs/decisions/2026-11-17-maestro-runner-is-a-second-engine.md"
+                        ))
     args = parser.parse_args(argv)
 
     serial = args.serial or os.environ.get("SERIAL") or ""
@@ -405,6 +420,7 @@ def main(argv: list[str] | None = None) -> int:
         shards=args.shards,
         suite=args.suite,
         junit_dir=junit_dir,
+        engine=args.engine,
     )
 
     if rc == EXIT_PASS:

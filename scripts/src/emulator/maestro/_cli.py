@@ -14,6 +14,14 @@ from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
 from emulator.maestro._bridge import Bridge
+from emulator.maestro._engine import (
+    ENGINES,
+    ENGINE_MAESTRO,
+    ENGINE_MAESTRO_RUNNER,
+    MAESTRO_RUNNER_VERSION,
+    engine_available,
+    runner_version,
+)
 from emulator.maestro._fixtures import reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag, filter_flows_excluding_tags
 from emulator.maestro._lock import DeviceLock, DeviceLocked
@@ -283,6 +291,12 @@ def _reinstall_app(serial: str, deps: DeviceDeps, skip_install: bool) -> bool:
               help="Skip the flows that already have a clean report from an earlier run")
 @click.option("--keep-screen-on", is_flag=True,
               help="Leave the device's screen on when the run ends")
+@click.option("--engine", type=click.Choice(list(ENGINES)), default=None,
+              help=(
+                  "Which executor runs the flows: 'maestro' (the Maestro CLI, the "
+                  "default) or 'maestro-runner' (a Go binary that reads the same "
+                  "flows without a JVM)"
+              ))
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -300,6 +314,7 @@ def main(
     shards: int | None,
     resume: bool,
     keep_screen_on: bool = False,
+    engine: str | None = None,
     deps: DeviceDeps | None = None,
 ) -> int:
     deps = deps or _default_device_deps()
@@ -318,6 +333,28 @@ def main(
     tags = tags or ""
     exclude_tags = exclude_tags if exclude_tags is not None else os.environ.get("EXCLUDE_TAGS", "")
     exclude_tags = exclude_tags or ""
+    # The engine is a first-class choice, like the device and the flow set: it
+    # decides who reads the YAML, and a run that quietly used a different one
+    # than the reader expected would be a measurement of something else.
+    engine = engine or os.environ.get("MAESTRO_ENGINE") or ENGINE_MAESTRO
+    if engine not in ENGINES:
+        logger.error(f"Unknown engine {engine!r}; known engines: {', '.join(ENGINES)}")
+        return ctx.exit(EXIT_FAIL)
+    if not engine_available(engine):
+        if engine == ENGINE_MAESTRO_RUNNER:
+            logger.error(
+                "The maestro-runner engine is not usable here. It needs the "
+                "release distribution — the binary plus the drivers/ directory "
+                "next to it — on PATH or MAESTRO_RUNNER_HOME pointing at it; "
+                "a copy of the binary alone cannot drive a device. "
+                f"See Maestro/README.md, or run with --engine {ENGINE_MAESTRO}."
+            )
+        else:
+            logger.error(
+                f"The {engine} engine is not on PATH. Install it (mise installs it "
+                f"from mise.toml) or run with --engine {ENGINE_MAESTRO}."
+            )
+        return ctx.exit(EXIT_FAIL)
 
     if dry_run:
         flow_target = (ROOT / flow).resolve()
@@ -424,6 +461,15 @@ def main(
     _wake_device(serial, deps)
 
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
+    logger.info(f"Engine: {engine}")
+    if engine == ENGINE_MAESTRO_RUNNER:
+        version = runner_version()
+        logger.info(f"maestro-runner {version or 'unknown version'}")
+        if version and version != MAESTRO_RUNNER_VERSION:
+            logger.warning(
+                f"this repository measured maestro-runner {MAESTRO_RUNNER_VERSION}; "
+                f"the build on PATH is {version} — the numbers will not be comparable"
+            )
 
     # ── Wake + unlock + IME ───────────────────────────────────────────────────
     # `prepare_device` prepares an emulator; a physical phone is left alone by
@@ -595,6 +641,7 @@ def main(
                 expected_sha=expected_sha or "",
                 deps=deps,
                 bridge_url=bridge_url,
+                engine=engine,
             )
         except AppMissingError as exc:
             # The app is not on the device. The flow did not fail — it was not

@@ -1,6 +1,7 @@
 """maestro._runner — single-flow execution with retry and APK provenance."""
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -9,7 +10,12 @@ from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
 from emulator._types import EXIT_CRASHED, EXIT_LOCK, EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
-from emulator.maestro._bridge import BRIDGE_ENV_NAME
+from emulator.maestro._engine import (
+    ENGINE_MAESTRO,
+    engine_env,
+    flow_command,
+    normalise_junit,
+)
 from emulator.maestro._types import (
     APP_ID,
     EXIT_FAIL,
@@ -109,6 +115,7 @@ def run_one_flow(
     expected_sha: str,
     deps: DeviceDeps | None = None,
     bridge_url: str = "",
+    engine: str = ENGINE_MAESTRO,
 ) -> tuple[bool, str, int]:
     """Run one Maestro flow. Returns (passed, run_id, attempts).
 
@@ -127,6 +134,8 @@ def run_one_flow(
             ``env.E2E_BRIDGE_URL``. Empty means the flow has no host channel, and
             a flow that needs one says so rather than passing on its next
             assertion.
+        engine: Which executor runs the flow. Both read the same YAML; only the
+            execution differs. See ``maestro._engine``.
 
     Raises:
         AppMissingError: the app is not on the device, so the flow was not
@@ -154,26 +163,32 @@ def run_one_flow(
         # previous one did — and the previous one may have failed with a dead
         # device, which is the difference between retrying and giving up.
         junit_file.unlink(missing_ok=True)
-        cmd = [
-            "maestro", "test", str(flow_path),
-            # The device the APK was installed on is the device the flow has to
-            # run on. Without `--device` Maestro picks one of the connected
-            # devices itself, and it picked the physical phone that happened to
-            # be attached next to the emulator: the APK went to the AVD, the
-            # flow ran on the phone, and the report said the flow failed
-            # without saying on what. Measured 2026-11-11.
-            "--device", serial,
-            "--env", f"RUN_ID={run_id}",
-            "--format", "JUNIT",
-            "--output", str(junit_file),
-        ]
-        if bridge_url:
-            cmd += ["--env", f"{BRIDGE_ENV_NAME}={bridge_url}"]
+        # The device the APK was installed on is the device the flow has to
+        # run on. Without an explicit `--device` the engine picks one of the
+        # connected devices itself, and it picked the physical phone that
+        # happened to be attached next to the emulator: the APK went to the AVD,
+        # the flow ran on the phone, and the report said the flow failed without
+        # saying on what. Measured 2026-11-11.
+        cmd = flow_command(
+            engine=engine,
+            flow_path=flow_path,
+            serial=serial,
+            junit_file=junit_file,
+            run_id=run_id,
+            bridge_url=bridge_url,
+            report_dir=junit_dir / ".maestro-runner" / flow_name,
+        )
         logger.info(f"run id: {run_id}")
 
-        cp = deps.try_run(cmd, cwd=ROOT, timeout=300)
+        cp = deps.try_run(cmd, cwd=ROOT, timeout=300, env={**os.environ, **engine_env(engine)})
         status = cp.returncode if cp else -1
         stdout = cp.stdout if cp else ""
+
+        # The report has to be in the shape the gates read, whichever engine
+        # wrote it: the flow's path belongs in the `file` attribute of the
+        # testcase, and the traceability layer points its GitHub annotation at
+        # that attribute.
+        normalise_junit(junit_file, flow_path)
 
         if status == 0:
             if attempt > 0 and not allow_stale:

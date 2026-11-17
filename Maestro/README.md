@@ -27,6 +27,44 @@ RUN_MAESTRO=1 hk run device
 Environment variables understood by `run-maestro`:
 `SERIAL`, `FLOW`, `TAGS`, `SKIP_INSTALL=1`, `MAESTRO_MAX_RETRIES` (default 1).
 
+### The second engine: maestro-runner
+
+The same flow files can be run by [maestro-runner](https://github.com/devicelab-dev/maestro-runner),
+a single Go binary that reads the same YAML without a JVM. The CLI starts a JVM
+per flow, and a suite of 127 flows pays that warm-up 127 times.
+
+```bash
+scripts/run-maestro-e2e.py --engine maestro-runner -f Maestro/flows/smoke
+MAESTRO_ENGINE=maestro-runner scripts/run-maestro-e2e.py -f Maestro/flows/smoke
+```
+
+The CLI stays the default: the failure floor of this repository was calibrated
+with it, and a run that quietly used another executor would be a measurement of
+something else. The engine is named in the run log, and the report is rewritten
+into the shape the gates read (the CLI writes the flow's path into the `file`
+attribute of the JUnit `testcase`, maestro-runner writes it as a `property`).
+
+**Installing it.** The runner needs its driver binaries next to the binary: the
+release tarball unpacks to `<root>/bin/maestro-runner` and `<root>/drivers`.
+A copy of the binary alone cannot drive a device — it exits with
+`drivers directory not found` — so the tarball is what gets unpacked:
+
+```bash
+VERSION=1.1.31
+BASE="https://github.com/devicelab-dev/maestro-runner/releases/download/v${VERSION}"
+curl -sSLO "${BASE}/maestro-runner-${VERSION}-linux-amd64.tar.gz"
+curl -sSLO "${BASE}/maestro-runner-${VERSION}-linux-amd64.tar.gz.sha256"
+sha256sum -c "maestro-runner-${VERSION}-linux-amd64.tar.gz.sha256"
+tar -xzf "maestro-runner-${VERSION}-linux-amd64.tar.gz" -C ~/.local/maestro-runner/${VERSION}
+export PATH="$HOME/.local/maestro-runner/${VERSION}/maestro-runner/bin:$PATH"
+```
+
+mise is not used for it: every mise backend that can pick the platform for us
+installs the binary alone and drops the drivers. The version this repository
+measured is `1.1.31`; the runner's own version is printed in the run log, and a
+different build is called out as not comparable. `MAESTRO_RUNNER_HOME` overrides
+where the distribution is looked for.
+
 ### Getting a device
 
 ```bash
