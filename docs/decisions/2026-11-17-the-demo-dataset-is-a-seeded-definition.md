@@ -39,7 +39,7 @@ that cannot be honoured must fail loudly rather than write something else.
 ## Idea
 
 Extend the seed contract with the three missing keys, and express the demo
-dataset as a *definition* — a helper that wipes the profile's content and
+dataset as a *definition* — a flow that wipes the profile's content and
 seeds the same rows, in the same order, with relative dates — that the
 capture set reads from.
 
@@ -65,10 +65,17 @@ project — is worse than a red seed: the capture would show a task that
 belongs to nothing, and the screenshot would be wrong in a way that is
 visible to a stranger.
 
-**The dataset is a definition, not an append.** The helper resets a
+**The dataset is a definition, not an append.** The flow resets a
 profile's content first and then seeds every row. A capture after a dozen
 failed runs produces the same profile as the first one. The reset is not
 concurrency-safe, so a capture run owns its device.
+
+**The dataset lives in `Maestro/capture/`, not in `Maestro/helpers/`.** A
+helper in this repository is a subflow that at least one test flow reaches;
+the dataset is reached by no test flow on purpose — it switches the active
+profile to `Play demo`, and a test flow that ran it would leave every later
+flow in the wrong profile. It belongs to the capture set, so it sits next to
+the storyboard that names its rows.
 
 **The reset lands in a profile of the dataset's own.** `reset=content` deletes
 every row of the *active* profile, so the dataset does not run it against
@@ -100,7 +107,7 @@ of the product.
 
 **The storyboard and the dataset change together.** `Maestro/capture/`
 holds the storyboard (why each image is there) and a manifest (the file
-names and the order); `Maestro/helpers/demo-dataset.yaml` holds the rows.
+names and the order); `Maestro/capture/demo-dataset.yaml` holds the rows.
 The dataset and the story name the same tasks, projects and notes, so a
 change to one is a change to the other.
 
@@ -153,7 +160,7 @@ guarantee that the listing shows stale data.
 
 ## Links
 
-- `Maestro/helpers/demo-dataset.yaml` — the dataset
+- `Maestro/capture/demo-dataset.yaml` — the dataset
 - `Maestro/capture/STORYBOARD.md` — the story and the capture profile
 - `docs/decisions/2026-11-17-the-capture-device-is-a-9-16-avd.md` — the device
   the profile is captured on

@@ -43,11 +43,11 @@ name: demo-dataset
 # The switch happens before anything is written, so every row below lands in this
 # profile and the reset below reaches this profile alone.
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "profile=Play%20demo"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "session=anonymous"
 
@@ -57,7 +57,7 @@ name: demo-dataset
 # reaches the profile that is active — the one above — and nothing else, so a
 # capture run cannot destroy the data of the profile a person is using.
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "reset=content"
 
@@ -66,15 +66,15 @@ name: demo-dataset
 # child is reached through its parent — that is what makes the hierarchy a
 # hierarchy rather than a list.
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "project=Home%20renovation&id=demo-renovation"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "project=Kitchen&id=demo-kitchen&parent=demo-renovation"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "project=Website%20launch&id=demo-launch"
 
@@ -84,35 +84,35 @@ name: demo-dataset
 # calendar show. Two carry no project at all: a task without a project is
 # ordinary, and a set where everything belongs to something looks staged.
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Review%20the%20launch%20checklist&due=today&priority=high&inProject=Website%20launch&desc=Go%20through%20the%20launch%20plan%20once%20more%20before%20the%20announcement%20goes%20out."
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Order%20the%20kitchen%20tiles&due=today&priority=medium&inProject=Kitchen&desc=White%20subway%20tiles%2C%2015%20by%2015%20cm%2C%20120%20pieces."
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Book%20the%20electrician&due=today&desc=Ask%20for%20a%20quote%20for%20the%20new%20panel%20and%20the%20hallway%20sockets."
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Write%20the%20launch%20post&due=%2B1d&priority=medium&inProject=Website%20launch&desc=Hook%2C%20three%20features%2C%20one%20call%20to%20action."
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Measure%20the%20kitchen%20counter&due=%2B2d&inProject=Kitchen"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Send%20the%20deposit%20invoice&due=%2B3d&priority=high&inProject=Home%20renovation"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Renew%20the%20domain%20name&due=%2B4d&inProject=Website%20launch"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "task=Practise%20the%20vocabulary%20list&due=%2B5d"
 
@@ -121,14 +121,14 @@ name: demo-dataset
 # text that points at the work. The link names the task by title — the link
 # that seeds the note cannot know the id the app gave the task.
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "note=Launch%20post%20outline&desc=Hook%2C%20three%20features%2C%20one%20call%20to%20action.&linkTo=Write%20the%20launch%20post"
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "note=Kitchen%20measurements&desc=The%20counter%20is%20240%20cm.%20The%20sink%20goes%20under%20the%20window."
 - runFlow:
-    file: seed.yaml
+    file: ../helpers/seed.yaml
     env:
       QUERY: "note=Questions%20for%20the%20electrician&desc=Ask%20whether%20the%20meter%20is%20on%20our%20side%20of%20the%20wall."

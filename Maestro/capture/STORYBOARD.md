@@ -31,9 +31,9 @@ planning ahead, a calendar, and notes that are attached to something.
 
 ## The demo data
 
-The dataset lives in [`Maestro/helpers/demo-dataset.yaml`](../helpers/demo-dataset.yaml)
+The dataset lives in [`Maestro/capture/demo-dataset.yaml`](demo-dataset.yaml)
 and is seeded through the existing `todo-debug://seed` contract. It is a
-*definition*, not an append: the helper resets its own profile's content first,
+*definition*, not an append: the dataset resets its own profile's content first,
 so a capture after a dozen failed runs produces the same profile as the first
 one. Why it is shaped that way — relative dates, unique names, fixed project
 ids — is in

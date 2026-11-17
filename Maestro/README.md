@@ -70,11 +70,11 @@ the mitigation experiments and their results are recorded in
 Maestro/
 ├── config.yaml                 # workspace metadata
 ├── TAGS.md                     # complete catalogue of Maestro-addressable ids
-├── helpers/                    # 21 subflows — never run standalone; the table is in CONVENTIONS.md
+├── helpers/                    # 20 subflows — never run standalone; the table is in CONVENTIONS.md
 │   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
-│   ├── seed.yaml               # the deep-link contract: one entity per link
-│   └── demo-dataset.yaml       # the fixed demo dataset behind the store screenshots
-├── capture/                    # the Google Play screenshot storyboard — not runnable flows
+│   └── seed.yaml               # the deep-link contract: one entity per link
+├── capture/                    # the Google Play screenshot storyboard — the dataset plus the shot list
+│   ├── demo-dataset.yaml       # the fixed demo dataset behind the store screenshots
 │   ├── STORYBOARD.md           # why each screenshot is there, and the capture profile
 │   └── manifest.yaml           # the file names and the order
 └── flows/

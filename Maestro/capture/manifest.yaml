@@ -12,7 +12,7 @@
 # The order is the store's order: the first image answers "what is this app",
 # and the rest follow the story the storyboard tells.
 #
-# The dataset every capture starts from is `../helpers/demo-dataset.yaml`; the
+# The dataset every capture starts from is `demo-dataset.yaml`; the
 # device profile is in `STORYBOARD.md`.
 captures:
   - order: 1

@@ -93,7 +93,6 @@ their logic.
 | `launch-clean.yaml` | Any flow needing a fresh app state |
 | `skip-spotlight.yaml` | Dismisses the first-run spotlight tour, which covers the agenda and swallows the taps under its scrim; `launch-clean.yaml` runs it |
 | `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; it also carries the contract for waiting for what a flow seeded |
-| `demo-dataset.yaml` | The fixed demo dataset behind the store screenshots — it resets the `Play demo` profile of its own and seeds the same rows every time; see `Maestro/capture/STORYBOARD.md` |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `seed-and-open-task.yaml` | Seeds a task with `QUERY` and opens it from Inbox by `TASK_ID` |
 | `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
