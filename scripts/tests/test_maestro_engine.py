@@ -17,6 +17,8 @@ which engine is running it.
 """
 from __future__ import annotations
 
+import importlib.util
+import json
 import os
 import pathlib
 import shutil
@@ -43,6 +45,15 @@ from emulator.maestro._engine import (  # noqa: E402
     normalise_junit,
     runner_home,
 )
+
+#: The gate that reads a report. It is loaded the way the gate's own tests
+#: load it, because the property these tests are about is the gate's: one
+#: cause, one registry entry, whichever engine produced the report.
+_GATE_PATH = pathlib.Path(__file__).resolve().parent.parent / "ci" / "check-maestro-results.py"
+_GATE_SPEC = importlib.util.spec_from_file_location("check_maestro_results", _GATE_PATH)
+_GATE = importlib.util.module_from_spec(_GATE_SPEC)
+sys.modules["check_maestro_results"] = _GATE  # must precede exec_module
+_GATE_SPEC.loader.exec_module(_GATE)
 
 _FLOW = pathlib.Path("Maestro/flows/smoke/01-launch-today.yaml")
 
@@ -151,6 +162,160 @@ class NormaliseJUnitTest(unittest.TestCase):
         report = self._write("not xml at all")
         normalise_junit(report, _ROOT / _FLOW)
         self.assertEqual(report.read_text(), "not xml at all")
+
+
+class FailureWordingTest(unittest.TestCase):
+    """The wording of a failure: the same cause, said the same way.
+
+    The cause registry is keyed on the CLI's words, so a runner report that
+    says "Element '#x' not visible within 8s" reads as a cause nobody has
+    ever accepted — the debt did not change kind, only the sentence that
+    describes it. The fixtures are the same logical failure written by each
+    engine, and the property they have to hold is that the gate reads both as
+    one cause.
+    """
+
+    FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures" / "maestro-junit"
+
+    #: The run the fixtures' scroll-missing pair was measured with: the flow
+    #: asks for `task_item_${RUN_ID}_buy_milk` and the CLI says the id the
+    #: run resolved it to.
+    RUN_ID = "r9181965460"
+
+    #: The pairs of reports: the same failure, one per engine.
+    PAIRS = (
+        "assert-visible",
+        "assert-not-visible",
+        "tap-missing",
+        "scroll-missing",
+    )
+
+    def _message(self, engine: str, name: str) -> str:
+        """The failure message the gate reads, after the report was normalised."""
+        source = self.FIXTURES / engine / f"{name}.xml"
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, True)
+        report = work / source.name
+        report.write_bytes(source.read_bytes())
+        tree = self.FIXTURES / "runner-tree" / name
+        normalise_junit(
+            report,
+            _ROOT / _FLOW,
+            report_dir=tree if tree.is_dir() else None,
+            run_id=self.RUN_ID,
+        )
+        case = ET.parse(report).getroot().iter("testcase").__next__()
+        failure = case.find("failure")
+        return (failure.text or "").strip()
+
+    def _registry(self, keys):
+        """A registry that knows the given causes, written the way the gate reads one."""
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, True)
+        path = work / "debt.yaml"
+        lines = ["environment:", "  kind: emulator", "  api: 36", "causes:"]
+        for key in keys:
+            lines.append(f"- key: {json.dumps(key)}")
+            lines.append("  issue: 1")
+            lines.append("  owner: unclassified")
+            lines.append("  status: accepted")
+            lines.append("  flows: 1")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return _GATE.read_registry(path)
+
+    def test_both_engines_say_the_same_thing_about_the_same_failure(self) -> None:
+        for name in self.PAIRS:
+            with self.subTest(pair=name):
+                self.assertEqual(
+                    self._message("runner", name),
+                    self._message("cli", name),
+                )
+
+    def test_the_gate_reads_both_engines_as_the_same_cause(self) -> None:
+        for name in self.PAIRS:
+            with self.subTest(pair=name):
+                self.assertEqual(
+                    _GATE.cause_key(self._message("runner", name)),
+                    _GATE.cause_key(self._message("cli", name)),
+                )
+
+    def test_a_cause_the_registry_knows_is_known_under_both_engines(self) -> None:
+        """The classification must not depend on which engine ran the flow."""
+        registry = self._registry(
+            {_GATE.cause_key(self._message("cli", name)) for name in self.PAIRS}
+        )
+        for name in self.PAIRS:
+            with self.subTest(pair=name):
+                self.assertIn(
+                    _GATE.cause_key(self._message("runner", name)),
+                    registry.causes,
+                )
+
+    def test_the_cli_report_is_left_the_way_the_cli_wrote_it(self) -> None:
+        source = self.FIXTURES / "cli" / "assert-visible.xml"
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, True)
+        report = work / source.name
+        report.write_bytes(source.read_bytes())
+        before = source.read_text(encoding="utf-8")
+        normalise_junit(report, _ROOT / _FLOW)
+        failure = ET.parse(report).getroot().iter("testcase").__next__().find("failure")
+        self.assertEqual(failure.text, before.split('message="')[1].split('"')[0])
+
+    def test_a_message_that_names_no_element_and_has_no_tree_is_left_alone(self) -> None:
+        """A cause that does not say what it is about is not a cause to invent."""
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, True)
+        report = work / "02-signin-wrong-password.xml"
+        message = (
+            "Element not found: handler_error: Element not found in any of 2 strategies "
+            "(cause: timed out: handler_error: Element not found in any of 2 strategies)"
+        )
+        report.write_text(
+            '<testsuites><testsuite name="s">'
+            '<testcase id="f" name="f" file="Maestro/flows/a.yaml" status="ERROR">'
+            f'<failure message="{message}">{message}</failure>'
+            "</testcase></testsuite></testsuites>",
+            encoding="utf-8",
+        )
+        normalise_junit(report, _ROOT / _FLOW)
+        failure = ET.parse(report).getroot().iter("testcase").__next__().find("failure")
+        self.assertEqual(failure.text, message)
+
+    def test_an_unresolved_placeholder_leaves_the_message_alone(self) -> None:
+        """The CLI would name an element this report cannot name."""
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, True)
+        report = work / "create-task.xml"
+        message = "Element not found after 20 scrolls (cause: element not found)"
+        report.write_text(
+            '<testsuites><testsuite name="s">'
+            '<testcase id="f" name="f" file="Maestro/flows/a.yaml" status="ERROR">'
+            f'<failure message="{message}">{message}</failure>'
+            "</testcase></testsuite></testsuites>",
+            encoding="utf-8",
+        )
+        tree = work / "tree" / "2026-11-17_18-00-04" / "flows"
+        tree.mkdir(parents=True)
+        (tree / "flow-000.json").write_text(
+            json.dumps(
+                {
+                    "commands": [
+                        {
+                            "type": "scrollUntilVisible",
+                            "status": "failed",
+                            "params": {
+                                "selector": {"type": "id", "value": "task_item_${TASK_ID}"}
+                            },
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        normalise_junit(report, _ROOT / _FLOW, report_dir=work / "tree", run_id="r1")
+        failure = ET.parse(report).getroot().iter("testcase").__next__().find("failure")
+        self.assertEqual(failure.text, message)
 
 
 class RunnerHomeTest(unittest.TestCase):

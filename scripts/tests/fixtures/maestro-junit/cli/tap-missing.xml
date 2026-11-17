@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" tests="1" failures="1" time="27.7">
+    <testcase id="02-signin-wrong-password" name="02-signin-wrong-password" classname="02-signin-wrong-password" file="Maestro/flows/auth/02-signin-wrong-password.yaml" time="27.7" status="ERROR">
+      <failure message="Element not found: Id matching regex: auth_email_input">Element not found: Id matching regex: auth_email_input</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

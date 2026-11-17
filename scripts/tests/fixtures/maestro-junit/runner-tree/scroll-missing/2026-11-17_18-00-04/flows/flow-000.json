@@ -1,0 +1,27 @@
+{
+ "id": "flow-000",
+ "name": "tasks-create-task",
+ "sourceFile": "Maestro/flows/tasks/create-task.yaml",
+ "tags": ["smoke", "tasks"],
+ "commands": [
+  {
+   "id": "cmd-008",
+   "index": 8,
+   "type": "scrollUntilVisible",
+   "yaml": "scrollUntilVisible: id=\"task_item_${RUN_ID}_buy_milk\"",
+   "status": "failed",
+   "params": {
+    "selector": {
+     "type": "id",
+     "value": "task_item_${RUN_ID}_buy_milk"
+    },
+    "direction": "DOWN",
+    "timeout": 8000
+   },
+   "error": {
+    "type": "element_not_found",
+    "message": "Element not found: scrolling down made no progress after 2 scrolls (end of content?) (cause: element not found)"
+   }
+  }
+ ]
+}

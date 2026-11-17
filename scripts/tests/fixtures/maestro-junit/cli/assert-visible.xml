@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" tests="1" failures="1" time="27.7">
+    <testcase id="open-task-detail" name="open-task-detail" classname="open-task-detail" file="Maestro/flows/tasks/open-task-detail.yaml" time="27.7" status="ERROR">
+      <failure message="Assertion is false: id: task_item_buy_milk is visible">Assertion is false: id: task_item_buy_milk is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

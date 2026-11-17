@@ -207,3 +207,6 @@ where the CLI names the element that was not found. A report that says
   engine
 - `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md` — why each
   flow runs as its own invocation
+- `docs/decisions/2026-11-17-the-failure-message-is-normalised-into-the-registrys-wording.md`
+  — what was done about the registry being keyed on the CLI's wording: the
+  report's *message* is normalised too, and the registry is not rewritten

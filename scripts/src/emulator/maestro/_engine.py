@@ -21,6 +21,7 @@ the same code either way, because that is where the meaning of a run lives.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -185,7 +186,192 @@ def flow_command(
     return cmd
 
 
-def normalise_junit(junit_file: Path, flow_path: Path) -> None:
+# ── the wording of a failure ────────────────────────────────────────────────
+
+# The CLI and maestro-runner describe the same failure in different words.
+# The cause registry (`config/docs/maestro-debt.yaml`) is keyed on the CLI's
+# words, so a runner report read as it stands says every cause is new: the
+# debt did not change kind, only the sentence that describes it. The runner's
+# wording is rewritten into the CLI's where the two mean the same thing, so
+# that one registry describes both engines.
+#
+# The two say the same thing in these shapes:
+#
+#   runner                                        the CLI
+#   --------------------------------------------  ----------------------------------
+#   Element '#x' not visible within 8s            Assertion is false: id: x is visible
+#   Element not visible: element '#x' not found   Assertion is false: id: x is visible
+#   Element '#x' still visible after 5s           Assertion is false: id: x is not visible
+#
+# and in these two the runner names no element at all:
+#
+#   Element not found: handler_error: ...         Element not found: Id matching regex: x
+#   Element not found after 20 scrolls            No visible element found: id: x
+#
+# For those two the element comes from the runner's own report tree, which
+# records the selector of the command that failed. Where neither the message
+# nor the tree names the element, the message is left as it is: a cause that
+# does not say what it is about is a cause nobody can classify, and inventing
+# one would be a lie.
+
+#: The runner's message for a wait that ran out of time on an element.
+_RUNNER_TIMED_OUT = re.compile(
+    r"^Element '#(?P<value>[^']+)' not visible within \d+s \(cause: timed out\)$"
+)
+
+#: The runner's message for an assertion on an element that was not there.
+_RUNNER_ELEMENT_NOT_FOUND = re.compile(
+    r"^Element not visible: element '#(?P<value>[^']+)' not found "
+    r"\(cause: element '#(?P=value)' not found\)$"
+)
+
+#: The runner's message for a wait for an element to go away that it did not.
+_RUNNER_STILL_VISIBLE = re.compile(
+    r"^Element '#(?P<value>[^']+)' still visible after \d+s \(cause: timed out\)$"
+)
+
+#: The runner's message for a command whose element it could not find at all.
+_RUNNER_HANDLER_ERROR = re.compile(r"^Element not found: handler_error: ")
+
+#: The runner's message for a scroll that made no progress.
+_RUNNER_SCROLL_NO_PROGRESS = re.compile(
+    r"^Element not found: scrolling down made no progress after \d+ scrolls "
+    r"\(end of content\?\) \(cause: element not found\)$"
+)
+
+#: The runner's message for a scroll that ran out of scrolls.
+_RUNNER_SCROLLED_OUT = re.compile(
+    r"^Element not found after \d+ scrolls \(cause: element not found\)$"
+)
+
+
+def _cli_assertion(kind: str, value: str, visible: bool) -> str:
+    """The CLI's wording for a failed visibility assertion."""
+    subject = f"id: {value}" if kind == "id" else f'"{value}"'
+    state = "is visible" if visible else "is not visible"
+    return f"Assertion is false: {subject} {state}"
+
+
+def _cli_element_not_found(kind: str, value: str) -> str:
+    """The CLI's wording for a command whose element was not on the screen."""
+    return f"Element not found: {kind.capitalize()} matching regex: {value}"
+
+
+def _cli_no_visible_element(value: str) -> str:
+    """The CLI's wording for a scroll that never found the element."""
+    return f"No visible element found: id: {value}"
+
+
+def _cli_wording(message: str, selector: tuple[str, str] | None) -> str | None:
+    """The CLI's wording for the cause a runner message describes.
+
+    `selector` is the (kind, value) of the element the failed command
+    addressed — `None` when the runner's report tree does not say. The
+    message alone is enough for the shapes that name the element; the
+    selector is what the other two need.
+    """
+    text = message.strip()
+    match = _RUNNER_TIMED_OUT.match(text)
+    if match:
+        return _cli_assertion("id", match.group("value"), visible=True)
+    match = _RUNNER_ELEMENT_NOT_FOUND.match(text)
+    if match:
+        return _cli_assertion("id", match.group("value"), visible=True)
+    match = _RUNNER_STILL_VISIBLE.match(text)
+    if match:
+        return _cli_assertion("id", match.group("value"), visible=False)
+    if _RUNNER_HANDLER_ERROR.match(text):
+        if selector is None:
+            return None
+        kind, value = selector
+        return _cli_element_not_found(kind, value)
+    if _RUNNER_SCROLL_NO_PROGRESS.match(text) or _RUNNER_SCROLLED_OUT.match(text):
+        if selector is None or selector[0] != "id":
+            return None
+        return _cli_no_visible_element(selector[1])
+    return None
+
+
+#: The selector in a command's own line: `tapOn: id="x"`. The runner records
+#: the selector of a command as its parameters when it has them, and only in
+#: the command's own line when it does not.
+_SELECTOR_IN_YAML = re.compile(r'\b(?P<kind>id|text)="(?P<value>[^"]+)"')
+
+
+def _selector_from_yaml(yaml: str | None) -> tuple[str, str] | None:
+    """The (kind, value) a command's own line asks for."""
+    if not yaml:
+        return None
+    match = _SELECTOR_IN_YAML.search(yaml)
+    if match is None:
+        return None
+    return match.group("kind"), match.group("value")
+
+
+def _failed_selector(commands: list) -> tuple[str, str] | None:
+    """The (kind, value) of the element the failed command addressed."""
+    selector: tuple[str, str] | None = None
+    for command in commands:
+        if command.get("status") == "failed":
+            params = command.get("params")
+            found = params.get("selector") if isinstance(params, dict) else None
+            if isinstance(found, dict) and found.get("type") and found.get("value"):
+                selector = (str(found["type"]), str(found["value"]))
+            else:
+                selector = _selector_from_yaml(command.get("yaml")) or selector
+        for key in ("subCommands", "commands"):
+            nested = _failed_selector(command.get(key) or [])
+            if nested is not None:
+                selector = nested
+    return selector
+
+
+def _failing_selector(report_dir: Path | None, run_id: str) -> tuple[str, str] | None:
+    """The element the failed command addressed, from the runner's report tree.
+
+    maestro-runner writes one directory per attempt under the report
+    directory it was given, each holding the flow's commands. The command
+    that failed is the one that carries an ``error``, and its selector is
+    what the flow asked for. The runner's own failure message does not name
+    it — "handler_error: Element not found in any of 2 strategies" says that
+    an element was missing and nothing about which one.
+
+    Only the newest attempt is read: a report belongs to the attempt that
+    wrote it, and an older attempt's tree would name the wrong element.
+    """
+    if report_dir is None or not report_dir.is_dir():
+        return None
+    attempts = sorted((p for p in report_dir.iterdir() if p.is_dir()), reverse=True)
+    if not attempts:
+        return None
+    flows = attempts[0] / "flows"
+    if not flows.is_dir():
+        return None
+    for flow_file in sorted(flows.glob("*.json")):
+        try:
+            data = json.loads(flow_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        selector = _failed_selector(data.get("commands") or [])
+        if selector is None:
+            continue
+        kind, value = selector
+        if run_id:
+            value = value.replace("${RUN_ID}", run_id)
+        if "${" in value:
+            # A placeholder the run did not resolve: the CLI's wording would
+            # name an element this report cannot name.
+            return None
+        return kind, value
+    return None
+
+
+def normalise_junit(
+    junit_file: Path,
+    flow_path: Path,
+    report_dir: Path | None = None,
+    run_id: str = "",
+) -> None:
     """Give a maestro-runner report the shape the gates read.
 
     The CLI's ``testcase`` carries the flow's path in a ``file`` attribute;
@@ -195,8 +381,18 @@ def normalise_junit(junit_file: Path, flow_path: Path) -> None:
     in particular" — the flow would still be found by its file name, but the
     annotation would point at no file at all.
 
-    The rewrite is additive: an attribute is added, nothing is removed, and a
-    report that does not need it is left exactly as it is.
+    The *wording* of a failure is normalised as well. The cause registry is
+    keyed on the CLI's words, so a runner report that says "Element '#x' not
+    visible within 8s" reads as a cause nobody has ever accepted — the debt
+    did not change kind, only the sentence that describes it. The message is
+    rewritten into the CLI's wording where the two mean the same thing; the
+    element the runner's message does not name comes from its report tree,
+    and a message that names no element and has no tree to say it is left
+    exactly as it is.
+
+    The rewrite is additive: an attribute is added and a message is rewritten,
+    nothing is removed, and a report that does not need it is left exactly as
+    it is.
     """
     if not junit_file.is_file():
         return
@@ -209,17 +405,35 @@ def normalise_junit(junit_file: Path, flow_path: Path) -> None:
         return
     root = tree.getroot()
     changed = False
+    selector: tuple[str, str] | None = None
+    selector_read = False
     for case in root.iter("testcase"):
-        if case.get("file"):
+        if not case.get("file"):
+            flow_value = ""
+            for prop in case.iter("property"):
+                if prop.get("name") == "file":
+                    flow_value = prop.get("value") or ""
+                    break
+            if not flow_value:
+                flow_value = flow_path.as_posix()
+            case.set("file", flow_value)
+            changed = True
+        failure = case.find("failure")
+        if failure is None:
             continue
-        flow_value = ""
-        for prop in case.iter("property"):
-            if prop.get("name") == "file":
-                flow_value = prop.get("value") or ""
-                break
-        if not flow_value:
-            flow_value = flow_path.as_posix()
-        case.set("file", flow_value)
-        changed = True
+        original = failure.text or ""
+        if not original.strip():
+            continue
+        canonical = _cli_wording(original, None)
+        if canonical is None:
+            # The runner's message names no element. Its report tree does.
+            if not selector_read:
+                selector = _failing_selector(report_dir, run_id)
+                selector_read = True
+            canonical = _cli_wording(original, selector)
+        if canonical is not None and canonical != original:
+            failure.text = canonical
+            failure.set("message", canonical)
+            changed = True
     if changed:
         tree.write(junit_file, encoding="unicode", xml_declaration=True)

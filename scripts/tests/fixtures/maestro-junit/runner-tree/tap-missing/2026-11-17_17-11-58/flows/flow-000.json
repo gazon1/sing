@@ -1,0 +1,48 @@
+{
+ "id": "flow-000",
+ "name": "auth-signin-wrong-password",
+ "sourceFile": "Maestro/flows/auth/02-signin-wrong-password.yaml",
+ "tags": ["regression", "auth"],
+ "commands": [
+  {
+   "id": "cmd-000",
+   "index": 0,
+   "type": "runFlow",
+   "yaml": "runFlow: ../../helpers/launch-clean.yaml",
+   "status": "passed",
+   "subCommands": [
+    {
+     "id": "sub-0",
+     "index": 0,
+     "type": "launchApp",
+     "yaml": "launchApp",
+     "status": "passed"
+    }
+   ]
+  },
+  {
+   "id": "cmd-001",
+   "index": 1,
+   "type": "runFlow",
+   "yaml": "runFlow: open-more-parameter.yaml",
+   "status": "failed",
+   "error": {
+    "type": "element_not_found",
+    "message": "Element not found: handler_error: Element not found in any of 2 strategies (cause: timed out: handler_error: Element not found in any of 2 strategies)"
+   },
+   "subCommands": [
+    {
+     "id": "cmd-002",
+     "index": 2,
+     "type": "tapOn",
+     "yaml": "tapOn: id=\"auth_email_input\"",
+     "status": "failed",
+     "error": {
+      "type": "element_not_found",
+      "message": "Element not found: handler_error: Element not found in any of 2 strategies (cause: timed out: handler_error: Element not found in any of 2 strategies)"
+     }
+    }
+   ]
+  }
+ ]
+}

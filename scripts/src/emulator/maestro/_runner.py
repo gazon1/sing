@@ -163,6 +163,10 @@ def run_one_flow(
         # previous one did — and the previous one may have failed with a dead
         # device, which is the difference between retrying and giving up.
         junit_file.unlink(missing_ok=True)
+        # The runner's own report tree, where the command that failed is
+        # recorded. The report's failure message does not always name the
+        # element it is about, and the tree does.
+        report_dir = junit_dir / ".maestro-runner" / flow_name
         # The device the APK was installed on is the device the flow has to
         # run on. Without an explicit `--device` the engine picks one of the
         # connected devices itself, and it picked the physical phone that
@@ -176,7 +180,7 @@ def run_one_flow(
             junit_file=junit_file,
             run_id=run_id,
             bridge_url=bridge_url,
-            report_dir=junit_dir / ".maestro-runner" / flow_name,
+            report_dir=report_dir,
         )
         logger.info(f"run id: {run_id}")
 
@@ -187,8 +191,10 @@ def run_one_flow(
         # The report has to be in the shape the gates read, whichever engine
         # wrote it: the flow's path belongs in the `file` attribute of the
         # testcase, and the traceability layer points its GitHub annotation at
-        # that attribute.
-        normalise_junit(junit_file, flow_path)
+        # that attribute. The wording of a failure is normalised too, so that
+        # the cause registry — which is keyed on the CLI's words — describes
+        # a run under either engine.
+        normalise_junit(junit_file, flow_path, report_dir=report_dir, run_id=run_id)
 
         if status == 0:
             if attempt > 0 and not allow_stale:

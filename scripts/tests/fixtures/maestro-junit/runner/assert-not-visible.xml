@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites tests="1" failures="1" skipped="0" errors="0" time="27.7">
+  <testsuite name="maestro-runner" tests="1" failures="1" skipped="0" errors="0" time="27.7">
+    <testcase id="05-custom-emoji" name="05-custom-emoji" classname="05-custom-emoji" time="27.7" status="ERROR" file="Maestro/flows/projects/05-custom-emoji.yaml">
+      <properties>
+        <property name="file" value="Maestro/flows/projects/05-custom-emoji.yaml" />
+        <property name="device.name" value="realme RMX3938" />
+      </properties>
+      <failure message="Element '#task_item_buy_milk' still visible after 5s (cause: timed out)" type="TestError">Element '#task_item_buy_milk' still visible after 5s (cause: timed out)</failure>
+      <system-out>[[ATTACHMENT|assets/flow-000/cmd-002-after.png]]</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>
