@@ -188,15 +188,19 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
                 onSuccess = { result ->
                     result.onFailure {
                         onBeforeReport(it)
-                        val reported = it.originalIfAppError()
-                        crashReporter.report(error = reported, issueKey = issueKeyFor(reported, errorLabel))
+                        crashReporter.report(
+                            error = it.originalIfAppError(),
+                            issueKey = issueKeyFor(it, errorLabel),
+                        )
                         onError(it.toMessage(errorLabel))
                     }
                 },
                 onFailure = { e ->
                     onBeforeReport(e)
-                    val reported = e.originalIfAppError()
-                    crashReporter.report(error = reported, issueKey = issueKeyFor(reported, errorLabel))
+                    crashReporter.report(
+                        error = e.originalIfAppError(),
+                        issueKey = issueKeyFor(e, errorLabel),
+                    )
                     onError(e.toMessage(errorLabel))
                 },
             )
@@ -205,18 +209,31 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     private fun Throwable.originalIfAppError(): Throwable = (this as? AppError)?.original() ?: this
 
     /**
-     * The grouping key for a reported failure: the error's domain code when it has one,
-     * otherwise the call-site [errorLabel].
+     * The grouping key for a reported failure: the domain code of the error that names
+     * the failure, otherwise the call-site [errorLabel].
+     *
+     * [error] is the failure as it was raised, not the throwable that is reported. An
+     * [AppError] names what went wrong (`error.not_found`), so an error that carries a
+     * cause still groups by its own code — the cause is what gets reported, the code is
+     * what groups it.
+     *
+     * The unclassified code is the one exception: `error.unknown` names nothing, and
+     * grouping every unclassified failure under it would collapse them into a single
+     * issue. Those keep the call-site label, which is what keeps them apart — the same
+     * reason plain `IllegalArgumentException`s and driver exceptions fall back to it.
      *
      * Both inputs are machine-shaped by construction — codes are literals like
      * `error.not_found`, labels are fixed strings at the call site — so the key never
-     * carries user content off-device. The label fallback is what keeps plain
-     * `IllegalArgumentException`s and driver exceptions groupable at all.
+     * carries user content off-device.
      */
     private fun issueKeyFor(
         error: Throwable,
         errorLabel: String,
-    ): String = (error as? AppError)?.code ?: errorLabel
+    ): String =
+        when (error) {
+            is AppError -> if (error.code == UNCLASSIFIED_ERROR_CODE) errorLabel else error.code
+            else -> errorLabel
+        }
 
     /**
      * [catchTo] for the common case: a failure becomes a one-shot [E] built from the message.
@@ -239,5 +256,10 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     override fun onCleared() {
         _events.close()
         super.onCleared()
+    }
+
+    private companion object {
+        /** The code of an error that does not name what went wrong. */
+        const val UNCLASSIFIED_ERROR_CODE = "error.unknown"
     }
 }
