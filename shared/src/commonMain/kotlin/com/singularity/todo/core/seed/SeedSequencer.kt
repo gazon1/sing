@@ -31,7 +31,13 @@ class SeedSequencer {
     @Volatile
     private var arrivals = 0
 
-    /** The link that arrived last, compared by identity. */
+    /** The link that arrived last, compared by identity.
+     *
+     * Read and written by the thread the links arrive on — the main thread —
+     * so it needs no lock of its own. The seeds run on another thread and
+     * never look at it: they ask [ownsScreen], which reads the volatile
+     * counter instead.
+     */
     private var lastLink: Any? = null
 
     /**
