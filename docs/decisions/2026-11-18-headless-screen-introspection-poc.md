@@ -14,6 +14,13 @@ Compose UI, an emulator, or pixel scraping.
 
 Baseline audited by the issue: `8f91713c63bac6a62bd6e7f2367337b850ff7cbf`.
 
+The note was revisited when the review of PR #3036 was closed (issue #3039): the
+input validation was split into a schema check that runs before the intent is built,
+the `focus` object was pinned to the shape `describe()` actually emits, the dispatch
+semantics were written down and tested, the size and the verification results were
+measured, and the verdict now states explicitly whether the contract may be extracted
+into a reusable one.
+
 ## Idea
 
 Expose a thin adapter around the existing `TaskDetailCoordinator` that converts
@@ -42,15 +49,21 @@ shipping a production surface.
    `{priority}`, `add_checklist_item` takes `{title}`. Every published schema states
    `additionalProperties: false`, because the dispatcher refuses a property the
    schema does not define and JSON Schema allows additional properties by default.
-5. **Validation before dispatch.** `dispatch(action, input)` validates the action name
-   and the input shape *before* calling `coordinator.onIntent(...)`; on failure it
-   returns `Result.failure` with a message naming the action, the accepted values,
-   the expected input schema and the list of supported actions. The input has to
-   match the published schema exactly: a property the schema does not define is
-   refused, not ignored, so an agent cannot believe a flag it invented took effect.
-   An action whose schema takes no input therefore takes no property at all. The
-   published schema says the same (`additionalProperties: false`), so a reader who
-   validates against it is never told "valid" for input the screen refuses.
+5. **Validation before dispatch, in two steps.** `dispatch(action, input)` first looks the
+   action up by name, then checks that the screen can act on it right now, then checks
+   the input against the action's published schema, and only then maps the input to
+   one `TaskDetailIntent.Domain` value and calls `coordinator.onIntent(...)`. The
+   schema check (an unknown property) is a separate step that runs *before* the
+   mapping, so an input that does not fit the schema never reaches the intent; the
+   mapping itself refuses a required field that is missing, of the wrong type, or
+   outside the accepted set. On failure the call returns `Result.failure` with a
+   message naming the action, the reason, the expected input schema and the list of
+   supported actions. The input has to match the published schema exactly: a
+   property the schema does not define is refused, not ignored, so an agent cannot
+   believe a flag it invented took effect. An action whose schema takes no input
+   therefore takes no property at all. The published schema says the same
+   (`additionalProperties: false`), so a reader who validates against it is never
+   told "valid" for input the screen refuses.
 6. **Availability is part of the contract.** `describe()` publishes every action with
    an `available` flag and the requirement behind it, and `dispatch()` refuses an
    unavailable action instead of reporting a successful no-op. Every action needs the
@@ -78,6 +91,12 @@ shipping a production surface.
     would be lost if the snapshot went with the failure — so the screen can offer the
     undo again, and the contract has to offer the same retry. A restore that succeeds
     takes the task out of the deleted state, and the undo is then spent.
+12. **The focused node is published as `focus`, with exactly two fields.**
+    `describe()` emits `focus: {taskId, title}` while the screen is showing a task,
+    and no `focus` at all in any other state. `taskId` is the task on the screen;
+    `title` is the title the screen currently shows — the title draft, so an edit in
+    progress is what a reader sees. This note and the emitted JSON say the same
+    thing, and a test asserts the shape so the two cannot drift apart.
 
 ## Rationale
 
@@ -87,28 +106,66 @@ and the whole thing runs on `:shared:jvmTest` without Compose, emulator, or wall
 sleeps. An allow-list (rather than mirroring every intent) is what makes the surface
 safe for an agent: unknown or not-yet-exposed intents are refused, not silently ignored.
 
+## Dispatch semantics
+
+`dispatch()` returning `success` means exactly one thing: **the action was accepted
+and handed to the coordinator.** It does not mean the operation the action started
+has completed, and it does not mean the write has landed.
+
+The screen does that work asynchronously — the slots launch it — so the sequence an
+agent sees is:
+
+1. `dispatch(action, input)` → `success`, the intent has been handed to
+   `TaskDetailCoordinator.onIntent`.
+2. The screen does the work; the repository is written; the screen's state is
+   reassembled.
+3. `snapshot()` shows the outcome.
+
+A failure of the underlying write is reported the way the screen reports it — as a
+`TaskDetailUiEvent.Error` — and not as a failed dispatch. So the contract answers two
+different questions: "was the action accepted?" (the dispatch result) and "did it
+work?" (the next snapshot). A caller that needs the second has to look; the POC does
+not pretend the first implies the second.
+
+The distinction is tested, not asserted: the test holds the write at a gate it
+controls, so the operation cannot finish before the test opens it. `dispatch()`
+returns while the write is still waiting — a dispatch that waited for completion
+would never return — and the outcome appears in the snapshot after the gate opens.
+
 ## Verification
 
 Actual commands and results (2026-11-18, Linux, warm Gradle cache):
 
 ```bash
 ./gw :shared:jvmTest --tests "com.singularity.todo.feature.tasks.introspection.*"
-# BUILD SUCCESSFUL — 11 tests, 0 failures, 0 errors, class wall clock 1.13 s
+# BUILD SUCCESSFUL — 13 tests, 0 failures, 0 errors, class wall clock 1.02 s
 
 ./gw :shared:detekt          # BUILD SUCCESSFUL, exit 0
-python3 scripts/ktlint-lint.py --require shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/introspection/*.kt
+python3 scripts/ktlint-lint.py shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/introspection/*.kt
 # nothing to report
-easement check               # easement passed: 0 violation(s), exit 0
-./gw :shared:jvmTest          # full shared lane — 5005 tests, 0 failures
+easement check               # 2 violations, both pre-existing and unrelated
+#   (desktopApp -> shared -> desktopApp cycle; shared/src/jvmTest importing desktopApp)
+./gw :shared:jvmTest          # full shared lane — 5007 tests, 0 failures
 ```
 
-Runtime: 11 tests in 1.13 s; a cold `:shared:jvmTest` run is ~3 min, a warm filtered run ~50 s.
+Runtime: 13 tests in 1.02 s; a cold `:shared:jvmTest` run is ~3 min, a warm filtered run ~30 s.
+
+### Measured size
+
+- `TaskDetailScreenContract.kt` — 413 lines (the adapter).
+- `TaskDetailScreenContractTest.kt` — 543 lines (13 tests).
+- This note — the decision record.
+
+That is the whole POC: 956 lines of test code, no production code, no new Gradle
+module, no new dependency, no Compose, no emulator.
 
 The negative paths are asserted, not assumed: a screen that is loading or has failed,
 an action that is not exposed, a malformed input, an input carrying a property the
-schema does not define, an undo that cannot be taken, and an undo whose write failed —
-the last one proves that a failed restore keeps the undo on offer, so the agent can
-retry the way the screen does.
+schema does not define (for an action with an input and for one without), an undo
+that cannot be taken, and an undo whose write failed — the last one proves that a
+failed restore keeps the undo on offer, so the agent can retry the way the screen
+does. Two tests pin the semantics this note documents: the shape of the `focus`
+object, and the difference between an accepted dispatch and a completed operation.
 
 ## Consequences
 
@@ -127,7 +184,9 @@ retry the way the screen does.
 - 5 of ~40 coordinator intents are exposed.
 - `describe()` publishes a static capability list plus a per-action `available` flag
   and the requirement behind it; there is no focus/selection model beyond the single
-  `focus` object, which carries the focused task's `taskId` and `title`.
+  `focus` object, which is published only while the screen shows a task and carries
+  exactly `taskId` (the task on the screen) and `title` (the title the screen shows —
+  its draft).
 - The loading state is not reachable end-to-end with the current fakes — the fake
   repository always answers, so the screen settles into `loaded` or `error` — so the
   loading case is asserted through the same predicate the dispatch path uses.
@@ -137,7 +196,8 @@ retry the way the screen does.
   therefore not undoable through the contract, and the tracking is per contract
   instance: a fresh contract does not know about an earlier one's delete.
 - A successful `dispatch` means the action was accepted and handed to the screen, not
-  that the write it started has landed: the outcome shows up in the next `snapshot()`.
+  that the write it started has landed: see [Dispatch semantics](#dispatch-semantics).
+  The outcome shows up in the next `snapshot()`.
 - Runs on the JVM only (`:shared:jvmTest`); no Android instrumentation flow.
 - No persistence/undo window of its own — undo is exactly the existing
   `Domain.Restore` intent.
@@ -149,6 +209,30 @@ a headless agent can read an allow-listed JSON snapshot of Task Detail, drive fi
 named actions through the real coordinator, and get readable refusals for anything
 malformed or not exposed.
 
+### Extracting a reusable contract: authorized, with a boundary
+
+**Authorized.** The contract *shape* this POC proves — screen identity, an
+allow-listed snapshot, an action catalogue with JSON-Schema inputs, availability
+flags, validate-before-dispatch, and the acceptance-vs-completion distinction — is
+good enough to be extracted into a reusable contract rather than left as a
+one-screen adapter. The next milestone may build that reusable layer on top of this
+POC, and the POC's adapter is the reference implementation.
+
+**Bounded.** What is authorized is the *shape*, not a production surface:
+
+- The extraction stays out of production code until the architecture decision
+  (#3046) picks the home (a `core/llm`-style port, a module, or a driver). This
+  note does not pre-decide that.
+- The rules the POC proved are not negotiable in the extraction: the explicit
+  allow-list of actions, the `available` flag and its requirement, the snapshot
+  allow-list, the exact-schema input check (unknown properties refused, not
+  ignored), and the refusal messages that name the supported actions and the
+  expected input shape.
+- What the POC does *not* prove carries over as an open item, not as a hidden
+  assumption: the undo tracking is per contract instance, the loading state is not
+  reachable end-to-end with the current fakes, and dispatch success is not operation
+  completion.
+
 Smallest next step (not built here): a thin driver/CLI that runs this contract
 outside the test tree, plus an agent skill that teaches the agent the action set and
 the refusal semantics.
@@ -159,3 +243,4 @@ the refusal semantics.
 - `shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/introspection/TaskDetailScreenContractTest.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskDetailCoordinator.kt`
 - Issue: https://github.com/gazon1/sing/issues/3035
+- Issue: https://github.com/gazon1/sing/issues/3039 (review round closed by this note)

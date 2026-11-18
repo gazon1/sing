@@ -135,6 +135,26 @@ class MviViewModelCrashReportingTest {
         }
 
     @Test
+    fun `a cause-bearing AppError is reported by its cause but grouped by its domain code`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val cause = IllegalStateException("row missing")
+            val error = AppError.NotFound("Task not found: abc", cause = cause)
+            val vm = Vm(this, reporter) { Result.failure<Unit>(error) }
+
+            vm.drive(I.ReturnedAppError)
+            advanceUntilIdle()
+
+            assertEquals(1, reporter.reports.size)
+            assertSame(cause, reporter.reports.single().first, "The cause carries the stack trace")
+            assertEquals(
+                "error.not_found",
+                reporter.reports.single().second,
+                "The error that names the failure groups it, not its cause",
+            )
+        }
+
+    @Test
     fun `success reports nothing`() =
         runTest {
             val reporter = RecordingCrashReporter()
