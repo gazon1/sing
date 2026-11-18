@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.original
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
