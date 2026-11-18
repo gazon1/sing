@@ -338,6 +338,10 @@ def _failing_selector(report_dir: Path | None, run_id: str) -> tuple[str, str] |
 
     Only the newest attempt is read: a report belongs to the attempt that
     wrote it, and an older attempt's tree would name the wrong element.
+
+    The directory belongs to a single execution, so a tree that is not there
+    is no tree at all: there is no other execution's tree to fall back on,
+    and a message that stays without an element stays without one.
     """
     if report_dir is None or not report_dir.is_dir():
         return None

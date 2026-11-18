@@ -1,7 +1,9 @@
 """maestro._runner — single-flow execution with retry and APK provenance."""
 from __future__ import annotations
 
+import itertools
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -29,6 +31,12 @@ from emulator.maestro._types import (
 #: merely slow. Long enough for the host's queue to drain a little, short
 #: enough not to stretch a 94-flow run.
 RETRY_BACKOFF_SEC = 3.0
+
+#: Counts the executions, so that two of them can never be the same one.
+#: The run id is derived from the clock, and two executions of the same flow
+#: can start within the same millisecond — the counter is what keeps their
+#: report directories apart.
+_RUN_SEQUENCE = itertools.count()
 
 #: Why an acquisition failed, so a recovery that gives up says which of the four
 #: it hit. "Could not obtain a device" alone cannot tell a wedged emulator from a
@@ -166,7 +174,17 @@ def run_one_flow(
         # The runner's own report tree, where the command that failed is
         # recorded. The report's failure message does not always name the
         # element it is about, and the tree does.
-        report_dir = junit_dir / ".maestro-runner" / flow_name
+        #
+        # The tree belongs to this execution alone. A directory that every
+        # execution of the flow shared would let a stale tree name the element
+        # a later run failed on: a run that fails before it writes its own tree
+        # would read the previous run's selector, the message would be
+        # rewritten with an element the run never touched, and the cause
+        # registry would classify a failure the run never had.
+        report_dir = (
+            junit_dir / ".maestro-runner" / flow_name / f"{run_id}-{next(_RUN_SEQUENCE)}"
+        )
+        shutil.rmtree(report_dir, ignore_errors=True)
         # The device the APK was installed on is the device the flow has to
         # run on. Without an explicit `--device` the engine picks one of the
         # connected devices itself, and it picked the physical phone that
