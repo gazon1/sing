@@ -14,6 +14,8 @@ import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.KtValueArgumentList
 
 /**
  * Bans `kotlin.runCatching { ... }` inside a `suspend` function **or a suspend lambda**.
@@ -117,26 +119,27 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
     /**
      * Whether [lambda] is an argument to a call whose parameter type is `suspend`.
      *
-     * The owner is not the lambda's direct parent: in Kotlin PSI a trailing lambda's
-     * [KtLambdaExpression] hangs off a [KtLambdaArgument], and *that* is what points at the
-     * call. Reading `lambda.parent as? KtCallExpression` therefore yields null, the walk falls
-     * through to the enclosing `fun`, and `scope.launch { runCatching { ... } }` reports zero
-     * findings while looking like a passing test — because the `fun` that owns the `launch` is
-     * not itself `suspend`. Getting this wrong is invisible: the rule stays silent rather than
-     * wrong, which is the one failure mode a detector cannot announce.
+     * The owner is not the lambda's direct parent: a trailing lambda hangs off a
+     * [KtLambdaArgument], while a parenthesized lambda hangs off a [KtValueArgument] inside a
+     * [KtValueArgumentList]. Reading only [KtLambdaArgument] misses the parenthesized form and
+     * lets traversal fall through, so `scope.launch { items.forEach({ runCatching { ... } }) }`
+     * would be treated as a boundary. Getting this wrong is invisible: the rule stays silent
+     * rather than wrong.
      */
-    private fun isSuspendLambda(lambda: KtLambdaExpression): Boolean {
-        val argument = lambda.parent as? KtLambdaArgument ?: return false
-        val owner = argument.parent as? KtCallExpression ?: return false
-        val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return false
-        return callee.text in SUSPEND_CALLS
-    }
+    private fun isSuspendLambda(lambda: KtLambdaExpression): Boolean = owningCallName(lambda) in SUSPEND_CALLS
 
-    private fun isInlineLambda(lambda: KtLambdaExpression): Boolean {
-        val argument = lambda.parent as? KtLambdaArgument ?: return false
-        val owner = argument.parent as? KtCallExpression ?: return false
-        val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return false
-        return callee.text in INLINE_CALLS
+    private fun isInlineLambda(lambda: KtLambdaExpression): Boolean = owningCallName(lambda) in INLINE_CALLS
+
+    private fun owningCallName(lambda: KtLambdaExpression): String? {
+        val argument = lambda.parent as? KtValueArgument ?: return null
+        val owner =
+            when (val parent = argument.parent) {
+                is KtCallExpression -> parent
+                is KtValueArgumentList -> parent.parent as? KtCallExpression
+                else -> null
+            } ?: return null
+        val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return null
+        return callee.text
     }
 
     private companion object {
