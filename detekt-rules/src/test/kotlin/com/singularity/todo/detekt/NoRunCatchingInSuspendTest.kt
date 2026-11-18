@@ -256,6 +256,33 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `runCatching in custom non-inline same-named call is a known name-only false positive`() {
+        // Limitation (no semantic resolution): `forEach` is allowlisted as an immediate stdlib-style
+        // call. A custom deferred/non-inline API with the same name is misclassified as inline, so
+        // traversal walks through and flags the nested runCatching even if the callback would not
+        // execute immediately in the coroutine. This test pins the known limitation.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun <T> List<T>.forEach(block: (T) -> Unit) { /* stores block for later */ }
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            1,
+            rule.visitFile(ktFile, languageSettings).size,
+            "name-only inline classification cannot distinguish custom non-inline same-named calls",
+        )
+    }
+
+    @Test
     fun `runCatchingCancellable in a launch lambda is not flagged`() {
         val code =
             """

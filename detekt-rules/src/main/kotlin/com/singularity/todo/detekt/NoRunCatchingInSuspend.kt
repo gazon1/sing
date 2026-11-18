@@ -173,19 +173,20 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
             )
 
         /**
-         * Common inline higher-order calls whose lambda runs immediately in the caller's context.
+         * Common higher-order calls treated as immediate (lambda runs in the caller's context).
          *
-         * PSI rules cannot resolve inline-ness or receiver types, so this name-based allowlist is
-         * limited to calls that are unambiguously immediate. Names shared with deferred Sequence
-         * operators (e.g. `map`, `filter`, `onEach`, `flatMap`) are excluded to avoid false
-         * positives where the lambda is not executed at call time.
+         * PSI rules cannot resolve inline-ness or receiver types, so this is a name-based
+         * allowlist of stdlib-style calls. Names shared with deferred Sequence operators
+         * (e.g. `map`, `filter`, `onEach`, `flatMap`) are excluded to avoid false positives
+         * where the lambda is not executed at call time.
          *
-         * Trade-off (deliberate, no semantic resolution): some of those names also denote Flow
-         * operators with suspending transform lambdas (e.g. `Flow.map {}`) that execute in the
-         * collection/coroutine context. Treating them as suspend owners by name would catch Flow
-         * cases but reintroduce Sequence/Iterable false positives; treating them as immediate inline
-         * would do the opposite. We keep them as boundaries here, accepting possible Flow
-         * false negatives until type-aware analysis is available.
+         * Trade-offs (deliberate, no semantic resolution):
+         * - Flow operators with suspending transform lambdas (e.g. `Flow.map {}`) are not treated
+         *   as suspend owners by name, accepting possible false negatives to avoid Sequence
+         *   deferred-callback false positives.
+         * - A custom non-inline API sharing an allowlisted name (e.g. a deferred `forEach`) can be
+         *   misclassified as immediate, causing a possible false positive until type-aware analysis
+         *   is available.
          */
         val INLINE_CALLS =
             setOf(
