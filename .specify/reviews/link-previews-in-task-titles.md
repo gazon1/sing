@@ -240,4 +240,3 @@ Two things this re-issue does not claim: that the earlier passes describe the co
 is now (the fourth pass narrates an IPv6 policy that was a denylist at the time — the
 allowlist came later, and the credential refusal is not in that narrative), and anything
 about the preview's user-facing behaviour, which no review here looked at.
-

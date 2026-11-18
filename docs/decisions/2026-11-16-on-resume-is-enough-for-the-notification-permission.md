@@ -72,6 +72,7 @@ same way.
    ```
    I am_kill : [0,24502,com.singularity.todo,700,PermissionHelper,333744]
    ```
+
 3. **Granting did not kill the process.** `pid` was unchanged across `pm grant`.
    Returning from system settings delivered `wm_on_resume_called` on `MainActivity`,
    and the runtime permission dialog was answered by the
