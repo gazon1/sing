@@ -256,11 +256,9 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
-    fun `runCatching in custom non-inline same-named call is a known name-only false positive`() {
-        // Limitation (no semantic resolution): `forEach` is allowlisted as an immediate stdlib-style
-        // call. A custom deferred/non-inline API with the same name is misclassified as inline, so
-        // traversal walks through and flags the nested runCatching even if the callback would not
-        // execute immediately in the coroutine. This test pins the known limitation.
+    fun `runCatching in custom non-inline same-named call declared in same file is not flagged`() {
+        // Same-file non-inline declaration heuristic: without binding context we avoid the obvious
+        // custom/deferred shadow case instead of treating the allowlisted name as immediate.
         val code =
             """
             package com.example
@@ -276,9 +274,9 @@ class NoRunCatchingInSuspendTest {
             """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(
-            1,
+            0,
             rule.visitFile(ktFile, languageSettings).size,
-            "name-only inline classification cannot distinguish custom non-inline same-named calls",
+            "same-file non-inline declaration should prevent inline-call traversal false positive",
         )
     }
 
