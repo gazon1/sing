@@ -187,17 +187,19 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
                 onSuccess = { result ->
                     result.onFailure {
                         onBeforeReport(it)
-                        crashReporter.report(error = it, issueKey = issueKeyFor(it, errorLabel))
+                        crashReporter.report(error = it.originalIfAppError(), issueKey = issueKeyFor(it, errorLabel))
                         onError(it.toMessage(errorLabel))
                     }
                 },
                 onFailure = { e ->
                     onBeforeReport(e)
-                    crashReporter.report(error = e, issueKey = issueKeyFor(e, errorLabel))
+                    crashReporter.report(error = e.originalIfAppError(), issueKey = issueKeyFor(e, errorLabel))
                     onError(e.toMessage(errorLabel))
                 },
             )
         }
+
+    private fun Throwable.originalIfAppError(): Throwable = (this as? AppError)?.original() ?: this
 
     /**
      * The grouping key for a reported failure: the error's domain code when it has one,

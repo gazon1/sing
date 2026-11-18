@@ -167,6 +167,36 @@ class MviViewModelCrashReportingTest {
                 "Issue key must not embed user content: ${reporter.reports.single().second}",
             )
         }
+
+    @Test
+    fun `a runCatchingResult-wrapped throwable is reported by original identity`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val original = IOException("socket closed")
+            val vm = Vm(this, reporter) { runCatchingResult<Unit> { throw original } }
+
+            vm.drive(I.ReturnedFailure)
+            advanceUntilIdle()
+
+            assertEquals(1, reporter.reports.size, "Each failure is reported exactly once")
+            assertSame(original, reporter.reports.single().first, "Wrapped original throwable, not AppError wrapper")
+            assertEquals("vm.op_failed", reporter.reports.single().second, "Issue key remains call-site label")
+        }
+
+    @Test
+    fun `an AppError without a cause is reported as itself and grouped by its code`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val error = AppError.Validation("bad title", code = "task.title.blank")
+            val vm = Vm(this, reporter) { Result.failure<Unit>(error) }
+
+            vm.drive(I.ReturnedAppError)
+            advanceUntilIdle()
+
+            assertEquals(1, reporter.reports.size)
+            assertSame(error, reporter.reports.single().first, "AppError without cause remains reported as AppError")
+            assertEquals("task.title.blank", reporter.reports.single().second)
+        }
 }
 
 /** The no-op must be genuinely inert — it is the default for every ViewModel test. */

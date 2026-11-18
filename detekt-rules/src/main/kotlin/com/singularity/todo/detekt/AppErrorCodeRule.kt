@@ -95,7 +95,8 @@ internal object AppErrorCodePolicy {
 
     private const val SIMPLE_NAME = "AppError"
 
-    private val SUBTYPES = setOf("Validation", "NotFound", "Unauthorized", "Persistence", "Network", "Unknown")
+    private val SUBTYPES =
+        setOf("Validation", "NotFound", "Unauthorized", "Persistence", "Network", "Rejected", "Unknown")
 
     /** True when the call passes a **named** `code` argument. A positional one cannot exist. */
     fun hasCodeArgument(arguments: KtValueArgumentList?): Boolean =

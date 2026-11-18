@@ -94,6 +94,42 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `runCatching in inline lambda nested in launch is flagged`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
+    fun `runCatching in parenthesized inline lambda nested in launch is flagged`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach({
+                        runCatching { riskyCall() }
+                    })
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
     fun `runCatching in a non-suspending lambda is not flagged`() {
         // The polarity of the allowlist. `forEach` takes an ordinary lambda, so this one is
         // genuinely not on a coroutine and flagging it would be a false positive.
@@ -134,6 +170,162 @@ class NoRunCatchingInSuspendTest {
             """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
+    fun `runCatching in inline lambda inside ordinary lambda remains a boundary`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(items: List<Int>, block: () -> Unit) {
+                block {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "unknown/non-suspending lambda owners stay boundaries",
+        )
+    }
+
+    @Test
+    fun `runCatching inside sequence builder in a non-suspend function is not flagged`() {
+        // kotlin.sequences.sequence takes a restricted suspend lambda for yield(), not a coroutine
+        // cancellation context; treating it as a suspend owner is a false positive.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun createSequence() = sequence {
+                runCatching { riskyCall() }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
+    fun `runCatching in deferred sequence map callback inside launch is not flagged`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope) {
+                scope.launch {
+                    sequenceOf(1).map {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "Sequence.map callback is deferred and must not be treated as inline immediate context",
+        )
+    }
+
+    @Test
+    fun `runCatching in Flow map callback inside launch is not flagged by name-only rule`() {
+        // Deliberate trade-off without semantic resolution: `map` is ambiguous (deferred
+        // Sequence/Iterable operators vs suspending Flow operators). Treating it as a boundary
+        // avoids Sequence false positives but accepts this possible Flow false negative.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope, flow: Flow<Int>) {
+                scope.launch {
+                    flow.map { runCatching { riskyCall() } }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "Flow.map is intentionally left unclassified here to avoid Sequence false positives",
+        )
+    }
+
+    @Test
+    fun `runCatching in custom non-inline same-named non-extension call in same file is not flagged`() {
+        // Narrow heuristic: a same-file non-extension, non-inline declaration with the same name
+        // is treated as a boundary to avoid an obvious custom shadow false positive.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun forEach(block: () -> Unit) { /* stores block for later */ }
+            fun start(scope: CoroutineScope) {
+                scope.launch {
+                    forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "same-file non-inline non-extension declaration should prevent traversal false positive",
+        )
+    }
+
+    @Test
+    fun `unrelated same-file non-inline extension does not suppress standard inline call detection`() {
+        // Extension declarations are excluded from the heuristic to avoid suppressing detection
+        // for unrelated overloads/calls in the same file.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun String.forEach(block: (Char) -> Unit) { /* unrelated deferred/custom extension */ }
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            1,
+            rule.visitFile(ktFile, languageSettings).size,
+            "unrelated same-file extension declaration must not disable detection for standard call",
+        )
+    }
+
+    @Test
+    fun `unrelated same-file non-inline top-level declaration does not suppress receiver-qualified inline call`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun forEach(block: () -> Unit) { /* unrelated non-extension declaration */ }
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            1,
+            rule.visitFile(ktFile, languageSettings).size,
+            "receiver-qualified call cannot resolve to a non-extension top-level declaration",
+        )
     }
 
     @Test

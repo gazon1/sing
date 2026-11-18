@@ -10,10 +10,13 @@ import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtCallExpression
-import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.KtValueArgumentList
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 
 /**
  * Bans `kotlin.runCatching { ... }` inside a `suspend` function **or a suspend lambda**.
@@ -71,23 +74,21 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
     /**
      * Whether [expression] sits inside something that runs on a coroutine.
      *
-     * Two shapes count, and the second one used to be missed:
+     * Three shapes count:
      *
      * - a `suspend fun` — a [KtNamedFunction] carrying the modifier.
      * - a **suspend lambda** — a trailing/argument lambda passed to a call whose parameter
      *   type is `suspend`.
-     *
-     * The second is not a cosmetic addition. `scope.launch { runCatching { ... } }` is the
-     * shape every background repository `init` block in this codebase uses, so a walk that stops
-     * at named functions reported a clean tree while `SyncPrefs` sat there with a plain
-     * `runCatching`. The rule's own activation note claimed "the tree reports zero
-     * violations", which was true only of the shape that had been tested.
+     * - an **inline lambda** nested inside a suspend context — e.g.
+     *   `launch { items.forEach { runCatching { ... } } }`. `forEach` executes its lambda in the
+     *   caller's context, so a `runCatching` inside it still runs on the coroutine and must be
+     *   flagged.
      *
      * Lambda membership is decided by the **callee's name**, not by resolution: a PSI rule has
-     * no type information, and an allowlist is the safe polarity for that. A name not in
-     * [SUSPEND_CALLS] is assumed not to take a suspend lambda, so `list.forEach { runCatching
-     * { ... } }` is still not flagged — which is the correct answer, since a `forEach` lambda
-     * is not suspending.
+     * no type information. [SUSPEND_CALLS] marks suspend-lambda owners, [INLINE_CALLS] marks
+     * common inline higher-order calls whose lambdas are transparent to the enclosing context,
+     * and any other non-suspending lambda is treated as a boundary to avoid broad false
+     * positives on unknown/non-inline callbacks.
      */
     private fun isInsideSuspendContext(expression: KtCallExpression): Boolean {
         var current = expression.parent
@@ -95,12 +96,17 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
             when (current) {
                 is KtNamedFunction -> {
                     // A `suspend fun` boundary stops the walk in both directions: a
-                    // `runCatching` below a non-sus suspend function is not ours to report.
+                    // `runCatching` below a non-suspend function is not ours to report.
                     return current.hasModifier(SUSPEND_KEYWORD)
                 }
 
                 is KtLambdaExpression -> {
-                    return isSuspendLambda(current)
+                    if (isSuspendLambda(current)) return true
+                    if (isInlineLambda(current)) {
+                        current = current.parent
+                        continue
+                    }
+                    return false
                 }
 
                 else -> {
@@ -114,19 +120,48 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
     /**
      * Whether [lambda] is an argument to a call whose parameter type is `suspend`.
      *
-     * The owner is not the lambda's direct parent: in Kotlin PSI a trailing lambda's
-     * [KtLambdaExpression] hangs off a [KtLambdaArgument], and *that* is what points at the
-     * call. Reading `lambda.parent as? KtCallExpression` therefore yields null, the walk falls
-     * through to the enclosing `fun`, and `scope.launch { runCatching { ... } }` reports zero
-     * findings while looking like a passing test — because the `fun` that owns the `launch` is
-     * not itself `suspend`. Getting this wrong is invisible: the rule stays silent rather than
-     * wrong, which is the one failure mode a detector cannot announce.
+     * The owner is not the lambda's direct parent: a trailing lambda hangs off a
+     * [KtLambdaArgument], while a parenthesized lambda hangs off a [KtValueArgument] inside a
+     * [KtValueArgumentList]. Reading only [KtLambdaArgument] misses the parenthesized form and
+     * lets traversal fall through, so `scope.launch { items.forEach({ runCatching { ... } }) }`
+     * would be treated as a boundary. Getting this wrong is invisible: the rule stays silent
+     * rather than wrong.
      */
-    private fun isSuspendLambda(lambda: KtLambdaExpression): Boolean {
-        val argument = lambda.parent as? KtLambdaArgument ?: return false
-        val owner = argument.parent as? KtCallExpression ?: return false
-        val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return false
-        return callee.text in SUSPEND_CALLS
+    private fun isSuspendLambda(lambda: KtLambdaExpression): Boolean = owningCallName(lambda) in SUSPEND_CALLS
+
+    private fun isInlineLambda(lambda: KtLambdaExpression): Boolean {
+        val owner = owningCall(lambda) ?: return false
+        val name = owner.calleeExpression?.text ?: return false
+        if (name !in INLINE_CALLS) return false
+        val isReceiverQualified =
+            (owner.parent as? KtQualifiedExpression)?.selectorExpression == owner
+        if (isReceiverQualified) return true
+        // Name-only allowlist has no type/inline resolution. For unqualified calls, a same-file
+        // non-extension, non-inline declaration with the same name is treated as a boundary to
+        // avoid an obvious custom shadow false positive. Receiver-qualified calls cannot resolve
+        // to a non-extension top-level declaration, so unrelated same-file declarations must not
+        // suppress detection. Narrow heuristic; custom extension shadows or declarations outside
+        // the file may still be misclassified until type-aware analysis is available.
+        val hasNonInlineSameNameNonExtensionDeclaration =
+            lambda.containingKtFile.collectDescendantsOfType<KtNamedFunction>().any { fn ->
+                fn.name == name &&
+                    !fn.hasModifier(KtTokens.INLINE_KEYWORD) &&
+                    fn.receiverTypeReference == null
+            }
+        return !hasNonInlineSameNameNonExtensionDeclaration
+    }
+
+    private fun owningCallName(lambda: KtLambdaExpression): String? = owningCall(lambda)?.calleeExpression?.text
+
+    private fun owningCall(lambda: KtLambdaExpression): KtCallExpression? {
+        val argument = lambda.parent as? KtValueArgument ?: return null
+        val owner =
+            when (val parent = argument.parent) {
+                is KtCallExpression -> parent
+                is KtValueArgumentList -> parent.parent as? KtCallExpression
+                else -> null
+            } ?: return null
+        return if (owner.calleeExpression is KtNameReferenceExpression) owner else null
     }
 
     private companion object {
@@ -157,6 +192,50 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                 "transform",
                 "mapLatest",
                 "launchIn",
+            )
+
+        /**
+         * Common higher-order calls treated as immediate (lambda runs in the caller's context).
+         *
+         * PSI rules cannot resolve inline-ness or receiver types, so this is a name-based
+         * allowlist of stdlib-style calls. A narrow heuristic avoids obvious same-file non-extension
+         * custom shadows for unqualified calls, while receiver-qualified calls are not suppressed by
+         * unrelated non-extension declarations in the same file. Names shared with deferred Sequence
+         * operators (e.g. `map`, `filter`, `onEach`, `flatMap`) are excluded to avoid false
+         * positives where the lambda is not executed at call time.
+         *
+         * Trade-offs (deliberate, no semantic resolution):
+         * - Flow operators with suspending transform lambdas (e.g. `Flow.map {}`) are not treated
+         *   as suspend owners by name, accepting possible false negatives to avoid Sequence
+         *   deferred-callback false positives.
+         * - Custom non-inline APIs sharing allowlisted names (extension shadows, or declarations
+         *   outside the current file) may still be misclassified; full resolution would require
+         *   binding context/type-aware analysis.
+         */
+        val INLINE_CALLS =
+            setOf(
+                "also",
+                "apply",
+                "buildList",
+                "buildMap",
+                "buildSet",
+                "buildString",
+                "fold",
+                "foldIndexed",
+                "forEach",
+                "forEachIndexed",
+                "let",
+                "measureTimeMillis",
+                "measureTimedValue",
+                "reduce",
+                "reduceIndexed",
+                "repeat",
+                "run",
+                "synchronized",
+                "takeIf",
+                "takeUnless",
+                "use",
+                "with",
             )
 
         val SUSPEND_KEYWORD = KtTokens.SUSPEND_KEYWORD

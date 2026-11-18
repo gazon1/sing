@@ -128,11 +128,31 @@ class AppErrorCodeRuleTest {
     }
 
     @Test
+    fun `a rejected without a code is flagged`() {
+        val findings = findingsFor("""fun check() { throw AppError.Rejected("denied") }""")
+        assertEquals(1, findings.size, findings.map { it.message }.toString())
+    }
+
+    @Test
+    fun `a rejected with a code is not flagged`() {
+        val findings =
+            findingsFor(
+                """
+                fun check() {
+                    throw AppError.Rejected("denied", code = "sync.push_rejected")
+                }
+                """.trimIndent(),
+            )
+        assertEquals(0, findings.size, findings.map { it.message }.toString())
+    }
+
+    @Test
     fun `every AppError subtype is covered`() {
         // The subtype list is a literal in the policy. A subtype added to the sealed class and
         // not to the rule is a construction site that stops being checked — the exact shape of
         // defect this rule exists to prevent, one level up.
-        val expected = setOf("Validation", "NotFound", "Unauthorized", "Persistence", "Network", "Unknown")
+        val expected =
+            setOf("Validation", "NotFound", "Unauthorized", "Persistence", "Network", "Rejected", "Unknown")
         assertEquals(expected, AppErrorCodePolicy.subtypes(), "subtype list drifted from AppError")
 
         for (subtype in expected) {
