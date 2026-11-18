@@ -20,7 +20,7 @@ rumdl = "0.3.2"
 # The fork, not the upstream release: the fix for a duplicated declaration
 # across components (mokevnin/easement#114) is not in an upstream release yet.
 # The fork publishes its own release for it, so this is a download, not a build.
-"github:gazon1/easement" = "0.5.1"
+"github:mokevnin/easement" = "latest"
 "github:mokevnin/heavy" = "latest"
 # The second Maestro executor is *not* installed through mise: the runner needs
 # its driver binaries (drivers/android) next to the binary, and every mise
