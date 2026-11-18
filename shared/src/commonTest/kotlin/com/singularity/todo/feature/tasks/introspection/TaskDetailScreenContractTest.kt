@@ -2,18 +2,24 @@
 
 package com.singularity.todo.feature.tasks.introspection
 
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SlotFakes
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.awaitState
 import com.singularity.todo.test.helpers.testVm
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -375,12 +381,30 @@ class TaskDetailScreenContractTest {
         runTest {
             val fakes = SlotFakes()
             fakes.taskRepo.seed(task("t1"))
-            val screen = screenFor(fakes)
+
+            // The write waits at a gate this test opens. That is what makes "the
+            // operation has not completed" a fact about the test rather than about the
+            // dispatcher: the write cannot finish before the gate opens, whatever the
+            // dispatcher does with the coroutine that carries it.
+            val gate = CompletableDeferred<Unit>()
+            val gated = GatedTaskRepository(fakes.taskRepo, gate)
+            val screen =
+                screenFor(
+                    fakes,
+                    deps =
+                        fakes.deps().copy(
+                            core =
+                                fakes.core().copy(
+                                    taskRepo = gated,
+                                    updateTask = UpdateTaskUseCase(gated, FakeClock()),
+                                ),
+                        ),
+                )
             awaitState { screen.snapshot().text("status") == "loaded" }
 
-            // The dispatch returns as soon as the action is handed to the coordinator:
-            // the write it started has not landed yet, so the screen still shows the
-            // old value.
+            // The dispatch returns while the write is still held at the gate: it hands
+            // the action to the coordinator, it does not wait for the operation to
+            // finish. A dispatch that waited would never return.
             assertTrue(
                 screen.dispatch("set_priority", buildJsonObject { put("priority", "high") }).isSuccess,
             )
@@ -388,11 +412,12 @@ class TaskDetailScreenContractTest {
                 TaskPriority.None,
                 fakes.taskRepo.tasks.value["t1"]
                     ?.priority,
-                "the write has not landed when the dispatch returns",
+                "the operation has not completed while it is held at the gate",
             )
-            assertEquals("none", screen.snapshot().obj("task")?.text("priority"))
 
-            // The outcome shows up in the next snapshot, once the screen has done the work.
+            // The gate opens: the operation completes, and the outcome shows up in the
+            // next snapshot.
+            gate.complete(Unit)
             awaitState { screen.snapshot().obj("task")?.text("priority") == "high" }
             assertEquals(
                 TaskPriority.High,
@@ -512,6 +537,7 @@ class TaskDetailScreenContractTest {
     private fun TestScope.screenFor(
         fakes: SlotFakes,
         events: MutableList<TaskDetailUiEvent> = mutableListOf(),
+        deps: TaskDetailDeps = fakes.deps(),
     ): TaskDetailScreenContract {
         val ctx =
             testVm<TaskDetailCoordinator, TaskDetailUiState>(
@@ -522,12 +548,27 @@ class TaskDetailScreenContractTest {
                 },
             ) { scope ->
                 TaskDetailCoordinator(
-                    deps = fakes.deps(),
+                    deps = deps,
                     taskId = TaskId("t1"),
                     scope = scope,
                 )
             }
         return TaskDetailScreenContract(ctx.vm)
+    }
+}
+
+/**
+ * A task repository whose writes wait at a gate the test opens.
+ *
+ * The gate is what lets a test say "this operation has not completed yet" without
+ * depending on how a dispatcher happens to schedule the coroutine that carries the
+ * write: the write cannot finish before the gate opens, on any dispatcher.
+ */
+private class GatedTaskRepository(private val delegate: TaskRepository, private val gate: CompletableDeferred<Unit>) :
+    TaskRepository by delegate {
+    override suspend fun update(item: Task): Result<Task> {
+        gate.await()
+        return delegate.update(item)
     }
 }
 

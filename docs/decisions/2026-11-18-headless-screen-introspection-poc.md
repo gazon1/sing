@@ -127,6 +127,11 @@ different questions: "was the action accepted?" (the dispatch result) and "did i
 work?" (the next snapshot). A caller that needs the second has to look; the POC does
 not pretend the first implies the second.
 
+The distinction is tested, not asserted: the test holds the write at a gate it
+controls, so the operation cannot finish before the test opens it. `dispatch()`
+returns while the write is still waiting — a dispatch that waited for completion
+would never return — and the outcome appears in the snapshot after the gate opens.
+
 ## Verification
 
 Actual commands and results (2026-11-18, Linux, warm Gradle cache):
