@@ -132,14 +132,19 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
     private fun isInlineLambda(lambda: KtLambdaExpression): Boolean {
         val name = owningCallName(lambda) ?: return false
         if (name !in INLINE_CALLS) return false
-        // Name-only allowlist has no type/inline resolution. If the same file declares a
-        // non-inline function with this name (e.g. a custom deferred forEach), treat the call as
-        // a boundary to avoid a false positive. Conservative: may miss same-named inline defs.
-        val hasNonInlineSameNameDeclaration =
+        // Name-only allowlist has no type/inline resolution. To avoid obvious custom shadow false
+        // positives, treat a same-file non-extension, non-inline declaration with the same name as
+        // a boundary. Extension declarations are ignored here: suppressing on any same-named
+        // extension would also disable detection for unrelated overloads/calls in the same file.
+        // This is a narrow heuristic and may still misclassify custom extension shadows or
+        // declarations outside the file until type-aware analysis is available.
+        val hasNonInlineSameNameNonExtensionDeclaration =
             lambda.containingKtFile.collectDescendantsOfType<KtNamedFunction>().any { fn ->
-                fn.name == name && !fn.hasModifier(KtTokens.INLINE_KEYWORD)
+                fn.name == name &&
+                    !fn.hasModifier(KtTokens.INLINE_KEYWORD) &&
+                    fn.receiverTypeReference == null
             }
-        return !hasNonInlineSameNameDeclaration
+        return !hasNonInlineSameNameNonExtensionDeclaration
     }
 
     private fun owningCallName(lambda: KtLambdaExpression): String? {
@@ -188,17 +193,19 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
          * Common higher-order calls treated as immediate (lambda runs in the caller's context).
          *
          * PSI rules cannot resolve inline-ness or receiver types, so this is a name-based
-         * allowlist of stdlib-style calls, with a same-file non-inline declaration heuristic to
-         * avoid obvious custom shadow false positives. Names shared with deferred Sequence
-         * operators (e.g. `map`, `filter`, `onEach`, `flatMap`) are excluded to avoid false
-         * positives where the lambda is not executed at call time.
+         * allowlist of stdlib-style calls. A narrow same-file heuristic treats non-extension,
+         * non-inline declarations with the same name as boundaries to avoid obvious custom shadow
+         * false positives without suppressing detection for unrelated same-file extension overloads.
+         * Names shared with deferred Sequence operators (e.g. `map`, `filter`, `onEach`, `flatMap`)
+         * are excluded to avoid false positives where the lambda is not executed at call time.
          *
          * Trade-offs (deliberate, no semantic resolution):
          * - Flow operators with suspending transform lambdas (e.g. `Flow.map {}`) are not treated
          *   as suspend owners by name, accepting possible false negatives to avoid Sequence
          *   deferred-callback false positives.
-         * - Custom non-inline APIs sharing allowlisted names outside the current file may still be
-         *   misclassified; full resolution would require binding context/type-aware analysis.
+         * - Custom non-inline APIs sharing allowlisted names (extension shadows, or declarations
+         *   outside the current file) may still be misclassified; full resolution would require
+         *   binding context/type-aware analysis.
          */
         val INLINE_CALLS =
             setOf(

@@ -256,14 +256,39 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
-    fun `runCatching in custom non-inline same-named call declared in same file is not flagged`() {
-        // Same-file non-inline declaration heuristic: without binding context we avoid the obvious
-        // custom/deferred shadow case instead of treating the allowlisted name as immediate.
+    fun `runCatching in custom non-inline same-named non-extension call in same file is not flagged`() {
+        // Narrow heuristic: a same-file non-extension, non-inline declaration with the same name
+        // is treated as a boundary to avoid an obvious custom shadow false positive.
         val code =
             """
             package com.example
             import kotlin.runCatching
-            fun <T> List<T>.forEach(block: (T) -> Unit) { /* stores block for later */ }
+            fun forEach(block: () -> Unit) { /* stores block for later */ }
+            fun start(scope: CoroutineScope) {
+                scope.launch {
+                    forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "same-file non-inline non-extension declaration should prevent traversal false positive",
+        )
+    }
+
+    @Test
+    fun `unrelated same-file non-inline extension does not suppress standard inline call detection`() {
+        // Extension declarations are excluded from the heuristic to avoid suppressing detection
+        // for unrelated overloads/calls in the same file.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun String.forEach(block: (Char) -> Unit) { /* unrelated deferred/custom extension */ }
             fun start(scope: CoroutineScope, items: List<Int>) {
                 scope.launch {
                     items.forEach {
@@ -274,9 +299,9 @@ class NoRunCatchingInSuspendTest {
             """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(
-            0,
+            1,
             rule.visitFile(ktFile, languageSettings).size,
-            "same-file non-inline declaration should prevent inline-call traversal false positive",
+            "unrelated same-file extension declaration must not disable detection for standard call",
         )
     }
 
