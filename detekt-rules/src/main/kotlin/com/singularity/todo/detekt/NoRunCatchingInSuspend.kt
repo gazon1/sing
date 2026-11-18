@@ -71,23 +71,21 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
     /**
      * Whether [expression] sits inside something that runs on a coroutine.
      *
-     * Two shapes count, and the second one used to be missed:
+     * Three shapes count:
      *
      * - a `suspend fun` — a [KtNamedFunction] carrying the modifier.
      * - a **suspend lambda** — a trailing/argument lambda passed to a call whose parameter
      *   type is `suspend`.
-     *
-     * The second is not a cosmetic addition. `scope.launch { runCatching { ... } }` is the
-     * shape every background repository `init` block in this codebase uses, so a walk that stops
-     * at named functions reported a clean tree while `SyncPrefs` sat there with a plain
-     * `runCatching`. The rule's own activation note claimed "the tree reports zero
-     * violations", which was true only of the shape that had been tested.
+     * - an **inline lambda** nested inside a suspend context — e.g.
+     *   `launch { items.forEach { runCatching { ... } } }`. `forEach` executes its lambda in the
+     *   caller's context, so a `runCatching` inside it still runs on the coroutine and must be
+     *   flagged.
      *
      * Lambda membership is decided by the **callee's name**, not by resolution: a PSI rule has
-     * no type information, and an allowlist is the safe polarity for that. A name not in
-     * [SUSPEND_CALLS] is assumed not to take a suspend lambda, so `list.forEach { runCatching
-     * { ... } }` is still not flagged — which is the correct answer, since a `forEach` lambda
-     * is not suspending.
+     * no type information. [SUSPEND_CALLS] marks suspend-lambda owners, [INLINE_CALLS] marks
+     * common inline higher-order calls whose lambdas are transparent to the enclosing context,
+     * and any other non-suspending lambda is treated as a boundary to avoid broad false
+     * positives on unknown/non-inline callbacks.
      */
     private fun isInsideSuspendContext(expression: KtCallExpression): Boolean {
         var current = expression.parent
@@ -95,12 +93,17 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
             when (current) {
                 is KtNamedFunction -> {
                     // A `suspend fun` boundary stops the walk in both directions: a
-                    // `runCatching` below a non-sus suspend function is not ours to report.
+                    // `runCatching` below a non-suspend function is not ours to report.
                     return current.hasModifier(SUSPEND_KEYWORD)
                 }
 
                 is KtLambdaExpression -> {
-                    return isSuspendLambda(current)
+                    if (isSuspendLambda(current)) return true
+                    if (isInlineLambda(current)) {
+                        current = current.parent
+                        continue
+                    }
+                    return false
                 }
 
                 else -> {
@@ -127,6 +130,13 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
         val owner = argument.parent as? KtCallExpression ?: return false
         val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return false
         return callee.text in SUSPEND_CALLS
+    }
+
+    private fun isInlineLambda(lambda: KtLambdaExpression): Boolean {
+        val argument = lambda.parent as? KtLambdaArgument ?: return false
+        val owner = argument.parent as? KtCallExpression ?: return false
+        val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return false
+        return callee.text in INLINE_CALLS
     }
 
     private companion object {
@@ -157,6 +167,51 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                 "transform",
                 "mapLatest",
                 "launchIn",
+            )
+
+        /**
+         * Common inline higher-order calls whose lambda runs in the caller's context.
+         *
+         * PSI rules cannot resolve inline-ness, so this name-based allowlist is used to walk
+         * through inline lambdas (e.g. `forEach`, `let`) and keep detecting `runCatching` inside
+         * an enclosing suspend context. Unknown/non-inline calls remain boundaries.
+         */
+        val INLINE_CALLS =
+            setOf(
+                "also",
+                "apply",
+                "buildList",
+                "buildMap",
+                "buildSet",
+                "buildString",
+                "filter",
+                "filterIndexed",
+                "filterIsInstance",
+                "filterNot",
+                "flatMap",
+                "flatMapIndexed",
+                "fold",
+                "foldIndexed",
+                "forEach",
+                "forEachIndexed",
+                "let",
+                "map",
+                "mapIndexed",
+                "mapNotNull",
+                "measureTimeMillis",
+                "measureTimedValue",
+                "onEach",
+                "onEachIndexed",
+                "reduce",
+                "reduceIndexed",
+                "repeat",
+                "run",
+                "sequence",
+                "synchronized",
+                "takeIf",
+                "takeUnless",
+                "use",
+                "with",
             )
 
         val SUSPEND_KEYWORD = KtTokens.SUSPEND_KEYWORD

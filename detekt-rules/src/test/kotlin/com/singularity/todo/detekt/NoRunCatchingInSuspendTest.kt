@@ -94,6 +94,24 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `runCatching in inline lambda nested in launch is flagged`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
     fun `runCatching in a non-suspending lambda is not flagged`() {
         // The polarity of the allowlist. `forEach` takes an ordinary lambda, so this one is
         // genuinely not on a coroutine and flagging it would be a false positive.
@@ -134,6 +152,28 @@ class NoRunCatchingInSuspendTest {
             """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
+    fun `runCatching in inline lambda inside ordinary lambda remains a boundary`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(items: List<Int>, block: () -> Unit) {
+                block {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "unknown/non-suspending lambda owners stay boundaries",
+        )
     }
 
     @Test
