@@ -174,11 +174,12 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
             )
 
         /**
-         * Common inline higher-order calls whose lambda runs in the caller's context.
+         * Common inline higher-order calls whose lambda runs immediately in the caller's context.
          *
-         * PSI rules cannot resolve inline-ness, so this name-based allowlist is used to walk
-         * through inline lambdas (e.g. `forEach`, `let`) and keep detecting `runCatching` inside
-         * an enclosing suspend context. Unknown/non-inline calls remain boundaries.
+         * PSI rules cannot resolve inline-ness or receiver types, so this name-based allowlist is
+         * limited to calls that are unambiguously immediate. Names shared with deferred Sequence
+         * operators (e.g. `map`, `filter`, `onEach`) are excluded to avoid false positives; they
+         * are treated as boundaries unless semantic resolution is added.
          */
         val INLINE_CALLS =
             setOf(
@@ -188,24 +189,13 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                 "buildMap",
                 "buildSet",
                 "buildString",
-                "filter",
-                "filterIndexed",
-                "filterIsInstance",
-                "filterNot",
-                "flatMap",
-                "flatMapIndexed",
                 "fold",
                 "foldIndexed",
                 "forEach",
                 "forEachIndexed",
                 "let",
-                "map",
-                "mapIndexed",
-                "mapNotNull",
                 "measureTimeMillis",
                 "measureTimedValue",
-                "onEach",
-                "onEachIndexed",
                 "reduce",
                 "reduceIndexed",
                 "repeat",

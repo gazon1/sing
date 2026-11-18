@@ -209,6 +209,28 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `runCatching in deferred sequence map callback inside launch is not flagged`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope) {
+                scope.launch {
+                    sequenceOf(1).map {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "Sequence.map callback is deferred and must not be treated as inline immediate context",
+        )
+    }
+
+    @Test
     fun `runCatchingCancellable in a launch lambda is not flagged`() {
         val code =
             """
