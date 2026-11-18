@@ -352,6 +352,56 @@ class TaskDetailScreenContractTest {
         }
 
     @Test
+    fun `the description publishes the focused task the way the decision note says`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1", title = "Original"))
+            val screen = screenFor(fakes)
+            awaitState { screen.snapshot().text("status") == "loaded" }
+
+            // The focus object carries exactly the task id and the title the screen
+            // shows — the shape the decision note documents.
+            val focus = screen.describe().obj("focus")
+            assertEquals(setOf("taskId", "title"), focus?.keys)
+            assertEquals("t1", focus?.text("taskId"))
+            assertEquals("Original", focus?.text("title"))
+
+            // A screen that is not showing a task publishes no focus at all.
+            assertNull(screen.describe(TaskDetailUiState.Loading).obj("focus"))
+        }
+
+    @Test
+    fun `a successful dispatch is an accepted action, not a completed operation`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val screen = screenFor(fakes)
+            awaitState { screen.snapshot().text("status") == "loaded" }
+
+            // The dispatch returns as soon as the action is handed to the coordinator:
+            // the write it started has not landed yet, so the screen still shows the
+            // old value.
+            assertTrue(
+                screen.dispatch("set_priority", buildJsonObject { put("priority", "high") }).isSuccess,
+            )
+            assertEquals(
+                TaskPriority.None,
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.priority,
+                "the write has not landed when the dispatch returns",
+            )
+            assertEquals("none", screen.snapshot().obj("task")?.text("priority"))
+
+            // The outcome shows up in the next snapshot, once the screen has done the work.
+            awaitState { screen.snapshot().obj("task")?.text("priority") == "high" }
+            assertEquals(
+                TaskPriority.High,
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.priority,
+            )
+        }
+
+    @Test
     fun `the published schema says the same thing as the dispatcher`() =
         runTest {
             val fakes = SlotFakes()

@@ -57,33 +57,49 @@ class TaskDetailScreenContract(private val coordinator: TaskDetailCoordinator) {
         private val available: (TaskDetailUiState) -> Boolean = { true },
         private val toIntent: (JsonObject) -> TaskDetailIntent.Domain,
     ) {
+        /** The properties the published schema defines. */
+        private val accepted: Set<String> = (inputSchema["properties"] as? JsonObject)?.keys.orEmpty()
+
         /** Whether the screen can act on this action in the given state. */
         fun isAvailable(state: TaskDetailUiState): Boolean = available(state)
 
         /**
+         * Whether the input matches the published schema exactly.
+         *
+         * A property the schema does not define is refused, not ignored. Accepting one
+         * would let an agent believe a flag it invented took effect, while the screen
+         * never saw it. An action whose schema takes no input therefore takes no
+         * property at all.
+         *
+         * This runs before the intent is built, so an input that does not fit the
+         * schema never reaches the mapping.
+         */
+        internal fun validate(input: JsonObject): Result<Unit> {
+            val unexpected = input.keys - accepted
+            if (unexpected.isEmpty()) {
+                return Result.success(Unit)
+            }
+            return Result.failure(
+                IllegalArgumentException(
+                    "unexpected propert${if (unexpected.size == 1) "y" else "ies"} " +
+                        unexpected.sorted().joinToString { "'$it'" },
+                ),
+            )
+        }
+
+        /**
          * The intent this action stands for, or a refusal that says what is wrong.
          *
-         * The input has to match the published schema exactly: a property the schema
-         * does not define is refused, not ignored. Accepting one would let an agent
-         * believe a flag it invented took effect, while the screen never saw it.
+         * The input has already been checked against the published schema; what is
+         * left is the value the screen needs — a required field that is missing, of
+         * the wrong type, or outside the accepted set.
          */
-        internal fun intentFor(input: JsonObject): Result<TaskDetailIntent.Domain> {
-            val accepted = (inputSchema["properties"] as? JsonObject)?.keys ?: emptySet()
-            val unexpected = input.keys - accepted
-            if (unexpected.isNotEmpty()) {
-                return Result.failure(
-                    IllegalArgumentException(
-                        "unexpected propert${if (unexpected.size == 1) "y" else "ies"} " +
-                            unexpected.sorted().joinToString { "'$it'" },
-                    ),
-                )
-            }
-            return try {
+        internal fun intentFor(input: JsonObject): Result<TaskDetailIntent.Domain> =
+            try {
                 Result.success(toIntent(input))
             } catch (e: IllegalArgumentException) {
                 Result.failure(e)
             }
-        }
     }
 
     /**
@@ -142,6 +158,11 @@ class TaskDetailScreenContract(private val coordinator: TaskDetailCoordinator) {
      * The description is what an agent reads first: the screen's stable name, the
      * state it is in, the node it is focused on, and the actions it accepts — each
      * with its input shape and whether it can be acted on right now.
+     *
+     * The `focus` object is published only while the screen is showing a task, and
+     * carries exactly two fields: `taskId` — the task on the screen — and `title`,
+     * the title the screen currently shows (its draft, so an edit in progress is
+     * what a reader sees).
      */
     fun describe(): JsonObject = describe(coordinator.stateFlow.value)
 
@@ -201,11 +222,13 @@ class TaskDetailScreenContract(private val coordinator: TaskDetailCoordinator) {
      * The input is checked before anything is dispatched: an unknown action, an action
      * the screen cannot act on right now, a property the action's schema does not
      * define, or a malformed input comes back as a failure that names the supported
-     * actions and the shape the input had to have.
+     * actions and the shape the input had to have. The schema check runs before the
+     * intent is built, so an input that does not fit never reaches the mapping.
      *
-     * A successful dispatch means the action was accepted and handed to the screen —
-     * not that the write it started has landed. The outcome shows up in the next
-     * [snapshot].
+     * A successful dispatch means the action was **accepted and handed to the
+     * coordinator** — not that the write it started has landed. The screen does that
+     * work asynchronously, so the outcome shows up in the next [snapshot], not in the
+     * result of this call.
      */
     fun dispatch(
         action: String,
@@ -234,28 +257,36 @@ class TaskDetailScreenContract(private val coordinator: TaskDetailCoordinator) {
                 ),
             )
         }
-        return spec.intentFor(input).fold(
-            onSuccess = { intent ->
-                coordinator.onIntent(intent)
-                if (spec.name == "delete_task") {
-                    deleteDispatched = true
-                }
-                Result.success(Unit)
-            },
-            onFailure = { error ->
-                Result.failure(
-                    IllegalArgumentException(
-                        "Action '${spec.name}' rejected the input: ${error.message}. " +
-                            "Expected input: ${spec.inputSchema}. " +
-                            "Supported actions: ${supportedActions()}",
-                    ),
+        return spec.validate(input).fold(
+            onSuccess = {
+                spec.intentFor(input).fold(
+                    onSuccess = { intent ->
+                        coordinator.onIntent(intent)
+                        if (spec.name == "delete_task") {
+                            deleteDispatched = true
+                        }
+                        Result.success(Unit)
+                    },
+                    onFailure = { error -> Result.failure(rejection(spec, error.message)) },
                 )
             },
+            onFailure = { error -> Result.failure(rejection(spec, error.message)) },
         )
     }
 
     /** The names of the actions this screen accepts. */
     private fun supportedActions(): String = actions.joinToString { it.name }
+
+    /** The refusal an action answers with: what was wrong, what was expected, what is supported. */
+    private fun rejection(
+        spec: Action,
+        reason: String?,
+    ): IllegalArgumentException =
+        IllegalArgumentException(
+            "Action '${spec.name}' rejected the input: $reason. " +
+                "Expected input: ${spec.inputSchema}. " +
+                "Supported actions: ${supportedActions()}",
+        )
 
     /**
      * Whether the screen is showing a task.
