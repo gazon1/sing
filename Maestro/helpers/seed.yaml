@@ -8,7 +8,14 @@
 # `SeedLinkKeys` in `core/seed/`; an unknown key is logged by name and ignored,
 # while the known keys in the same query are still seeded.
 #   task=<title>              — create a task
-#   desc=<text>               — description of the seeded task
+#   desc=<text>               — description of the seeded task; on a note it is
+#     the note's body
+#   priority=none|low|medium|high|urgent — priority of the seeded task
+#   inProject=<project name>  — put the seeded task in that project. The project
+#     is named by its name because the link that seeds the task cannot know a
+#     generated id. A project that is not there fails the seed: the task is
+#     not written at all — a task that silently landed outside the project
+#     would test something other than what the fixture asked for.
 #   due=today|tomorrow|-1d|+1d|<YYYY-MM-DD> — task due date
 #   updatedAt=now|-22d|<ISO instant> — task created/updated timestamps
 #   blockedBy=<task title>    — make the task depend on an existing task
@@ -27,9 +34,16 @@
 #     with the reason on it, and the app does not come up — the flow fails at
 #     the seed, not later on a row that was never written.
 #   projects=<count>          — create <count> projects named "Bulk 001"…
-#   profile=<name>            — create and switch to a profile
+#   profile=<name>            — create and switch to a profile. The switch happens
+#     BEFORE anything is written or deleted, so a link that names a profile writes
+#     into it and a link that names one and resets wipes that profile alone.
 #   session=anonymous|signedout|signedin — change the session
-#   reset=content             — wipe the active profile's content
+#   reset=content             — wipe the active profile's content: tasks, notes,
+#     projects, tags, reminders, attachments, saved views — archived, trashed and
+#     soft-deleted rows included. The profile and the session stay. It reaches the
+#     profile that is active when it runs, so `profile=X&reset=content` wipes X
+#     and nothing else. It is not concurrency-safe: it wipes whatever else is in
+#     that profile.
 #   cleanup=<prefix>[,<prefix>…] — delete rows whose title starts with a prefix
 #
 # This helper does NOT run launch-clean — the caller decides.

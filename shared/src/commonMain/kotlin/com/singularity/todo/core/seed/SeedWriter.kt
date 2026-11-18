@@ -4,6 +4,7 @@ import com.singularity.todo.core.error.fold
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -86,10 +87,15 @@ class SeedWriter(
      * title under a different id is not that row — it leaves the live set and the
      * named one takes its place.
      *
-     * @throws IllegalArgumentException when the title is not a valid task title.
+     * @throws IllegalArgumentException when the title is not a valid task title, or
+     *   when the seed names a project that is not there.
      */
     suspend fun writeTask(spec: TaskSeed): TaskSeedResult {
-        val input = validatedInput(spec)
+        // The project is resolved before the row is written: a task that was
+        // supposed to sit in a project and does not is a fixture that lies about
+        // what it holds, so the seed fails instead of writing the task anyway.
+        val projectId = spec.projectName?.let { resolveProjectId(it) }
+        val input = validatedInput(spec, projectId)
 
         val live = tasks.observeAll().first().filter { it.title == input.title && !it.isTrashed }
         val trashed = tasks.observeByFilter(TaskFilter.Trash).first().filter { it.title == input.title }
@@ -132,6 +138,9 @@ class SeedWriter(
                             description = input.description,
                             priority = input.priority,
                             dueDate = input.dueDate,
+                            // A seed that names no project leaves the project the row
+                            // already has; a seed that names one moves the task there.
+                            projectId = projectId ?: keeper.projectId,
                             completedAt = null,
                             archivedAt = null,
                             isPinned = false,
@@ -160,13 +169,28 @@ class SeedWriter(
      * task table twice per row, which is O(n²) for a few thousand titles; this
      * builds the rows and creates them in one transaction. Dependencies are not
      * applied.
+     *
+     * A spec that names a project gets it, exactly as in [writeTask]: the project
+     * is resolved *before* any row is written, so a name that is not there fails
+     * the whole bulk and leaves nothing behind, and ten tasks in one project are
+     * one lookup rather than ten.
+     *
+     * @throws IllegalArgumentException when a spec names a project that is not there.
      */
-    suspend fun createTasks(specs: List<TaskSeed>): List<TaskId> =
-        tasks
+    suspend fun createTasks(specs: List<TaskSeed>): List<TaskId> {
+        // One lookup per distinct project name: the same project named by ten
+        // specs is one project, and asking the repository ten times is ten reads
+        // for an answer it already gave.
+        val projectIds =
+            specs
+                .mapNotNull { it.projectName }
+                .distinct()
+                .associateWith { name -> resolveProjectId(name) }
+        return tasks
             .createAll(
                 specs.map { spec ->
                     TaskDomain.buildTask(
-                        input = validatedInput(spec),
+                        input = validatedInput(spec, spec.projectName?.let { projectIds.getValue(it) }),
                         id = spec.id ?: TaskId.generate(),
                         createdAt = spec.stamp,
                         updatedAt = spec.stamp,
@@ -175,13 +199,16 @@ class SeedWriter(
                 },
             ).getOrThrow()
             .map { it.id }
+    }
 
     /**
      * Makes the profile hold exactly one live note named [NoteSeed.title].
      *
      * The seed defines the title and nothing else, so a note that already carries
      * it is already what the seed asked for — it is left alone rather than written
-     * again.
+     * again. A seed that names a [NoteSeed.body] writes that body too: the body is
+     * what the note reads like, and a note with a title and no text is an empty
+     * screen.
      */
     suspend fun writeNote(spec: NoteSeed): SeedResult<NoteId> {
         val existing =
@@ -189,11 +216,12 @@ class SeedWriter(
                 .observeAll()
                 .first()
                 .firstOrNull { it.title == spec.title && !it.isDeleted && !it.isArchived }
-        if (existing != null) {
-            return SeedResult(id = existing.id, outcome = SeedOutcome.Updated)
+        val created = existing == null
+        val id = existing?.id ?: notes.createNoteWithTitle(spec.title).getOrThrow()
+        spec.body?.let { body ->
+            notes.updateContent(id, spec.title, body, NoteContentMapper.toHtml(body)).getOrThrow()
         }
-        val created = notes.createNoteWithTitle(spec.title).getOrThrow()
-        return SeedResult(id = created, outcome = SeedOutcome.Created)
+        return SeedResult(id = id, outcome = if (created) SeedOutcome.Created else SeedOutcome.Updated)
     }
 
     /**
@@ -208,6 +236,15 @@ class SeedWriter(
      * The outgoing links are written too, so a note that links to a task is a note the
      * backlink query finds. A link that exists only in the body would be a link the
      * app cannot answer a question about.
+     *
+     * A seed that names a body writes that body first and the link after it: a note
+     * that points at a task reads as a note about something, not as a bare link.
+     *
+     * **A missing target does not cost the text.** A link target that is not there is
+     * reported, but the body is written anyway: a note whose text was thrown away
+     * because the task it pointed at was missing is a note the flow asked for and did
+     * not get. The outgoing links are emptied in that case, so a re-seed does not
+     * leave the previous run's link behind.
      *
      * @param taskTitle the title of the task the note links to. It is named rather
      *   than addressed by id because a caller that seeds the task first cannot know
@@ -232,17 +269,95 @@ class SeedWriter(
         val noteId = existing?.id ?: notes.createNoteWithTitle(spec.title).getOrThrow()
         val outcome = if (existing == null) SeedOutcome.Created else SeedOutcome.Updated
 
-        if (target == null) {
-            return NoteSeedResult(id = noteId, outcome = outcome, missingLinkTarget = taskTitle)
+        val url = target?.let { InternalLinks.urlFor(InternalLinkSchemes.TASK, it.id.value) }
+        val targetTitle = target?.title
+        val body = spec.body
+        // The seed's own text comes first and the link follows it: a note that
+        // points at a task reads as a note about something, not as a bare link.
+        val markdown =
+            when {
+                url == null || targetTitle == null -> body
+                body == null -> linkMarkdown(targetTitle, url)
+                else -> "$body\n\n${linkMarkdown(targetTitle, url)}"
+            }
+        // A seed that names no body writes no body: the note keeps the text it
+        // already has. A seed that names one writes it, link or no link — the text
+        // is what the caller asked for, and a missing link target is not a reason
+        // to drop it.
+        if (markdown != null) {
+            // The link's HTML is written here rather than read back out of the
+            // Markdown: the editor keeps the *source* of a Markdown label, so an
+            // escaped title would show its backslash. The title is what the link
+            // is about, and the note shows the title.
+            val html =
+                when {
+                    url == null || targetTitle == null -> NoteContentMapper.toHtml(body.orEmpty())
+                    body == null -> linkHtml(targetTitle, url)
+                    else -> NoteContentMapper.toHtml(body) + linkHtml(targetTitle, url)
+                }
+            notes.updateContent(noteId, spec.title, markdown, html).getOrThrow()
         }
-
-        val url = InternalLinks.urlFor(InternalLinkSchemes.TASK, target.id.value)
-        val html = "<p><a href=\"${escapeHtml(url)}\">${escapeHtml(target.title)}</a></p>"
-        val markdown = "[${target.title}]($url)"
-        notes.updateContent(noteId, spec.title, markdown, html).getOrThrow()
-        notes.setOutgoingLinks(noteId, listOf(url)).getOrThrow()
-        return NoteSeedResult(id = noteId, outcome = outcome, missingLinkTarget = null)
+        // The links are the note's own: a re-seed with no target empties them
+        // rather than leaving the previous run's link in place.
+        notes.setOutgoingLinks(noteId, listOfNotNull(url)).getOrThrow()
+        return NoteSeedResult(id = noteId, outcome = outcome, missingLinkTarget = if (url == null) taskTitle else null)
     }
+
+    /**
+     * The markdown of a link to the task named [title] at [url].
+     *
+     * The label is the target's title and the href is the shared grammar's URL,
+     * which is what the app's link machinery reads — the seed writes the link the
+     * editor would have written, not one of its own shape.
+     *
+     * The title is escaped: a title is text, and text must not be able to change
+     * the shape of the link it sits in. A `]` ends the label, so a title holding
+     * one would take the destination with it and the note would carry no link at
+     * all.
+     */
+    private fun linkMarkdown(
+        title: String,
+        url: String,
+    ): String = "[${escapeMarkdownLabel(title)}]($url)"
+
+    /**
+     * The HTML of the same link — the shape the editor writes.
+     *
+     * The HTML is written here rather than read back out of the markdown: the
+     * editor keeps the *source* of a markdown label, so the escaped title would
+     * show its backslash. The title is what the link is about, and the note shows
+     * the title.
+     */
+    private fun linkHtml(
+        title: String,
+        url: String,
+    ): String = """<p><a href="${escapeHtml(url)}" target="_blank">${escapeHtml(title)}</a></p>"""
+
+    /**
+     * Escapes the characters that would otherwise be read as markup.
+     *
+     * A title is text that came from a deep link, so it is escaped before it is
+     * written into the note's HTML: a title holding a `<` must not open a tag of
+     * its own.
+     */
+    private fun escapeHtml(value: String): String =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+
+    /**
+     * Escapes a link's label so that the title cannot change the link's shape.
+     *
+     * A `]` ends the label and a `[` opens one, so both are escaped — and the
+     * backslash is escaped first, so that a title holding one keeps it as text.
+     */
+    private fun escapeMarkdownLabel(title: String): String =
+        title
+            .replace("\\", "\\\\")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
 
     /**
      * Makes the profile hold exactly one live project for this seed.
@@ -428,13 +543,17 @@ class SeedWriter(
     }
 
     /** Validates the seed through the domain, so a seed cannot write an invalid title. */
-    private fun validatedInput(spec: TaskSeed): CreateTaskInput =
+    private fun validatedInput(
+        spec: TaskSeed,
+        projectId: ProjectId? = null,
+    ): CreateTaskInput =
         TaskDomain
             .createInput(
                 title = spec.title,
                 description = spec.description,
                 priority = spec.priority,
                 kind = TaskKind.Task,
+                projectId = projectId,
                 dueDate = spec.dueDate,
             ).fold(
                 left = { error -> throw IllegalArgumentException("Invalid input: $error") },
@@ -442,19 +561,24 @@ class SeedWriter(
             )
 
     /**
-     * Escapes the characters that would end an HTML attribute or an element.
+     * The id of the live project named [name].
      *
-     * A title is a person's text, and a person's text can hold a quote or an
-     * ampersand. The seed writes it into an attribute, so it has to be escaped
-     * there — otherwise a title holding `"` closes the attribute and the note's
-     * body is no longer the body the seed meant to write.
+     * A project that is not there is a broken fixture, and a task that was
+     * supposed to sit in it and does not is a task the flow would assert on as
+     * being in a project it is not in. So the seed fails, the same way a project
+     * seed with a parent that is not there fails.
+     *
+     * @throws IllegalArgumentException when no live project carries that name.
      */
-    private fun escapeHtml(value: String): String =
-        value
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
+    private suspend fun resolveProjectId(name: String): ProjectId {
+        val project =
+            projects
+                .observeAll()
+                .first()
+                .firstOrNull { it.name == name && !it.isDeleted }
+        return project?.id
+            ?: throw IllegalArgumentException("No project named '$name' to put the task in")
+    }
 }
 
 /**
@@ -466,6 +590,10 @@ class SeedWriter(
  *   when the seed ran.
  * @param dependsOnTitle the title of the task this one depends on. A dependency on
  *   an incomplete task is what makes a task *blocked*.
+ * @param projectName the name of the project the task belongs to. The name, not
+ *   the id: a link that seeds the task cannot know the id the app gave the
+ *   project. A project that is not there fails the seed — a task in no project
+ *   is not the task the fixture asked for.
  * @param id the id the seeded row carries. A seed that names an id owns it: the row
  *   the flow addresses by that id has to be the row the seed writes. It is what
  *   makes a link to the task addressable — a deep link names an id, and a flow
@@ -478,11 +606,17 @@ data class TaskSeed(
     val priority: TaskPriority = TaskPriority.None,
     val stamp: Instant,
     val dependsOnTitle: String? = null,
+    val projectName: String? = null,
     val id: TaskId? = null,
 )
 
-/** What a note seed defines. */
-data class NoteSeed(val title: String)
+/**
+ * What a note seed defines.
+ *
+ * @param body the note's text. A note with a title and no body is an empty
+ *   screen, so a seed that has something to say names it.
+ */
+data class NoteSeed(val title: String, val body: String? = null)
 
 /**
  * What a project seed defines.

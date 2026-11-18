@@ -20,6 +20,8 @@
 #   AVD_NAME         — name of the AVD to create            (required)
 #   SYSTEM_IMAGE    — sdkmanager package id                (required)
 #   DEVICE          — avdmanager hardware profile          (default: pixel_6)
+#   GPU_MODE        — 'host' to make the AVD render through the host GPU
+#                      (default: leave the profile's own GPU settings alone)
 #   SDK_ROOT        — Android SDK root                     (default: $ANDROID_SDK_ROOT/$ANDROID_HOME)
 #   ANDROID_AVD_HOME— directory holding the AVD            (default: $HOME/.android/avd)
 #
@@ -88,6 +90,47 @@ fi
 [ -x "$emulator_bin" ] || fail "no emulator binary at $emulator_bin"
 "$emulator_bin" -list-avds | grep -qx "$AVD_NAME" \
     || fail "emulator -list-avds does not list $AVD_NAME"
+
+# The AVD has to render through the host GPU — but only when the caller asks
+# for it.
+#
+# The GPU policy of this repository is split on purpose (ADR
+# `2026-10-18-emulator-gpu-strategy-split`): the Maestro E2E surface launches
+# with `-gpu off`, the instrumentation surface with `-gpu swiftshader_indirect`,
+# and the two are not to be unified before the performance measurements land.
+# The launch flag wins over the AVD's configuration, so a global rewrite of
+# `config.ini` would not change those two surfaces — but it would change what
+# the *file* says, and a file that says something the surfaces do not do is a
+# trap for the next person.
+#
+# So the GPU line is opt-in: `GPU_MODE=host` asks for the host GPU, and only
+# the capture device asks for it. The `pixel_2` profile it uses is written
+# with the GPU off, and software rendering is a startup crash on this host —
+# the render thread dies before the window opens.
+#
+# The keys are *set*, not merely substituted: a profile without them gets them
+# written, and a profile that cannot be read is a failure rather than a
+# warning, because "the script reported success" and "the device renders
+# through the host GPU" have to be the same fact.
+config_ini="$avd_dir/config.ini"
+case "${GPU_MODE:-}" in
+    "") ;;
+    host)
+        [ -f "$config_ini" ] || fail "no AVD config at $config_ini to set the GPU mode on"
+        set_ini_value() {
+            local key="$1" value="$2"
+            if grep -q "^${key}=" "$config_ini"; then
+                sed -i "s|^${key}=.*|${key}=${value}|" "$config_ini"
+            else
+                printf '%s=%s\n' "$key" "$value" >>"$config_ini"
+            fi
+        }
+        set_ini_value hw.gpu.enabled yes
+        set_ini_value hw.gpu.mode host
+        echo "provision-avd: AVD $AVD_NAME renders through the host GPU"
+        ;;
+    *) fail "unknown GPU_MODE '$GPU_MODE'; expected 'host' or nothing" ;;
+esac
 
 # Put the tools on PATH for the steps that follow. The workflows also do this,
 # but a script that leaves the machine half-provisioned is how the binary went

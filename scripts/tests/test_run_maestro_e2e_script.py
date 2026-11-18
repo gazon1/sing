@@ -200,5 +200,36 @@ class AppReadinessTest(unittest.TestCase):
         )
 
 
+class EngineArgvTest(unittest.TestCase):
+    """The executor the caller asked for has to reach the runner.
+
+    A job that says which engine it wants and then runs another one is a job
+    whose report cannot be read: the verdict would belong to a build nobody
+    named.
+    """
+
+    def setUp(self):
+        self.mod = _load_script()
+
+    def _argv(self, **kwargs) -> list[str]:
+        args = {
+            "serial": "emulator-5554",
+            "shard": None,
+            "shards": None,
+            "suite": "",
+            "junit_dir": pathlib.Path("build/maestro-results"),
+        }
+        args.update(kwargs)
+        return self.mod.maestro_argv(**args)
+
+    def test_the_default_is_the_maestro_cli(self):
+        argv = self._argv()
+        self.assertNotIn("--engine", argv)
+
+    def test_the_engine_is_named_in_the_argv(self):
+        argv = self._argv(engine="maestro-runner")
+        self.assertEqual(argv[argv.index("--engine") + 1], "maestro-runner")
+
+
 if __name__ == "__main__":
     unittest.main()

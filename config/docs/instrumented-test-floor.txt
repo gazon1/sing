@@ -66,7 +66,7 @@
 # numbers below come from delivered them with those failures in it.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
-classes 16
-tests 51
+classes 17
+tests 53
 skipped 0
 # GENERATED:END

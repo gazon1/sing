@@ -54,6 +54,12 @@ while [ $# -gt 0 ]; do
   shift
 done
 mkdir -p "$FAKE_AVD_HOME/$name.avd" && touch "$FAKE_AVD_HOME/$name.avd/userdata.img"
+case "${FAKE_CONFIG:-default}" in
+  none) ;;
+  no-gpu) printf 'hw.lcd.width=1080\\n' > "$FAKE_AVD_HOME/$name.avd/config.ini" ;;
+  *) printf 'hw.lcd.width=1080\\nhw.gpu.enabled=no\\nhw.gpu.mode=auto\\n' \\
+      > "$FAKE_AVD_HOME/$name.avd/config.ini" ;;
+esac
 echo "created $name"
 """
 
@@ -144,6 +150,77 @@ class ProvisionAvdTest(unittest.TestCase):
         # The fast path must not have re-run sdkmanager, which would have
         # rewritten the marker.
         self.assertEqual("", marker.read_text())
+
+    def test_the_capture_avd_renders_through_the_host_gpu(self):
+        """`GPU_MODE=host` must make the AVD ask for the host GPU.
+
+        Software rendering is a startup crash on this host — the render thread
+        dies before the window opens — and the `pixel_2` profile the 9:16 capture
+        device uses is written with the GPU off, so a capture AVD created by this
+        script would not boot.
+        """
+        self._write_fake_tools()
+        result = self._provision(GPU_MODE="host")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        config = (self.avd_home / f"{AVD_NAME}.avd" / "config.ini").read_text()
+        self.assertIn("hw.gpu.enabled=yes", config)
+        self.assertIn("hw.gpu.mode=host", config)
+
+    def test_the_gpu_keys_are_added_when_the_profile_has_none(self):
+        """A profile without the keys gets them — a substitution alone would not.
+
+        The keys are what the emulator reads; a profile that has neither is a
+        profile whose GPU mode nobody chose, and the script reporting success
+        would make that invisible.
+        """
+        self._write_fake_tools()
+        result = self._provision(GPU_MODE="host", FAKE_CONFIG="no-gpu")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        config = (self.avd_home / f"{AVD_NAME}.avd" / "config.ini").read_text()
+        self.assertIn("hw.gpu.enabled=yes", config)
+        self.assertIn("hw.gpu.mode=host", config)
+        self.assertIn("hw.lcd.width=1080", config)
+
+    def test_the_gpu_settings_survive_a_second_run(self):
+        """Running it twice must leave one setting, not two."""
+        self._write_fake_tools()
+        first = self._provision(GPU_MODE="host")
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        second = self._provision(GPU_MODE="host")
+        self.assertEqual(0, second.returncode, second.stdout + second.stderr)
+        config = (self.avd_home / f"{AVD_NAME}.avd" / "config.ini").read_text()
+        self.assertEqual(1, config.count("hw.gpu.enabled=yes"))
+        self.assertEqual(1, config.count("hw.gpu.mode=host"))
+
+    def test_a_plain_ci_avd_keeps_its_own_gpu_mode(self):
+        """Without `GPU_MODE` the profile is left exactly as it was.
+
+        The GPU policy of this repository is split on purpose (ADR
+        `2026-10-18-emulator-gpu-strategy-split`): the Maestro surface launches
+        with `-gpu off` and the instrumentation surface with
+        `-gpu swiftshader_indirect`. A script that rewrote every AVD's GPU
+        settings would make the file disagree with both.
+        """
+        self._write_fake_tools()
+        result = self._provision()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        config = (self.avd_home / f"{AVD_NAME}.avd" / "config.ini").read_text()
+        self.assertIn("hw.gpu.enabled=no", config)
+        self.assertIn("hw.gpu.mode=auto", config)
+
+    def test_a_missing_avd_config_fails_loudly(self):
+        """Asking for the host GPU without a config to write it must fail."""
+        self._write_fake_tools()
+        result = self._provision(GPU_MODE="host", FAKE_CONFIG="none")
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        self.assertIn("no AVD config", result.stderr)
+
+    def test_an_unknown_gpu_mode_fails_loudly(self):
+        """A typo in `GPU_MODE` must not be read as "no GPU mode"."""
+        self._write_fake_tools()
+        result = self._provision(GPU_MODE="swiftshader")
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        self.assertIn("GPU_MODE", result.stderr)
 
     def test_it_fails_when_the_avd_is_not_listed(self):
         """A machine with the binary but the wrong AVD must fail loudly.

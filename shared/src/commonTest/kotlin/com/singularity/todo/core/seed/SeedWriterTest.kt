@@ -2,6 +2,7 @@ package com.singularity.todo.core.seed
 
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks
+import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -579,6 +580,41 @@ class SeedWriterTest {
             assertTrue(
                 note.bodyHtml.orEmpty().contains("href=\"$url\""),
                 "the body must carry the link the grammar defines; it carried ${note.bodyHtml}",
+            )
+        }
+
+    @Test
+    fun `a task title with markdown punctuation cannot break the note's link`() =
+        runTest {
+            val title = "Buy milk] (2)"
+            val task = writer.writeTask(TaskSeed(title = title, stamp = stamp))
+
+            val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), title)
+
+            assertNull(result.missingLinkTarget)
+            val note = notes.observeAll().first().single { it.id == result.id }
+            val url = InternalLinks.urlFor(InternalLinkSchemes.TASK, task.id.value)
+            val html = note.bodyHtml.orEmpty()
+            assertEquals(
+                1,
+                Regex("<a\\b").findAll(html).count(),
+                "the note must carry exactly one link; it carried $html",
+            )
+            assertTrue(
+                html.contains("href=\"$url\""),
+                "the link must point at the task; it carried $html",
+            )
+            assertTrue(
+                html.contains(">$title</a>"),
+                "the title must be the link's text and not part of its markup; it carried $html",
+            )
+            // The markdown is the note's other representation: a reader of it has
+            // to find the link there too, or the title has taken the link with it.
+            val fromMarkdown = NoteContentMapper.toHtml(note.bodyMarkdown.orEmpty())
+            assertEquals(
+                1,
+                Regex("<a\\b").findAll(fromMarkdown).count(),
+                "the markdown must carry the link; it was ${note.bodyMarkdown}",
             )
         }
 

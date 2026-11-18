@@ -85,7 +85,7 @@ The `note_editor_title_input` testTag uses `testTag(TestTags.taskAction(label))`
 
 ## Helpers
 
-Twenty-one helper files exist in `Maestro/helpers/`. Use them — do not duplicate
+The helper files in `Maestro/helpers/` are listed below. Use them — do not duplicate
 their logic.
 
 | Helper | When to use |

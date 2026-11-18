@@ -20,6 +20,24 @@ object SeedLinkKeys {
     const val PROJECT = "project"
 
     /**
+     * The priority of a seeded task: `none`, `low`, `medium`, `high` or `urgent`.
+     *
+     * A task's priority is one of the properties a screenshot shows, and a seed
+     * that cannot write it can only produce a task that looks like every other
+     * task.
+     */
+    const val PRIORITY = "priority"
+
+    /**
+     * The project a seeded task belongs to, by the project's name.
+     *
+     * The name, not the id: the link that seeds the task cannot know the id the
+     * app gave the project, exactly as `parent=` cannot — and a project that is
+     * not there fails the seed instead of leaving the task in no project at all.
+     */
+    const val IN_PROJECT = "inProject"
+
+    /**
      * The parent of a seeded project, by the parent's id.
      *
      * A project below another one is what makes the menu's hierarchy a
@@ -72,6 +90,8 @@ object SeedLinkKeys {
             PARENT to Kind.Modifier,
             COUNT to Kind.Modifier,
             LINK_TO to Kind.Modifier,
+            PRIORITY to Kind.Modifier,
+            IN_PROJECT to Kind.Modifier,
             SESSION to Kind.Session,
             RESET to Kind.Delete,
             CLEANUP to Kind.Delete,

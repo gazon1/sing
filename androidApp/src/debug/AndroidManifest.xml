@@ -17,9 +17,30 @@
             android:name="androidx.activity.ComponentActivity"
             android:exported="false" />
 
+        <!--
+          `singleTask` — the seed link has to reach *this* activity, always.
+
+          Measured on the device: a seed link whose data equals the app task's
+          base intent is not launched at all. Android hands it to the task's
+          top activity instead — the running MainActivity, which knows nothing
+          about seeds — and answers `result code=3` ("Activity not started,
+          intent has been delivered to currently running top-most instance").
+          The link is silently lost: no seed runs, no failure is shown, and the
+          flow that sent it goes on. The base intent is the link that started
+          the task, so the link that opens a run is the link a *second* run
+          loses.
+
+          `singleTask` routes the intent to this activity's own instance
+          instead of to whatever is on top of the task, so a link cannot be
+          delivered to an activity that will not act on it. The instance is
+          gone after a seed (the activity finishes), so the system creates a
+          fresh one — the seed runs, and `onNewIntent` covers the case where
+          one is still alive.
+        -->
         <activity
             android:name=".debug.DebugSeedActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

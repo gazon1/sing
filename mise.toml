@@ -22,6 +22,12 @@ rumdl = "0.3.2"
 # The fork publishes its own release for it, so this is a download, not a build.
 "github:gazon1/easement" = "0.5.1"
 "github:mokevnin/heavy" = "latest"
+# The second Maestro executor is *not* installed through mise: the runner needs
+# its driver binaries (drivers/android) next to the binary, and every mise
+# backend that can pick the platform for us installs the binary alone. The
+# release tarball — binary plus drivers — is unpacked by hand; see
+# Maestro/README.md and `maestro._engine.MAESTRO_RUNNER_VERSION`. The CLI stays
+# the default engine, and the runner is chosen with `--engine maestro-runner`.
 "npm:@sourcegraph/scip-python" = "latest"
 # The toolchain that builds easement from source, pinned to the version the
 # easement repository pins itself. A released binary needs no toolchain, so
