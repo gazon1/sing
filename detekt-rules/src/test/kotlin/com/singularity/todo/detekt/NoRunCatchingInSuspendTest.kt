@@ -306,6 +306,29 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `unrelated same-file non-inline top-level declaration does not suppress receiver-qualified inline call`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun forEach(block: () -> Unit) { /* unrelated non-extension declaration */ }
+            fun start(scope: CoroutineScope, items: List<Int>) {
+                scope.launch {
+                    items.forEach {
+                        runCatching { riskyCall() }
+                    }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            1,
+            rule.visitFile(ktFile, languageSettings).size,
+            "receiver-qualified call cannot resolve to a non-extension top-level declaration",
+        )
+    }
+
+    @Test
     fun `runCatchingCancellable in a launch lambda is not flagged`() {
         val code =
             """

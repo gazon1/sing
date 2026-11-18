@@ -10,10 +10,10 @@ import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtCallExpression
-import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
 import org.jetbrains.kotlin.psi.KtValueArgument
 import org.jetbrains.kotlin.psi.KtValueArgumentList
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
@@ -130,14 +130,18 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
     private fun isSuspendLambda(lambda: KtLambdaExpression): Boolean = owningCallName(lambda) in SUSPEND_CALLS
 
     private fun isInlineLambda(lambda: KtLambdaExpression): Boolean {
-        val name = owningCallName(lambda) ?: return false
+        val owner = owningCall(lambda) ?: return false
+        val name = owner.calleeExpression?.text ?: return false
         if (name !in INLINE_CALLS) return false
-        // Name-only allowlist has no type/inline resolution. To avoid obvious custom shadow false
-        // positives, treat a same-file non-extension, non-inline declaration with the same name as
-        // a boundary. Extension declarations are ignored here: suppressing on any same-named
-        // extension would also disable detection for unrelated overloads/calls in the same file.
-        // This is a narrow heuristic and may still misclassify custom extension shadows or
-        // declarations outside the file until type-aware analysis is available.
+        val isReceiverQualified =
+            (owner.parent as? KtQualifiedExpression)?.selectorExpression == owner
+        if (isReceiverQualified) return true
+        // Name-only allowlist has no type/inline resolution. For unqualified calls, a same-file
+        // non-extension, non-inline declaration with the same name is treated as a boundary to
+        // avoid an obvious custom shadow false positive. Receiver-qualified calls cannot resolve
+        // to a non-extension top-level declaration, so unrelated same-file declarations must not
+        // suppress detection. Narrow heuristic; custom extension shadows or declarations outside
+        // the file may still be misclassified until type-aware analysis is available.
         val hasNonInlineSameNameNonExtensionDeclaration =
             lambda.containingKtFile.collectDescendantsOfType<KtNamedFunction>().any { fn ->
                 fn.name == name &&
@@ -147,7 +151,9 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
         return !hasNonInlineSameNameNonExtensionDeclaration
     }
 
-    private fun owningCallName(lambda: KtLambdaExpression): String? {
+    private fun owningCallName(lambda: KtLambdaExpression): String? = owningCall(lambda)?.calleeExpression?.text
+
+    private fun owningCall(lambda: KtLambdaExpression): KtCallExpression? {
         val argument = lambda.parent as? KtValueArgument ?: return null
         val owner =
             when (val parent = argument.parent) {
@@ -155,8 +161,7 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                 is KtValueArgumentList -> parent.parent as? KtCallExpression
                 else -> null
             } ?: return null
-        val callee = owner.calleeExpression as? KtNameReferenceExpression ?: return null
-        return callee.text
+        return if (owner.calleeExpression is KtNameReferenceExpression) owner else null
     }
 
     private companion object {
@@ -193,11 +198,11 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
          * Common higher-order calls treated as immediate (lambda runs in the caller's context).
          *
          * PSI rules cannot resolve inline-ness or receiver types, so this is a name-based
-         * allowlist of stdlib-style calls. A narrow same-file heuristic treats non-extension,
-         * non-inline declarations with the same name as boundaries to avoid obvious custom shadow
-         * false positives without suppressing detection for unrelated same-file extension overloads.
-         * Names shared with deferred Sequence operators (e.g. `map`, `filter`, `onEach`, `flatMap`)
-         * are excluded to avoid false positives where the lambda is not executed at call time.
+         * allowlist of stdlib-style calls. A narrow heuristic avoids obvious same-file non-extension
+         * custom shadows for unqualified calls, while receiver-qualified calls are not suppressed by
+         * unrelated non-extension declarations in the same file. Names shared with deferred Sequence
+         * operators (e.g. `map`, `filter`, `onEach`, `flatMap`) are excluded to avoid false
+         * positives where the lambda is not executed at call time.
          *
          * Trade-offs (deliberate, no semantic resolution):
          * - Flow operators with suspending transform lambdas (e.g. `Flow.map {}`) are not treated
