@@ -49,6 +49,11 @@ class SeedQueue(private val sequencer: SeedSequencer) {
      * The consumer goes on after a seed fails: a failed seed is one link's
      * problem, and the links behind it have to be seeded anyway.
      *
+     * A JVM *error* — an `OutOfMemoryError`, a `StackOverflowError` — is not
+     * caught, and the consumer dies with it. An error means the process is in a
+     * state no seed can be trusted in, and carrying on would write rows into a
+     * database that is already broken. The scope's failure handler reports it.
+     *
      * The two callbacks are not symmetric on purpose:
      *
      * - [onSuccess] is called for the arrival that still owns the screen. A
