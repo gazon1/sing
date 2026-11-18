@@ -322,10 +322,15 @@ class DebugSeedActivity :
         // The queue is the order: the request waits for the one before it and
         // runs on its own — no thread per link, and nothing blocking the main
         // thread.
-        if (!queue.enqueue(SeedRequest(arrival, params))) {
-            android.util.Log.w(
-                "DebugSeedActivity",
-                "The seed queue is closed; the request was dropped",
+        val request = SeedRequest(arrival, params)
+        if (!queue.enqueue(request)) {
+            // The queue is closed: the activity is on its way out, and this
+            // request will never run. That is a failure of this link, and the
+            // screen has to say so — a request that was dropped without a word
+            // is a link that did nothing, quietly.
+            onSeedFailed(
+                request,
+                IllegalStateException("the seed queue is closed; the request was dropped"),
             )
         }
     }
