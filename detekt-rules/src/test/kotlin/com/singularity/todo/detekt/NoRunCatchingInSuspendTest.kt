@@ -177,6 +177,20 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `runCatching inside sequence in a non-suspend function is flagged`() {
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun createSequence() = sequence {
+                runCatching { riskyCall() }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
+    }
+
+    @Test
     fun `runCatchingCancellable in a launch lambda is not flagged`() {
         val code =
             """
