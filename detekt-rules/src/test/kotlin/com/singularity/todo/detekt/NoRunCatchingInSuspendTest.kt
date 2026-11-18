@@ -195,7 +195,9 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
-    fun `runCatching inside sequence in a non-suspend function is flagged`() {
+    fun `runCatching inside sequence builder in a non-suspend function is not flagged`() {
+        // kotlin.sequences.sequence takes a restricted suspend lambda for yield(), not a coroutine
+        // cancellation context; treating it as a suspend owner is a false positive.
         val code =
             """
             package com.example
@@ -205,7 +207,7 @@ class NoRunCatchingInSuspendTest {
             }
             """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
-        assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
+        assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test

@@ -170,7 +170,6 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                 "transform",
                 "mapLatest",
                 "launchIn",
-                "sequence",
             )
 
         /**
