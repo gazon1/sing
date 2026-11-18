@@ -188,13 +188,15 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
                 onSuccess = { result ->
                     result.onFailure {
                         onBeforeReport(it)
-                        crashReporter.report(error = it.originalIfAppError(), issueKey = issueKeyFor(it, errorLabel))
+                        val reported = it.originalIfAppError()
+                        crashReporter.report(error = reported, issueKey = issueKeyFor(reported, errorLabel))
                         onError(it.toMessage(errorLabel))
                     }
                 },
                 onFailure = { e ->
                     onBeforeReport(e)
-                    crashReporter.report(error = e.originalIfAppError(), issueKey = issueKeyFor(e, errorLabel))
+                    val reported = e.originalIfAppError()
+                    crashReporter.report(error = reported, issueKey = issueKeyFor(reported, errorLabel))
                     onError(e.toMessage(errorLabel))
                 },
             )
