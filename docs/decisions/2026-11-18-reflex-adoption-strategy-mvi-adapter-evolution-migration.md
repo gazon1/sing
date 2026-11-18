@@ -34,6 +34,9 @@ screen/action contract on top of it; implement it first as per-screen adapters o
 `onIntent` path (Task Detail as the reference); do not replace `MviViewModel`, add a Gradle module,
 or build a CLI in this issue.
 
+Target shape: agent / CLI / inspector → canonical screen/action contract → Task Detail adapter →
+other screen adapters → existing MviViewModel / coordinator / slots.
+
 ### What the POC proved, and what it did not
 
 **Proven** (Task Detail, JVM, `:shared:jvmTest`): allow-listed snapshots; explicit action catalogue;
@@ -47,6 +50,11 @@ verification was JVM-only.
 **Open for the canonical contract (#3040):** universal async-operation model, cancellation, navigation
 and focus context, error representation, versioning, deterministic serialization.
 
+**Carried into the production contract:** the contract rules the POC proved — allow-listed snapshot,
+explicit action catalogue, JSON-Schema input validation, validate-before-dispatch, availability
+requirements, accept-vs-completion dispatch semantics — are the ones the canonical contract (#3040)
+inherits; the limitations above are Task-Detail-shaped and stay screen-specific.
+
 ### Comparison of the three options
 
 | Criterion | Adapter over current MVI | Gradual evolution | Broader migration |
@@ -56,6 +64,10 @@ and focus context, error representation, versioning, deterministic serialization
 | Safe allowlisting / validation | proven; `additionalProperties: false` | preserved | preserved |
 | Async completion / errors / undo / navigation | task-specific, proven in POC | carried once into contract | same at migration scale |
 | Testability without Compose/emulator; Android + JVM Desktop | proven on JVM via existing harness | preserved | preserved, at migration cost |
+| Agent ergonomics at the second screen | each new screen re-derives its own adapter; the POC proved the shape, not the reuse | semantics come from the shared contract; adapters stay thin | uniform behaviour from the start, highest upfront cost |
+| API stability / versioning | adapter-local; no cross-screen contract yet | contract-level semantics versioned at extraction; adapters stay screen-local | migration-level versioning |
+| Navigation and focus context | per-screen adapter owns what it can | context fields enter the contract (#3040 open items) | uniform navigation model |
+| MCP domain tools vs screen actions | split not yet decided between adapter and tooling | decided at the contract level; MCP tools stay a separate mechanism | decided at migration level |
 | Cost / migration risk / maintenance | lowest; additive | low-med; extraction | high; big-bang risk |
 
 The real architectural difference between the adapter and the evolution option is where the contract
@@ -67,7 +79,8 @@ being Task-Detail-shaped.
 The broader migration is rejected for now: the local-MVI ADR records the lightweight framework as the
 project's intentional architecture and its agent skill routes migrations through it, but neither
 decides the future agent-facing boundary; retaining MVI now is supported by the research evidence, not
-by historical approval.
+by historical approval. The local-MVI decision fixes the seam of today, not the seam of tomorrow, and
+does not forbid evolving or replacing the framework later.
 
 - The contract rules proven by the POC are fixed and not negotiable: explicit action allow-list,
   `available` flag plus requirement, snapshot allow-list, exact-schema input check
@@ -75,26 +88,39 @@ by historical approval.
   and the accept-vs-completion dispatch distinction.
 - Module: no dedicated module now; the public contract's candidate home is a `core/llm`-style port
   next to `ToolCallSummary`, screen-specific adapters live in the feature and depend inward on the
-  contract, and the contract does not depend on feature or Compose/Android types. Reconsider only on
-  real duplication or an independent consumer that the current boundary blocks.
+  contract, and the contract does not depend on feature or Compose/Android types. The existing module
+  is enough because the boundary that has to hold is the package/port boundary, which the existing
+  feature→core direction already expresses; no new Gradle module is created for an interface that is
+  not implemented twice yet. Reconsider only on real duplication or an independent consumer that the
+  current boundary blocks.
 - CLI: first-class candidate for the agent-facing workflow, shaped after the canonical contract; a
-  standalone executable is deferred until the contract exists (#3041). MCP domain tools remain a
-  separate mechanism and are not duplicated as screen actions.
+  standalone executable is deferred until the contract exists (#3041), and is justified only with a
+  responsibility of its own — reuse of the existing tooling is checked first. MCP domain tools remain
+  a separate mechanism and are not duplicated as screen actions.
 
 ## Rationale
 
 The adapter option was validated at low cost by the POC (413 LOC contract, real coordinator, full
-shared lane green). The local-MVI ADR and its agent skill record the current architecture as
-intentional and route migrations through it, but neither pre-approves a Reflex adapter; retaining MVI
-now is supported by the research evidence, not by that history. No evidence yet shows adapter-level
-duplication or inconsistent semantics, which is why the broader migration is not justified yet. Once
-the semantics become cross-screen, gradual evolution is the honest shape: shared contract semantics
-with per-screen adapters, no speculative framework.
+shared lane green). The adapter-over-MVI shape it used is the shape the repository already runs:
+`TaskDetailCoordinator` extends `MviViewModel<TaskDetailUiState, TaskDetailIntent.Domain,
+TaskDetailUiEvent>` and routes an exhaustive intent `when` through the slots it owns, and
+`MviViewModel` exposes exactly the seam an adapter would call — typed `onIntent` plus the single
+state stream and event bus. The JVM harness proved the contract against real coordinator code
+(`:shared:jvmTest`; 13 introspection tests, full shared lane green at 5007 tests). The local-MVI ADR and
+its agent skill record the current architecture as intentional and route migrations through it, but
+neither decides the future agent-facing boundary; retaining MVI now is supported by the research
+evidence, not by historical approval. No evidence yet shows adapter-level duplication or inconsistent
+semantics, which is why the broader migration is not justified yet. Once the semantics become
+cross-screen, gradual evolution is the honest shape: shared contract semantics with per-screen
+adapters, no speculative framework.
 
 ## Consequences
 
 - Migration proceeds by vertical slices with Task Detail as the reference; rollback means disabling
-  the introspection adapter, not reverting the MVI.
+  the introspection adapter, not reverting the MVI. The existing MVI dispatch path stays the working
+  application behaviour throughout; no ViewModel migration is mandatory.
+- Screens or actions outside the contract are refused explicitly, never guessed at; an introspection
+  failure or its removal must not break ordinary application operation.
 - Production surface, MCP transport choice, and contract versioning remain open items owned by #3040
   and #3041.
 
@@ -102,4 +128,5 @@ with per-screen adapters, no speculative framework.
 
 - Epic #3038; decision: #3046; contract: #3040; driver/CLI: #3041; POC: #3035; PR: #3036; hardening:
   #3039.
-- ADR `2026-11-18-headless-screen-introspection-poc`; ADR `2026-09-25-local-mvi-framework`.
+- ADR `2026-11-18-headless-screen-introspection-poc`; ADR `2026-09-25-local-mvi-framework`; ADR
+  `2026-09-27-feature-slot-pattern`.
