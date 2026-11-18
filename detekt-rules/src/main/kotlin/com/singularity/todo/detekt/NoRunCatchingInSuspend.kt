@@ -178,8 +178,15 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
          *
          * PSI rules cannot resolve inline-ness or receiver types, so this name-based allowlist is
          * limited to calls that are unambiguously immediate. Names shared with deferred Sequence
-         * operators (e.g. `map`, `filter`, `onEach`) are excluded to avoid false positives; they
-         * are treated as boundaries unless semantic resolution is added.
+         * operators (e.g. `map`, `filter`, `onEach`, `flatMap`) are excluded to avoid false
+         * positives where the lambda is not executed at call time.
+         *
+         * Trade-off (deliberate, no semantic resolution): some of those names also denote Flow
+         * operators with suspending transform lambdas (e.g. `Flow.map {}`) that execute in the
+         * collection/coroutine context. Treating them as suspend owners by name would catch Flow
+         * cases but reintroduce Sequence/Iterable false positives; treating them as immediate inline
+         * would do the opposite. We keep them as boundaries here, accepting possible Flow
+         * false negatives until type-aware analysis is available.
          */
         val INLINE_CALLS =
             setOf(

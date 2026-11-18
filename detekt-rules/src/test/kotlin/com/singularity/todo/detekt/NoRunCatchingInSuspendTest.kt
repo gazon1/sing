@@ -231,6 +231,29 @@ class NoRunCatchingInSuspendTest {
     }
 
     @Test
+    fun `runCatching in Flow map callback inside launch is not flagged by name-only rule`() {
+        // Deliberate trade-off without semantic resolution: `map` is ambiguous (deferred
+        // Sequence/Iterable operators vs suspending Flow operators). Treating it as a boundary
+        // avoids Sequence false positives but accepts this possible Flow false negative.
+        val code =
+            """
+            package com.example
+            import kotlin.runCatching
+            fun start(scope: CoroutineScope, flow: Flow<Int>) {
+                scope.launch {
+                    flow.map { runCatching { riskyCall() } }
+                }
+            }
+            """.trimIndent()
+        val ktFile = compileContentForTest(code, "com.example")
+        assertEquals(
+            0,
+            rule.visitFile(ktFile, languageSettings).size,
+            "Flow.map is intentionally left unclassified here to avoid Sequence false positives",
+        )
+    }
+
+    @Test
     fun `runCatchingCancellable in a launch lambda is not flagged`() {
         val code =
             """
