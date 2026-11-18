@@ -34,8 +34,13 @@ screen/action contract on top of it; implement it first as per-screen adapters o
 `onIntent` path (Task Detail as the reference); do not replace `MviViewModel`, add a Gradle module,
 or build a CLI in this issue.
 
-Target shape: agent / CLI / inspector → canonical screen/action contract → Task Detail adapter →
-other screen adapters → existing MviViewModel / coordinator / slots.
+Target shape — the screen adapters are parallel implementations of one contract:
+
+```
+                 ┌→ Task Detail adapter ─┐
+Agent / CLI → Contract → Other adapters ──┼→ existing MVI / coordinators
+                 └→ Future adapters ─────┘
+```
 
 ### What the POC proved, and what it did not
 
@@ -71,7 +76,9 @@ Minimal target form the canonical contract is being designed against:
 - Async completion — the outcome appears in the next snapshot; dispatch does not wait for
   completion.
 - Navigation and focus — focus context shape is open for #3040 (the POC pinned `{taskId, title}`).
-- Errors — failures ride the screen's error event, not a failed dispatch.
+- Errors — failures ride the screen's error event rather than failing the dispatch; this is
+  POC-specific behaviour, because the canonical error channel and serialization are open for #3040.
+  Operation failures must be observable by the driver.
 - Versioning — contract versioning is open for #3040.
 
 Mandatory semantics (POC-proven, carried into the contract): allow-list, schema check,
@@ -124,10 +131,13 @@ does not forbid evolving or replacing the framework later.
   current boundary blocks.
 - CLI: first-class candidate for the agent-facing workflow, shaped after the canonical contract; a
   standalone executable is deferred until the contract exists (#3041), and is justified only with a
-  responsibility of its own — reuse of the existing tooling is checked first. MCP domain tools remain
-  a separate mechanism and are not duplicated as screen actions. Logical capability surface (not the
-  final command set): discover → inspect → actions → invoke → wait → verify; the runtime path and the
-  CLI/MCP boundary are #3041 open items.
+  responsibility of its own — reuse of the existing tooling is checked first. Decision now: the
+  initial host is the existing repository tooling; a standalone executable is created only if #3041
+  demonstrates a concrete need. Expected local runtime connection (architectural level): reuse the
+  existing local tooling surface; command syntax and implementation stay with #3041. MCP domain
+  tools remain a separate mechanism and are not duplicated as screen actions. Logical capability
+  surface (not the final command set): discover → inspect → actions → invoke → wait → verify; the
+  runtime path and the CLI/MCP boundary are #3041 open items.
 
 ## Rationale
 
