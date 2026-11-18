@@ -43,7 +43,9 @@ What the repository already has:
 ### Measured on a device
 
 Device: Motorola RMX3938, 720×1600 @320dpi (360×800 dp) — the same device the
-#2871 research used. Installed build `9a892e61`; the title-row focus logic and
+
+# 2871 research used. Installed build `9a892e61`; the title-row focus logic and
+
 the save bar are byte-identical to HEAD (`d9bbe7ef`), so the observations
 describe the current branch.
 
@@ -62,7 +64,7 @@ describe the current branch.
 Consequence for a title-only capture from Inbox: **four taps** — FAB, title,
 back (dismiss the IME), Save. Two of them are not needed for the task to exist.
 
-### Measured after the #2982 fixes
+## Measured after the #2982 fixes
 
 The same device, the same measurement commands, the debug build of this branch
 (`./gw :androidApp:assembleDebug`) installed over the previous one with
@@ -248,7 +250,6 @@ unmeasured, and it is the only signal that could argue for the surface rather
 than for the layout. Nothing in the repository measures it.
 
 ## Decision
-
 
 **The separate Quick Add surface is deferred.** No new composer route, no second
 state machine, no duplicated validation, no second draft key.
