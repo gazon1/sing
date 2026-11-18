@@ -181,4 +181,31 @@ class SeedQueueTest {
 
             assertFalse(queue.enqueue(SeedRequest(arrival, mapOf("id" to "A"))))
         }
+
+    @Test
+    fun `the requests already in the queue still run after the queue is closed`() =
+        runTest {
+            val sequencer = SeedSequencer()
+            val queue = SeedQueue(sequencer)
+            val seeded = mutableListOf<String>()
+
+            val arrival = assertNotNull(sequencer.arrive(Any()))
+
+            launch {
+                queue.consume(
+                    seed = { params -> seeded += params["id"].orEmpty() },
+                    onSuccess = { },
+                    onFailure = { _, _ -> },
+                )
+            }
+
+            queue.enqueue(SeedRequest(arrival, mapOf("id" to "A")))
+
+            // The queue is closed while the request is still in it: a seed that
+            // is waiting must not lose its rows because the activity went away.
+            queue.close()
+            advanceUntilIdle()
+
+            assertEquals(listOf("A"), seeded)
+        }
 }
