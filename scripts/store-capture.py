@@ -365,6 +365,9 @@ def clean_status_bar(serial: str) -> list[str]:
     The system's own notifications are left alone: they are the device talking
     to itself about a keyboard, and they carry nothing of the person who
     owns the device.
+
+    The notifications themselves are looked at again before every screenshot
+    — see `assert_clean_status_bar`.
     """
     warnings: list[str] = []
     code, out = adb(
@@ -374,6 +377,19 @@ def clean_status_bar(serial: str) -> list[str]:
     if code != 0:
         detail = out.strip().splitlines()[-1] if out.strip() else "failed"
         warnings.append(f"the battery percentage in the status bar: {detail}")
+    assert_clean_status_bar(serial)
+    return warnings
+
+
+def assert_clean_status_bar(serial: str) -> None:
+    """Refuse the capture when the status bar is not clean.
+
+    The shade is collapsed and the notifications are looked at again. This is
+    done before every screenshot, not once at the start of the run: a
+    notification that arrives while the flows play is a notification in the
+    picture, and a check that ran before the first capture says nothing about
+    the sixth one.
+    """
     # A shade left open over the app would be in the picture as well.
     code, out = adb("shell", "cmd", "statusbar", "collapse", serial=serial)
     if code != 0:
@@ -406,7 +422,6 @@ def clean_status_bar(serial: str) -> list[str]:
             "status bar has to show the clock only, so the capture is refused "
             "rather than taken with a notification on it"
         )
-    return warnings
 
 
 def notification_packages(dumps: str) -> list[str]:
@@ -740,6 +755,12 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
     image_data = bytearray()
     complete = False
     idat_ended = False
+    # Whether an image-data chunk has been seen — not whether it carried
+    # anything. An empty IDAT is legal, and a file that hides one between
+    # two chunks of real data must still be caught.
+    seen_idat = False
+    # Whether the file carries a palette, and whether it is a legal one.
+    has_palette = False
     broken_checksums = 0
     problems: list[str] = []
     position = len(PNG_SIGNATURE)
@@ -785,7 +806,28 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
                 # between two of them means the file is not one anybody can
                 # decode.
                 problems.append("has image data after another chunk")
+            seen_idat = True
             image_data += body
+        elif kind == b"PLTE":
+            has_palette = True
+            if width is None:
+                problems.append("has a palette before its image header")
+            if seen_idat:
+                # The palette has to be in the file before the pixels that
+                # index into it.
+                problems.append("has a palette after its image data")
+            if length == 0 or length % 3 != 0:
+                # A palette is a whole number of three-byte entries.
+                problems.append("has a malformed palette")
+            elif length // 3 > 256:
+                problems.append("has a palette with too many entries")
+            elif color_type in (0, 4):
+                # Grey and grey-with-alpha images have no colours to index.
+                problems.append("has a palette a colour type that does not use one")
+            elif color_type == 3 and length // 3 > 2**bit_depth:
+                problems.append(
+                    "has a palette with more entries than its bit depth allows"
+                )
         elif kind == b"IEND":
             if length != 0:
                 problems.append("has data in its end marker")
@@ -799,7 +841,7 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             problems.append(
                 f"has an unknown critical chunk ({kind.decode('ascii', 'replace')})"
             )
-        if image_data and kind != b"IDAT":
+        if seen_idat and kind != b"IDAT":
             idat_ended = True
         position = end + 4
 
@@ -808,6 +850,10 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
 
     if width is None or height is None:
         return ["is not a PNG (it has no image header)"]
+    if color_type == 3 and not has_palette:
+        # The pixels of an indexed image are indices into a palette. Without
+        # one there is no picture to show.
+        problems.append("has no palette for its indexed colours")
     if width == 0 or height == 0:
         problems.append(f"is {width}x{height}, which is not an image")
     if broken_checksums:
@@ -1019,6 +1065,10 @@ def main(argv: list[str] | None = None) -> int:
             continue
         image = output / capture.file
         try:
+            # The status bar is checked again here, right before the picture
+            # is taken: a notification that arrived while the flow played
+            # would be in the picture.
+            assert_clean_status_bar(serial)
             capture_screenshot(serial, image)
         except CaptureError as exc:
             results.append((capture, None, [str(exc)], "failed"))

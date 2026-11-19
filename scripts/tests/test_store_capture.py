@@ -14,6 +14,7 @@ work around them is what the command is for, not what these tests are for.
 
 import importlib.util
 import pathlib
+import shutil
 import struct
 import sys
 import tempfile
@@ -28,6 +29,12 @@ mod = importlib.util.module_from_spec(spec)
 # looks its own module up there while it is being built.
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
+
+
+def png_chunk(kind, body):
+    """A PNG chunk: its length, its name, its body and its checksum."""
+    crc = zlib.crc32(kind + body) & 0xffffffff
+    return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
 
 
 def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False,
@@ -631,6 +638,76 @@ class ImageValidationTest(unittest.TestCase):
         problems = self.check(data)
         self.assertTrue(any('image data after another chunk' in problem for problem in problems), problems)
 
+    def test_an_empty_image_data_chunk_does_not_hide_a_split_run(self):
+        # An empty IDAT is legal, and a file that hides one between two
+        # chunks of real data must still be caught: the run of image data
+        # is broken by the text chunk in the middle.
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 3) for _ in range(1920))
+        image = zlib.compress(raw)
+        data = (
+            mod.PNG_SIGNATURE
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', b'')
+            + chunk(b'tEXt', b'Comment\x00hello')
+            + chunk(b'IDAT', image)
+            + chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('image data after another chunk' in problem for problem in problems), problems)
+
+    def test_an_indexed_image_without_a_palette_is_refused(self):
+        # The pixels of an indexed image are indices into a palette; without
+        # one there is no picture to show.
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 1) for _ in range(1920))
+        data = (
+            mod.PNG_SIGNATURE
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 3, 0, 0, 0))
+            + png_chunk(b'IDAT', zlib.compress(raw))
+            + png_chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('palette' in problem for problem in problems), problems)
+
+    def test_an_indexed_image_with_a_palette_is_accepted(self):
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 1) for _ in range(1920))
+        data = (
+            mod.PNG_SIGNATURE
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 3, 0, 0, 0))
+            + png_chunk(b'PLTE', b'\x00\x00\x00\xff\xff\xff')
+            + png_chunk(b'IDAT', zlib.compress(raw))
+            + png_chunk(b'IEND', b'')
+        )
+        self.assertEqual(self.check(data), [])
+
+    def test_a_malformed_palette_is_refused(self):
+        # A palette is a whole number of three-byte entries.
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 1) for _ in range(1920))
+        data = (
+            mod.PNG_SIGNATURE
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 3, 0, 0, 0))
+            + png_chunk(b'PLTE', b'\x00\x00\x00\xff')
+            + png_chunk(b'IDAT', zlib.compress(raw))
+            + png_chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('palette' in problem for problem in problems), problems)
+
+    def test_a_palette_after_the_image_data_is_refused(self):
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 1) for _ in range(1920))
+        data = (
+            mod.PNG_SIGNATURE
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 3, 0, 0, 0))
+            + png_chunk(b'IDAT', zlib.compress(raw))
+            + png_chunk(b'PLTE', b'\x00\x00\x00\xff\xff\xff')
+            + png_chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('palette' in problem for problem in problems), problems)
+
     def test_data_after_the_compressed_image_is_refused(self):
         # The compressed data of a PNG is one zlib stream and nothing else.
         def chunk(kind, body):
@@ -660,6 +737,46 @@ class ImageValidationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             problems = mod.validate_png(pathlib.Path(tmp) / 'gone.png', self.profile)
         self.assertTrue(problems)
+
+
+class CaptureOrderTest(unittest.TestCase):
+    """The status bar is checked right before the picture is taken."""
+
+    def run_capture(self, calls):
+        output = mod.ROOT / 'build' / 'store-capture-test'
+        shutil.rmtree(output, ignore_errors=True)
+        output.mkdir(parents=True, exist_ok=True)
+        try:
+
+            def fake_screenshot(serial, path):
+                calls.append('screenshot')
+                path.write_bytes(png_bytes(1080, 1920))
+
+            def fake_check(serial):
+                calls.append('check')
+
+            with mock.patch.object(mod, 'prepare_output_dir', return_value=output), \
+                    mock.patch.object(mod, 'resolve_device', return_value='emulator-5554'), \
+                    mock.patch.object(mod, 'attached_devices', return_value=[]), \
+                    mock.patch.object(mod, 'build_capture_apk', return_value=pathlib.Path('app.apk')), \
+                    mock.patch.object(mod, 'install_apk'), \
+                    mock.patch.object(mod, 'verify_identity', return_value=('pkg', '1.0')), \
+                    mock.patch.object(mod, 'apply_profile', return_value=[]), \
+                    mock.patch.object(mod, 'run_flow', side_effect=lambda *a, **k: calls.append('flow') or True), \
+                    mock.patch.object(mod, 'assert_clean_status_bar', side_effect=fake_check), \
+                    mock.patch.object(mod, 'capture_screenshot', side_effect=fake_screenshot):
+                code = mod.main(['--flow', '01-today', '--serial', 'emulator-5554'])
+        finally:
+            shutil.rmtree(output, ignore_errors=True)
+        return code
+
+    def test_the_notifications_are_checked_again_before_the_screenshot(self):
+        # A notification that arrives while the flow plays would be in the
+        # picture, so the status bar is looked at again after the flow and
+        # before the screen is taken.
+        calls = []
+        self.assertEqual(0, self.run_capture(calls))
+        self.assertEqual(calls, ['flow', 'check', 'screenshot'])
 
 
 if __name__ == '__main__':

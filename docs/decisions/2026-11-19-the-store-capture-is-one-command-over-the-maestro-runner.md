@@ -94,11 +94,17 @@ a filter byte, and PNG knows only five of them. A sixth value is not a
 picture anybody can decode, so it is refused.
 
 The chunk order is checked as well: the header comes first and only once, the
-image data follows it as one run of chunks, the end marker carries nothing and
-nothing follows it, and a critical chunk nobody knows — a chunk whose name
-starts with a capital letter — is refused, because a decoder has to reject a
-file it cannot read. The compressed data itself is one zlib stream and nothing
-else, so bytes after it are refused too.
+image data follows it as one run of chunks — an empty image-data chunk counts
+as part of the run, so it cannot hide a split one — the end marker carries
+nothing and nothing follows it, and a critical chunk nobody knows — a chunk
+whose name starts with a capital letter — is refused, because a decoder has to
+reject a file it cannot read. The compressed data itself is one zlib stream and
+nothing else, so bytes after it are refused too.
+
+The palette is checked as well. An indexed image is a list of indices into a
+palette, so a palette is required for one, it has to be a whole number of
+three-byte entries, it has to be in the file before the pixels that index into
+it, and a colour type that has no colours to index must not carry one at all.
 
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
@@ -177,7 +183,9 @@ drift.
   carry nothing personal and are allowed. The check is closed: a device that
   cannot be asked about its notifications, whose shade cannot be collapsed, or
   whose notification record has no readable package refuses the capture as
-  well, because an unread status bar is not a clean one.
+  well, because an unread status bar is not a clean one. The notifications are
+  looked at again before every screenshot, because a notification that arrives
+  while a flow plays is a notification in the picture.
 - The app's own settings are reset by stopping the app and dropping its
   settings file, and both steps have to work: a running app keeps its loaded
   preferences in memory and would put the old theme back on the screen after
@@ -193,12 +201,16 @@ drift.
   — interlaced, an unknown colour type, an illegal colour type and bit depth
   pair, an unknown compression or filter method — an illegal scanline filter,
   a chunk before the header, a second header, data in or after the end marker,
-  an unknown critical chunk, image data that is not one run of chunks, data
+  an unknown critical chunk, image data that is not one run of chunks, a split
+  run hidden behind an empty image-data chunk, a palette that is missing,
+  malformed or late, data
   after the compressed image, and the profile: a reset the device refuses, an
   app that cannot be stopped, a property that does not take, a settings file
   that survives the reset, a settings file that cannot be read back, a
   notification that cannot be inspected, a notification record without a
-  readable package, a shade that cannot be collapsed).
+  readable package, a shade that cannot be collapsed). The order of the capture
+  is covered as well: the notifications are looked at again after the flow and
+  before the screenshot.
 - The six flows are still `manual` and `capture`-tagged, so the nightly full
   suite does not pay for them.
 

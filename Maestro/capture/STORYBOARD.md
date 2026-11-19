@@ -139,6 +139,11 @@ about its notifications, whose shade cannot be collapsed, or whose
 notification cannot be read refuses the capture as well: a status bar nobody
 managed to read is not a clean one.
 
+The notifications are looked at again before every single screenshot, and the
+shade is collapsed again with them: a notification that arrives while a flow
+plays is a notification in the picture, and a check that ran before the first
+capture says nothing about the sixth one.
+
 The theme and the font scale are the *app's* settings, not the system's: they
 live in the app's own data, and a device where somebody once chose the dark
 theme keeps the dark theme after an install. The command therefore stops the
