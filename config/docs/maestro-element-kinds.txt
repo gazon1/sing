@@ -91,7 +91,6 @@ menu_profiles menu
 menu_project_node_bulk_001 item
 menu_project_node_child item
 menu_project_node_childless item
-menu_project_node_demo_renovation item
 menu_project_node_grandchild item
 menu_project_node_latecomer item
 menu_project_node_parent item
@@ -133,6 +132,7 @@ profile_item_work item
 project_card_childless item
 project_card_custom_emoji_flow item
 project_card_emoji_flow item
+project_card_home_renovation item
 project_card_latecomer item
 project_card_project_alpha item
 project_card_roadmap item

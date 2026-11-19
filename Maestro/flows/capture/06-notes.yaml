@@ -3,7 +3,7 @@
 # The note is the one the dataset links to a task, so the preview shows what the
 # storyboard says it shows: a paragraph of text and a link to the task it
 # belongs to.
-# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-notes
 tags:

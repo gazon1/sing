@@ -3,7 +3,7 @@
 # The task is the one the storyboard names, opened from Today, so the shot is
 # reached the way a reader reaches it. The title is asserted as text: the id
 # says that *a* title field is open, the text says it is *this* task's.
-# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-task-detail
 tags:

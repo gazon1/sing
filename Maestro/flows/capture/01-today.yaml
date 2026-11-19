@@ -7,7 +7,7 @@
 #
 # Tagged `manual`: the capture runs on the store capture device, on purpose,
 # and the nightly full suite must not pay for it.
-# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-today
 tags:

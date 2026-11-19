@@ -2,7 +2,7 @@
 #
 # The dataset runs to +5d; the frame shows the first days of it. The wait is on
 # the "Tomorrow" section, which renders because tomorrow's seeded task is in it.
-# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-upcoming
 tags:

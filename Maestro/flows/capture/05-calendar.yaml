@@ -6,10 +6,18 @@
 # the next month whenever the capture happens on the 29th, the 30th or the 31st,
 # so a flow that asserted the whole set would fail on some days of the year.
 #
-# A task in a month cell is a dot, and the dot carries the task's title as its
-# accessibility description — which is what `text` matches. The `.*` around it
-# is what lets the assertion survive the cell merging its dots into one node.
-# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+# What the flow asserts is the *count* of the tasks in today's cell, and not
+# their titles. A month cell is a small box: it draws one dot per task and a
+# badge with the number of the tasks of the day, and it clips the dots it
+# cannot fit — a cell that is one line shorter shows two of the three titles
+# and hides the third. The badge is the number of the tasks in the cell on
+# every device, so the badge is what the flow waits for; the titles live in the
+# day view, where the whole list fits, and the day view is not what this
+# screenshot is of.
+#
+# The badge is a number of its own, so it is asserted as the number 3 — the
+# three tasks the dataset puts due today.
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-calendar
 tags:
@@ -32,12 +40,13 @@ tags:
     file: ../../helpers/calendar-day-cell.yaml
     env:
       DAY_CELL: ${output.TODAY_CELL}
-# The three tasks due today, in the cell of today.
-- assertVisible:
-    text: ".*Review the launch checklist.*"
-- assertVisible:
-    text: ".*Order the kitchen tiles.*"
-- assertVisible:
-    text: ".*Book the electrician.*"
+# The three tasks due today, counted in the cell of today. The badge is the
+# number of the tasks in the cell, and it sits in the row below the day number
+# — hence the nested child: the cell holds the row, the row holds the badge.
+- runFlow:
+    file: ../../helpers/calendar-day-cell-task-count.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
+      TASK_COUNT: "3"
 - waitForAnimationToEnd
 - takeScreenshot: 05-calendar

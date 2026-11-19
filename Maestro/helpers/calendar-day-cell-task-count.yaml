@@ -1,0 +1,29 @@
+# Asserts the number of tasks a calendar day cell holds.
+#
+# Usage:
+#   env:
+#     DAY_CELL: calendar_day_2026_10_20
+#     TASK_COUNT: "3"
+#
+# A month cell shows its tasks as dots and carries the number of them in a
+# badge, so the badge is what says how many tasks the day holds. The dots
+# cannot answer that question: a cell clips the dots it cannot fit, so a day
+# with three tasks may show two of them.
+#
+# The number is asserted as a child of the cell, and the cell's own day number
+# is anchored out of the way (`^3$`): the day number of the 23rd contains a
+# "3" as well, and an unanchored match would be satisfied by the day number
+# alone.
+#
+# The cell's testTag carries its date, so the id is computed by
+# helpers/scripts/date.js and handed over as an environment variable. A flow
+# that named the cell itself would have to write a date down, and the selector
+# gate rejects an id it cannot expand.
+appId: com.singularity.todo
+name: calendar-day-cell-task-count
+---
+- assertVisible:
+    id: "${DAY_CELL}"
+    containsChild:
+      containsChild:
+        text: "^${TASK_COUNT}$"

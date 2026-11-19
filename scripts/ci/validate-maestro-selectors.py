@@ -278,9 +278,8 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_write_the_launch_post",
     "task_item_measure_the_kitchen_counter",
     "task_item_send_the_deposit_invoice",
-    # menuProjectNode(...) — the demo profile's project, seeded with id
-    # "demo-renovation"
-    "menu_project_node_demo_renovation",
+    # projectCard(...) — the demo profile's project, named "Home renovation"
+    "project_card_home_renovation",
     # noteItemByTitle(...) — a note of the demo profile
     "note_item_by_title_launch_post_outline",
     # pomodoroTaskChip(...) — from seed flows
