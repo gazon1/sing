@@ -56,7 +56,7 @@ class ScreenAction(
     inputSchema: JsonObject,
     val isAvailable: (ScreenState) -> Boolean = { true },
 ) {
-    val inputSchema: JsonObject = JsonObject(inputSchema.toMap())
+    val inputSchema: JsonObject = inputSchema.deepCopyObject()
     private val propertyConstraints: Map<String, StringPropertyConstraint>
     private val acceptedKeys: Set<String>
     private val requiredKeys: List<String>
@@ -262,6 +262,15 @@ class ScreenAction(
         val enumValues: List<String>?,
     )
 }
+
+private fun JsonObject.deepCopyObject(): JsonObject = JsonObject(mapValues { (_, value) -> value.deepCopy() })
+
+private fun JsonElement.deepCopy(): JsonElement =
+    when (this) {
+        is JsonObject -> JsonObject(mapValues { (_, value) -> value.deepCopy() })
+        is JsonArray -> JsonArray(map { it.deepCopy() })
+        else -> this
+    }
 
 /**
  * The reusable, agent-facing screen introspection contract.

@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -501,6 +502,53 @@ class ScreenIntrospectionTest {
                 },
             )
         assertTrue(unexpected.isFailure, "validation keeps the original accepted keys: $unexpected")
+    }
+
+    @Test
+    fun `mutating a nested schema map after creation does not change the published schema or validation`() {
+        val titleProperty =
+            mutableMapOf<String, JsonElement>(
+                "type" to JsonPrimitive("string"),
+                "minLength" to JsonPrimitive(1),
+                "pattern" to JsonPrimitive("\\S"),
+            )
+        val properties = mutableMapOf<String, JsonElement>("title" to JsonObject(titleProperty))
+        val schemaMap =
+            mutableMapOf<String, JsonElement>(
+                "type" to JsonPrimitive("object"),
+                "required" to JsonArray(listOf(JsonPrimitive("title"))),
+                "properties" to JsonObject(properties),
+                "additionalProperties" to JsonPrimitive(false),
+            )
+        val action =
+            ScreenAction(
+                name = "add_checklist_item",
+                summary = "Add a checklist item.",
+                requirement = "the screen has to be showing a task",
+                inputSchema = JsonObject(schemaMap),
+            )
+
+        titleProperty["minLength"] = JsonPrimitive("3")
+        titleProperty["pattern"] = JsonPrimitive(42)
+        titleProperty["bogus"] = JsonPrimitive(true)
+
+        val publishedTitle =
+            ((action.inputSchema["properties"] as JsonObject)["title"] as JsonObject)
+        assertTrue(
+            (publishedTitle["minLength"] as JsonPrimitive).content == "1",
+            "the published nested minLength stays unchanged: $publishedTitle",
+        )
+        assertTrue(
+            (publishedTitle["pattern"] as JsonPrimitive).content == "\\S",
+            "the published nested pattern stays unchanged: $publishedTitle",
+        )
+        assertTrue(publishedTitle["bogus"] == null, "the published nested schema stays unchanged: $publishedTitle")
+
+        val blank = action.validate(buildJsonObject { put("title", "   ") })
+        assertTrue(blank.isFailure, "validation keeps the original nested constraints: $blank")
+
+        val valid = action.validate(buildJsonObject { put("title", "ok") })
+        assertTrue(valid.isSuccess, "validation keeps accepting the original valid input: $valid")
     }
 
     private fun action(
