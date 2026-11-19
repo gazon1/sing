@@ -198,20 +198,22 @@ class ScreenAction(
         if (unsupported.isNotEmpty()) {
             return "Unsupported schema keyword(s) for '$name': ${unsupported.sorted().joinToString { "'$it'" }}"
         }
-        if ((property["type"] as? JsonPrimitive)?.content != "string") {
+        val typeContent = (property["type"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        if (typeContent != "string") {
             return "The introspection schema for '$name' must be of type \"string\"."
         }
-        val minLength = (property["minLength"] as? JsonPrimitive)?.content?.toIntOrNull()
+        val minLengthPrimitive = property["minLength"] as? JsonPrimitive
+        val minLength = minLengthPrimitive?.takeIf { !it.isString }?.content?.toIntOrNull()
         val minLengthProblem =
-            if (property["minLength"] != null && (minLength == null || minLength < 0)) {
+            if (property.containsKey("minLength") && (minLength == null || minLength < 0)) {
                 "The introspection schema for '$name' must set a non-negative minLength."
             } else {
                 null
             }
-        val pattern = (property["pattern"] as? JsonPrimitive)?.content
-        val regex = pattern?.let { runCatching { Regex(it) }.getOrNull() }
+        val patternContent = (property["pattern"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        val regex = patternContent?.let { runCatching { Regex(it) }.getOrNull() }
         val patternProblem =
-            if (pattern != null && regex == null) {
+            if (property.containsKey("pattern") && (patternContent == null || regex == null)) {
                 "The introspection schema for '$name' must set a pattern that is a valid regex."
             } else {
                 null
@@ -246,8 +248,8 @@ class ScreenAction(
                     (enumElement as JsonPrimitive).content
                 }
             StringPropertyConstraint(
-                minLength = (property["minLength"] as? JsonPrimitive)?.content?.toIntOrNull(),
-                pattern = (property["pattern"] as? JsonPrimitive)?.content?.let(::Regex),
+                minLength = (property["minLength"] as? JsonPrimitive)?.takeIf { !it.isString }?.content?.toIntOrNull(),
+                pattern = (property["pattern"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.let(::Regex),
                 enumValues = enumValues,
             )
         }
@@ -268,9 +270,11 @@ class ScreenAction(
  * actions exist, what they mean, and how the screen's state maps into [ScreenState] — while
  * the semantics here stay single-sourced.
  */
-class ScreenIntrospection(val screenId: String, val actions: List<ScreenAction>) {
+class ScreenIntrospection(val screenId: String, actions: List<ScreenAction>) {
+    val actions: List<ScreenAction> = actions.toList()
+
     init {
-        val names = actions.map { it.name }
+        val names = this.actions.map { it.name }
         if (names.toSet().size != names.size) {
             throw IllegalArgumentException("The screen '$screenId' must not declare two actions with the same name.")
         }

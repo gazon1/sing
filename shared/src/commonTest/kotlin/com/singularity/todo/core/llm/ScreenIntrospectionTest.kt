@@ -334,6 +334,70 @@ class ScreenIntrospectionTest {
     }
 
     @Test
+    fun `an action whose schema sets minLength as a string is refused`() {
+        val problem =
+            runCatching {
+                ScreenAction(
+                    name = "add_checklist_item",
+                    summary = "Add a checklist item.",
+                    requirement = "the screen has to be showing a task",
+                    inputSchema =
+                        buildJsonObject {
+                            put("type", "object")
+                            put("required", JsonArray(listOf(JsonPrimitive("title"))))
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "title",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("minLength", "3")
+                                        },
+                                    )
+                                },
+                            )
+                            put("additionalProperties", false)
+                        },
+                )
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("minLength") == true, "the refusal names minLength: $problem")
+    }
+
+    @Test
+    fun `an action whose schema sets pattern as a non-string is refused`() {
+        val problem =
+            runCatching {
+                ScreenAction(
+                    name = "add_checklist_item",
+                    summary = "Add a checklist item.",
+                    requirement = "the screen has to be showing a task",
+                    inputSchema =
+                        buildJsonObject {
+                            put("type", "object")
+                            put("required", JsonArray(listOf(JsonPrimitive("title"))))
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "title",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("pattern", 42)
+                                        },
+                                    )
+                                },
+                            )
+                            put("additionalProperties", false)
+                        },
+                )
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("pattern") == true, "the refusal names the pattern: $problem")
+    }
+
+    @Test
     fun `an action whose schema sets an enum with a non-string is refused`() {
         val problem =
             runCatching {
@@ -383,6 +447,20 @@ class ScreenIntrospectionTest {
             }.exceptionOrNull()?.message
 
         assertTrue(problem?.contains("dup") == true, "the refusal names the action: $problem")
+    }
+
+    @Test
+    fun `mutating the source action list after creation does not bypass uniqueness`() {
+        val actions = mutableListOf(action("a"), action("b"))
+        val screen = ScreenIntrospection("screen.test", actions)
+        actions.add(action("a"))
+
+        val described = screen.describe(ScreenState(status = "loaded"))
+        val names =
+            (described["actions"] as JsonArray).map { element ->
+                ((element as JsonObject)["name"] as JsonPrimitive).content
+            }
+        assertTrue(names == listOf("a", "b"), "the contract keeps its own action list: $names")
     }
 
     private fun action(
