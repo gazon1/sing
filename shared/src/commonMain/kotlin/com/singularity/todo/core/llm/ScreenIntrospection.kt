@@ -56,18 +56,21 @@ class ScreenAction(
     val inputSchema: JsonObject,
     val isAvailable: (ScreenState) -> Boolean = { true },
 ) {
-    private val acceptedKeys: Set<String> = (inputSchema["properties"] as? JsonObject)?.keys.orEmpty()
-
-    private val requiredKeys: List<String> =
-        (inputSchema["required"] as? JsonArray)?.map { it.jsonPrimitive.content } ?: emptyList()
-
-    private val propertySchemas: JsonObject? = inputSchema["properties"] as? JsonObject
+    private val propertyConstraints: Map<String, StringPropertyConstraint>
+    private val acceptedKeys: Set<String>
+    private val requiredKeys: List<String>
 
     init {
         val problem = schemaProblem(inputSchema)
         if (problem != null) {
             throw IllegalArgumentException(problem)
         }
+        propertyConstraints = parsePropertyConstraints(inputSchema)
+        acceptedKeys = propertyConstraints.keys
+        requiredKeys =
+            (inputSchema["required"] as? JsonArray)
+                ?.map { it.jsonPrimitive.content }
+                .orEmpty()
     }
 
     /**
@@ -116,28 +119,27 @@ class ScreenAction(
     ): String? {
         val value = input[name] ?: return null
         val primitive = value as? JsonPrimitive ?: return "'$name' must be a string"
+        if (!primitive.isString) {
+            return "'$name' must be a string"
+        }
+        val constraint = propertyConstraints[name] ?: return null
         val text = primitive.content
-        val property = propertySchemas?.get(name) as? JsonObject ?: return null
-        val minLength = (property["minLength"] as? JsonPrimitive)?.content?.toIntOrNull()
-        val pattern = (property["pattern"] as? JsonPrimitive)?.content
-        val enumValues = (property["enum"] as? JsonArray)?.map { element -> (element as JsonPrimitive).content }
-        val type = (property["type"] as? JsonPrimitive)?.content
         return when {
-            type != "string" -> "'$name' of type ${type ?: "unknown"} is not supported by the introspection contract"
+            constraint.minLength != null && text.length < constraint.minLength -> {
+                "'$name' must be at least ${constraint.minLength} characters long"
+            }
 
-            !primitive.isString -> "'$name' must be a string"
+            constraint.pattern != null && constraint.pattern.find(text) == null -> {
+                "'$name' does not match the required pattern"
+            }
 
-            minLength != null && text.length < minLength -> "'$name' must be at least $minLength characters long"
+            constraint.enumValues != null && constraint.enumValues.none { it == text } -> {
+                "'$name' must be one of ${constraint.enumValues.joinToString { "'$it'" }}"
+            }
 
-            pattern != null && Regex(pattern).find(text) == null -> "'$name' does not match the required pattern"
-
-            enumValues != null &&
-                enumValues.none {
-                    it == text
-                }
-            -> "'$name' must be one of ${enumValues.joinToString { "'$it'" }}"
-
-            else -> null
+            else -> {
+                null
+            }
         }
     }
 
@@ -157,7 +159,34 @@ class ScreenAction(
             properties?.let { props ->
                 props.keys.firstNotNullOfOrNull { name: String -> propertyProblem(name, props[name]) }
             }
-        return badProperty
+        val badRequired = requiredProblem(schema, properties)
+        return badProperty ?: badRequired
+    }
+
+    private fun requiredProblem(
+        schema: JsonObject,
+        properties: JsonObject?,
+    ): String? {
+        val required = schema["required"] as? JsonArray
+        val names: List<String> =
+            required?.map { element: JsonElement ->
+                (element as? JsonPrimitive)?.takeIf { it.isString }?.content
+                    ?: return "The introspection schema must set required to an array of strings."
+            } ?: return "The introspection schema must set required to an array of strings."
+        if (names.toSet().size != names.size) {
+            return "The introspection schema must not repeat a required property."
+        }
+        if (properties == null) {
+            return "The introspection schema must set properties."
+        }
+        val missing = names.filter { it !in properties.keys }
+        return if (missing.isNotEmpty()) {
+            "The introspection schema must declare the required properties: ${missing.sorted().joinToString {
+                "'$it'"
+            }}"
+        } else {
+            null
+        }
     }
 
     private fun propertyProblem(
@@ -169,12 +198,66 @@ class ScreenAction(
         if (unsupported.isNotEmpty()) {
             return "Unsupported schema keyword(s) for '$name': ${unsupported.sorted().joinToString { "'$it'" }}"
         }
-        val propertyType = property["type"]?.jsonPrimitive?.content
-        if (propertyType != "string") {
+        if ((property["type"] as? JsonPrimitive)?.content != "string") {
             return "The introspection schema for '$name' must be of type \"string\"."
         }
-        return null
+        val minLength = (property["minLength"] as? JsonPrimitive)?.content?.toIntOrNull()
+        val minLengthProblem =
+            if (property["minLength"] != null && (minLength == null || minLength < 0)) {
+                "The introspection schema for '$name' must set a non-negative minLength."
+            } else {
+                null
+            }
+        val pattern = (property["pattern"] as? JsonPrimitive)?.content
+        val regex = pattern?.let { runCatching { Regex(it) }.getOrNull() }
+        val patternProblem =
+            if (pattern != null && regex == null) {
+                "The introspection schema for '$name' must set a pattern that is a valid regex."
+            } else {
+                null
+            }
+        val enumProblem =
+            when (val enumElement = property["enum"]) {
+                null -> {
+                    null
+                }
+
+                is JsonArray -> {
+                    if (enumElement.any { element -> element !is JsonPrimitive || !element.isString }) {
+                        "The introspection schema for '$name' must set enum to strings only."
+                    } else {
+                        null
+                    }
+                }
+
+                else -> {
+                    "The introspection schema for '$name' must set enum to strings only."
+                }
+            }
+        return minLengthProblem ?: patternProblem ?: enumProblem
     }
+
+    private fun parsePropertyConstraints(schema: JsonObject): Map<String, StringPropertyConstraint> {
+        val properties = schema["properties"] as? JsonObject ?: return emptyMap()
+        return properties.mapValues { (_, element) ->
+            val property = element as JsonObject
+            val enumValues =
+                (property["enum"] as? JsonArray)?.map { enumElement ->
+                    (enumElement as JsonPrimitive).content
+                }
+            StringPropertyConstraint(
+                minLength = (property["minLength"] as? JsonPrimitive)?.content?.toIntOrNull(),
+                pattern = (property["pattern"] as? JsonPrimitive)?.content?.let(::Regex),
+                enumValues = enumValues,
+            )
+        }
+    }
+
+    private data class StringPropertyConstraint(
+        val minLength: Int?,
+        val pattern: Regex?,
+        val enumValues: List<String>?,
+    )
 }
 
 /**
@@ -186,6 +269,13 @@ class ScreenAction(
  * the semantics here stay single-sourced.
  */
 class ScreenIntrospection(val screenId: String, val actions: List<ScreenAction>) {
+    init {
+        val names = actions.map { it.name }
+        if (names.toSet().size != names.size) {
+            throw IllegalArgumentException("The screen '$screenId' must not declare two actions with the same name.")
+        }
+    }
+
     /**
      * What the screen shows, as an allow-listed JSON object.
      *

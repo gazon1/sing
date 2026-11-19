@@ -5,9 +5,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class ScreenIntrospectionTest {
     @Test
     fun `an unknown action is refused with the supported actions`() {
@@ -202,6 +204,32 @@ class ScreenIntrospectionTest {
     }
 
     @Test
+    fun `an action whose schema sets a valid string enum is accepted`() {
+        val screen =
+            ScreenIntrospection(
+                "screen.test",
+                listOf(
+                    action(
+                        "set_priority",
+                        required = listOf("priority"),
+                        properties =
+                            mapOf("priority" to stringProperty(listOf("none", "low", "high"))),
+                    ),
+                ),
+            )
+        val result =
+            screen.validate(
+                ScreenState(status = "loaded"),
+                "set_priority",
+                buildJsonObject {
+                    put("priority", "low")
+                },
+            )
+
+        assertTrue(result.isSuccess, "the valid enum input is accepted: $result")
+    }
+
+    @Test
     fun `a blank title is refused by the published limits`() {
         val screen =
             ScreenIntrospection(
@@ -271,6 +299,90 @@ class ScreenIntrospectionTest {
             }.exceptionOrNull()?.message
 
         assertTrue(problem?.contains("count") == true, "the refusal names the field: $problem")
+    }
+
+    @Test
+    fun `an action whose schema sets a malformed pattern is refused`() {
+        val problem =
+            runCatching {
+                ScreenAction(
+                    name = "add_checklist_item",
+                    summary = "Add a checklist item.",
+                    requirement = "the screen has to be showing a task",
+                    inputSchema =
+                        buildJsonObject {
+                            put("type", "object")
+                            put("required", JsonArray(listOf(JsonPrimitive("title"))))
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "title",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("pattern", "[")
+                                        },
+                                    )
+                                },
+                            )
+                            put("additionalProperties", false)
+                        },
+                )
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("pattern") == true, "the refusal names the pattern: $problem")
+    }
+
+    @Test
+    fun `an action whose schema sets an enum with a non-string is refused`() {
+        val problem =
+            runCatching {
+                ScreenAction(
+                    name = "set_priority",
+                    summary = "Set the task's priority.",
+                    requirement = "the screen has to be showing a task",
+                    inputSchema =
+                        buildJsonObject {
+                            put("type", "object")
+                            put("required", JsonArray(listOf(JsonPrimitive("priority"))))
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "priority",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("enum", JsonArray(listOf(JsonPrimitive("high"), JsonPrimitive(42))))
+                                        },
+                                    )
+                                },
+                            )
+                            put("additionalProperties", false)
+                        },
+                )
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("enum") == true, "the refusal names the enum: $problem")
+    }
+
+    @Test
+    fun `an action whose required property is not declared in the properties is refused`() {
+        val problem =
+            runCatching {
+                action("set_priority", required = listOf("ghost"))
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("ghost") == true, "the refusal names the required property: $problem")
+    }
+
+    @Test
+    fun `a screen that declares two actions with the same name is refused`() {
+        val problem =
+            runCatching {
+                ScreenIntrospection("screen.test", listOf(action("dup"), action("dup")))
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("dup") == true, "the refusal names the action: $problem")
     }
 
     private fun action(

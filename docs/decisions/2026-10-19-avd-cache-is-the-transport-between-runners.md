@@ -2,6 +2,7 @@
 title: "GitHub runners do not share a filesystem, so the cache is the transport"
 date: 2026-10-19
 status: open
+review-by: 2026-12-01
 tags: ["ci", "android", "emulator", "e2e"]
 ---
 
