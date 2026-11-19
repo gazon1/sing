@@ -348,9 +348,7 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                             "Journey step '$name' is missing 'op'.",
                         )
                 val startedAt = System.currentTimeMillis()
-                val continueOnError =
-                    step["continueOnError"]?.jsonPrimitive?.booleanOrNull == true ||
-                        step["continueOnError"]?.jsonPrimitive?.contentOrNull == "true"
+                val continueOnError = step["continueOnError"]?.jsonPrimitive?.booleanOrNull == true
                 val stepResult =
                     try {
                         runBlocking { executeJourneyOp(runtime, op, step) }
@@ -445,7 +443,12 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                     InspectorErrorCode.INVALID_ARGUMENTS,
                     "Journey file must be a JSON object.",
                 )
-        val stepsElement = rootJson["steps"] ?: JsonArray(emptyList())
+        val stepsElement =
+            rootJson["steps"]
+                ?: throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Journey file must contain a 'steps' array.",
+                )
         val stepsArray =
             stepsElement as? JsonArray
                 ?: throw InspectorException(
@@ -481,19 +484,11 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                 }
                 val continueOnErrorElement = obj["continueOnError"]
                 if (continueOnErrorElement != null) {
-                    if (continueOnErrorElement !is JsonPrimitive) {
-                        throw InspectorException(
-                            InspectorErrorCode.INVALID_ARGUMENTS,
-                            "Journey step $index field 'continueOnError' must be a boolean.",
-                        )
-                    }
-                    val valid =
-                        if (continueOnErrorElement.isString) {
-                            continueOnErrorElement.content == "true" || continueOnErrorElement.content == "false"
-                        } else {
+                    val isBoolean =
+                        continueOnErrorElement is JsonPrimitive &&
+                            !continueOnErrorElement.isString &&
                             continueOnErrorElement.booleanOrNull != null
-                        }
-                    if (!valid) {
+                    if (!isBoolean) {
                         throw InspectorException(
                             InspectorErrorCode.INVALID_ARGUMENTS,
                             "Journey step $index field 'continueOnError' must be a boolean.",
@@ -687,11 +682,31 @@ private fun parseInput(inputRaw: String?): JsonObject =
             )
     }
 
-private fun JsonObject.string(key: String): String =
-    this[key]?.jsonPrimitive?.contentOrNull
-        ?: throw InspectorException(InspectorErrorCode.INVALID_ARGUMENTS, "Missing required field '$key'.")
+private fun JsonObject.string(key: String): String {
+    val element =
+        this[key]
+            ?: throw InspectorException(InspectorErrorCode.INVALID_ARGUMENTS, "Missing required field '$key'.")
+    val primitive = element as? JsonPrimitive
+    if (primitive == null || !primitive.isString) {
+        throw InspectorException(
+            InspectorErrorCode.INVALID_ARGUMENTS,
+            "Field '$key' must be a JSON string.",
+        )
+    }
+    return primitive.content
+}
 
-private fun JsonObject.optString(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull
+private fun JsonObject.optString(key: String): String? {
+    val element = this[key] ?: return null
+    val primitive = element as? JsonPrimitive
+    if (primitive == null || !primitive.isString) {
+        throw InspectorException(
+            InspectorErrorCode.INVALID_ARGUMENTS,
+            "Field '$key' must be a JSON string.",
+        )
+    }
+    return primitive.content
+}
 
 private fun JsonObject.obj(key: String): JsonObject {
     val value = this[key] ?: return JsonObject(emptyMap())

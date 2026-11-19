@@ -280,12 +280,32 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             put("description", description)
         }
 
-    private fun CallToolRequest.requireString(name: String): String =
-        arguments?.get(name)?.jsonPrimitive?.contentOrNull
-            ?: throw InspectorException(
+    private fun CallToolRequest.requireString(name: String): String {
+        val element =
+            arguments?.get(name)
+                ?: throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Missing required argument '$name'.",
+                )
+        val primitive = element as? kotlinx.serialization.json.JsonPrimitive
+        if (primitive == null || !primitive.isString) {
+            throw InspectorException(
                 InspectorErrorCode.INVALID_ARGUMENTS,
-                "Missing required argument '$name'.",
+                "Argument '$name' must be a JSON string.",
             )
+        }
+        return primitive.content
+    }
 
-    private fun CallToolRequest.optString(name: String): String? = arguments?.get(name)?.jsonPrimitive?.contentOrNull
+    private fun CallToolRequest.optString(name: String): String? {
+        val element = arguments?.get(name) ?: return null
+        val primitive = element as? kotlinx.serialization.json.JsonPrimitive
+        if (primitive == null || !primitive.isString) {
+            throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "Argument '$name' must be a JSON string.",
+            )
+        }
+        return primitive.content
+    }
 }

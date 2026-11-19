@@ -48,10 +48,13 @@ fun parseProfileSelection(args: Array<String>): ProfileSelection {
     var i = 0
     while (i < args.size) {
         val arg = args[i]
+        if (arg == "--") {
+            break
+        }
         when {
             arg == "--profile-id" -> {
                 val value = args.getOrNull(i + 1)
-                if (value == null || value.startsWith("--")) {
+                if (value == null || value == "--" || value.startsWith("--")) {
                     throw IllegalArgumentException("Missing value for --profile-id")
                 }
                 id = value
@@ -65,7 +68,7 @@ fun parseProfileSelection(args: Array<String>): ProfileSelection {
 
             arg == "--profile" -> {
                 val value = args.getOrNull(i + 1)
-                if (value == null || value.startsWith("--")) {
+                if (value == null || value == "--" || value.startsWith("--")) {
                     throw IllegalArgumentException("Missing value for --profile")
                 }
                 label = value

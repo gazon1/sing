@@ -66,13 +66,39 @@ internal object ScreenRegistry {
     ): ScreenSession =
         when (screenId) {
             TaskDetailScreenSession.SCREEN_ID -> {
-                val taskIdRaw =
-                    params["taskId"].stringArg()
+                val unknownKeys = params.keys - setOf("taskId")
+                if (unknownKeys.isNotEmpty()) {
+                    throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Unknown parameter(s) for screen '$screenId': ${unknownKeys.sorted().joinToString(", ")}.",
+                        details = buildJsonObject { put("screen", screenId) },
+                    )
+                }
+                val taskIdElement =
+                    params["taskId"]
                         ?: throw InspectorException(
                             InspectorErrorCode.INVALID_ARGUMENTS,
                             "Missing required parameter 'taskId' for screen '$screenId'.",
                             details = buildJsonObject { put("screen", screenId) },
                         )
+                val taskIdPrimitive = taskIdElement as? kotlinx.serialization.json.JsonPrimitive
+                val taskIdRaw =
+                    if (taskIdPrimitive != null && taskIdPrimitive.isString) {
+                        taskIdPrimitive.content
+                    } else {
+                        throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Parameter 'taskId' for screen '$screenId' must be a JSON string.",
+                            details = buildJsonObject { put("screen", screenId) },
+                        )
+                    }
+                if (taskIdRaw.isBlank()) {
+                    throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Parameter 'taskId' for screen '$screenId' must be a non-empty string.",
+                        details = buildJsonObject { put("screen", screenId) },
+                    )
+                }
                 TaskDetailScreenSession.open(TaskId(taskIdRaw), params, koin)
             }
 

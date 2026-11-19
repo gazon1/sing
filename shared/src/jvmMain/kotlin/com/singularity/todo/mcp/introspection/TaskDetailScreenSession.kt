@@ -238,7 +238,13 @@ internal class TaskDetailScreenSession private constructor(
         beforeSnapshot: JsonObject,
     ) {
         scope.launch {
-            while (!op.isDone()) {
+            fun tryResolve(): Boolean {
+                if (op.isDone()) return true
+                val snap = synchronized(lock) { lastSnapshot }
+                if (isActionCompleted(action, input, beforeState, beforeSnapshot, snap)) {
+                    operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
+                    return true
+                }
                 val err =
                     synchronized(lock) {
                         events
@@ -251,16 +257,15 @@ internal class TaskDetailScreenSession private constructor(
                         op,
                         OperationRecord(op.id, action, OperationStatus.FAILED, message = err.message),
                     )
-                    return@launch
+                    return true
                 }
-                if (seq.get() > beforeSeq) {
-                    val snap = synchronized(lock) { lastSnapshot }
-                    if (isActionCompleted(action, input, beforeState, beforeSnapshot, snap)) {
-                        operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
-                        return@launch
-                    }
-                }
+                return false
+            }
+
+            if (tryResolve()) return@launch
+            while (!op.isDone()) {
                 delay(20)
+                if (tryResolve()) return@launch
             }
         }
     }
