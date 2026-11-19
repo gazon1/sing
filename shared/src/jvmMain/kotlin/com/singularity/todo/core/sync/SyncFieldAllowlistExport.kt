@@ -1,5 +1,10 @@
 package com.singularity.todo.core.sync
 
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.clikt.parameters.options.option
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -113,6 +118,30 @@ object SyncFieldAllowlistExport {
     }
 }
 
+private class SyncFieldAllowlistExportCli : CliktCommand(name = "exportSyncFieldAllowlist") {
+    private val checkPath by option("--check", metavar = "FILE")
+    private val targetPath by argument(name = "target").optional()
+
+    override fun run() {
+        val check = checkPath
+        if (check != null) {
+            val target = File(check)
+            if (!SyncFieldAllowlistExport.matches(target)) {
+                println(
+                    "config/docs/sync-field-allowlist.json is not what the code exports. " +
+                        "Regenerate it with: ./gw :shared:exportSyncFieldAllowlist",
+                )
+                exitProcess(1)
+            }
+            println("The committed field lists are the ones the models declare")
+            return
+        }
+        val target = File(targetPath ?: "config/docs/sync-field-allowlist.json")
+        SyncFieldAllowlistExport.writeTo(target)
+        println("Wrote the derived field lists to ${target.absolutePath}")
+    }
+}
+
 /**
  * Writes the derived field lists to the path given as the first argument.
  *
@@ -121,19 +150,5 @@ object SyncFieldAllowlistExport {
  * reported rather than believed.
  */
 fun main(args: Array<String>) {
-    if (args.firstOrNull() == "--check") {
-        val target = File(args.getOrNull(1) ?: error("usage: --check <file>"))
-        if (!SyncFieldAllowlistExport.matches(target)) {
-            println(
-                "config/docs/sync-field-allowlist.json is not what the code exports. " +
-                    "Regenerate it with: ./gw :shared:exportSyncFieldAllowlist",
-            )
-            exitProcess(1)
-        }
-        println("The committed field lists are the ones the models declare")
-        return
-    }
-    val target = File(args.firstOrNull() ?: "config/docs/sync-field-allowlist.json")
-    SyncFieldAllowlistExport.writeTo(target)
-    println("Wrote the derived field lists to ${target.absolutePath}")
+    SyncFieldAllowlistExportCli().main(args)
 }

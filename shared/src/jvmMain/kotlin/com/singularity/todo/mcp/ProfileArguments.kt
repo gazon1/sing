@@ -1,5 +1,9 @@
 package com.singularity.todo.mcp
 
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.context
+import com.github.ajalt.clikt.core.parse
+import com.github.ajalt.clikt.parameters.options.option
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -52,14 +56,42 @@ sealed interface ProfileSelection {
  * repurposed.
  */
 fun parseProfileSelection(args: Array<String>): ProfileSelection {
-    val label = args.firstOrNull { it.startsWith("--profile=") }?.removePrefix("--profile=")
-    val id = args.firstOrNull { it.startsWith("--profile-id=") }?.removePrefix("--profile-id=")
-
+    val cli = ProfileSelectionCli.parseFrom(args)
+    val label = cli.profileLabel
+    val id = cli.profileId
     return when {
         label != null && id != null -> ProfileSelection.Ambiguous(label, id)
         id != null -> ProfileSelection.FixedId(id)
         label != null -> ProfileSelection.LegacyLabel(label)
         else -> ProfileSelection.Stored
+    }
+}
+
+private class ProfileSelectionCli : CliktCommand(name = "profile-selection") {
+    val profileLabel: String? by option("--profile")
+    val profileId: String? by option("--profile-id")
+
+    init {
+        context {
+            allowInterspersedArgs = true
+            treatUnknownOptionsAsArgs = true
+        }
+    }
+
+    override fun run() = Unit
+
+    companion object {
+        fun parseFrom(args: Array<String>): ProfileSelectionCli {
+            val full = ProfileSelectionCli()
+            if (runCatching { full.parse(args.toList()) }.isSuccess) return full
+            return ProfileSelectionCli().also { fallback ->
+                runCatching {
+                    fallback.parse(
+                        args.filter { it.startsWith("--profile=") || it.startsWith("--profile-id=") },
+                    )
+                }
+            }
+        }
     }
 }
 

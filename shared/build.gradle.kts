@@ -391,6 +391,9 @@ kotlin {
             // Koog OkHttp HTTP backend — JVM-only
             implementation(libs.koog.http.client.okhttp)
 
+            // Clikt — JVM CLI parsing (tool server / screen inspector / agent mode)
+            implementation(libs.clikt)
+
             // Navigation 3 JVM (JetBrains navigation3-ui-desktop has proper NavDisplay implementation)
             implementation(libs.androidx.navigation3.runtime.desktop)
             implementation(libs.androidx.navigation3.ui.desktop)

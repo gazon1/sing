@@ -1,4 +1,8 @@
 package com.singularity.todo.mcp
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.optional
 import com.singularity.todo.feature.ai.McpToolCatalog
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
@@ -160,6 +164,16 @@ object ToolSurfaceExport {
     }
 }
 
+private class ToolSurfaceExportCli : CliktCommand(name = "exportToolSurface") {
+    private val targetPath by argument(name = "target").optional()
+
+    override fun run() {
+        val target = File(targetPath ?: "config/docs/tool-surface.json")
+        ToolSurfaceExport.writeTo(target)
+        println("Wrote the tool surface to ${target.absolutePath}")
+    }
+}
+
 /**
  * Writes the tool surface to the path given as the first argument.
  *
@@ -168,7 +182,5 @@ object ToolSurfaceExport {
  * believed.
  */
 fun main(args: Array<String>) {
-    val target = File(args.firstOrNull() ?: "config/docs/tool-surface.json")
-    ToolSurfaceExport.writeTo(target)
-    println("Wrote the tool surface to ${target.absolutePath}")
+    ToolSurfaceExportCli().main(args)
 }
