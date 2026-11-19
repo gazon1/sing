@@ -119,8 +119,8 @@ class ScreenAction(
         name: String,
     ): String? {
         val value = input[name] ?: return null
-        val primitive = value as? JsonPrimitive ?: return "'$name' must be a string"
-        if (!primitive.isString) {
+        val primitive = value as? JsonPrimitive
+        if (primitive == null || !primitive.isString) {
             return "'$name' must be a string"
         }
         val constraint = propertyConstraints[name] ?: return null
@@ -169,11 +169,14 @@ class ScreenAction(
         properties: JsonObject?,
     ): String? {
         val required = schema["required"] as? JsonArray
-        val names: List<String> =
+        val raw: List<String?>? =
             required?.map { element: JsonElement ->
                 (element as? JsonPrimitive)?.takeIf { it.isString }?.content
-                    ?: return "The introspection schema must set required to an array of strings."
-            } ?: return "The introspection schema must set required to an array of strings."
+            }
+        if (raw == null || raw.any { it == null }) {
+            return "The introspection schema must set required to an array of strings."
+        }
+        val names = raw.filterNotNull()
         if (names.toSet().size != names.size) {
             return "The introspection schema must not repeat a required property."
         }
