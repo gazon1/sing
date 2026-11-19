@@ -41,6 +41,8 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             explicitNulls = false
         }
 
+    // One registration block per tool: the schema and handler read top to bottom.
+    @Suppress("LongMethod", "ThrowsCount")
     fun register(server: Server) {
         registerTool(
             server,
@@ -219,6 +221,8 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
         }
     }
 
+    // The MCP boundary must turn anything a tool throws into a structured error payload.
+    @Suppress("TooGenericExceptionCaught")
     private fun registerTool(
         server: Server,
         name: String,

@@ -32,6 +32,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
+@Suppress("LongMethod", "NoRunBlocking") // JVM harness drives the real app state synchronously
 @Epic("Agent")
 @Feature("Headless screen inspector")
 @Tag("slow")

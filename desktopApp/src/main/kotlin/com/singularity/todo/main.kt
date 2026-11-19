@@ -97,6 +97,7 @@ private val ToolServerKoin =
  * Every ordinary launch arrives here with no arguments, so the dispatch is a single
  * `parse` returning null, and the GUI path is unchanged.
  */
+@Suppress("LongMethod") // composition root: argv dispatch, GUI startup, and the background jobs it owns
 fun main(args: Array<String>) {
     // Fire-reminder keeps its argv contract (launcher path at args[0], command located).
     if (args.contains(JvmReminderFireCommand.COMMAND)) {

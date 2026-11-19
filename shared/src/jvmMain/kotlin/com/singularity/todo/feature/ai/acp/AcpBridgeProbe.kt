@@ -335,6 +335,7 @@ object AcpBridgeProbe {
 private class AcpBridgeProbeCli : CliktCommand(name = "acp-bridge-probe") {
     private val allArgs by argument(name = "args").multiple()
 
+    @Suppress("NoRunBlocking") // the CLI command blocks until the probe it started completes
     override fun run() {
         val workingDirectory = allArgs.firstOrNull() ?: System.getProperty("user.dir") ?: "."
         val command =

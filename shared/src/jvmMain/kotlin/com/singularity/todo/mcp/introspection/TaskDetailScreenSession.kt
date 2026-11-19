@@ -53,7 +53,9 @@ internal class TaskDetailScreenSession private constructor(
     private val lock = Any()
     private val invokeMutex = Mutex()
 
-    init {
+    // A field initializer, not an init block: a launch in init can observe a partially
+    // constructed object (NoCoroutineLaunchInInit). Declared after the fields it reads.
+    private val stateCollection =
         scope.launch {
             coordinator.stateFlow.collect { state ->
                 synchronized(lock) {
@@ -62,12 +64,12 @@ internal class TaskDetailScreenSession private constructor(
                 }
             }
         }
-    }
 
     override fun close() {
         try {
             closeScope()
         } finally {
+            stateCollection.cancel()
             scope.cancel()
         }
     }
@@ -124,7 +126,7 @@ internal class TaskDetailScreenSession private constructor(
             if (result.isFailure) {
                 val message = result.exceptionOrNull()?.message ?: "Action rejected."
                 throw InspectorException(
-                    classifyValidation(action, message),
+                    classifyValidation(message),
                     message,
                     details =
                         buildJsonObject {
@@ -235,6 +237,7 @@ internal class TaskDetailScreenSession private constructor(
         }
     }
 
+    @Suppress("ReturnCount") // one early false per action means "post-condition not observed yet"
     private fun isActionCompleted(
         action: String,
         input: JsonObject,
@@ -291,10 +294,7 @@ internal class TaskDetailScreenSession private constructor(
         return items.mapNotNull { (it as? JsonObject)?.get("title")?.jsonPrimitive?.contentOrNull }
     }
 
-    private fun classifyValidation(
-        action: String,
-        message: String,
-    ): InspectorErrorCode =
+    private fun classifyValidation(message: String): InspectorErrorCode =
         when {
             message.startsWith("Unknown action") -> InspectorErrorCode.UNKNOWN_ACTION
 

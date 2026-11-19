@@ -42,6 +42,7 @@ sealed interface ProfileSelection {
  * `--profile <value>`/`--profile-id <value>` forms. Malformed or incomplete explicit
  * profile arguments are rejected instead of being silently ignored.
  */
+@Suppress("CyclomaticComplexMethod", "ThrowsCount", "LoopWithTooManyJumpStatements") // per-form refusals
 fun parseProfileSelection(args: Array<String>): ProfileSelection {
     var label: String? = null
     var id: String? = null

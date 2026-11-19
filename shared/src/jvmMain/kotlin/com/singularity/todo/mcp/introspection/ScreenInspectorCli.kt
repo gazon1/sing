@@ -1,3 +1,21 @@
+@file:Suppress(
+    // A CLI process blocks until its single command finishes; runBlocking is the
+    // sync-to-async bridge at this boundary, never a parked thread inside the app.
+    "NoRunBlocking",
+    // A command may throw anything (Clikt, JSON, IO); every failure must become a
+    // structured JSON error instead of a stack trace on stdout, so the catch is broad
+    // on purpose and the text is reported, not discarded.
+    "TooGenericExceptionCaught",
+    "SwallowedException",
+    // Command and journey parsing is a flat, ordered validation table: one branch per
+    // accepted shape, one refusal per malformed input. Splitting it would scatter the
+    // order that makes the refusals deterministic.
+    "LongMethod",
+    "CyclomaticComplexMethod",
+    "ThrowsCount",
+    "LoopWithTooManyJumpStatements",
+)
+
 package com.singularity.todo.mcp.introspection
 
 import com.github.ajalt.clikt.core.CliktCommand
