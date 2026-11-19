@@ -83,6 +83,12 @@ and colour type promise, and the result has to be the size and the aspect the
 manifest documents. A file that carries the right header and no pixels is not
 a screenshot, and a file with a broken chunk is not a PNG.
 
+A header this checker cannot measure is refused rather than skipped: an
+interlaced image, an unknown colour type, a colour type with a bit depth that
+is not a legal pair, an unknown compression or filter method — in each case
+the pixels behind the header would never be counted, so the image would pass
+without anybody looking at it.
+
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
 data, so `cmd uimode night no` and `settings put system font_scale` do not
@@ -149,7 +155,9 @@ drift.
   missing, unusable), the identity rules (the wrong application, a stale
   install, a build from another commit, a foreign APK) and the image
   validation (empty, wrong format, truncated, corrupt, empty pixels, broken
-  checksum, wrong size, wrong aspect).
+  checksum, wrong size, wrong aspect, and the headers this checker cannot
+  measure — interlaced, an unknown colour type, an illegal colour type and bit
+  depth pair, an unknown compression or filter method).
 - The six flows are still `manual` and `capture`-tagged, so the nightly full
   suite does not pay for them.
 

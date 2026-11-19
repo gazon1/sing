@@ -136,9 +136,9 @@ The command:
 - writes the raw PNGs into `build/store-capture/`, wiped at the start of every
   run — a stale image must not be able to stand in for a capture that did not
   happen;
-- checks every image: it is a readable PNG, its chunks are whole, it carries
-  the pixels its own header promises, and it is the size and shape the manifest
-  documents;
+- checks every image: it is a readable PNG, its chunks are whole, its header
+  describes a shape the checker can measure, it carries the pixels that header
+  promises, and it is the size and shape the manifest documents;
 - leaves the Maestro logs and the JUnit reports in `build/store-capture/`, and
   exits non-zero when a flow or an image failed.
 

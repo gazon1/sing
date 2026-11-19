@@ -30,7 +30,8 @@ sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
 
-def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False):
+def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False,
+              ihdr=None):
     """A PNG of the given size, optionally damaged in one of several ways."""
     def chunk(kind, body, break_crc=False):
         crc = zlib.crc32(kind + body) & 0xffffffff
@@ -46,9 +47,10 @@ def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=Fa
         # A stream that decompresses, but carries none of the pixels the
         # header promises.
         image = zlib.compress(b'')
+    header = ihdr if ihdr is not None else (width, height, 8, 2, 0, 0, 0)
     data = (
         mod.PNG_SIGNATURE
-        + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+        + chunk(b'IHDR', struct.pack('>IIBBBBB', *header))
         + chunk(b'IDAT', image, break_crc=bad_crc)
         + chunk(b'IEND', b'')
     )
@@ -299,6 +301,45 @@ class ImageValidationTest(unittest.TestCase):
     def test_a_broken_checksum_is_refused(self):
         problems = self.check(png_bytes(1080, 1920, bad_crc=True))
         self.assertTrue(any('checksum' in problem for problem in problems), problems)
+
+    def test_an_interlaced_image_is_refused(self):
+        # An interlaced image has a scanline layout this checker cannot
+        # count, so the pixels behind the header are never looked at — it
+        # has to be refused rather than waved through.
+        problems = self.check(
+            png_bytes(1080, 1920, empty_scanlines=True, ihdr=(1080, 1920, 8, 2, 0, 0, 1))
+        )
+        self.assertTrue(any('interlaced' in problem for problem in problems), problems)
+
+    def test_an_unknown_colour_type_is_refused(self):
+        problems = self.check(
+            png_bytes(1080, 1920, empty_scanlines=True, ihdr=(1080, 1920, 8, 9, 0, 0, 0))
+        )
+        self.assertTrue(any('colour type' in problem for problem in problems), problems)
+
+    def test_an_illegal_colour_type_and_bit_depth_pair_is_refused(self):
+        problems = self.check(
+            png_bytes(1080, 1920, empty_scanlines=True, ihdr=(1080, 1920, 1, 2, 0, 0, 0))
+        )
+        self.assertTrue(any('legal pair' in problem for problem in problems), problems)
+
+    def test_an_unknown_compression_method_is_refused(self):
+        problems = self.check(
+            png_bytes(1080, 1920, empty_scanlines=True, ihdr=(1080, 1920, 8, 2, 3, 0, 0))
+        )
+        self.assertTrue(any('compression method' in problem for problem in problems), problems)
+
+    def test_an_unknown_filter_method_is_refused(self):
+        problems = self.check(
+            png_bytes(1080, 1920, empty_scanlines=True, ihdr=(1080, 1920, 8, 2, 0, 7, 0))
+        )
+        self.assertTrue(any('filter method' in problem for problem in problems), problems)
+
+    def test_an_image_without_a_size_is_refused(self):
+        problems = self.check(
+            png_bytes(1080, 1920, empty_scanlines=True, ihdr=(0, 0, 8, 2, 0, 0, 0))
+        )
+        self.assertTrue(any('not an image' in problem for problem in problems), problems)
 
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))

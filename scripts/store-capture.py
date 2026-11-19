@@ -484,21 +484,37 @@ def verify_identity(serial: str, apk: Path, built_here: bool) -> tuple[str, str]
 #: How many channels a PNG colour type carries.
 _PNG_CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
 
+#: The bit depths each PNG colour type allows.
+_PNG_BIT_DEPTHS = {
+    0: (1, 2, 4, 8, 16),
+    2: (8, 16),
+    3: (1, 2, 4, 8),
+    4: (8, 16),
+    6: (8, 16),
+}
+
 
 def _expected_scanlines(
     width: int, height: int, bit_depth: int, color_type: int, interlace: int
-) -> int | None:
+) -> int:
     """How many bytes of image data a PNG of this shape must decompress to.
 
-    Every scanline is one filter byte plus its pixels. `None` when the shape
-    is one this checker does not know how to measure — an interlaced image,
-    which a screenshot never is.
+    Every scanline is one filter byte plus its pixels. A shape this checker
+    cannot measure is refused, not waved through: an image whose pixels are
+    not counted is an image nobody looked at.
     """
     if interlace != 0:
-        return None
-    channels = _PNG_CHANNELS.get(color_type)
-    if channels is None or bit_depth not in (1, 2, 4, 8, 16):
-        return None
+        raise ValueError(
+            "is interlaced, and this checker cannot measure an interlaced image"
+        )
+    if color_type not in _PNG_CHANNELS:
+        raise ValueError(f"has an unknown colour type ({color_type})")
+    if bit_depth not in _PNG_BIT_DEPTHS[color_type]:
+        raise ValueError(
+            f"has colour type {color_type} with bit depth {bit_depth}, "
+            "which is not a legal pair"
+        )
+    channels = _PNG_CHANNELS[color_type]
     row = (width * channels * bit_depth + 7) // 8
     return height * (1 + row)
 
@@ -526,6 +542,7 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
     image_data = bytearray()
     complete = False
     broken_checksums = 0
+    problems: list[str] = []
     position = len(PNG_SIGNATURE)
     while position + 8 <= len(data):
         length = int.from_bytes(data[position : position + 4], "big")
@@ -539,9 +556,19 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         if kind == b"IHDR":
             if length < 13:
                 return ["is not a PNG (its image header is malformed)"]
-            width, height, bit_depth, color_type, _, _, interlace = struct.unpack(
-                ">IIBBBBB", body[:13]
-            )
+            (
+                width,
+                height,
+                bit_depth,
+                color_type,
+                compression,
+                filter_method,
+                interlace,
+            ) = struct.unpack(">IIBBBBB", body[:13])
+            if compression != 0:
+                problems.append(f"uses an unknown compression method ({compression})")
+            if filter_method != 0:
+                problems.append(f"uses an unknown filter method ({filter_method})")
         elif kind == b"IDAT":
             image_data += body
         elif kind == b"IEND":
@@ -549,9 +576,10 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             break
         position = end + 4
 
-    problems: list[str] = []
     if width is None or height is None:
         return ["is not a PNG (it has no image header)"]
+    if width == 0 or height == 0:
+        problems.append(f"is {width}x{height}, which is not an image")
     if broken_checksums:
         problems.append(
             f"has {broken_checksums} chunk(s) with a broken checksum"
@@ -569,8 +597,19 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             # A stream that decompresses is not yet an image: it has to carry
             # the pixels its own header promises. An empty stream under a
             # full-size header is a file that looks right and shows nothing.
-            expected = _expected_scanlines(width, height, bit_depth, color_type, interlace)
-            if expected is not None and len(raw) != expected:
+            expected_error: str | None = None
+            try:
+                expected = _expected_scanlines(
+                    width, height, bit_depth, color_type, interlace
+                )
+            except ValueError as exc:
+                # A shape this checker cannot measure is refused, not skipped:
+                # skipping the check would let an image with no pixels pass.
+                expected = None
+                expected_error = str(exc)
+            if expected_error is not None:
+                problems.append(expected_error)
+            elif expected is not None and len(raw) != expected:
                 problems.append(
                     f"carries {len(raw)} bytes of image data, expected {expected} "
                     f"for {width}x{height}"
