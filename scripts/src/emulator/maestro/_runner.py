@@ -308,12 +308,15 @@ def run_one_flow(
                 raise DeviceLostError(serial, reason)
             serial = acquired.serial
         else:
-            out = deps.adb("devices") or ""
-            for line in out.splitlines()[1:]:
-                parts = line.split()
-                if len(parts) == 2 and parts[1] == "device":
-                    serial = parts[0]
-                    break
+            # The pinned device answers again — so it is the device the flow
+            # has to run on. Taking the first device adb happens to list
+            # would put the flow on somebody else's phone: the serial of a
+            # device never changes, so there is nothing to gain by looking at
+            # the list and everything to lose.
+            logger.info(
+                f"{serial} answers again after the adb server reset — the flow "
+                f"continues on it."
+            )
 
         # Wake + unlock + IME: the same preparation every acquired device gets
         # (emulator._startup.prepare_device). The device may have been alive

@@ -348,7 +348,56 @@ def apply_profile(serial: str) -> list[str]:
     if code != 0:
         detail = out.strip().splitlines()[-1] if out.strip() else "failed"
         warnings.append(f"the screen timeout: {detail}")
+    warnings.extend(clean_status_bar(serial))
     return warnings
+
+
+def clean_status_bar(serial: str) -> list[str]:
+    """Leave the status bar with nothing on it but the clock.
+
+    The storyboard asks for a status bar without notifications, without a
+    carrier name and without a battery percentage. The percentage is a system
+    setting and can be hidden. A notification cannot: it is on the screen, and
+    a notification on the screen is a notification in the picture — a store
+    screenshot with somebody's message in it is not a screenshot anybody may
+    publish. So a pending notification refuses the capture.
+
+    The system's own notifications are left alone: they are the device talking
+    to itself about a keyboard, and they carry nothing of the person who
+    owns the device.
+    """
+    warnings: list[str] = []
+    code, out = adb(
+        "shell", "settings", "put", "global", "status_bar_show_battery_percent",
+        "0", serial=serial,
+    )
+    if code != 0:
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        warnings.append(f"the battery percentage in the status bar: {detail}")
+    # A shade left open over the app would be in the picture as well.
+    adb("shell", "cmd", "statusbar", "collapse", serial=serial)
+    code, out = adb("shell", "dumpsys", "notification", "--noredact", serial=serial)
+    packages = notification_packages(out)
+    foreign = [name for name in packages if name != "android"]
+    if foreign:
+        raise CaptureError(
+            f"{serial} has notifications from {', '.join(foreign)} — the "
+            "status bar has to show the clock only, so the capture is refused "
+            "rather than taken with a notification on it"
+        )
+    return warnings
+
+
+def notification_packages(dumps: str) -> list[str]:
+    """The packages that have a notification posted on the device."""
+    packages: list[str] = []
+    for line in dumps.splitlines():
+        if "NotificationRecord(" not in line:
+            continue
+        match = re.search(r"\bpkg=(\S+)", line)
+        if match and match.group(1) not in packages:
+            packages.append(match.group(1))
+    return packages
 
 
 def _holds(output: str, how: str, expected: str) -> bool:
@@ -627,7 +676,10 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         if zlib.crc32(kind + body) & 0xFFFFFFFF != int.from_bytes(data[end : end + 4], "big"):
             broken_checksums += 1
         if kind == b"IHDR":
-            if length < 13:
+            if length != 13:
+                # The header is exactly thirteen bytes by the specification;
+                # a longer one is not a header, it is a chunk that pretends to
+                # be one.
                 return ["is not a PNG (its image header is malformed)"]
             (
                 width,

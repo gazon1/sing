@@ -117,17 +117,31 @@ The status bar and the navigation bar stay as they are: they are part of what
 the app looks like in a hand.
 
 The local capture command applies the device half of this profile — the app
-locale, the light theme, the font scale and the screen timeout — before the
-first flow runs. A step the device refuses is reported as a warning; the
-image check is the gate, and the gate is about the image.
+locale, the light theme, the font scale, the status bar and the screen
+timeout — before the first flow runs.
+
+The profile is a contract, not a wish. The locale, the light theme and the
+font scale have to hold, and each one is read back from the device after it
+is set: a screenshot of the app in the wrong theme or the wrong language is
+not the screenshot this storyboard documents, and no check on the picture's
+shape would notice. A property the device refuses aborts the capture. The
+screen timeout is the one exception — it changes no pixel, so a device that
+refuses it is only a warning.
+
+The status bar is the same kind of contract. The command hides the battery
+percentage and collapses the shade, and a device with a notification waiting
+is refused: a notification on the screen is a notification in the picture, and
+a store screenshot with somebody's message in it is not a screenshot anybody
+may publish. The system's own notifications are left alone — they carry
+nothing of the person who owns the device.
 
 The theme and the font scale are the *app's* settings, not the system's: they
 live in the app's own data, and a device where somebody once chose the dark
 theme keeps the dark theme after an install. The command therefore resets the
 app's settings file before the first flow, so the app comes up with its
 defaults — the system theme, which the command puts into light mode, and a
-font scale of 1.0. A build that does not allow that reset says so in a
-warning.
+font scale of 1.0. A build that does not allow that reset aborts the
+capture: the pictures would show the app in somebody's old look.
 
 **The profile is the dataset's own.** `demo-dataset.yaml` switches to `Play
 demo` before it writes anything, so the rows land in that profile and the reset

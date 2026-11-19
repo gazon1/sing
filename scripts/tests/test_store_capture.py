@@ -347,6 +347,58 @@ class ProfileApplicationTest(unittest.TestCase):
         self.assertTrue(any('screen timeout' in warning for warning in warnings), warnings)
 
 
+class StatusBarTest(unittest.TestCase):
+    """The status bar shows the clock only."""
+
+    def test_the_notifications_of_the_device_are_read(self):
+        dump = (
+            '  Notification List:\n'
+            '    NotificationRecord(0x1: pkg=android user=UserHandle{0} id=19 ...)\n'
+            '    NotificationRecord(0x2: pkg=com.example.chat user=UserHandle{0} id=7 ...)\n'
+        )
+        self.assertEqual(mod.notification_packages(dump), ['android', 'com.example.chat'])
+
+    def test_a_device_without_notifications_is_clean(self):
+        self.assertEqual(mod.notification_packages('Current Notification Manager state:\n'), [])
+
+    def test_a_pending_notification_refuses_the_capture(self):
+        def fake_adb(*args, serial='', timeout=60):
+            if 'dumpsys' in args:
+                return 0, ('    NotificationRecord(0x2: pkg=com.example.chat '
+                           'user=UserHandle{0} id=7 ...)\n')
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            with self.assertRaises(mod.CaptureError) as caught:
+                mod.clean_status_bar('emulator-5554')
+
+        self.assertIn('com.example.chat', str(caught.exception))
+
+    def test_the_system_notifications_do_not_refuse_the_capture(self):
+        def fake_adb(*args, serial='', timeout=60):
+            if 'dumpsys' in args:
+                return 0, '    NotificationRecord(0x1: pkg=android user=UserHandle{0} id=19 ...)\n'
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            self.assertEqual(mod.clean_status_bar('emulator-5554'), [])
+
+    def test_the_battery_percentage_is_hidden(self):
+        calls = []
+
+        def fake_adb(*args, serial='', timeout=60):
+            calls.append(args)
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            mod.clean_status_bar('emulator-5554')
+
+        self.assertTrue(
+            any('status_bar_show_battery_percent' in ' '.join(args) for args in calls),
+            calls,
+        )
+
+
 class ImageValidationTest(unittest.TestCase):
     profile = mod.Profile(width=1080, height=1920, aspect=(9, 16), format='png')
 
@@ -425,6 +477,23 @@ class ImageValidationTest(unittest.TestCase):
         # decode, even with the right size and the right number of bytes.
         problems = self.check(png_bytes(1080, 1920, filter_byte=5))
         self.assertTrue(any('filter' in problem for problem in problems), problems)
+
+    def test_a_header_that_is_too_long_is_refused(self):
+        # The image header is exactly thirteen bytes; a longer chunk that
+        # pretends to be one is not a header.
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        header = struct.pack('>IIBBBBB', 1080, 1920, 8, 2, 0, 0, 0) + b'\x00'
+        data = (
+            mod.PNG_SIGNATURE
+            + chunk(b'IHDR', header)
+            + chunk(b'IDAT', zlib.compress(b''))
+            + chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('malformed' in problem for problem in problems), problems)
 
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))
