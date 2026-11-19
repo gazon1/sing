@@ -131,6 +131,26 @@ class Manifest:
     profile: Profile
 
 
+def _positive_int(value: object, what: str) -> int:
+    """A number of pixels: a whole number, and not zero.
+
+    A size that is not a whole number is not a size: `1080.9` is not a width
+    anybody can capture, and a value that cannot be read as a number at all
+    is a manifest that has to be refused rather than a traceback.
+    """
+    if isinstance(value, bool):
+        raise CaptureError(f"the manifest's {what} is not a number: {value!r}")
+    if isinstance(value, int):
+        number = value
+    elif isinstance(value, str) and value.strip().isdigit():
+        number = int(value.strip())
+    else:
+        raise CaptureError(f"the manifest's {what} is not a number: {value!r}")
+    if number <= 0:
+        raise CaptureError(f"the manifest's {what} is not a positive number: {value!r}")
+    return number
+
+
 def _profile(raw: dict) -> Profile:
     """Read the profile block of the manifest.
 
@@ -150,7 +170,10 @@ def _profile(raw: dict) -> Profile:
     if raw.get("aspect"):
         try:
             left, right = str(raw["aspect"]).split(":")
-            aspect = (int(left), int(right))
+            aspect = (
+                _positive_int(left, "aspect width"),
+                _positive_int(right, "aspect height"),
+            )
         except ValueError as exc:
             raise CaptureError(
                 f"the manifest's aspect is not a 'width:height' pair: {raw['aspect']!r}"
@@ -158,8 +181,8 @@ def _profile(raw: dict) -> Profile:
     if aspect is None:
         raise CaptureError(f"the manifest's profile has no aspect ratio: {raw!r}")
     return Profile(
-        width=int(width),
-        height=int(height),
+        width=_positive_int(width, "width"),
+        height=_positive_int(height, "height"),
         aspect=aspect,
         format=str(raw.get("format", "png")).lower(),
     )

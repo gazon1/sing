@@ -163,6 +163,20 @@ class ManifestTest(unittest.TestCase):
             with self.assertRaises(mod.CaptureError):
                 mod.load_manifest(path)
 
+    def test_a_profile_with_a_size_that_is_not_a_whole_number_is_refused(self):
+        # 1080.9 is not a width anybody can capture, and a value that cannot
+        # be read as a number is a manifest to refuse, not a traceback.
+        for width in ('invalid', '1080.9', '0', '-1080'):
+            with tempfile.TemporaryDirectory() as tmp:
+                path = pathlib.Path(tmp) / 'manifest.yaml'
+                path.write_text(
+                    f'profile:\n  width: {width}\n  height: 1920\n  aspect: "9:16"\n'
+                    'captures:\n  - {order: 1, file: a.png, flow: a.yaml}\n',
+                    encoding='utf-8',
+                )
+                with self.assertRaises(mod.CaptureError):
+                    mod.load_manifest(path)
+
     def test_a_profile_without_an_aspect_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / 'manifest.yaml'

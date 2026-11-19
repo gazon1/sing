@@ -125,8 +125,9 @@ on it.
 `Maestro/capture/manifest.yaml` carries the width, the height, the aspect and
 the format; the image check reads them from there. The storyboard, the manifest
 and the checker cannot drift apart, and the numbers are not written twice. A
-profile without a size or without an aspect is refused: a contract that does
-not say what the images have to look like is not a contract.
+profile without a size or without an aspect is refused, and the size has to
+be a whole number of pixels: a contract that does not say what the images
+have to look like is not a contract.
 
 **The output directory is a dedicated generated directory, wiped at the start
 of every run.** A PNG left by an earlier run must never be able to stand in
