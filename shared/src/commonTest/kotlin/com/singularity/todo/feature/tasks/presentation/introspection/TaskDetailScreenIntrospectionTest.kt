@@ -1,6 +1,6 @@
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
-package com.singularity.todo.feature.tasks.introspection
+package com.singularity.todo.feature.tasks.presentation.introspection
 
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -39,7 +39,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The proof of concept: a headless, agent-readable contract over the Task Detail screen.
+ * The reusable screen introspection contract, as implemented for the Task Detail screen.
  *
  * The screen is the real [TaskDetailCoordinator] with the real fakes behind it. What is
  * new here is only the way it is observed and driven: a JSON snapshot of what the screen
@@ -49,7 +49,7 @@ import kotlin.test.assertTrue
 @Tag("fast")
 @Epic("Tasks")
 @Feature("Introspection")
-class TaskDetailScreenContractTest {
+class TaskDetailScreenIntrospectionTest {
     @Test
     fun `a journey inspects the screen, changes it, and undoes the delete`() =
         runTest {
@@ -175,8 +175,14 @@ class TaskDetailScreenContractTest {
             // changing nothing, so none of them is on offer.
             val loading = TaskDetailUiState.Loading
             val error = TaskDetailUiState.Error("Not found")
-            assertTrue(screen.actions.none { it.isAvailable(loading) }, "nothing is available while loading")
-            assertTrue(screen.actions.none { it.isAvailable(error) }, "nothing is available after a failure")
+            assertTrue(
+                screen.actions.none { it.isAvailable(screen.stateOf(loading)) },
+                "nothing is available while loading",
+            )
+            assertTrue(
+                screen.actions.none { it.isAvailable(screen.stateOf(error)) },
+                "nothing is available after a failure",
+            )
 
             // And a dispatch in either state is refused before the coordinator sees it.
             val refusedLoading = screen.dispatch(loading, "delete_task")
@@ -383,7 +389,7 @@ class TaskDetailScreenContractTest {
             fakes.taskRepo.seed(task("t1"))
 
             // The write waits at a gate this test opens. That is what makes "the
-            // operation has not completed" a fact about the test rather than about the
+            // operation has not completed yet" a fact about the test rather than about the
             // dispatcher: the write cannot finish before the gate opens, whatever the
             // dispatcher does with the coroutine that carries it.
             val gate = CompletableDeferred<Unit>()
@@ -503,6 +509,15 @@ class TaskDetailScreenContractTest {
         }
 
     @Test
+    fun `the same state describes and snapshots identically`() =
+        runTest {
+            val screen = screenFor(SlotFakes())
+
+            assertEquals(screen.describe(), screen.describe())
+            assertEquals(screen.snapshot(), screen.snapshot())
+        }
+
+    @Test
     fun `the screen describes itself and lists the actions it accepts`() =
         runTest {
             val fakes = SlotFakes()
@@ -538,7 +553,7 @@ class TaskDetailScreenContractTest {
         fakes: SlotFakes,
         events: MutableList<TaskDetailUiEvent> = mutableListOf(),
         deps: TaskDetailDeps = fakes.deps(),
-    ): TaskDetailScreenContract {
+    ): TaskDetailScreenIntrospection {
         val ctx =
             testVm<TaskDetailCoordinator, TaskDetailUiState>(
                 stateAccessor = { vm: TaskDetailCoordinator -> vm.state },
@@ -553,7 +568,7 @@ class TaskDetailScreenContractTest {
                     scope = scope,
                 )
             }
-        return TaskDetailScreenContract(ctx.vm)
+        return TaskDetailScreenIntrospection(ctx.vm)
     }
 }
 
