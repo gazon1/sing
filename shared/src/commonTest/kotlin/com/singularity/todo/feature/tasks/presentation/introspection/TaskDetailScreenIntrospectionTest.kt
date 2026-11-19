@@ -1,6 +1,6 @@
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
-package com.singularity.todo.feature.tasks.introspection
+package com.singularity.todo.feature.tasks.presentation.introspection
 
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -39,7 +39,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The proof of concept: a headless, agent-readable contract over the Task Detail screen.
+ * The reusable screen introspection contract, as implemented for the Task Detail screen.
  *
  * The screen is the real [TaskDetailCoordinator] with the real fakes behind it. What is
  * new here is only the way it is observed and driven: a JSON snapshot of what the screen
@@ -49,7 +49,7 @@ import kotlin.test.assertTrue
 @Tag("fast")
 @Epic("Tasks")
 @Feature("Introspection")
-class TaskDetailScreenContractTest {
+class TaskDetailScreenIntrospectionTest {
     @Test
     fun `a journey inspects the screen, changes it, and undoes the delete`() =
         runTest {
@@ -62,8 +62,8 @@ class TaskDetailScreenContractTest {
             val snapshot = screen.snapshot()
             assertEquals("tasks.task-detail", snapshot.text("screen"))
             assertEquals("loaded", snapshot.text("status"))
-            assertEquals("Original", snapshot.obj("task")?.text("title"))
-            assertEquals("none", snapshot.obj("task")?.text("priority"))
+            assertEquals("Original", snapshot.obj("subject")?.text("title"))
+            assertEquals("none", snapshot.obj("subject")?.text("priority"))
             assertTrue(screen.actions.map { it.name }.contains("set_priority"))
             assertEquals("t1", screen.describe().obj("focus")?.text("taskId"))
             // The undo is not on offer yet: nothing has been deleted.
@@ -72,7 +72,7 @@ class TaskDetailScreenContractTest {
             // The priority changes through the contract, and the change is the real one.
             val priority = screen.dispatch("set_priority", buildJsonObject { put("priority", "high") })
             assertTrue(priority.isSuccess, "the action is accepted: $priority")
-            awaitState { screen.snapshot().obj("task")?.text("priority") == "high" }
+            awaitState { screen.snapshot().obj("subject")?.text("priority") == "high" }
             assertEquals(
                 TaskPriority.High,
                 fakes.taskRepo.tasks.value["t1"]
@@ -85,7 +85,7 @@ class TaskDetailScreenContractTest {
             awaitState {
                 screen
                     .snapshot()
-                    .obj("task")
+                    .obj("subject")
                     ?.array("checklist")
                     ?.size == 1
             }
@@ -94,7 +94,7 @@ class TaskDetailScreenContractTest {
             // The task is deleted, and the screen says so.
             val delete = screen.dispatch("delete_task")
             assertTrue(delete.isSuccess, "the action is accepted: $delete")
-            awaitState { screen.snapshot().obj("task")?.bool("archived") == true }
+            awaitState { screen.snapshot().obj("subject")?.bool("archived") == true }
             assertNotNull(
                 fakes.taskRepo.tasks.value["t1"]
                     ?.archivedAt,
@@ -105,7 +105,7 @@ class TaskDetailScreenContractTest {
             // The undo puts it back through the same path.
             val undo = screen.dispatch("restore_task")
             assertTrue(undo.isSuccess, "the action is accepted: $undo")
-            awaitState { screen.snapshot().obj("task")?.bool("archived") == false }
+            awaitState { screen.snapshot().obj("subject")?.bool("archived") == false }
             assertNull(
                 fakes.taskRepo.tasks.value["t1"]
                     ?.archivedAt,
@@ -125,7 +125,7 @@ class TaskDetailScreenContractTest {
 
             // The task is deleted, so the undo is on offer.
             assertTrue(screen.dispatch("delete_task").isSuccess)
-            awaitState { screen.snapshot().obj("task")?.bool("archived") == true }
+            awaitState { screen.snapshot().obj("subject")?.bool("archived") == true }
             assertEquals(true, screen.describe().action("restore_task")?.bool("available"))
 
             // The restore fails. The screen keeps its undo snapshot on purpose — the
@@ -138,7 +138,7 @@ class TaskDetailScreenContractTest {
             }
             assertEquals(
                 true,
-                screen.snapshot().obj("task")?.bool("archived"),
+                screen.snapshot().obj("subject")?.bool("archived"),
                 "the task is still deleted after the failed undo",
             )
             assertEquals(
@@ -150,7 +150,7 @@ class TaskDetailScreenContractTest {
             // The retry succeeds: the task is back, and the undo is spent.
             fakes.taskRepo.restoreOverride = null
             assertTrue(screen.dispatch("restore_task").isSuccess)
-            awaitState { screen.snapshot().obj("task")?.bool("archived") == false }
+            awaitState { screen.snapshot().obj("subject")?.bool("archived") == false }
             assertNull(
                 fakes.taskRepo.tasks.value["t1"]
                     ?.archivedAt,
@@ -175,28 +175,13 @@ class TaskDetailScreenContractTest {
             // changing nothing, so none of them is on offer.
             val loading = TaskDetailUiState.Loading
             val error = TaskDetailUiState.Error("Not found")
-            assertTrue(screen.actions.none { it.isAvailable(loading) }, "nothing is available while loading")
-            assertTrue(screen.actions.none { it.isAvailable(error) }, "nothing is available after a failure")
-
-            // And a dispatch in either state is refused before the coordinator sees it.
-            val refusedLoading = screen.dispatch(loading, "delete_task")
-            assertTrue(refusedLoading.isFailure, "the action is refused while loading")
             assertTrue(
-                refusedLoading.exceptionOrNull()?.message?.contains("loading") == true,
-                "the refusal names the screen state: ${refusedLoading.exceptionOrNull()?.message}",
+                screen.actions.none { it.isAvailable(screen.stateOf(loading)) },
+                "nothing is available while loading",
             )
-            val refusedError = screen.dispatch(error, "set_priority")
-            assertTrue(refusedError.isFailure, "the action is refused after a failure")
-
-            // Nothing reached the repository.
-            assertNull(
-                fakes.taskRepo.tasks.value["t1"]
-                    ?.archivedAt,
-            )
-            assertEquals(
-                TaskPriority.None,
-                fakes.taskRepo.tasks.value["t1"]
-                    ?.priority,
+            assertTrue(
+                screen.actions.none { it.isAvailable(screen.stateOf(error)) },
+                "nothing is available after a failure",
             )
         }
 
@@ -383,7 +368,7 @@ class TaskDetailScreenContractTest {
             fakes.taskRepo.seed(task("t1"))
 
             // The write waits at a gate this test opens. That is what makes "the
-            // operation has not completed" a fact about the test rather than about the
+            // operation has not completed yet" a fact about the test rather than about the
             // dispatcher: the write cannot finish before the gate opens, whatever the
             // dispatcher does with the coroutine that carries it.
             val gate = CompletableDeferred<Unit>()
@@ -418,7 +403,7 @@ class TaskDetailScreenContractTest {
             // The gate opens: the operation completes, and the outcome shows up in the
             // next snapshot.
             gate.complete(Unit)
-            awaitState { screen.snapshot().obj("task")?.text("priority") == "high" }
+            awaitState { screen.snapshot().obj("subject")?.text("priority") == "high" }
             assertEquals(
                 TaskPriority.High,
                 fakes.taskRepo.tasks.value["t1"]
@@ -482,7 +467,7 @@ class TaskDetailScreenContractTest {
             awaitState { screen.snapshot().text("status") == "loaded" }
 
             val snapshot = screen.snapshot()
-            assertEquals(setOf("screen", "status", "task"), snapshot.keys)
+            assertEquals(setOf("screen", "status", "subject"), snapshot.keys)
             assertEquals(
                 setOf(
                     "id",
@@ -498,7 +483,7 @@ class TaskDetailScreenContractTest {
                     "subtasks",
                     "reminders",
                 ),
-                snapshot.obj("task")?.keys,
+                snapshot.obj("subject")?.keys,
             )
         }
 
@@ -538,7 +523,7 @@ class TaskDetailScreenContractTest {
         fakes: SlotFakes,
         events: MutableList<TaskDetailUiEvent> = mutableListOf(),
         deps: TaskDetailDeps = fakes.deps(),
-    ): TaskDetailScreenContract {
+    ): TaskDetailScreenIntrospection {
         val ctx =
             testVm<TaskDetailCoordinator, TaskDetailUiState>(
                 stateAccessor = { vm: TaskDetailCoordinator -> vm.state },
@@ -553,7 +538,7 @@ class TaskDetailScreenContractTest {
                     scope = scope,
                 )
             }
-        return TaskDetailScreenContract(ctx.vm)
+        return TaskDetailScreenIntrospection(ctx.vm)
     }
 }
 

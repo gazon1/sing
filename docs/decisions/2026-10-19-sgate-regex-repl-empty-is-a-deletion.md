@@ -2,6 +2,7 @@
 title: "An empty regex replacement is a deletion, and sgate refused to import because of it"
 date: 2026-10-19
 status: open
+review-by: 2026-12-01
 tags: ["tooling", "python", "ci", "gates"]
 ---
 
