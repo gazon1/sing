@@ -254,8 +254,14 @@ private class InvokeCommand : ScreenInspectorSubcommand("invoke") {
     override fun run() {
         root.withRuntime { runtime ->
             val input = parseInput(inputRaw)
-            var result = runtime.invoke(sessionId, action, input)
             val timeout = waitMs
+            if (timeout != null && timeout < 0L) {
+                throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Parameter '--wait-ms' must be a non-negative integer.",
+                )
+            }
+            var result = runtime.invoke(sessionId, action, input)
             if (timeout != null) {
                 val opId = result["operationId"]?.jsonPrimitive?.contentOrNull
                 if (opId != null) {
@@ -278,6 +284,12 @@ private class WaitCommand : ScreenInspectorSubcommand("wait") {
     private val sessionId: String? by option("--session")
 
     override fun run() {
+        if (timeoutMs < 0L) {
+            throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "Parameter '--timeout-ms' must be a non-negative integer.",
+            )
+        }
         root.withRuntime { runtime -> ok(runtime.wait(sessionId, operationId, timeoutMs)) }
     }
 }
@@ -342,6 +354,8 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                 val stepResult =
                     try {
                         runBlocking { executeJourneyOp(runtime, op, step) }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: InspectorException) {
                         failed = true
                         stepsOut.add(

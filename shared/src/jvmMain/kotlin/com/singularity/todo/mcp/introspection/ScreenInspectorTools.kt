@@ -117,6 +117,12 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
                     ?.get("timeoutMs")
                     ?.jsonPrimitive
                     ?.longOrNull ?: 30_000L
+            if (timeout < 0L) {
+                throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "timeoutMs must be a non-negative integer.",
+                )
+            }
             ok(runtime.wait(request.optString("sessionId"), opId, timeout))
         }
         registerTool(

@@ -65,7 +65,15 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
         sessionId: String?,
         operationId: String,
         timeoutMs: Long,
-    ): JsonObject = session(sessionId).wait(operationId, timeoutMs)
+    ): JsonObject {
+        if (timeoutMs < 0L) {
+            throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "timeoutMs must be a non-negative integer.",
+            )
+        }
+        return session(sessionId).wait(operationId, timeoutMs)
+    }
 
     fun cancel(
         sessionId: String?,
@@ -80,7 +88,9 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
         try {
             removed.close()
         } finally {
-            currentSessionId.compareAndSet(id, sessions.keys.firstOrNull())
+            // Closing the current session must not silently retarget implicit operations to an
+            // arbitrary remaining session; require explicit sessionId when multiple remain.
+            currentSessionId.compareAndSet(id, null)
         }
         return buildJsonObject {
             put("sessionId", id)

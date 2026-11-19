@@ -209,6 +209,10 @@ private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
     private val mcpServer: Boolean by option(McpServerCommandProvider.TOOL_SERVER_FLAG).flag(default = false)
     private val agentFlag: Boolean by option("--agent").flag(default = false)
     private val screenInspectorFlag: Boolean by option("--screen-inspector").flag(default = false)
+
+    // Accepted so profile args don't break desktop parsing; actual selection is handled downstream.
+    private val profileId: String? by option("--profile-id")
+    private val profileLabel: String? by option("--profile")
     private val deeplink: String? by option("--deeplink")
     private val deeplinkMagicEmail: String? by option("--deeplink-magic-email")
     private val deeplinkMagicToken: String? by option("--deeplink-magic-token")
@@ -225,6 +229,9 @@ private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
         mcpServer ||
             agentFlag ||
             screenInspectorFlag ||
+            args.contains(McpServerCommandProvider.TOOL_SERVER_FLAG) ||
+            args.contains("--agent") ||
+            args.contains("--screen-inspector") ||
             args.firstOrNull() == "agent" ||
             args.firstOrNull() == "screen-inspector"
 
