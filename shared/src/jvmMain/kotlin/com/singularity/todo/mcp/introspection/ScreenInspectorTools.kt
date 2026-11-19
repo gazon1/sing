@@ -122,7 +122,7 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
         registerTool(
             server,
             "screen_cancel",
-            "Cancel a pending screen operation if possible.",
+            "Cancel a pending screen operation if possible. Dispatched screen actions cannot be safely stopped; returns unsupported while in-flight.",
             schema(
                 required = listOf("operationId"),
                 properties =

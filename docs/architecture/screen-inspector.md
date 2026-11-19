@@ -43,6 +43,12 @@ structural/usage/operation failure reported as JSON, 1 on internal failure.
 All responses are JSON objects: `{"ok":true,"result":...}` or
 `{"ok":false,"error":{"code":"...","message":"...","details":{...}?}}`.
 
+**Process model:** each CLI invocation runs in its own process with an in-memory inspector runtime;
+sessions/operations are not shared across separate process invocations. For stateful multi-step
+workflows in one process, use `agent journey --file ...` (steps share the same runtime/session
+state). For interactive multi-command driving with a long-lived runtime, use the screen inspector
+MCP tools on the existing MCP server.
+
 ### Discover capabilities
 
 ```bash
@@ -64,12 +70,28 @@ java -jar mcp-server.jar agent screens
 }
 ```
 
-### Open a session
+### Multi-step CLI workflow (stateful, one process)
 
 ```bash
-java -jar mcp-server.jar agent open --screen tasks.task-detail --task-id <TASK_ID>
-# or: --params '{"taskId":"<TASK_ID>"}'
+java -jar mcp-server.jar agent journey --file journey.json
 ```
+
+See the `journey` section below for the step format. Within a journey, `open/describe/snapshot/
+actions/invoke/wait/cancel/close` run against the same runtime; `--session` is optional when a
+single session is current.
+
+### Command reference (CLI / journey steps)
+
+- `screens` — list supported screens and parameter schemas.
+- `sessions` — list open sessions in the current runtime.
+- `open --screen <id> [--params <json> | --task-id <id>]` — open a session and return initial snapshot/actions.
+- `describe|inspect|snapshot|actions [--session <id>]` — inspect the current or specified session.
+- `invoke --action <name> [--input <json>] [--session <id>] [--wait-ms <ms>]` — dispatch an action and observe status; `--wait-ms` waits for completion/failure/timeout within the same invocation.
+- `wait --operation <id> [--timeout-ms <ms>] [--session <id>]` — wait for an operation (wait timeout is reported to the caller without terminalizing a still-pending operation).
+- `cancel --operation <id> [--session <id>]` — reports `unsupported` for a still-dispatched action (cannot safely stop execution once handed to the real screen path); returns current status if already terminal.
+- `close [--session <id>]` — close a session.
+
+Open result (shape):
 
 ```json
 {
@@ -83,28 +105,6 @@ java -jar mcp-server.jar agent open --screen tasks.task-detail --task-id <TASK_I
     "actions": { "screen": "tasks.task-detail", "sessionId": "session-...", "status": "loaded", "actions": [ { "name": "set_priority", "available": true, "input": { "...": "schema" } } ] }
   }
 }
-```
-
-### Inspect / describe / actions
-
-```bash
-java -jar mcp-server.jar agent inspect --session <SESSION_ID>
-java -jar mcp-server.jar agent describe --session <SESSION_ID>
-java -jar mcp-server.jar agent actions --session <SESSION_ID>
-```
-
-`inspect`/`snapshot` return the allowlisted snapshot (screen/session/params/status/subject and
-focus when present). `describe` returns contract metadata + status + actions (with availability
-and exact input schemas) + focus. `actions` returns status/focus/actions. `--session` is optional
-when exactly one session is open.
-
-### Invoke and wait
-
-```bash
-java -jar mcp-server.jar agent invoke --action set_priority --input '{"priority":"high"}' --session <SESSION_ID>
-java -jar mcp-server.jar agent wait --operation <OPERATION_ID> --timeout-ms 30000 --session <SESSION_ID>
-# convenience: invoke and wait in one call
-java -jar mcp-server.jar agent invoke --action toggle_complete --wait-ms 5000 --session <SESSION_ID>
 ```
 
 Invoke result (accepted dispatch vs observed completion):
@@ -122,7 +122,7 @@ Invoke result (accepted dispatch vs observed completion):
 }
 ```
 
-Wait result:
+Wait result (when completion/failure is observed):
 
 ```json
 {
@@ -136,18 +136,14 @@ Wait result:
 }
 ```
 
-`status` is one of `accepted|completed|failed|cancelled|timeout`. Dispatch success means the action
-was validated and handed to the real screen/coordinator path; business outcome is observed via
-state progression/events and surfaced in operation status/snapshot (never by claiming completion on
-dispatch alone).
+If the wait deadline expires before completion, `wait` returns `status: "timeout"` for that wait
+without marking the operation terminal; a subsequent `wait` in the same runtime/journey may still
+observe completion or failure.
 
-### Cancel / close / sessions
-
-```bash
-java -jar mcp-server.jar agent cancel --operation <OPERATION_ID> --session <SESSION_ID>
-java -jar mcp-server.jar agent close --session <SESSION_ID>
-java -jar mcp-server.jar agent sessions
-```
+`status` is one of `accepted|completed|failed|timeout`. Dispatch success means the action was
+validated and handed to the real screen/coordinator path; business outcome is observed via
+action-correlated state/error signals and surfaced in operation status/snapshot (never by claiming
+completion on dispatch alone).
 
 ### Multi-step journey (scriptable)
 
@@ -182,7 +178,7 @@ Registered on the existing MCP server (no domain-tool duplication, no second ser
 - `screen_describe` / `screen_snapshot` / `screen_actions` — `sessionId?`.
 - `screen_invoke` — `action`, `input?`, `sessionId?` → `operationId`, status, snapshot.
 - `screen_wait` — `operationId`, `timeoutMs?`, `sessionId?` → status, snapshot.
-- `screen_cancel` — `operationId`, `sessionId?`.
+- `screen_cancel` — `operationId`, `sessionId?` (unsupported for in-flight dispatched actions; cannot stop execution once accepted).
 - `screen_close` — `sessionId?`.
 
 Tool results are JSON payloads (structuredContent) with the same shapes/codes as CLI `result`/`error`.
@@ -194,7 +190,8 @@ Errors are returned as structured JSON and do not dispatch actions:
 - `unknown_screen`, `session_not_found`, `operation_not_found`
 - `unknown_action`, `action_not_available`
 - `invalid_action_input`, `invalid_arguments`
-- `operation_timeout`, `operation_failed`, `operation` cancelled state
+- `unsupported` (e.g. cancellation of a dispatched action is not supported)
+- `operation_timeout` (wait deadline), `operation_failed`
 - `internal` (unexpected)
 
 Validation/availability are enforced by the canonical adapter/contract before dispatch
@@ -208,8 +205,11 @@ Validation/availability are enforced by the canonical adapter/contract before di
   `TaskDetailScreenIntrospection` via DI-resolved dependencies.
 - Initial supported screen: `tasks.task-detail` (reference adapter; actions per canonical
   contract: `set_priority`, `add_checklist_item`, `toggle_complete`, `delete_task`, `restore_task`).
-- Completion observation is based on post-dispatch screen state/error signals; `screen_wait`
-  reports timeout deterministically when completion is not observed within the window.
+- Completion observation is action-correlated (expected post-dispatch screen state or error
+  signal), not inferred from arbitrary state emissions; `screen_wait` reports a per-call timeout
+  when completion is not observed within the window without terminalizing a still-pending operation.
+  Cancellation of a dispatched action is not supported because execution cannot be safely stopped
+  once handed to the real screen path.
 
 ## Verification
 

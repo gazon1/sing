@@ -14,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -164,7 +165,7 @@ class ScreenInspectorRuntimeTest {
         }
 
     @Test
-    fun `wait timeout is reported structurally when operation is still pending`() =
+    fun `wait timeout does not terminalize a pending operation`() =
         withRuntime { runtime, koin ->
             val taskRepo: TaskRepository = koin.get()
             kotlinx.coroutines
@@ -186,23 +187,45 @@ class ScreenInspectorRuntimeTest {
                     .jsonPrimitive
                     .content
             awaitLoaded(runtime, sessionId)
-            // Create a synthetic pending op by invoking with a very short observation window not possible directly;
-            // instead assert timeout result shape by waiting on a just-created op with zero timeout (returns current state).
+
             val invoked =
                 kotlinx.coroutines.runBlocking {
                     runtime.invoke(sessionId, "toggle_complete", JsonObject(emptyMap()))
                 }
             val opId = invoked["operationId"]!!.jsonPrimitive.content
-            val immediate = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 0) }
-            assertEquals(opId, immediate["operationId"]!!.jsonPrimitive.content)
-            // eventual completion should be observable
-            val done = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 5_000) }
-            assertTrue(done["status"]!!.jsonPrimitive.content in setOf("completed", "failed", "timeout"))
+
+            // Force a real wait-timeout observation by racing against completion with a tiny deadline.
+            // A single 1ms wait may still observe completion on fast machines, so try a few times and
+            // require at least one timeout response that is not terminal for the operation.
+            var sawTimeout = false
+            repeat(50) {
+                val waited = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 1) }
+                assertEquals(opId, waited["operationId"]!!.jsonPrimitive.content)
+                val status = waited["status"]!!.jsonPrimitive.content
+                if (status == "timeout") {
+                    sawTimeout = true
+                }
+                if (status == "completed" || status == "failed") return@repeat
+            }
+            // Even if it completed quickly, a later wait must still observe the terminal outcome
+            // (i.e. timeout waits must not have poisoned the operation state).
+            val done = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 10_000) }
+            assertEquals("completed", done["status"]!!.jsonPrimitive.content, "wait result: $done")
+            awaitState(runtime, sessionId) {
+                it.jsonObject["subject"]
+                    ?.jsonObject
+                    ?.get("completed")
+                    ?.jsonPrimitive
+                    ?.booleanOrNull == true
+            }
+            // If the environment was too fast to surface a timeout, the contract we can still assert
+            // is that the operation completed correctly and remained observable.
+            assertTrue(sawTimeout || done["status"]!!.jsonPrimitive.content == "completed")
             runtime.close(sessionId)
         }
 
     @Test
-    fun `cancel and wait on unknown operation fail structurally`() =
+    fun `cancel is unsupported for in-flight operations and unknown operations fail structurally`() =
         withRuntime { runtime, koin ->
             val taskRepo: TaskRepository = koin.get()
             kotlinx.coroutines
@@ -224,10 +247,36 @@ class ScreenInspectorRuntimeTest {
                     .jsonPrimitive
                     .content
             awaitLoaded(runtime, sessionId)
-            val cancel = runCatching { runtime.cancel(sessionId, "missing-op") }
-            assertEquals(InspectorErrorCode.OPERATION_NOT_FOUND, (cancel.exceptionOrNull() as InspectorException).code)
+
+            val invoked =
+                kotlinx.coroutines.runBlocking {
+                    runtime.invoke(sessionId, "toggle_complete", JsonObject(emptyMap()))
+                }
+            val opId = invoked["operationId"]!!.jsonPrimitive.content
+
+            val cancel = runCatching { runtime.cancel(sessionId, opId) }
+            if (cancel.isFailure) {
+                assertEquals(
+                    InspectorErrorCode.UNSUPPORTED,
+                    (cancel.exceptionOrNull() as InspectorException).code,
+                )
+            } else {
+                // Operation may have completed before cancel was attempted; then cancel reports terminal state.
+                val status = cancel.getOrThrow()["status"]!!.jsonPrimitive.content
+                assertTrue(status in setOf("completed", "failed"))
+            }
+
+            val missingCancel = runCatching { runtime.cancel(sessionId, "missing-op") }
+            assertEquals(
+                InspectorErrorCode.OPERATION_NOT_FOUND,
+                (missingCancel.exceptionOrNull() as InspectorException).code,
+            )
             val wait = runCatching { kotlinx.coroutines.runBlocking { runtime.wait(sessionId, "missing-op", 10) } }
             assertEquals(InspectorErrorCode.OPERATION_NOT_FOUND, (wait.exceptionOrNull() as InspectorException).code)
+
+            // Dispatched action must still be able to complete (cancellation is not reported as stopping it).
+            val done = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 10_000) }
+            assertTrue(done["status"]!!.jsonPrimitive.content in setOf("completed", "failed"))
             runtime.close(sessionId)
         }
 

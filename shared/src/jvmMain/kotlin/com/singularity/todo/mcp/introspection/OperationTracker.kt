@@ -34,20 +34,23 @@ internal class OperationState(val id: String, val action: String) {
 
     fun isDone(): Boolean = done.isCompleted
 
+    /**
+     * Waits for a terminal operation record, or returns a timeout observation for this wait.
+     *
+     * A caller wait deadline expiring is not the operation finishing: the operation may still
+     * complete later, so the timeout is reported to this waiter without marking the operation done.
+     */
     suspend fun await(timeoutMs: Long): OperationRecord {
         if (timeoutMs <= 0) return current
         if (done.isCompleted) return current
         val result = withTimeoutOrNull(timeoutMs) { done.await() }
         if (result != null) return result
-        val timeoutRecord =
-            OperationRecord(
-                id = id,
-                action = action,
-                status = OperationStatus.TIMEOUT,
-                message = "Timed out after ${timeoutMs}ms waiting for operation completion.",
-            )
-        if (!done.isCompleted) complete(timeoutRecord)
-        return current
+        return OperationRecord(
+            id = id,
+            action = action,
+            status = OperationStatus.TIMEOUT,
+            message = "Timed out after ${timeoutMs}ms waiting for operation completion.",
+        )
     }
 }
 
@@ -62,18 +65,5 @@ internal class OperationTracker {
 
     fun get(id: String): OperationState? = ops[id]
 
-    fun cancel(id: String): OperationState? {
-        val op = ops[id] ?: return null
-        if (!op.isDone()) {
-            op.complete(
-                OperationRecord(
-                    id = id,
-                    action = op.action,
-                    status = OperationStatus.CANCELLED,
-                    message = "Operation cancelled.",
-                ),
-            )
-        }
-        return op
-    }
+    fun cancel(id: String): OperationState? = ops[id]
 }

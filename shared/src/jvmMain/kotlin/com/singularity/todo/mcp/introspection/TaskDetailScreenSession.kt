@@ -24,7 +24,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.koin.core.Koin
 import java.util.UUID
@@ -115,6 +118,8 @@ internal class TaskDetailScreenSession private constructor(
         input: JsonObject,
     ): JsonObject {
         val beforeSeq = seq.get()
+        val beforeState = currentState()
+        val beforeSnapshot = synchronized(lock) { lastSnapshot }
         val result = introspection.dispatch(action, input)
         if (result.isFailure) {
             val message = result.exceptionOrNull()?.message ?: "Action rejected."
@@ -130,7 +135,7 @@ internal class TaskDetailScreenSession private constructor(
             )
         }
         val op = operations.create(action)
-        observeCompletion(op, action, beforeSeq)
+        observeCompletion(op, action, input, beforeSeq, beforeState, beforeSnapshot)
         return buildJsonObject {
             put("operationId", op.id)
             put("action", action)
@@ -167,7 +172,7 @@ internal class TaskDetailScreenSession private constructor(
 
     override fun cancel(operationId: String): JsonObject {
         val op =
-            operations.cancel(operationId)
+            operations.get(operationId)
                 ?: throw InspectorException(
                     InspectorErrorCode.OPERATION_NOT_FOUND,
                     "Unknown operation '$operationId'.",
@@ -177,19 +182,37 @@ internal class TaskDetailScreenSession private constructor(
                             put("sessionId", sessionId)
                         },
                 )
-        return buildJsonObject {
-            put("operationId", op.id)
-            put("action", op.action)
-            put("status", op.current.status.wire)
-            op.current.message?.let { put("message", it) }
-            put("snapshot", synchronized(lock) { lastSnapshot })
+        if (op.isDone()) {
+            return buildJsonObject {
+                put("operationId", op.id)
+                put("action", op.action)
+                put("status", op.current.status.wire)
+                op.current.message?.let { put("message", it) }
+                put("snapshot", synchronized(lock) { lastSnapshot })
+            }
         }
+        // Once dispatched to the real screen/coordinator path we cannot safely stop execution;
+        // reporting cancellation would falsely claim the side effect was prevented.
+        throw InspectorException(
+            InspectorErrorCode.UNSUPPORTED,
+            "Cancellation of a dispatched screen action is not supported; the action may still complete.",
+            details =
+                buildJsonObject {
+                    put("operationId", operationId)
+                    put("action", op.action)
+                    put("status", op.current.status.wire)
+                    put("sessionId", sessionId)
+                },
+        )
     }
 
     private fun observeCompletion(
         op: OperationState,
         action: String,
+        input: JsonObject,
         beforeSeq: Long,
+        beforeState: TaskDetailUiState,
+        beforeSnapshot: JsonObject,
     ) {
         scope.launch {
             while (!op.isDone()) {
@@ -205,12 +228,68 @@ internal class TaskDetailScreenSession private constructor(
                     return@launch
                 }
                 if (seq.get() > beforeSeq) {
-                    op.complete(OperationRecord(op.id, action, OperationStatus.COMPLETED))
-                    return@launch
+                    val snap = synchronized(lock) { lastSnapshot }
+                    if (isActionCompleted(action, input, beforeState, beforeSnapshot, snap)) {
+                        op.complete(OperationRecord(op.id, action, OperationStatus.COMPLETED))
+                        return@launch
+                    }
                 }
                 delay(20)
             }
         }
+    }
+
+    private fun isActionCompleted(
+        action: String,
+        input: JsonObject,
+        beforeState: TaskDetailUiState,
+        beforeSnapshot: JsonObject,
+        snapshot: JsonObject,
+    ): Boolean {
+        val status = snapshot["status"]?.jsonPrimitive?.contentOrNull
+        val subject = snapshot["subject"] as? JsonObject
+        return when (action) {
+            "set_priority" -> {
+                val expected = input["priority"]?.jsonPrimitive?.contentOrNull ?: return false
+                subject?.get("priority")?.jsonPrimitive?.contentOrNull == expected
+            }
+
+            "toggle_complete" -> {
+                val beforeCompleted = beforeSnapshot.subjectBool("completed")
+                val nowCompleted = subject.boolOrNull("completed") ?: return false
+                beforeCompleted != null && nowCompleted != beforeCompleted
+            }
+
+            "add_checklist_item" -> {
+                val title = input["title"]?.jsonPrimitive?.contentOrNull ?: return false
+                val beforeCount = beforeSnapshot.checklistTitles().count { it == title }
+                val nowCount = snapshot.checklistTitles().count { it == title }
+                nowCount > beforeCount
+            }
+
+            "delete_task" -> {
+                subject?.boolOrNull("archived") == true
+            }
+
+            "restore_task" -> {
+                subject?.boolOrNull("archived") == false
+            }
+
+            else -> {
+                // Unknown/custom action: require a post-dispatch loaded snapshot change.
+                status == "loaded" && snapshot != beforeSnapshot
+            }
+        }
+    }
+
+    private fun JsonObject.subjectBool(key: String): Boolean? = (this["subject"] as? JsonObject).boolOrNull(key)
+
+    private fun JsonObject?.boolOrNull(key: String): Boolean? = this?.get(key)?.jsonPrimitive?.booleanOrNull
+
+    private fun JsonObject.checklistTitles(): List<String> {
+        val subject = this["subject"] as? JsonObject ?: return emptyList()
+        val items = subject["checklist"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        return items.mapNotNull { (it as? JsonObject)?.get("title")?.jsonPrimitive?.contentOrNull }
     }
 
     private fun classifyValidation(

@@ -74,7 +74,6 @@ private class ProfileSelectionCli : CliktCommand(name = "profile-selection") {
     init {
         context {
             allowInterspersedArgs = true
-            treatUnknownOptionsAsArgs = true
         }
     }
 
