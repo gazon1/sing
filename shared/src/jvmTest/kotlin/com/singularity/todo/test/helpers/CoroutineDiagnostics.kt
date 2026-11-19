@@ -9,7 +9,7 @@ import java.time.Instant
 /**
  * Test-only coroutine dump utility for `shared/jvmTest`.
  *
- * Mirrors [com.singularity.todo.test.helpers.CoroutineDiagnostics] in desktopApp but is
+ * Mirrors [com.singularity.todo.test.helpers.DesktopCoroutineDiagnostics] in desktopApp but is
  * intentionally duplicated here — a shared test-fixtures module for one object is not
  * worth the added module complexity.
  *

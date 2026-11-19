@@ -19,6 +19,11 @@ import java.time.Instant
  * **Important:** this reads a **snapshot** of coroutine state at the moment of the call.
  * It does not show execution history, does not explain TestScheduler semantics
  * (advanceUntilIdle vs runCurrent), and does not prove a coroutine is leaked.
+ *
+ * Mirrors [com.singularity.todo.test.helpers.CoroutineDiagnostics] in shared but is
+ * intentionally duplicated here — a shared test-fixtures module for one object is not
+ * worth the added module complexity. The two copies carry different names so that
+ * no name is declared twice across components.
  */
 object DesktopCoroutineDiagnostics {
     fun dump(

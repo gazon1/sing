@@ -183,7 +183,7 @@ class FakeAppDatabase : AppDatabase() {
 
     override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
 
-    override fun remoteConfigCacheDao(): RemoteConfigCacheDao = FakeRemoteConfigCacheDao(_remoteConfigCache)
+    override fun remoteConfigCacheDao(): RemoteConfigCacheDao = InMemoryRemoteConfigCacheDao(_remoteConfigCache)
 
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
 
@@ -3037,7 +3037,7 @@ private class FakeRemoteConfigDao(private val store: MutableStateFlow<Map<String
 
 // ─── RemoteConfigCacheDao ─────────────────────────────────────────────────────
 
-private class FakeRemoteConfigCacheDao(private val store: MutableStateFlow<RemoteConfigCacheEntity?>) :
+private class InMemoryRemoteConfigCacheDao(private val store: MutableStateFlow<RemoteConfigCacheEntity?>) :
     RemoteConfigCacheDao {
     override fun watchDefault(): Flow<RemoteConfigCacheEntity?> = store
 

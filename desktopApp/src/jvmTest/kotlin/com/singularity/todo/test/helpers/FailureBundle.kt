@@ -244,7 +244,7 @@ data class FailureBundle(val testClassSimpleName: String, val attempt: Int, val 
                 writeFile(bundle.kermitLogFile) { logs }
             }
 
-            // Coroutine dump — kotlinx-coroutines-debug agent snapshot; see CoroutineDiagnostics
+            // Coroutine dump — kotlinx-coroutines-debug agent snapshot; see DesktopCoroutineDiagnostics
             runCatchingCancellable {
                 writeFile(bundle.coroutinesFile) {
                     DesktopCoroutineDiagnostics.dump(testClassSimpleName, attempt)

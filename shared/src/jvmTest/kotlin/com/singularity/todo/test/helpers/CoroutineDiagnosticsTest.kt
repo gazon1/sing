@@ -11,7 +11,7 @@ import kotlin.test.assertContains
 
 /**
  * Smoke tests for [CoroutineDiagnostics] in shared/jvmTest.
- * Mirrors [com.singularity.todo.test.helpers.CoroutineDiagnosticsTest] in desktopApp
+ * Mirrors [com.singularity.todo.test.helpers.DesktopCoroutineDiagnosticsTest] in desktopApp
  * — both copies are tested independently since there is no shared test-fixtures module.
  *
  * These do NOT test the output format — format is verified by reading actual

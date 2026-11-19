@@ -75,3 +75,11 @@ records them as red at the base commit; that state is unchanged here, not masked
 `easement check --diff origin/main` reports 1 violation (the cycle). Neither violation is caused by
 the cut: both files are unchanged from `origin/main`. `easement.yml` was not edited, and no
 artificial green is recorded.
+
+**Resolved 2026-11-19.** Both violations came from one cause: `CoroutineDiagnostics.kt` carried
+the same filename in two components, and the indexer names a declaration after its file, so
+`desktopApp`'s copy of `CoroutineDiagnostics` was a second declaration of a name `shared` also
+declared. The desktopApp copy is now `DesktopCoroutineDiagnostics.kt` (and its test
+`DesktopCoroutineDiagnosticsTest.kt`), which gives every declaration one home; `easement check`
+reports 0 violations and 0 declaration gaps on 0.9.0. See
+`docs/decisions/2026-11-19-every-declaration-gets-one-home.md`.

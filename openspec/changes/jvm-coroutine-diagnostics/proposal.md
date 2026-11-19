@@ -17,10 +17,10 @@ Tests contain long-running collectors (SyncEngine, todayFlow, backgroundScope wo
 - gradle/configuration: named configuration `coroutinesDebugAgent` + `jvmArgumentProviders` (configuration-cache-safe).
 - Scope: desktopApp:test only in PR1; shared:jvmTest added in PR2.
 
-### CoroutineDiagnostics utility (test-only, no DI)
+### DesktopCoroutineDiagnostics utility (test-only, no DI)
 
 ```kotlin
-object CoroutineDiagnostics {
+object DesktopCoroutineDiagnostics {
     fun dump(testClass: String?, attempt: Int): String
     private fun formatCoroutine(info: CoroutineInfo, index: Int): String
 }

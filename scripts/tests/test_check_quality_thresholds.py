@@ -16,6 +16,7 @@ The registry's control proves the default column can fail on the real page;
 only prove one of them.
 """
 
+import http.client
 import importlib.util
 import io
 import pathlib
@@ -24,6 +25,7 @@ import sys
 import tempfile
 import unittest
 import unittest.mock
+import urllib.error
 import zipfile
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
@@ -230,10 +232,17 @@ class FetchDetektCoreTest(unittest.TestCase):
         self._saved_cache = thresholds.DETEKT_CORE_CACHE
         thresholds.DETEKT_CORE_CACHE = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(self._restore)
+        self._no_sleep()
 
     def _restore(self):
         thresholds.DETEKT_CORE_CACHE = self._saved_cache
         shutil.rmtree(thresholds.DETEKT_CORE_CACHE, ignore_errors=True)
+
+    def _no_sleep(self):
+        """Keep the retry backoff from turning the suite into a slow suite."""
+        patcher = unittest.mock.patch.object(thresholds.time, "sleep", lambda *_: None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _jar_bytes(self):
         buffer = io.BytesIO()
@@ -314,6 +323,254 @@ class FetchDetektCoreTest(unittest.TestCase):
 
         with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", boom):
             self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+
+    def test_a_truncated_jar_is_not_cached(self):
+        """A body that stops halfway never reaches the cache.
+
+        The download is written to a `.part` file and moved into place only
+        after it was proven to carry the shipped default config, so a
+        truncated body is discarded rather than read as truth on every later
+        run.
+        """
+
+        class TruncatedResponse:
+            def read(self):
+                raise http.client.IncompleteRead(b"half a jar")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        with unittest.mock.patch.object(
+            thresholds.urllib.request,
+            "urlopen",
+            lambda url, timeout=None: TruncatedResponse(),
+        ):
+            self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+
+        leftovers = list(thresholds.DETEKT_CORE_CACHE.rglob("*"))
+        self.assertEqual([], [p for p in leftovers if p.is_file()])
+
+    def test_a_partial_jar_is_not_cached(self):
+        """Bytes that arrived intact but describe a broken archive are dropped."""
+        half = self._jar_bytes()[: len(self._jar_bytes()) // 2]
+
+        class PartialResponse:
+            def read(self):
+                return half
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        with unittest.mock.patch.object(
+            thresholds.urllib.request,
+            "urlopen",
+            lambda url, timeout=None: PartialResponse(),
+        ):
+            self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+
+        leftovers = list(thresholds.DETEKT_CORE_CACHE.rglob("*"))
+        self.assertEqual([], [p for p in leftovers if p.is_file()])
+
+
+class DownloadRetryTest(unittest.TestCase):
+    """A transient network failure must not fail the gate on the first attempt.
+
+    The gate reached the network because no Gradle home had the pinned jar, so
+    its verdict was partly a measurement of the network. A dropped connection
+    is not evidence that the artifact is gone, and repeating the request costs
+    two seconds. A 404 is the opposite: the server stated that the artifact
+    does not exist, and repeating the request cannot change that.
+
+    The delays are asserted as well as the attempt counts: a retry that
+    waited twice as often as it should, or that waited after the last attempt,
+    would turn a two-second backoff into a minute-long gate.
+    """
+
+    def setUp(self):
+        self.delays = []
+        patcher = unittest.mock.patch.object(thresholds.time, "sleep", self.delays.append)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _response(self, payload):
+        class FakeResponse:
+            def read(self):
+                return payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        return FakeResponse()
+
+    def _truncated_response(self, partial):
+        """A response whose body stops halfway: `read()` raises IncompleteRead."""
+        class TruncatedResponse:
+            def read(self):
+                raise http.client.IncompleteRead(partial)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        return TruncatedResponse()
+
+    def test_a_transient_failure_is_retried_and_then_succeeds(self):
+        attempts = []
+
+        def flaky(url, timeout=None):
+            attempts.append(url)
+            if len(attempts) < 3:
+                raise OSError("connection reset")
+            return self._response(b"payload")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", flaky):
+            self.assertEqual(b"payload", thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual(3, len(attempts))
+
+    def test_every_attempt_failing_gives_up(self):
+        attempts = []
+
+        def boom(url, timeout=None):
+            attempts.append(url)
+            raise OSError("offline")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", boom):
+            self.assertIsNone(thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual(thresholds.FETCH_ATTEMPTS, len(attempts))
+
+    def test_a_missing_artifact_is_not_retried(self):
+        attempts = []
+
+        def missing(url, timeout=None):
+            attempts.append(url)
+            raise urllib.error.HTTPError(url, 404, "Not Found", None, io.BytesIO())
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", missing):
+            self.assertIsNone(thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual(1, len(attempts))
+
+    def test_a_server_error_is_retried(self):
+        attempts = []
+
+        def broken(url, timeout=None):
+            attempts.append(url)
+            raise urllib.error.HTTPError(url, 503, "Service Unavailable", None, io.BytesIO())
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", broken):
+            self.assertIsNone(thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual(thresholds.FETCH_ATTEMPTS, len(attempts))
+
+    def test_a_truncated_body_is_retried_and_then_succeeds(self):
+        """A body that stops halfway is a network fact, not a missing artifact.
+
+        `http.client.IncompleteRead` is an `HTTPException` — neither an
+        `OSError` nor a `ValueError` — so it used to escape the retry entirely
+        and be reported as "the artifact is gone".
+        """
+        attempts = []
+
+        def flaky(url, timeout=None):
+            attempts.append(url)
+            if len(attempts) == 1:
+                return self._truncated_response(b"half a jar")
+            return self._response(b"payload")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", flaky):
+            self.assertEqual(b"payload", thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual(2, len(attempts))
+
+    def test_a_truncated_body_that_never_completes_gives_up(self):
+        attempts = []
+
+        def always_truncated(url, timeout=None):
+            attempts.append(url)
+            return self._truncated_response(b"half a jar")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", always_truncated):
+            self.assertIsNone(thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual(thresholds.FETCH_ATTEMPTS, len(attempts))
+
+    def test_exactly_one_delay_sits_between_two_attempts(self):
+        attempts = []
+
+        def flaky(url, timeout=None):
+            attempts.append(url)
+            if len(attempts) < 3:
+                raise OSError("connection reset")
+            return self._response(b"payload")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", flaky):
+            thresholds._download("https://example.invalid/jar")
+
+        # Three attempts, one delay before each retry after the first.
+        self.assertEqual(2, len(self.delays))
+        self.assertEqual(
+            [thresholds.FETCH_RETRY_DELAY_SECONDS, thresholds.FETCH_RETRY_DELAY_SECONDS],
+            self.delays,
+        )
+
+    def test_a_successful_attempt_is_not_followed_by_a_delay(self):
+        with unittest.mock.patch.object(
+            thresholds.urllib.request, "urlopen", lambda url, timeout=None: self._response(b"ok")
+        ):
+            self.assertEqual(b"ok", thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual([], self.delays)
+
+    def test_a_retry_that_finally_succeeds_does_not_wait_afterwards(self):
+        attempts = []
+
+        def flaky(url, timeout=None):
+            attempts.append(url)
+            if len(attempts) == 1:
+                raise OSError("connection reset")
+            return self._response(b"payload")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", flaky):
+            self.assertEqual(b"payload", thresholds._download("https://example.invalid/jar"))
+
+        # One failed attempt, one delay, one success — and no trailing wait.
+        self.assertEqual([thresholds.FETCH_RETRY_DELAY_SECONDS], self.delays)
+
+    def test_a_missing_artifact_causes_no_delay(self):
+        def missing(url, timeout=None):
+            raise urllib.error.HTTPError(url, 404, "Not Found", None, io.BytesIO())
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", missing):
+            self.assertIsNone(thresholds._download("https://example.invalid/jar"))
+
+        self.assertEqual([], self.delays)
+
+    def test_a_truncated_body_waits_before_the_next_attempt(self):
+        attempts = []
+
+        def flaky(url, timeout=None):
+            attempts.append(url)
+            if len(attempts) == 1:
+                return self._truncated_response(b"half a jar")
+            return self._response(b"payload")
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", flaky):
+            thresholds._download("https://example.invalid/jar")
+
+        self.assertEqual([thresholds.FETCH_RETRY_DELAY_SECONDS], self.delays)
 
 
 if __name__ == "__main__":

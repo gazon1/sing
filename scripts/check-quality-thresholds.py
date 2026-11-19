@@ -42,10 +42,13 @@ proves both directions with fixtures — a wrong *Here* value and a wrong
 """
 from __future__ import annotations
 
+import http.client
 import os
 import pathlib
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -78,6 +81,19 @@ MAVEN_CENTRAL = "https://repo1.maven.org/maven2"
 #: Where that jar is kept, so a second run reads it from disk instead of
 #: fetching it again.
 DETEKT_CORE_CACHE = pathlib.Path.home() / ".cache" / "ropefish" / "detekt-core"
+
+#: How many times a download is attempted before the gate gives up.
+#:
+#: The download is a network call to a third party, and a gate that fails on a
+#: transient error fails the whole CI run over a blip it did not cause. A run
+#: that reported "could not be fetched" while Maven Central was reachable a
+#: minute later proved the point: the gate was measuring the network, not the
+#: tree. Three attempts turn that into a gate that only fails when the
+#: artifact is genuinely unreachable.
+FETCH_ATTEMPTS = 3
+
+#: Seconds to wait between two attempts.
+FETCH_RETRY_DELAY_SECONDS = 2.0
 
 #: Top-level blocks of a detekt config that are not rule sets.
 NON_RULE_SECTIONS = {"config", "processors", "console-reports"}
@@ -367,16 +383,20 @@ def _fetch_detekt_core(version: str) -> pathlib.Path | None:
     catalog pins, and a download that does not contain the shipped default
     config is not kept — a truncated jar would otherwise be cached and read as
     truth on every later run.
+
+    The download is attempted [FETCH_ATTEMPTS] times. A single failed attempt
+    is not evidence that the artifact is gone: a dropped connection or a
+    momentary refusal is a fact about the network, and a gate that fails on it
+    reports the network's mood instead of the tree's state. Only a run of
+    failures is a failure.
     """
     jar = DETEKT_CORE_CACHE / version / f"detekt-core-{version}.jar"
     if jar.is_file():
         return jar
 
     url = f"{MAVEN_CENTRAL}/dev/detekt/detekt-core/{version}/detekt-core-{version}.jar"
-    try:
-        with urllib.request.urlopen(url, timeout=60) as response:
-            payload = response.read()
-    except (OSError, ValueError):
+    payload = _download(url)
+    if payload is None:
         return None
 
     partial = jar.with_name(jar.name + ".part")
@@ -388,8 +408,45 @@ def _fetch_detekt_core(version: str) -> pathlib.Path | None:
             return None
         partial.replace(jar)
     except OSError:
+        partial.unlink(missing_ok=True)
         return None
     return jar
+
+
+def _download(url: str) -> bytes | None:
+    """The bytes at [url], or None when every attempt failed.
+
+    A 404 is the server stating that the artifact does not exist, and repeating
+    the request will not change that — so it ends the attempts at once. Every
+    other failure is treated as worth another try.
+
+    A body that stops halfway is one of those failures, and it fails in a way
+    the obvious exception list does not cover: `http.client.IncompleteRead` is
+    an `HTTPException`, which is neither an `OSError` nor a `ValueError`, so a
+    truncated download used to escape the retry entirely and be reported as a
+    missing artifact. It is caught by name here — the narrow base class for
+    aborted HTTP responses — instead of by `except Exception`, which would
+    turn a defect in this gate into a retry that hides it.
+    """
+    for attempt in range(1, FETCH_ATTEMPTS + 1):
+        if attempt > 1:
+            time.sleep(FETCH_RETRY_DELAY_SECONDS)
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            # The error wraps a temporary file; leaving it unclosed leaks a
+            # descriptor per attempt.
+            error.close()
+            if error.code == 404:
+                return None
+        except http.client.IncompleteRead:
+            # The connection died after the headers were read: the body is
+            # short, and the failure is a fact about the network.
+            continue
+        except (OSError, ValueError):
+            continue
+    return None
 
 
 def _default_config_from(jar: pathlib.Path) -> str | None:

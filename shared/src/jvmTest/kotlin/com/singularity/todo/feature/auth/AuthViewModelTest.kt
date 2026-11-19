@@ -20,6 +20,7 @@ import com.singularity.todo.feature.auth.LocalDataDisposition
 import com.singularity.todo.feature.auth.LocalDataSummary
 import com.singularity.todo.feature.auth.ReassignCounts
 import com.singularity.todo.test.helpers.awaitState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,6 +92,15 @@ class AuthViewModelTest {
                 accessToken = "access",
                 refreshToken = "refresh",
             ),
+        /**
+         * What the seed does on the way in.
+         *
+         * `null` is the ordinary case — the seed that counts its calls. A test that
+         * needs a different seed (one that fails, one that is cancelled) passes its
+         * own, because "the seed failed" and "the seed was cancelled" are two
+         * different failures and the view model has to treat them differently.
+         */
+        onFirstSignIn: (suspend () -> Unit)? = null,
     ): AuthViewModel {
         val provider =
             SupabaseClientProvider(
@@ -155,10 +165,14 @@ class AuthViewModelTest {
 
                 override suspend fun sendMagicLink(email: String): Result<Unit> = sendMagicLink
             }
+        // The type is spelled out because the elvis would otherwise widen it: the
+        // branch that counts calls returns an Int, and `suspend () -> Any` is not
+        // the type the ViewModel takes.
+        val seed: suspend () -> Unit = onFirstSignIn ?: { seedCalls++ }
         return AuthViewModel(
             authRepository = repository,
             clients = provider,
-            onFirstSignIn = { seedCalls++ },
+            onFirstSignIn = seed,
             claimAccount = { _, _, _ ->
                 claim.onEach { step ->
                     if (step is ClaimStep.Done) sessions.value = sessionAfterSuccess
@@ -327,8 +341,140 @@ class AuthViewModelTest {
             awaitState { viewModel.stateFlow.value is AuthUiState.Success }
         }
 
-    // ── REQ-UA-014 — a sign-up with no session is not a completed sign-in ────
+    // ── A failing seed is a sync problem, not an auth problem ───────────────
 
+    @Test
+    fun `a sign-up whose seed fails still signs the user in`() =
+        runTest {
+            val viewModel = viewModel(onFirstSignIn = { error("the queue is full") })
+
+            viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+
+            // The same rule as the sign-in: the account exists and the session is
+            // live, so reporting a failure sends the user round the password loop
+            // again for something that has already succeeded.
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+        }
+
+    @Test
+    fun `an attach whose seed fails still signs the user in`() =
+        runTest {
+            val viewModel = viewModel(onFirstSignIn = { error("the queue is full") })
+
+            viewModel.onIntent(
+                AuthIntent.AttachAccount(
+                    email = "a@b.c",
+                    password = "password123",
+                    disposition = LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                ),
+            )
+
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+        }
+
+    // ── A cancelled sign-in is not a successful one ─────────────────────────
+
+    /**
+     * The three first-sign-in paths, asserted for one failure mode.
+     *
+     * A seed that is *cancelled* is not a seed that *failed*: cancellation is the
+     * coroutine machinery withdrawing the work, not a defect in the work. The view
+     * model must therefore stop where it is — no success, no navigation — rather
+     * than carry on as though the account had been seeded.
+     */
+    @Test
+    fun `a cancelled sign-in does not report success`() =
+        runTest {
+            var seedAttempted = false
+            val viewModel =
+                viewModel(
+                    onFirstSignIn = {
+                        seedAttempted = true
+                        throw CancellationException("the sign-in was cancelled while seeding")
+                    },
+                )
+
+            assertNoSuccessOnCancellation(viewModel, seedAttempted = { seedAttempted }) {
+                viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
+            }
+        }
+
+    @Test
+    fun `a cancelled sign-up does not report success`() =
+        runTest {
+            var seedAttempted = false
+            val viewModel =
+                viewModel(
+                    onFirstSignIn = {
+                        seedAttempted = true
+                        throw CancellationException("the sign-up was cancelled while seeding")
+                    },
+                )
+
+            assertNoSuccessOnCancellation(viewModel, seedAttempted = { seedAttempted }) {
+                viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+            }
+        }
+
+    @Test
+    fun `a cancelled attach does not report success`() =
+        runTest {
+            var seedAttempted = false
+            val viewModel =
+                viewModel(
+                    onFirstSignIn = {
+                        seedAttempted = true
+                        throw CancellationException("the attach was cancelled while seeding")
+                    },
+                )
+
+            assertNoSuccessOnCancellation(viewModel, seedAttempted = { seedAttempted }) {
+                viewModel.onIntent(
+                    AuthIntent.AttachAccount(
+                        email = "a@b.c",
+                        password = "password123",
+                        disposition = LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                    ),
+                )
+            }
+        }
+
+    /**
+     * Asserts that a sign-in whose seed was cancelled reports neither success nor
+     * navigation.
+     *
+     * The assertion is about what the *user* sees, because that is what a swallowed
+     * cancellation looks like from the outside: a screen that says "welcome" and
+     * navigates into an application whose data was never uploaded.
+     */
+    private suspend fun TestScope.assertNoSuccessOnCancellation(
+        viewModel: AuthViewModel,
+        seedAttempted: () -> Boolean,
+        submit: () -> Unit,
+    ) {
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            submit()
+            awaitState { seedAttempted() }
+            runCurrent()
+
+            assertTrue(
+                viewModel.stateFlow.value !is AuthUiState.Success,
+                "a cancelled sign-in reported success: ${viewModel.stateFlow.value}",
+            )
+            assertTrue(
+                events.none { it is AuthUiEvent.NavigateToHome },
+                "a cancelled sign-in navigated into the application: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    // ── REQ-UA-014 — a sign-up with no session is not a completed sign-in ────
     @Test
     fun `a sign-up awaiting confirmation does not enter the application`() =
         runTest {

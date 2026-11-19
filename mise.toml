@@ -17,10 +17,13 @@ hk = "1.23.0"
 # refuses to start without it ("install pkl cli to use pkl config files").
 pkl = "0.28.2"
 rumdl = "0.3.2"
-# The fork, not the upstream release: the fix for a duplicated declaration
-# across components (mokevnin/easement#114) is not in an upstream release yet.
-# The fork publishes its own release for it, so this is a download, not a build.
-"github:mokevnin/easement" = "latest"
+# Upstream, not a fork: the fix for a duplicated declaration across components
+# (mokevnin/easement#114) shipped upstream in 0.6.4, so the fork this pin used to
+# name is no longer needed. Upstream releases a binary, so this is a download,
+# not a build. The version is fixed, not "latest": this file is the one place
+# the repository writes a tool version down, and scripts/toolchain-version.py
+# reads it from here for the CI job that installs the tool.
+"github:mokevnin/easement" = "0.9.0"
 "github:mokevnin/heavy" = "latest"
 # The second Maestro executor is *not* installed through mise: the runner needs
 # its driver binaries (drivers/android) next to the binary, and every mise
