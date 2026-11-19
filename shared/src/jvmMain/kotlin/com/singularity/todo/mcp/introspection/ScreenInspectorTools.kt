@@ -159,6 +159,8 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             val payload =
                 try {
                     handler(request)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: InspectorException) {
                     e.toJson()
                 } catch (e: Exception) {

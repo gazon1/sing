@@ -31,7 +31,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
@@ -430,11 +429,39 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                 )
         val steps =
             stepsArray.mapIndexed { index, element ->
-                element as? JsonObject
-                    ?: throw InspectorException(
+                val obj =
+                    element as? JsonObject
+                        ?: throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Journey step $index must be a JSON object.",
+                        )
+                val nameElement = obj["name"]
+                if (nameElement != null && nameElement !is JsonPrimitive) {
+                    throw InspectorException(
                         InspectorErrorCode.INVALID_ARGUMENTS,
-                        "Journey step $index must be a JSON object.",
+                        "Journey step $index field 'name' must be a string.",
                     )
+                }
+                val opElement =
+                    obj["op"]
+                        ?: throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Journey step $index is missing 'op'.",
+                        )
+                if (opElement !is JsonPrimitive || !opElement.isString) {
+                    throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Journey step $index field 'op' must be a string.",
+                    )
+                }
+                val continueOnErrorElement = obj["continueOnError"]
+                if (continueOnErrorElement != null && continueOnErrorElement !is JsonPrimitive) {
+                    throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Journey step $index field 'continueOnError' must be a boolean or string.",
+                    )
+                }
+                obj
             }
         return ParsedJourney(steps)
     }
@@ -545,17 +572,43 @@ private fun parseParams(
     paramsRaw: String?,
     taskId: String?,
 ): JsonObject {
-    if (paramsRaw != null) return cliJson.parseToJsonElement(paramsRaw).jsonObject
+    if (paramsRaw != null) {
+        val element =
+            try {
+                cliJson.parseToJsonElement(paramsRaw)
+            } catch (e: Exception) {
+                throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Parameter '--params' must be valid JSON: ${e.message ?: "parse error"}",
+                )
+            }
+        return element as? JsonObject
+            ?: throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "Parameter '--params' must be a JSON object.",
+            )
+    }
     return if (taskId != null) buildJsonObject { put("taskId", taskId) } else JsonObject(emptyMap())
 }
 
 private fun parseInput(inputRaw: String?): JsonObject =
-    if (inputRaw == null ||
-        inputRaw.isBlank()
-    ) {
+    if (inputRaw == null || inputRaw.isBlank()) {
         JsonObject(emptyMap())
     } else {
-        cliJson.parseToJsonElement(inputRaw).jsonObject
+        val element =
+            try {
+                cliJson.parseToJsonElement(inputRaw)
+            } catch (e: Exception) {
+                throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Parameter '--input' must be valid JSON: ${e.message ?: "parse error"}",
+                )
+            }
+        element as? JsonObject
+            ?: throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "Parameter '--input' must be a JSON object.",
+            )
     }
 
 private fun JsonObject.string(key: String): String =
