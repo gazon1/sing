@@ -78,6 +78,20 @@ DEFAULT_CONFIG_ENTRY = "default-detekt-config.yml"
 #: Where the pinned jar is fetched from when no Gradle home has it.
 MAVEN_CENTRAL = "https://repo1.maven.org/maven2"
 
+#: Google's mirror of Maven Central, tried first.
+#:
+#: The runners cannot reach `repo1.maven.org` reliably — the same block that
+#: stopped them from resolving the buildscript classpath (ADR
+#: `2026-11-19-maven-central-mirror-is-listed-first`). This gate fetches its jar
+#: over HTTP itself, so Gradle's repository order does not apply to it, and a
+#: block there reads as "the artifact could not be found" — a verdict about the
+#: network wearing the costume of a verdict about the tree.
+MAVEN_CENTRAL_MIRROR = "https://maven-central.storage-download.googleapis.com/maven2"
+
+#: The bases the jar is fetched from, in order: the mirror first, Central as
+#: the fallback for whatever the mirror does not carry.
+MAVEN_CENTRAL_BASES = (MAVEN_CENTRAL_MIRROR, MAVEN_CENTRAL)
+
 #: Where that jar is kept, so a second run reads it from disk instead of
 #: fetching it again.
 DETEKT_CORE_CACHE = pathlib.Path.home() / ".cache" / "ropefish" / "detekt-core"
@@ -389,28 +403,34 @@ def _fetch_detekt_core(version: str) -> pathlib.Path | None:
     momentary refusal is a fact about the network, and a gate that fails on it
     reports the network's mood instead of the tree's state. Only a run of
     failures is a failure.
+
+    Two bases are tried, in order: Google's mirror of Central first, Central
+    itself after it. The mirror is where the runners can still be served; the
+    fallback keeps the gate honest on a host where only Central answers.
     """
     jar = DETEKT_CORE_CACHE / version / f"detekt-core-{version}.jar"
     if jar.is_file():
         return jar
 
-    url = f"{MAVEN_CENTRAL}/dev/detekt/detekt-core/{version}/detekt-core-{version}.jar"
-    payload = _download(url)
-    if payload is None:
-        return None
+    for base in MAVEN_CENTRAL_BASES:
+        url = f"{base}/dev/detekt/detekt-core/{version}/detekt-core-{version}.jar"
+        payload = _download(url)
+        if payload is None:
+            continue
 
-    partial = jar.with_name(jar.name + ".part")
-    try:
-        jar.parent.mkdir(parents=True, exist_ok=True)
-        partial.write_bytes(payload)
-        if _default_config_from(partial) is None:
+        partial = jar.with_name(jar.name + ".part")
+        try:
+            jar.parent.mkdir(parents=True, exist_ok=True)
+            partial.write_bytes(payload)
+            if _default_config_from(partial) is None:
+                partial.unlink(missing_ok=True)
+                continue
+            partial.replace(jar)
+        except OSError:
             partial.unlink(missing_ok=True)
-            return None
-        partial.replace(jar)
-    except OSError:
-        partial.unlink(missing_ok=True)
-        return None
-    return jar
+            continue
+        return jar
+    return None
 
 
 def _download(url: str) -> bytes | None:
@@ -473,7 +493,8 @@ def check_tree() -> tuple[list[str], str | None]:
     if defaults is None:
         return [], (
             f"the default configuration of detekt {version} was not found in a "
-            f"Gradle home and could not be fetched from {MAVEN_CENTRAL} — run a "
+            f"Gradle home and could not be fetched from "
+            f"{', '.join(MAVEN_CENTRAL_BASES)} — run a "
             f"detekt task once (`./gw detekt`) to populate the cache, or set "
             f"DETEKT_CORE_JAR to the detekt-core jar. The default column cannot "
             f"be checked against a version nobody has resolved."

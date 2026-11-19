@@ -251,19 +251,75 @@ class FetchDetektCoreTest(unittest.TestCase):
         return buffer.getvalue()
 
     def test_the_url_follows_the_pinned_version(self):
-        seen = {}
+        seen = []
 
         def fake_urlopen(url, timeout=None):
-            seen["url"] = url
+            seen.append(url)
             raise OSError("offline")
 
         with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", fake_urlopen):
             self.assertIsNone(thresholds._fetch_detekt_core("2.0.0-alpha.6"))
+        for url in seen:
+            self.assertTrue(
+                url.endswith("/dev/detekt/detekt-core/2.0.0-alpha.6/detekt-core-2.0.0-alpha.6.jar"),
+                url,
+            )
+        bases = []
+        for url in seen:
+            base = url.split("/dev/detekt/")[0]
+            if base not in bases:
+                bases.append(base)
         self.assertEqual(
-            "https://repo1.maven.org/maven2/dev/detekt/detekt-core/"
-            "2.0.0-alpha.6/detekt-core-2.0.0-alpha.6.jar",
-            seen["url"],
+            [
+                "https://maven-central.storage-download.googleapis.com/maven2",
+                "https://repo1.maven.org/maven2",
+            ],
+            bases,
         )
+
+    def test_the_mirror_is_tried_before_central(self):
+        """The runners cannot reach Central; the mirror is the front door.
+
+        The order is the mechanism, the same way it is for Gradle: a base listed
+        after another is never consulted for an artifact the first one could not
+        serve, so the mirror has to come first for the fallback to mean
+        anything.
+        """
+        self.assertEqual(
+            ("https://maven-central.storage-download.googleapis.com/maven2",
+             "https://repo1.maven.org/maven2"),
+            thresholds.MAVEN_CENTRAL_BASES,
+        )
+
+    def test_a_fetch_from_the_mirror_is_enough(self):
+        """Central is a fallback, not a requirement.
+
+        A gate that needs the fallback to be reachable measures the network
+        instead of the tree — the failure this gate already suffered once.
+        """
+        payload = self._jar_bytes()
+        bases = []
+
+        class FakeResponse:
+            def read(self):
+                return payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        def fake_urlopen(url, timeout=None):
+            bases.append(url)
+            return FakeResponse()
+
+        with unittest.mock.patch.object(thresholds.urllib.request, "urlopen", fake_urlopen):
+            jar = thresholds._fetch_detekt_core("2.0.0-alpha.6")
+
+        self.assertIsNotNone(jar)
+        self.assertEqual(1, len(bases))
+        self.assertIn("maven-central.storage-download.googleapis.com", bases[0])
 
     def test_a_jar_on_disk_is_reused_without_fetching(self):
         jar = thresholds.DETEKT_CORE_CACHE / "2.0.0-alpha.6" / "detekt-core-2.0.0-alpha.6.jar"

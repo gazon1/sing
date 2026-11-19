@@ -66,6 +66,13 @@ Central.
   Gradle falls through the list to the portal for them. (Verified: the
   mirror answers `404` for the foojay marker and `200` for every artifact
   that is actually on Central.)
+- **A gate that fetches an artifact itself uses the same order.**
+  `scripts/check-quality-thresholds.py` downloads the pinned `detekt-core`
+  jar over HTTP, so Gradle's repository order does not apply to it: it reads
+  the mirror first and falls back to Central. Without that, the runners'
+  block reached this gate too, and it failed with a message about a missing
+  artifact — the network's mood wearing the costume of a verdict about the
+  tree.
 
 Ordering is the entire mechanism, so it is not a detail: a mirror listed
 *after* Central changes nothing, because the failing JARs are never looked up
@@ -112,6 +119,13 @@ this repository keeps rejecting.
   applied in `settings.gradle.kts`, so its classpath is resolved before any
   task and before the Gradle cache can be warm — a plugin applied in a
   project build script would have failed later and less loudly.
+- **A gate that downloads an artifact is a second place where the network
+  decides the verdict.** `scripts/check-quality-thresholds.py` fetches the
+  pinned `detekt-core` jar itself, because the job that runs it resolves no
+  detekt artifact of its own. It now reads the mirror first, so a runner
+  that cannot reach Central still gets an answer about the tree. Any future
+  script that reaches the network on its own has to make the same choice:
+  Gradle's repository order does not apply to it.
 
 ## Links
 
