@@ -20,7 +20,7 @@ const val SCREEN_INTROSPECTION_CONTRACT_VERSION: Int = 1
  * The screen-independent state of one inspected screen.
  *
  * [status] is the screen's own word for where it is: "loaded", "loading" or "error".
- * [task] is the allow-listed, UI-visible payload of the screen's subject, built by the
+ * [subject] is the allow-listed, UI-visible payload of the screen's subject, built by the
  * adapter from the fields the screen actually shows and nothing else; null when the screen
  * shows no subject. [focus] is the focused element within that subject, or null when nothing
  * is focused; it carries only what the screen shows, so a title draft is the title an agent
@@ -29,7 +29,7 @@ const val SCREEN_INTROSPECTION_CONTRACT_VERSION: Int = 1
 data class ScreenState(
     val status: String,
     val message: String? = null,
-    val task: JsonObject? = null,
+    val subject: JsonObject? = null,
     val focus: JsonObject? = null,
 )
 
@@ -85,6 +85,8 @@ class ScreenAction(
             if (input[name] == null) {
                 return "'$name' is required and must be a non-empty string"
             }
+        }
+        for (name in input.keys.sorted()) {
             val reason = fieldError(input, name)
             if (reason != null) {
                 return reason
@@ -104,7 +106,10 @@ class ScreenAction(
         val minLength = (property["minLength"] as? JsonPrimitive)?.content?.toIntOrNull()
         val pattern = (property["pattern"] as? JsonPrimitive)?.content
         val enumValues = (property["enum"] as? JsonArray)?.map { element -> (element as JsonPrimitive).content }
+        val type = (property["type"] as? JsonPrimitive)?.content
         return when {
+            type != "string" -> "'$name' of type ${type ?: "unknown"} is not supported by the introspection contract"
+
             !primitive.isString -> "'$name' must be a string"
 
             minLength != null && text.length < minLength -> "'$name' must be at least $minLength characters long"
@@ -143,7 +148,7 @@ class ScreenIntrospection(val screenId: String, val actions: List<ScreenAction>)
             put("screen", screenId)
             put("status", state.status)
             state.message?.let { put("message", it) }
-            state.task?.let { put("task", it) }
+            state.subject?.let { put("subject", it) }
         }
 
     /**
@@ -172,17 +177,18 @@ class ScreenIntrospection(val screenId: String, val actions: List<ScreenAction>)
         }
 
     /**
-     * Whether the screen can act on [action] in [state], and what to do with it.
+     * Whether the screen can act on [action] in [state] and whether [input] fits the action's
+     * schema.
      *
      * The input is checked before anything is dispatched: an unknown action, an action the
      * screen cannot act on right now, or an input that does not fit the action's schema comes
      * back as a failure that names the supported actions and the shape the input had to have.
      *
-     * A successful dispatch means the action was **accepted** and handed to the screen — not
-     * that the operation it started has completed. The screen does that work asynchronously,
-     * so the outcome shows up in the next [snapshot], not in the result of this call.
+     * A successful validation is what the adapter's actual dispatch waits for; it does not
+     * perform the action. The adapter hands an accepted action to the screen through its own
+     * action boundary, and the outcome shows up in the next [snapshot], not in this result.
      */
-    fun dispatch(
+    fun validate(
         state: ScreenState,
         action: String,
         input: JsonObject,

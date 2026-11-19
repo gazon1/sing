@@ -51,12 +51,12 @@ class TaskDetailScreenIntrospection(private val coordinator: TaskDetailCoordinat
         input: JsonObject = JsonObject(emptyMap()),
     ): Result<Unit> = dispatch(coordinator.stateFlow.value, action, input)
 
-    fun dispatch(
+    internal fun dispatch(
         state: TaskDetailUiState,
         action: String,
         input: JsonObject = JsonObject(emptyMap()),
     ): Result<Unit> {
-        val result = introspection.dispatch(stateOf(state), action, input)
+        val result = introspection.validate(stateOf(state), action, input)
         if (result.isSuccess) {
             coordinator.onIntent(intentFor(action, input))
             if (action == ACTION_DELETE_TASK) {
@@ -79,7 +79,7 @@ class TaskDetailScreenIntrospection(private val coordinator: TaskDetailCoordinat
             is TaskDetailUiState.Loaded -> {
                 ScreenState(
                     status = STATUS_LOADED,
-                    task = state.ui.taskSnapshot(),
+                    subject = state.ui.taskSnapshot(),
                     focus =
                         buildJsonObject {
                             put("taskId", state.ui.task.id.value)
@@ -199,7 +199,7 @@ class TaskDetailScreenIntrospection(private val coordinator: TaskDetailCoordinat
         }
 
     private fun isArchived(state: ScreenState): Boolean =
-        state.task
+        state.subject
             ?.get("archived")
             ?.jsonPrimitive
             ?.booleanOrNull == true

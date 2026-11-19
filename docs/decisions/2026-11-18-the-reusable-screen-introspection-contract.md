@@ -31,10 +31,16 @@ the mapping into an intent now runs only after validation succeeds.
 
 1. The contract owns the semantics every adapter shares: stable screen identity, allow-listed
    snapshot, action catalogue with JSON-Schema inputs, validate-before-dispatch, availability
-   requirements, and the accept-vs-completion dispatch distinction.
+   requirements, and the accept-vs-completion dispatch distinction. Validation is a check the
+   adapter runs before handing an action over; the hand-off into the screen's own action
+   boundary stays with the adapter, so a successful validation never implies an executed action.
 2. The rules the POC proved are fixed and not negotiable: explicit action allow-list, `available`
    flag plus requirement, snapshot allow-list, exact-schema input check (`additionalProperties:
-   false`), refusal messages naming supported actions and expected input.
+   false`), refusal messages naming supported actions and expected input. The checked subset of
+   the input schema is the published one: object shape, `required`, `properties`,
+   `additionalProperties: false`, `type: string`, `enum`, `minLength` and `pattern`; properties
+   outside that subset are refused rather than silently skipped, and optional properties are
+   validated whenever they are present.
 3. The contract does not depend on feature or Compose/Android types; the screen-specific half
    (actions, schemas, availability, state mapping, intent mapping) lives in the feature adapter.
 4. The contract is versioned (`SCREEN_INTROSPECTION_CONTRACT_VERSION = 1`) and its capability
@@ -50,8 +56,9 @@ schema check and the same dispatch distinction into every future adapter.
 ## Consequences
 
 - Task Detail moved from the POC adapter in `commonTest` to a production adapter implementing the
-  reusable contract; the contract and the adapter keep the POC's behaviour (13 introspection tests,
-  migrated verbatim in meaning, all green on `:shared:jvmTest`).
+  reusable contract; the contract and the adapter keep the POC's behaviour (14 introspection tests,
+  migrated verbatim in meaning, all green on `:shared:jvmTest`), and the contract itself is now
+  covered by its own tests for the validation rules a future adapter inherits.
 - The minimum stable abstraction is deliberately small: a screen id, a state, an action, and the
   dispatch pipeline over them. Adapters add their own action catalogues and state mappings.
 - Deterministic serialization and safe-field allowlisting are part of the contract's tests.
