@@ -610,6 +610,44 @@ class ImageValidationTest(unittest.TestCase):
 
         self.assertEqual(self.check(png_bytes(1080, 1920, extra_chunks=chunk(b'vpAg', b'\x00'))), [])
 
+    def test_image_data_that_is_not_one_run_is_refused(self):
+        # The image data of a PNG is one run of chunks: a chunk between two of
+        # them is a file nobody can decode.
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 3) for _ in range(1920))
+        image = zlib.compress(raw)
+        half = len(image) // 2
+        data = (
+            mod.PNG_SIGNATURE
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', image[:half])
+            + chunk(b'tEXt', b'Comment\x00hello')
+            + chunk(b'IDAT', image[half:])
+            + chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('image data after another chunk' in problem for problem in problems), problems)
+
+    def test_data_after_the_compressed_image_is_refused(self):
+        # The compressed data of a PNG is one zlib stream and nothing else.
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 3) for _ in range(1920))
+        image = zlib.compress(raw) + b'junk'
+        data = (
+            mod.PNG_SIGNATURE
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', image)
+            + chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('after its compressed image data' in problem for problem in problems), problems)
+
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))
         self.assertTrue(any('1080x1920' in problem for problem in problems))

@@ -662,6 +662,22 @@ _PNG_BIT_DEPTHS = {
 _PNG_KNOWN_CHUNKS = frozenset({b"IHDR", b"PLTE", b"IDAT", b"IEND"})
 
 
+def _inflate(data: bytes) -> tuple[bytes, bytes]:
+    """The pixels a PNG's compressed data carries, and what follows them.
+
+    The compressed data of a PNG is one zlib stream and nothing else, so the
+    bytes left over after the stream are returned rather than dropped: a
+    decoder that stops at the end of the stream would read them as nothing at
+    all, and this checker is here to say what the file really is.
+    """
+    stream = zlib.decompressobj()
+    raw = stream.decompress(data)
+    raw += stream.flush()
+    if not stream.eof:
+        raise zlib.error("the compressed image data is incomplete")
+    return raw, stream.unused_data
+
+
 def _expected_scanlines(
     width: int, height: int, bit_depth: int, color_type: int, interlace: int
 ) -> int:
@@ -723,6 +739,7 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
     bit_depth = color_type = interlace = 0
     image_data = bytearray()
     complete = False
+    idat_ended = False
     broken_checksums = 0
     problems: list[str] = []
     position = len(PNG_SIGNATURE)
@@ -763,6 +780,11 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         elif kind == b"IDAT":
             if width is None:
                 problems.append("carries image data before its image header")
+            if idat_ended:
+                # The image data of a PNG is one run of chunks: a chunk
+                # between two of them means the file is not one anybody can
+                # decode.
+                problems.append("has image data after another chunk")
             image_data += body
         elif kind == b"IEND":
             if length != 0:
@@ -777,6 +799,8 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             problems.append(
                 f"has an unknown critical chunk ({kind.decode('ascii', 'replace')})"
             )
+        if image_data and kind != b"IDAT":
+            idat_ended = True
         position = end + 4
 
     if complete and position != len(data):
@@ -796,10 +820,14 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         problems.append("is truncated (it has no end marker)")
     if image_data:
         try:
-            raw = zlib.decompress(bytes(image_data))
+            raw, trailing = _inflate(bytes(image_data))
         except zlib.error as exc:
             problems.append(f"has corrupt image data ({exc})")
         else:
+            if trailing:
+                # The compressed data of a PNG is one zlib stream and nothing
+                # else: bytes after it are not part of the picture.
+                problems.append("has data after its compressed image data")
             # A stream that decompresses is not yet an image: it has to carry
             # the pixels its own header promises. An empty stream under a
             # full-size header is a file that looks right and shows nothing.

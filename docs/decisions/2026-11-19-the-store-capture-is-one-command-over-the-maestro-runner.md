@@ -94,9 +94,11 @@ a filter byte, and PNG knows only five of them. A sixth value is not a
 picture anybody can decode, so it is refused.
 
 The chunk order is checked as well: the header comes first and only once, the
-image data follows it, the end marker carries nothing and nothing follows it,
-and a critical chunk nobody knows — a chunk whose name starts with a capital
-letter — is refused, because a decoder has to reject a file it cannot read.
+image data follows it as one run of chunks, the end marker carries nothing and
+nothing follows it, and a critical chunk nobody knows — a chunk whose name
+starts with a capital letter — is refused, because a decoder has to reject a
+file it cannot read. The compressed data itself is one zlib stream and nothing
+else, so bytes after it are refused too.
 
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
@@ -191,7 +193,8 @@ drift.
   — interlaced, an unknown colour type, an illegal colour type and bit depth
   pair, an unknown compression or filter method — an illegal scanline filter,
   a chunk before the header, a second header, data in or after the end marker,
-  an unknown critical chunk, and the profile: a reset the device refuses, an
+  an unknown critical chunk, image data that is not one run of chunks, data
+  after the compressed image, and the profile: a reset the device refuses, an
   app that cannot be stopped, a property that does not take, a settings file
   that survives the reset, a settings file that cannot be read back, a
   notification that cannot be inspected, a notification record without a
