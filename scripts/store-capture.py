@@ -809,6 +809,10 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             seen_idat = True
             image_data += body
         elif kind == b"PLTE":
+            if has_palette:
+                # A PNG carries at most one palette: a second one is a file
+                # that says which colours to use twice.
+                problems.append("has more than one palette")
             has_palette = True
             if width is None:
                 problems.append("has a palette before its image header")

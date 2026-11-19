@@ -102,9 +102,10 @@ reject a file it cannot read. The compressed data itself is one zlib stream and
 nothing else, so bytes after it are refused too.
 
 The palette is checked as well. An indexed image is a list of indices into a
-palette, so a palette is required for one, it has to be a whole number of
-three-byte entries, it has to be in the file before the pixels that index into
-it, and a colour type that has no colours to index must not carry one at all.
+palette, so a palette is required for one, there is at most one of it, it has
+to be a whole number of three-byte entries, it has to be in the file before
+the pixels that index into it, and a colour type that has no colours to index
+must not carry one at all.
 
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
@@ -203,7 +204,7 @@ drift.
   a chunk before the header, a second header, data in or after the end marker,
   an unknown critical chunk, image data that is not one run of chunks, a split
   run hidden behind an empty image-data chunk, a palette that is missing,
-  malformed or late, data
+  malformed or late, a second palette, data
   after the compressed image, and the profile: a reset the device refuses, an
   app that cannot be stopped, a property that does not take, a settings file
   that survives the reset, a settings file that cannot be read back, a

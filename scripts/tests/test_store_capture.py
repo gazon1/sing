@@ -708,6 +708,20 @@ class ImageValidationTest(unittest.TestCase):
         problems = self.check(data)
         self.assertTrue(any('palette' in problem for problem in problems), problems)
 
+    def test_a_second_palette_is_refused(self):
+        # A PNG carries at most one palette.
+        raw = b''.join(b'\x00' + b'\x00' * (1080 * 1) for _ in range(1920))
+        data = (
+            mod.PNG_SIGNATURE
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 8, 3, 0, 0, 0))
+            + png_chunk(b'PLTE', b'\x00\x00\x00\xff\xff\xff')
+            + png_chunk(b'PLTE', b'\x00\xff\x00\xff\x00\xff')
+            + png_chunk(b'IDAT', zlib.compress(raw))
+            + png_chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('more than one palette' in problem for problem in problems), problems)
+
     def test_data_after_the_compressed_image_is_refused(self):
         # The compressed data of a PNG is one zlib stream and nothing else.
         def chunk(kind, body):
