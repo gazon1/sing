@@ -301,6 +301,47 @@ class PublicationIdentityTest(unittest.TestCase):
         self.assertIn("github.run_attempt", str((step.get("env") or {}).get("RUN_ATTEMPT") or ""))
 
 
+class ReportBuildTest(unittest.TestCase):
+    """The report is built by this repository, not by a third-party action.
+
+    The action this replaced was a Docker action: the runner rebuilt its
+    image on every run, from a floating base image, and the image
+    downloaded the Allure CLI from Maven Central without a retry. An HTTP
+    429 there failed the job on 2026-11-19.
+    """
+
+    def test_no_third_party_action_builds_the_report(self):
+        for step in _steps():
+            self.assertNotIn("simple-elf/allure-report-action", str(step.get("uses") or ""))
+
+    def test_the_cli_is_installed_by_the_helper(self):
+        run = _run_of("Install the Allure CLI (pinned)")
+        self.assertIn("allure_report_build.py install", run)
+
+    def test_the_report_is_built_by_the_helper(self):
+        run = _run_of("Build Allure report for Pages")
+        self.assertIn("allure_report_build.py build", run)
+        self.assertIn("--gh-pages-dir gh-pages", run)
+        self.assertIn("--history-dir allure-history", run)
+
+    def test_the_java_the_cli_needs_is_there_before_the_report_is_built(self):
+        java = _index_of("Set up Java for the Allure CLI")
+        install = _index_of("Install the Allure CLI (pinned)")
+        build = _index_of("Build Allure report for Pages")
+        self.assertLess(java, install)
+        self.assertLess(install, build)
+
+    def test_the_build_runs_only_for_a_publication(self):
+        condition = _condition_of("Build Allure report for Pages")
+        self.assertIn("steps.decide.outputs.action == 'publish'", condition)
+
+    def test_nothing_takes_the_tree_back_from_root(self):
+        # The action ran as root and left the tree owned by root; the helper
+        # runs as the runner user, so the chown that repaired it is gone.
+        for step in _steps():
+            self.assertNotIn("sudo chown", str(step.get("run") or ""))
+
+
 class GateScriptTest(unittest.TestCase):
     """The gate is a shell script, and a shell script can be wrong.
 

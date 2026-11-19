@@ -2018,40 +2018,50 @@ jobs:
         id: build-start
         run: echo "ts=$(date +%s%N)" >> "$GITHUB_OUTPUT"
 
+      # The report is built here, not by a third-party action. The action
+      # this replaced was a Docker action: the runner rebuilt its image on
+      # every run, from a floating base image, and the image downloaded the
+      # Allure CLI from Maven Central with `wget` and without a retry. An
+      # HTTP 429 there failed the job on 2026-11-19, and the job is a leaf
+      # of the one gate that blocks merges and releases — so a third party's
+      # hiccup cost this repository a release.
+      #
+      # The CLI is pinned by version and by digest, is downloaded with
+      # retries, and falls back to the mirrors of Maven Central when one of
+      # them fails. The report tree is assembled by `allure_report_build.py`,
+      # which also writes the address the site answers with into the report:
+      # the action wrote the address of a project site, and this repository
+      # publishes on a custom domain.
+      - name: Set up Java for the Allure CLI
+        if: steps.decide.outputs.action == 'publish'
+        uses: actions/setup-java@v6
+        with:
+          java-version: 21
+          distribution: zulu
+
+      - name: Install the Allure CLI (pinned)
+        if: steps.decide.outputs.action == 'publish'
+        run: python3 scripts/ci/allure_report_build.py install --dest build/allure-cli
+
       - name: Build Allure report for Pages
         if: steps.decide.outputs.action == 'publish'
         id: build-report
-        uses: simple-elf/allure-report-action@v1.15
-        with:
-          gh_pages: gh-pages
-          allure_history: allure-history
-          allure_results: build/allure-results-merged
-          subfolder: ${{ env.TEST_POPULATION }}
-          report_name: Allure report (${{ env.TEST_POPULATION }})
-          # The action prunes the population namespace itself once it holds
-          # more than keep_reports+1 entries, and it prunes the non-numeric
-          # entries first: the manifest, the population index and last-history
-          # go before any report does. The helper owns retention, so the
-          # action must not prune.
-          #
-          # The threshold counts entries, not reports: the report folders, the
-          # manifest, the population index and last-history, and any folder
-          # the manifest does not name — which the helper deliberately leaves
-          # alone. The helper keeps 20 publications, so the namespace holds
-          # about 23 entries, and no number of publications reaches the
-          # threshold below. Anything in the same ballpark as the helper's
-          # window would be a second owner of that window, one number away
-          # from deleting the manifest.
-          keep_reports: 100000
-
-      - name: Restore runner ownership of the generated tree
-        # The action is a Docker action: it runs as root and leaves
-        # everything it creates under allure-history/ and gh-pages/ owned by
-        # root. The helper runs as the runner user and cannot write there,
-        # which is why every publish run died with a PermissionError on the
-        # population index.
-        if: steps.decide.outputs.action == 'publish'
-        run: sudo chown -R "$(id -u):$(id -g)" allure-history gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 scripts/ci/allure_report_build.py build \
+            --allure-dir build/allure-cli \
+            --results-dir build/allure-results-merged \
+            --report-dir build/allure-report \
+            --gh-pages-dir gh-pages \
+            --history-dir allure-history \
+            --population "$TEST_POPULATION" \
+            --run-number "$RUN_NUMBER" \
+            --run-id "$RUN_ID" \
+            --repo "$REPO"
 
       - name: Record build duration
         if: steps.decide.outputs.action == 'publish'
@@ -2060,9 +2070,9 @@ jobs:
           T0: ${{ steps.build-start.outputs.ts }}
         run: echo "ns=$(($(date +%s%N)-T0))" >> "$GITHUB_OUTPUT"
 
-      # The report action copies `gh-pages` into `allure-history` and then
-      # prunes that copy. Restore the manifest from the tree `decide` read so
-      # `apply` judges the state the workflow gated on, not a pruned copy.
+      # The build copies `gh-pages` into `allure-history`. Restore the
+      # manifest from the tree `decide` read, so `apply` judges the state the
+      # workflow gated on and not a copy of it.
       - name: Restore publication state from the decided tree
         if: steps.decide.outputs.action == 'publish'
         run: |
