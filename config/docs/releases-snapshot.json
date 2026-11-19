@@ -18,7 +18,7 @@
           "name": "singularity-0.2.2-linux-x64.rpm"
         }
       ],
-      "draft": true,
+      "draft": false,
       "manifest": "version=0.2.2\nversion_code=2002\nprerelease=false\nfiles=singularity-0.2.2-android.apk singularity-0.2.2-linux-x64.deb singularity-0.2.2-linux-x64.rpm\n",
       "prerelease": false,
       "sha256sums": "840cf5e783028aae0da2ef03f36ea8381438b55552de51825382e8f8c2800a08  ./MANIFEST.txt\nc92052e97f6a7acd27f7619836836f6647108d8faaaafc1d7f4037f472f5388c  ./singularity-0.2.2-android.apk\n6a2eabcbd280910e01d643fbaa228bc723d9124960a934c95d721d9552feb99a  ./singularity-0.2.2-linux-x64.deb\na7505009d81e10fe4f136224d4237728d7c771413b143f2ea399190b4324f0e8  ./singularity-0.2.2-linux-x64.rpm\n",
