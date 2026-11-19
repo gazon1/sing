@@ -117,7 +117,7 @@ second source of truth for it would be worse than a fresh one.
 
 ## Links
 
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncState.kt`
+- `core-database/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncStateEntity.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncStateRepository.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/di/AuthProfileSyncScopeProvider.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migration33To34.kt`

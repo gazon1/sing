@@ -134,5 +134,5 @@ defect.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/billing/Entitlement.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/billing/SubscriptionProvider.kt`
 - `shared/src/commonTest/kotlin/com/singularity/todo/core/billing/EntitlementTest.kt`
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncState.kt` — the scope type
+- `core-database/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncStateEntity.kt` — the scope type
 - issue #204

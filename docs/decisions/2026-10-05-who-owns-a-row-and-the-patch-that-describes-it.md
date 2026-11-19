@@ -32,7 +32,7 @@ holds as a collaborator and which reaches the outbox table inside the same datab
 there is no seam where a transaction could be opened without a repository first being
 given something it does not have.
 
-`SyncState.kt:42` already names the gap in passing — the flat DataStore keys "were not
+`SyncStateEntity.kt:42` already names the gap in passing — the flat DataStore keys "were not
 transactional with the entity writes they describe" — so the codebase knows and has not
 decided.
 
