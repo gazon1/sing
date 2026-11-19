@@ -36,6 +36,7 @@ jobs:
       version_code: ${{ steps.v.outputs.version_code }}
       prerelease: ${{ steps.v.outputs.prerelease }}
       package_version: ${{ steps.v.outputs.package_version }}
+      windows_cert: ${{ steps.cert.outputs.present }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -62,6 +63,27 @@ jobs:
             echo "prerelease=$prerelease"
             echo "package_version=$package_version"
           } >> "$GITHUB_OUTPUT"
+
+      - id: cert
+        name: Look for the Windows signing certificate
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          # Whether this repository can SIGN a Windows installer is a property of
+          # the repository, not of the tag: the answer is the same for every
+          # release, so it is decided once here and read by the job that needs
+          # it.
+          #
+          # The `secrets` context is not available in a job-level `if`, so the
+          # check cannot live where the decision is used — it has to be
+          # computed in a step and handed over as an output.
+          if [ -n "${WINDOWS_CERT_BASE64:-}" ] && [ -n "${WINDOWS_CERT_PASSWORD:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No WINDOWS_CERT_BASE64/WINDOWS_CERT_PASSWORD — the Windows MSI is skipped and the release ships without one"
+          fi
 
       - name: Tag must be on main and have a green CI run
         if: github.event_name == 'push'
@@ -388,6 +410,19 @@ jobs:
   # ─── D3: Windows MSI — built on windows-2025, signed with Authenticode ──────────
   desktop-windows:
     needs: meta
+    # Skipped when this repository has no Windows signing certificate.
+    #
+    # The certificate is a repository secret, and this repository does not have
+    # one: there is no `WINDOWS_CERT_BASE64` / `WINDOWS_CERT_PASSWORD` in the
+    # secret list. Without this guard the job ran, failed its
+    # "Validate signing secrets" step, and — because `publish` needed it — took
+    # the whole release with it. A tag push produced no release at all, which
+    # is why `v0.2.1` shipped without an MSI and why no release could be cut
+    # since.
+    #
+    # The dispatch path is unchanged: a dry run still builds the MSI, so the
+    # packaging stays exercised even when the release cannot sign it.
+    if: github.event_name != 'push' || needs.meta.outputs.windows_cert == 'true'
     runs-on: windows-2025
     timeout-minutes: 45
     env:
@@ -476,7 +511,21 @@ jobs:
 
   publish:
     needs: [meta, android, desktop, desktop-windows]
-    if: github.event_name == 'push'
+    # `always()`, because `desktop-windows` can be SKIPPED — this repository has
+    # no Windows signing certificate — and a skipped dependency skips the whole
+    # job that needs it. The explicit result checks are what actually decide:
+    # the Android APK and the Linux packages are the release, and a missing MSI
+    # is not a reason to ship nothing.
+    #
+    # The `desktop` job is a matrix; `needs.desktop.result` is `success` only
+    # when every matrix leg succeeded, so a failed .deb or .rpm still stops
+    # the release.
+    if: >-
+      always()
+      && github.event_name == 'push'
+      && needs.meta.result == 'success'
+      && needs.android.result == 'success'
+      && needs.desktop.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
