@@ -92,7 +92,13 @@ fun runToolServer(
         installStderrLogging()
         val protocolOut = ProtocolStdout.reserve()
 
-        val selection = parseProfileSelection(args)
+        val selection =
+            try {
+                parseProfileSelection(args)
+            } catch (e: IllegalArgumentException) {
+                writeJsonRpcError(protocolOut, -32002, e.message ?: "Invalid profile arguments.")
+                exitProcess(EXIT_USAGE)
+            }
 
         when (val startup = startToolServer(selection, koinStartup)) {
             is ToolServerStartup.Refused -> {

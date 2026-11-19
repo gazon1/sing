@@ -1,9 +1,5 @@
 package com.singularity.todo.mcp
 
-import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.core.context
-import com.github.ajalt.clikt.core.parse
-import com.github.ajalt.clikt.parameters.options.option
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -42,55 +38,58 @@ sealed interface ProfileSelection {
 /**
  * Reads the profile selection out of the command line.
  *
- * ## Why two arguments rather than one
- *
- * The label was there first, and it means a *name* whose value only one label had any
- * effect for. Everything else was ignored — so a process asking for a profile it could
- * not have was told nothing and carried on, which is how a process ends up reading
- * somebody else's data.
- *
- * The id is the new argument: it names a profile exactly, it never changes the stored
- * active profile, and an id nobody knows is an error rather than a fallback.
- *
- * The label stays because distributed manifests depend on it. It is deprecated, not
- * repurposed.
+ * Supports both `--profile=<value>`/`--profile-id=<value>` and space-separated
+ * `--profile <value>`/`--profile-id <value>` forms. Malformed or incomplete explicit
+ * profile arguments are rejected instead of being silently ignored.
  */
 fun parseProfileSelection(args: Array<String>): ProfileSelection {
-    val cli = ProfileSelectionCli.parseFrom(args)
-    val label = cli.profileLabel
-    val id = cli.profileId
+    var label: String? = null
+    var id: String? = null
+    var i = 0
+    while (i < args.size) {
+        val arg = args[i]
+        when {
+            arg == "--profile-id" -> {
+                val value = args.getOrNull(i + 1)
+                if (value == null || value.startsWith("--")) {
+                    throw IllegalArgumentException("Missing value for --profile-id")
+                }
+                id = value
+                i += 2
+                continue
+            }
+
+            arg.startsWith("--profile-id=") -> {
+                id = arg.substringAfter("--profile-id=")
+            }
+
+            arg == "--profile" -> {
+                val value = args.getOrNull(i + 1)
+                if (value == null || value.startsWith("--")) {
+                    throw IllegalArgumentException("Missing value for --profile")
+                }
+                label = value
+                i += 2
+                continue
+            }
+
+            arg.startsWith("--profile=") -> {
+                label = arg.substringAfter("--profile=")
+            }
+        }
+        i += 1
+    }
+    if (id != null && id.isEmpty()) {
+        throw IllegalArgumentException("Missing value for --profile-id")
+    }
+    if (label != null && label.isEmpty()) {
+        throw IllegalArgumentException("Missing value for --profile")
+    }
     return when {
         label != null && id != null -> ProfileSelection.Ambiguous(label, id)
         id != null -> ProfileSelection.FixedId(id)
         label != null -> ProfileSelection.LegacyLabel(label)
         else -> ProfileSelection.Stored
-    }
-}
-
-private class ProfileSelectionCli : CliktCommand(name = "profile-selection") {
-    val profileLabel: String? by option("--profile")
-    val profileId: String? by option("--profile-id")
-
-    init {
-        context {
-            allowInterspersedArgs = true
-        }
-    }
-
-    override fun run() = Unit
-
-    companion object {
-        fun parseFrom(args: Array<String>): ProfileSelectionCli {
-            val full = ProfileSelectionCli()
-            if (runCatching { full.parse(args.toList()) }.isSuccess) return full
-            return ProfileSelectionCli().also { fallback ->
-                runCatching {
-                    fallback.parse(
-                        args.filter { it.startsWith("--profile=") || it.startsWith("--profile-id=") },
-                    )
-                }
-            }
-        }
     }
 }
 

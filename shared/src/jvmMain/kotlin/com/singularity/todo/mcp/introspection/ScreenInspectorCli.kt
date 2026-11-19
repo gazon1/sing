@@ -57,7 +57,18 @@ internal object ScreenInspectorCli {
         }
 
         // Preserve existing profile-selection contract/ambiguity handling.
-        val selection = parseProfileSelection(args.toTypedArray())
+        val selection =
+            try {
+                parseProfileSelection(args.toTypedArray())
+            } catch (e: IllegalArgumentException) {
+                printJson(
+                    err(
+                        InspectorErrorCode.INVALID_ARGUMENTS.wire,
+                        e.message ?: "Invalid profile arguments.",
+                    ),
+                )
+                return 2
+            }
         if (selection is ProfileSelection.Ambiguous) {
             printJson(
                 err(
@@ -436,7 +447,7 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                             "Journey step $index must be a JSON object.",
                         )
                 val nameElement = obj["name"]
-                if (nameElement != null && nameElement !is JsonPrimitive) {
+                if (nameElement != null && (nameElement !is JsonPrimitive || !nameElement.isString)) {
                     throw InspectorException(
                         InspectorErrorCode.INVALID_ARGUMENTS,
                         "Journey step $index field 'name' must be a string.",
@@ -455,17 +466,69 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                     )
                 }
                 val continueOnErrorElement = obj["continueOnError"]
-                if (continueOnErrorElement != null && continueOnErrorElement !is JsonPrimitive) {
+                if (continueOnErrorElement != null) {
+                    if (continueOnErrorElement !is JsonPrimitive) {
+                        throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Journey step $index field 'continueOnError' must be a boolean.",
+                        )
+                    }
+                    val valid =
+                        if (continueOnErrorElement.isString) {
+                            continueOnErrorElement.content == "true" || continueOnErrorElement.content == "false"
+                        } else {
+                            continueOnErrorElement.booleanOrNull != null
+                        }
+                    if (!valid) {
+                        throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Journey step $index field 'continueOnError' must be a boolean.",
+                        )
+                    }
+                }
+                val paramsElement = obj["params"]
+                if (paramsElement != null && paramsElement !is JsonObject) {
                     throw InspectorException(
                         InspectorErrorCode.INVALID_ARGUMENTS,
-                        "Journey step $index field 'continueOnError' must be a boolean or string.",
+                        "Journey step $index field 'params' must be a JSON object.",
                     )
                 }
+                val inputElement = obj["input"]
+                if (inputElement != null && inputElement !is JsonObject) {
+                    throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Journey step $index field 'input' must be a JSON object.",
+                    )
+                }
+                validateJourneyNonNegativeLong(obj, "waitMs", index)
+                validateJourneyNonNegativeLong(obj, "timeoutMs", index)
                 obj
             }
         return ParsedJourney(steps)
     }
 }
+
+
+    private fun validateJourneyNonNegativeLong(
+        obj: JsonObject,
+        key: String,
+        index: Int,
+    ) {
+        val element = obj[key] ?: return
+        if (element !is JsonPrimitive || element.isString || element.booleanOrNull != null) {
+            throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "Journey step $index field '$key' must be a non-negative integer.",
+            )
+        }
+        val value = element.longOrNull
+        if (value == null || value < 0L) {
+            throw InspectorException(
+                InspectorErrorCode.INVALID_ARGUMENTS,
+                "Journey step $index field '$key' must be a non-negative integer.",
+            )
+        }
+    }
 
 private fun ensureKoin(
     defaultKoinStartup: ToolServerKoinStartup?,
@@ -617,7 +680,14 @@ private fun JsonObject.string(key: String): String =
 
 private fun JsonObject.optString(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull
 
-private fun JsonObject.obj(key: String): JsonObject = (this[key] as? JsonObject) ?: JsonObject(emptyMap())
+private fun JsonObject.obj(key: String): JsonObject {
+    val value = this[key] ?: return JsonObject(emptyMap())
+    return value as? JsonObject
+        ?: throw InspectorException(
+            InspectorErrorCode.INVALID_ARGUMENTS,
+            "Field '$key' must be a JSON object.",
+        )
+}
 
 private fun printJson(element: JsonElement) {
     println(cliJson.encodeToString(JsonElement.serializer(), element))
