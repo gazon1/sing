@@ -1,9 +1,12 @@
 // The dates the flows build their expectations from.
 //
 // The app renders the month, the day and the weekday from the *device's* clock
-// and time zone, so a flow's expectation has to come from the same clock. The
-// emulator's clock follows the host's, and this script runs in the Maestro
-// process on the host, so the host's date is the device's date.
+// and time zone, so a flow's expectation has to come from the same clock. This
+// script runs in the Maestro process on the host, not on the device, so it
+// reads the *host's* clock: the emulator's clock follows the host's, and a
+// physical device must sit in the host's time zone for the two to agree. When
+// they do not agree, the flow that reads these dates fails on its next
+// assertion instead of asserting on the wrong day.
 //
 // What this script deliberately does NOT produce is a formatted date string.
 // "October 2026" and "October 15, 2026" are the app's wording, in the app's

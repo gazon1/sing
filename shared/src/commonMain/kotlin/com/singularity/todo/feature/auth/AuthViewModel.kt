@@ -231,7 +231,7 @@ class AuthViewModel(
             updateState { AuthUiState.Loading }
             authRepository.signIn(email, password).fold(
                 onSuccess = {
-                    runCatching { onFirstSignIn() }
+                    runCatchingCancellable { onFirstSignIn() }
                     updateState { AuthUiState.Success }
                     emit(AuthUiEvent.NavigateToHome)
                 },
@@ -267,7 +267,7 @@ class AuthViewModel(
                             ),
                         )
                     } else {
-                        runCatching { onFirstSignIn() }
+                        runCatchingCancellable { onFirstSignIn() }
                         updateState { AuthUiState.Success }
                         emit(AuthUiEvent.NavigateToHome)
                     }
@@ -346,7 +346,7 @@ class AuthViewModel(
 
             result.fold(
                 onSuccess = {
-                    runCatching { onFirstSignIn() }
+                    runCatchingCancellable { onFirstSignIn() }
                     updateState { AuthUiState.Success }
                     emit(AuthUiEvent.NavigateToHome)
                 },

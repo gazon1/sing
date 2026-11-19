@@ -137,7 +137,7 @@ report is unchanged. The after reports are in `build-investigation/compose-stabi
 | `core/attachments/annotation/AttachmentAnnotationDao.kt` | `:core-database` | Room DAO |
 | `core/config/RemoteConfigCacheEntity.kt` | `:core-database` | Room entity + DAO (both declared in this file) |
 | `core/sync/SyncOutbox.kt` | `:core-database` | Room entity + DAO |
-| `core/sync/SyncState.kt` | `:core-database` | Room entity + DAO |
+| `core/sync/SyncStateEntity.kt` | `:core-database` | Room entity + DAO |
 | `core/sync/SyncShadow.kt` | `:core-database` | Room entity + DAO |
 | `core/sync/SyncDeadLetter.kt` | `:core-database` | Room entity + DAO |
 | `core/sync/RemoteConfig.kt` | `:core-database` | Room entity + DAO |

@@ -1,10 +1,18 @@
 ---
 title: "The easement gate comes from a release of the fork"
 date: 2026-11-07
-status: accepted
+status: superseded
+superseded-by: 2026-11-19-the-easement-gate-comes-from-upstream-again
 tags: ["tooling", "architecture"]
 supersedes: 2026-11-06-easement-comes-from-the-fork-until-upstream-merges
 ---
+
+> **⚠️ SUPERSEDED** — see
+> [2026-11-19-the-easement-gate-comes-from-upstream-again](2026-11-19-the-easement-gate-comes-from-upstream-again.md).
+> Upstream merged #114 and cut releases that carry the fix (0.6.4 and later),
+> so the fork the tool was taken from is no longer needed: the gate comes from
+> upstream again. The rest of this decision stands — the tool is taken from a
+> release rather than a source build, and the pin lives in one file.
 
 # The easement gate comes from a release of the fork
 

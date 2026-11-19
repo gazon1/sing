@@ -1,5 +1,6 @@
 package com.singularity.todo.core.process
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -79,13 +80,13 @@ class ProcessTree(private val root: ProcessHandle, private val gracePeriod: Dura
         val all = descendants + root
 
         // Ask politely, deepest first.
-        all.forEach { handle -> runCatching { handle.destroy() } }
+        all.forEach { handle -> runCatchingCancellable { handle.destroy() } }
 
         // Give them the grace period to leave on their own.
         val survivors = awaitExit(all, gracePeriod)
 
         // Whatever is left is not leaving politely.
-        survivors.forEach { handle -> runCatching { handle.destroyForcibly() } }
+        survivors.forEach { handle -> runCatchingCancellable { handle.destroyForcibly() } }
 
         // And the ones that were asked politely get a moment to actually die, so the
         // caller's next step does not race a dying process for the same file handle.

@@ -32,7 +32,7 @@ Not Android. Not production. Not commonMain.
   path resolved eagerly as a plain `String` (configuration-cache-safe; the earlier
   `jvmArgumentProviders` approach captured the DSL script and broke CC — see "CC fix" below).
 - Dependency: `kotlinx-coroutines-debug` via version catalog (version ref = coroutines = "1.11.0").
-- `CoroutineDiagnostics.dump(testClass, attempt)` — test-only utility object, returns String, no DI.
+- `DesktopCoroutineDiagnostics.dump(testClass, attempt)` — test-only utility object, returns String, no DI.
 - Fourth FailureBundle artifact: `coroutines.txt`, independent `runCatching` block.
 - Capture order: db-state → kermit → coroutine dump → screenshot (hang-proof first).
 - shared:jvmTest: hook into existing `FailureContextExtension` (auto-registered JUnit5 extension).
@@ -99,7 +99,7 @@ jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 - `FailureContextExtension` file was present in `shared/src/jvmTest/` (inherited from `main` at commit `5c0c2e9d`) but was **not auto-registered** — its `META-INF/services/org.junit.jupiter.api.extension.Extension` file was added in commit `7985c234` on branch `refactor/test-coverage-ratchet` which was never merged to `main`. Recreated the service registration file to enable auto-registration.
 - In `jvmTest.dependencies {}` (KMP DSL), use `implementation(...)`, not `testImplementation(...)` — the latter is for Gradle non-KMP modules.
 - `ExtensionContext.root["buildDir"]` returns `null` — `ExtensionContext` API does not expose the build directory. Workaround: pass the build directory as `systemProperty("shared.build.dir", layout.buildDirectory.get().asFile.absolutePath)` in Gradle and read it via `System.getProperty()` in the extension.
-- `CoroutineDiagnostics` is duplicated in desktopApp and shared (intentional — no shared test-fixtures module warranted); shared copy lacks tests.
+- The dump utility is duplicated in desktopApp and shared (intentional — no shared test-fixtures module warranted); shared copy lacks tests. The two copies carry different names (`DesktopCoroutineDiagnostics` and `CoroutineDiagnostics`) so that no name is declared twice across components — see `2026-11-19-every-declaration-gets-one-home.md`.
 
 **Follow-ups (all implemented unless noted):**
 
@@ -110,7 +110,7 @@ jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 - `FailureBundle.prepareOutputDir` KDoc corrected — it creates directories, not deletes prior content.
 - build-logic/convention wiring: the `jvmArgs("-javaagent:...")` + eager String pattern should be extracted into a convention plugin once `includeBuild("build-logic/convention")` is wired (currently blocked by README criteria; revisit when 6th module needs JVM test agent).
 - Global `@Timeout` configuration: `CoroutinesTimeoutExtension` catches timeout exceptions but does not cause them. A JUnit `Timeout` configuration or `@Timeout` annotation on every test class is still needed for the extension to fire. Consider a Jupiter `Configuration` that sets `junit.jupiter.timeout.default` globally.
-- `CoroutineDiagnostics` is intentionally duplicated between desktopApp and shared (no shared test-fixtures module warranted); both copies are now tested.
+- The dump utility is intentionally duplicated between desktopApp and shared (no shared test-fixtures module warranted); both copies are now tested, under the names `DesktopCoroutineDiagnostics` and `CoroutineDiagnostics` respectively — see `2026-11-19-every-declaration-gets-one-home.md`.
 - Proposal line 49 misreference fixed: timeout follow-up is NOT issue #25.
 
 ## Links

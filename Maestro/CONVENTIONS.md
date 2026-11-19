@@ -107,6 +107,7 @@ their logic.
 | `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
+| `calendar-day-cell-task-count.yaml` | Flows asserting how many tasks a calendar day holds (`DAY_CELL`, `TASK_COUNT`) — the count, because a month cell clips the dots it cannot fit |
 | `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet from the "+ Add file" row |
 | `open-more-parameter.yaml` | Opens the task detail's `+ Ещё` sheet and picks one property from it (`PROPERTY`: `attachments`, `logbook`, `relatedtasks`, `timetracking`, `workflowstate`) — the way to reach a section that is not on the screen |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
@@ -184,6 +185,12 @@ the month name next to it.
 ### Helper threshold
 
 A helper earns its keep at **≥4 lines of unique logic**. If a subflow is shorter, inline it.
+
+The rule counts lines, not commands: a helper whose command block is five
+lines of selector has earned its keep. Some helpers cannot be inlined at all —
+the selector gate rejects a computed id in a flow (`${output.…}` exists only
+inside the flow that computed it), so a value that has to reach a selector
+goes through `runFlow … env:` and the helper waits for `${NAME}`.
 
 ---
 

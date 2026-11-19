@@ -19,14 +19,27 @@ jobs:
           node-version: 22
       - name: Install the Python indexer easement delegates to
         run: npm install -g @sourcegraph/scip-python
-      # The fork, not the upstream action: the fix for a duplicated declaration
-      # across components (mokevnin/easement#114) is not in an upstream release
-      # yet, and the fork's install.sh installs the fork's release.
+      # Upstream, not the fork this job used to call: the fix for a duplicated
+      # declaration across components (mokevnin/easement#114) shipped upstream
+      # in 0.6.4, so the fork that carried it is no longer needed.
       #
-      # The version is pinned to the same release mise installs, so CI and a
-      # laptop judge the tree with one binary. Left at the default (`latest`),
-      # the gate would follow the fork's next release silently.
-      - uses: gazon1/easement@main
+      # Two references below, two different things. The `uses:` tag pins the
+      # Action implementation — the composite action and the install.sh it
+      # runs. The `version:` input pins the binary that gets installed and
+      # then judged. Upstream's install.sh is generic across releases: it
+      # takes the version, downloads that release's archive, and verifies it
+      # against that release's sha256.sum. The action tag therefore does not
+      # constrain the binary version, and the two are allowed to differ.
+      #
+      # The binary's version is not written out here: it lives in mise.toml,
+      # the one place this repository writes a tool version down, and
+      # scripts/toolchain-version.py reads it from there — the same way the
+      # ktlint installer does. A version written in two places drifts, and the
+      # gate that drifts is the one that stops being the gate a laptop runs.
+      - id: easement-version
+        name: Read the pinned easement version out of mise.toml
+        run: echo "version=$(python3 scripts/toolchain-version.py 'github:mokevnin/easement')" >> "$GITHUB_OUTPUT"
+      - uses: mokevnin/easement@v0.9.0
         with:
-          version: 0.5.1
+          version: ${{ steps.easement-version.outputs.version }}
           diff: origin/main

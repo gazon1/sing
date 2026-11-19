@@ -56,6 +56,12 @@ Maestro/flows/calendar/03-tap-day.yaml
 Maestro/flows/calendar_sync/01-provider-toggle.yaml
 Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
 Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
+Maestro/flows/capture/01-today.yaml
+Maestro/flows/capture/02-task-detail.yaml
+Maestro/flows/capture/03-project-detail.yaml
+Maestro/flows/capture/04-upcoming.yaml
+Maestro/flows/capture/05-calendar.yaml
+Maestro/flows/capture/06-notes.yaml
 Maestro/flows/lifecycle/01-kill-restart-persist.yaml
 Maestro/flows/lifecycle/03-rotate-in-editor.yaml
 Maestro/flows/menu/01-projects-roots.yaml

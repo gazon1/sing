@@ -5,9 +5,9 @@
 # one, change the other.
 #
 # This file is not a flow and is not run: it holds no commands, only what a
-# capture produces. The flows that produce it land with #3004, and the command
-# that runs them lands with #3005 — the `flow:` paths below are where those
-# flows will live.
+# capture produces. The flows that produce it live in `Maestro/flows/capture/`
+# — the `flow:` paths below are where they are — and the command that runs
+# them lands with #3005.
 #
 # The order is the store's order: the first image answers "what is this app",
 # and the rest follow the story the storyboard tells.

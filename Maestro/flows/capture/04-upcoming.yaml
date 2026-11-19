@@ -1,0 +1,28 @@
+# The fourth store screenshot: the Upcoming timeline — what is coming, in order.
+#
+# The dataset runs to +5d; the frame shows the first days of it. The wait is on
+# the "Tomorrow" section, which renders because tomorrow's seeded task is in it.
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: capture-upcoming
+tags:
+  - manual
+  - capture
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+# The Upcoming tab is a tab: the hand reaches it in the bar.
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_tomorrow
+    timeout: 8000
+# The first rows of the feed. Today belongs to the Today tab, so the timeline
+# starts at tomorrow.
+- assertVisible:
+    id: task_item_write_the_launch_post
+- assertVisible:
+    id: task_item_measure_the_kitchen_counter
+- waitForAnimationToEnd
+- takeScreenshot: 04-upcoming

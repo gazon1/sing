@@ -42,10 +42,13 @@ proves both directions with fixtures — a wrong *Here* value and a wrong
 """
 from __future__ import annotations
 
+import http.client
 import os
 import pathlib
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -75,9 +78,36 @@ DEFAULT_CONFIG_ENTRY = "default-detekt-config.yml"
 #: Where the pinned jar is fetched from when no Gradle home has it.
 MAVEN_CENTRAL = "https://repo1.maven.org/maven2"
 
+#: Google's mirror of Maven Central, tried first.
+#:
+#: The runners cannot reach `repo1.maven.org` reliably — the same block that
+#: stopped them from resolving the buildscript classpath (ADR
+#: `2026-11-19-maven-central-mirror-is-listed-first`). This gate fetches its jar
+#: over HTTP itself, so Gradle's repository order does not apply to it, and a
+#: block there reads as "the artifact could not be found" — a verdict about the
+#: network wearing the costume of a verdict about the tree.
+MAVEN_CENTRAL_MIRROR = "https://maven-central.storage-download.googleapis.com/maven2"
+
+#: The bases the jar is fetched from, in order: the mirror first, Central as
+#: the fallback for whatever the mirror does not carry.
+MAVEN_CENTRAL_BASES = (MAVEN_CENTRAL_MIRROR, MAVEN_CENTRAL)
+
 #: Where that jar is kept, so a second run reads it from disk instead of
 #: fetching it again.
 DETEKT_CORE_CACHE = pathlib.Path.home() / ".cache" / "ropefish" / "detekt-core"
+
+#: How many times a download is attempted before the gate gives up.
+#:
+#: The download is a network call to a third party, and a gate that fails on a
+#: transient error fails the whole CI run over a blip it did not cause. A run
+#: that reported "could not be fetched" while Maven Central was reachable a
+#: minute later proved the point: the gate was measuring the network, not the
+#: tree. Three attempts turn that into a gate that only fails when the
+#: artifact is genuinely unreachable.
+FETCH_ATTEMPTS = 3
+
+#: Seconds to wait between two attempts.
+FETCH_RETRY_DELAY_SECONDS = 2.0
 
 #: Top-level blocks of a detekt config that are not rule sets.
 NON_RULE_SECTIONS = {"config", "processors", "console-reports"}
@@ -367,29 +397,76 @@ def _fetch_detekt_core(version: str) -> pathlib.Path | None:
     catalog pins, and a download that does not contain the shipped default
     config is not kept — a truncated jar would otherwise be cached and read as
     truth on every later run.
+
+    The download is attempted [FETCH_ATTEMPTS] times. A single failed attempt
+    is not evidence that the artifact is gone: a dropped connection or a
+    momentary refusal is a fact about the network, and a gate that fails on it
+    reports the network's mood instead of the tree's state. Only a run of
+    failures is a failure.
+
+    Two bases are tried, in order: Google's mirror of Central first, Central
+    itself after it. The mirror is where the runners can still be served; the
+    fallback keeps the gate honest on a host where only Central answers.
     """
     jar = DETEKT_CORE_CACHE / version / f"detekt-core-{version}.jar"
     if jar.is_file():
         return jar
 
-    url = f"{MAVEN_CENTRAL}/dev/detekt/detekt-core/{version}/detekt-core-{version}.jar"
-    try:
-        with urllib.request.urlopen(url, timeout=60) as response:
-            payload = response.read()
-    except (OSError, ValueError):
-        return None
+    for base in MAVEN_CENTRAL_BASES:
+        url = f"{base}/dev/detekt/detekt-core/{version}/detekt-core-{version}.jar"
+        payload = _download(url)
+        if payload is None:
+            continue
 
-    partial = jar.with_name(jar.name + ".part")
-    try:
-        jar.parent.mkdir(parents=True, exist_ok=True)
-        partial.write_bytes(payload)
-        if _default_config_from(partial) is None:
+        partial = jar.with_name(jar.name + ".part")
+        try:
+            jar.parent.mkdir(parents=True, exist_ok=True)
+            partial.write_bytes(payload)
+            if _default_config_from(partial) is None:
+                partial.unlink(missing_ok=True)
+                continue
+            partial.replace(jar)
+        except OSError:
             partial.unlink(missing_ok=True)
-            return None
-        partial.replace(jar)
-    except OSError:
-        return None
-    return jar
+            continue
+        return jar
+    return None
+
+
+def _download(url: str) -> bytes | None:
+    """The bytes at [url], or None when every attempt failed.
+
+    A 404 is the server stating that the artifact does not exist, and repeating
+    the request will not change that — so it ends the attempts at once. Every
+    other failure is treated as worth another try.
+
+    A body that stops halfway is one of those failures, and it fails in a way
+    the obvious exception list does not cover: `http.client.IncompleteRead` is
+    an `HTTPException`, which is neither an `OSError` nor a `ValueError`, so a
+    truncated download used to escape the retry entirely and be reported as a
+    missing artifact. It is caught by name here — the narrow base class for
+    aborted HTTP responses — instead of by `except Exception`, which would
+    turn a defect in this gate into a retry that hides it.
+    """
+    for attempt in range(1, FETCH_ATTEMPTS + 1):
+        if attempt > 1:
+            time.sleep(FETCH_RETRY_DELAY_SECONDS)
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            # The error wraps a temporary file; leaving it unclosed leaks a
+            # descriptor per attempt.
+            error.close()
+            if error.code == 404:
+                return None
+        except http.client.IncompleteRead:
+            # The connection died after the headers were read: the body is
+            # short, and the failure is a fact about the network.
+            continue
+        except (OSError, ValueError):
+            continue
+    return None
 
 
 def _default_config_from(jar: pathlib.Path) -> str | None:
@@ -416,7 +493,8 @@ def check_tree() -> tuple[list[str], str | None]:
     if defaults is None:
         return [], (
             f"the default configuration of detekt {version} was not found in a "
-            f"Gradle home and could not be fetched from {MAVEN_CENTRAL} — run a "
+            f"Gradle home and could not be fetched from "
+            f"{', '.join(MAVEN_CENTRAL_BASES)} — run a "
             f"detekt task once (`./gw detekt`) to populate the cache, or set "
             f"DETEKT_CORE_JAR to the detekt-core jar. The default column cannot "
             f"be checked against a version nobody has resolved."

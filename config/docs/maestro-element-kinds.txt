@@ -115,6 +115,7 @@ note_editor_saved_indicator text
 note_editor_title_input field
 note_item_by_title_${RUN_ID}_alpha item
 note_item_by_title_${RUN_ID}_meeting_notes item
+note_item_by_title_launch_post_outline item
 note_item_by_title_link_source item
 notes_quick_add_input field
 onboarding_spotlight_card dialog
@@ -131,6 +132,7 @@ profile_item_work item
 project_card_childless item
 project_card_custom_emoji_flow item
 project_card_emoji_flow item
+project_card_home_renovation item
 project_card_latecomer item
 project_card_project_alpha item
 project_card_roadmap item
@@ -225,6 +227,7 @@ task_item_architecture_of_the_house item
 task_item_attachtesttask2026 item
 task_item_backuproundtriptask item
 task_item_bigoverdue_1 item
+task_item_book_the_electrician item
 task_item_buy_milk item
 task_item_clearsearchtask2026 item
 task_item_deleteattachtask2026 item
@@ -234,7 +237,9 @@ task_item_due_today item
 task_item_due_tomorrow item
 task_item_emptyurltask2026 item
 task_item_healthoverdue_task item
+task_item_measure_the_kitchen_counter item
 task_item_offline_task item
+task_item_order_the_kitchen_tiles item
 task_item_parent_task item
 task_item_persistencetask2026 item
 task_item_pinnedtask2026 item
@@ -244,9 +249,11 @@ task_item_renameme item
 task_item_rendertesttask2026 item
 task_item_return_to_inbox item
 task_item_return_to_today item
+task_item_review_the_launch_checklist item
 task_item_savedalpha2026 item
 task_item_sdnodate item
 task_item_seed_task item
+task_item_send_the_deposit_invoice item
 task_item_signout_task item
 task_item_tasknodesc2026 item
 task_item_taskwithdesc2026 item
@@ -254,6 +261,7 @@ task_item_uniquesearchabletask2026 item
 task_item_unpinnedtask2026 item
 task_item_worktask item
 task_item_write_spec item
+task_item_write_the_launch_post item
 task_item_купить_молоко item
 task_reminder_sheet dialog
 task_scheduling_sheet dialog

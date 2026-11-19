@@ -270,6 +270,18 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # term, the other only contains it
     "task_item_architecture_of_the_house",
     "task_item_airport_run",
+    # taskItem(...) — seeded by Maestro/capture/demo-dataset.yaml, the shared
+    # demo profile the capture flows photograph
+    "task_item_review_the_launch_checklist",
+    "task_item_order_the_kitchen_tiles",
+    "task_item_book_the_electrician",
+    "task_item_write_the_launch_post",
+    "task_item_measure_the_kitchen_counter",
+    "task_item_send_the_deposit_invoice",
+    # projectCard(...) — the demo profile's project, named "Home renovation"
+    "project_card_home_renovation",
+    # noteItemByTitle(...) — a note of the demo profile
+    "note_item_by_title_launch_post_outline",
     # pomodoroTaskChip(...) — from seed flows
     "pomodoro_task_chip_buy_milk",
     # savedAgendaCard(...) — used in flows

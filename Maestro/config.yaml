@@ -27,6 +27,7 @@
 #   archive      — archive feature area
 #   profile      — profile feature area
 #   projects     — projects feature area
+#   capture      — the store screenshot capture set (run by hand, tag `manual` too)
 appId: com.singularity.todo
 name: Singularity Todo
 

@@ -12,10 +12,10 @@ All tasks are verification checklists — the implementation was verified during
 
 - [x] **Agent** — `kotlinx-coroutines-debug` attached via `jvmArgs("-javaagent:...")` with eager String path (CC-safe)
 - [x] **Configuration** — `coroutinesDebugAgent` named configuration, `testImplementation` dependency
-- [x] **CoroutineDiagnostics.kt** — `dump(testClass, attempt)` returns String, guards `!DebugProbes.isInstalled`
+- [x] **DesktopCoroutineDiagnostics.kt** — `dump(testClass, attempt)` returns String, guards `!DebugProbes.isInstalled`
 - [x] **FailureBundle 4th artifact** — `coroutinesFile` lazy accessor, independent `runCatching` block, capture order db→kermit→dump→screenshot
 - [x] **Retry artifact staleness** — `outputDir.deleteRecursively()` before writing, clean directory per attempt
-- [x] **CoroutineDiagnosticsTest** — 4 smoke tests (suspended coroutine, real dispatcher, job hierarchy, infinite flow)
+- [x] **DesktopCoroutineDiagnosticsTest** — 4 smoke tests (suspended coroutine, real dispatcher, job hierarchy, infinite flow)
 - [x] **FailureBundle KDoc** — corrected to reflect mkdirs-only (not delete prior content)
 
 ### Module: shared
