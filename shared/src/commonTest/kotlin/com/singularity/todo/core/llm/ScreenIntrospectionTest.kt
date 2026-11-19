@@ -484,7 +484,10 @@ class ScreenIntrospectionTest {
         schemaMap["maxLength"] = JsonPrimitive(10)
         schemaMap.remove("required")
 
-        assertTrue(action.inputSchema["maxLength"] == null, "the published schema stays unchanged: ${action.inputSchema}")
+        assertTrue(
+            action.inputSchema["maxLength"] == null,
+            "the published schema stays unchanged: ${action.inputSchema}",
+        )
         assertTrue(action.inputSchema["required"] != null, "the published schema keeps required: ${action.inputSchema}")
 
         val missingRequired = action.validate(JsonObject(emptyMap()))
