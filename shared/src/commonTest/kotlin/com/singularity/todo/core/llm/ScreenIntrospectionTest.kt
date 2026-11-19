@@ -11,7 +11,18 @@ import kotlin.test.assertTrue
 class ScreenIntrospectionTest {
     @Test
     fun `an unknown action is refused with the supported actions`() {
-        val screen = ScreenIntrospection("screen.test", listOf(action("set_priority")))
+        val screen =
+            ScreenIntrospection(
+                "screen.test",
+                listOf(
+                    action(
+                        "set_priority",
+                        required = listOf("priority"),
+                        properties =
+                            mapOf("priority" to stringProperty()),
+                    ),
+                ),
+            )
         val result = screen.validate(ScreenState(status = "loaded"), "delete_task", JsonObject(emptyMap()))
 
         assertTrue(result.isFailure)
@@ -53,7 +64,18 @@ class ScreenIntrospectionTest {
 
     @Test
     fun `a missing required property is refused`() {
-        val screen = ScreenIntrospection("screen.test", listOf(action("set_priority", required = listOf("priority"))))
+        val screen =
+            ScreenIntrospection(
+                "screen.test",
+                listOf(
+                    action(
+                        "set_priority",
+                        required = listOf("priority"),
+                        properties =
+                            mapOf("priority" to stringProperty()),
+                    ),
+                ),
+            )
         val result = screen.validate(ScreenState(status = "loaded"), "set_priority", JsonObject(emptyMap()))
 
         assertTrue(result.isFailure)
@@ -65,7 +87,18 @@ class ScreenIntrospectionTest {
 
     @Test
     fun `an input with a property the schema does not define is refused`() {
-        val screen = ScreenIntrospection("screen.test", listOf(action("set_priority", required = listOf("priority"))))
+        val screen =
+            ScreenIntrospection(
+                "screen.test",
+                listOf(
+                    action(
+                        "set_priority",
+                        required = listOf("priority"),
+                        properties =
+                            mapOf("priority" to stringProperty()),
+                    ),
+                ),
+            )
         val result =
             screen.validate(
                 ScreenState(status = "loaded"),
@@ -84,37 +117,30 @@ class ScreenIntrospectionTest {
     }
 
     @Test
-    fun `an input whose property has an unsupported type is refused`() {
+    fun `an optional property the agent sends with a wrong type is refused`() {
         val screen =
             ScreenIntrospection(
                 "screen.test",
                 listOf(
-                    ScreenAction(
-                        name = "add_checklist_item",
-                        summary = "Add a checklist item.",
-                        requirement = "the screen has to be showing a task",
-                        inputSchema =
-                            buildJsonObject {
-                                put("type", "object")
-                                put("required", JsonArray(listOf(JsonPrimitive("count"))))
-                                put("properties", buildJsonObject { put("count", integerProperty()) })
-                                put("additionalProperties", false)
-                            },
+                    action(
+                        "set_priority",
+                        properties =
+                            mapOf("priority" to stringProperty()),
                     ),
                 ),
             )
         val result =
             screen.validate(
                 ScreenState(status = "loaded"),
-                "add_checklist_item",
+                "set_priority",
                 buildJsonObject {
-                    put("count", 5)
+                    put("priority", 42)
                 },
             )
 
         assertTrue(result.isFailure)
         assertTrue(
-            result.exceptionOrNull()?.message?.contains("count") == true,
+            result.exceptionOrNull()?.message?.contains("priority") == true,
             "the refusal names the field: ${result.exceptionOrNull()?.message}",
         )
     }
@@ -125,20 +151,11 @@ class ScreenIntrospectionTest {
             ScreenIntrospection(
                 "screen.test",
                 listOf(
-                    ScreenAction(
-                        name = "set_priority",
-                        summary = "Set the task's priority.",
-                        requirement = "the screen has to be showing a task",
-                        inputSchema =
-                            buildJsonObject {
-                                put("type", "object")
-                                put("required", JsonArray(listOf(JsonPrimitive("priority"))))
-                                put(
-                                    "properties",
-                                    buildJsonObject { put("priority", stringProperty(listOf("none", "low", "high"))) },
-                                )
-                                put("additionalProperties", false)
-                            },
+                    action(
+                        "set_priority",
+                        required = listOf("priority"),
+                        properties =
+                            mapOf("priority" to stringProperty(listOf("none", "low", "high"))),
                     ),
                 ),
             )
@@ -190,20 +207,11 @@ class ScreenIntrospectionTest {
             ScreenIntrospection(
                 "screen.test",
                 listOf(
-                    ScreenAction(
-                        name = "add_checklist_item",
-                        summary = "Add a checklist item.",
-                        requirement = "the screen has to be showing a task",
-                        inputSchema =
-                            buildJsonObject {
-                                put("type", "object")
-                                put("required", JsonArray(listOf(JsonPrimitive("title"))))
-                                put(
-                                    "properties",
-                                    buildJsonObject { put("title", stringProperty(minLength = 1, pattern = "\\S")) },
-                                )
-                                put("additionalProperties", false)
-                            },
+                    action(
+                        "add_checklist_item",
+                        required = listOf("title"),
+                        properties =
+                            mapOf("title" to stringProperty(minLength = 1, pattern = "\\S")),
                     ),
                 ),
             )
@@ -219,6 +227,52 @@ class ScreenIntrospectionTest {
         assertTrue(result.isFailure)
     }
 
+    @Test
+    fun `an action whose schema uses an unsupported keyword is refused`() {
+        val problem =
+            runCatching {
+                ScreenAction(
+                    name = "set_priority",
+                    summary = "Set the task's priority.",
+                    requirement = "the screen has to be showing a task",
+                    inputSchema =
+                        buildJsonObject {
+                            put("type", "object")
+                            put("required", JsonArray(listOf(JsonPrimitive("priority"))))
+                            put("properties", buildJsonObject { put("priority", stringProperty()) })
+                            put("maxLength", 10)
+                            put("additionalProperties", false)
+                        },
+                )
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("maxLength") == true, "the refusal names the keyword: $problem")
+    }
+
+    @Test
+    fun `an action whose schema uses an unsupported property type is refused`() {
+        val problem =
+            runCatching {
+                ScreenAction(
+                    name = "add_checklist_item",
+                    summary = "Add a checklist item.",
+                    requirement = "the screen has to be showing a task",
+                    inputSchema =
+                        buildJsonObject {
+                            put("type", "object")
+                            put("required", JsonArray(listOf(JsonPrimitive("count"))))
+                            put(
+                                "properties",
+                                buildJsonObject { put("count", buildJsonObject { put("type", "integer") }) },
+                            )
+                            put("additionalProperties", false)
+                        },
+                )
+            }.exceptionOrNull()?.message
+
+        assertTrue(problem?.contains("count") == true, "the refusal names the field: $problem")
+    }
+
     private fun action(
         name: String,
         required: List<String> = emptyList(),
@@ -228,19 +282,14 @@ class ScreenIntrospectionTest {
             name = name,
             summary = "Action $name.",
             requirement = "the screen has to be showing a task",
-            inputSchema = schema(required = required, properties = properties),
+            inputSchema =
+                buildJsonObject {
+                    put("type", "object")
+                    put("required", JsonArray(required.map { JsonPrimitive(it) }))
+                    put("properties", JsonObject(properties))
+                    put("additionalProperties", false)
+                },
         )
-
-    private fun schema(
-        required: List<String>,
-        properties: Map<String, JsonObject>,
-    ): JsonObject =
-        buildJsonObject {
-            put("type", "object")
-            put("required", JsonArray(required.map { JsonPrimitive(it) }))
-            put("properties", JsonObject(properties))
-            put("additionalProperties", false)
-        }
 
     private fun stringProperty(
         enumValues: List<String>? = null,
@@ -252,10 +301,5 @@ class ScreenIntrospectionTest {
             enumValues?.let { put("enum", JsonArray(enumValues.map { JsonPrimitive(it) })) }
             minLength?.let { put("minLength", it) }
             pattern?.let { put("pattern", it) }
-        }
-
-    private fun integerProperty(): JsonObject =
-        buildJsonObject {
-            put("type", "integer")
         }
 }

@@ -49,14 +49,8 @@ class TaskDetailScreenIntrospection(private val coordinator: TaskDetailCoordinat
     fun dispatch(
         action: String,
         input: JsonObject = JsonObject(emptyMap()),
-    ): Result<Unit> = dispatch(coordinator.stateFlow.value, action, input)
-
-    internal fun dispatch(
-        state: TaskDetailUiState,
-        action: String,
-        input: JsonObject = JsonObject(emptyMap()),
     ): Result<Unit> {
-        val result = introspection.validate(stateOf(state), action, input)
+        val result = introspection.validate(stateOf(coordinator.stateFlow.value), action, input)
         if (result.isSuccess) {
             coordinator.onIntent(intentFor(action, input))
             if (action == ACTION_DELETE_TASK) {

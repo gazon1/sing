@@ -40,7 +40,8 @@ the mapping into an intent now runs only after validation succeeds.
    the input schema is the published one: object shape, `required`, `properties`,
    `additionalProperties: false`, `type: string`, `enum`, `minLength` and `pattern`; properties
    outside that subset are refused rather than silently skipped, and optional properties are
-   validated whenever they are present.
+   validated whenever they are present. A schema that uses anything outside this subset is
+   refused when the action is created.
 3. The contract does not depend on feature or Compose/Android types; the screen-specific half
    (actions, schemas, availability, state mapping, intent mapping) lives in the feature adapter.
 4. The contract is versioned (`SCREEN_INTROSPECTION_CONTRACT_VERSION = 1`) and its capability

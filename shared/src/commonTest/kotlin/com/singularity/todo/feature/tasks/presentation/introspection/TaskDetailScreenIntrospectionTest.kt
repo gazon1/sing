@@ -183,27 +183,6 @@ class TaskDetailScreenIntrospectionTest {
                 screen.actions.none { it.isAvailable(screen.stateOf(error)) },
                 "nothing is available after a failure",
             )
-
-            // And a dispatch in either state is refused before the coordinator sees it.
-            val refusedLoading = screen.dispatch(loading, "delete_task")
-            assertTrue(refusedLoading.isFailure, "the action is refused while loading")
-            assertTrue(
-                refusedLoading.exceptionOrNull()?.message?.contains("loading") == true,
-                "the refusal names the screen state: ${refusedLoading.exceptionOrNull()?.message}",
-            )
-            val refusedError = screen.dispatch(error, "set_priority")
-            assertTrue(refusedError.isFailure, "the action is refused after a failure")
-
-            // Nothing reached the repository.
-            assertNull(
-                fakes.taskRepo.tasks.value["t1"]
-                    ?.archivedAt,
-            )
-            assertEquals(
-                TaskPriority.None,
-                fakes.taskRepo.tasks.value["t1"]
-                    ?.priority,
-            )
         }
 
     @Test

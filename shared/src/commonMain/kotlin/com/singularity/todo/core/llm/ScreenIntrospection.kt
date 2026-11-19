@@ -1,8 +1,10 @@
 package com.singularity.todo.core.llm
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -15,6 +17,12 @@ import kotlinx.serialization.json.put
  * published meaning changes.
  */
 const val SCREEN_INTROSPECTION_CONTRACT_VERSION: Int = 1
+
+private val SUPPORTED_SCHEMA_KEYS: Set<String> =
+    setOf("type", "required", "properties", "additionalProperties")
+
+private val SUPPORTED_PROPERTY_KEYS: Set<String> =
+    setOf("type", "minLength", "pattern", "enum")
 
 /**
  * The screen-independent state of one inspected screen.
@@ -54,6 +62,13 @@ class ScreenAction(
         (inputSchema["required"] as? JsonArray)?.map { it.jsonPrimitive.content } ?: emptyList()
 
     private val propertySchemas: JsonObject? = inputSchema["properties"] as? JsonObject
+
+    init {
+        val problem = schemaProblem(inputSchema)
+        if (problem != null) {
+            throw IllegalArgumentException(problem)
+        }
+    }
 
     /**
      * Whether the input matches the published schema exactly.
@@ -114,7 +129,7 @@ class ScreenAction(
 
             minLength != null && text.length < minLength -> "'$name' must be at least $minLength characters long"
 
-            pattern != null && Regex(pattern).find(text) == null -> "'$name' must not be blank"
+            pattern != null && Regex(pattern).find(text) == null -> "'$name' does not match the required pattern"
 
             enumValues != null &&
                 enumValues.none {
@@ -124,6 +139,41 @@ class ScreenAction(
 
             else -> null
         }
+    }
+
+    private fun schemaProblem(schema: JsonObject): String? {
+        val unsupported = schema.keys - SUPPORTED_SCHEMA_KEYS
+        if (unsupported.isNotEmpty()) {
+            return "Unsupported schema keyword(s): ${unsupported.sorted().joinToString { "'$it'" }}"
+        }
+        if (schema["type"]?.jsonPrimitive?.content != "object") {
+            return "The introspection schema must be of type \"object\"."
+        }
+        if (schema["additionalProperties"]?.jsonPrimitive?.booleanOrNull != false) {
+            return "The introspection schema must set additionalProperties to false."
+        }
+        val properties = schema["properties"] as? JsonObject
+        val badProperty: String? =
+            properties?.let { props ->
+                props.keys.firstNotNullOfOrNull { name: String -> propertyProblem(name, props[name]) }
+            }
+        return badProperty
+    }
+
+    private fun propertyProblem(
+        name: String,
+        schema: JsonElement?,
+    ): String? {
+        val property = schema as? JsonObject ?: return "'$name' must be a JSON Schema object."
+        val unsupported = property.keys - SUPPORTED_PROPERTY_KEYS
+        if (unsupported.isNotEmpty()) {
+            return "Unsupported schema keyword(s) for '$name': ${unsupported.sorted().joinToString { "'$it'" }}"
+        }
+        val propertyType = property["type"]?.jsonPrimitive?.content
+        if (propertyType != "string") {
+            return "The introspection schema for '$name' must be of type \"string\"."
+        }
+        return null
     }
 }
 
