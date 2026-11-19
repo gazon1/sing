@@ -12,8 +12,10 @@ there. Change one, change the other.
 
 The capture flows themselves live in `Maestro/flows/capture/` — one flow per
 screenshot, in the order above, each of them seeding the dataset below before
-it takes its shot. The local capture command and the raw-image validation land
-with #3005; until that command lands, the flows are run by hand, one at a time.
+it takes its shot. The local capture command runs them: `just sc` builds the
+capture APK, installs it on the pinned device, runs the six flows in the order
+below and checks every raw PNG against the profile in
+[`manifest.yaml`](manifest.yaml).
 
 ## The story
 
@@ -113,6 +115,11 @@ every capture machine, or the set cannot be compared with the previous one.
 
 The status bar and the navigation bar stay as they are: they are part of what
 the app looks like in a hand.
+
+The local capture command applies the device half of this profile — the app
+locale, the light theme, the font scale and the screen timeout — before the
+first flow runs. A step the device refuses is reported as a warning; the
+image check is the gate, and the gate is about the image.
 
 **The profile is the dataset's own.** `demo-dataset.yaml` switches to `Play
 demo` before it writes anything, so the rows land in that profile and the reset

@@ -7,4 +7,5 @@
 import 'build.just'
 import 'install.just'
 import 'device.just'
+import 'capture.just'
 import 'db/mod.just'

@@ -14,6 +14,17 @@
 #
 # The dataset every capture starts from is `demo-dataset.yaml`; the
 # device profile is in `STORYBOARD.md`.
+#
+# The profile below is the machine-readable half of that profile: the screen
+# the device has to show and the shape of the image that comes out of it. The
+# capture command reads it and checks every image against it, so the numbers
+# live next to the captures they constrain.
+profile:
+  width: 1080
+  height: 1920
+  aspect: "9:16"
+  format: png
+
 captures:
   - order: 1
     file: 01-today.png
