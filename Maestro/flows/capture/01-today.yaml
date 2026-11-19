@@ -9,6 +9,12 @@
 # on purpose, and the nightly full suite must not pay for it. The `capture`
 # tag is the area of the flow — it selects the whole capture set by tag and
 # nothing else, so a run of one feature never runs the capture set.
+#
+# One boundary is worth writing down: the dataset resolves `due=today` on the
+# device, one deep link at a time, so a run that crosses midnight while
+# seeding leaves one of the three tasks on the day before. The row is then
+# missing, and the flow fails on it — loudly, and before the screenshot. Run
+# the capture again after midnight.
 # прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-today

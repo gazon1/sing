@@ -17,6 +17,12 @@
 #
 # The badge is a number of its own, so it is asserted as the number 3 — the
 # three tasks the dataset puts due today.
+#
+# One boundary is worth writing down: the dataset resolves `due=today` on the
+# device, one deep link at a time, so a run that crosses midnight while
+# seeding leaves the three tasks split over two days. The count below is then
+# not 3, and the flow fails on it — loudly, and before the screenshot. Run the
+# capture again after midnight.
 # прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-calendar
