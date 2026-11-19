@@ -508,27 +508,26 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
     }
 }
 
-
-    private fun validateJourneyNonNegativeLong(
-        obj: JsonObject,
-        key: String,
-        index: Int,
-    ) {
-        val element = obj[key] ?: return
-        if (element !is JsonPrimitive || element.isString || element.booleanOrNull != null) {
-            throw InspectorException(
-                InspectorErrorCode.INVALID_ARGUMENTS,
-                "Journey step $index field '$key' must be a non-negative integer.",
-            )
-        }
-        val value = element.longOrNull
-        if (value == null || value < 0L) {
-            throw InspectorException(
-                InspectorErrorCode.INVALID_ARGUMENTS,
-                "Journey step $index field '$key' must be a non-negative integer.",
-            )
-        }
+private fun validateJourneyNonNegativeLong(
+    obj: JsonObject,
+    key: String,
+    index: Int,
+) {
+    val element = obj[key] ?: return
+    if (element !is JsonPrimitive || element.isString || element.booleanOrNull != null) {
+        throw InspectorException(
+            InspectorErrorCode.INVALID_ARGUMENTS,
+            "Journey step $index field '$key' must be a non-negative integer.",
+        )
     }
+    val value = element.longOrNull
+    if (value == null || value < 0L) {
+        throw InspectorException(
+            InspectorErrorCode.INVALID_ARGUMENTS,
+            "Journey step $index field '$key' must be a non-negative integer.",
+        )
+    }
+}
 
 private fun ensureKoin(
     defaultKoinStartup: ToolServerKoinStartup?,
