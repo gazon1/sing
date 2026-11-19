@@ -121,6 +121,14 @@ locale, the light theme, the font scale and the screen timeout — before the
 first flow runs. A step the device refuses is reported as a warning; the
 image check is the gate, and the gate is about the image.
 
+The theme and the font scale are the *app's* settings, not the system's: they
+live in the app's own data, and a device where somebody once chose the dark
+theme keeps the dark theme after an install. The command therefore resets the
+app's settings file before the first flow, so the app comes up with its
+defaults — the system theme, which the command puts into light mode, and a
+font scale of 1.0. A build that does not allow that reset says so in a
+warning.
+
 **The profile is the dataset's own.** `demo-dataset.yaml` switches to `Play
 demo` before it writes anything, so the rows land in that profile and the reset
 reaches that profile alone. A capture run therefore cannot destroy the data of

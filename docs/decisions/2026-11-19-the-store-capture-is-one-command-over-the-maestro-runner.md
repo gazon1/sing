@@ -68,12 +68,29 @@ the version name on the device, and an APK built here must carry this
 checkout's short SHA. The first rule refuses a stale install; the second
 refuses an APK that was built from another commit.
 
-**The device is pinned.** A device that is not attached is an error, and so is
-more than one attached device: the capture device has to be named, because a
-capture that silently fell back to another device would be a capture of a
-screen nobody asked for. The command does not boot an emulator and does not
-uninstall the app — a signature clash is reported, not resolved by throwing
-away the data on somebody's phone.
+**The device is pinned — always.** The capture device has to be named, and a
+name that is not attached is an error. One attached device is not a choice: it
+is just as likely to be somebody's phone as the capture AVD, and the capture
+installs an APK on it and changes its settings. A capture that silently fell
+back to another device would be a capture of a screen nobody asked for. The
+command does not boot an emulator and does not uninstall the app — a signature
+clash is reported, not resolved by throwing away the data on somebody's phone.
+
+**The image check reads the image, not only its header.** The PNG is parsed
+chunk by chunk: every chunk's checksum is verified, the image data has to
+decompress into exactly the scanlines the header's own dimensions, bit depth
+and colour type promise, and the result has to be the size and the aspect the
+manifest documents. A file that carries the right header and no pixels is not
+a screenshot, and a file with a broken chunk is not a PNG.
+
+**The profile is applied to the app's own settings, not only to the system.**
+The theme and the font scale are the app's settings: they live in the app's
+data, so `cmd uimode night no` and `settings put system font_scale` do not
+reach them, and a device where somebody once chose the dark theme would keep
+the dark theme after an install. The command resets the app's settings file
+before the first flow, so the app comes up with its defaults — the system
+theme, which the command puts into light mode, and a font scale of 1.0. A
+build that does not allow that reset says so in a warning.
 
 **The profile lives in the manifest, next to the captures it constrains.**
 `Maestro/capture/manifest.yaml` carries the width, the height, the aspect and
@@ -115,7 +132,8 @@ drift.
 ## Consequences
 
 - `just sc` takes the whole set; `just sc 01-today` takes one capture, for
-  iteration. `SERIAL` (or the recipe's second argument) pins the device.
+  iteration. `SERIAL` (or the recipe's second argument) pins the device, and a
+  run without it is refused.
 - The raw PNGs, the Maestro logs and the JUnit reports land in
   `build/store-capture/`. Nothing is committed: a raw capture is a generated
   artefact, and the rendered marketing assets live elsewhere.
@@ -123,11 +141,15 @@ drift.
   check, so it can be used in a script without being read.
 - The capture profile — the app locale, the light theme, the font scale and
   the screen timeout — is applied best-effort: a step the device refuses is a
-  warning, and the image check is the hard gate.
+  warning, and the image check is the hard gate. The theme and the font scale
+  are the app's own settings, so they are reset through the app's data rather
+  than through the system's settings.
 - `scripts/tests/test_store_capture.py` covers the pure parts: the manifest
-  and its order, the selection of one capture, the device resolution (missing,
-  ambiguous, unusable) and the image validation (empty, wrong format,
-  truncated, corrupt, wrong size, wrong aspect).
+  and its order, the selection of one capture, the device resolution (unnamed,
+  missing, unusable), the identity rules (the wrong application, a stale
+  install, a build from another commit, a foreign APK) and the image
+  validation (empty, wrong format, truncated, corrupt, empty pixels, broken
+  checksum, wrong size, wrong aspect).
 - The six flows are still `manual` and `capture`-tagged, so the nightly full
   suite does not pay for them.
 

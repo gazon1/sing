@@ -65,6 +65,10 @@ OUTPUT_DIR = ROOT / "build" / "store-capture"
 #: The package the capture flows drive.
 APP_ID = "com.singularity.todo"
 
+#: The app's own settings file, inside the app's private data. The theme and
+#: the font scale live there — see `reset_app_settings`.
+APP_SETTINGS_FILE = "files/user_settings.preferences_pb"
+
 #: Where `assembleDebug` writes its APK.
 DEBUG_APK_DIR = ROOT / "androidApp" / "build" / "outputs" / "apk" / "debug"
 
@@ -179,6 +183,12 @@ def load_manifest(path: Path = MANIFEST_PATH) -> Manifest:
     if not captures:
         raise CaptureError(f"the manifest {path} lists no captures")
     captures.sort(key=lambda capture: capture.order)
+    orders = [capture.order for capture in captures]
+    files = [capture.file for capture in captures]
+    if len(set(orders)) != len(orders):
+        raise CaptureError(f"the manifest {path} has two captures with the same order")
+    if len(set(files)) != len(files):
+        raise CaptureError(f"the manifest {path} has two captures with the same file name")
     return Manifest(tuple(captures), _profile(data.get("profile") or {}))
 
 
@@ -231,35 +241,29 @@ def _describe(devices: list[tuple[str, str]]) -> str:
 def resolve_device(pinned: str, devices: list[tuple[str, str]]) -> str:
     """The serial the capture runs on.
 
-    A pinned device has to be there: a capture that silently fell back to
-    another device would be a capture of a screen nobody asked for. An
-    unpinned run is only allowed when there is exactly one device to choose
-    from — two attached devices make every choice a guess.
+    The device is always named. One attached device is not a choice — it is
+    just as likely to be somebody's phone as the capture AVD, and the capture
+    installs an APK on it and changes its settings. A capture that picked a
+    device by itself would be a capture of a screen nobody asked for, so the
+    name is required and a name that is not attached is an error.
     """
+    if not pinned:
+        raise CaptureError(
+            "the capture device has to be named: pass --serial <serial> (or set "
+            f"SERIAL). Attached: {_describe(devices)}."
+        )
     usable = [serial for serial, state in devices if state == "device"]
-    if pinned:
-        if pinned in usable:
-            return pinned
-        if any(serial == pinned for serial, _ in devices):
-            raise CaptureError(
-                f"device {pinned} is attached but not usable (adb reports it as "
-                f"{dict(devices)[pinned]})"
-            )
+    if pinned in usable:
+        return pinned
+    if any(serial == pinned for serial, _ in devices):
         raise CaptureError(
-            f"device {pinned} is not attached. Attached: {_describe(devices)}. "
-            "Boot or connect it, then run the command again."
+            f"device {pinned} is attached but not usable (adb reports it as "
+            f"{dict(devices)[pinned]})"
         )
-    if not usable:
-        raise CaptureError(
-            f"no device is attached (adb reports: {_describe(devices)}). "
-            "Attach one, or boot the capture AVD, then run the command again."
-        )
-    if len(usable) > 1:
-        raise CaptureError(
-            f"{len(usable)} devices are attached ({', '.join(usable)}); the capture "
-            "device has to be named. Pass --serial <serial> (or set SERIAL)."
-        )
-    return usable[0]
+    raise CaptureError(
+        f"device {pinned} is not attached. Attached: {_describe(devices)}. "
+        "Boot or connect it, then run the command again."
+    )
 
 
 def adb(*args: str, serial: str = "", timeout: float = 60) -> tuple[int, str]:
@@ -290,7 +294,12 @@ def apply_profile(serial: str) -> list[str]:
     of every capture machine. A step that does not take is a warning and not
     an error — the image check below is the hard gate, and a device that
     refuses a locale is still a device the capture can be taken on.
+
+    The theme and the font scale are the app's own settings, not the
+    system's, so the system commands alone are not enough — see
+    [reset_app_settings].
     """
+    warnings = reset_app_settings(serial)
     steps = (
         ("the app locale", ("shell", "cmd", "locale", "set-app-locales", APP_ID,
                             "--locales", "ru-RU")),
@@ -299,11 +308,37 @@ def apply_profile(serial: str) -> list[str]:
         ("the screen timeout", ("shell", "settings", "put", "system",
                                 "screen_off_timeout", "1800000")),
     )
-    warnings: list[str] = []
     for name, args in steps:
         code, out = adb(*args, serial=serial)
         if code != 0:
             warnings.append(f"{name}: {out.strip().splitlines()[-1] if out.strip() else 'failed'}")
+    return warnings
+
+
+def reset_app_settings(serial: str) -> list[str]:
+    """Put the app's own settings back to their defaults.
+
+    The theme and the font scale live in the app's DataStore, not in the
+    system: `cmd uimode night no` and `settings put system font_scale` do not
+    touch them. A device where somebody once chose the dark theme keeps the
+    dark theme after an install, and the capture would publish the app in a
+    look the storyboard does not document — a capture that looks fine and is
+    not the capture.
+
+    The debug build's private files are reachable with `run-as`, so the
+    settings file is removed and the app starts from its defaults: the system
+    theme (light, because the system is put into light mode below) and a font
+    scale of 1.0. A build that is not debuggable refuses `run-as`, and that is
+    a warning rather than an error — the image check is the hard gate.
+    """
+    warnings: list[str] = []
+    adb("shell", "am", "force-stop", APP_ID, serial=serial)
+    code, out = adb(
+        "shell", "run-as", APP_ID, "rm", "-f", APP_SETTINGS_FILE, serial=serial
+    )
+    if code != 0:
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        warnings.append(f"the app's own settings could not be reset ({detail})")
     return warnings
 
 
@@ -317,6 +352,18 @@ def find_aapt() -> str | None:
         return None
     candidates = sorted(root.glob("build-tools/*/aapt"), reverse=True)
     return str(candidates[0]) if candidates else None
+
+
+def _parse_badging(output: str) -> tuple[str, str] | None:
+    """The package name and version name out of `aapt dump badging`."""
+    for line in output.splitlines():
+        if not line.startswith("package:"):
+            continue
+        name = re.search(r"name='([^']+)'", line)
+        version = re.search(r"versionName='([^']+)'", line)
+        if name and version:
+            return name.group(1), version.group(1)
+    return None
 
 
 def apk_identity(apk: Path) -> tuple[str, str] | None:
@@ -336,14 +383,7 @@ def apk_identity(apk: Path) -> tuple[str, str] | None:
         return None
     if cp.returncode != 0:
         return None
-    for line in cp.stdout.splitlines():
-        if not line.startswith("package:"):
-            continue
-        name = re.search(r"name='([^']+)'", line)
-        version = re.search(r"versionName='([^']+)'", line)
-        if name and version:
-            return name.group(1), version.group(1)
-    return None
+    return _parse_badging(cp.stdout)
 
 
 def git_sha() -> str:
@@ -441,13 +481,35 @@ def verify_identity(serial: str, apk: Path, built_here: bool) -> tuple[str, str]
 
 # ── the images ────────────────────────────────────────────────────────────────
 
+#: How many channels a PNG colour type carries.
+_PNG_CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
+
+
+def _expected_scanlines(
+    width: int, height: int, bit_depth: int, color_type: int, interlace: int
+) -> int | None:
+    """How many bytes of image data a PNG of this shape must decompress to.
+
+    Every scanline is one filter byte plus its pixels. `None` when the shape
+    is one this checker does not know how to measure — an interlaced image,
+    which a screenshot never is.
+    """
+    if interlace != 0:
+        return None
+    channels = _PNG_CHANNELS.get(color_type)
+    if channels is None or bit_depth not in (1, 2, 4, 8, 16):
+        return None
+    row = (width * channels * bit_depth + 7) // 8
+    return height * (1 + row)
+
 
 def validate_png(path: Path, profile: Profile) -> list[str]:
     """What is wrong with the image, if anything is.
 
     An empty list means the file is a PNG of the expected size and shape. The
     checks are the ones a store asks for: a readable file, a real PNG, image
-    data that decompresses, and the documented dimensions and aspect.
+    data that decompresses into the scanlines the header declares, and the
+    documented dimensions and aspect.
     """
     try:
         data = path.read_bytes()
@@ -460,8 +522,10 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
 
     width: int | None = None
     height: int | None = None
+    bit_depth = color_type = interlace = 0
     image_data = bytearray()
     complete = False
+    broken_checksums = 0
     position = len(PNG_SIGNATURE)
     while position + 8 <= len(data):
         length = int.from_bytes(data[position : position + 4], "big")
@@ -469,12 +533,17 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         end = position + 8 + length
         if end + 4 > len(data):
             return ["is truncated"]
+        body = data[position + 8 : end]
+        if zlib.crc32(kind + body) & 0xFFFFFFFF != int.from_bytes(data[end : end + 4], "big"):
+            broken_checksums += 1
         if kind == b"IHDR":
-            if length < 8:
+            if length < 13:
                 return ["is not a PNG (its image header is malformed)"]
-            width, height = struct.unpack(">II", data[position + 8 : position + 16])
+            width, height, bit_depth, color_type, _, _, interlace = struct.unpack(
+                ">IIBBBBB", body[:13]
+            )
         elif kind == b"IDAT":
-            image_data += data[position + 8 : end]
+            image_data += body
         elif kind == b"IEND":
             complete = True
             break
@@ -483,15 +552,29 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
     problems: list[str] = []
     if width is None or height is None:
         return ["is not a PNG (it has no image header)"]
+    if broken_checksums:
+        problems.append(
+            f"has {broken_checksums} chunk(s) with a broken checksum"
+        )
     if not image_data:
         problems.append("carries no image data")
     if not complete:
         problems.append("is truncated (it has no end marker)")
     if image_data:
         try:
-            zlib.decompress(bytes(image_data))
+            raw = zlib.decompress(bytes(image_data))
         except zlib.error as exc:
             problems.append(f"has corrupt image data ({exc})")
+        else:
+            # A stream that decompresses is not yet an image: it has to carry
+            # the pixels its own header promises. An empty stream under a
+            # full-size header is a file that looks right and shows nothing.
+            expected = _expected_scanlines(width, height, bit_depth, color_type, interlace)
+            if expected is not None and len(raw) != expected:
+                problems.append(
+                    f"carries {len(raw)} bytes of image data, expected {expected} "
+                    f"for {width}x{height}"
+                )
     if profile.width and profile.height and (width, height) != (profile.width, profile.height):
         problems.append(
             f"is {width}x{height}, expected {profile.width}x{profile.height}"

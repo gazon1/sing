@@ -117,22 +117,28 @@ just android::store-capture 01-today emulator-5554   # both, positionally
 ```
 
 `just` binds arguments by position, so the recipe takes the capture name, then
-the serial, then an APK path.
+the serial, then an APK path. The serial is not optional: the capture device
+is always named, because one attached device is just as likely to be somebody's
+phone as the capture AVD.
 
 The command:
 
 - builds this checkout's debug APK — or takes the one `--apk` names — and
   installs it on the pinned device;
-- refuses to go on when the device is missing or ambiguous, and when the build
-  on the device is not the build in the APK: a capture from a stale install
-  looks exactly like a good capture;
+- refuses to go on when the device is not named or not attached, and when the
+  build on the device is not the build in the APK: a capture from a stale
+  install looks exactly like a good capture;
 - runs the capture flows in the order `Maestro/capture/manifest.yaml` gives,
   one flow per invocation, and takes the screen right after each of them;
+- resets the app's own settings and puts the device into the capture profile
+  before the first flow — the theme and the font scale are the app's settings,
+  and the system's settings do not reach them;
 - writes the raw PNGs into `build/store-capture/`, wiped at the start of every
   run — a stale image must not be able to stand in for a capture that did not
   happen;
-- checks every image: it is a readable PNG, it is complete, and it is the size
-  and shape the manifest documents;
+- checks every image: it is a readable PNG, its chunks are whole, it carries
+  the pixels its own header promises, and it is the size and shape the manifest
+  documents;
 - leaves the Maestro logs and the JUnit reports in `build/store-capture/`, and
   exits non-zero when a flow or an image failed.
 

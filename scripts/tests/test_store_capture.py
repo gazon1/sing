@@ -18,6 +18,7 @@ import struct
 import sys
 import tempfile
 import unittest
+import unittest.mock as mock
 import zlib
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'store-capture.py'
@@ -29,20 +30,26 @@ sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
 
-def png_bytes(width, height, *, broken_data=False, cut=False):
-    """A PNG of the given size, optionally damaged in one of two ways."""
-    def chunk(kind, body):
+def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False):
+    """A PNG of the given size, optionally damaged in one of several ways."""
+    def chunk(kind, body, break_crc=False):
         crc = zlib.crc32(kind + body) & 0xffffffff
+        if break_crc:
+            crc ^= 0xffffffff
         return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
 
     raw = b''.join(b'\x00' + b'\x00' * (width * 3) for _ in range(height))
     image = zlib.compress(raw)
     if broken_data:
         image = image[:-4]
+    if empty_scanlines:
+        # A stream that decompresses, but carries none of the pixels the
+        # header promises.
+        image = zlib.compress(b'')
     data = (
         mod.PNG_SIGNATURE
         + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
-        + chunk(b'IDAT', image)
+        + chunk(b'IDAT', image, break_crc=bad_crc)
         + chunk(b'IEND', b'')
     )
     if cut:
@@ -84,6 +91,49 @@ class ManifestTest(unittest.TestCase):
             with self.assertRaises(mod.CaptureError):
                 mod.load_manifest(path)
 
+    def test_two_captures_with_the_same_order_are_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text(
+                'captures:\n'
+                '  - {order: 1, file: a.png, flow: a.yaml}\n'
+                '  - {order: 1, file: b.png, flow: b.yaml}\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
+    def test_two_captures_with_the_same_file_name_are_refused(self):
+        # Two captures writing one file: the second would overwrite the first.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text(
+                'captures:\n'
+                '  - {order: 1, file: a.png, flow: a.yaml}\n'
+                '  - {order: 2, file: a.png, flow: b.yaml}\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
+    def test_a_malformed_capture_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text('captures:\n  - {order: 1}\n', encoding='utf-8')
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
+    def test_a_malformed_profile_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text(
+                'profile:\n  aspect: "nine"\n'
+                'captures:\n  - {order: 1, file: a.png, flow: a.yaml}\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
 
 class DeviceResolutionTest(unittest.TestCase):
     def test_the_daemon_chatter_is_not_a_device(self):
@@ -92,11 +142,10 @@ class DeviceResolutionTest(unittest.TestCase):
                 'emulator-5554\tdevice\n')
         self.assertEqual(mod.parse_devices(text), [('emulator-5554', 'device')])
 
-    def test_one_attached_device_is_the_device(self):
-        self.assertEqual(
-            mod.resolve_device('', [('emulator-5554', 'device')]),
-            'emulator-5554',
-        )
+    def test_an_unnamed_device_is_refused(self):
+        # One attached device is not a choice: it may be somebody's phone.
+        with self.assertRaises(mod.CaptureError):
+            mod.resolve_device('', [('emulator-5554', 'device')])
 
     def test_a_pinned_device_is_the_device(self):
         devices = [('emulator-5554', 'device'), ('0O65321F', 'device')]
@@ -118,6 +167,103 @@ class DeviceResolutionTest(unittest.TestCase):
     def test_an_offline_device_is_not_usable(self):
         with self.assertRaises(mod.CaptureError):
             mod.resolve_device('emulator-5554', [('emulator-5554', 'offline')])
+
+
+class IdentityTest(unittest.TestCase):
+    """The provenance rules: what the APK is, and what the device carries."""
+
+    def verify(self, *, identity, installed, sha, built_here):
+        with mock.patch.object(mod, 'apk_identity', return_value=identity), \
+                mock.patch.object(mod, 'installed_version', return_value=installed), \
+                mock.patch.object(mod, 'git_sha', return_value=sha):
+            return mod.verify_identity(
+                'emulator-5554', pathlib.Path('/tmp/app-debug.apk'), built_here
+            )
+
+    def test_the_badging_output_is_read(self):
+        output = ("package: name='com.singularity.todo' versionCode='1' "
+                  "versionName='0.1.0+gabc'\n")
+        self.assertEqual(
+            mod._parse_badging(output), ('com.singularity.todo', '0.1.0+gabc')
+        )
+
+    def test_an_apk_that_cannot_be_read_is_refused(self):
+        with self.assertRaises(mod.CaptureError):
+            self.verify(identity=None, installed='0.1.0', sha='abc', built_here=True)
+
+    def test_another_application_is_refused(self):
+        with self.assertRaises(mod.CaptureError):
+            self.verify(
+                identity=('com.other.app', '0.1.0'), installed='0.1.0',
+                sha='abc', built_here=True,
+            )
+
+    def test_an_app_that_is_not_installed_is_refused(self):
+        with self.assertRaises(mod.CaptureError):
+            self.verify(
+                identity=('com.singularity.todo', '0.1.0'), installed=None,
+                sha='abc', built_here=True,
+            )
+
+    def test_a_stale_install_is_refused(self):
+        with self.assertRaises(mod.CaptureError):
+            self.verify(
+                identity=('com.singularity.todo', '0.1.0'), installed='0.0.9',
+                sha='abc', built_here=True,
+            )
+
+    def test_this_checkouts_build_is_accepted(self):
+        package, version = self.verify(
+            identity=('com.singularity.todo', '0.1.0+gabc'),
+            installed='0.1.0+gabc', sha='abc', built_here=True,
+        )
+        self.assertEqual((package, version), ('com.singularity.todo', '0.1.0+gabc'))
+
+    def test_a_build_from_another_commit_is_refused(self):
+        with self.assertRaises(mod.CaptureError):
+            self.verify(
+                identity=('com.singularity.todo', '0.1.0+gabc'),
+                installed='0.1.0+gabc', sha='def', built_here=True,
+            )
+
+    def test_a_foreign_apk_is_not_held_to_this_checkouts_sha(self):
+        package, _ = self.verify(
+            identity=('com.singularity.todo', '0.1.0'), installed='0.1.0',
+            sha='def', built_here=False,
+        )
+        self.assertEqual(package, 'com.singularity.todo')
+
+
+class ProfileApplicationTest(unittest.TestCase):
+    def test_the_apps_own_settings_are_reset(self):
+        # The theme and the font scale are the app's settings: without this
+        # step a device that was once in the dark theme stays in it.
+        calls = []
+
+        def fake_adb(*args, serial='', timeout=60):
+            calls.append((args, serial))
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            warnings = mod.apply_profile('emulator-5554')
+
+        self.assertEqual(warnings, [])
+        self.assertTrue(
+            any('run-as' in ' '.join(args) for args, _ in calls),
+            [args for args, _ in calls],
+        )
+
+    def test_a_device_that_refuses_the_reset_is_a_warning(self):
+        def fake_adb(*args, serial='', timeout=60):
+            if 'run-as' in args:
+                return 1, 'run-as: Package not debuggable'
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            warnings = mod.apply_profile('emulator-5554')
+
+        self.assertTrue(warnings)
+        self.assertIn('settings could not be reset', warnings[0])
 
 
 class ImageValidationTest(unittest.TestCase):
@@ -143,6 +289,16 @@ class ImageValidationTest(unittest.TestCase):
 
     def test_corrupt_image_data_is_refused(self):
         self.assertTrue(self.check(png_bytes(1080, 1920, broken_data=True)))
+
+    def test_an_image_without_pixels_is_refused(self):
+        # The header promises 1080x1920, and the stream decompresses — but it
+        # carries none of the scanlines it promised.
+        problems = self.check(png_bytes(1080, 1920, empty_scanlines=True))
+        self.assertTrue(any('image data' in problem for problem in problems), problems)
+
+    def test_a_broken_checksum_is_refused(self):
+        problems = self.check(png_bytes(1080, 1920, bad_crc=True))
+        self.assertTrue(any('checksum' in problem for problem in problems), problems)
 
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))
