@@ -12,6 +12,29 @@ pluginManagement {
                 includeGroupAndSubgroups("com.google")
             }
         }
+        // Maven Central through Google's official mirror.
+        //
+        // The GitHub-hosted runners lost access to repo.maven.apache.org on
+        // 2026-11-18: every job that resolved the buildscript classpath from
+        // Central died with "Could not find kover-gradle-plugin-0.9.11.jar".
+        // That message is Gradle's way of reporting a JAR that is not there —
+        // the POM resolves, the JAR does not — and it names only Central,
+        // because Central is where the metadata came from.
+        //
+        // The mirror is Google's full mirror of Central, and it is listed
+        // BEFORE Central on purpose. Gradle fetches a module's artifacts from
+        // the same repository that served its metadata, so a fallback listed
+        // after Central is never consulted for a JAR Central could not serve.
+        // Central stays in the list as the fallback for whatever the mirror
+        // does not carry.
+        //
+        // The plugin portal stays last: markers that exist only there (the
+        // foojay resolver) are absent from the mirror, and Gradle falls
+        // through to the portal for them.
+        maven {
+            name = "MavenCentralGoogleMirror"
+            url = uri("https://maven-central.storage-download.googleapis.com/maven2/")
+        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -40,6 +63,14 @@ dependencyResolutionManagement {
                 includeGroupAndSubgroups("com.android")
                 includeGroupAndSubgroups("com.google")
             }
+        }
+        // The same mirror as in pluginManagement above, and for the same reason:
+        // the runners could not fetch from repo.maven.apache.org, and Gradle
+        // resolves a module's artifacts only from the repository that served
+        // its metadata. Listed first, Central second.
+        maven {
+            name = "MavenCentralGoogleMirror"
+            url = uri("https://maven-central.storage-download.googleapis.com/maven2/")
         }
         mavenCentral()
         // JetBrains Koog AI agent framework
