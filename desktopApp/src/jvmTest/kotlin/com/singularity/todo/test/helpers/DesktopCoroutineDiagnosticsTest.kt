@@ -20,7 +20,7 @@ import kotlin.test.assertContains
  * dumps during real incidents. These only confirm the agent is working.
  */
 @Tag("fast")
-class CoroutineDiagnosticsTest {
+class DesktopCoroutineDiagnosticsTest {
     @Test
     fun `dump sees a suspended coroutine`() =
         runTest {
@@ -29,9 +29,9 @@ class CoroutineDiagnosticsTest {
                     delay(Long.MAX_VALUE)
                 }
             try {
-                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("DesktopCoroutineDiagnosticsTest", 1)
                 assertContains(dump, "SUSPENDED")
-                assertContains(dump, "CoroutineDiagnosticsTest")
+                assertContains(dump, "DesktopCoroutineDiagnosticsTest")
             } finally {
                 job.cancel()
             }
@@ -47,7 +47,7 @@ class CoroutineDiagnosticsTest {
                     delay(Long.MAX_VALUE)
                 }
             try {
-                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("DesktopCoroutineDiagnosticsTest", 1)
                 assertContains(dump, "SUSPENDED")
             } finally {
                 job.cancel()
@@ -62,8 +62,8 @@ class CoroutineDiagnosticsTest {
             val child1 = scope.launch { delay(Long.MAX_VALUE) }
             val child2 = scope.launch { delay(Long.MAX_VALUE) }
             try {
-                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
-                assertContains(dump, "CoroutineDiagnosticsTest")
+                val dump = DesktopCoroutineDiagnostics.dump("DesktopCoroutineDiagnosticsTest", 1)
+                assertContains(dump, "DesktopCoroutineDiagnosticsTest")
             } finally {
                 child1.cancel()
                 child2.cancel()
@@ -90,7 +90,7 @@ class CoroutineDiagnosticsTest {
                     infiniteFlow.collect { }
                 }
             try {
-                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("DesktopCoroutineDiagnosticsTest", 1)
                 assertContains(dump, "SUSPENDED")
             } finally {
                 job.cancel()
