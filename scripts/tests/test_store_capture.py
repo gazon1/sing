@@ -31,7 +31,8 @@ spec.loader.exec_module(mod)
 
 
 def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False,
-              ihdr=None, filter_byte=0):
+              ihdr=None, filter_byte=0, before_header=b'', iend_body=b'', trailing=b'',
+              second_header=False):
     """A PNG of the given size, optionally damaged in one of several ways."""
     def chunk(kind, body, break_crc=False):
         crc = zlib.crc32(kind + body) & 0xffffffff
@@ -48,11 +49,15 @@ def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=Fa
         # header promises.
         image = zlib.compress(b'')
     header = ihdr if ihdr is not None else (width, height, 8, 2, 0, 0, 0)
+    head = chunk(b'IHDR', struct.pack('>IIBBBBB', *header))
     data = (
         mod.PNG_SIGNATURE
-        + chunk(b'IHDR', struct.pack('>IIBBBBB', *header))
+        + before_header
+        + head
+        + (head if second_header else b'')
         + chunk(b'IDAT', image, break_crc=bad_crc)
-        + chunk(b'IEND', b'')
+        + chunk(b'IEND', iend_body)
+        + trailing
     )
     if cut:
         data = data[:-24]
@@ -398,6 +403,32 @@ class StatusBarTest(unittest.TestCase):
             calls,
         )
 
+    def test_a_notification_dump_that_cannot_be_read_refuses_the_capture(self):
+        # An inspection that did not run proves nothing: an unread status bar
+        # is not a clean one.
+        def fake_adb(*args, serial='', timeout=60):
+            if 'dumpsys' in args:
+                return 1, 'Error: dumpsys failed'
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            with self.assertRaises(mod.CaptureError) as caught:
+                mod.clean_status_bar('emulator-5554')
+
+        self.assertIn('notifications', str(caught.exception))
+
+    def test_a_shade_that_cannot_be_collapsed_refuses_the_capture(self):
+        def fake_adb(*args, serial='', timeout=60):
+            if 'statusbar' in args:
+                return 1, 'Error: no status bar'
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            with self.assertRaises(mod.CaptureError) as caught:
+                mod.clean_status_bar('emulator-5554')
+
+        self.assertIn('shade', str(caught.exception))
+
 
 class ImageValidationTest(unittest.TestCase):
     profile = mod.Profile(width=1080, height=1920, aspect=(9, 16), format='png')
@@ -494,6 +525,36 @@ class ImageValidationTest(unittest.TestCase):
         )
         problems = self.check(data)
         self.assertTrue(any('malformed' in problem for problem in problems), problems)
+
+    def test_a_chunk_before_the_header_is_refused(self):
+        # The header comes first: a file that starts with anything else does
+        # not know what it is.
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        problems = self.check(png_bytes(1080, 1920, before_header=chunk(b'PLTE', b'\x00\x00\x00')))
+        self.assertTrue(any('before its image header' in problem for problem in problems), problems)
+
+    def test_a_second_header_is_refused(self):
+        problems = self.check(png_bytes(1080, 1920, second_header=True))
+        self.assertTrue(any('more than one image header' in problem for problem in problems), problems)
+
+    def test_image_data_before_the_header_is_refused(self):
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        problems = self.check(png_bytes(1080, 1920, before_header=chunk(b'IDAT', b'\x00')))
+        self.assertTrue(any('image data before' in problem for problem in problems), problems)
+
+    def test_data_in_the_end_marker_is_refused(self):
+        problems = self.check(png_bytes(1080, 1920, iend_body=b'junk'))
+        self.assertTrue(any('end marker' in problem for problem in problems), problems)
+
+    def test_data_after_the_end_marker_is_refused(self):
+        problems = self.check(png_bytes(1080, 1920, trailing=b'junk'))
+        self.assertTrue(any('after its end marker' in problem for problem in problems), problems)
 
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))

@@ -133,7 +133,9 @@ percentage and collapses the shade, and a device with a notification waiting
 is refused: a notification on the screen is a notification in the picture, and
 a store screenshot with somebody's message in it is not a screenshot anybody
 may publish. The system's own notifications are left alone — they carry
-nothing of the person who owns the device.
+nothing of the person who owns the device. A device that cannot be asked
+about its notifications, or whose shade cannot be collapsed, refuses the
+capture as well: a status bar nobody managed to read is not a clean one.
 
 The theme and the font scale are the *app's* settings, not the system's: they
 live in the app's own data, and a device where somebody once chose the dark

@@ -152,16 +152,23 @@ drift.
   artefact, and the rendered marketing assets live elsewhere.
 - The command exits non-zero when a flow fails or an image does not pass the
   check, so it can be used in a script without being read.
-- The capture profile — the app locale, the light theme, the font scale and
-  the screen timeout — is a contract, not a wish. Every property but the
-  timeout has to hold, or the capture is refused: a screenshot of the app in
-  the wrong theme or the wrong language is not the screenshot the storyboard
-  documents, and no check on the picture's shape would notice. Each property
-  is read back from the device after it is set, so a command that says
+- The capture profile — the app locale, the light theme, the font scale, the
+  status bar and the screen timeout — is a contract, not a wish. Every property
+  but the timeout has to hold, or the capture is refused: a screenshot of the
+  app in the wrong theme or the wrong language is not the screenshot the
+  storyboard documents, and no check on the picture's shape would notice. Each
+  property is read back from the device after it is set, so a command that says
   nothing and changes nothing is caught. The timeout changes no pixel, so a
   device that refuses it is a warning. The theme and the font scale are the
   app's own settings, so they are reset through the app's data rather than
   through the system's settings.
+- The status bar is part of the picture, so it is checked too: the battery
+  percentage is hidden, the shade is collapsed, and a device with a pending
+  notification refuses the capture — a notification in a store screenshot is
+  somebody's message that nobody may publish. The system's own notifications
+  carry nothing personal and are allowed. The check is closed: a device that
+  cannot be asked about its notifications, or whose shade cannot be collapsed,
+  refuses the capture as well, because an unread status bar is not a clean one.
 - `scripts/tests/test_store_capture.py` covers the pure parts: the manifest
   and its order, the selection of one capture, the device resolution (unnamed,
   missing, unusable), the identity rules (the wrong application, a stale
@@ -170,8 +177,10 @@ drift.
   checksum, wrong size, wrong aspect, the headers this checker cannot measure
   — interlaced, an unknown colour type, an illegal colour type and bit depth
   pair, an unknown compression or filter method — an illegal scanline filter,
+  a chunk before the header, a second header, data in or after the end marker,
   and the profile: a reset the device refuses, a property that does not take,
-  a settings file that survives the reset).
+  a settings file that survives the reset, a notification that cannot be
+  inspected, a shade that cannot be collapsed).
 - The six flows are still `manual` and `capture`-tagged, so the nightly full
   suite does not pay for them.
 

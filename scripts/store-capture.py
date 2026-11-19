@@ -375,8 +375,23 @@ def clean_status_bar(serial: str) -> list[str]:
         detail = out.strip().splitlines()[-1] if out.strip() else "failed"
         warnings.append(f"the battery percentage in the status bar: {detail}")
     # A shade left open over the app would be in the picture as well.
-    adb("shell", "cmd", "statusbar", "collapse", serial=serial)
+    code, out = adb("shell", "cmd", "statusbar", "collapse", serial=serial)
+    if code != 0:
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        raise CaptureError(
+            f"the notification shade on {serial} could not be collapsed "
+            f"({detail}) — the shade would be in the picture"
+        )
     code, out = adb("shell", "dumpsys", "notification", "--noredact", serial=serial)
+    if code != 0:
+        # An inspection that did not run proves nothing. A device that cannot
+        # be asked about its notifications is a device whose notifications
+        # nobody has seen, and that is not a clean status bar.
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        raise CaptureError(
+            f"the notifications on {serial} could not be inspected ({detail}) — "
+            "an unread status bar is not a clean one"
+        )
     packages = notification_packages(out)
     foreign = [name for name in packages if name != "android"]
     if foreign:
@@ -681,6 +696,12 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
                 # a longer one is not a header, it is a chunk that pretends to
                 # be one.
                 return ["is not a PNG (its image header is malformed)"]
+            if width is not None:
+                problems.append("has more than one image header")
+            elif position != len(PNG_SIGNATURE):
+                # The header comes first; a chunk before it is a file that does
+                # not know what it is.
+                problems.append("has a chunk before its image header")
             (
                 width,
                 height,
@@ -695,11 +716,19 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             if filter_method != 0:
                 problems.append(f"uses an unknown filter method ({filter_method})")
         elif kind == b"IDAT":
+            if width is None:
+                problems.append("carries image data before its image header")
             image_data += body
         elif kind == b"IEND":
+            if length != 0:
+                problems.append("has data in its end marker")
             complete = True
+            position = end + 4
             break
         position = end + 4
+
+    if complete and position != len(data):
+        problems.append("has data after its end marker")
 
     if width is None or height is None:
         return ["is not a PNG (it has no image header)"]
