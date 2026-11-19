@@ -124,9 +124,10 @@ The profile is a contract, not a wish. The locale, the light theme and the
 font scale have to hold, and each one is read back from the device after it
 is set: a screenshot of the app in the wrong theme or the wrong language is
 not the screenshot this storyboard documents, and no check on the picture's
-shape would notice. A property the device refuses aborts the capture. The
-screen timeout is the one exception — it changes no pixel, so a device that
-refuses it is only a warning.
+shape would notice. A property the device refuses aborts the capture. Two
+properties are best-effort and only cost a warning: the screen timeout, which
+changes no pixel, and hiding the battery percentage, which the status bar may
+refuse to give up.
 
 The status bar is the same kind of contract. The command hides the battery
 percentage and collapses the shade, and a device with a notification waiting

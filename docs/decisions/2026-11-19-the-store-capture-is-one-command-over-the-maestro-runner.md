@@ -93,6 +93,11 @@ The scanlines themselves are looked at as well: every one of them starts with
 a filter byte, and PNG knows only five of them. A sixth value is not a
 picture anybody can decode, so it is refused.
 
+The chunk order is checked as well: the header comes first and only once, the
+image data follows it, the end marker carries nothing and nothing follows it,
+and a critical chunk nobody knows — a chunk whose name starts with a capital
+letter — is refused, because a decoder has to reject a file it cannot read.
+
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
 data, so `cmd uimode night no` and `settings put system font_scale` do not
@@ -153,15 +158,16 @@ drift.
 - The command exits non-zero when a flow fails or an image does not pass the
   check, so it can be used in a script without being read.
 - The capture profile — the app locale, the light theme, the font scale, the
-  status bar and the screen timeout — is a contract, not a wish. Every property
-  but the timeout has to hold, or the capture is refused: a screenshot of the
-  app in the wrong theme or the wrong language is not the screenshot the
-  storyboard documents, and no check on the picture's shape would notice. Each
-  property is read back from the device after it is set, so a command that says
-  nothing and changes nothing is caught. The timeout changes no pixel, so a
-  device that refuses it is a warning. The theme and the font scale are the
-  app's own settings, so they are reset through the app's data rather than
-  through the system's settings.
+  status bar and the screen timeout — is a contract, not a wish. The locale,
+  the light theme and the font scale have to hold, or the capture is refused:
+  a screenshot of the app in the wrong theme or the wrong language is not the
+  screenshot the storyboard documents, and no check on the picture's shape
+  would notice. Each of them is read back from the device after it is set, so
+  a command that says nothing and changes nothing is caught. Two properties
+  are best-effort and only cost a warning: the screen timeout, which changes
+  no pixel, and hiding the battery percentage, which the status bar may refuse
+  to give up. The theme and the font scale are the app's own settings, so they
+  are reset through the app's data rather than through the system's settings.
 - The status bar is part of the picture, so it is checked too: the battery
   percentage is hidden, the shade is collapsed, and a device with a pending
   notification refuses the capture — a notification in a store screenshot is
@@ -173,7 +179,9 @@ drift.
 - The app's own settings are reset by stopping the app and dropping its
   settings file, and both steps have to work: a running app keeps its loaded
   preferences in memory and would put the old theme back on the screen after
-  the file is gone.
+  the file is gone. The file is then looked for again, and only a listing that
+  says the file is not there proves that it is gone — a listing that failed for
+  any other reason proves nothing and refuses the capture.
 - `scripts/tests/test_store_capture.py` covers the pure parts: the manifest
   and its order, the selection of one capture, the device resolution (unnamed,
   missing, unusable), the identity rules (the wrong application, a stale
@@ -183,8 +191,9 @@ drift.
   — interlaced, an unknown colour type, an illegal colour type and bit depth
   pair, an unknown compression or filter method — an illegal scanline filter,
   a chunk before the header, a second header, data in or after the end marker,
-  and the profile: a reset the device refuses, an app that cannot be stopped,
-  a property that does not take, a settings file that survives the reset, a
+  an unknown critical chunk, and the profile: a reset the device refuses, an
+  app that cannot be stopped, a property that does not take, a settings file
+  that survives the reset, a settings file that cannot be read back, a
   notification that cannot be inspected, a notification record without a
   readable package, a shade that cannot be collapsed).
 - The six flows are still `manual` and `capture`-tagged, so the nightly full

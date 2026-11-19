@@ -486,9 +486,24 @@ def reset_app_settings(serial: str) -> list[str]:
             "the reset — the capture is refused rather than taken in the app's "
             "old look"
         )
-    if out.strip() and "not debuggable" in out.lower():
-        warnings.append("the app's own settings could not be read back")
+    # Only a listing that says the file is not there proves that it is gone.
+    # A listing that failed for any other reason proves nothing, and a
+    # settings file that survived the reset would put the old theme back on
+    # the screen.
+    if not _file_is_absent(out):
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        raise CaptureError(
+            f"the app's own settings ({APP_SETTINGS_FILE}) could not be read "
+            f"back on {serial} ({detail}) — the capture is refused rather than "
+            "taken in the app's old look"
+        )
     return warnings
+
+
+def _file_is_absent(listing: str) -> bool:
+    """Whether a failed listing says the file is not there."""
+    text = listing.lower()
+    return "no such file or directory" in text or "not found" in text
 
 
 # ── the APK ───────────────────────────────────────────────────────────────────
@@ -642,6 +657,10 @@ _PNG_BIT_DEPTHS = {
     6: (8, 16),
 }
 
+#: The critical chunks a PNG may carry. Anything else with a capital-letter
+#: name is a chunk a decoder has to refuse the file over.
+_PNG_KNOWN_CHUNKS = frozenset({b"IHDR", b"PLTE", b"IDAT", b"IEND"})
+
 
 def _expected_scanlines(
     width: int, height: int, bit_depth: int, color_type: int, interlace: int
@@ -751,6 +770,13 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             complete = True
             position = end + 4
             break
+        elif kind not in _PNG_KNOWN_CHUNKS and kind[:1].isupper():
+            # A chunk whose name starts with a capital letter is critical: a
+            # decoder that does not know it has to refuse the file. An
+            # ancillary chunk (a lower-case name) may be skipped.
+            problems.append(
+                f"has an unknown critical chunk ({kind.decode('ascii', 'replace')})"
+            )
         position = end + 4
 
     if complete and position != len(data):

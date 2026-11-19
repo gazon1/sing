@@ -132,10 +132,12 @@ The command:
   one flow per invocation, and takes the screen right after each of them;
 - resets the app's own settings and puts the device into the capture profile
   before the first flow — the theme and the font scale are the app's settings,
-  and the system's settings do not reach them. Every property of the profile
-  is read back from the device afterwards; one that did not take refuses the
-  capture, because a picture of the app in the wrong theme is not the picture
-  the storyboard documents;
+  and the system's settings do not reach them. The locale, the light theme and
+  the font scale are read back from the device afterwards; one that did not
+  take refuses the capture, because a picture of the app in the wrong theme is
+  not the picture the storyboard documents. Two properties are best-effort and
+  only cost a warning: the screen timeout, which changes no pixel, and hiding
+  the battery percentage, which the status bar may refuse to give up;
 - writes the raw PNGs into `build/store-capture/`, wiped at the start of every
   run — a stale image must not be able to stand in for a capture that did not
   happen;

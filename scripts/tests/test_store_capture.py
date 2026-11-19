@@ -32,7 +32,7 @@ spec.loader.exec_module(mod)
 
 def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False,
               ihdr=None, filter_byte=0, before_header=b'', iend_body=b'', trailing=b'',
-              second_header=False):
+              second_header=False, extra_chunks=b''):
     """A PNG of the given size, optionally damaged in one of several ways."""
     def chunk(kind, body, break_crc=False):
         crc = zlib.crc32(kind + body) & 0xffffffff
@@ -56,6 +56,7 @@ def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=Fa
         + head
         + (head if second_header else b'')
         + chunk(b'IDAT', image, break_crc=bad_crc)
+        + extra_chunks
         + chunk(b'IEND', iend_body)
         + trailing
     )
@@ -305,6 +306,16 @@ class ProfileApplicationTest(unittest.TestCase):
     def test_a_settings_file_that_survives_the_reset_is_refused(self):
         device = self.device(
             {('shell', 'run-as', mod.APP_ID, 'ls'): (0, 'files/user_settings.preferences_pb')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
+    def test_a_settings_file_that_cannot_be_read_back_is_refused(self):
+        # A listing that failed for another reason than "there is no such
+        # file" proves nothing about the file being gone.
+        device = self.device(
+            {('shell', 'run-as', mod.APP_ID, 'ls'): (1, 'run-as: Permission denied')}
         )
         with mock.patch.object(mod, 'adb', side_effect=device):
             with self.assertRaises(mod.CaptureError):
@@ -581,6 +592,23 @@ class ImageValidationTest(unittest.TestCase):
     def test_data_after_the_end_marker_is_refused(self):
         problems = self.check(png_bytes(1080, 1920, trailing=b'junk'))
         self.assertTrue(any('after its end marker' in problem for problem in problems), problems)
+
+    def test_an_unknown_critical_chunk_is_refused(self):
+        # A chunk with a capital-letter name is critical: a decoder that does
+        # not know it has to refuse the file.
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        problems = self.check(png_bytes(1080, 1920, extra_chunks=chunk(b'ABCD', b'\x00')))
+        self.assertTrue(any('unknown critical chunk' in problem for problem in problems), problems)
+
+    def test_an_unknown_ancillary_chunk_is_allowed(self):
+        def chunk(kind, body):
+            crc = zlib.crc32(kind + body) & 0xffffffff
+            return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
+
+        self.assertEqual(self.check(png_bytes(1080, 1920, extra_chunks=chunk(b'vpAg', b'\x00'))), [])
 
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))
