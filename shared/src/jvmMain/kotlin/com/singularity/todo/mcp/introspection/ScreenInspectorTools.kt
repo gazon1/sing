@@ -8,6 +8,7 @@ import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -145,11 +146,36 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             ),
         ) { request ->
             val opId = request.requireString("operationId")
+            val timeoutElement = request.arguments?.get("timeoutMs")
             val timeout =
-                request.arguments
-                    ?.get("timeoutMs")
-                    ?.jsonPrimitive
-                    ?.longOrNull ?: 30_000L
+                when (timeoutElement) {
+                    null -> {
+                        30_000L
+                    }
+
+                    is kotlinx.serialization.json.JsonPrimitive -> {
+                        if (timeoutElement.isString || timeoutElement.booleanOrNull != null) {
+                            throw InspectorException(
+                                InspectorErrorCode.INVALID_ARGUMENTS,
+                                "timeoutMs must be a non-negative integer.",
+                            )
+                        }
+                        val value =
+                            timeoutElement.longOrNull
+                                ?: throw InspectorException(
+                                    InspectorErrorCode.INVALID_ARGUMENTS,
+                                    "timeoutMs must be a non-negative integer.",
+                                )
+                        value
+                    }
+
+                    else -> {
+                        throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "timeoutMs must be a non-negative integer.",
+                        )
+                    }
+                }
             if (timeout < 0L) {
                 throw InspectorException(
                     InspectorErrorCode.INVALID_ARGUMENTS,

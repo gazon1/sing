@@ -42,8 +42,15 @@ internal class OperationState(val id: String, val action: String) {
      * complete later, so the timeout is reported to this waiter without marking the operation done.
      */
     suspend fun await(timeoutMs: Long): OperationRecord {
-        if (timeoutMs <= 0) return current
         if (done.isCompleted) return current
+        if (timeoutMs <= 0) {
+            return OperationRecord(
+                id = id,
+                action = action,
+                status = OperationStatus.TIMEOUT,
+                message = "Timed out after ${timeoutMs}ms waiting for operation completion.",
+            )
+        }
         val result = withTimeoutOrNull(timeoutMs) { done.await() }
         if (result != null) return result
         return OperationRecord(
