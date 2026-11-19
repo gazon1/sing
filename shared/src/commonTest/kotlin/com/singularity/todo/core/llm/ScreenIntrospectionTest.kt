@@ -257,6 +257,38 @@ class ScreenIntrospectionTest {
     }
 
     @Test
+    fun `minLength counts unicode code points rather than utf-16 code units`() {
+        val screen =
+            ScreenIntrospection(
+                "screen.test",
+                listOf(
+                    action(
+                        "add_checklist_item",
+                        required = listOf("title"),
+                        properties = mapOf("title" to stringProperty(minLength = 2)),
+                    ),
+                ),
+            )
+        val tooShort =
+            screen.validate(
+                ScreenState(status = "loaded"),
+                "add_checklist_item",
+                buildJsonObject { put("title", "😀") },
+            )
+
+        assertTrue(tooShort.isFailure, "a single emoji is one code point: $tooShort")
+
+        val longEnough =
+            screen.validate(
+                ScreenState(status = "loaded"),
+                "add_checklist_item",
+                buildJsonObject { put("title", "😀a") },
+            )
+
+        assertTrue(longEnough.isSuccess, "two code points satisfy minLength 2: $longEnough")
+    }
+
+    @Test
     fun `an action whose schema uses an unsupported keyword is refused`() {
         val problem =
             runCatching {

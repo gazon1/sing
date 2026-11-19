@@ -126,7 +126,7 @@ class ScreenAction(
         val constraint = propertyConstraints[name] ?: return null
         val text = primitive.content
         return when {
-            constraint.minLength != null && text.length < constraint.minLength -> {
+            constraint.minLength != null && text.codePointCount() < constraint.minLength -> {
                 "'$name' must be at least ${constraint.minLength} characters long"
             }
 
@@ -271,6 +271,19 @@ private fun JsonElement.deepCopy(): JsonElement =
         is JsonArray -> JsonArray(map { it.deepCopy() })
         else -> this
     }
+
+private fun String.codePointCount(): Int {
+    var count = 0
+    var index = 0
+    while (index < length) {
+        val char = this[index++]
+        if (char.isHighSurrogate() && index < length && this[index].isLowSurrogate()) {
+            index++
+        }
+        count++
+    }
+    return count
+}
 
 /**
  * The reusable, agent-facing screen introspection contract.
