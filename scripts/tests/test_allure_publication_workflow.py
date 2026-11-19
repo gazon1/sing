@@ -36,7 +36,9 @@ read, and nothing about the workflow this repository runs.
 
 from __future__ import annotations
 
+import os
 import pathlib
+import subprocess
 import unittest
 
 import yaml
@@ -59,6 +61,20 @@ def _job() -> dict:
 
 def _steps() -> list[dict]:
     return list(_job().get("steps") or [])
+
+
+#: The job that judges the leaves.
+GATE_JOB = "ci-gate"
+
+
+def _gate_job() -> dict:
+    jobs = _workflow().get("jobs") or {}
+    return jobs.get(GATE_JOB) or {}
+
+
+def _gate_run() -> str:
+    steps = list(_gate_job().get("steps") or [])
+    return str((steps[0].get("run") or "") if steps else "")
 
 
 def _index_of(name: str) -> int:
@@ -283,6 +299,101 @@ class PublicationIdentityTest(unittest.TestCase):
         step = _step("Apply publication state (monotonic/idempotent)")
         self.assertIn("--run-attempt", str(step.get("run") or ""))
         self.assertIn("github.run_attempt", str((step.get("env") or {}).get("RUN_ATTEMPT") or ""))
+
+
+class GateScriptTest(unittest.TestCase):
+    """The gate is a shell script, and a shell script can be wrong.
+
+    The gate reads the results of the leaves from the environment and judges
+    them. The judgement lives in a `case`, and a `case` that is closed with
+    `done` instead of `esac` is a syntax error: the step fails, and the gate
+    fails with it — a green repository, a red gate. The script is therefore
+    parsed and executed here, with the results of the leaves as input.
+    """
+
+    #: The result of every judged leaf, and of the advisory publication.
+    RESULTS = {
+        "STATIC": "success",
+        "META": "success",
+        "TESTS": "skipped",
+        "ANDROID": "skipped",
+        "CHANGES": "success",
+        "AGENT_REVIEW": "success",
+        "QUICK": "success",
+        "DETEKT": "success",
+    }
+
+    def _run_gate(self, **overrides) -> subprocess.CompletedProcess:
+        environment = dict(os.environ)
+        environment.update(self.RESULTS)
+        environment.update(overrides)
+        return subprocess.run(
+            ["bash", "-c", _gate_run()],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_the_gate_script_is_a_valid_shell_script(self):
+        result = subprocess.run(
+            ["bash", "-n", "-c", _gate_run()],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_a_green_run_passes_the_gate(self):
+        result = self._run_gate(ALLURE="success")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_a_failed_publication_does_not_fail_the_gate(self):
+        result = self._run_gate(ALLURE="failure")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("::warning::the Allure report was not published", result.stdout)
+
+    def test_a_cancelled_publication_fails_the_gate(self):
+        result = self._run_gate(ALLURE="cancelled")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("FAILED: the Allure publication was", result.stdout)
+
+    def test_a_failed_leaf_fails_the_gate(self):
+        result = self._run_gate(STATIC="failure", ALLURE="success")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("FAILED: failure", result.stdout)
+
+
+class AdvisoryPublicationTest(unittest.TestCase):
+    """The publication does not block a merge or a release.
+
+    A report that could not be published says nothing about the commit, and
+    the gate that blocks merges and releases must not fall for it.
+    """
+
+    def test_the_publication_does_not_fail_the_run(self):
+        self.assertIs(True, _job().get("continue-on-error"))
+
+    def test_the_gate_judges_the_publication_apart(self):
+        env = (list(_gate_job().get("steps") or [])[0].get("env") or {})
+        self.assertIn("ALLURE", env)
+        self.assertIn("needs.publish-allure.result", str(env.get("ALLURE") or ""))
+
+    def test_a_failed_publication_is_reported_and_does_not_fail_the_gate(self):
+        run = _gate_run()
+        self.assertIn("::warning::the Allure report was not published", run)
+        self.assertNotIn('failure) echo "FAILED', run)
+
+    def test_a_cancelled_publication_fails_the_gate(self):
+        run = _gate_run()
+        self.assertIn("FAILED: the Allure publication was", run)
+
+    def test_the_gate_still_fails_on_a_failed_leaf(self):
+        run = _gate_run()
+        self.assertIn('*) echo "FAILED: $r"; exit 1 ;;', run)
+
+    def test_the_gate_still_waits_for_the_publication(self):
+        self.assertIn("publish-allure", list(_gate_job().get("needs") or []))
 
 
 if __name__ == "__main__":

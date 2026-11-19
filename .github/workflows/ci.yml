@@ -1716,6 +1716,14 @@ jobs:
   # their verdicts are still missing. The coverage measurement needs no entry:
   # it is two conditional steps of `tests`, which is already in the list, and a
   # skipped step is not a job the gate waits for.
+  #
+  # `publish-allure` is waited for but not judged. It publishes a report, and
+  # a report that could not be published says nothing about the commit: a
+  # mirror of Maven Central that rate-limits, or a Pages deployment that
+  # does not answer, would fail the one check that blocks merges and
+  # releases. The job itself is marked `continue-on-error`, so the run does
+  # not fail either. Both halves are needed: a tolerated failure in a job
+  # the gate requires is a gate that fails.
   ci-gate:
     name: CI gate
     if: ${{ always() }}
@@ -1725,17 +1733,34 @@ jobs:
     steps:
       - name: All required jobs succeeded
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          STATIC: ${{ needs.static.result }}
+          META: ${{ needs.meta.result }}
+          TESTS: ${{ needs.tests.result }}
+          ANDROID: ${{ needs.android.result }}
+          CHANGES: ${{ needs.changes.result }}
+          AGENT_REVIEW: ${{ needs.agent-review.result }}
+          QUICK: ${{ needs.quick.result }}
+          DETEKT: ${{ needs.detekt.result }}
+          ALLURE: ${{ needs.publish-allure.result }}
         run: |
-          echo "job results: $RESULTS"
+          echo "job results: $STATIC $META $TESTS $ANDROID $CHANGES $AGENT_REVIEW $QUICK $DETEKT"
+          echo "allure publication: $ALLURE"
           # static must pass; tests/android may be skipped (path-filtered).
           # A skipped job has result "skipped" — not a failure.
-          for r in $RESULTS; do
+          for r in $STATIC $META $TESTS $ANDROID $CHANGES $AGENT_REVIEW $QUICK $DETEKT; do
             case "$r" in
               success|skipped) ;;
               *) echo "FAILED: $r"; exit 1 ;;
             esac
           done
+          # The report publication is advisory: its failure is named here and
+          # does not fail the gate. A cancelled publication is not a failure
+          # of the report but of the run, and it is judged like any other.
+          case "$ALLURE" in
+            success|skipped) ;;
+            failure) echo "::warning::the Allure report was not published" ;;
+            *) echo "FAILED: the Allure publication was $ALLURE"; exit 1 ;;
+          esac
 
   # ── ADR + spec-kit ──────────────────────────────────────────────────────
   # Moved out of adr-gate.yml; the workflow-level `paths:` filter is now
@@ -1820,6 +1845,17 @@ jobs:
     name: Publish Allure Pages
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    # The publication is a report, not a gate. A report that could not be
+    # published must not block a merge or a release: this job is a leaf of
+    # the one check that blocks both, so a failure here — a mirror of Maven
+    # Central that rate-limits, a Pages deployment that does not answer —
+    # stopped the repository from shipping. The job still fails, and the
+    # failure is visible in the run; it does not fail the run.
+    #
+    # `ci-gate` judges this job apart from the others for the same reason:
+    # a tolerated failure in a job that the gate requires is a gate that
+    # fails, and a gate that fails is a release that does not happen.
+    continue-on-error: true
     needs: [changes, tests]
     if: >-
       ${{

@@ -127,6 +127,17 @@ before "who receives the file", so R8 lands first and signing second.
   `check-readme-claims.py` were declared `both` and ran only in CI. Routing them
   through the registry is what turns the declaration true.
 
+## Amendment (2026-11-19)
+
+The statement above that the gate "asserts that every leaf's `result` is
+`success`" no longer holds for every leaf. The publication leaf
+(`publish-allure`) is waited for and judged apart from the required leaves: its
+failure is reported as a warning and does not fail the gate, because a report
+that could not be published says nothing about the commit, and this gate blocks
+merges and releases alike.
+
+See `2026-11-19-the-allure-publication-does-not-block-a-merge-or-a-release.md`.
+
 ## Links
 
 - `2026-10-05-ci-checks-run-in-parallel.md` — the measured, built and withdrawn
