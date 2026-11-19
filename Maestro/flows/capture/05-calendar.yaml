@@ -1,0 +1,65 @@
+# The fifth store screenshot: the calendar — the month at a glance.
+#
+# The month the capture happens in is the month the app opens on, so the cell
+# of today is one of the grid's cells. The three tasks due today are always in
+# it, and they are what this flow asserts: the rest of the dataset crosses into
+# the next month whenever the capture happens on the 29th, the 30th or the 31st,
+# so a flow that asserted the whole set would fail on some days of the year.
+#
+# What the flow asserts is the *count* of the tasks in today's cell, and not
+# their titles. A month cell is a small box: it draws one dot per task and a
+# badge with the number of the tasks of the day, and it clips the dots it
+# cannot fit — a cell that is one line shorter shows two of the three titles
+# and hides the third. The badge is the number of the tasks in the cell on
+# every device, so the badge is what the flow waits for; the titles live in the
+# day view, where the whole list fits, and the day view is not what this
+# screenshot is of.
+#
+# The badge is a number of its own, so it is asserted as the number 3 — the
+# three tasks the dataset puts due today.
+#
+# One boundary is worth writing down: the dataset resolves `due=today` on the
+# device, one deep link at a time, so a run that crosses midnight while
+# seeding leaves the three tasks split over two days. The count below is then
+# not 3, and the flow fails on it — loudly, and before the screenshot. Run the
+# capture again after midnight.
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: capture-calendar
+tags:
+  - manual
+  - capture
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+# The dates the flow builds its expectations from come from the *host's* clock:
+# the script that computes them runs in the Maestro process on the host, not on
+# the device. The host's date and time zone must be the device's — the emulator
+# follows the host, but a physical device does not. When they disagree, the
+# flow fails on the badge below instead of asserting on the wrong day: three
+# tasks are due today and one task is due on every other day, so no other cell
+# of the grid carries the number 3.
+- runScript: ../../helpers/scripts/date.js
+# The Calendar is a tab: the hand reaches it in the bar.
+- tapOn:
+    id: nav_tab_calendar
+# The view names the period it is showing.
+- extendedWaitUntil:
+    visible:
+      id: calendar_month_title
+    timeout: 8000
+# The grid is showing the current month: today's cell is one of its cells.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
+# The three tasks due today, counted in the cell of today. The badge is the
+# number of the tasks in the cell, and it sits in the row below the day number
+# — hence the nested child: the cell holds the row, the row holds the badge.
+- runFlow:
+    file: ../../helpers/calendar-day-cell-task-count.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
+      TASK_COUNT: "3"
+- waitForAnimationToEnd
+- takeScreenshot: 05-calendar

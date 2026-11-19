@@ -1,0 +1,51 @@
+# The third store screenshot: a project — its own task list and the chip that
+# says it has a sub-project.
+#
+# The project is reached through the full project list: the menu's own tree
+# holds the roots, but the tree sits at the bottom of the sheet, and a sheet
+# that is still settling when the tap lands can hand the tap to the row above
+# the one that was asked for. The list is a screen of its own, so the tap
+# there is a tap on a row that is not moving.
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: capture-project-detail
+tags:
+  - manual
+  - capture
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+# The Projects section sits at the end of the menu sheet, so the way into the
+# full list is scrolled to — a bare tap would fail on where the entry is drawn
+# rather than on whether it exists.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_all_projects
+# The list holds the project as a card, and the card is the way into it.
+- extendedWaitUntil:
+    visible:
+      id: project_card_home_renovation
+    timeout: 8000
+- tapOn:
+    id: project_card_home_renovation
+# The project's own screen is open: it says which project it is, and the chip
+# that says how many sub-projects it has is on it.
+- extendedWaitUntil:
+    visible:
+      id: project_detail_children_chip
+    timeout: 8000
+- assertVisible:
+    id: shell_bar_title
+    text: "Home renovation"
+- assertVisible:
+    id: project_detail_children_chip
+# The project's own task list: a screen with no task on it is not the shot.
+- assertVisible:
+    id: task_item_send_the_deposit_invoice
+- waitForAnimationToEnd
+- takeScreenshot: 03-project-detail

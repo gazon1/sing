@@ -1,0 +1,50 @@
+# The sixth store screenshot: a note — text that points at the work.
+#
+# The note is the one the dataset links to a task, so the preview shows what the
+# storyboard says it shows: a paragraph of text and a link to the task it
+# belongs to.
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: capture-notes
+tags:
+  - manual
+  - capture
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+# Notes live behind the Menu sheet rather than a bottom-bar tab.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_notes
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 5000
+# The note is addressed by its title: the id is a generated ULID the flow never
+# learns.
+- scrollUntilVisible:
+    element:
+      id: note_item_by_title_launch_post_outline
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: note_item_by_title_launch_post_outline
+# The preview is where the body is rendered.
+- extendedWaitUntil:
+    visible:
+      id: note_action_edit
+    timeout: 8000
+- assertVisible:
+    text: "Launch post outline"
+- assertVisible:
+    text: ".*Hook, three features, one call to action.*"
+# The link's label is the task the note points at — the thing the shot is for.
+- assertVisible:
+    text: ".*Write the launch post.*"
+- waitForAnimationToEnd
+- takeScreenshot: 06-notes

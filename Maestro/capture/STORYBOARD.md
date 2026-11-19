@@ -10,9 +10,10 @@ The machine-readable half of this document is
 behind each capture. This document is the half that says *why* each image is
 there. Change one, change the other.
 
-The capture flows themselves land with #3004; the local capture command and the
-raw-image validation land with #3005. Nothing here runs yet — the dataset and
-the story are what this issue delivers.
+The capture flows themselves live in `Maestro/flows/capture/` — one flow per
+screenshot, in the order above, each of them seeding the dataset below before
+it takes its shot. The local capture command and the raw-image validation land
+with #3005; until that command lands, the flows are run by hand, one at a time.
 
 ## The story
 

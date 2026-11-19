@@ -1,0 +1,42 @@
+# The first store screenshot: the Today screen with the work that is due now.
+#
+# The dataset is the storyboard's (Maestro/capture/demo-dataset.yaml): three
+# tasks due today, so the screen is never empty. The flow asserts the section
+# and the three rows before the shot — a navigation that lands on a blank list
+# must not produce a screenshot.
+#
+# Tagged `manual` and `capture`: the capture runs on the store capture device,
+# on purpose, and the nightly full suite must not pay for it. The `capture`
+# tag is the area of the flow — it selects the whole capture set by tag and
+# nothing else, so a run of one feature never runs the capture set.
+#
+# One boundary is worth writing down: the dataset resolves `due=today` on the
+# device, one deep link at a time, so a run that crosses midnight while
+# seeding leaves one of the three tasks on the day before. The row is then
+# missing, and the flow fails on it — loudly, and before the screenshot. Run
+# the capture again after midnight.
+# прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
+appId: com.singularity.todo
+name: capture-today
+tags:
+  - manual
+  - capture
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+# The section that holds what is due today. It renders because the dataset put
+# tasks in it, so this waits for the content and not for the screen.
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 8000
+# The three tasks the storyboard promises. The rows are what the reader sees,
+# and the screenshot is taken with all three on screen.
+- assertVisible:
+    id: task_item_review_the_launch_checklist
+- assertVisible:
+    id: task_item_order_the_kitchen_tiles
+- assertVisible:
+    id: task_item_book_the_electrician
+- waitForAnimationToEnd
+- takeScreenshot: 01-today
