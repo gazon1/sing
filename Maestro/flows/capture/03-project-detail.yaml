@@ -1,0 +1,41 @@
+# The third store screenshot: a project — its own task list and the chip that
+# says it has a sub-project.
+#
+# On Android the menu lists the root projects only, so the project is reached
+# through its row in the menu's tree. The row is addressed by the project's
+# seeded id (`demo-renovation`), not by its name: a name is copy, an id is not.
+# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+appId: com.singularity.todo
+name: capture-project-detail
+tags:
+  - manual
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+# The menu's Projects section is folded until it is unfolded.
+- runFlow: ../../helpers/expand-projects-section.yaml
+# The projects sit at the end of the sheet, below the fold.
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_demo_renovation
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_project_node_demo_renovation
+# The project's own screen is open: it says which project it is, and the chip
+# that says how many sub-projects it has is on it.
+- extendedWaitUntil:
+    visible:
+      id: project_detail_children_chip
+    timeout: 8000
+- assertVisible:
+    id: shell_bar_title
+    text: "Home renovation"
+- assertVisible:
+    id: project_detail_children_chip
+# The project's own task list: a screen with no task on it is not the shot.
+- assertVisible:
+    id: task_item_send_the_deposit_invoice
+- waitForAnimationToEnd
+- takeScreenshot: 03-project-detail

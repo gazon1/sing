@@ -127,7 +127,8 @@ Maestro/
     ├── settings/               # Interface (theme), Notifications
     ├── profile/                # create a profile from the Menu sheet
     ├── sync/                   # offline create survives no connectivity
-    └── system/                 # shell-level chrome (menu sheet)
+    ├── system/                 # shell-level chrome (menu sheet)
+    └── capture/                # the store screenshots — one flow per storyboard shot, tag `manual`
 ```
 
 The subdirectory split mirrors `shared/src/commonMain/.../feature/`, so a flow

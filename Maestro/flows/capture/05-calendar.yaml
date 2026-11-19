@@ -1,0 +1,43 @@
+# The fifth store screenshot: the calendar — the month at a glance.
+#
+# The month the capture happens in is the month the app opens on, so the cell
+# of today is one of the grid's cells. The three tasks due today are always in
+# it, and they are what this flow asserts: the rest of the dataset crosses into
+# the next month whenever the capture happens on the 29th, the 30th or the 31st,
+# so a flow that asserted the whole set would fail on some days of the year.
+#
+# A task in a month cell is a dot, and the dot carries the task's title as its
+# accessibility description — which is what `text` matches. The `.*` around it
+# is what lets the assertion survive the cell merging its dots into one node.
+# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+appId: com.singularity.todo
+name: capture-calendar
+tags:
+  - manual
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+# The dates the flow builds its expectations from come from the device's clock.
+- runScript: ../../helpers/scripts/date.js
+# The Calendar is a tab: the hand reaches it in the bar.
+- tapOn:
+    id: nav_tab_calendar
+# The view names the period it is showing.
+- extendedWaitUntil:
+    visible:
+      id: calendar_month_title
+    timeout: 8000
+# The grid is showing the current month: today's cell is one of its cells.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
+# The three tasks due today, in the cell of today.
+- assertVisible:
+    text: ".*Review the launch checklist.*"
+- assertVisible:
+    text: ".*Order the kitchen tiles.*"
+- assertVisible:
+    text: ".*Book the electrician.*"
+- waitForAnimationToEnd
+- takeScreenshot: 05-calendar

@@ -1,0 +1,38 @@
+# The second store screenshot: a task's detail — what, when, how urgent.
+#
+# The task is the one the storyboard names, opened from Today, so the shot is
+# reached the way a reader reaches it. The title is asserted as text: the id
+# says that *a* title field is open, the text says it is *this* task's.
+# прогнан на устройстве: нет (2026-11-19) — поток добавлен в #3004, устройство не было доступно
+appId: com.singularity.todo
+name: capture-task-detail
+tags:
+  - manual
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../capture/demo-dataset.yaml
+# The row to open. Waiting for it first means the tap below cannot land on a
+# list that has not composed yet.
+- extendedWaitUntil:
+    visible:
+      id: task_item_review_the_launch_checklist
+    timeout: 8000
+- tapOn:
+    id: task_item_review_the_launch_checklist
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# The title carries the task's own name, so this is the proof that the editor
+# is this task's and not merely that an editor opened.
+- assertVisible:
+    text: "Review the launch checklist"
+# What the screen is for: the description, the date and the priority.
+- assertVisible:
+    id: task_editor_description_input
+- assertVisible:
+    id: task_editor_due_row
+- assertVisible:
+    id: task_editor_priority_row
+- waitForAnimationToEnd
+- takeScreenshot: 02-task-detail
