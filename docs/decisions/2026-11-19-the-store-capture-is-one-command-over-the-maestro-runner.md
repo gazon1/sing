@@ -105,7 +105,9 @@ The palette is checked as well. An indexed image is a list of indices into a
 palette, so a palette is required for one, there is at most one of it, it has
 to be a whole number of three-byte entries, it has to be in the file before
 the pixels that index into it, and a colour type that has no colours to index
-must not carry one at all.
+must not carry one at all. A chunk is also named the way the format says: four
+letters, with the reserved bit of the third one set. A name that is not that
+is not a chunk name, and a decoder has to refuse the file.
 
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
@@ -122,7 +124,9 @@ on it.
 **The profile lives in the manifest, next to the captures it constrains.**
 `Maestro/capture/manifest.yaml` carries the width, the height, the aspect and
 the format; the image check reads them from there. The storyboard, the manifest
-and the checker cannot drift apart, and the numbers are not written twice.
+and the checker cannot drift apart, and the numbers are not written twice. A
+profile without a size or without an aspect is refused: a contract that does
+not say what the images have to look like is not a contract.
 
 **The output directory is a dedicated generated directory, wiped at the start
 of every run.** A PNG left by an earlier run must never be able to stand in
@@ -172,7 +176,10 @@ drift.
   a screenshot of the app in the wrong theme or the wrong language is not the
   screenshot the storyboard documents, and no check on the picture's shape
   would notice. Each of them is read back from the device after it is set, so
-  a command that says nothing and changes nothing is caught. Two properties
+  a command that says nothing and changes nothing is caught. The locale is
+  read as the ordered list the device reports: the first entry is the language
+  the app is shown in, so a device that reports English first and Russian as a
+  fallback is refused. Two properties
   are best-effort and only cost a warning: the screen timeout, which changes
   no pixel, and hiding the battery percentage, which the status bar may refuse
   to give up. The theme and the font scale are the app's own settings, so they
@@ -184,7 +191,10 @@ drift.
   carry nothing personal and are allowed. The check is closed: a device that
   cannot be asked about its notifications, whose shade cannot be collapsed, or
   whose notification record has no readable package refuses the capture as
-  well, because an unread status bar is not a clean one. The notifications are
+  well, because an unread status bar is not a clean one. A dump that holds no
+  notification record at all has to look like the state of the notification
+  manager: a format this checker does not know is not an empty list. The
+  notifications are
   looked at again before every screenshot, because a notification that arrives
   while a flow plays is a notification in the picture.
 - The app's own settings are reset by stopping the app and dropping its
@@ -204,12 +214,15 @@ drift.
   a chunk before the header, a second header, data in or after the end marker,
   an unknown critical chunk, image data that is not one run of chunks, a split
   run hidden behind an empty image-data chunk, a palette that is missing,
-  malformed or late, a second palette, data
+  malformed or late, a second palette, a chunk with a name that is not four
+  letters, data
   after the compressed image, and the profile: a reset the device refuses, an
   app that cannot be stopped, a property that does not take, a settings file
   that survives the reset, a settings file that cannot be read back, a
   notification that cannot be inspected, a notification record without a
-  readable package, a shade that cannot be collapsed). The order of the capture
+  readable package, a dump that is not a notification dump, a shade that cannot
+  be collapsed, a locale that is only a fallback, a profile without a size or
+  an aspect). The order of the capture
   is covered as well: the notifications are looked at again after the flow and
   before the screenshot.
 - The six flows are still `manual` and `capture`-tagged, so the nightly full

@@ -150,6 +150,31 @@ class ManifestTest(unittest.TestCase):
                 mod.load_manifest(path)
 
 
+    def test_a_profile_without_a_size_is_refused(self):
+        # The profile is the contract every image is measured against: one
+        # without a size does not say what the images have to look like.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text(
+                'profile:\n  aspect: "9:16"\n'
+                'captures:\n  - {order: 1, file: a.png, flow: a.yaml}\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
+    def test_a_profile_without_an_aspect_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text(
+                'profile:\n  width: 1080\n  height: 1920\n'
+                'captures:\n  - {order: 1, file: a.png, flow: a.yaml}\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
+
 class DeviceResolutionTest(unittest.TestCase):
     def test_the_daemon_chatter_is_not_a_device(self):
         text = ('List of devices attached\n'
@@ -267,6 +292,7 @@ class ProfileApplicationTest(unittest.TestCase):
             ('shell', 'settings', 'put', 'system', 'font_scale'): (0, ''),
             ('shell', 'settings', 'get', 'system', 'font_scale'): (0, '1.0'),
             ('shell', 'settings', 'put', 'system', 'screen_off_timeout'): (0, ''),
+            ('shell', 'dumpsys', 'notification'): (0, 'Current Notification Manager state:\n'),
         }
 
         def fake_adb(*args, serial='', timeout=60):
@@ -360,6 +386,21 @@ class ProfileApplicationTest(unittest.TestCase):
             with self.assertRaises(mod.CaptureError):
                 mod.apply_profile('emulator-5554')
 
+    def test_a_locale_that_is_only_a_fallback_is_refused(self):
+        # Android keeps an ordered list of locales: the first one is the
+        # language the app is shown in. A device that reports English first
+        # and Russian as a fallback would capture the app in English.
+        device = self.device(
+            {
+                ('shell', 'cmd', 'locale', 'get-app-locales'): (
+                    0, 'Locales for com.singularity.todo for user 0 are [en-US, ru-RU]'
+                )
+            }
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
     def test_a_font_scale_that_does_not_take_is_refused(self):
         device = self.device(
             {('shell', 'settings', 'get', 'system', 'font_scale'): (0, '1.3')}
@@ -416,11 +457,19 @@ class StatusBarTest(unittest.TestCase):
         with mock.patch.object(mod, 'adb', side_effect=fake_adb):
             self.assertEqual(mod.clean_status_bar('emulator-5554'), [])
 
+    def test_a_dump_that_holds_no_list_is_refused(self):
+        # A dump in a format this checker does not know is not an empty
+        # notification list: it is a status bar nobody has read.
+        with self.assertRaises(ValueError):
+            mod.notification_packages('something entirely different\n')
+
     def test_the_battery_percentage_is_hidden(self):
         calls = []
 
         def fake_adb(*args, serial='', timeout=60):
             calls.append(args)
+            if 'dumpsys' in args:
+                return 0, 'Current Notification Manager state:\n'
             return 0, ''
 
         with mock.patch.object(mod, 'adb', side_effect=fake_adb):
@@ -721,6 +770,16 @@ class ImageValidationTest(unittest.TestCase):
         )
         problems = self.check(data)
         self.assertTrue(any('more than one palette' in problem for problem in problems), problems)
+
+    def test_a_chunk_with_a_malformed_name_is_refused(self):
+        # A chunk is named by four letters, and the third of them carries the
+        # reserved bit. A name that is not that is not a chunk name.
+        problems = self.check(png_bytes(1080, 1920, extra_chunks=png_chunk(b'\x01bad', b'\x00')))
+        self.assertTrue(any('malformed name' in problem for problem in problems), problems)
+
+    def test_a_chunk_with_a_lowercase_reserved_bit_is_refused(self):
+        problems = self.check(png_bytes(1080, 1920, extra_chunks=png_chunk(b'abcd', b'\x00')))
+        self.assertTrue(any('malformed name' in problem for problem in problems), problems)
 
     def test_data_after_the_compressed_image_is_refused(self):
         # The compressed data of a PNG is one zlib stream and nothing else.

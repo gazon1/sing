@@ -117,9 +117,9 @@ class Profile:
     the storyboard, the manifest and the checker cannot drift apart.
     """
 
-    width: int | None = None
-    height: int | None = None
-    aspect: tuple[int, int] | None = None
+    width: int
+    height: int
+    aspect: tuple[int, int]
     format: str = "png"
 
 
@@ -132,11 +132,20 @@ class Manifest:
 
 
 def _profile(raw: dict) -> Profile:
-    """Read the profile block of the manifest."""
+    """Read the profile block of the manifest.
+
+    The profile is the contract every capture is measured against, so a
+    profile without a size or without an aspect is not a profile: it is a
+    manifest that stopped saying what the images have to look like.
+    """
     if not isinstance(raw, dict):
         raise CaptureError(f"the manifest's profile is not a mapping: {raw!r}")
     width = raw.get("width")
     height = raw.get("height")
+    if not width or not height:
+        raise CaptureError(
+            f"the manifest's profile has no width and height: {raw!r}"
+        )
     aspect = None
     if raw.get("aspect"):
         try:
@@ -146,9 +155,11 @@ def _profile(raw: dict) -> Profile:
             raise CaptureError(
                 f"the manifest's aspect is not a 'width:height' pair: {raw['aspect']!r}"
             ) from exc
+    if aspect is None:
+        raise CaptureError(f"the manifest's profile has no aspect ratio: {raw!r}")
     return Profile(
-        width=int(width) if width else None,
-        height=int(height) if height else None,
+        width=int(width),
+        height=int(height),
         aspect=aspect,
         format=str(raw.get("format", "png")).lower(),
     )
@@ -310,7 +321,7 @@ def apply_profile(serial: str) -> list[str]:
             "the app locale",
             ("shell", "cmd", "locale", "set-app-locales", APP_ID, "--locales", "ru-RU"),
             ("shell", "cmd", "locale", "get-app-locales", APP_ID),
-            "contains",
+            "locale",
             "ru-RU",
         ),
         (
@@ -431,11 +442,17 @@ def notification_packages(dumps: str) -> list[str]:
     clear: the dump says a notification is there, and nobody can say whose it
     is. That is refused rather than ignored — an unread notification is a
     notification in the picture.
+
+    A dump that holds no record at all has to look like a dump of an empty
+    notification list. A format this checker does not know is not an empty
+    list: it is a status bar nobody has read.
     """
     packages: list[str] = []
+    records = 0
     for line in dumps.splitlines():
         if "NotificationRecord(" not in line:
             continue
+        records += 1
         match = re.search(r"\bpkg=(\S+)", line)
         if not match:
             raise ValueError(
@@ -444,7 +461,22 @@ def notification_packages(dumps: str) -> list[str]:
             )
         if match.group(1) not in packages:
             packages.append(match.group(1))
+    if not records and not _looks_like_a_notification_dump(dumps):
+        raise ValueError(
+            "a notification dump this checker cannot read: it holds no "
+            "notification record and does not look like a notification list"
+        )
     return packages
+
+
+def _looks_like_a_notification_dump(dumps: str) -> bool:
+    """Whether the dump looks like the state of the notification manager.
+
+    The two markers are the header of the dump and the list of the
+    notifications in it. A dump that holds neither is a dump in a format
+    this checker does not know.
+    """
+    return "Current Notification Manager state" in dumps or "Notification List" in dumps
 
 
 def _holds(output: str, how: str, expected: str) -> bool:
@@ -454,7 +486,27 @@ def _holds(output: str, how: str, expected: str) -> bool:
         return expected in text
     if how == "word":
         return bool(text.split()) and text.split()[-1] == expected
+    if how == "locale":
+        return app_locales(output) == [expected]
     return text.splitlines()[-1].strip() == expected if text else False
+
+
+def app_locales(output: str) -> list[str]:
+    """The locales the device reports for the app, in the order it holds them.
+
+    Android keeps an ordered list: the first locale is the one the app is
+    shown in and the rest are fallbacks. A locale that is only somewhere in
+    the list is not the language of the capture, so the list is read as a
+    list and not searched for a word.
+    """
+    start = output.find("[")
+    end = output.rfind("]")
+    if start == -1 or end < start:
+        return []
+    inside = output[start + 1 : end].strip()
+    if not inside:
+        return []
+    return [item.strip() for item in inside.split(",") if item.strip()]
 
 
 def reset_app_settings(serial: str) -> list[str]:
@@ -773,6 +825,13 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         body = data[position + 8 : end]
         if zlib.crc32(kind + body) & 0xFFFFFFFF != int.from_bytes(data[end : end + 4], "big"):
             broken_checksums += 1
+        if not kind.isascii() or not kind.isalpha() or not kind[2:3].isupper():
+            # A chunk is named by four letters, and the third of them carries
+            # the reserved bit, which has to be set. A name that is not that
+            # is not a chunk name, and a decoder has to refuse the file.
+            problems.append("has a chunk with a malformed name")
+            position = end + 4
+            continue
         if kind == b"IHDR":
             if length != 13:
                 # The header is exactly thirteen bytes by the specification;
@@ -906,16 +965,15 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
                     problems.append(
                         f"has a scanline with the invalid filter {bad}"
                     )
-    if profile.width and profile.height and (width, height) != (profile.width, profile.height):
+    if (width, height) != (profile.width, profile.height):
         problems.append(
             f"is {width}x{height}, expected {profile.width}x{profile.height}"
         )
-    if profile.aspect:
-        left, right = profile.aspect
-        # width/height against left/right, as a cross product: the tolerance is
-        # one percent of the product, so a rounding difference does not fail.
-        if abs(width * right - height * left) > max(1, width * right // 100):
-            problems.append(f"is {width}x{height}, which is not {left}:{right}")
+    left, right = profile.aspect
+    # width/height against left/right, as a cross product: the tolerance is
+    # one percent of the product, so a rounding difference does not fail.
+    if abs(width * right - height * left) > max(1, width * right // 100):
+        problems.append(f"is {width}x{height}, which is not {left}:{right}")
     return problems
 
 

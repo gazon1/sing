@@ -124,7 +124,10 @@ The profile is a contract, not a wish. The locale, the light theme and the
 font scale have to hold, and each one is read back from the device after it
 is set: a screenshot of the app in the wrong theme or the wrong language is
 not the screenshot this storyboard documents, and no check on the picture's
-shape would notice. A property the device refuses aborts the capture. Two
+shape would notice. The locale is read as the ordered list the device reports
+— the first entry is the language the app is shown in, so a device that shows
+English first and keeps Russian as a fallback is refused. A property the
+device refuses aborts the capture. Two
 properties are best-effort and only cost a warning: the screen timeout, which
 changes no pixel, and hiding the battery percentage, which the status bar may
 refuse to give up.
@@ -137,7 +140,9 @@ may publish. The system's own notifications are left alone — they carry
 nothing of the person who owns the device. A device that cannot be asked
 about its notifications, whose shade cannot be collapsed, or whose
 notification cannot be read refuses the capture as well: a status bar nobody
-managed to read is not a clean one.
+managed to read is not a clean one. A dump that holds no notification at all
+has to look like the state of the notification manager — a format the command
+does not know is not an empty list.
 
 The notifications are looked at again before every single screenshot, and the
 shade is collapsed again with them: a notification that arrives while a flow
