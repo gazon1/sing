@@ -31,7 +31,7 @@ spec.loader.exec_module(mod)
 
 
 def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=False, bad_crc=False,
-              ihdr=None):
+              ihdr=None, filter_byte=0):
     """A PNG of the given size, optionally damaged in one of several ways."""
     def chunk(kind, body, break_crc=False):
         crc = zlib.crc32(kind + body) & 0xffffffff
@@ -39,7 +39,7 @@ def png_bytes(width, height, *, broken_data=False, cut=False, empty_scanlines=Fa
             crc ^= 0xffffffff
         return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', crc)
 
-    raw = b''.join(b'\x00' + b'\x00' * (width * 3) for _ in range(height))
+    raw = b''.join(bytes([filter_byte]) + b'\x00' * (width * 3) for _ in range(height))
     image = zlib.compress(raw)
     if broken_data:
         image = image[:-4]
@@ -237,14 +237,46 @@ class IdentityTest(unittest.TestCase):
 
 
 class ProfileApplicationTest(unittest.TestCase):
+    """The profile is a contract: the device has to end up in it."""
+
+    def device(self, overrides=None):
+        """A device that answers the profile the way the capture expects."""
+        overrides = overrides or {}
+        answers = {
+            ('shell', 'run-as', mod.APP_ID, 'rm'): (0, ''),
+            ('shell', 'run-as', mod.APP_ID, 'ls'): (1, 'No such file or directory'),
+            ('shell', 'cmd', 'locale', 'set-app-locales'): (0, ''),
+            ('shell', 'cmd', 'locale', 'get-app-locales'): (
+                0, 'Locales for com.singularity.todo for user 0 are [ru-RU]'
+            ),
+            ('shell', 'cmd', 'uimode', 'night', 'no'): (0, ''),
+            ('shell', 'cmd', 'uimode', 'night'): (0, 'Night mode: no'),
+            ('shell', 'settings', 'put', 'system', 'font_scale'): (0, ''),
+            ('shell', 'settings', 'get', 'system', 'font_scale'): (0, '1.0'),
+            ('shell', 'settings', 'put', 'system', 'screen_off_timeout'): (0, ''),
+        }
+
+        def fake_adb(*args, serial='', timeout=60):
+            key = tuple(args)
+            for prefix, answer in overrides.items():
+                if key[:len(prefix)] == prefix:
+                    return answer
+            for prefix, answer in answers.items():
+                if key[:len(prefix)] == prefix:
+                    return answer
+            return 0, ''
+
+        return fake_adb
+
     def test_the_apps_own_settings_are_reset(self):
         # The theme and the font scale are the app's settings: without this
         # step a device that was once in the dark theme stays in it.
         calls = []
+        device = self.device()
 
         def fake_adb(*args, serial='', timeout=60):
             calls.append((args, serial))
-            return 0, ''
+            return device(*args, serial=serial, timeout=timeout)
 
         with mock.patch.object(mod, 'adb', side_effect=fake_adb):
             warnings = mod.apply_profile('emulator-5554')
@@ -255,17 +287,64 @@ class ProfileApplicationTest(unittest.TestCase):
             [args for args, _ in calls],
         )
 
-    def test_a_device_that_refuses_the_reset_is_a_warning(self):
-        def fake_adb(*args, serial='', timeout=60):
-            if 'run-as' in args:
-                return 1, 'run-as: Package not debuggable'
-            return 0, ''
+    def test_a_device_that_refuses_the_reset_is_refused(self):
+        # The capture would be published in the app's own old look, and the
+        # image check cannot see the difference.
+        device = self.device(
+            {('shell', 'run-as', mod.APP_ID, 'rm'): (1, 'run-as: Package not debuggable')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
 
-        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+    def test_a_settings_file_that_survives_the_reset_is_refused(self):
+        device = self.device(
+            {('shell', 'run-as', mod.APP_ID, 'ls'): (0, 'files/user_settings.preferences_pb')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
+    def test_a_theme_that_does_not_take_is_refused(self):
+        # The device says it set the light theme and still reports the dark
+        # one — the captures would be the wrong theme.
+        device = self.device(
+            {('shell', 'cmd', 'uimode', 'night'): (0, 'Night mode: yes')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
+    def test_a_locale_that_does_not_take_is_refused(self):
+        device = self.device(
+            {
+                ('shell', 'cmd', 'locale', 'get-app-locales'): (
+                    0, 'Locales for com.singularity.todo for user 0 are [en-US]'
+                )
+            }
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
+    def test_a_font_scale_that_does_not_take_is_refused(self):
+        device = self.device(
+            {('shell', 'settings', 'get', 'system', 'font_scale'): (0, '1.3')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
+    def test_the_screen_timeout_only_costs_the_screen(self):
+        # The timeout changes no pixel, so a device that refuses it is a
+        # warning and not a refusal.
+        device = self.device(
+            {('shell', 'settings', 'put', 'system', 'screen_off_timeout'): (1, 'denied')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
             warnings = mod.apply_profile('emulator-5554')
 
-        self.assertTrue(warnings)
-        self.assertIn('settings could not be reset', warnings[0])
+        self.assertTrue(any('screen timeout' in warning for warning in warnings), warnings)
 
 
 class ImageValidationTest(unittest.TestCase):
@@ -340,6 +419,12 @@ class ImageValidationTest(unittest.TestCase):
             png_bytes(1080, 1920, empty_scanlines=True, ihdr=(0, 0, 8, 2, 0, 0, 0))
         )
         self.assertTrue(any('not an image' in problem for problem in problems), problems)
+
+    def test_an_illegal_filter_byte_is_refused(self):
+        # PNG knows five filters; a sixth one is not a picture anybody can
+        # decode, even with the right size and the right number of bytes.
+        problems = self.check(png_bytes(1080, 1920, filter_byte=5))
+        self.assertTrue(any('filter' in problem for problem in problems), problems)
 
     def test_the_wrong_size_is_refused(self):
         problems = self.check(png_bytes(1080, 1440))

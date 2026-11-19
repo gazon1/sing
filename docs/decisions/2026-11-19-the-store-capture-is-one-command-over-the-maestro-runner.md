@@ -89,6 +89,10 @@ is not a legal pair, an unknown compression or filter method — in each case
 the pixels behind the header would never be counted, so the image would pass
 without anybody looking at it.
 
+The scanlines themselves are looked at as well: every one of them starts with
+a filter byte, and PNG knows only five of them. A sixth value is not a
+picture anybody can decode, so it is refused.
+
 **The profile is applied to the app's own settings, not only to the system.**
 The theme and the font scale are the app's settings: they live in the app's
 data, so `cmd uimode night no` and `settings put system font_scale` do not
@@ -96,7 +100,10 @@ reach them, and a device where somebody once chose the dark theme would keep
 the dark theme after an install. The command resets the app's settings file
 before the first flow, so the app comes up with its defaults — the system
 theme, which the command puts into light mode, and a font scale of 1.0. A
-build that does not allow that reset says so in a warning.
+build that does not allow that reset is refused: the capture would be
+published in the app's own old look, and the image check cannot see the
+difference, because it looks at the shape of the picture and not at what is
+on it.
 
 **The profile lives in the manifest, next to the captures it constrains.**
 `Maestro/capture/manifest.yaml` carries the width, the height, the aspect and
@@ -146,18 +153,25 @@ drift.
 - The command exits non-zero when a flow fails or an image does not pass the
   check, so it can be used in a script without being read.
 - The capture profile — the app locale, the light theme, the font scale and
-  the screen timeout — is applied best-effort: a step the device refuses is a
-  warning, and the image check is the hard gate. The theme and the font scale
-  are the app's own settings, so they are reset through the app's data rather
-  than through the system's settings.
+  the screen timeout — is a contract, not a wish. Every property but the
+  timeout has to hold, or the capture is refused: a screenshot of the app in
+  the wrong theme or the wrong language is not the screenshot the storyboard
+  documents, and no check on the picture's shape would notice. Each property
+  is read back from the device after it is set, so a command that says
+  nothing and changes nothing is caught. The timeout changes no pixel, so a
+  device that refuses it is a warning. The theme and the font scale are the
+  app's own settings, so they are reset through the app's data rather than
+  through the system's settings.
 - `scripts/tests/test_store_capture.py` covers the pure parts: the manifest
   and its order, the selection of one capture, the device resolution (unnamed,
   missing, unusable), the identity rules (the wrong application, a stale
   install, a build from another commit, a foreign APK) and the image
   validation (empty, wrong format, truncated, corrupt, empty pixels, broken
-  checksum, wrong size, wrong aspect, and the headers this checker cannot
-  measure — interlaced, an unknown colour type, an illegal colour type and bit
-  depth pair, an unknown compression or filter method).
+  checksum, wrong size, wrong aspect, the headers this checker cannot measure
+  — interlaced, an unknown colour type, an illegal colour type and bit depth
+  pair, an unknown compression or filter method — an illegal scanline filter,
+  and the profile: a reset the device refuses, a property that does not take,
+  a settings file that survives the reset).
 - The six flows are still `manual` and `capture`-tagged, so the nightly full
   suite does not pay for them.
 

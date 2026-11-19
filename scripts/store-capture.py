@@ -291,9 +291,14 @@ def apply_profile(serial: str) -> list[str]:
     """Put the device into the capture profile the storyboard documents.
 
     The profile is part of the contract: the same six images have to come out
-    of every capture machine. A step that does not take is a warning and not
-    an error — the image check below is the hard gate, and a device that
-    refuses a locale is still a device the capture can be taken on.
+    of every capture machine. A property the profile has to hold and that the
+    device refuses is an error, not a warning — a capture of the app in the
+    wrong theme or the wrong language is not the capture the storyboard
+    documents, and the image check cannot see the difference, because it
+    looks at the shape of the picture and not at what is on it.
+
+    Every property is read back from the device after it is set: a command
+    that says nothing and changes nothing is not a setting that took.
 
     The theme and the font scale are the app's own settings, not the
     system's, so the system commands alone are not enough — see
@@ -301,18 +306,59 @@ def apply_profile(serial: str) -> list[str]:
     """
     warnings = reset_app_settings(serial)
     steps = (
-        ("the app locale", ("shell", "cmd", "locale", "set-app-locales", APP_ID,
-                            "--locales", "ru-RU")),
-        ("the light theme", ("shell", "cmd", "uimode", "night", "no")),
-        ("the system font scale", ("shell", "settings", "put", "system", "font_scale", "1.0")),
-        ("the screen timeout", ("shell", "settings", "put", "system",
-                                "screen_off_timeout", "1800000")),
+        (
+            "the app locale",
+            ("shell", "cmd", "locale", "set-app-locales", APP_ID, "--locales", "ru-RU"),
+            ("shell", "cmd", "locale", "get-app-locales", APP_ID),
+            "contains",
+            "ru-RU",
+        ),
+        (
+            "the light theme",
+            ("shell", "cmd", "uimode", "night", "no"),
+            ("shell", "cmd", "uimode", "night"),
+            "word",
+            "no",
+        ),
+        (
+            "the system font scale",
+            ("shell", "settings", "put", "system", "font_scale", "1.0"),
+            ("shell", "settings", "get", "system", "font_scale"),
+            "equals",
+            "1.0",
+        ),
     )
-    for name, args in steps:
-        code, out = adb(*args, serial=serial)
+    for name, set_args, read_args, how, expected in steps:
+        code, out = adb(*set_args, serial=serial)
         if code != 0:
-            warnings.append(f"{name}: {out.strip().splitlines()[-1] if out.strip() else 'failed'}")
+            detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+            raise CaptureError(f"{name} could not be set on {serial} ({detail})")
+        code, out = adb(*read_args, serial=serial)
+        if code != 0 or not _holds(out, how, expected):
+            raise CaptureError(
+                f"{name} did not take on {serial}: the device reports "
+                f"{out.strip() or 'nothing'}"
+            )
+    # The timeout does not change a pixel, so a device that refuses it only
+    # costs the screen.
+    code, out = adb(
+        "shell", "settings", "put", "system", "screen_off_timeout", "1800000",
+        serial=serial,
+    )
+    if code != 0:
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        warnings.append(f"the screen timeout: {detail}")
     return warnings
+
+
+def _holds(output: str, how: str, expected: str) -> bool:
+    """Whether a property read back from the device is the one we wanted."""
+    text = output.strip()
+    if how == "contains":
+        return expected in text
+    if how == "word":
+        return bool(text.split()) and text.split()[-1] == expected
+    return text.splitlines()[-1].strip() == expected if text else False
 
 
 def reset_app_settings(serial: str) -> list[str]:
@@ -328,8 +374,9 @@ def reset_app_settings(serial: str) -> list[str]:
     The debug build's private files are reachable with `run-as`, so the
     settings file is removed and the app starts from its defaults: the system
     theme (light, because the system is put into light mode below) and a font
-    scale of 1.0. A build that is not debuggable refuses `run-as`, and that is
-    a warning rather than an error — the image check is the hard gate.
+    scale of 1.0. The file is then looked for again — a file that is still
+    there means the reset did not take, and the capture is refused rather
+    than taken in the app's own old look.
     """
     warnings: list[str] = []
     adb("shell", "am", "force-stop", APP_ID, serial=serial)
@@ -338,7 +385,19 @@ def reset_app_settings(serial: str) -> list[str]:
     )
     if code != 0:
         detail = out.strip().splitlines()[-1] if out.strip() else "failed"
-        warnings.append(f"the app's own settings could not be reset ({detail})")
+        raise CaptureError(
+            f"the app's own settings could not be reset on {serial} ({detail}) — "
+            "the capture is refused rather than taken in the app's old look"
+        )
+    code, out = adb("shell", "run-as", APP_ID, "ls", APP_SETTINGS_FILE, serial=serial)
+    if code == 0:
+        raise CaptureError(
+            f"the app's own settings ({APP_SETTINGS_FILE}) are still there after "
+            "the reset — the capture is refused rather than taken in the app's "
+            "old look"
+        )
+    if out.strip() and "not debuggable" in out.lower():
+        warnings.append("the app's own settings could not be read back")
     return warnings
 
 
@@ -519,6 +578,20 @@ def _expected_scanlines(
     return height * (1 + row)
 
 
+def _bad_filter(raw: bytes, row_bytes: int) -> int | None:
+    """The first filter byte that is not one of the five PNG filters.
+
+    Every scanline is one filter byte followed by its pixels. The filter says
+    how the row was encoded, and PNG knows None, Sub, Up, Average and Paeth —
+    a sixth value is not a picture anybody can decode.
+    """
+    stride = row_bytes + 1
+    for offset in range(0, len(raw), stride):
+        if raw[offset] > 4:
+            return raw[offset]
+    return None
+
+
 def validate_png(path: Path, profile: Profile) -> list[str]:
     """What is wrong with the image, if anything is.
 
@@ -614,6 +687,14 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
                     f"carries {len(raw)} bytes of image data, expected {expected} "
                     f"for {width}x{height}"
                 )
+            elif expected is not None and height > 0:
+                # Every scanline starts with a filter byte, and PNG knows
+                # only five of them.
+                bad = _bad_filter(raw, expected // height - 1)
+                if bad is not None:
+                    problems.append(
+                        f"has a scanline with the invalid filter {bad}"
+                    )
     if profile.width and profile.height and (width, height) != (profile.width, profile.height):
         problems.append(
             f"is {width}x{height}, expected {profile.width}x{profile.height}"

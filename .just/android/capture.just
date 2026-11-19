@@ -14,7 +14,7 @@ store-capture flow="" serial="" apk="":
     # checkout installed it last, and a capture taken against another
     # checkout's flows is a capture of something else.
     args=()
-    if [ -n "{{ flow }}" ]; then args+=(--flow "{{ flow }}"); fi
-    if [ -n "{{ serial }}" ]; then args+=(--serial "{{ serial }}"); fi
-    if [ -n "{{ apk }}" ]; then args+=(--apk "{{ apk }}"); fi
+    if [ -n {{ quote(flow) }} ]; then args+=(--flow {{ quote(flow) }}); fi
+    if [ -n {{ quote(serial) }} ]; then args+=(--serial {{ quote(serial) }}); fi
+    if [ -n {{ quote(apk) }} ]; then args+=(--apk {{ quote(apk) }}); fi
     python3 scripts/store-capture.py "${args[@]+"${args[@]}"}"
