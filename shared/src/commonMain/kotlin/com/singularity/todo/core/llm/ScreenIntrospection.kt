@@ -53,22 +53,23 @@ class ScreenAction(
     val name: String,
     val summary: String,
     val requirement: String,
-    val inputSchema: JsonObject,
+    inputSchema: JsonObject,
     val isAvailable: (ScreenState) -> Boolean = { true },
 ) {
+    val inputSchema: JsonObject = JsonObject(inputSchema.toMap())
     private val propertyConstraints: Map<String, StringPropertyConstraint>
     private val acceptedKeys: Set<String>
     private val requiredKeys: List<String>
 
     init {
-        val problem = schemaProblem(inputSchema)
+        val problem = schemaProblem(this.inputSchema)
         if (problem != null) {
             throw IllegalArgumentException(problem)
         }
-        propertyConstraints = parsePropertyConstraints(inputSchema)
+        propertyConstraints = parsePropertyConstraints(this.inputSchema)
         acceptedKeys = propertyConstraints.keys
         requiredKeys =
-            (inputSchema["required"] as? JsonArray)
+            (this.inputSchema["required"] as? JsonArray)
                 ?.map { it.jsonPrimitive.content }
                 .orEmpty()
     }

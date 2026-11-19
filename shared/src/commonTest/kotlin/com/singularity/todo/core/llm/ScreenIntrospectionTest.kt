@@ -1,6 +1,7 @@
 package com.singularity.todo.core.llm
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -461,6 +462,42 @@ class ScreenIntrospectionTest {
                 ((element as JsonObject)["name"] as JsonPrimitive).content
             }
         assertTrue(names == listOf("a", "b"), "the contract keeps its own action list: $names")
+    }
+
+    @Test
+    fun `mutating the source schema map after creation does not change the published schema or validation`() {
+        val schemaMap =
+            mutableMapOf<String, JsonElement>(
+                "type" to JsonPrimitive("object"),
+                "required" to JsonArray(listOf(JsonPrimitive("priority"))),
+                "properties" to buildJsonObject { put("priority", stringProperty()) },
+                "additionalProperties" to JsonPrimitive(false),
+            )
+        val action =
+            ScreenAction(
+                name = "set_priority",
+                summary = "Set the task's priority.",
+                requirement = "the screen has to be showing a task",
+                inputSchema = JsonObject(schemaMap),
+            )
+
+        schemaMap["maxLength"] = JsonPrimitive(10)
+        schemaMap.remove("required")
+
+        assertTrue(action.inputSchema["maxLength"] == null, "the published schema stays unchanged: ${action.inputSchema}")
+        assertTrue(action.inputSchema["required"] != null, "the published schema keeps required: ${action.inputSchema}")
+
+        val missingRequired = action.validate(JsonObject(emptyMap()))
+        assertTrue(missingRequired.isFailure, "validation keeps the original required keys: $missingRequired")
+
+        val unexpected =
+            action.validate(
+                buildJsonObject {
+                    put("priority", "high")
+                    put("force", true)
+                },
+            )
+        assertTrue(unexpected.isFailure, "validation keeps the original accepted keys: $unexpected")
     }
 
     private fun action(
