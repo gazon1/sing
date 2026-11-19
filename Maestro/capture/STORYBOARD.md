@@ -134,16 +134,18 @@ is refused: a notification on the screen is a notification in the picture, and
 a store screenshot with somebody's message in it is not a screenshot anybody
 may publish. The system's own notifications are left alone — they carry
 nothing of the person who owns the device. A device that cannot be asked
-about its notifications, or whose shade cannot be collapsed, refuses the
-capture as well: a status bar nobody managed to read is not a clean one.
+about its notifications, whose shade cannot be collapsed, or whose
+notification cannot be read refuses the capture as well: a status bar nobody
+managed to read is not a clean one.
 
 The theme and the font scale are the *app's* settings, not the system's: they
 live in the app's own data, and a device where somebody once chose the dark
-theme keeps the dark theme after an install. The command therefore resets the
-app's settings file before the first flow, so the app comes up with its
-defaults — the system theme, which the command puts into light mode, and a
-font scale of 1.0. A build that does not allow that reset aborts the
-capture: the pictures would show the app in somebody's old look.
+theme keeps the dark theme after an install. The command therefore stops the
+app and resets its settings file before the first flow, so the app comes up
+with its defaults — the system theme, which the command puts into light mode,
+and a font scale of 1.0. A build that does not allow that reset, or a device
+that cannot stop the app, aborts the capture: the pictures would show the app
+in somebody's old look.
 
 **The profile is the dataset's own.** `demo-dataset.yaml` switches to `Play
 demo` before it writes anything, so the rows land in that profile and the reset

@@ -392,7 +392,13 @@ def clean_status_bar(serial: str) -> list[str]:
             f"the notifications on {serial} could not be inspected ({detail}) — "
             "an unread status bar is not a clean one"
         )
-    packages = notification_packages(out)
+    try:
+        packages = notification_packages(out)
+    except ValueError as exc:
+        raise CaptureError(
+            f"the notifications on {serial} could not be read ({exc}) — an "
+            "unread notification is a notification in the picture"
+        ) from exc
     foreign = [name for name in packages if name != "android"]
     if foreign:
         raise CaptureError(
@@ -404,13 +410,24 @@ def clean_status_bar(serial: str) -> list[str]:
 
 
 def notification_packages(dumps: str) -> list[str]:
-    """The packages that have a notification posted on the device."""
+    """The packages that have a notification posted on the device.
+
+    A record whose package cannot be read is not a record this checker can
+    clear: the dump says a notification is there, and nobody can say whose it
+    is. That is refused rather than ignored — an unread notification is a
+    notification in the picture.
+    """
     packages: list[str] = []
     for line in dumps.splitlines():
         if "NotificationRecord(" not in line:
             continue
         match = re.search(r"\bpkg=(\S+)", line)
-        if match and match.group(1) not in packages:
+        if not match:
+            raise ValueError(
+                "a notification record without a readable package: "
+                f"{line.strip()[:120]}"
+            )
+        if match.group(1) not in packages:
             packages.append(match.group(1))
     return packages
 
@@ -443,7 +460,16 @@ def reset_app_settings(serial: str) -> list[str]:
     than taken in the app's own old look.
     """
     warnings: list[str] = []
-    adb("shell", "am", "force-stop", APP_ID, serial=serial)
+    code, out = adb("shell", "am", "force-stop", APP_ID, serial=serial)
+    if code != 0:
+        # The app has to be gone before its file is removed: a running app
+        # keeps its loaded preferences in memory and would put the old theme
+        # back on the screen after the file is gone.
+        detail = out.strip().splitlines()[-1] if out.strip() else "failed"
+        raise CaptureError(
+            f"the app could not be stopped on {serial} ({detail}) — its old "
+            "settings would come back, so the capture is refused"
+        )
     code, out = adb(
         "shell", "run-as", APP_ID, "rm", "-f", APP_SETTINGS_FILE, serial=serial
     )

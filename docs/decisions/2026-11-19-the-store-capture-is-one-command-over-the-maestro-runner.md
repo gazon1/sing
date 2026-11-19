@@ -167,8 +167,13 @@ drift.
   notification refuses the capture — a notification in a store screenshot is
   somebody's message that nobody may publish. The system's own notifications
   carry nothing personal and are allowed. The check is closed: a device that
-  cannot be asked about its notifications, or whose shade cannot be collapsed,
-  refuses the capture as well, because an unread status bar is not a clean one.
+  cannot be asked about its notifications, whose shade cannot be collapsed, or
+  whose notification record has no readable package refuses the capture as
+  well, because an unread status bar is not a clean one.
+- The app's own settings are reset by stopping the app and dropping its
+  settings file, and both steps have to work: a running app keeps its loaded
+  preferences in memory and would put the old theme back on the screen after
+  the file is gone.
 - `scripts/tests/test_store_capture.py` covers the pure parts: the manifest
   and its order, the selection of one capture, the device resolution (unnamed,
   missing, unusable), the identity rules (the wrong application, a stale
@@ -178,9 +183,10 @@ drift.
   — interlaced, an unknown colour type, an illegal colour type and bit depth
   pair, an unknown compression or filter method — an illegal scanline filter,
   a chunk before the header, a second header, data in or after the end marker,
-  and the profile: a reset the device refuses, a property that does not take,
-  a settings file that survives the reset, a notification that cannot be
-  inspected, a shade that cannot be collapsed).
+  and the profile: a reset the device refuses, an app that cannot be stopped,
+  a property that does not take, a settings file that survives the reset, a
+  notification that cannot be inspected, a notification record without a
+  readable package, a shade that cannot be collapsed).
 - The six flows are still `manual` and `capture`-tagged, so the nightly full
   suite does not pay for them.
 

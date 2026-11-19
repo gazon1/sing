@@ -310,6 +310,16 @@ class ProfileApplicationTest(unittest.TestCase):
             with self.assertRaises(mod.CaptureError):
                 mod.apply_profile('emulator-5554')
 
+    def test_an_app_that_cannot_be_stopped_is_refused(self):
+        # A running app keeps its loaded settings in memory: removing the
+        # file under it would leave the old theme on the screen.
+        device = self.device(
+            {('shell', 'am', 'force-stop'): (1, 'Error: could not stop')}
+        )
+        with mock.patch.object(mod, 'adb', side_effect=device):
+            with self.assertRaises(mod.CaptureError):
+                mod.apply_profile('emulator-5554')
+
     def test_a_theme_that_does_not_take_is_refused(self):
         # The device says it set the light theme and still reports the dark
         # one — the captures would be the wrong theme.
@@ -416,6 +426,22 @@ class StatusBarTest(unittest.TestCase):
                 mod.clean_status_bar('emulator-5554')
 
         self.assertIn('notifications', str(caught.exception))
+
+    def test_a_notification_without_a_readable_package_is_refused(self):
+        # The dump says a notification is there and does not say whose it is.
+        # Nobody can clear that, so the capture is refused.
+        dump = '    NotificationRecord(0x3: user=UserHandle{0} id=21 ...)\n'
+        with self.assertRaises(ValueError):
+            mod.notification_packages(dump)
+
+        def fake_adb(*args, serial='', timeout=60):
+            if 'dumpsys' in args:
+                return 0, dump
+            return 0, ''
+
+        with mock.patch.object(mod, 'adb', side_effect=fake_adb):
+            with self.assertRaises(mod.CaptureError):
+                mod.clean_status_bar('emulator-5554')
 
     def test_a_shade_that_cannot_be_collapsed_refuses_the_capture(self):
         def fake_adb(*args, serial='', timeout=60):
