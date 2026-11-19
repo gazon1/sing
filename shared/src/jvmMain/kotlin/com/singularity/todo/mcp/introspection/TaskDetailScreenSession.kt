@@ -22,6 +22,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -44,6 +46,7 @@ internal class TaskDetailScreenSession private constructor(
     override val sessionId: String = "session-${UUID.randomUUID()}"
 
     private val seq = AtomicLong(0)
+    private val eventIdSeq = AtomicLong(0)
 
     @Volatile
     private var lastState: TaskDetailUiState = TaskDetailUiState.Loading
@@ -51,9 +54,12 @@ internal class TaskDetailScreenSession private constructor(
     @Volatile
     private var lastSnapshot: JsonObject = introspection.snapshot(TaskDetailUiState.Loading)
 
-    private val events = ArrayDeque<Pair<Long, TaskDetailUiEvent>>()
+    private val events = ArrayDeque<RecordedEvent>()
     private val operations = OperationTracker()
     private val lock = Any()
+    private val invokeMutex = Mutex()
+
+    private data class RecordedEvent(val eventId: Long, val stateSeq: Long, val event: TaskDetailUiEvent)
 
     init {
         scope.launch {
@@ -68,8 +74,9 @@ internal class TaskDetailScreenSession private constructor(
         scope.launch {
             coordinator.events.collect { event ->
                 val s = seq.get()
+                val id = eventIdSeq.incrementAndGet()
                 synchronized(lock) {
-                    events.addLast(s to event)
+                    events.addLast(RecordedEvent(id, s, event))
                     if (events.size > 200) events.removeFirst()
                 }
             }
@@ -116,34 +123,49 @@ internal class TaskDetailScreenSession private constructor(
     override suspend fun invoke(
         action: String,
         input: JsonObject,
-    ): JsonObject {
-        val beforeSeq = seq.get()
-        val beforeState = currentState()
-        val beforeSnapshot = synchronized(lock) { lastSnapshot }
-        val result = introspection.dispatch(action, input)
-        if (result.isFailure) {
-            val message = result.exceptionOrNull()?.message ?: "Action rejected."
-            throw InspectorException(
-                classifyValidation(action, message),
-                message,
-                details =
-                    buildJsonObject {
-                        put("screen", screenId)
-                        put("sessionId", sessionId)
-                        put("action", action)
-                    },
-            )
+    ): JsonObject =
+        invokeMutex.withLock {
+            // Serialize dispatch per session so completion/failure observation is correlated to this action.
+            if (operations.hasInFlight()) {
+                throw InspectorException(
+                    InspectorErrorCode.ACTION_NOT_AVAILABLE,
+                    "Another operation is still in progress for this session.",
+                    details =
+                        buildJsonObject {
+                            put("screen", screenId)
+                            put("sessionId", sessionId)
+                            put("action", action)
+                        },
+                )
+            }
+            val beforeSeq = seq.get()
+            val beforeEventId = eventIdSeq.get()
+            val beforeState = currentState()
+            val beforeSnapshot = synchronized(lock) { lastSnapshot }
+            val result = introspection.dispatch(action, input)
+            if (result.isFailure) {
+                val message = result.exceptionOrNull()?.message ?: "Action rejected."
+                throw InspectorException(
+                    classifyValidation(action, message),
+                    message,
+                    details =
+                        buildJsonObject {
+                            put("screen", screenId)
+                            put("sessionId", sessionId)
+                            put("action", action)
+                        },
+                )
+            }
+            val op = operations.create(action)
+            observeCompletion(op, action, input, beforeSeq, beforeEventId, beforeState, beforeSnapshot)
+            buildJsonObject {
+                put("operationId", op.id)
+                put("action", action)
+                put("status", op.current.status.wire)
+                op.current.message?.let { put("message", it) }
+                put("snapshot", synchronized(lock) { lastSnapshot })
+            }
         }
-        val op = operations.create(action)
-        observeCompletion(op, action, input, beforeSeq, beforeState, beforeSnapshot)
-        return buildJsonObject {
-            put("operationId", op.id)
-            put("action", action)
-            put("status", op.current.status.wire)
-            op.current.message?.let { put("message", it) }
-            put("snapshot", synchronized(lock) { lastSnapshot })
-        }
-    }
 
     override suspend fun wait(
         operationId: String,
@@ -211,6 +233,7 @@ internal class TaskDetailScreenSession private constructor(
         action: String,
         input: JsonObject,
         beforeSeq: Long,
+        beforeEventId: Long,
         beforeState: TaskDetailUiState,
         beforeSnapshot: JsonObject,
     ) {
@@ -219,9 +242,9 @@ internal class TaskDetailScreenSession private constructor(
                 val err =
                     synchronized(lock) {
                         events
-                            .lastOrNull { (s, event) ->
-                                s >= beforeSeq && event is TaskDetailUiEvent.Error
-                            }?.second as? TaskDetailUiEvent.Error
+                            .lastOrNull { recorded ->
+                                recorded.eventId > beforeEventId && recorded.event is TaskDetailUiEvent.Error
+                            }?.event as? TaskDetailUiEvent.Error
                     }
                 if (err != null) {
                     op.complete(OperationRecord(op.id, action, OperationStatus.FAILED, message = err.message))

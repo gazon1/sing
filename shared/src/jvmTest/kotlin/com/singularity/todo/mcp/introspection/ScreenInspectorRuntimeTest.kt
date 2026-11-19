@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
@@ -166,21 +167,37 @@ class ScreenInspectorRuntimeTest {
 
     @Test
     fun `wait timeout does not terminalize a pending operation`() =
+        runBlocking {
+            val tracker = OperationTracker()
+            val op = tracker.create("toggle_complete")
+
+            val timedOut = op.await(1)
+            assertEquals(OperationStatus.TIMEOUT, timedOut.status)
+            assertEquals(op.id, timedOut.id)
+            assertEquals(false, op.isDone(), "wait timeout must not mark operation terminal")
+
+            op.complete(OperationRecord(op.id, op.action, OperationStatus.COMPLETED))
+            val done = op.await(1_000)
+            assertEquals(OperationStatus.COMPLETED, done.status)
+            assertEquals(true, op.isDone())
+        }
+
+    @Test
+    fun `runtime wait observes completion after a non-terminal timeout response`() =
         withRuntime { runtime, koin ->
             val taskRepo: TaskRepository = koin.get()
-            kotlinx.coroutines
-                .runBlocking {
-                    val userId = taskRepo.currentUserId()
-                    taskRepo.create(
-                        Task(
-                            id = TaskId("task-2"),
-                            title = "Slow",
-                            userId = userId,
-                            createdAt = Clock.System.now(),
-                            updatedAt = Clock.System.now(),
-                        ),
-                    )
-                }.getOrThrow()
+            runBlocking {
+                val userId = taskRepo.currentUserId()
+                taskRepo.create(
+                    Task(
+                        id = TaskId("task-2"),
+                        title = "Slow",
+                        userId = userId,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now(),
+                    ),
+                )
+            }.getOrThrow()
             val sessionId =
                 runtime
                     .open("tasks.task-detail", buildJsonObject { put("taskId", "task-2") })["sessionId"]!!
@@ -189,27 +206,19 @@ class ScreenInspectorRuntimeTest {
             awaitLoaded(runtime, sessionId)
 
             val invoked =
-                kotlinx.coroutines.runBlocking {
+                runBlocking {
                     runtime.invoke(sessionId, "toggle_complete", JsonObject(emptyMap()))
                 }
             val opId = invoked["operationId"]!!.jsonPrimitive.content
+            val waited = runBlocking { runtime.wait(sessionId, opId, 1) }
+            assertEquals(opId, waited["operationId"]!!.jsonPrimitive.content)
+            val waitStatus = waited["status"]!!.jsonPrimitive.content
+            assertTrue(
+                waitStatus in setOf("timeout", "completed", "failed"),
+                "wait status: $waitStatus payload=$waited",
+            )
 
-            // Force a real wait-timeout observation by racing against completion with a tiny deadline.
-            // A single 1ms wait may still observe completion on fast machines, so try a few times and
-            // require at least one timeout response that is not terminal for the operation.
-            var sawTimeout = false
-            repeat(50) {
-                val waited = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 1) }
-                assertEquals(opId, waited["operationId"]!!.jsonPrimitive.content)
-                val status = waited["status"]!!.jsonPrimitive.content
-                if (status == "timeout") {
-                    sawTimeout = true
-                }
-                if (status == "completed" || status == "failed") return@repeat
-            }
-            // Even if it completed quickly, a later wait must still observe the terminal outcome
-            // (i.e. timeout waits must not have poisoned the operation state).
-            val done = kotlinx.coroutines.runBlocking { runtime.wait(sessionId, opId, 10_000) }
+            val done = runBlocking { runtime.wait(sessionId, opId, 10_000) }
             assertEquals("completed", done["status"]!!.jsonPrimitive.content, "wait result: $done")
             awaitState(runtime, sessionId) {
                 it.jsonObject["subject"]
@@ -218,9 +227,6 @@ class ScreenInspectorRuntimeTest {
                     ?.jsonPrimitive
                     ?.booleanOrNull == true
             }
-            // If the environment was too fast to surface a timeout, the contract we can still assert
-            // is that the operation completed correctly and remained observable.
-            assertTrue(sawTimeout || done["status"]!!.jsonPrimitive.content == "completed")
             runtime.close(sessionId)
         }
 

@@ -66,4 +66,6 @@ internal class OperationTracker {
     fun get(id: String): OperationState? = ops[id]
 
     fun cancel(id: String): OperationState? = ops[id]
+
+    fun hasInFlight(): Boolean = ops.values.any { !it.isDone() }
 }

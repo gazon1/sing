@@ -14,6 +14,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.long
+import com.singularity.todo.feature.profile.ProfileBootstrapper
 import com.singularity.todo.mcp.ProfileSelection
 import com.singularity.todo.mcp.ServerDependencies
 import com.singularity.todo.mcp.ToolServerKoinStartup
@@ -30,7 +31,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -59,28 +59,19 @@ internal object ScreenInspectorCli {
 
         // Preserve existing profile-selection contract/ambiguity handling.
         val selection = parseProfileSelection(args.toTypedArray())
-        val fixedProfileId =
-            when (selection) {
-                is ProfileSelection.FixedId -> {
-                    selection.id
-                }
+        if (selection is ProfileSelection.Ambiguous) {
+            printJson(
+                err(
+                    InspectorErrorCode.INVALID_ARGUMENTS.wire,
+                    "Conflicting profile arguments: pass either --profile or --profile-id, not both.",
+                ),
+            )
+            return 2
+        }
+        val fixedProfileId = (selection as? ProfileSelection.FixedId)?.id
+        val legacyLabel = (selection as? ProfileSelection.LegacyLabel)?.name
 
-                is ProfileSelection.Ambiguous -> {
-                    printJson(
-                        err(
-                            InspectorErrorCode.INVALID_ARGUMENTS.wire,
-                            "Conflicting profile arguments: pass either --profile or --profile-id, not both.",
-                        ),
-                    )
-                    return 2
-                }
-
-                else -> {
-                    null
-                }
-            }
-
-        val root = AgentRoot(defaultKoinStartup, fixedProfileId)
+        val root = AgentRoot(defaultKoinStartup, fixedProfileId, legacyLabel)
         return try {
             root.parse(args)
             root.exitCode
@@ -112,8 +103,11 @@ internal object ScreenInspectorCli {
     }
 }
 
-private class AgentRoot(val defaultKoinStartup: ToolServerKoinStartup?, val fixedProfileId: String?) :
-    CliktCommand(name = "agent") {
+private class AgentRoot(
+    val defaultKoinStartup: ToolServerKoinStartup?,
+    val fixedProfileId: String?,
+    val legacyLabel: String?,
+) : CliktCommand(name = "agent") {
     // Accepted so Clikt consumes global profile args anywhere in argv.
     private val profileIdOpt: String? by option("--profile-id")
     private val profileOpt: String? by option("--profile")
@@ -153,7 +147,7 @@ private class AgentRoot(val defaultKoinStartup: ToolServerKoinStartup?, val fixe
     }
 
     fun withRuntime(block: suspend (ScreenInspectorRuntime) -> JsonObject): Int {
-        val startedKoin = ensureKoin(defaultKoinStartup, fixedProfileId)
+        val startedKoin = ensureKoin(defaultKoinStartup, fixedProfileId, legacyLabel)
         val runtime = ScreenInspectorRuntime(GlobalContext.get())
         return try {
             printJson(blockSuspend(runtime, block))
@@ -306,15 +300,24 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
                 "Journey requires '--file <path>'.",
             )
 
-        val startedKoin = ensureKoin(root.defaultKoinStartup, root.fixedProfileId)
+        val startedKoin = ensureKoin(root.defaultKoinStartup, root.fixedProfileId, root.legacyLabel)
         val runtime = ScreenInspectorRuntime(GlobalContext.get())
         val stepsOut = mutableListOf<JsonObject>()
         var failed = false
         try {
-            val rootJson = cliJson.parseToJsonElement(File(filePath).readText()).jsonObject
-            val steps = rootJson["steps"]?.jsonArray ?: JsonArray(emptyList())
-            for ((index, element) in steps.withIndex()) {
-                val step = element.jsonObject
+            val journey =
+                try {
+                    parseJourneyFile(filePath)
+                } catch (e: InspectorException) {
+                    throw e
+                } catch (e: Exception) {
+                    throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Journey file could not be read or parsed: ${e.message ?: "invalid input"}.",
+                    )
+                }
+            val steps = journey.steps
+            for ((index, step) in steps.withIndex()) {
                 val name = step["name"]?.jsonPrimitive?.contentOrNull ?: "step-$index"
                 val op =
                     step["op"]?.jsonPrimitive?.contentOrNull
@@ -390,14 +393,61 @@ private class JourneyCommand : ScreenInspectorSubcommand("journey") {
         )
         if (failed) throw ProgramResult(2)
     }
+
+    private data class ParsedJourney(val steps: List<JsonObject>)
+
+    private fun parseJourneyFile(filePath: String): ParsedJourney {
+        val text =
+            try {
+                File(filePath).readText()
+            } catch (e: Exception) {
+                throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Journey file could not be read: ${e.message ?: filePath}",
+                )
+            }
+        val rootElement =
+            try {
+                cliJson.parseToJsonElement(text)
+            } catch (e: Exception) {
+                throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Journey file is not valid JSON: ${e.message ?: "parse error"}",
+                )
+            }
+        val rootJson =
+            rootElement as? JsonObject
+                ?: throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Journey file must be a JSON object.",
+                )
+        val stepsElement = rootJson["steps"] ?: JsonArray(emptyList())
+        val stepsArray =
+            stepsElement as? JsonArray
+                ?: throw InspectorException(
+                    InspectorErrorCode.INVALID_ARGUMENTS,
+                    "Journey 'steps' must be an array.",
+                )
+        val steps =
+            stepsArray.mapIndexed { index, element ->
+                element as? JsonObject
+                    ?: throw InspectorException(
+                        InspectorErrorCode.INVALID_ARGUMENTS,
+                        "Journey step $index must be a JSON object.",
+                    )
+            }
+        return ParsedJourney(steps)
+    }
 }
 
 private fun ensureKoin(
     defaultKoinStartup: ToolServerKoinStartup?,
     fixedProfileId: String?,
+    legacyLabel: String?,
 ): Boolean {
     if (GlobalContext.getOrNull() != null) return false
     if (defaultKoinStartup != null) {
+        // Fixed-id mode is owned by the startup; legacy/stored modes start without a fixed profile id.
         defaultKoinStartup.start(fixedProfileId)
     } else {
         startKoin { modules(toolServerModules(fixedProfileId)) }
@@ -405,9 +455,24 @@ private fun ensureKoin(
     val deps = ServerDependencies.fromKoin()
     // Ensure DB/profile bootstrapping so the inspector runs against real app state.
     deps.database.hashCode()
-    runBlocking { deps.profileBootstrapper.run() }
+    runBlocking {
+        deps.profileBootstrapper.run(
+            seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
+            activateName = legacyProfileNameToActivate(legacyLabel),
+        )
+    }
     return true
 }
+
+/**
+ * Legacy label semantics: `--profile=ai-agent` activates the AI Agent profile; other labels are
+ * ignored (stored profile remains), matching the server's documented contract.
+ */
+private fun legacyProfileNameToActivate(legacyLabel: String?): String? =
+    when (legacyLabel?.lowercase()) {
+        "ai-agent", "agent" -> "AI Agent"
+        else -> null
+    }
 
 private suspend fun executeJourneyOp(
     runtime: ScreenInspectorRuntime,
