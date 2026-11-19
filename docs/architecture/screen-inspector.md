@@ -205,13 +205,17 @@ Validation/availability are enforced by the canonical adapter/contract before di
   `TaskDetailScreenIntrospection` via DI-resolved dependencies.
 - Initial supported screen: `tasks.task-detail` (reference adapter; actions per canonical
   contract: `set_priority`, `add_checklist_item`, `toggle_complete`, `delete_task`, `restore_task`).
-- Completion observation is action-correlated to verified post-dispatch screen state (per-action
-  post-conditions, including explicit idempotent no-op post-conditions where applicable), not
-  inferred from arbitrary state emissions and not attributed from unrelated coordinator error
-  events. If completion cannot be verified from observed state, the operation remains pending (a
-  `screen_wait` deadline is reported to the caller as `timeout` without terminalizing the still-
-  pending operation). Cancellation of a dispatched action is not supported because execution cannot
-  be safely stopped once handed to the real screen path.
+- Completion observation is action-correlated: an operation becomes `completed` when verified
+  post-dispatch screen state satisfies the action's post-condition (including explicit idempotent
+  no-op post-conditions where applicable), not from arbitrary state emissions. A satisfied
+  post-condition wins over a later error, so a finished action is never reported as failed. When the
+  post-condition is still unmet, the first coordinator `Error` event emitted after dispatch finishes
+  the operation as `failed`; because dispatch is serialized (at most one operation in flight per
+  session) that error is attributable to the pending action, and failing it keeps the session usable
+  instead of blocking on a stuck operation. If neither signal is observed, the operation remains
+  pending and a `screen_wait` deadline is reported to the caller as `timeout` without terminalizing
+  it. Cancellation of a dispatched action is not supported because execution cannot be safely stopped
+  once handed to the real screen path.
 
 ## Verification
 

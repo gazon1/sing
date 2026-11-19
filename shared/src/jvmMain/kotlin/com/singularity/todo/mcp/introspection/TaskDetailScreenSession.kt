@@ -12,6 +12,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.introspection.TaskDetailScreenIntrospection
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
@@ -32,6 +33,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.koin.core.Koin
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 internal class TaskDetailScreenSession private constructor(
     override val params: JsonObject,
@@ -53,8 +55,18 @@ internal class TaskDetailScreenSession private constructor(
     private val lock = Any()
     private val invokeMutex = Mutex()
 
-    // A field initializer, not an init block: a launch in init can observe a partially
-    // constructed object (NoCoroutineLaunchInInit). Declared after the fields it reads.
+    private val errorSeq = AtomicLong(0)
+
+    // The most recent Error event and its sequence, guarded by [lock]. Failure attribution
+    // rides the one guarantee this session has: dispatch is serialized, so at most one operation
+    // is ever in flight, and the first error emitted after a dispatch belongs to it. The success
+    // post-condition is checked before the error, so a late error cannot flip a completed action.
+    private var lastError: ErrorEvent? = null
+
+    private data class ErrorEvent(val seq: Long, val message: String)
+
+    // Field initializers, not init blocks: a launch in init can observe a partially constructed
+    // object (NoCoroutineLaunchInInit). Declared after the fields they read.
     private val stateCollection =
         scope.launch {
             coordinator.stateFlow.collect { state ->
@@ -65,11 +77,22 @@ internal class TaskDetailScreenSession private constructor(
             }
         }
 
+    private val errorCollection =
+        scope.launch {
+            coordinator.events.collect { event ->
+                if (event is TaskDetailUiEvent.Error) {
+                    val seq = errorSeq.incrementAndGet()
+                    synchronized(lock) { lastError = ErrorEvent(seq, event.message) }
+                }
+            }
+        }
+
     override fun close() {
         try {
             closeScope()
         } finally {
             stateCollection.cancel()
+            errorCollection.cancel()
             scope.cancel()
         }
     }
@@ -122,6 +145,7 @@ internal class TaskDetailScreenSession private constructor(
                 )
             }
             val beforeSnapshot = synchronized(lock) { lastSnapshot }
+            val beforeErrorSeq = errorSeq.get()
             val result = introspection.dispatch(action, input)
             if (result.isFailure) {
                 val message = result.exceptionOrNull()?.message ?: "Action rejected."
@@ -137,7 +161,7 @@ internal class TaskDetailScreenSession private constructor(
                 )
             }
             val op = operations.create(action)
-            observeCompletion(op, action, input, beforeSnapshot)
+            observeCompletion(op, action, input, beforeSnapshot, beforeErrorSeq)
             buildJsonObject {
                 put("operationId", op.id)
                 put("action", action)
@@ -213,20 +237,35 @@ internal class TaskDetailScreenSession private constructor(
         action: String,
         input: JsonObject,
         beforeSnapshot: JsonObject,
+        beforeErrorSeq: Long,
     ) {
         scope.launch {
             fun tryResolve(): Boolean {
                 if (op.isDone()) return true
                 val snap = synchronized(lock) { lastSnapshot }
-                if (isActionCompleted(action, input, beforeSnapshot, snap)) {
-                    operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
-                    return true
+                val completed = isActionCompleted(action, input, beforeSnapshot, snap)
+                // An action that fails in the coordinator (e.g. a repository write) emits an Error
+                // event and leaves the snapshot unchanged. Because dispatch is serialized, the first
+                // error after this dispatch belongs to this operation; completing it as FAILED lets
+                // the session accept further actions instead of blocking on a stuck ACCEPTED one.
+                val error = synchronized(lock) { lastError?.takeIf { it.seq > beforeErrorSeq }?.message }
+                when (resolveOperationOutcome(completed, error)) {
+                    OperationOutcome.COMPLETED -> {
+                        operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
+                        return true
+                    }
+
+                    OperationOutcome.FAILED -> {
+                        operations.complete(op, OperationRecord(op.id, action, OperationStatus.FAILED, message = error))
+                        return true
+                    }
+
+                    // Completion cannot be verified yet: leave the operation pending rather than
+                    // reporting a false COMPLETED/FAILED result (a caller wait may still time out).
+                    OperationOutcome.PENDING -> {
+                        return false
+                    }
                 }
-                // Do not attribute arbitrary post-dispatch Error events to this action: the
-                // coordinator can emit unrelated errors, and there is no action correlation in
-                // TaskDetailUiEvent. When completion cannot be verified from state, leave the
-                // operation pending rather than reporting a false FAILED/COMPLETED result.
-                return false
             }
 
             if (tryResolve()) return@launch
@@ -404,3 +443,24 @@ internal class TaskDetailScreenSession private constructor(
         }
     }
 }
+
+/** How a single completion observation resolves a dispatched operation. */
+internal enum class OperationOutcome { COMPLETED, FAILED, PENDING }
+
+/**
+ * The one rule that decides what an observation means.
+ *
+ * A satisfied post-condition wins: an error that arrives after the screen already shows the
+ * requested state must not turn a finished action into a failure. Only when the post-condition is
+ * still unmet does a post-dispatch error fail the operation, which is what keeps a failed action
+ * from staying pending and blocking the session forever.
+ */
+internal fun resolveOperationOutcome(
+    postConditionSatisfied: Boolean,
+    errorSinceDispatch: String?,
+): OperationOutcome =
+    when {
+        postConditionSatisfied -> OperationOutcome.COMPLETED
+        errorSinceDispatch != null -> OperationOutcome.FAILED
+        else -> OperationOutcome.PENDING
+    }
