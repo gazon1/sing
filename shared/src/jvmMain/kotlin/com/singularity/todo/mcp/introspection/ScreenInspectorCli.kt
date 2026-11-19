@@ -291,6 +291,7 @@ private class InvokeCommand : ScreenInspectorSubcommand("invoke") {
                         }
                 }
             }
+            failIfOperationFailed(result, action, sessionId)
             ok(result)
         }
     }
@@ -308,7 +309,11 @@ private class WaitCommand : ScreenInspectorSubcommand("wait") {
                 "Parameter '--timeout-ms' must be a non-negative integer.",
             )
         }
-        root.withRuntime { runtime -> ok(runtime.wait(sessionId, operationId, timeoutMs)) }
+        root.withRuntime { runtime ->
+            val result = runtime.wait(sessionId, operationId, timeoutMs)
+            failIfOperationFailed(result, null, sessionId)
+            ok(result)
+        }
     }
 }
 
@@ -621,27 +626,37 @@ private suspend fun executeJourneyOp(
         }
 
         "invoke" -> {
-            val result = runtime.invoke(step.optString("sessionId"), step.string("action"), step.obj("input"))
+            val action = step.string("action")
+            val result = runtime.invoke(step.optString("sessionId"), action, step.obj("input"))
             val waitMs = step["waitMs"]?.jsonPrimitive?.longOrNull
-            if (waitMs != null) {
-                val opId = result["operationId"]?.jsonPrimitive?.contentOrNull
-                if (opId != null) {
-                    val waited = runtime.wait(step.optString("sessionId"), opId, waitMs)
-                    return buildJsonObject {
-                        result.forEach { (k, v) -> put(k, v) }
-                        put("wait", waited)
+            val combined =
+                if (waitMs != null) {
+                    val opId = result["operationId"]?.jsonPrimitive?.contentOrNull
+                    if (opId != null) {
+                        val waited = runtime.wait(step.optString("sessionId"), opId, waitMs)
+                        buildJsonObject {
+                            result.forEach { (k, v) -> put(k, v) }
+                            put("wait", waited)
+                        }
+                    } else {
+                        result
                     }
+                } else {
+                    result
                 }
-            }
-            result
+            throwIfOperationFailed(combined, action)
+            combined
         }
 
         "wait" -> {
-            runtime.wait(
-                step.optString("sessionId"),
-                step.string("operationId"),
-                step["timeoutMs"]?.jsonPrimitive?.longOrNull ?: 30_000L,
-            )
+            val result =
+                runtime.wait(
+                    step.optString("sessionId"),
+                    step.string("operationId"),
+                    step["timeoutMs"]?.jsonPrimitive?.longOrNull ?: 30_000L,
+                )
+            throwIfOperationFailed(result, null)
+            result
         }
 
         "cancel" -> {
@@ -656,6 +671,56 @@ private suspend fun executeJourneyOp(
             throw InspectorException(InspectorErrorCode.INVALID_ARGUMENTS, "Unknown journey op '$op'.")
         }
     }
+
+private fun observedOperation(payload: JsonObject): JsonObject = (payload["wait"] as? JsonObject) ?: payload
+
+/** The observed failure of an operation, or null when it is accepted/completed/timeout. */
+private fun operationFailure(payload: JsonObject): Pair<JsonObject, String>? {
+    val observed = observedOperation(payload)
+    if (observed["status"]?.jsonPrimitive?.contentOrNull != "failed") return null
+    return observed to (observed["message"]?.jsonPrimitive?.contentOrNull ?: "Operation failed.")
+}
+
+private fun operationDetails(
+    observed: JsonObject,
+    action: String?,
+    sessionId: String?,
+): JsonObject =
+    buildJsonObject {
+        observed["operationId"]?.let { put("operationId", it) }
+        action?.let { put("action", it) }
+        sessionId?.takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
+    }
+
+/** A CLI command that observes a failed operation reports it as a structural error and exits 2. */
+private fun failIfOperationFailed(
+    result: JsonObject,
+    action: String?,
+    sessionId: String?,
+) {
+    val (observed, message) = operationFailure(result) ?: return
+    printJson(
+        err(
+            InspectorErrorCode.OPERATION_FAILED.wire,
+            message,
+            details = operationDetails(observed, action, sessionId),
+        ),
+    )
+    throw ProgramResult(2)
+}
+
+/** A journey step that observes a failed operation fails the step (timeout stays non-terminal). */
+private fun throwIfOperationFailed(
+    result: JsonObject,
+    action: String?,
+) {
+    val (observed, message) = operationFailure(result) ?: return
+    throw InspectorException(
+        InspectorErrorCode.OPERATION_FAILED,
+        message,
+        details = operationDetails(observed, action, null),
+    )
+}
 
 private fun parseParams(
     paramsRaw: String?,

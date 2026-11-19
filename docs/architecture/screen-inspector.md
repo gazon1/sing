@@ -208,14 +208,18 @@ Validation/availability are enforced by the canonical adapter/contract before di
 - Completion observation is action-correlated: an operation becomes `completed` when verified
   post-dispatch screen state satisfies the action's post-condition (including explicit idempotent
   no-op post-conditions where applicable), not from arbitrary state emissions. A satisfied
-  post-condition wins over a later error, so a finished action is never reported as failed. When the
-  post-condition is still unmet, the first coordinator `Error` event emitted after dispatch finishes
-  the operation as `failed`; because dispatch is serialized (at most one operation in flight per
-  session) that error is attributable to the pending action, and failing it keeps the session usable
-  instead of blocking on a stuck operation. If neither signal is observed, the operation remains
-  pending and a `screen_wait` deadline is reported to the caller as `timeout` without terminalizing
-  it. Cancellation of a dispatched action is not supported because execution cannot be safely stopped
-  once handed to the real screen path.
+  post-condition wins over a later error or the observation deadline, so a finished action is never
+  reported as failed. When the post-condition is still unmet, an `Error` event is attributed to the
+  operation only if it is one of the failure messages that action's own screen path emits (for
+  example `Delete failed` / `Archive failed` for `delete_task`); errors from the task-observation
+  flow or from a slot the action never touches are ignored. To keep a dispatched operation from
+  staying pending forever — for example an exception thrown before the slot reports, or a silent
+  no-op — the session ends an unresolved operation as `failed` at its own observation deadline
+  (`OBSERVATION_DEADLINE_MS`, ten seconds). That deadline is separate from a caller's wait timeout,
+  which stays non-terminal: a `screen_wait` that reaches its own deadline returns `timeout` without
+  terminalizing the operation, and a later `screen_wait` still observes the action's final
+  `completed`/`failed`. Cancellation of a dispatched action is not supported because execution cannot
+  be safely stopped once handed to the real screen path.
 
 ## Verification
 

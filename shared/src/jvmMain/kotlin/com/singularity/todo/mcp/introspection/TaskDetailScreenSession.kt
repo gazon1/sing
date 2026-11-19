@@ -57,11 +57,10 @@ internal class TaskDetailScreenSession private constructor(
 
     private val errorSeq = AtomicLong(0)
 
-    // The most recent Error event and its sequence, guarded by [lock]. Failure attribution
-    // rides the one guarantee this session has: dispatch is serialized, so at most one operation
-    // is ever in flight, and the first error emitted after a dispatch belongs to it. The success
-    // post-condition is checked before the error, so a late error cannot flip a completed action.
-    private var lastError: ErrorEvent? = null
+    // Errors emitted after a dispatch, newest last, guarded by [lock]. A failure is attributed to
+    // an operation only when the error is one of the failures its own action produces (see
+    // [actionFailureMessages]); errors from the task-observation flow or other slots are ignored.
+    private val recentErrors = ArrayDeque<ErrorEvent>()
 
     private data class ErrorEvent(val seq: Long, val message: String)
 
@@ -82,7 +81,10 @@ internal class TaskDetailScreenSession private constructor(
             coordinator.events.collect { event ->
                 if (event is TaskDetailUiEvent.Error) {
                     val seq = errorSeq.incrementAndGet()
-                    synchronized(lock) { lastError = ErrorEvent(seq, event.message) }
+                    synchronized(lock) {
+                        recentErrors.addLast(ErrorEvent(seq, event.message))
+                        if (recentErrors.size > ERROR_HISTORY) recentErrors.removeFirst()
+                    }
                 }
             }
         }
@@ -239,24 +241,38 @@ internal class TaskDetailScreenSession private constructor(
         beforeSnapshot: JsonObject,
         beforeErrorSeq: Long,
     ) {
+        val deadlineMs = System.currentTimeMillis() + OBSERVATION_DEADLINE_MS
         scope.launch {
             fun tryResolve(): Boolean {
                 if (op.isDone()) return true
-                val snap = synchronized(lock) { lastSnapshot }
-                val completed = isActionCompleted(action, input, beforeSnapshot, snap)
-                // An action that fails in the coordinator (e.g. a repository write) emits an Error
-                // event and leaves the snapshot unchanged. Because dispatch is serialized, the first
-                // error after this dispatch belongs to this operation; completing it as FAILED lets
-                // the session accept further actions instead of blocking on a stuck ACCEPTED one.
-                val error = synchronized(lock) { lastError?.takeIf { it.seq > beforeErrorSeq }?.message }
-                when (resolveOperationOutcome(completed, error)) {
+                val completed = isActionCompleted(action, input, beforeSnapshot, synchronized(lock) { lastSnapshot })
+                val failure =
+                    synchronized(lock) {
+                        recentErrors.firstOrNull {
+                            it.seq > beforeErrorSeq &&
+                                it.message in actionFailureMessages(action)
+                        }
+                    }
+                when (
+                    resolveOperationOutcome(
+                        postConditionSatisfied = completed,
+                        failureObserved = failure != null,
+                        pastDeadline = System.currentTimeMillis() >= deadlineMs,
+                    )
+                ) {
                     OperationOutcome.COMPLETED -> {
                         operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
                         return true
                     }
 
                     OperationOutcome.FAILED -> {
-                        operations.complete(op, OperationRecord(op.id, action, OperationStatus.FAILED, message = error))
+                        val message =
+                            failure?.message
+                                ?: "Action did not complete within ${OBSERVATION_DEADLINE_MS}ms."
+                        operations.complete(
+                            op,
+                            OperationRecord(op.id, action, OperationStatus.FAILED, message = message),
+                        )
                         return true
                     }
 
@@ -447,20 +463,46 @@ internal class TaskDetailScreenSession private constructor(
 /** How a single completion observation resolves a dispatched operation. */
 internal enum class OperationOutcome { COMPLETED, FAILED, PENDING }
 
+/** A local Room write and its flow emission finish in milliseconds; ten seconds is a wide margin. */
+internal const val OBSERVATION_DEADLINE_MS = 10_000L
+
+private const val ERROR_HISTORY = 64
+
+/**
+ * The failure messages the screen's own path emits for [action].
+ *
+ * An operation is failed by an error only when the error is one this action produces. Errors from
+ * the task-observation flow or from a slot this action never touches are therefore never
+ * attributed to it. An action that fails without any of its messages (an exception thrown before
+ * the slot reports) is still ended by [OBSERVATION_DEADLINE_MS].
+ */
+internal fun actionFailureMessages(action: String): Set<String> =
+    when (action) {
+        "set_priority" -> setOf("Save failed")
+        "toggle_complete" -> setOf("Save failed", "Failed to complete recurring task")
+        "add_checklist_item" -> setOf("Add failed")
+        "delete_task" -> setOf("Delete failed", "Archive failed")
+        "restore_task" -> setOf("Restore failed")
+        else -> emptySet()
+    }
+
 /**
  * The one rule that decides what an observation means.
  *
  * A satisfied post-condition wins: an error that arrives after the screen already shows the
- * requested state must not turn a finished action into a failure. Only when the post-condition is
- * still unmet does a post-dispatch error fail the operation, which is what keeps a failed action
- * from staying pending and blocking the session forever.
+ * requested state, or a deadline reached after it, must not turn a finished action into a
+ * failure. Otherwise an observed action failure ends the operation as failed, and when no signal
+ * has arrived the operation stays pending until the observation deadline makes it terminal. That
+ * deadline is the session's own bound, separate from a caller's wait timeout (which stays
+ * non-terminal); it is what guarantees a dispatched operation cannot stay pending forever.
  */
 internal fun resolveOperationOutcome(
     postConditionSatisfied: Boolean,
-    errorSinceDispatch: String?,
+    failureObserved: Boolean,
+    pastDeadline: Boolean,
 ): OperationOutcome =
     when {
         postConditionSatisfied -> OperationOutcome.COMPLETED
-        errorSinceDispatch != null -> OperationOutcome.FAILED
+        failureObserved || pastDeadline -> OperationOutcome.FAILED
         else -> OperationOutcome.PENDING
     }
