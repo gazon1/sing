@@ -186,6 +186,12 @@ the month name next to it.
 
 A helper earns its keep at **≥4 lines of unique logic**. If a subflow is shorter, inline it.
 
+The rule counts lines, not commands: a helper whose command block is five
+lines of selector has earned its keep. Some helpers cannot be inlined at all —
+the selector gate rejects a computed id in a flow (`${output.…}` exists only
+inside the flow that computed it), so a value that has to reach a selector
+goes through `runFlow … env:` and the helper waits for `${NAME}`.
+
 ---
 
 ## Timeouts
