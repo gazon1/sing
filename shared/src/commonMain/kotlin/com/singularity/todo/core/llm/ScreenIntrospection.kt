@@ -298,8 +298,17 @@ class ScreenIntrospection(val screenId: String, actions: List<ScreenAction>) {
 
     init {
         val names = this.actions.map { it.name }
-        if (names.toSet().size != names.size) {
-            throw IllegalArgumentException("The screen '$screenId' must not declare two actions with the same name.")
+        val duplicates =
+            names
+                .groupingBy { it }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
+        if (duplicates.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "The screen '$screenId' must not declare two actions with the same name: " +
+                    duplicates.sorted().joinToString { "'$it'" },
+            )
         }
     }
 
