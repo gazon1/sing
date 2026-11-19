@@ -128,7 +128,7 @@ Maestro/
     ├── profile/                # create a profile from the Menu sheet
     ├── sync/                   # offline create survives no connectivity
     ├── system/                 # shell-level chrome (menu sheet)
-    └── capture/                # the store screenshots — one flow per storyboard shot, tag `manual`
+    └── capture/                # the store screenshots — one flow per storyboard shot, tags `manual` and `capture`
 ```
 
 The subdirectory split mirrors `shared/src/commonMain/.../feature/`, so a flow

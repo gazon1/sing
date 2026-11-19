@@ -11,6 +11,7 @@ appId: com.singularity.todo
 name: capture-project-detail
 tags:
   - manual
+  - capture
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - runFlow: ../../capture/demo-dataset.yaml

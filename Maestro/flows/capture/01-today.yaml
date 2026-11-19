@@ -5,13 +5,16 @@
 # and the three rows before the shot — a navigation that lands on a blank list
 # must not produce a screenshot.
 #
-# Tagged `manual`: the capture runs on the store capture device, on purpose,
-# and the nightly full suite must not pay for it.
+# Tagged `manual` and `capture`: the capture runs on the store capture device,
+# on purpose, and the nightly full suite must not pay for it. The `capture`
+# tag is the area of the flow — it selects the whole capture set by tag and
+# nothing else, so a run of one feature never runs the capture set.
 # прогнан на устройстве: да (2026-11-19) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: capture-today
 tags:
   - manual
+  - capture
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - runFlow: ../../capture/demo-dataset.yaml

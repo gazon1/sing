@@ -22,10 +22,17 @@ appId: com.singularity.todo
 name: capture-calendar
 tags:
   - manual
+  - capture
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - runFlow: ../../capture/demo-dataset.yaml
-# The dates the flow builds its expectations from come from the device's clock.
+# The dates the flow builds its expectations from come from the *host's* clock:
+# the script that computes them runs in the Maestro process on the host, not on
+# the device. The host's date and time zone must be the device's — the emulator
+# follows the host, but a physical device does not. When they disagree, the
+# flow fails on the badge below instead of asserting on the wrong day: three
+# tasks are due today and one task is due on every other day, so no other cell
+# of the grid carries the number 3.
 - runScript: ../../helpers/scripts/date.js
 # The Calendar is a tab: the hand reaches it in the bar.
 - tapOn:
