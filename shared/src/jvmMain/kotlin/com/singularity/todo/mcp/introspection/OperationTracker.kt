@@ -2,6 +2,7 @@ package com.singularity.todo.mcp.introspection
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.ArrayDeque
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -54,8 +55,10 @@ internal class OperationState(val id: String, val action: String) {
     }
 }
 
-internal class OperationTracker {
+internal class OperationTracker(private val maxCompleted: Int = 128) {
     private val ops = ConcurrentHashMap<String, OperationState>()
+    private val lock = Any()
+    private val completedOrder = ArrayDeque<String>()
 
     fun create(action: String): OperationState {
         val state = OperationState(UUID.randomUUID().toString(), action)
@@ -68,4 +71,29 @@ internal class OperationTracker {
     fun cancel(id: String): OperationState? = ops[id]
 
     fun hasInFlight(): Boolean = ops.values.any { !it.isDone() }
+
+    fun complete(
+        state: OperationState,
+        record: OperationRecord,
+    ) {
+        state.complete(record)
+        pruneTerminal(state.id)
+    }
+
+    private fun pruneTerminal(id: String) {
+        synchronized(lock) {
+            val state = ops[id] ?: return
+            if (!state.isDone()) return
+            if (!completedOrder.contains(id)) {
+                completedOrder.addLast(id)
+            }
+            while (completedOrder.size > maxCompleted) {
+                val old = completedOrder.removeFirst() ?: break
+                val oldState = ops[old]
+                if (oldState != null && oldState.isDone()) {
+                    ops.remove(old)
+                }
+            }
+        }
+    }
 }

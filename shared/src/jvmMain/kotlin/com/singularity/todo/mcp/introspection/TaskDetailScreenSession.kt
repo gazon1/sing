@@ -247,13 +247,16 @@ internal class TaskDetailScreenSession private constructor(
                             }?.event as? TaskDetailUiEvent.Error
                     }
                 if (err != null) {
-                    op.complete(OperationRecord(op.id, action, OperationStatus.FAILED, message = err.message))
+                    operations.complete(
+                        op,
+                        OperationRecord(op.id, action, OperationStatus.FAILED, message = err.message),
+                    )
                     return@launch
                 }
                 if (seq.get() > beforeSeq) {
                     val snap = synchronized(lock) { lastSnapshot }
                     if (isActionCompleted(action, input, beforeState, beforeSnapshot, snap)) {
-                        op.complete(OperationRecord(op.id, action, OperationStatus.COMPLETED))
+                        operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
                         return@launch
                     }
                 }

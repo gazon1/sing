@@ -10,7 +10,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
@@ -52,7 +51,24 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             ),
         ) { request ->
             val screen = request.requireString("screen")
-            val params = request.arguments?.get("params")?.jsonObject ?: JsonObject(emptyMap())
+            val paramsElement = request.arguments?.get("params")
+            val params =
+                when (paramsElement) {
+                    null -> {
+                        JsonObject(emptyMap())
+                    }
+
+                    is JsonObject -> {
+                        paramsElement
+                    }
+
+                    else -> {
+                        throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Field 'params' must be a JSON object.",
+                        )
+                    }
+                }
             ok(runtime.open(screen, params))
         }
         registerTool(
@@ -94,7 +110,24 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             ),
         ) { request ->
             val action = request.requireString("action")
-            val input = request.arguments?.get("input")?.jsonObject ?: JsonObject(emptyMap())
+            val inputElement = request.arguments?.get("input")
+            val input =
+                when (inputElement) {
+                    null -> {
+                        JsonObject(emptyMap())
+                    }
+
+                    is JsonObject -> {
+                        inputElement
+                    }
+
+                    else -> {
+                        throw InspectorException(
+                            InspectorErrorCode.INVALID_ARGUMENTS,
+                            "Field 'input' must be a JSON object.",
+                        )
+                    }
+                }
             ok(runtime.invoke(request.optString("sessionId"), action, input))
         }
         registerTool(
