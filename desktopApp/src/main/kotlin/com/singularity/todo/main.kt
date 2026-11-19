@@ -54,6 +54,13 @@ import kotlin.time.Duration.Companion.minutes
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
+private fun isToolServerMode(args: Array<String>): Boolean =
+    args.contains(McpServerCommandProvider.TOOL_SERVER_FLAG) ||
+        args.contains("--agent") ||
+        args.contains("--screen-inspector") ||
+        args.firstOrNull() == "agent" ||
+        args.firstOrNull() == "screen-inspector"
+
 /**
  * The composition root of the tool-server mode.
  *
@@ -92,30 +99,45 @@ private val ToolServerKoin =
  */
 fun main(args: Array<String>) {
     // Fire-reminder keeps its argv contract (launcher path at args[0], command located).
-    val fireRequest = JvmReminderFireCommand.parse(args)
-    if (fireRequest != null) {
+    if (args.contains(JvmReminderFireCommand.COMMAND)) {
+        val fireRequest = JvmReminderFireCommand.parse(args)
+        if (fireRequest == null) {
+            System.err.println(
+                "Invalid ${JvmReminderFireCommand.COMMAND} invocation: expected " +
+                    "'${JvmReminderFireCommand.COMMAND} <reminderId> <userId>'.",
+            )
+            kotlin.system.exitProcess(2)
+        }
         fireReminder(fireRequest)
         return
     }
 
+    // The tool/agent server mode is this program asked for a different job. Detect it from
+    // raw argv first so its arguments are passed to the dedicated handler and are not
+    // rejected by the desktop GUI CLI parser.
+    if (isToolServerMode(args)) {
+        prepareDataDirectory()
+        runToolServer(args, ToolServerKoin)
+        return
+    }
+
     val launch = DesktopLaunchCli()
-    runCatching { launch.parse(args.toList()) }
+    try {
+        launch.parse(args.toList())
+    } catch (e: com.github.ajalt.clikt.core.PrintHelpMessage) {
+        launch.echoFormattedHelp(e)
+        return
+    } catch (e: com.github.ajalt.clikt.core.PrintMessage) {
+        launch.echo(e.message ?: "", err = e.printError)
+        kotlin.system.exitProcess(if (e.printError) 2 else 0)
+    } catch (e: com.github.ajalt.clikt.core.CliktError) {
+        launch.echo(e.message ?: "Invalid arguments.", err = true)
+        kotlin.system.exitProcess(2)
+    }
 
     if (launch.version) {
         val version = appVersion()
         println("singularity-todo ${version.name} (${version.code})")
-        return
-    }
-
-    // The tool server is this program asked for a different job. An external agent is
-    // handed the application's own launcher plus this flag, so the server it reaches
-    // runs on the runtime shipped with the application — a packaged machine has no
-    // system Java, and this path does not need one. The same reasoning as the
-    // reminder unit below: a second helper binary is work that silently does not
-    // happen on every machine where nobody remembered to install it.
-    if (launch.isToolServerMode(args)) {
-        prepareDataDirectory()
-        runToolServer(args, ToolServerKoin)
         return
     }
 
@@ -224,16 +246,6 @@ private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
     }
 
     override fun run() = Unit
-
-    fun isToolServerMode(args: Array<String>): Boolean =
-        mcpServer ||
-            agentFlag ||
-            screenInspectorFlag ||
-            args.contains(McpServerCommandProvider.TOOL_SERVER_FLAG) ||
-            args.contains("--agent") ||
-            args.contains("--screen-inspector") ||
-            args.firstOrNull() == "agent" ||
-            args.firstOrNull() == "screen-inspector"
 
     fun resolveDeepLinkTarget(): DeepLinkTarget? {
         val uri =

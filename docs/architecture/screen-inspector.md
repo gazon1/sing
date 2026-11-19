@@ -205,11 +205,13 @@ Validation/availability are enforced by the canonical adapter/contract before di
   `TaskDetailScreenIntrospection` via DI-resolved dependencies.
 - Initial supported screen: `tasks.task-detail` (reference adapter; actions per canonical
   contract: `set_priority`, `add_checklist_item`, `toggle_complete`, `delete_task`, `restore_task`).
-- Completion observation is action-correlated (expected post-dispatch screen state or error
-  signal), not inferred from arbitrary state emissions; `screen_wait` reports a per-call timeout
-  when completion is not observed within the window without terminalizing a still-pending operation.
-  Cancellation of a dispatched action is not supported because execution cannot be safely stopped
-  once handed to the real screen path.
+- Completion observation is action-correlated to verified post-dispatch screen state (per-action
+  post-conditions, including explicit idempotent no-op post-conditions where applicable), not
+  inferred from arbitrary state emissions and not attributed from unrelated coordinator error
+  events. If completion cannot be verified from observed state, the operation remains pending (a
+  `screen_wait` deadline is reported to the caller as `timeout` without terminalizing the still-
+  pending operation). Cancellation of a dispatched action is not supported because execution cannot
+  be safely stopped once handed to the real screen path.
 
 ## Verification
 

@@ -17,8 +17,23 @@ import kotlinx.serialization.json.put
 import org.koin.core.Koin
 import org.koin.core.context.GlobalContext
 
-internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { GlobalContext.get() }) {
-    private val runtime by lazy { ScreenInspectorRuntime(koinProvider()) }
+internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { GlobalContext.get() }) : AutoCloseable {
+    @Volatile
+    private var runtimeRef: ScreenInspectorRuntime? = null
+
+    private val runtime: ScreenInspectorRuntime by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        ScreenInspectorRuntime(koinProvider()).also { created ->
+            runtimeRef = created
+            runCatching {
+                Runtime.getRuntime().addShutdownHook(
+                    Thread {
+                        runCatching { created.close() }
+                    },
+                )
+            }
+        }
+    }
+
     private val json =
         Json {
             prettyPrint = false
@@ -307,5 +322,9 @@ internal class ScreenInspectorTools(private val koinProvider: () -> Koin = { Glo
             )
         }
         return primitive.content
+    }
+
+    override fun close() {
+        runtimeRef?.close()
     }
 }

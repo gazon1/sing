@@ -379,5 +379,14 @@ private class AcpBridgeProbeCli : CliktCommand(name = "acp-bridge-probe") {
  */
 @Suppress("NoRunBlocking")
 fun main(args: Array<String>) {
-    AcpBridgeProbeCli().main(args)
+    // Bridge command args may start with '-' (e.g. --verbose); treat them as positional
+    // arguments by inserting the standard end-of-options marker before the command.
+    // args[0] is the working directory; keep existing callers compatible.
+    val normalized =
+        if (args.size >= 2 && args[1] != "--") {
+            arrayOf(args[0], "--") + args.drop(1).toTypedArray()
+        } else {
+            args
+        }
+    AcpBridgeProbeCli().main(normalized)
 }

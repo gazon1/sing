@@ -730,23 +730,36 @@ private fun helpPayload(): JsonObject =
                 put("name", "screen-inspector")
                 put("contractVersion", com.singularity.todo.core.llm.SCREEN_INTROSPECTION_CONTRACT_VERSION)
                 put(
-                    "commands",
+                    "notes",
                     buildJsonArray {
-                        add(JsonPrimitive("screens"))
-                        add(JsonPrimitive("sessions"))
-                        add(JsonPrimitive("open --screen <id> [--params <json> | --task-id <id>]"))
-                        add(JsonPrimitive("describe [--session <id>]"))
-                        add(JsonPrimitive("inspect|snapshot [--session <id>]"))
-                        add(JsonPrimitive("actions [--session <id>]"))
                         add(
                             JsonPrimitive(
-                                "invoke --action <name> [--input <json>] [--session <id>] [--wait-ms <ms>]",
+                                "Each non-journey CLI invocation runs in its own process with an in-memory " +
+                                    "runtime, so sessions/operations are not shared across separate command " +
+                                    "invocations. Use 'journey --file <journey.json>' for stateful multi-step " +
+                                    "workflows in one process; use the MCP screen inspector tools for an " +
+                                    "interactive long-lived runtime.",
                             ),
                         )
-                        add(JsonPrimitive("wait --operation <id> [--timeout-ms <ms>] [--session <id>]"))
-                        add(JsonPrimitive("cancel --operation <id> [--session <id>]"))
-                        add(JsonPrimitive("close [--session <id>]"))
-                        add(JsonPrimitive("journey --file <journey.json>"))
+                    },
+                )
+                put(
+                    "commands",
+                    buildJsonArray {
+                        val oneShot = "  (one-shot unless used in journey)"
+                        listOf(
+                            "screens",
+                            "sessions$oneShot",
+                            "open --screen <id> [--params <json> | --task-id <id>]$oneShot",
+                            "describe [--session <id>]$oneShot",
+                            "inspect|snapshot [--session <id>]$oneShot",
+                            "actions [--session <id>]$oneShot",
+                            "invoke --action <name> [--input <json>] [--session <id>] [--wait-ms <ms>]$oneShot",
+                            "wait --operation <id> [--timeout-ms <ms>] [--session <id>]$oneShot",
+                            "cancel --operation <id> [--session <id>]$oneShot",
+                            "close [--session <id>]$oneShot",
+                            "journey --file <journey.json>  (stateful multi-step workflow in one process)",
+                        ).forEach { add(JsonPrimitive(it)) }
                     },
                 )
             },

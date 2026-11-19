@@ -59,6 +59,9 @@ object JvmReminderFireCommand {
     fun parse(args: Array<String>): Request? {
         val commandIndex = args.indexOfFirst { it == COMMAND }
         if (commandIndex < 0) return null
+        // The command is present: parse only the two id arguments it consumes.
+        // Return null for any malformed/mismatched invocation so a bad fire-reminder
+        // command is never mistaken for a valid request or handled as a GUI launch.
         val tail = args.drop(commandIndex + 1).take(2)
         return try {
             val cmd = FireReminderCli()

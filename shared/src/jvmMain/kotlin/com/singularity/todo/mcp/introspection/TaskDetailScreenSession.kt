@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
-import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.introspection.TaskDetailScreenIntrospection
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
@@ -33,7 +32,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.koin.core.Koin
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
 
 internal class TaskDetailScreenSession private constructor(
     override val params: JsonObject,
@@ -45,39 +43,22 @@ internal class TaskDetailScreenSession private constructor(
     override val screenId: String = SCREEN_ID
     override val sessionId: String = "session-${UUID.randomUUID()}"
 
-    private val seq = AtomicLong(0)
-    private val eventIdSeq = AtomicLong(0)
-
     @Volatile
     private var lastState: TaskDetailUiState = TaskDetailUiState.Loading
 
     @Volatile
     private var lastSnapshot: JsonObject = introspection.snapshot(TaskDetailUiState.Loading)
 
-    private val events = ArrayDeque<RecordedEvent>()
     private val operations = OperationTracker()
     private val lock = Any()
     private val invokeMutex = Mutex()
 
-    private data class RecordedEvent(val eventId: Long, val stateSeq: Long, val event: TaskDetailUiEvent)
-
     init {
         scope.launch {
             coordinator.stateFlow.collect { state ->
-                val s = seq.incrementAndGet()
                 synchronized(lock) {
                     lastState = state
                     lastSnapshot = introspection.snapshot(state)
-                }
-            }
-        }
-        scope.launch {
-            coordinator.events.collect { event ->
-                val s = seq.get()
-                val id = eventIdSeq.incrementAndGet()
-                synchronized(lock) {
-                    events.addLast(RecordedEvent(id, s, event))
-                    if (events.size > 200) events.removeFirst()
                 }
             }
         }
@@ -138,9 +119,6 @@ internal class TaskDetailScreenSession private constructor(
                         },
                 )
             }
-            val beforeSeq = seq.get()
-            val beforeEventId = eventIdSeq.get()
-            val beforeState = currentState()
             val beforeSnapshot = synchronized(lock) { lastSnapshot }
             val result = introspection.dispatch(action, input)
             if (result.isFailure) {
@@ -157,7 +135,7 @@ internal class TaskDetailScreenSession private constructor(
                 )
             }
             val op = operations.create(action)
-            observeCompletion(op, action, input, beforeSeq, beforeEventId, beforeState, beforeSnapshot)
+            observeCompletion(op, action, input, beforeSnapshot)
             buildJsonObject {
                 put("operationId", op.id)
                 put("action", action)
@@ -232,33 +210,20 @@ internal class TaskDetailScreenSession private constructor(
         op: OperationState,
         action: String,
         input: JsonObject,
-        beforeSeq: Long,
-        beforeEventId: Long,
-        beforeState: TaskDetailUiState,
         beforeSnapshot: JsonObject,
     ) {
         scope.launch {
             fun tryResolve(): Boolean {
                 if (op.isDone()) return true
                 val snap = synchronized(lock) { lastSnapshot }
-                if (isActionCompleted(action, input, beforeState, beforeSnapshot, snap)) {
+                if (isActionCompleted(action, input, beforeSnapshot, snap)) {
                     operations.complete(op, OperationRecord(op.id, action, OperationStatus.COMPLETED))
                     return true
                 }
-                val err =
-                    synchronized(lock) {
-                        events
-                            .lastOrNull { recorded ->
-                                recorded.eventId > beforeEventId && recorded.event is TaskDetailUiEvent.Error
-                            }?.event as? TaskDetailUiEvent.Error
-                    }
-                if (err != null) {
-                    operations.complete(
-                        op,
-                        OperationRecord(op.id, action, OperationStatus.FAILED, message = err.message),
-                    )
-                    return true
-                }
+                // Do not attribute arbitrary post-dispatch Error events to this action: the
+                // coordinator can emit unrelated errors, and there is no action correlation in
+                // TaskDetailUiEvent. When completion cannot be verified from state, leave the
+                // operation pending rather than reporting a false FAILED/COMPLETED result.
                 return false
             }
 
@@ -273,22 +238,25 @@ internal class TaskDetailScreenSession private constructor(
     private fun isActionCompleted(
         action: String,
         input: JsonObject,
-        beforeState: TaskDetailUiState,
         beforeSnapshot: JsonObject,
         snapshot: JsonObject,
     ): Boolean {
-        val status = snapshot["status"]?.jsonPrimitive?.contentOrNull
-        val subject = snapshot["subject"] as? JsonObject
+        val status = snapshot["status"]?.jsonPrimitive?.contentOrNull ?: return false
+        if (status != "loaded") return false
+        val subject = snapshot["subject"] as? JsonObject ?: return false
+        val beforeSubject = beforeSnapshot["subject"] as? JsonObject
         return when (action) {
             "set_priority" -> {
+                // Idempotent: post-condition satisfied when the task has the requested priority
+                // (including a no-op when it was already set before dispatch).
                 val expected = input["priority"]?.jsonPrimitive?.contentOrNull ?: return false
-                subject?.get("priority")?.jsonPrimitive?.contentOrNull == expected
+                subject.get("priority")?.jsonPrimitive?.contentOrNull == expected
             }
 
             "toggle_complete" -> {
-                val beforeCompleted = beforeSnapshot.subjectBool("completed")
+                val beforeCompleted = beforeSubject.boolOrNull("completed") ?: return false
                 val nowCompleted = subject.boolOrNull("completed") ?: return false
-                beforeCompleted != null && nowCompleted != beforeCompleted
+                nowCompleted != beforeCompleted
             }
 
             "add_checklist_item" -> {
@@ -299,21 +267,21 @@ internal class TaskDetailScreenSession private constructor(
             }
 
             "delete_task" -> {
-                subject?.boolOrNull("archived") == true
+                // Idempotent: success when the task is archived (no-op if already archived).
+                subject.boolOrNull("archived") == true
             }
 
             "restore_task" -> {
-                subject?.boolOrNull("archived") == false
+                // Idempotent: success when the task is not archived (no-op if already active).
+                subject.boolOrNull("archived") == false
             }
 
             else -> {
                 // Unknown/custom action: require a post-dispatch loaded snapshot change.
-                status == "loaded" && snapshot != beforeSnapshot
+                snapshot != beforeSnapshot
             }
         }
     }
-
-    private fun JsonObject.subjectBool(key: String): Boolean? = (this["subject"] as? JsonObject).boolOrNull(key)
 
     private fun JsonObject?.boolOrNull(key: String): Boolean? = this?.get(key)?.jsonPrimitive?.booleanOrNull
 

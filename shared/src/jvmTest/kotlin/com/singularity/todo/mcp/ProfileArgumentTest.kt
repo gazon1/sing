@@ -52,4 +52,51 @@ class ProfileArgumentTest {
 
         assertIs<ProfileSelection.FixedId>(selection)
     }
+
+    @Test
+    fun `supports space-separated profile id and profile label forms`() {
+        assertEquals(
+            ProfileSelection.FixedId("abc-123"),
+            parseProfileSelection(arrayOf("--profile-id", "abc-123")),
+        )
+        assertEquals(
+            ProfileSelection.LegacyLabel("ai-agent"),
+            parseProfileSelection(arrayOf("--profile", "ai-agent")),
+        )
+    }
+
+    @Test
+    fun `missing or empty explicit profile values are rejected`() {
+        for (args in listOf(
+            arrayOf("--profile-id"),
+            arrayOf("--profile-id", "--other"),
+            arrayOf("--profile-id="),
+            arrayOf("--profile"),
+            arrayOf("--profile", "--other"),
+            arrayOf("--profile="),
+        )) {
+            kotlin.test.assertFailsWith<IllegalArgumentException> { parseProfileSelection(args) }
+        }
+    }
+
+    @Test
+    fun `conflict between profile and profile id is reported as ambiguous`() {
+        assertEquals(
+            ProfileSelection.Ambiguous("ai-agent", "abc-123"),
+            parseProfileSelection(arrayOf("--profile", "ai-agent", "--profile-id", "abc-123")),
+        )
+        assertEquals(
+            ProfileSelection.Ambiguous("ai-agent", "abc-123"),
+            parseProfileSelection(arrayOf("--profile-id", "abc-123", "--profile=ai-agent")),
+        )
+    }
+
+    @Test
+    fun `arguments after end-of-options are not treated as profile selection`() {
+        assertIs<ProfileSelection.Stored>(parseProfileSelection(arrayOf("--", "--profile-id=abc-123")))
+        assertEquals(
+            ProfileSelection.FixedId("abc-123"),
+            parseProfileSelection(arrayOf("--profile-id=abc-123", "--", "--profile=ignored")),
+        )
+    }
 }
