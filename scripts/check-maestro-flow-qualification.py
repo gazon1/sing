@@ -193,7 +193,7 @@ def read_yaml(path: pathlib.Path) -> dict:
     return data
 
 
-def read_baseline(path: pathlib.Path) -> dict[str, str]:
+def read_baseline(path: pathlib.Path) -> tuple[dict[str, str], set[str]]:
     data = read_yaml(path)
     flows = data.get("flows") or {}
     if not isinstance(flows, dict):
@@ -202,7 +202,13 @@ def read_baseline(path: pathlib.Path) -> dict[str, str]:
     for flow, fp in flows.items():
         if isinstance(flow, str) and isinstance(fp, str):
             result[flow] = fp
-    return result
+    initial = data.get("initial_flows")
+    if isinstance(initial, list):
+        initial_set = {x for x in initial if isinstance(x, str)}
+    else:
+        # Legacy/missing field: treat current baseline snapshot as the frozen initial set.
+        initial_set = set(result.keys())
+    return result, initial_set
 
 
 def read_evidence(path: pathlib.Path) -> tuple[int, dict[str, dict], dict[str, dict]]:
@@ -305,7 +311,7 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
     except OSError as exc:
         raise click.ClickException(f"cannot read catalogue {catalogue_path}: {exc}") from exc
     try:
-        baseline = read_baseline(baseline_path) if baseline_path.is_file() else {}
+        baseline, initial_baseline = read_baseline(baseline_path) if baseline_path.is_file() else ({}, set())
     except (OSError, ValueError, yaml.YAMLError) as exc:
         raise click.ClickException(f"cannot read baseline {baseline_path}: {exc}") from exc
     try:
@@ -318,10 +324,16 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
 
     for flow in flows:
         fp = fingerprint(flow, root)
-        if flow in baseline and baseline[flow] == fp:
-            counts["baselined"] += 1
+        if flow in baseline:
+            if flow not in initial_baseline:
+                findings.append(Finding(flow, "baseline expansion", "new flow cannot be admitted by adding it to the qualification baseline; qualify it or add an evidence-backed exception"))
+                continue
+            if baseline[flow] == fp:
+                counts["baselined"] += 1
+                continue
+            # Baseline present but stale -> needs requalification (baseline only shrinks conceptually by requalifying/removing)
+            findings.append(Finding(flow, "stale baseline", f"flow or its helpers changed since the qualification baseline (current {fp}); requalify or add an evidence-backed exception"))
             continue
-        # Baseline present but stale -> needs requalification (baseline only shrinks conceptually by requalifying/removing)
         if flow in qualifications:
             ok, reason = is_qualified(qualifications[flow], fp, required)
             if ok:
@@ -336,10 +348,7 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
                 continue
             findings.append(Finding(flow, "invalid exception", reason))
             continue
-        if flow in baseline:
-            findings.append(Finding(flow, "stale baseline", f"flow or its helpers changed since the qualification baseline (current {fp}); requalify or add an evidence-backed exception"))
-        else:
-            findings.append(Finding(flow, "unqualified", "new or unadmitted flow in a blocking automated scope; qualify it (bounded repeated run) or add an evidence-backed exception"))
+        findings.append(Finding(flow, "unqualified", "new or unadmitted flow in a blocking automated scope; qualify it (bounded repeated run) or add an evidence-backed exception"))
     return findings, counts
 
 
@@ -350,9 +359,11 @@ def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path) -> dict:
     if missing:
         raise click.ClickException("cannot build baseline: " + "; ".join(f.detail for f in missing))
     mapping = {flow: fingerprint(flow, root) for flow in flows}
+    flow_names = sorted(mapping.keys())
     return {
         "schema": 1,
         "policy": "flows in automated blocking scopes at rule introduction; a matching fingerprint admits the flow, a change requires qualification",
+        "initial_flows": flow_names,
         "flows": dict(sorted(mapping.items())),
     }
 

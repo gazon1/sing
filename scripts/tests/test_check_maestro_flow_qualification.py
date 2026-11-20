@@ -88,6 +88,25 @@ class AdmissionTest(unittest.TestCase):
     def _scan(self, root, catalogue, baseline, evidence):
         return mod.scan(root, catalogue, baseline, evidence)
 
+    def test_new_flow_cannot_be_admitted_by_baseline_expansion(self):
+        root, _flow, catalogue, baseline, evidence = self._tree()
+        flow = "Maestro/flows/tasks/02-new.yaml"
+        write_flow(root / flow, FLOW_OK)
+        catalogue.write_text(flow + "\n")
+        fp = mod.fingerprint(flow, root)
+        baseline.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "initial_flows": [],
+                    "flows": {flow: fp},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["baseline expansion"])
+
     def test_new_blocking_flow_is_unqualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
         baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
@@ -502,6 +521,67 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         self.assertNotEqual(attempt.outcome, "pass")
         self.assertEqual(attempt.outcome, "test_failure")
         self.assertIn("retried internally", attempt.reason)
+
+    def test_missing_run_summary_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 0)
+        self.assertEqual(attempt.outcome, "infra_failure")
+        self.assertIn("run-summary.json missing or invalid", attempt.reason)
+
+    def test_malformed_run_summary_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (d / "run-summary.json").write_text("{not-json", encoding="utf-8")
+            attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 0)
+        self.assertEqual(attempt.outcome, "infra_failure")
+        self.assertIn("run-summary.json missing or invalid", attempt.reason)
+
+    def test_missing_passed_membership_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (d / "run-summary.json").write_text(
+                json.dumps({"passed": [], "failed": [], "retried": [], "not_measured": []}),
+                encoding="utf-8",
+            )
+            attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 0)
+        self.assertEqual(attempt.outcome, "infra_failure")
+        self.assertIn("does not confirm flow passed", attempt.reason)
+
+    def test_contradictory_failed_membership_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (d / "run-summary.json").write_text(
+                json.dumps({"passed": ["01-a"], "failed": ["01-a"], "retried": [], "not_measured": []}),
+                encoding="utf-8",
+            )
+            attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 0)
+        self.assertEqual(attempt.outcome, "test_failure")
+        self.assertIn("reports flow as failed", attempt.reason)
 
     def test_stale_passing_artifacts_not_used_on_failed_invocation(self):
         flow = "Maestro/flows/tasks/01-a.yaml"

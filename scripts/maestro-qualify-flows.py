@@ -123,14 +123,22 @@ def classify_attempt(flow_rel: str, results_dir: pathlib.Path, return_code: int)
     env = read_json(results_dir / "environment.json")
     summary = read_json(results_dir / "run-summary.json")
     outcome, reason = flow_report_outcome(junit)
-    # If the flow was not measured or retried internally, it is not a clean passing attempt.
-    if summary and isinstance(summary, dict):
+    required_summary = ("passed", "failed", "not_measured", "retried")
+    if not isinstance(summary, dict) or not all(isinstance(summary.get(k), list) for k in required_summary):
+        outcome, reason = "infra_failure", "run-summary.json missing or invalid"
+    else:
+        passed = summary.get("passed") or []
+        failed = summary.get("failed") or []
         not_measured = summary.get("not_measured") or []
-        if isinstance(not_measured, list) and stem in not_measured:
-            outcome, reason = "infra_failure", "flow not measured (app/device unavailable)"
         retried = summary.get("retried") or []
-        if isinstance(retried, list) and stem in retried and outcome == "pass":
+        if stem in not_measured:
+            outcome, reason = "infra_failure", "flow not measured (app/device unavailable)"
+        elif stem in retried and outcome == "pass":
             outcome, reason = "test_failure", "flow retried internally during attempt (not a clean pass)"
+        elif stem in failed and outcome == "pass":
+            outcome, reason = "test_failure", "run summary reports flow as failed despite passing JUnit"
+        elif outcome == "pass" and stem not in passed:
+            outcome, reason = "infra_failure", "run summary does not confirm flow passed"
     if not junit.is_file():
         outcome, reason = "infra_failure", reason or "no JUnit report produced for the flow"
     if return_code != 0 and outcome == "pass":
