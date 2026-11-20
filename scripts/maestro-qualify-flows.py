@@ -190,11 +190,18 @@ def snapshot_flow(flow_rel: str) -> tuple[pathlib.Path, pathlib.Path]:
     if snapshot_root.exists():
         shutil.rmtree(snapshot_root)
     snapshot_root.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(
-        ROOT / "Maestro",
-        snapshot_root / "Maestro",
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-    )
+    try:
+        shutil.copytree(
+            ROOT / "Maestro",
+            snapshot_root / "Maestro",
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
+    except Exception:
+        # A half-copied tree is not a snapshot: it is a directory that looks
+        # like one and holds part of the tree. Nothing may read it, so it is
+        # removed here -- the caller never gets the path to clean up.
+        shutil.rmtree(snapshot_root, ignore_errors=True)
+        raise
     return snapshot_root, snapshot_root / flow_rel
 
 

@@ -1343,6 +1343,41 @@ class EngineVersionTest(unittest.TestCase):
                 self.assertIsNone(self.mod.maestro_version("maestro-runner"))
 
 
+class SnapshotFailureTest(unittest.TestCase):
+    """A half-copied snapshot is removed, not left behind.
+
+    The snapshot is what the attempts run, so a copy that failed halfway is
+    a directory that looks like a snapshot and holds part of the tree.
+    Nothing may read it, and nothing may clean it up later -- the caller
+    never gets the path, because the copy never returned.
+    """
+
+    def setUp(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows_snapshot", runner_path)
+        self.mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def test_a_failed_copy_leaves_nothing_behind(self):
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "Maestro" / "flows" / "tasks").mkdir(parents=True)
+            (root / "Maestro" / "flows" / "tasks" / "01-a.yaml").write_text("appId: x\n", encoding="utf-8")
+            with mock.patch.object(self.mod, "ROOT", root):
+                with mock.patch.object(
+                    self.mod.shutil,
+                    "copytree",
+                    side_effect=OSError("the copy failed"),
+                ):
+                    with self.assertRaises(OSError):
+                        self.mod.snapshot_flow(flow)
+                snapshot_root = root / "build" / "maestro-qualification-snapshot" / "Maestro__flows__tasks__01-a"
+                self.assertFalse(snapshot_root.exists(), "a half-copied snapshot must not survive")
+
+
 class QualificationRecordWritingTest(unittest.TestCase):
     """The record the runner writes has to be one the gate can admit."""
 
