@@ -38,23 +38,57 @@ sealed interface ProfileSelection {
 /**
  * Reads the profile selection out of the command line.
  *
- * ## Why two arguments rather than one
- *
- * The label was there first, and it means a *name* whose value only one label had any
- * effect for. Everything else was ignored — so a process asking for a profile it could
- * not have was told nothing and carried on, which is how a process ends up reading
- * somebody else's data.
- *
- * The id is the new argument: it names a profile exactly, it never changes the stored
- * active profile, and an id nobody knows is an error rather than a fallback.
- *
- * The label stays because distributed manifests depend on it. It is deprecated, not
- * repurposed.
+ * Supports both `--profile=<value>`/`--profile-id=<value>` and space-separated
+ * `--profile <value>`/`--profile-id <value>` forms. Malformed or incomplete explicit
+ * profile arguments are rejected instead of being silently ignored.
  */
+@Suppress("CyclomaticComplexMethod", "ThrowsCount", "LoopWithTooManyJumpStatements") // per-form refusals
 fun parseProfileSelection(args: Array<String>): ProfileSelection {
-    val label = args.firstOrNull { it.startsWith("--profile=") }?.removePrefix("--profile=")
-    val id = args.firstOrNull { it.startsWith("--profile-id=") }?.removePrefix("--profile-id=")
+    var label: String? = null
+    var id: String? = null
+    var i = 0
+    while (i < args.size) {
+        val arg = args[i]
+        if (arg == "--") {
+            break
+        }
+        when {
+            arg == "--profile-id" -> {
+                val value = args.getOrNull(i + 1)
+                if (value == null || value == "--" || value.startsWith("--")) {
+                    throw IllegalArgumentException("Missing value for --profile-id")
+                }
+                id = value
+                i += 2
+                continue
+            }
 
+            arg.startsWith("--profile-id=") -> {
+                id = arg.substringAfter("--profile-id=")
+            }
+
+            arg == "--profile" -> {
+                val value = args.getOrNull(i + 1)
+                if (value == null || value == "--" || value.startsWith("--")) {
+                    throw IllegalArgumentException("Missing value for --profile")
+                }
+                label = value
+                i += 2
+                continue
+            }
+
+            arg.startsWith("--profile=") -> {
+                label = arg.substringAfter("--profile=")
+            }
+        }
+        i += 1
+    }
+    if (id != null && id.isEmpty()) {
+        throw IllegalArgumentException("Missing value for --profile-id")
+    }
+    if (label != null && label.isEmpty()) {
+        throw IllegalArgumentException("Missing value for --profile")
+    }
     return when {
         label != null && id != null -> ProfileSelection.Ambiguous(label, id)
         id != null -> ProfileSelection.FixedId(id)

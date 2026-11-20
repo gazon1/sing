@@ -1,5 +1,9 @@
 package com.singularity.todo.feature.ai.acp
 
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.process.DuplexProcess
 import com.singularity.todo.core.process.ProcessTree
@@ -328,6 +332,41 @@ object AcpBridgeProbe {
     }
 }
 
+private class AcpBridgeProbeCli : CliktCommand(name = "acp-bridge-probe") {
+    private val allArgs by argument(name = "args").multiple()
+
+    @Suppress("NoRunBlocking") // the CLI command blocks until the probe it started completes
+    override fun run() {
+        val workingDirectory = allArgs.firstOrNull() ?: System.getProperty("user.dir") ?: "."
+        val command =
+            allArgs.drop(1).ifEmpty {
+                listOf("npx", "-y", "@agentclientprotocol/claude-agent-acp")
+            }
+        val report = runBlocking { AcpBridgeProbe.run(command, workingDirectory) }
+
+        println("bridge: ${command.joinToString(" ")}")
+        println("working directory: $workingDirectory")
+        println("connected: ${report.connected}")
+        if (report.connected) {
+            println("agent: ${report.agentName} ${report.agentVersion}")
+        } else {
+            println("failure: ${report.failure}")
+        }
+        println("methods the bridge used:")
+        for ((method, count) in report.methods) {
+            println("  $method ($count)")
+        }
+        println("frames:")
+        for (frame in report.transcript) {
+            println("  $frame")
+        }
+
+        if (!report.connected) {
+            kotlin.system.exitProcess(1)
+        }
+    }
+}
+
 /**
  * Runs the probe and prints its report.
  *
@@ -341,31 +380,14 @@ object AcpBridgeProbe {
  */
 @Suppress("NoRunBlocking")
 fun main(args: Array<String>) {
-    val workingDirectory = args.firstOrNull() ?: System.getProperty("user.dir") ?: "."
-    val command =
-        args.drop(1).ifEmpty {
-            listOf("npx", "-y", "@agentclientprotocol/claude-agent-acp")
+    // Bridge command args may start with '-' (e.g. --verbose); treat them as positional
+    // arguments by inserting the standard end-of-options marker before the command.
+    // args[0] is the working directory; keep existing callers compatible.
+    val normalized =
+        if (args.size >= 2 && args[1] != "--") {
+            arrayOf(args[0], "--") + args.drop(1).toTypedArray()
+        } else {
+            args
         }
-    val report = runBlocking { AcpBridgeProbe.run(command, workingDirectory) }
-
-    println("bridge: ${command.joinToString(" ")}")
-    println("working directory: $workingDirectory")
-    println("connected: ${report.connected}")
-    if (report.connected) {
-        println("agent: ${report.agentName} ${report.agentVersion}")
-    } else {
-        println("failure: ${report.failure}")
-    }
-    println("methods the bridge used:")
-    for ((method, count) in report.methods) {
-        println("  $method ($count)")
-    }
-    println("frames:")
-    for (frame in report.transcript) {
-        println("  $frame")
-    }
-
-    if (!report.connected) {
-        kotlin.system.exitProcess(1)
-    }
+    AcpBridgeProbeCli().main(normalized)
 }

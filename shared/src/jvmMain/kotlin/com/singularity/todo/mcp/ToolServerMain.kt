@@ -72,7 +72,15 @@ import kotlin.system.exitProcess
 fun runToolServer(
     args: Array<String>,
     koinStartup: ToolServerKoinStartup,
-): Unit =
+) {
+    if (isScreenInspectorCli(args)) {
+        val cliArgs = stripScreenInspectorCliArgs(args)
+        val code =
+            com.singularity.todo.mcp.introspection.ScreenInspectorCli
+                .run(cliArgs, koinStartup)
+        if (code != 0) exitProcess(code)
+        return
+    }
     runBlocking {
         // Standard output is the protocol channel and nothing else: from here on, every
         // print in this process — this application's log, a library's start-up banner —
@@ -84,7 +92,13 @@ fun runToolServer(
         installStderrLogging()
         val protocolOut = ProtocolStdout.reserve()
 
-        val selection = parseProfileSelection(args)
+        val selection =
+            try {
+                parseProfileSelection(args)
+            } catch (e: IllegalArgumentException) {
+                writeJsonRpcError(protocolOut, -32002, e.message ?: "Invalid profile arguments.")
+                exitProcess(EXIT_USAGE)
+            }
 
         when (val startup = startToolServer(selection, koinStartup)) {
             is ToolServerStartup.Refused -> {
@@ -99,6 +113,16 @@ fun runToolServer(
                 serve(startup.server, startup.sessionContext, protocolOut)
             }
         }
+    }
+}
+
+private fun isScreenInspectorCli(args: Array<String>): Boolean =
+    args.firstOrNull() == "agent" || args.firstOrNull() == "screen-inspector" ||
+        args.any { it == "--agent" || it == "--screen-inspector" }
+
+private fun stripScreenInspectorCliArgs(args: Array<String>): List<String> =
+    args.toList().filterNot { it == "--agent" || it == "--screen-inspector" }.let { list ->
+        if (list.firstOrNull() == "agent" || list.firstOrNull() == "screen-inspector") list.drop(1) else list
     }
 
 /**

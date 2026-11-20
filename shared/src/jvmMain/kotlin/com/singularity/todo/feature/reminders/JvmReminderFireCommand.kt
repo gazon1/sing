@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.reminders
 
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.parse
+import com.github.ajalt.clikt.parameters.arguments.argument
 import com.singularity.todo.core.ids.UserId
 
 /**
@@ -56,8 +59,25 @@ object JvmReminderFireCommand {
     fun parse(args: Array<String>): Request? {
         val commandIndex = args.indexOfFirst { it == COMMAND }
         if (commandIndex < 0) return null
-        val reminderId = args.getOrNull(commandIndex + 1)?.takeIf { it.isNotBlank() } ?: return null
-        val userId = args.getOrNull(commandIndex + 2)?.takeIf { it.isNotBlank() } ?: return null
-        return Request(ReminderId(reminderId), UserId(userId))
+        // The command is present: parse only the two id arguments it consumes.
+        // Return null for any malformed/mismatched invocation so a bad fire-reminder
+        // command is never mistaken for a valid request or handled as a GUI launch.
+        val tail = args.drop(commandIndex + 1).take(2)
+        return try {
+            val cmd = FireReminderCli()
+            cmd.parse(tail)
+            val reminderId = cmd.reminderId.takeIf { it.isNotBlank() } ?: return null
+            val userId = cmd.userId.takeIf { it.isNotBlank() } ?: return null
+            Request(ReminderId(reminderId), UserId(userId))
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private class FireReminderCli : CliktCommand(name = COMMAND) {
+        val reminderId: String by argument()
+        val userId: String by argument()
+
+        override fun run() = Unit
     }
 }

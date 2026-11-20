@@ -6,6 +6,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.window.singleWindowApplication
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
 import co.touchlab.kermit.Logger
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.context
+import com.github.ajalt.clikt.core.parse
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.di.coreLoggingModule
@@ -49,6 +54,13 @@ import kotlin.time.Duration.Companion.minutes
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
+private fun isToolServerMode(args: Array<String>): Boolean =
+    args.contains(McpServerCommandProvider.TOOL_SERVER_FLAG) ||
+        args.contains("--agent") ||
+        args.contains("--screen-inspector") ||
+        args.firstOrNull() == "agent" ||
+        args.firstOrNull() == "screen-inspector"
+
 /**
  * The composition root of the tool-server mode.
  *
@@ -85,28 +97,48 @@ private val ToolServerKoin =
  * Every ordinary launch arrives here with no arguments, so the dispatch is a single
  * `parse` returning null, and the GUI path is unchanged.
  */
+@Suppress("LongMethod") // composition root: argv dispatch, GUI startup, and the background jobs it owns
 fun main(args: Array<String>) {
-    if (args.any { it == "--version" }) {
-        val version = appVersion()
-        println("singularity-todo ${version.name} (${version.code})")
+    // Fire-reminder keeps its argv contract (launcher path at args[0], command located).
+    if (args.contains(JvmReminderFireCommand.COMMAND)) {
+        val fireRequest = JvmReminderFireCommand.parse(args)
+        if (fireRequest == null) {
+            System.err.println(
+                "Invalid ${JvmReminderFireCommand.COMMAND} invocation: expected " +
+                    "'${JvmReminderFireCommand.COMMAND} <reminderId> <userId>'.",
+            )
+            kotlin.system.exitProcess(2)
+        }
+        fireReminder(fireRequest)
         return
     }
 
-    // The tool server is this program asked for a different job. An external agent is
-    // handed the application's own launcher plus this flag, so the server it reaches
-    // runs on the runtime shipped with the application — a packaged machine has no
-    // system Java, and this path does not need one. The same reasoning as the
-    // reminder unit below: a second helper binary is work that silently does not
-    // happen on every machine where nobody remembered to install it.
-    if (args.any { it == McpServerCommandProvider.TOOL_SERVER_FLAG }) {
+    // The tool/agent server mode is this program asked for a different job. Detect it from
+    // raw argv first so its arguments are passed to the dedicated handler and are not
+    // rejected by the desktop GUI CLI parser.
+    if (isToolServerMode(args)) {
         prepareDataDirectory()
         runToolServer(args, ToolServerKoin)
         return
     }
 
-    val fireRequest = JvmReminderFireCommand.parse(args)
-    if (fireRequest != null) {
-        fireReminder(fireRequest)
+    val launch = DesktopLaunchCli()
+    try {
+        launch.parse(args.toList())
+    } catch (e: com.github.ajalt.clikt.core.PrintHelpMessage) {
+        launch.echoFormattedHelp(e)
+        return
+    } catch (e: com.github.ajalt.clikt.core.PrintMessage) {
+        launch.echo(e.message ?: "", err = e.printError)
+        kotlin.system.exitProcess(if (e.printError) 2 else 0)
+    } catch (e: com.github.ajalt.clikt.core.CliktError) {
+        launch.echo(e.message ?: "Invalid arguments.", err = true)
+        kotlin.system.exitProcess(2)
+    }
+
+    if (launch.version) {
+        val version = appVersion()
+        println("singularity-todo ${version.name} (${version.code})")
         return
     }
 
@@ -189,58 +221,47 @@ fun main(args: Array<String>) {
         CompositionLocalProvider(LocalWindowCloseRequest provides closeWindow) {
             Surface {
                 LocalDesktopImageLoader()
-                App(deepLinkTarget = resolveDeepLinkTarget(args))
+                App(deepLinkTarget = launch.resolveDeepLinkTarget())
             }
         }
     }
 }
 
-/**
- * Resolves the deep link the launch arguments carry.
- *
- * `--deeplink=<uri>` is the general form: the same registry the Android entry
- * point uses, so a link that opens on Android opens on Desktop too. The older
- * `--deeplink-magic-email` / `--deeplink-magic-token` pair is kept and folded
- * into the same registry — it is the same link, spelled in two pieces.
- *
- * A URI that matches no registered link is not an error: the app opens on its
- * start tab.
- *
- * @param args the process arguments.
- * @return the target to open, or `null` when no link was given.
- */
-private fun resolveDeepLinkTarget(args: Array<String>): DeepLinkTarget? {
-    val uri =
-        args
-            .firstOrNull { it.startsWith("--deeplink=") }
-            ?.substringAfter("=")
-            ?.takeIf { it.isNotBlank() }
-            ?: legacyMagicLinkUri(args)
-            ?: return null
-    val request = runCatching { DeepLinkRequest(uri) }.getOrNull() ?: return null
-    return runCatching { GlobalContext.get().get<DeepLinkRegistry>().resolve(request) }.getOrNull()
-}
+private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
+    val version: Boolean by option("--version").flag(default = false)
+    private val mcpServer: Boolean by option(McpServerCommandProvider.TOOL_SERVER_FLAG).flag(default = false)
+    private val agentFlag: Boolean by option("--agent").flag(default = false)
+    private val screenInspectorFlag: Boolean by option("--screen-inspector").flag(default = false)
 
-/**
- * The magic link, spelled as two arguments instead of one URI.
- *
- * Kept because scripts that launched the app this way still exist; it produces
- * the same URI the registry matches, so both spellings take the same path.
- */
-private fun legacyMagicLinkUri(args: Array<String>): String? {
-    val email =
-        args
-            .firstOrNull { it.startsWith("--deeplink-magic-email=") }
-            ?.substringAfter("=")
-            ?.takeIf { it.isNotBlank() }
-            ?: return null
-    val token =
-        args
-            .firstOrNull { it.startsWith("--deeplink-magic-token=") }
-            ?.substringAfter("=")
-            ?.takeIf { it.isNotBlank() }
-            .orEmpty()
-    return AuthLinkSpec.uri(email, token)
+    // Accepted so profile args don't break desktop parsing; actual selection is handled downstream.
+    private val profileId: String? by option("--profile-id")
+    private val profileLabel: String? by option("--profile")
+    private val deeplink: String? by option("--deeplink")
+    private val deeplinkMagicEmail: String? by option("--deeplink-magic-email")
+    private val deeplinkMagicToken: String? by option("--deeplink-magic-token")
+
+    init {
+        context {
+            allowInterspersedArgs = true
+        }
+    }
+
+    override fun run() = Unit
+
+    fun resolveDeepLinkTarget(): DeepLinkTarget? {
+        val uri =
+            deeplink?.takeIf { it.isNotBlank() }
+                ?: legacyMagicLinkUri()
+                ?: return null
+        val request = runCatching { DeepLinkRequest(uri) }.getOrNull() ?: return null
+        return runCatching { GlobalContext.get().get<DeepLinkRegistry>().resolve(request) }.getOrNull()
+    }
+
+    private fun legacyMagicLinkUri(): String? {
+        val email = deeplinkMagicEmail?.takeIf { it.isNotBlank() } ?: return null
+        val token = deeplinkMagicToken?.takeIf { it.isNotBlank() }.orEmpty()
+        return AuthLinkSpec.uri(email, token)
+    }
 }
 
 /**

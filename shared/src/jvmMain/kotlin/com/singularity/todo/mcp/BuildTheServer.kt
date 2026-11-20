@@ -65,8 +65,10 @@ private fun build(
                 ),
             instructions =
                 "Singularity Todo MCP server. Use tools to read/write tasks, notes, " +
-                    "projects, tags, and ADR entries. Call describe_toolbox to see which tools this " +
-                    "server is exposing and why. Surface contract version: " +
+                    "projects, tags, and ADR entries. Screen inspector tools (screen_list/open/describe/" +
+                    "snapshot/actions/invoke/wait/cancel/close) drive supported screens headlessly via the " +
+                    "canonical introspection contract. Call describe_toolbox to see which tools this server " +
+                    "is exposing and why. Surface contract version: " +
                     "${McpToolCatalog.SURFACE_CONTRACT_VERSION}.",
         )
     val registrar =
@@ -80,6 +82,9 @@ private fun build(
             sessionContext = { sessionContext.current() },
         )
     registrar.registerAll()
+    com.singularity.todo.mcp.introspection
+        .ScreenInspectorTools()
+        .register(server)
     ToolboxTool(registrar.snapshot).register(server)
     ToolboxResources(
         snapshot = registrar.snapshot,

@@ -154,6 +154,7 @@ dependencies {
     implementation(libs.rich.editor.compose)
     implementation(libs.compose.material)
     implementation(libs.coil.compose)
+    implementation(libs.clikt)
 
     implementation(libs.compose.ui.tooling.preview)
 
