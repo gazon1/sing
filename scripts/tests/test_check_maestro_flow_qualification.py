@@ -52,6 +52,16 @@ def write_initial_set(path: pathlib.Path, flows: list[str]) -> None:
     )
 
 
+def baseline_digest_of(path: pathlib.Path) -> str | None:
+    """The digest a baseline written at `path` has to match, or None if there is none."""
+    if not path.is_file():
+        return None
+    try:
+        return mod.baseline_digest(mod.read_baseline(path))
+    except ValueError:
+        return None
+
+
 FLOW_OK = "appId: com.singularity.todo\n---\n- assertVisible: ok\n"
 FLOW_SMOKE = "tags:\n- smoke\n---\nappId: com.singularity.todo\n---\n- assertVisible: ok\n"
 FLOW_MANUAL = "tags:\n- manual\n---\nappId: com.singularity.todo\n---\n- assertVisible: ok\n"
@@ -114,11 +124,23 @@ class AdmissionTest(unittest.TestCase):
     def _initial(self, root):
         return root / "initial.yaml"
 
-    def _scan(self, root, catalogue, baseline, evidence, expected_digest=None):
+    def _scan(self, root, catalogue, baseline, evidence, expected_digest=None, expected_baseline_digest=None):
         initial = self._initial(root)
         if expected_digest is None:
             expected_digest = mod.initial_set_digest(mod.read_initial_set(initial))
-        return mod.scan(root, catalogue, baseline, evidence, initial, expected_digest)
+        if expected_baseline_digest is None:
+            # The baseline is pinned; the test writes its own baseline, so it
+            # pins it too. A tampered baseline is its own test.
+            expected_baseline_digest = baseline_digest_of(baseline)
+        return mod.scan(
+            root,
+            catalogue,
+            baseline,
+            evidence,
+            initial,
+            expected_digest,
+            expected_baseline_digest,
+        )
 
     def test_new_flow_cannot_be_admitted_by_baseline_expansion(self):
         root, _flow, catalogue, baseline, evidence = self._tree()
@@ -546,6 +568,93 @@ class AdmissionTest(unittest.TestCase):
         )
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["invalid exception"])
+
+
+class BaselinePinTest(unittest.TestCase):
+    """The baseline map is anchored outside the file it guards.
+
+    The baseline says which flow content the rule was introduced for. Editing
+    it -- changing a fingerprint, adding a flow -- is how a changed flow would
+    be admitted without anyone qualifying it. So the map is pinned by a digest
+    that lives in the gate, the same way the frozen set is.
+    """
+
+    def _tree(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        write_flow(root / flow, FLOW_OK)
+        catalogue = root / "catalogue.txt"
+        catalogue.write_text(flow + "\n")
+        baseline = root / "baseline.yaml"
+        write_initial_set(root / "initial.yaml", [flow])
+        evidence = root / "evidence.yaml"
+        evidence.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                sort_keys=False,
+            )
+        )
+        return root, flow, catalogue, baseline, evidence
+
+    def _scan(self, root, catalogue, baseline, evidence, expected_baseline_digest):
+        initial = root / "initial.yaml"
+        digest = mod.initial_set_digest(mod.read_initial_set(initial))
+        return mod.scan(
+            root, catalogue, baseline, evidence, initial, digest, expected_baseline_digest
+        )
+
+    def test_edited_fingerprint_is_refused(self):
+        """The attack the pin exists for.
+
+        A changed flow is given the fingerprint it has now, in the baseline
+        file, without anybody qualifying it. The pin does not move, so the
+        gate refuses before it looks at a single flow.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        old_fp = mod.fingerprint(flow, root)
+        write_baseline(baseline, {flow: old_fp})
+        pinned = mod.baseline_digest(mod.read_baseline(baseline))
+        # The flow changes, and the baseline is edited to match it.
+        write_flow(root / flow, FLOW_OK + "\n# changed\n")
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence, pinned)
+        self.assertIn("pinned digest", str(raised.exception))
+
+    def test_flow_added_to_the_baseline_is_refused(self):
+        """A flow added to the map is refused as well.
+
+        The map is pinned as a whole: a new entry changes the digest, so it
+        cannot be added without touching the pin in the gate.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_baseline(baseline, {})
+        pinned = mod.baseline_digest(mod.read_baseline(baseline))
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence, pinned)
+        self.assertIn("pinned digest", str(raised.exception))
+
+    def test_repository_baseline_matches_the_pinned_digest(self):
+        """The pin in the gate is the digest of the baseline in the repository."""
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        baseline = repo / "config" / "docs" / "maestro-flow-qualification-baseline.yaml"
+        self.assertEqual(mod.baseline_digest(mod.read_baseline(baseline)), mod.BASELINE_DIGEST)
+
+    def test_print_baseline_digest_prints_the_pin(self):
+        """The digest is printed on demand, the way the frozen set's is."""
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        result = subprocess.run(
+            [sys.executable, str(MODULE_PATH), "--print-baseline-digest"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        printed = [line for line in result.stdout.splitlines() if line.startswith("sha256:")]
+        self.assertEqual(printed, [mod.BASELINE_DIGEST])
 
 
 class FrozenSetPolicyTest(unittest.TestCase):
@@ -1220,7 +1329,15 @@ class UntrackedDependencyTest(unittest.TestCase):
     def _scan(self, root, catalogue, baseline, evidence):
         initial = root / "initial.yaml"
         digest = mod.initial_set_digest(mod.read_initial_set(initial))
-        return mod.scan(root, catalogue, baseline, evidence, initial, digest)
+        return mod.scan(
+            root,
+            catalogue,
+            baseline,
+            evidence,
+            initial,
+            digest,
+            baseline_digest_of(baseline),
+        )
 
     def test_absolute_reference_is_refused(self):
         root, flow, catalogue, baseline, evidence = self._tree(

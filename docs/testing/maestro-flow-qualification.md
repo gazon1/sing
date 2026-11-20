@@ -23,6 +23,8 @@ Two files carry the admission, and they are kept apart on purpose.
 
 `config/docs/maestro-flow-qualification-baseline.yaml` holds the **fingerprints** of the frozen set's flows. A flow is admitted when it is in the frozen set *and* its current fingerprint still matches the baseline. A fingerprint that no longer matches is not an admission, it is a change that needs qualification.
 
+The baseline map is pinned the same way the frozen set is: `BASELINE_DIGEST` in `scripts/check-maestro-flow-qualification.py` holds its digest, and the gate refuses to run when the artifact does not match. An edited fingerprint — a changed flow nobody qualified — is therefore a source change, reviewed as one, and not a data change. Print the current digest with `python3 scripts/check-maestro-flow-qualification.py --print-baseline-digest`.
+
 The separation matters: a baseline that carried its own frozen set could be edited once — a new flow added to both the map and the set — and the gate would read that flow as one that was there when the rule was introduced. `--init-baseline` used to be exactly that way to admit a flow, which is why it now writes the fingerprint map for the frozen set only, refuses to overwrite an existing baseline, and never touches the frozen set or its pin.
 
 A flow that is in the baseline map but not in the frozen set was added to the baseline afterwards, and the gate refuses it as a baseline expansion. After that, a blocking-scope flow is admitted only by:

@@ -37,6 +37,10 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    baseline map can only carry fingerprints of flows in the frozen set, and
    the frozen set can only grow through a change to this file — a change that
    reads as what it is: a decision to admit flows without qualifying them.
+
+   The baseline map is pinned the same way: its digest is kept here, so an
+   edited fingerprint -- a changed flow nobody qualified -- is a source
+   change and not a data change.
 2. **Qualified.** ``config/docs/maestro-flow-qualification.yaml`` records a
    qualification run for the flow's current fingerprint: at least
    ``required_attempts`` consecutive attempts, every attempt represented,
@@ -58,7 +62,7 @@ Usage:
     python3 scripts/check-maestro-flow-qualification.py [--json] [--check]
         [--root DIR] [--catalogue FILE] [--baseline FILE] [--evidence FILE]
         [--initial FILE] [--init-baseline] [--init-evidence]
-        [--print-initial-digest]
+        [--print-initial-digest] [--print-baseline-digest]
 
 Exit codes:
     0 — every flow in a blocking automated scope is admitted
@@ -112,6 +116,19 @@ DEFAULT_EVIDENCE = ROOT / "config" / "docs" / "maestro-flow-qualification.yaml"
 #: without being qualified. Print the current digest with
 #: ``--print-initial-digest``.
 FROZEN_SET_DIGEST = "sha256:9b7797e0faa5981077509b32c8d95b8e9d7d05bc681587c4eaa40a63c88a122c"
+
+#: The pinned digest of the baseline map (flow -> fingerprint).
+#:
+#: The baseline says which flow content the rule was introduced for. Editing
+#: it — changing a fingerprint, adding a flow — is how a changed flow would
+#: be admitted without anyone qualifying it. So the map is pinned the same way
+#: the frozen set is pinned: the digest lives here, in the gate that enforces
+#: it, and a baseline that does not match is refused before a single flow is
+#: looked at. Changing the digest here is how the baseline is deliberately
+#: changed — a source change, reviewed as one, that says in the diff that
+#: flows are admitted without being qualified. Print the current digest with
+#: ``--print-baseline-digest``.
+BASELINE_DIGEST = "sha256:5beec8064bb20ca705b40b09fcf5d5a98e544c6fef073bf3842fde7968a7a741"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run
@@ -368,6 +385,37 @@ def verify_frozen_set(names: list[str], expected_digest: str | None) -> str:
     return digest
 
 
+def baseline_digest(baseline: dict[str, str]) -> str:
+    """The digest that pins a baseline map.
+
+    Sorted by flow name, so the digest does not depend on the order the map
+    is written in.
+    """
+    payload = "".join(
+        f"{flow}\0{fingerprint}\n" for flow, fingerprint in sorted(baseline.items())
+    )
+    return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+
+
+def verify_baseline(baseline: dict[str, str], expected_digest: str | None) -> str:
+    """Check the baseline map against its pinned digest.
+
+    The baseline is the record of the flow content the rule was introduced
+    for. A map that does not match its pin is refused: an edited fingerprint
+    is a changed flow that nobody qualified, and the gate would admit it as
+    if it had been there since the beginning.
+    """
+    digest = baseline_digest(baseline)
+    if expected_digest is not None and digest != expected_digest:
+        raise ValueError(
+            f"the baseline does not match its pinned digest: expected {expected_digest}, "
+            f"got {digest} — the baseline only changes deliberately (update the pinned "
+            f"digest in {pathlib.Path(__file__).name} and say in the change that flows are "
+            f"admitted without being qualified)"
+        )
+    return digest
+
+
 def read_baseline(path: pathlib.Path, initial_path: pathlib.Path | None = None) -> dict[str, str]:
     """The baseline map: flow -> fingerprint, for flows of the frozen set only.
 
@@ -510,6 +558,7 @@ def scan(
     evidence_path: pathlib.Path,
     initial_path: pathlib.Path | None = None,
     expected_digest: str | None = FROZEN_SET_DIGEST,
+    expected_baseline_digest: str | None = BASELINE_DIGEST,
 ) -> tuple[list[Finding], dict[str, int]]:
     initial_path = initial_path or DEFAULT_INITIAL
     try:
@@ -526,6 +575,13 @@ def scan(
         baseline = read_baseline(baseline_path, initial_path) if baseline_path.is_file() else {}
     except (OSError, ValueError, yaml.YAMLError) as exc:
         raise click.ClickException(f"cannot read baseline {baseline_path}: {exc}") from exc
+    if baseline_path.is_file():
+        # The baseline is pinned: an edited map is a changed flow nobody
+        # qualified. The gate refuses before it looks at a single flow.
+        try:
+            verify_baseline(baseline, expected_baseline_digest)
+        except ValueError as exc:
+            raise click.ClickException(f"cannot read baseline {baseline_path}: {exc}") from exc
     try:
         required, qualifications, exceptions = read_evidence(evidence_path)
     except (OSError, ValueError, yaml.YAMLError) as exc:
@@ -632,13 +688,21 @@ def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path, initial_nam
 @click.option("--init-baseline", is_flag=True, help="Write the baseline for the frozen set and exit")
 @click.option("--init-evidence", is_flag=True, help="Write an empty evidence file if missing and exit")
 @click.option("--print-initial-digest", is_flag=True, help="Print the digest that pins the frozen set and exit")
+@click.option("--print-baseline-digest", is_flag=True, help="Print the digest that pins the baseline map and exit")
 @click.pass_context
-def cli(ctx: click.Context, as_json: bool, check: bool, root: pathlib.Path, catalogue: pathlib.Path, baseline: pathlib.Path, initial: pathlib.Path, evidence: pathlib.Path, init_baseline: bool, init_evidence: bool, print_initial_digest: bool) -> None:
+def cli(ctx: click.Context, as_json: bool, check: bool, root: pathlib.Path, catalogue: pathlib.Path, baseline: pathlib.Path, initial: pathlib.Path, evidence: pathlib.Path, init_baseline: bool, init_evidence: bool, print_initial_digest: bool, print_baseline_digest: bool) -> None:
     root = root.resolve()
     try:
         if print_initial_digest:
             names = _read_frozen_set(initial)
             click.echo(initial_set_digest(names))
+            raise ctx.exit(CLEAN)
+        if print_baseline_digest:
+            try:
+                flows = read_baseline(baseline, initial)
+            except (OSError, ValueError, yaml.YAMLError) as exc:
+                raise click.ClickException(f"cannot read the baseline {baseline}: {exc}") from exc
+            click.echo(baseline_digest(flows))
             raise ctx.exit(CLEAN)
         if init_baseline:
             names = _read_frozen_set(initial)
@@ -655,6 +719,7 @@ def cli(ctx: click.Context, as_json: bool, check: bool, root: pathlib.Path, cata
             baseline.parent.mkdir(parents=True, exist_ok=True)
             baseline.write_text("# Maestro flow qualification baseline: fingerprints of the frozen set.\n# This map only shrinks; a changed flow must be qualified or excepted instead.\n" + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
             click.echo(f"check-maestro-flow-qualification: wrote baseline for {len(data['flows'])} flow(s) to {baseline}")
+            click.echo(f"check-maestro-flow-qualification: baseline digest {baseline_digest(data['flows'])}")
             raise ctx.exit(CLEAN)
         if init_evidence:
             if not evidence.exists():
