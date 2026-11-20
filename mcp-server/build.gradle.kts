@@ -38,13 +38,15 @@ application {
     // is one version source: the release pipeline sets `desktopAppVersion`, and a client
     // that connects to the MCP server is told the same version the desktop launcher
     // prints.
-    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion")
+    // The debug property is the same source the opt-in resolution reads, so a standalone
+    // server started with `--inspector` in a development run resolves the host.
+    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion", "-Dsingularity.debug=true")
 }
 
 // `applicationDefaultJvmArgs` reaches the installed distribution's start scripts; the
 // `run` task is a separate JavaExec and needs the same property.
 tasks.named<JavaExec>("run") {
-    jvmArgs("-Dsingularity.version=$appVersion")
+    jvmArgs("-Dsingularity.version=$appVersion", "-Dsingularity.debug=true")
 }
 
 /*
