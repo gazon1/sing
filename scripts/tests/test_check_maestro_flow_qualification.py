@@ -1482,6 +1482,35 @@ class UntrackedDependencyTest(unittest.TestCase):
         self.assertIn("leaves the qualification tree", findings[0].detail)
         self.assertEqual(counts["baselined"], 0)
 
+    def test_reference_to_a_missing_file_is_refused(self):
+        """A reference to a file that is not there is refused.
+
+        The validator used to drop such a reference silently: the flow reads
+        something that does not exist, the attempt cannot run, and the
+        qualification spends three runs on a failure the gate could have
+        named before the first attempt.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runFlow: ../../helpers/missing.yaml\n"
+        )
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["untracked dependency"])
+        self.assertIn("is not a file", findings[0].detail)
+        self.assertEqual(counts["baselined"], 0)
+
+    def test_reference_to_a_directory_is_refused(self):
+        """A reference to a directory is not a dependency either."""
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runFlow: ../../helpers/h.yaml\n"
+        )
+        (root / "Maestro/helpers/h.yaml").mkdir(parents=True, exist_ok=True)
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["untracked dependency"])
+        self.assertIn("is not a file", findings[0].detail)
+        self.assertEqual(counts["baselined"], 0)
+
     def test_a_reference_outside_the_tree_is_not_in_the_fingerprint(self):
         """The fingerprint covers the qualification tree and nothing else.
 
@@ -1632,6 +1661,64 @@ class RunnerRefusalTest(unittest.TestCase):
                     )
             data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
         self.assertEqual(code, 1)
+        # The only command that ran is the engine version probe: no attempt ran.
+        for call_args, _ in run.call_args_list:
+            self.assertIn("--version", call_args[0])
+        self.assertEqual(data.get("qualifications") or {}, {})
+
+
+    def test_flow_that_only_the_snapshot_reaches_is_refused_without_attempts(self):
+        """The snapshot is validated, not only the working tree.
+
+        A reference that leaves the qualification tree can be introduced
+        between the check of the working tree and the copy of the snapshot.
+        What the attempts would run is the snapshot, so the snapshot is what
+        has to be checked -- otherwise the evidence covers content the gate
+        never saw.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            evidence = tmp_path / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            flow = "Maestro/flows/tasks/01-a.yaml"
+            run = mock.Mock(returncode=0)
+            checked: list[pathlib.Path] = []
+
+            def fake_dependency_issues(flow_rel, root):
+                checked.append(root)
+                # The working tree is clean; the snapshot is not.
+                if root == self.mod.ROOT:
+                    return []
+                return ["01-a.yaml references /etc/x.yaml"]
+
+            with mock.patch.object(
+                self.mod.GATE, "dependency_issues", side_effect=fake_dependency_issues
+            ):
+                with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
+                    code = self.mod.main(
+                        [
+                            "--flow",
+                            flow,
+                            "--attempts",
+                            "3",
+                            "--record",
+                            "--evidence",
+                            str(evidence),
+                            "--out",
+                            str(tmp_path / "out"),
+                        ]
+                    )
+            data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
+        self.assertEqual(code, 1)
+        # The tree was checked, and so was the snapshot.
+        self.assertGreaterEqual(len(checked), 2)
+        self.assertNotEqual(checked[0], checked[1])
         # The only command that ran is the engine version probe: no attempt ran.
         for call_args, _ in run.call_args_list:
             self.assertIn("--version", call_args[0])

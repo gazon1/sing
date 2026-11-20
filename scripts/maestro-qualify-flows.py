@@ -199,6 +199,28 @@ def snapshot_flow(flow_rel: str) -> tuple[pathlib.Path, pathlib.Path]:
     return snapshot_root, snapshot_root / flow_rel
 
 
+def _untracked_issues(untracked: list[str]) -> list[str]:
+    """The refusal message for references the qualification tree cannot cover."""
+    return [
+        f"{issue} — keep every reference inside the qualification tree "
+        f"({GATE.QUALIFICATION_TREE}/) and requalify"
+        for issue in untracked
+    ]
+
+
+def _refusal_summary(flow: str, issues: list[str]) -> dict:
+    """The report entry for a flow the runner refused to qualify."""
+    return {
+        "flow": flow,
+        "qualified": False,
+        "attempts_passed": False,
+        "attempts_run": 0,
+        "outcomes": [],
+        "record_issues": issues,
+        "record": None,
+    }
+
+
 def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, allow_stale_apk: bool, extra: list[str], flow_path: pathlib.Path | None = None) -> Attempt:
     """Run one attempt of a flow.
 
@@ -584,21 +606,8 @@ def main(argv=None) -> int:
         # attempts saves three runs on evidence the gate cannot accept.
         untracked = GATE.dependency_issues(flow, ROOT)
         if untracked:
-            issues = [
-                f"{issue} — the flow reads content outside the qualification tree "
-                f"({GATE.QUALIFICATION_TREE}/); keep every reference inside it and requalify"
-                for issue in untracked
-            ]
-            summary = {
-                "flow": flow,
-                "qualified": False,
-                "attempts_passed": False,
-                "attempts_run": 0,
-                "outcomes": [],
-                "record_issues": issues,
-                "record": None,
-            }
-            all_results.append(summary)
+            issues = _untracked_issues(untracked)
+            all_results.append(_refusal_summary(flow, issues))
             all_ok = False
             print("  REFUSED: the flow was not qualified (untracked dependency)")
             for issue in issues:
@@ -611,6 +620,20 @@ def main(argv=None) -> int:
         # runs for a version that only one attempt ever saw.
         snapshot_root, snapshot_flow_path = snapshot_flow(flow)
         try:
+            # The snapshot is validated, not the tree: the copy is what the
+            # attempts run, and a reference that leaves the tree can be
+            # introduced between the check above and the copy. Validating the
+            # snapshot itself closes that window — what is refused is what
+            # the attempts would have read.
+            snapshot_untracked = GATE.dependency_issues(flow, snapshot_root)
+            if snapshot_untracked:
+                issues = _untracked_issues(snapshot_untracked)
+                all_results.append(_refusal_summary(flow, issues))
+                all_ok = False
+                print("  REFUSED: the flow was not qualified (untracked dependency in the snapshot)")
+                for issue in issues:
+                    print(f"  note: {issue}")
+                continue
             # The fingerprint of the snapshot is the fingerprint of what the
             # attempts run; the fingerprint of the tree is the fingerprint of
             # what the record has to describe.

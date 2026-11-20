@@ -269,6 +269,17 @@ def dependency_issues(flow_rel: str, root: pathlib.Path) -> list[str]:
                     f"({QUALIFICATION_TREE}/)"
                 )
                 continue
+            if not candidate.is_file():
+                # A reference to something that is not a file inside the tree
+                # -- a missing helper, a directory -- is content no
+                # fingerprint can cover and no snapshot contains. Silently
+                # dropping it would let a flow that cannot run pass the
+                # validator and spend its attempts on a failure.
+                issues.append(
+                    f"{current} references {ref}, which is not a file inside the "
+                    f"qualification tree ({QUALIFICATION_TREE}/)"
+                )
+                continue
             if rel not in seen:
                 stack.append(rel)
     return issues
@@ -602,8 +613,8 @@ def scan(
                     flow,
                     "untracked dependency",
                     "; ".join(untracked)
-                    + f" — the flow reads content outside the qualification tree "
-                    f"({QUALIFICATION_TREE}/); keep every reference inside it and requalify",
+                    + f" — the flow reads content the qualification tree "
+                    f"({QUALIFICATION_TREE}/) does not cover; keep every reference inside it and requalify",
                 )
             )
             continue

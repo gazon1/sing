@@ -62,6 +62,10 @@ validator and the snapshot disagreed about what the tree is.
   baseline, not a qualification record, not an exception. The runner refuses
   it before the first attempt and says why, so three attempts are not spent
   on evidence the gate would reject.
+- A reference that stays inside the tree but does not resolve to a file — a
+  missing helper, a directory — is an untracked dependency as well. It names
+  content no fingerprint can cover and no snapshot contains, so dropping it
+  would let a flow that cannot run pass the validator.
 - **The qualification tree is `Maestro/`.** The reference validator, the
   fingerprint and the snapshot now name the same tree, so a reference that
   resolves inside it is covered by all three, and one that resolves outside
@@ -111,5 +115,6 @@ validator and the snapshot disagreed about what the tree is.
 - Issue: https://github.com/gazon1/sing/issues/3052
 - Policy: `docs/testing/maestro-flow-qualification.md`
 - Prior decision: `docs/decisions/2026-11-20-maestro-qualification-anchors.md`
+- Related: `docs/decisions/2026-11-20-maestro-qualification-admission-precedence.md`
 - Gate: `scripts/check-maestro-flow-qualification.py`
 - Runner: `scripts/maestro-qualify-flows.py`
