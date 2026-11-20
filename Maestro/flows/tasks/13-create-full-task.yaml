@@ -132,10 +132,8 @@ tags:
     timeout: 8000
 - tapOn:
     text: "High priority"
-# Sheet dismisses on selection; the row now shows the chosen priority.
-- extendedWaitUntil:
-    visible: "High priority"
-    timeout: 8000
+# Sheet dismisses on selection; the row shows the chosen priority.
+- assertVisible: "High priority"
 
 # ── Set due date to Today ─────────────────────────────────────────────
 #
