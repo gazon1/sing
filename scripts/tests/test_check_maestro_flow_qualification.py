@@ -411,6 +411,32 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
             attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 2)
         self.assertEqual(attempt.outcome, "infra_failure")
 
+    def test_missing_environment_or_build_identity_prevents_admissible_record(self):
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        attempts = []
+        for i in range(1, 4):
+            d = tempfile.TemporaryDirectory()
+            self.addCleanup(d.cleanup)
+            p = pathlib.Path(d.name)
+            (p / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (p / "run-summary.json").write_text(
+                json.dumps({"passed": ["01-a"], "failed": [], "retried": [], "not_measured": []}),
+                encoding="utf-8",
+            )
+            # no environment.json -> environment/build identity missing per attempt
+            attempt = self.mod.classify_attempt(flow, p, 0)
+            attempt.attempt = i
+            attempts.append(attempt)
+        record = self.mod.build_qualification_record(flow, attempts, self.mod.ROOT)
+        issues = self.mod.record_issues(record)
+        self.assertTrue(any("documented environment" in x for x in issues), issues)
+        self.assertTrue(any("build identity" in x for x in issues), issues)
+
 
 if __name__ == "__main__":
     unittest.main()

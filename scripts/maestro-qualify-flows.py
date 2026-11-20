@@ -313,8 +313,35 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
 
 def record_issues(record: dict) -> list[str]:
     issues = []
-    if not record.get("maestro_version"):
+    attempts = record.get("attempts") or []
+    if not record.get("maestro_version") and not any(
+        isinstance(a, dict) and a.get("maestro_version") for a in attempts
+    ):
         issues.append("maestro version is unknown (the admission gate requires it)")
+    envs = set()
+    builds = set()
+    for i, attempt in enumerate(attempts, start=1):
+        if not isinstance(attempt, dict):
+            issues.append(f"attempt {i} is not a mapping")
+            continue
+        env = attempt.get("environment") or {}
+        if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
+            issues.append(f"attempt {i} does not record a documented environment (kind/api)")
+        envs.add(
+            (
+                env.get("kind") if isinstance(env, dict) else None,
+                env.get("api") if isinstance(env, dict) else None,
+                env.get("device") if isinstance(env, dict) else None,
+            )
+        )
+        build = attempt.get("apk_commit_sha") or attempt.get("commit")
+        if not build:
+            issues.append(f"attempt {i} does not record build identity (commit/apk_commit_sha)")
+        builds.add(build)
+    if attempts and len(envs) > 1:
+        issues.append("qualification attempts do not share one documented environment")
+    if attempts and len(builds) > 1:
+        issues.append("qualification attempts do not share one build identity")
     return issues
 
 
