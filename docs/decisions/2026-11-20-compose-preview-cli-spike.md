@@ -66,6 +66,13 @@ success: the CLI exits 0 and writes the PNG, or it exits non-zero and writes
 
 **Android (Robolectric) backend — BLOCKED, three stacked causes.**
 
+How a KMP-Android module picks its lane (read from the upstream plugin source,
+`AndroidPreviewSupport.kt`): it takes the Robolectric lane only when it **both**
+opts in (`kmpAndroidRobolectric`) and declares a host-test compilation; opting in
+without a host test warns and falls back to Desktop. `:shared` declares
+`withHostTest { }` but does not opt in, which is why the default render above is
+the Desktop lane. Plugin declaration order does not decide it.
+
 Forced with `--gradle-arg=-PcomposePreview.kmpAndroidRobolectric=true`.
 
 1. *Robolectric API drift.* The upstream renderer

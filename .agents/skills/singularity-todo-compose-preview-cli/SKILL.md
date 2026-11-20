@@ -8,62 +8,55 @@ description: Render an existing @Preview composable in :shared to PNG with the u
 
 `compose-preview` (upstream: https://github.com/yschimke/compose-ai-tools) renders
 this repo's existing `@Preview` functions to PNG without Android Studio and without
-an emulator. It is a **local developer/agent tool only** — it is not wired into CI,
-it is not a screenshot-regression framework, and it adds nothing to the production
-runtime classpath.
+an emulator. It is a **local developer/agent tool only** — no CI, no
+screenshot-regression framework, nothing on the production runtime classpath.
 
-Upstream ships its own skill bundle (installed by the same installer as the CLI);
-this file is the Singularity-specific note on top of that workflow. The upstream
-renderer is used as-is — do not fork it.
-
-Decision record: `docs/decisions/2026-11-20-compose-preview-cli-spike.md`.
+This file is the how-to. The authoritative record — what was measured, what is
+blocked and why — is the decision note
+`docs/decisions/2026-11-20-compose-preview-cli-spike.md`; read it when you need
+the numbers or the reasoning.
 
 ## Install / update
 
 The CLI is a standalone binary; it is **not** a Gradle dependency of this repo.
 
 ```bash
-# upstream installer (CLI only)
-bash <(curl -fsSL https://preview.coo.ee/install.sh) --cli-only
-
-# check what is installed
+bash <(curl -fsSL https://preview.coo.ee/install.sh) --cli-only   # install or update
 compose-preview --version
-
-# update
-bash <(curl -fsSL https://preview.coo.ee/install.sh) --cli-only
 ```
 
 The installer drops the binary into `~/.agents/skills/compose-preview/cli/compose-preview-<version>/bin/`
 and links it into `~/.local/bin`. The version validated on this repo was **2.101.1**
-(upstream skips releases it marks "not ready for CLI + Maven use" — 2.102.0 was
-skipped at the time of the spike).
+(upstream skips releases it marks "not ready for CLI + Maven use").
 
-The CLI drives Gradle through a **runtime init script** it injects itself — nothing
-in `build.gradle.kts` is changed, and no `ee.schimke.composeai` plugin is pinned in
-the repo. Do not add one: the CLI route is the one this project agreed to.
+The CLI drives Gradle through a **runtime init script** it injects itself — no
+build file in this repo is changed and no `ee.schimke.composeai` plugin is pinned.
+Do not add one; the CLI route is the agreed one.
 
 ## Render from the repo root
 
 ```bash
-# what exists (83 previews in :shared)
-compose-preview list
-
-# one preview by function name
+compose-preview list                                    # what exists
 compose-preview render --module :shared --function TaskCardLightPreview
-
-# several previews
-compose-preview render --module :shared --preview '*TaskCard*Preview'
-
-# id + path + sha256 + changed flag
-compose-preview show --json --filter TaskCardLightPreview
-
-# a different output directory (default: <module>/build/compose-previews/renders)
-compose-preview render --module :shared --function TaskCardLightPreview --output /tmp/previews
+compose-preview render --module :shared --preview TaskCard          # substring
+compose-preview show --json --filter TaskCardLightPreview           # id, path, sha256
 ```
+
+Selection flags (`compose-preview render --help`):
+
+| Flag | Matches |
+|---|---|
+| `--function <name>` | the exact function name |
+| `--id <id>` | the exact preview id |
+| `--filter <text>` | a case-insensitive substring of the id |
+| `--preview <ref>` | the id, `Class.function`, the bare function name, or a substring of the id |
+
+**None of them is a glob.** `--preview '*TaskCard*Preview'` matches nothing,
+because the asterisks are ordinary characters in the search string.
 
 Exit codes: `0` rendered, `1` build error, `2` render failure, `3` no preview
 matched. A success prints the PNG path; a failure prints the renderer error and
-leaves an `*.error.json` next to where the PNG would have been.
+leaves an `*.error.json` where the PNG would have been.
 
 The loop is: **render → read the PNG → report the path**. Never claim a visual
 check you did not make. If the model cannot view images, say so plainly and hand
@@ -72,120 +65,77 @@ the PNG path to the user.
 ## Where the artifacts land
 
 ```
-shared/build/compose-previews/renders/<PreviewName>-<hash>.png   # the PNG
-shared/build/compose-previews/renders/<PreviewName>-<hash>.png.error.json  # a failure
-shared/build/compose-previews/.cli-state.json                     # per-module CLI state
-shared/build/compose-previews/previews.json                       # discovered previews
+shared/build/compose-previews/renders/<PreviewName>-<hash>.png               # the PNG
+shared/build/compose-previews/renders/<PreviewName>-<hash>.png.error.json    # a failure
+shared/build/compose-previews/previews.json                                  # discovered previews
 ```
 
-These are build outputs — **never commit them**. Inspect a PNG with any image
-viewer (`xdg-open <path>`) or with the agent's image reader.
+Build outputs — **never commit them**. Inspect a PNG with any image viewer
+(`xdg-open <path>`) or with the agent's image reader.
 
-## Backends: Desktop works today, Android/Robolectric is blocked
+## Backends
 
-`:shared` is a Kotlin Multiplatform module. The upstream plugin routes a KMP module
-by **plugin order**: `org.jetbrains.compose` applied *before* the KMP/Android
-plugins → Desktop (Skia) lane; the other way → Android (Robolectric) lane.
-
-**Desktop lane — works today, no repo change.** `:shared` currently lands here:
+**Desktop (Skia) — works today, no repo change.** A KMP-Android module renders on
+the Desktop lane unless it opts into Robolectric, so `:shared` lands here:
 
 ```bash
 compose-preview render --module :shared --function TaskCardLightPreview
-# → shared/build/compose-previews/renders/TaskCardLightPreview-<hash>.png
 ```
 
 `:desktopApp` and `:androidApp` have **no previews of their own** — all previews
-live in `:shared`. To render them *from* those modules you would have to add
-`composePreviewSource(project(":shared"))` to their build files; that is a deliberate
-change, not part of this workflow. Render from `:shared` instead.
+live in `:shared`. Rendering them *from* those modules needs
+`composePreviewSource(project(":shared"))` in their build files; that is a
+deliberate change, not part of this workflow. Render from `:shared`.
 
-**Android/Robolectric lane — blocked on this repo's Robolectric 4.18.** To force it:
+**Android (Robolectric) — opt in, and currently blocked.** A KMP-Android module
+takes the Robolectric lane only when it both opts in and declares a host test:
 
 ```bash
 compose-preview render --module :shared --function TaskCardLightPreview \
   --gradle-arg=-PcomposePreview.kmpAndroidRobolectric=true
 ```
 
-It fails with:
+`:shared` declares `withHostTest { }`, so the opt-in is what moves it. The render
+then fails, for three stacked reasons:
 
-```
-Unable to load shared Robolectric native runtime library from
-~/.cache/composeai/robolectric-native:
-java.lang.NoSuchMethodException: org.robolectric.nativeruntime.DefaultNativeRuntimeLoader
-    .maybeCopyFonts(org.robolectric.util.TempDirectory)
-```
+1. the upstream renderer calls a Robolectric method that **4.18** removed
+   (this repo pins `robolectric = "4.18"`);
+2. `withHostTest { }` lacks `isIncludeAndroidResources = true`, so the merged
+   R classes are missing — upstream issue #5375 says the consumer must set it;
+3. the AGP manifest merge then fails on `ComponentActivity@exported`.
 
-Cause: the upstream renderer (`ee.schimke.composeai:renderer-android:3.28.x`) calls
-`DefaultNativeRuntimeLoader.maybeCopyFonts(TempDirectory)` reflectively. Robolectric
-**4.18** changed that method to a no-arg `maybeCopyFonts()`; **4.17 and older** still
-have the `TempDirectory` overload. This repo pins `robolectric = "4.18"`
-(`gradle/libs.versions.toml`), so the reflective call cannot resolve.
-
-Two smaller blockers sit behind it and will bite even after the Robolectric version
-is settled:
-
-- `shared/build.gradle.kts` has `withHostTest {}` **without** `isIncludeAndroidResources = true`,
-  which upstream asks for before a KMP module renders through Robolectric
-  (upstream issue #5375: the plugin cannot add it for a module that already
-  wrote `withHostTest { }` — the repo has to).
-- The AGP manifest merge then fails on `androidx.activity.ComponentActivity`:
-  the injected `androidx.compose.ui:ui-test-manifest` declares it `exported=true`,
-  while `shared/src/androidHostTest/AndroidManifest.xml` declares it
-  `exported=false`. `:androidApp` fails the same way, earlier, in
-  `mergeDebugUnitTestManifest`.
-
-Do **not** work around these to make a render look green. Record them; the fix
-belongs upstream or in a separate decision. See the decision note for the current
-status of each.
+Do **not** work around these to make a render look green. The causes, their
+evidence and the candidate fixes are in the decision note; fixing them is a
+separate decision.
 
 ## Cost of a render
 
-Measured on this repo (warm Gradle daemon, other builds running concurrently):
+Seconds, not minutes, and a few hundred MB of RSS in the CLI process — the
+measured table is in the decision note. A render is a local developer action, not
+something to run on every change.
 
-| Preview | Backend | Wall clock | Max RSS of the CLI process |
-|---|---|---:|---:|
-| `TaskCardLightPreview` | Desktop (Skia) | 6 s | ~310 MB |
-| `AgendaContentLoadedPreview` | Desktop (Skia) | 12 s | ~340 MB |
-| `TaskCardLightPreview` (cold daemon) | Desktop (Skia) | 48 s | — |
+## Conventions to reuse
 
-The Gradle daemon is a separate process, so the RSS above is the CLI's own tree,
-not the whole build. A render is a local developer action, not something to run on
-every change.
-
-## Conventions to reuse (do not invent new ones)
-
-- Annotation: `androidx.compose.ui.tooling.preview.Preview` — the JetBrains
-  `org.jetbrains.compose.ui.tooling.preview.Preview` does not resolve in the Android
-  compile task of this project. ADR `docs/decisions/2026-09-06-compose-previews.md`.
-- Preview functions are `private` and live at the **end of the source file**, under
-  a `// ===== Preview =====` marker. The renderer discovers private previews fine.
-- Theme wrapper: `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/preview/PreviewThemed.kt`
-  — `PreviewThemed(darkTheme, accent, fontSizeScale, useSurface)`. Use
-  `useSurface = false` when the preview root already contains a `Scaffold`.
-- Sample data: `shared/src/commonMain/kotlin/com/singularity/todo/preview/PreviewSamples.kt`
-  — epoch-0 `Instant`, fixed `LocalDate(2026, 9, 6)`. Never call `Clock.System.now()`
-  in preview code.
-- Previews must not start Koin. Use the VM-as-parameter pattern with the fakes in
-  `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt` —
-  skill `singularity-todo-preview-with-koin`.
+Do not invent new ones. Preview conventions — the AndroidX `@Preview` annotation,
+where preview functions live, `PreviewSamples`, `PreviewThemed` — are in
+`docs/decisions/2026-09-06-compose-previews.md`. How to write a preview that
+needs a ViewModel is in the skill `singularity-todo-preview-with-koin`.
 
 ## When to render
 
 Render the preview that covers the component you touched, then look at the PNG.
 Do not render the whole catalogue; do not make rendering a gate on every change.
 
-**A change in shared UI affects both targets.** The CLI can render the Desktop lane
-today, so a Desktop render checks the composable's layout and theme but says
-nothing about Android-specific behaviour. Say so explicitly when reporting: the
-Android lane was **not** verified. Android behaviour still has to be checked another
-way (Maestro flows, a device run) or the change stays unverified on Android.
+**A change in shared UI affects both targets.** The Desktop lane checks layout,
+theme and spacing — it says nothing about Android-specific behaviour. Report it
+as such: the Android lane was not verified.
 
 ## Failure modes worth knowing
 
 | Symptom | Meaning |
 |---|---|
-| exit 3, "No previews matched" | wrong module or wrong function name — `compose-preview list` shows the real names |
-| `NoSuchMethodException ... maybeCopyFonts` | the Robolectric 4.18 incompatibility above |
-| manifest-merge error on `ComponentActivity@exported` | the `ui-test-manifest` conflict above |
+| exit 3, "No previews matched" | wrong module or wrong name — `compose-preview list` shows the real names; a glob in `--preview` matches nothing |
+| `NoSuchMethodException ... maybeCopyFonts` | the Robolectric 4.18 incompatibility |
+| manifest-merge error on `ComponentActivity@exported` | the `ui-test-manifest` conflict |
 | `NoClassDefFoundError: androidx/lifecycle/runtime/R$id` | `withHostTest { }` without `isIncludeAndroidResources = true` |
 | "declares no host test ... Falling back to the Compose Multiplatform Desktop renderer" | expected on the other KMP modules — they have no `withHostTest` |
