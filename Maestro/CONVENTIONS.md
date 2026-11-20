@@ -183,7 +183,11 @@ with every attempt
 recorded and infrastructure failures never counted as test passes; an initial
 failure followed by a pass means the flow is flaky, not qualified. The attempts
 run an immutable snapshot of the flow tree, so they always see the same
-content, whatever happens to the checkout while the run is in progress. A flow
+content, whatever happens to the checkout while the run is in progress. The
+attempts run the APK built from this checkout: the runner refuses an installed
+APK that is not this checkout's build, and the qualification runner does not
+accept `--allow-stale-apk`, so a qualification can never certify another
+program than the one the change is about. A flow
 that references content outside `Maestro/` is refused: the fingerprint and
 the snapshot both cover that tree, and nothing else.
 

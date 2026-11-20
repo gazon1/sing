@@ -227,7 +227,7 @@ def _refusal_summary(flow: str, issues: list[str]) -> dict:
     }
 
 
-def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, allow_stale_apk: bool, extra: list[str], flow_path: pathlib.Path | None = None) -> Attempt:
+def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, extra: list[str], flow_path: pathlib.Path | None = None) -> Attempt:
     """Run one attempt of a flow.
 
     `flow_path` is the flow the attempt runs. The runner passes the immutable
@@ -248,8 +248,6 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
         cmd += ["--engine", engine]
     if skip_install:
         cmd += ["--skip-install"]
-    if allow_stale_apk:
-        cmd += ["--allow-stale-apk"]
     # Qualification requires each attempt to pass cleanly; disable internal retries
     # so a retry-recovered pass cannot count as a successful attempt.
     cmd += ["--maestro-max-retries", "0"]
@@ -494,7 +492,11 @@ def main(argv=None) -> int:
     ap.add_argument("--serial", help="Device serial to pin.")
     ap.add_argument("--engine", choices=["maestro", "maestro-runner"], help="Maestro engine.")
     ap.add_argument("--skip-install", action="store_true", help="Skip APK install on each attempt.")
-    ap.add_argument("--allow-stale-apk", action="store_true", help="Allow installed APK to differ from checkout.")
+    ap.add_argument(
+        "--allow-stale-apk",
+        action="store_true",
+        help="Refused: a qualification has to certify the APK built from this checkout.",
+    )
     ap.add_argument("--out", type=pathlib.Path, default=DEFAULT_OUT, help="Base directory for attempt artifacts.")
     ap.add_argument("--catalogue", type=pathlib.Path, default=DEFAULT_CATALOGUE)
     ap.add_argument("--baseline", type=pathlib.Path, default=DEFAULT_BASELINE)
@@ -508,6 +510,21 @@ def main(argv=None) -> int:
 
     if args.attempts < 1:
         print("--attempts must be >= 1", file=sys.stderr)
+        return 2
+
+    if args.allow_stale_apk:
+        # The qualification runner never runs an APK that is not this
+        # checkout's build: the record names the build that ran the attempts,
+        # and a qualification that certifies an older APK certifies a
+        # different program than the one the change is about. The flag
+        # disables the runner's own provenance check, so it is refused here
+        # rather than forwarded -- a run that may produce evidence cannot
+        # weaken the rule the evidence stands on.
+        print(
+            "--allow-stale-apk cannot be used by the qualification runner: a qualification "
+            "has to certify the APK built from this checkout",
+            file=sys.stderr,
+        )
         return 2
 
     try:
@@ -653,7 +670,6 @@ def main(argv=None) -> int:
                         args.serial,
                         args.engine,
                         args.skip_install,
-                        args.allow_stale_apk,
                         extra,
                         flow_path=snapshot_flow_path,
                     )

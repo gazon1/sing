@@ -1125,7 +1125,7 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
             (attempt_dir / "environment.json").write_text("{}", encoding="utf-8")
             # Failed new invocation produces no fresh reports; stale files must not count.
             with mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=2)):
-                attempt = self.mod.run_one_attempt(flow, 1, out, None, None, False, False, [])
+                attempt = self.mod.run_one_attempt(flow, 1, out, None, None, False, [])
         self.assertEqual(attempt.outcome, "infra_failure")
         self.assertNotIn("SUCCESS", attempt.reason or "")
 
@@ -1151,8 +1151,8 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp)
             with mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=2)):
-                self.mod.run_one_attempt(flow_a, 1, out, None, None, False, False, [])
-                self.mod.run_one_attempt(flow_b, 1, out, None, None, False, False, [])
+                self.mod.run_one_attempt(flow_a, 1, out, None, None, False, [])
+                self.mod.run_one_attempt(flow_b, 1, out, None, None, False, [])
             dir_a = out / "Maestro" / "flows" / "area1" / "01-same" / "attempt-1"
             dir_b = out / "Maestro" / "flows" / "area2" / "01-same" / "attempt-1"
             self.assertTrue(dir_a.is_dir(), "artifacts for first flow must survive")
@@ -1226,7 +1226,7 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
                         self.mod.subprocess, "run", return_value=mock.Mock(returncode=2)
                     ):
                         attempt = self.mod.run_one_attempt(
-                            flow, 1, out, None, None, False, False, []
+                            flow, 1, out, None, None, False, []
                         )
         mv_mock.assert_called_once_with("maestro-runner")
         self.assertEqual(attempt.maestro_version, "maestro-runner 1.2.3")
@@ -1378,6 +1378,65 @@ class SnapshotFailureTest(unittest.TestCase):
                 self.assertFalse(snapshot_root.exists(), "a half-copied snapshot must not survive")
 
 
+class StaleApkTest(unittest.TestCase):
+    """The qualification runs the APK built from this checkout, or it runs nothing.
+
+    The runner refuses to run a flow against an installed APK that is not the
+    checkout's build, and `--allow-stale-apk` is the switch that turns that
+    check off. A qualification is evidence about *this* checkout, so the
+    qualification runner never forwards the switch: a record that certified an
+    older APK would certify a different program than the one the change is
+    about.
+    """
+
+    def setUp(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows_apk", runner_path)
+        self.mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def test_the_switch_is_refused(self):
+        """The run refuses before it spends a device run on a stale APK."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            with mock.patch.object(self.mod.subprocess, "run") as run_mock:
+                code = self.mod.main(
+                    [
+                        "--flow",
+                        "Maestro/flows/tasks/01-a.yaml",
+                        "--allow-stale-apk",
+                        "--record",
+                        "--evidence",
+                        str(tmp_path / "evidence.yaml"),
+                        "--out",
+                        str(tmp_path / "out"),
+                    ]
+                )
+        self.assertEqual(code, 2)
+        run_mock.assert_not_called()
+
+    def test_the_attempt_never_carries_the_switch(self):
+        """The switch is not forwarded to the runner that runs the attempt."""
+        captured: list[list[str]] = []
+
+        def run(cmd, *args, **kwargs):
+            captured.append(list(cmd))
+            return mock.Mock(returncode=2, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            with mock.patch.object(self.mod, "maestro_version", return_value="1.39.0"):
+                with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
+                    self.mod.run_one_attempt(
+                        "Maestro/flows/tasks/01-a.yaml", 1, out, None, None, False, []
+                    )
+        self.assertTrue(captured, "the attempt has to run the runner")
+        for cmd in captured:
+            self.assertNotIn("--allow-stale-apk", cmd)
+
+
 class QualificationRecordWritingTest(unittest.TestCase):
     """The record the runner writes has to be one the gate can admit."""
 
@@ -1494,7 +1553,7 @@ class QualificationRecordWritingTest(unittest.TestCase):
             with mock.patch.object(self.mod, "maestro_version", return_value=None):
                 with mock.patch.object(self.mod.subprocess, "run") as run_mock:
                     attempt = self.mod.run_one_attempt(
-                        "Maestro/flows/tasks/01-a.yaml", 1, out, None, None, False, False, []
+                        "Maestro/flows/tasks/01-a.yaml", 1, out, None, None, False, []
                     )
         run_mock.assert_not_called()
         self.assertEqual(attempt.outcome, "infra_failure")
