@@ -102,7 +102,7 @@ every capture machine, or the set cannot be compared with the previous one.
 |---|---|
 | Device | The AVD `capture_9x16` — a Pixel-class phone AVD whose own screen is 1080 × 1920 px (the SDK's `pixel_2` hardware profile) |
 | Resolution | 1080 × 1920 px, density 420 dpi — the AVD's own screen, never an override |
-| Aspect | 9:16 portrait. Google Play's phone-screenshot rule: every side 320–3840 px, and the longest side no more than twice the shortest. 9:16 portrait from 1080 × 1920 up is also the tier Google recommends for apps |
+| Aspect | 9:16 portrait. Google Play's phone-screenshot rule: every side 320–3840 px, and the longest side no more than 2.3 times the shortest (as of 2026-11-20: <https://support.google.com/googleplay/android-developer/answer/9866151>). 9:16 portrait from 1080 × 1920 up is also the tier Google recommends for apps |
 | Profile | The app profile `Play demo` — the dataset's own profile, so a capture reset cannot reach the data of the profile someone else is using |
 | Locale | `ru-RU` for the app — `adb shell cmd locale set-app-locales com.singularity.todo --locales ru-RU` |
 | Theme | Light — the app's own light scheme, not a custom colour |
@@ -169,14 +169,20 @@ device rather than assumed; the reasons behind the device itself are in
 [the device ADR](../../docs/decisions/2026-11-17-the-capture-device-is-a-9-16-avd.md).
 
 **The AVD's own screen has to be 9:16.** The repository's default `pixel_6`
-AVD — the one `scripts/ci/provision-avd.sh` creates — is 1080 × 2400, and
-Play would reject a screenshot of it: 2400 is more than twice 1080. The
-capture device is provisioned with a 9:16 screen instead, and the capture
-flows must not `wm size` it into one. An override changes the logical
-resolution and leaves the captured image at its physical size, so the PNG
-would still be 1080 × 2400 and still be rejected — and the Maestro flows
-address the screen in percentages, which an override moves out from under
-them.
+AVD — the one `scripts/ci/provision-avd.sh` creates — is 1080 × 2400, and Play
+asks for 9:16 portrait screenshots (a 20:9 screenshot is accepted, but it is
+not the tier the listing is built around). The capture device is provisioned
+with a 9:16 screen instead, and the capture flows must not `wm size` it into
+one. An override changes the logical resolution and leaves the captured image
+at its physical size, so the PNG would still be 1080 × 2400 — and the Maestro
+flows address the screen in percentages, which an override moves out from
+under them.
+
+(The rule this paragraph used to cite — that a screenshot is rejected when its
+longest side is more than twice its shortest — is not Play's rule any more:
+since 2026-11-20 the limit is 2.3 times, and 2400 is 2.22 times 1080. The
+device is 9:16 because the listing is built around 9:16, not because the other
+one would be refused.)
 
 **The capture is in Russian, and the app is half English.** With the app
 locale set to `ru-RU` the resource strings read Russian, but the bottom
