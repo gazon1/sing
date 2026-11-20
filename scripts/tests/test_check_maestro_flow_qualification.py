@@ -1188,13 +1188,14 @@ class QualificationRecordWritingTest(unittest.TestCase):
 
 
 class UntrackedDependencyTest(unittest.TestCase):
-    """A flow that reads content outside the tree cannot be qualified.
+    """A flow that reads content outside the qualification tree cannot be qualified.
 
     The fingerprint describes the tree, and the attempts run a snapshot of the
-    tree. A reference that leaves it -- an absolute path, or a relative path
-    that climbs out -- points at content neither of them covers: an edit
-    there would go unnoticed, and the evidence would attest to a flow nobody
-    ran in full.
+    tree. A reference that leaves it -- an absolute path, a relative path that
+    climbs out of the repository, or a path that stays in the repository but
+    leaves `Maestro/` -- points at content none of them covers: an edit there
+    would go unnoticed, and the evidence would attest to a flow nobody ran
+    in full.
     """
 
     def _tree(self, flow_body: str):
@@ -1238,7 +1239,7 @@ class UntrackedDependencyTest(unittest.TestCase):
         write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["untracked dependency"])
-        self.assertIn("leaves the tree", findings[0].detail)
+        self.assertIn("leaves the repository", findings[0].detail)
 
     def test_baseline_does_not_admit_a_flow_with_an_untracked_dependency(self):
         """The baseline admits a flow by fingerprint; it does not admit a lie.
@@ -1285,6 +1286,39 @@ class UntrackedDependencyTest(unittest.TestCase):
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["baselined"], 1)
+
+    def test_reference_leaving_the_qualification_tree_is_refused(self):
+        """A reference inside the repository but outside `Maestro/` is refused.
+
+        The validator, the fingerprint and the snapshot have to name the same
+        tree. A reference that stays in the repository but leaves `Maestro/`
+        is content the snapshot does not contain: the gate would admit the
+        flow and the attempt would fail on a file the qualification never
+        covered.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runScript: ../../../scripts/helper.js\n"
+        )
+        write_flow(root / "scripts/helper.js", "console.log('x');\n")
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["untracked dependency"])
+        self.assertIn("leaves the qualification tree", findings[0].detail)
+        self.assertEqual(counts["baselined"], 0)
+
+    def test_a_reference_outside_the_tree_is_not_in_the_fingerprint(self):
+        """The fingerprint covers the qualification tree and nothing else.
+
+        A file the flow reaches outside `Maestro/` is content the snapshot
+        does not contain, so it must not be part of the fingerprint the
+        record claims to attest to.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/flows/tasks/01-a.yaml", "appId: x\n---\n")
+            write_flow(root / "scripts/helper.js", "console.log('x');\n")
+            deps = mod.flow_dependencies("Maestro/flows/tasks/01-a.yaml", root)
+        self.assertNotIn("scripts/helper.js", deps)
 
 
 class EnvironmentIdentityTest(unittest.TestCase):

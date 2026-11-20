@@ -124,6 +124,16 @@ _SCRIPT_REF = re.compile(rf"(?m)^\s*-\s*runScript:\s*['\"]?({_REF_PATTERN})['\"]
 #: Every reference a flow or a helper can make.
 _ALL_REFS = (_FILE_REF, _RUNFLOW_REF, _SCRIPT_REF)
 
+#: The tree a flow is qualified against: the `Maestro/` flow tree, relative to
+#: the repository root.
+#:
+#: The fingerprint, the snapshot and the reference validator have to cover the
+#: same content, or the gate promises more than it can attest to. The
+#: qualification runs against a snapshot of this tree, so a reference that
+#: resolves outside it points at content the fingerprint never saw and the
+#: attempts never ran.
+QUALIFICATION_TREE = "Maestro"
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -161,12 +171,30 @@ def blocking_scope_flows(catalogue: list[str], root: pathlib.Path) -> tuple[list
     return flows, findings
 
 
-def resolve_ref(ref: str, source: pathlib.Path, root: pathlib.Path) -> pathlib.Path | None:
-    """Resolve a file reference relative to the file that contains it."""
-    candidate = (source.parent / ref).resolve()
+def _tree_root(root: pathlib.Path) -> pathlib.Path:
+    """The qualification tree inside a root (the repository or a snapshot)."""
+    return (root / QUALIFICATION_TREE).resolve()
+
+
+def _relative_to_tree(candidate: pathlib.Path, root: pathlib.Path) -> str | None:
+    """The path of `candidate` inside the qualification tree, or None."""
+    tree = _tree_root(root)
     try:
-        candidate.relative_to(root.resolve())
+        return candidate.resolve().relative_to(tree).as_posix()
     except ValueError:
+        return None
+
+
+def resolve_ref(ref: str, source: pathlib.Path, root: pathlib.Path) -> pathlib.Path | None:
+    """Resolve a file reference relative to the file that contains it.
+
+    Only a file inside the qualification tree resolves. A reference to
+    anything else is not a dependency of the flow -- it is content the
+    fingerprint does not cover and the snapshot does not contain -- and
+    `dependency_issues` reports it instead of silently dropping it.
+    """
+    candidate = (source.parent / ref).resolve()
+    if _relative_to_tree(candidate, root) is None:
         return None
     return candidate if candidate.is_file() else None
 
@@ -192,11 +220,12 @@ def flow_refs(path: pathlib.Path) -> list[str]:
 def dependency_issues(flow_rel: str, root: pathlib.Path) -> list[str]:
     """References of a flow that the tree it is qualified against cannot cover.
 
-    A reference that leaves the tree -- an absolute path, or a relative path
-    that climbs out of it -- is read from outside the tree the fingerprint
-    describes and outside the snapshot the attempts run. Such a flow cannot be
-    qualified: the evidence would attest to content the gate never sees, and
-    an edit there between two attempts would go unnoticed.
+    A reference that leaves the qualification tree -- an absolute path, a
+    relative path that climbs out of the repository, or a path that stays in
+    the repository but outside `Maestro/` -- points at content that is in
+    neither the fingerprint nor the snapshot the attempts run. Such a flow
+    cannot be qualified: the evidence would attest to content the gate never
+    sees, and an edit there between two attempts would go unnoticed.
     """
     issues: list[str] = []
     seen: set[str] = set()
@@ -215,7 +244,13 @@ def dependency_issues(flow_rel: str, root: pathlib.Path) -> list[str]:
             try:
                 rel = candidate.relative_to(root.resolve()).as_posix()
             except ValueError:
-                issues.append(f"{current} references {ref}, which leaves the tree")
+                issues.append(f"{current} references {ref}, which leaves the repository")
+                continue
+            if _relative_to_tree(candidate, root) is None:
+                issues.append(
+                    f"{current} references {ref}, which leaves the qualification tree "
+                    f"({QUALIFICATION_TREE}/)"
+                )
                 continue
             if rel not in seen:
                 stack.append(rel)
@@ -511,7 +546,8 @@ def scan(
                     flow,
                     "untracked dependency",
                     "; ".join(untracked)
-                    + " — the flow reads content outside the tree; make every reference relative to the repository and requalify",
+                    + f" — the flow reads content outside the qualification tree "
+                    f"({QUALIFICATION_TREE}/); keep every reference inside it and requalify",
                 )
             )
             continue

@@ -184,8 +184,8 @@ recorded and infrastructure failures never counted as test passes; an initial
 failure followed by a pass means the flow is flaky, not qualified. The attempts
 run an immutable snapshot of the flow tree, so they always see the same
 content, whatever happens to the checkout while the run is in progress. A flow
-that references content outside the repository is refused: the fingerprint and
-the snapshot both cover the repository, and nothing else.
+that references content outside `Maestro/` is refused: the fingerprint and
+the snapshot both cover that tree, and nothing else.
 
 - Policy, evidence and exceptions: `docs/testing/maestro-flow-qualification.md`
 - Frozen set (pre-rule in-scope flows, pinned by a digest in the gate): `config/docs/maestro-flow-qualification-initial.yaml`

@@ -585,8 +585,8 @@ def main(argv=None) -> int:
         untracked = GATE.dependency_issues(flow, ROOT)
         if untracked:
             issues = [
-                f"{issue} — the flow reads content outside the tree; make every "
-                "reference relative to the repository and requalify"
+                f"{issue} — the flow reads content outside the qualification tree "
+                f"({GATE.QUALIFICATION_TREE}/); keep every reference inside it and requalify"
                 for issue in untracked
             ]
             summary = {
