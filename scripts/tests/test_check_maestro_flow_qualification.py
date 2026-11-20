@@ -1199,6 +1199,59 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         self.assertEqual(attempt.maestro_version, "maestro-runner 1.2.3")
 
 
+class EngineVersionTest(unittest.TestCase):
+    """The engine version is a prerequisite, so it has to be *recognised*.
+
+    A record has to name the version of the engine that ran the attempt, and
+    the admission gate rejects a record without it. If any output at all could
+    be read as a version, the prerequisite would hold for free: the runner
+    would record whatever the tool printed and the gate would accept it.
+    """
+
+    def setUp(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows_version", runner_path)
+        self.mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def test_the_banner_version_is_read(self):
+        self.assertEqual(self.mod._version_token("Maestro 1.39.0"), "1.39.0")
+
+    def test_the_runner_banner_version_is_read(self):
+        self.assertEqual(self.mod._version_token("maestro-runner 1.2.3"), "1.2.3")
+
+    def test_a_banner_that_says_version_is_read(self):
+        self.assertEqual(self.mod._version_token("Maestro version 1.39.0"), "1.39.0")
+
+    def test_a_bare_version_line_is_read(self):
+        self.assertEqual(self.mod._version_token("1.39.0"), "1.39.0")
+
+    def test_the_banner_wins_over_a_jvm_warning(self):
+        """A warning printed above the banner is not the engine's version."""
+        text = "OpenJDK 64-Bit Server VM warning: Use -Xmx\nMaestro 1.39.0\n"
+        self.assertEqual(self.mod._version_token(text), "1.39.0")
+
+    def test_the_jvm_version_is_not_the_engines_version(self):
+        """A JVM that names its version does not name the engine's."""
+        text = 'OpenJDK Runtime Environment (build 17.0.1+12)\n"version 11.0.2" 2021-10-19 LTS'
+        self.assertIsNone(self.mod._version_token(text))
+
+    def test_output_that_names_no_version_names_no_version(self):
+        """The failure mode this pins: any output was read as a version."""
+        for text in ("Maestro version unavailable", "Maestro", "command not found", ""):
+            with self.subTest(text=text):
+                self.assertIsNone(self.mod._version_token(text))
+
+    def test_a_version_number_after_other_words_is_not_the_engines(self):
+        """A number that belongs to something else is not a version."""
+        self.assertIsNone(self.mod._version_token("Maestro version unavailable (build 1.2)"))
+
+    def test_an_empty_output_names_no_version(self):
+        self.assertIsNone(self.mod._version_token("\n\n"))
+
+
 class QualificationRecordWritingTest(unittest.TestCase):
     """The record the runner writes has to be one the gate can admit."""
 

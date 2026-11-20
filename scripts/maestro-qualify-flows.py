@@ -283,8 +283,18 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     return result
 
 
-#: A version number in a `--version` output.
-_VERSION_NUMBER = re.compile(r"\d+\.\d+(?:\.\d+)*")
+#: The engine's own banner: the engine name, and the version right after it.
+#:
+#: The version has to belong to the engine. A number that follows some other
+#: word ("Maestro version unavailable (build 1.2)") is a number somebody
+#: else printed, and reading it as the engine's version would put a version
+#: in the record that nobody established.
+_ENGINE_BANNER = re.compile(
+    r"^\s*maestro[-\w.]*\s*(?:version\s+)?v?(\d+\.\d+(?:\.\d+)*)",
+    re.IGNORECASE,
+)
+#: A line that starts with a version number: the bare version some builds print.
+_VERSION_LINE = re.compile(r"^\s*v?(\d+\.\d+(?:\.\d+)*)(?![\d.])")
 
 
 def _version_token(text: str) -> str | None:
@@ -293,18 +303,27 @@ def _version_token(text: str) -> str | None:
     The tool's own banner wins over any other line: a JVM warning printed
     above the banner must not become the version of the tool that ran the
     attempt.
+
+    Output that names no version names no version. A line without a version
+    number is not a version -- accepting one would turn any output at all
+    ("Maestro version unavailable") into a detected version, and the
+    qualification would carry a version nobody established. So a version is
+    read only from the engine's banner, or from a line that is a version and
+    nothing else.
     """
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     for line in lines:
-        if "maestro" in line.lower():
-            match = _VERSION_NUMBER.search(line)
-            if match:
-                return match.group(0)
-    for line in lines:
-        match = _VERSION_NUMBER.search(line)
+        match = _ENGINE_BANNER.match(line)
         if match:
-            return match.group(0)
-    return lines[0] if lines else None
+            return match.group(1)
+    for line in lines:
+        # A line that is a version number, with nothing before it: the bare
+        # version some builds print. A version that follows other words
+        # belongs to something else and is not the engine's.
+        match = _VERSION_LINE.match(line)
+        if match:
+            return match.group(1)
+    return None
 
 
 def effective_engine(engine: str | None) -> str:
