@@ -24,18 +24,11 @@ import org.koin.dsl.module
  * resolve, defaults included. An explicit lambda says what is injected and what is
  * left alone.
  */
-fun acpModule(): Module =
+fun acpModule(inspectorHostOptIn: Boolean): Module =
     module {
         // The command that starts the tool server. One instance: it reads the
         // environment once, and the environment does not change while the application runs.
         single { McpServerCommandProvider() }
-
-        // The application's opt-in for the local screen-inspection host, carried into the
-        // tool-server command an external agent is handed. The host is opt-in; the default is
-        // no host, so a process that did not opt in starts none. The value is the application's
-        // own for the sessions it hosts, and it is build-bound: a release build hosts no host,
-        // which the opt-in resolution enforces.
-        single { System.getProperty("singularity.debug") == "true" }
 
         // How an agent is started. Bound rather than defaulted, so that the graph says
         // what it does and a test can put its own launcher in its place.
@@ -48,7 +41,7 @@ fun acpModule(): Module =
                 commandProvider = get(),
                 launcher = get(),
                 crashReporter = get(),
-                inspectorOptIn = get(),
+                inspectorOptIn = inspectorHostOptIn,
             )
         }
     }

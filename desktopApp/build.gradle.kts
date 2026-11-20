@@ -204,6 +204,41 @@ compose.desktop {
     }
 }
 
+// The screen-inspector host capability for the desktop entry point is a build-time
+// decision: enabled for the development launch task, disabled for release distributions.
+// It is generated into the source set so the runtime gate never resolves a user-overridable
+// JVM property.
+val desktopInspectorHostEnabled =
+    providers
+        .gradleProperty(
+            "singularity.inspector.host.enabled",
+        ).orElse("false")
+        .get()
+        .toBoolean()
+val desktopInspectorHostBuildDir = layout.buildDirectory.dir("generated/src/main/kotlin")
+
+val generateDesktopInspectorHostBuildConfig =
+    tasks.register("generateDesktopInspectorHostBuildConfig") {
+        val generatedRoot = layout.buildDirectory.get().asFile
+        val hostEnabled = desktopInspectorHostEnabled
+        doLast {
+            val dir = generatedRoot.resolve("generated/src/main/kotlin").resolve("com/singularity/todo")
+            dir.mkdirs()
+            dir.resolve("DesktopInspectorHostBuildConfig.kt").writeText(
+                "package com.singularity.todo\n\n" +
+                    "object DesktopInspectorHostBuildConfig {\n" +
+                    "    const val INSPECTOR_HOST_ENABLED: Boolean = $hostEnabled\n" +
+                    "}\n",
+            )
+        }
+    }
+
+sourceSets["main"].kotlin.srcDir(desktopInspectorHostBuildDir.get().asFile)
+
+tasks.named("compileKotlin") {
+    dependsOn(generateDesktopInspectorHostBuildConfig)
+}
+
 // ---------------------------------------------------------------------------
 // D1 (#686): Patch jpackage's postinst to be a no-op.
 //

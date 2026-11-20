@@ -128,7 +128,7 @@ fun main(args: Array<String>) {
                 inspectorHostOptIn(
                     args,
                     isDebugBuild =
-                        System.getProperty("singularity.debug") == "true",
+                        DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
                 ),
         )
         return
@@ -169,7 +169,7 @@ fun main(args: Array<String>) {
                     domainModule() +
                     listOf(
                         gateModule(RELEASES_URL),
-                        acpModule(),
+                        acpModule(inspectorHostOptIn = DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED),
                     ),
             )
         }
