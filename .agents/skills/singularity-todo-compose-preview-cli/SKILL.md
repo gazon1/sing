@@ -1,7 +1,7 @@
 ---
 name: singularity-todo-compose-preview-cli
 status: active
-description: Render existing @Preview composables to PNG with the upstream compose-preview CLI, without Android Studio and without an emulator. Use after changing Compose UI in :shared — when a visual change needs checking, when a preview should be shown to the user, or when a preview render fails. Covers CLI install and update, rendering from the repo root, where the PNG lands, the Desktop (Skia) and Android (Robolectric) lanes and their current limits, and the PreviewSamples / PreviewThemed conventions to reuse.
+description: Render an existing @Preview composable in :shared to PNG with the upstream compose-preview CLI. Use when a Compose UI change needs a visual check, or when a preview render fails.
 ---
 
 # Compose preview CLI (render previews to PNG)

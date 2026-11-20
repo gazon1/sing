@@ -30,7 +30,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-clean-architecture-audit` | 221 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 399 | Write-tool surface contract for Singularity Todo KMP MCP server. |
 | `singularity-todo-compose-overview` | 56 | Router skill — index to all Compose UI skills. |
-| `singularity-todo-compose-preview-cli` | 189 | Render existing @Preview composables to PNG with the upstream compose-preview CLI, without Android Studio and without an emulator. |
+| `singularity-todo-compose-preview-cli` | 189 | Render an existing @Preview composable in :shared to PNG with the upstream compose-preview CLI. |
 | `singularity-todo-coroutine-scopes` | 211 | Canonical patterns for CoroutineScope ownership in this KMP project — where scopes live, anti-patterns to avoid, and how to fix hanging tests caused by repository-owned scopes. |
 | `singularity-todo-cross-feature-navigation` | 235 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 250 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
