@@ -166,6 +166,10 @@ the capture device's contract is written down.
 - The renderer wipes its output directory before every run. It only wipes a
   directory it wrote itself — it leaves a marker file in it — so a directory
   that holds files of somebody else's is refused instead of deleted.
+- The capture manifest decides the order of the set: the renderer walks the
+  manifest's captures and looks up the composition for each one. The templates
+  say what a picture looks like and what it says, not where it stands in the
+  listing.
 - `scripts/tests/test_store_render.py` covers the pure parts: the templates
   and the captures covering each other, the font being checked in, the font
   drawing every headline (and refusing one it cannot), a headline that does not

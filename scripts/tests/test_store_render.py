@@ -322,6 +322,22 @@ class RenderTest(unittest.TestCase):
         for entry in manifest['screenshots']:
             self.assertTrue(entry['output_path'].endswith(entry['file']), entry)
 
+    def test_the_capture_manifest_decides_the_order_of_the_set(self):
+        # The manifest says what is captured, in which order. The set follows
+        # it — not the order the templates happen to list the compositions in.
+        template = mod.load_templates()
+        captures = mod.load_captures()
+        reordered = dataclasses.replace(captures, captures=tuple(reversed(captures.captures)))
+        with mock.patch.object(mod, 'load_templates', return_value=template), mock.patch.object(
+            mod, 'load_captures', return_value=reordered
+        ):
+            self.assertEqual(self.render(), 0)
+        manifest = json.loads((self.out / 'manifest.json').read_text(encoding='utf-8'))
+        self.assertEqual(
+            [entry['file'] for entry in manifest['screenshots']],
+            [capture.file for capture in reordered.captures],
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

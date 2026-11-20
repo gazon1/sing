@@ -763,9 +763,10 @@ def main(argv: list[str] | None = None) -> int:
         refuse_unsafe_out_dir(out_dir, raw_dir)
         captures = manifest.captures
         by_file = {capture.file: capture for capture in captures}
+        compositions = {shot.file: shot for shot in template.screenshots}
         missing = [
             capture.file for capture in captures
-            if capture.file not in {shot.file for shot in template.screenshots}
+            if capture.file not in compositions
         ]
         if missing:
             raise RenderError(
@@ -780,8 +781,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"the templates compose {', '.join(unknown)}, which the capture "
                 "manifest does not know"
             )
-        for shot in template.screenshots:
-            raw = raw_dir / shot.file
+        for capture in captures:
+            raw = raw_dir / capture.file
             if not raw.is_file():
                 raise RenderError(
                     f"the raw capture {raw} is not there — run the capture command first"
@@ -800,8 +801,8 @@ def main(argv: list[str] | None = None) -> int:
     entries: list[dict] = []
     pictures: list[tuple[Screenshot, Image.Image]] = []
     failures: list[str] = []
-    for shot in template.screenshots:
-        capture = by_file[shot.file]
+    for capture in captures:
+        shot = compositions[capture.file]
         raw = raw_dir / shot.file
         try:
             picture = render_one(template, shot, raw, capture)

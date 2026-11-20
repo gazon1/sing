@@ -22,7 +22,7 @@ store/templates.yaml + store/fonts/ ──────────► build/stor
 
 | File | What it is |
 |---|---|
-| `templates.yaml` | The compositions and the store copy: the canvas, the type, the frame and the headline of every picture. The only place the copy lives. |
+| `templates.yaml` | The compositions and the store copy: the canvas, the type, the frame and the headline of every picture. The only place the copy lives. The order of the set is the capture manifest's. |
 | `fonts/Roboto-Regular.ttf` | The font the headlines are drawn with. Checked in on purpose — see [The font](#the-font). |
 | `fonts/LICENSE.txt` | The font's licence (Apache-2.0). |
 
