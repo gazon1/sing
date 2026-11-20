@@ -189,8 +189,9 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     env = os.environ.copy()
     # ensure this checkout's scripts/src is importable
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC), env.get("PYTHONPATH", "")]))
+    effective_engine = engine or os.environ.get("MAESTRO_ENGINE") or "maestro"
     print(f"  attempt {attempt}: {' '.join(shlex.quote(c) for c in cmd)}")
-    mv = maestro_version(engine)
+    mv = maestro_version(effective_engine)
     cp = subprocess.run(cmd, cwd=ROOT, env=env)
     result = classify_attempt(flow_rel, attempt_dir, cp.returncode)
     result.attempt = attempt

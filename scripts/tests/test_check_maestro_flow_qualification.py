@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -690,6 +691,23 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         issues = self.mod.record_issues(record)
         self.assertTrue(any("do not share one Maestro version" in x for x in issues), issues)
         self.assertIsNone(record.get("maestro_version"))
+
+    def test_maestro_engine_env_used_for_version_when_no_explicit_engine(self):
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            with mock.patch.dict(os.environ, {"MAESTRO_ENGINE": "maestro-runner"}, clear=False):
+                with mock.patch.object(
+                    self.mod, "maestro_version", return_value="maestro-runner 1.2.3"
+                ) as mv_mock:
+                    with mock.patch.object(
+                        self.mod.subprocess, "run", return_value=mock.Mock(returncode=2)
+                    ):
+                        attempt = self.mod.run_one_attempt(
+                            flow, 1, out, None, None, False, False, []
+                        )
+        mv_mock.assert_called_once_with("maestro-runner")
+        self.assertEqual(attempt.maestro_version, "maestro-runner 1.2.3")
 
 
 if __name__ == "__main__":
