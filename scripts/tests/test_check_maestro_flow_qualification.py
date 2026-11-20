@@ -1275,15 +1275,52 @@ class QualificationRecordWritingTest(unittest.TestCase):
         return code, data
 
     def test_undetectable_version_is_not_recorded_as_qualified(self):
-        """Three passing attempts and no engine version are not a qualification.
+        """No engine version, no qualification — and no attempts spent on it.
 
-        The record would be rejected by the admission gate, so the runner does
-        not write one: the user is told at record time, not at admission time.
+        A record has to name the build that ran the attempt, and the admission
+        gate rejects a record without it. The version is therefore a
+        prerequisite, not a note: the run refuses before the attempts instead
+        of spending three device runs per flow on evidence nothing can accept.
         """
         with tempfile.TemporaryDirectory() as tmp:
-            code, data = self._run(None, pathlib.Path(tmp))
-        self.assertEqual(code, 1)
-        self.assertEqual(data.get("qualifications") or {}, {})
+            tmp_path = pathlib.Path(tmp)
+            attempts: list[list[str]] = []
+
+            def fake_run(cmd, *args, **kwargs):
+                if "--version" not in cmd:
+                    attempts.append(list(cmd))
+                return mock.Mock(returncode=1, stdout="", stderr="")
+
+            with mock.patch.object(self.mod.subprocess, "run", side_effect=fake_run):
+                code = self.mod.main(
+                    [
+                        "--flow",
+                        "Maestro/flows/tasks/01-a.yaml",
+                        "--attempts",
+                        "3",
+                        "--record",
+                        "--evidence",
+                        str(tmp_path / "evidence.yaml"),
+                        "--out",
+                        str(tmp_path / "out"),
+                    ]
+                )
+        self.assertEqual(code, 2)
+        self.assertEqual(attempts, [], "no attempt may run without a version to record")
+
+    def test_an_attempt_without_a_version_never_runs_the_device(self):
+        """The per-attempt probe is a prerequisite too, not a warning."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            with mock.patch.object(self.mod, "maestro_version", return_value=None):
+                with mock.patch.object(self.mod.subprocess, "run") as run_mock:
+                    attempt = self.mod.run_one_attempt(
+                        "Maestro/flows/tasks/01-a.yaml", 1, out, None, None, False, False, []
+                    )
+        run_mock.assert_not_called()
+        self.assertEqual(attempt.outcome, "infra_failure")
+        self.assertIn("version could not be detected", attempt.reason)
+        self.assertIsNone(attempt.maestro_version)
 
     def test_detected_version_is_recorded_as_qualified(self):
         """The positive control: the same run with a version is recorded."""
@@ -1738,28 +1775,29 @@ class RunnerRefusalTest(unittest.TestCase):
             )
             flow = "Maestro/flows/tasks/01-a.yaml"
             run = mock.Mock(returncode=0)
-            with mock.patch.object(
-                self.mod.GATE, "dependency_issues", return_value=["01-a.yaml references /etc/x.yaml"]
-            ):
-                with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
-                    code = self.mod.main(
-                        [
-                            "--flow",
-                            flow,
-                            "--attempts",
-                            "3",
-                            "--record",
-                            "--evidence",
-                            str(evidence),
-                            "--out",
-                            str(tmp_path / "out"),
-                        ]
-                    )
+            with mock.patch.object(self.mod, "maestro_version", return_value="1.39.0"):
+                with mock.patch.object(
+                    self.mod.GATE, "dependency_issues", return_value=["01-a.yaml references /etc/x.yaml"]
+                ):
+                    with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
+                        code = self.mod.main(
+                            [
+                                "--flow",
+                                flow,
+                                "--attempts",
+                                "3",
+                                "--record",
+                                "--evidence",
+                                str(evidence),
+                                "--out",
+                                str(tmp_path / "out"),
+                            ]
+                        )
             data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
         self.assertEqual(code, 1)
-        # The only command that ran is the engine version probe: no attempt ran.
+        # No attempt ran: the flow was refused before the device was touched.
         for call_args, _ in run.call_args_list:
-            self.assertIn("--version", call_args[0])
+            self.assertNotIn("--junit-dir", call_args[0])
         self.assertEqual(data.get("qualifications") or {}, {})
 
 
@@ -1793,31 +1831,32 @@ class RunnerRefusalTest(unittest.TestCase):
                     return []
                 return ["01-a.yaml references /etc/x.yaml"]
 
-            with mock.patch.object(
-                self.mod.GATE, "dependency_issues", side_effect=fake_dependency_issues
-            ):
-                with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
-                    code = self.mod.main(
-                        [
-                            "--flow",
-                            flow,
-                            "--attempts",
-                            "3",
-                            "--record",
-                            "--evidence",
-                            str(evidence),
-                            "--out",
-                            str(tmp_path / "out"),
-                        ]
-                    )
+            with mock.patch.object(self.mod, "maestro_version", return_value="1.39.0"):
+                with mock.patch.object(
+                    self.mod.GATE, "dependency_issues", side_effect=fake_dependency_issues
+                ):
+                    with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
+                        code = self.mod.main(
+                            [
+                                "--flow",
+                                flow,
+                                "--attempts",
+                                "3",
+                                "--record",
+                                "--evidence",
+                                str(evidence),
+                                "--out",
+                                str(tmp_path / "out"),
+                            ]
+                        )
             data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
         self.assertEqual(code, 1)
         # The tree was checked, and so was the snapshot.
         self.assertGreaterEqual(len(checked), 2)
         self.assertNotEqual(checked[0], checked[1])
-        # The only command that ran is the engine version probe: no attempt ran.
+        # No attempt ran: the snapshot was refused before the device was touched.
         for call_args, _ in run.call_args_list:
-            self.assertIn("--version", call_args[0])
+            self.assertNotIn("--junit-dir", call_args[0])
         self.assertEqual(data.get("qualifications") or {}, {})
 
 

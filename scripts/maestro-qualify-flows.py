@@ -252,10 +252,29 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     # ensure this checkout's scripts/src is importable
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC), env.get("PYTHONPATH", "")]))
     engine_used = effective_engine(engine)
-    print(f"  attempt {attempt}: {' '.join(shlex.quote(c) for c in cmd)}")
     # The version is read before the attempt: the evidence has to name the build
-    # that ran it, and a version read afterwards names a build nobody ran.
+    # that ran it, and a version read afterwards names a build nobody ran. An
+    # undetected version is not a smaller piece of evidence -- the admission
+    # gate rejects a record without it -- so the attempt is refused instead of
+    # spending device time on evidence nothing can accept.
     mv = maestro_version(engine_used)
+    if mv is None:
+        result = Attempt(
+            attempt=attempt,
+            outcome="infra_failure",
+            reason=f"the {engine_used} version could not be detected before the attempt",
+            junit=None,
+            results_dir=(
+                str(attempt_dir.relative_to(ROOT)) if _inside(attempt_dir, ROOT) else str(attempt_dir)
+            ),
+            environment=None,
+            run_summary=None,
+            return_code=0,
+            maestro_version=None,
+        )
+        print(f"    -> {result.outcome}: {result.reason}")
+        return result
+    print(f"  attempt {attempt}: {' '.join(shlex.quote(c) for c in cmd)}")
     cp = subprocess.run(cmd, cwd=ROOT, env=env)
     result = classify_attempt(flow_rel, attempt_dir, cp.returncode)
     result.attempt = attempt
@@ -601,12 +620,15 @@ def main(argv=None) -> int:
     engine_used = effective_engine(args.engine)
     if maestro_version(engine_used) is None:
         # Said before the attempts, not after them: the run would spend three
-        # attempts per flow on evidence the admission gate cannot accept.
+        # attempts per flow on evidence the admission gate cannot accept. The
+        # version is a prerequisite, not a note -- without it nothing the run
+        # produces can be admitted.
         print(
-            f"  note: the {engine_used} version could not be detected — a qualification record "
-            f"has to carry it, so nothing will be recorded as qualified",
+            f"error: the {engine_used} version could not be detected — a qualification record "
+            f"has to carry it, so nothing can be qualified",
             file=sys.stderr,
         )
+        return 2
 
     for flow in flows:
         print(f"\n=== {flow} ===")
