@@ -1,0 +1,89 @@
+# The store compositions — the version-controlled half of the rendered set.
+#
+# The raw captures are the source of truth; this file says what each of them
+# becomes in the store listing. `scripts/store-render.py` reads it and nothing
+# else: change a headline here, re-run the renderer, and the picture changes.
+#
+# WHY THE COPY IS IN THE FILE AND NOT IN THE SCRIPT
+# -------------------------------------------------
+# The words are the store's, not the tool's. A renderer that carried its own
+# headlines would have to be edited to change a caption, and the caption would
+# then live in a place nobody reads when they look for the copy.
+#
+# The copy is Russian because that is the language of the listing this set is
+# made for and the language of the app in the pictures (the capture locale is
+# `ru-RU`). It says only what the screen behind it shows — no ratings, no
+# awards, no claims the app does not make. The English half of the storyboard
+# (`Maestro/capture/STORYBOARD.md`) is the reasoning behind each line.
+#
+# THE FONT
+# --------
+# `fonts/Roboto-Regular.ttf` is checked in on purpose: a font found on the
+# machine that renders the picture is a font that renders it differently on
+# another machine, and "the same raw capture, the same store asset" has to
+# hold for the set to be comparable with the previous one. Roboto covers
+# Cyrillic, which the font Pillow ships does not — a caption in Russian drawn
+# with that font is a row of empty boxes. The renderer refuses a headline the
+# font cannot draw rather than shipping the boxes.
+#
+# THE GEOMETRY
+# ------------
+# The canvas is 1080x1920 (9:16, the aspect Google Play recommends for a
+# phone set), the device frame is a rounded rectangle with the raw capture
+# inside it, and the headline sits above it. Every number a picture depends on
+# is here, so the set looks the same every time it is rendered.
+
+locale: ru-RU
+
+canvas:
+  # 9:16 portrait, the size Google Play recommends for phone screenshots
+  # (each side 320-3840 px, no side more than 2.3x the other).
+  width: 1080
+  height: 1920
+  # The background is a vertical gradient from `background` to `background_end`.
+  # Two colours of the same dark blue; a flat colour is `background_end: ~`.
+  background: "#0B1220"
+  background_end: "#16233F"
+  # The margin the headline and the frame are placed inside.
+  margin: 72
+
+headline:
+  # The path is relative to this file.
+  font: fonts/Roboto-Regular.ttf
+  size: 64
+  color: "#F8FAFC"
+  # The bar under the headline. Its height is a share of the font size.
+  accent: "#38BDF8"
+  accent_ratio: 0.12
+  # The space between the headline block and the frame.
+  gap: 48
+  # A headline longer than this many lines is refused rather than shrunk.
+  max_lines: 3
+
+device:
+  # The frame's outer width, in canvas pixels. The raw capture is scaled to
+  # fit inside it, so the store picture shows the whole screen with a caption.
+  width: 792
+  # The bezel around the capture, and the radius of the frame's outer corners.
+  # The capture's own corners are rounded with them, so the bezel keeps the
+  # same width all the way round.
+  bezel: 18
+  radius: 48
+  color: "#05070D"
+
+# One entry per raw capture, in the order the store shows them. `file` is the
+# raw capture in `build/store-capture/` and the rendered file in
+# `build/store-assets/`; the order comes from `Maestro/capture/manifest.yaml`.
+screenshots:
+  - file: 01-today.png
+    headline: "Ваш день — в одном списке"
+  - file: 02-task-detail.png
+    headline: "У задачи есть контекст"
+  - file: 03-project-detail.png
+    headline: "Проекты, а не папки"
+  - file: 04-upcoming.png
+    headline: "Ближайшие дни — без календаря"
+  - file: 05-calendar.png
+    headline: "Месяц на одном экране"
+  - file: 06-notes.png
+    headline: "Заметки привязаны к задачам"

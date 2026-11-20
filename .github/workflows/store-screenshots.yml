@@ -1,0 +1,274 @@
+name: Store screenshots
+
+# The store screenshots, rendered from a real capture of this app.
+#
+# WHAT THIS IS FOR
+#
+# The store listing needs pictures of the app, and the pictures have to be the
+# app: a mockup is not a screenshot and Play rejects a set that is not a set of
+# screenshots of one app. So this workflow does the real thing — it builds the
+# app, boots the capture device the storyboard names, captures the six screens
+# and renders them into the compositions Play accepts.
+#
+# WHY IT IS MANUAL
+#
+# The emulator costs minutes and gigabytes, and nothing here is a check: a
+# store listing is published by a person, by hand, after looking at the
+# pictures. So this workflow runs when somebody asks for it (Actions → Store
+# screenshots → Run workflow) and never on a pull request. It changes no gate
+# and no required check.
+#
+# WHAT IT PRODUCES
+#
+# One artifact, `store-screenshots`: the six rendered PNGs, the manifest that
+# describes them (`manifest.json`), the human-readable list (`README.md`) and
+# the contact sheet — the whole set on one picture, to look at before an
+# upload. A second artifact, `store-screenshots-diagnostics`, carries the raw
+# captures and the logs, and is uploaded even when the run failed: a failed
+# capture with no evidence is a failed capture nobody can fix.
+
+on:
+  workflow_dispatch:
+
+# The workflow reads the repository and nothing else: it uploads an artifact
+# and writes no branch.
+permissions:
+  contents: read
+
+# One capture at a time. The capture device is a single AVD, and two runs
+# against it at once would fight over the same emulator — so a second run
+# cancels the first rather than queueing behind it.
+concurrency:
+  group: store-screenshots
+  cancel-in-progress: true
+
+env:
+  # The Maestro version is a repository variable, so the capture runs the same
+  # Maestro the E2E suite runs. The fallback is the version the repository
+  # pinned last.
+  MAESTRO_VERSION: ${{ vars.MAESTRO_VERSION || '2.10.0' }}
+
+  # The capture device, exactly as Maestro/capture/STORYBOARD.md names it: the
+  # AVD `capture_9x16`, built from the SDK's `pixel_2` hardware profile
+  # (1080 x 1920 px at 420 dpi, 9:16 portrait), on API 36.
+  #
+  # Pinned, because the store screenshots are a promise about how the app
+  # looks, and a device that is a different size is a different promise.
+  AVD_NAME: capture_9x16
+  SYSTEM_IMAGE: system-images;android-36;google_apis_playstore;x86_64
+  DEVICE: pixel_2
+
+jobs:
+  store-screenshots:
+    runs-on: ubuntu-24.04
+    # The system image alone is a gigabyte, and the emulator needs minutes to
+    # boot. The limit is generous on purpose: a timeout that fires in the
+    # middle of a capture throws away the run.
+    timeout-minutes: 90
+    steps:
+      # Pinned to a commit, not to a tag: a tag is a name somebody can move,
+      # and this workflow installs code on a runner. The comment carries the
+      # version the commit is.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The APK compiles the Android target, so the declared platform must exist.
+      - uses: ./.github/actions/setup-android-sdk
+
+      # The same placeholder credentials the E2E workflow uses: the capture
+      # runs with the auth bypass, so no Supabase server is involved, and the
+      # build only refuses to package an app without a non-blank URL.
+      - name: Create local.properties with Supabase credentials
+        run: |
+          cat > local.properties << 'EOF'
+          supabase.url=https://placeholder.supabase.co
+          supabase.anonKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiIOiJwbGFjZWhvbGRlciIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjQwMTAxMDAwLCJleHAiOjE5NTU2NzUwMDB9.placeholder
+          EOF
+
+      # The APK is built BEFORE the emulator boots. The emulator is the
+      # expensive, fragile half of this run: a build that fails after a boot
+      # wastes the boot as well, and a capture of yesterday's APK is not the
+      # app in this commit.
+      #
+      # -PTEST_AUTH_BYPASS=true: the capture flows need to be signed in, and
+      # the bypass starts the app in the agenda with a stub session — no
+      # server, no credentials, no personal data in the picture.
+      - name: Build the debug APK
+        run: ./gradlew :androidApp:assembleDebug -PTEST_AUTH_BYPASS=true
+
+      # Pillow (the renderer) and PyYAML (both commands) come from
+      # scripts/src/pyproject.toml, which this action installs.
+      - uses: ./.github/actions/setup-python-tools
+        with:
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+
+      # The version is passed to the installer as MAESTRO_VERSION. Checking the
+      # variable and then running an unpinned `curl | bash` would assert a pin
+      # and install whatever is newest.
+      - name: Install Maestro (pinned)
+        run: |
+          : "${MAESTRO_VERSION:?set the repository variable MAESTRO_VERSION}"
+          MAESTRO_VERSION="$MAESTRO_VERSION" bash -c "$(curl -fsSL https://get.maestro.mobile.dev)"
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # KVM has to be enabled on THIS runner: the setting does not travel with
+      # a cache, and without it the emulator dies with "x86_64 emulation
+      # currently requires hardware acceleration" — a failure that reads like
+      # a missing emulator and is neither.
+      #
+      # Only where the device is there. A runner without /dev/kvm cannot run
+      # this image at all, and the udev rule would be a no-op that hides the
+      # real cause; so the step says so and lets the boot report it.
+      - name: Enable KVM
+        run: |
+          if [ ! -e /dev/kvm ]; then
+            echo "::warning::no /dev/kvm on this runner — the capture device cannot be accelerated here"
+            exit 0
+          fi
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The capture device, created by the repository's own provisioning
+      # script — the same script the E2E workflow runs, so "provisioned" means
+      # the same thing on both sides.
+      #
+      # GPU_MODE=host is the capture device's own ask, from the storyboard: the
+      # pixel_2 profile is written with the GPU off, and software rendering is
+      # a startup crash on the capture machine.
+      - name: Provision the capture device
+        env:
+          AVD_NAME: ${{ env.AVD_NAME }}
+          SYSTEM_IMAGE: ${{ env.SYSTEM_IMAGE }}
+          DEVICE: ${{ env.DEVICE }}
+        run: |
+          set -euo pipefail
+          GPU_MODE=host bash scripts/ci/provision-avd.sh
+
+      # The emulator, booted by the repository's own launcher. `./rm emulator`
+      # prints the serial on stdout and everything else on stderr, so
+      # `serial="$(./rm emulator)"` is the serial and nothing else.
+      #
+      # The flags:
+      #   -no-window        the runner has no display
+      #   -gpu swiftshader_indirect
+      #                     the runner has no GPU either. The AVD asks for the
+      #                     host GPU (that is the capture machine's device);
+      #                     on a runner the boot flag wins, and the emulator
+      #                     renders in software. Without a renderer the screen
+      #                     comes out black, and a black screenshot is a
+      #                     picture of nothing.
+      #   -no-audio         removes an unrelated host-audio failure mode
+      #   -prop persist.sys.locale=ru-RU
+      #                     the system language of the capture device
+      #
+      # No snapshot is ever written or read: `ensure-emulator` passes
+      # `-no-snapshot`, so a capture never inherits the state of an earlier
+      # one.
+      - name: Boot the capture device
+        env:
+          AVD: ${{ env.AVD_NAME }}
+          EMULATOR_EXTRA_FLAGS: -no-window -gpu swiftshader_indirect -no-audio -prop persist.sys.locale=ru-RU
+          EMULATOR_TIMEOUT: '600'
+        run: |
+          set -euo pipefail
+          serial="$(./rm emulator)"
+          if [ -z "$serial" ]; then
+            echo "::error::the emulator did not report a serial"
+            exit 1
+          fi
+          echo "SERIAL=$serial" >> "$GITHUB_ENV"
+
+      # The animations off, so a screenshot taken while a transition is
+      # running is not a half-drawn screen. The capture flows wait for the
+      # animations to end, but the device is the thing that has to be still.
+      - name: Disable the animations
+        run: |
+          set -euo pipefail
+          for scale in window_animation_scale transition_animation_scale animator_duration_scale; do
+            adb -s "$SERIAL" shell settings put global "$scale" 0
+          done
+
+      # The device's own notifications have to leave the status bar before the
+      # capture starts. A fresh Play image posts a keyboard tutorial on first
+      # boot, and the capture refuses a device that holds a notification from
+      # anybody but the system: a notification in a store screenshot is
+      # somebody's message that nobody may publish.
+      #
+      # Snoozing is the only lever the shell has — `cmd notification` has no
+      # cancel — and it takes the notification off the shade for good. Every
+      # notification but the system's own is snoozed, so the step does not
+      # depend on which one the image decided to post today.
+      - name: Silence the device's own notifications
+        run: |
+          set -euo pipefail
+          # `cmd notification list` prints one line per notification, and the
+          # line IS the notification key the snooze command wants. The package
+          # is the second field of it.
+          adb -s "$SERIAL" shell "cmd notification list" | tr -d '\r' \
+            | while IFS= read -r key; do
+                case "$key" in
+                  *'|'*) ;;
+                  *) continue ;;
+                esac
+                pkg="${key#*|}"
+                pkg="${pkg%%|*}"
+                if [ "$pkg" = "android" ]; then
+                  continue
+                fi
+                # The key is text the device made up, so it has to reach the
+                # remote shell as one literal argument: a quote in it is closed,
+                # escaped and opened again before it goes.
+                quoted=${key//\'/\'\\\'\'}
+                adb -s "$SERIAL" shell "cmd notification snooze --for 3600000 '$quoted'"
+              done
+
+      # The capture itself: install this build on the capture device, put the
+      # device into the profile the storyboard documents, run the six flows
+      # and take the raw screenshots. The raw PNGs land in build/store-capture
+      # and are never touched afterwards — they are the source of truth the
+      # renderer works from.
+      - name: Capture the raw screenshots
+        run: |
+          set -euo pipefail
+          apks=(androidApp/build/outputs/apk/debug/*.apk)
+          if [ ! -f "${apks[0]}" ]; then
+            echo "::error::no debug APK in androidApp/build/outputs/apk/debug"
+            exit 1
+          fi
+          python3 scripts/store-capture.py --serial "$SERIAL" --apk "${apks[0]}"
+
+      # The render: the raw captures, the checked-in templates and the
+      # checked-in font into the set Play accepts. It validates every picture
+      # it writes and fails the step if one of them is not acceptable, so an
+      # artifact that exists is an artifact that was checked.
+      - name: Render the store screenshots
+        run: python3 scripts/store-render.py
+
+      # The set itself. `if-no-files-found: error`, because an artifact
+      # without the pictures is worse than no artifact: it looks like a
+      # successful run.
+      - name: Upload the store screenshots
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: store-screenshots
+          path: build/store-assets
+          if-no-files-found: error
+          retention-days: 14
+
+      # The evidence: the raw captures, the flow logs and the JUnit reports.
+      # Uploaded whatever happened — a failed capture is the run that says why
+      # the next one will differ.
+      - name: Upload the diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: store-screenshots-diagnostics
+          path: build/store-capture
+          if-no-files-found: warn
+          retention-days: 7

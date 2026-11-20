@@ -43,6 +43,7 @@ alias al     := android::logs
 alias adb-d  := android::devices
 alias adb-stop := android::force-stop
 alias sc   := android::store-capture
+alias sr   := android::store-render
 
 # ----- Desktop shortcuts -----
 alias dr     := desktop::build-run

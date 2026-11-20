@@ -151,6 +151,25 @@ The command:
 The storyboard — what the six images are, and why — is
 [`capture/STORYBOARD.md`](capture/STORYBOARD.md).
 
+### From raw captures to the store set
+
+The raw captures are photographs of the app. The store listing wants composed
+pictures — a headline above the phone — and Google Play has rules about their
+size, shape and format. The renderer does that second half:
+
+```bash
+just sr                                          # the whole set
+just sr build/store-capture build/store-assets   # explicit directories
+```
+
+It reads the raw captures, the compositions in [`store/templates.yaml`](../store/templates.yaml)
+and the checked-in font, writes the six PNGs Play accepts into
+`build/store-assets/`, and validates every one of them against the current
+Play requirements — a picture that Play would refuse fails the command instead
+of reaching the upload. The set comes with a `manifest.json`, a `README.md` and
+a `contact-sheet.png` (the whole set on one picture, to look at before an
+upload). The story of the render is in [`store/README.md`](../store/README.md).
+
 ## Layout
 
 ```
