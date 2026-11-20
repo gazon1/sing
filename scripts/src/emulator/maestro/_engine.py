@@ -49,6 +49,95 @@ MAESTRO_RUNNER_HOME_ENV = "MAESTRO_RUNNER_HOME"
 #: The version of maestro-runner this repository was measured against.
 MAESTRO_RUNNER_VERSION = "1.1.31"
 
+#: A version number, as the engines print it.
+_VERSION_NUMBER = r"\d+\.\d+(?:\.\d+)*"
+
+#: A line that is a version number and nothing else: the bare version some
+#: builds print as their whole output (`2.10.0`).
+_BARE_VERSION = re.compile(rf"^\s*v?({_VERSION_NUMBER})\s*$")
+
+#: The engine's own banner: the engine's name, and the version right after it.
+#:
+#: The version has to belong to the engine. A number that follows some other
+#: word ("Maestro version unavailable (build 1.2)") is a number somebody else
+#: printed, and reading it as the engine's version would name a build that
+#: never ran. The engine's name is followed by a word boundary, so
+#: "maestro-runner 1.2.3" is not the CLI's banner.
+def _banner_pattern(engine: str | None) -> re.Pattern[str]:
+    """The banner line of one engine, or of any engine that is known."""
+    if engine is None:
+        names = "|".join(re.escape(name) for name in ENGINES)
+    else:
+        names = re.escape(engine)
+    return re.compile(
+        rf"^\s*(?:{names})(?![-\w.])\s+(?:version\s+)?v?({_VERSION_NUMBER})"
+        rf"(?:\s*\([^)]*\))?\s*$",
+        re.IGNORECASE,
+    )
+
+
+def parse_engine_version(output: str, engine: str | None = None) -> str | None:
+    """The version an engine's `--version` output names, or None.
+
+    A version is read from the engine's own banner — the engine's name and
+    the version after it — or from an output that is a version number and
+    nothing else. Both are whole-line matches: a version that has to share
+    its line with other words belongs to something else, and the engine's
+    banner has to name the engine that was probed.
+
+    Output that names no version names no version. The caller has to treat
+    that as "undetected" rather than fall back to any number in the output:
+    a version nobody established is not a version, and the cost of the
+    stricter rule is a loud refusal instead of a wrong record.
+    """
+    lines = [line.strip() for line in (output or "").splitlines() if line.strip()]
+    if not lines:
+        return None
+    banner = _banner_pattern(engine)
+    for line in lines:
+        match = banner.match(line)
+        if match:
+            return match.group(1)
+    # A bare version is the whole output: a line that is a version and
+    # nothing else. Mixed into other output it is a number somebody printed,
+    # not the engine's version.
+    if len(lines) == 1:
+        match = _BARE_VERSION.match(lines[0])
+        if match:
+            return match.group(1)
+    return None
+
+
+def engine_version(engine: str, cwd: str | Path | None = None) -> str | None:
+    """The version of the engine build on PATH, or None if it names none.
+
+    The build is asked for its version and the answer has to be recognised
+    as that engine's version. A build that fails (`--version` exits
+    non-zero) has not named a version, so neither has this.
+    """
+    binary = ENGINE_MAESTRO if engine == ENGINE_MAESTRO else MAESTRO_RUNNER_BIN
+    try:
+        cp = subprocess.run(
+            [binary, "--version"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if cp.returncode != 0:
+        return None
+    # The streams are read one by one, never joined: a banner that only
+    # exists because the end of stdout was glued to the start of stderr is a
+    # banner nobody printed.
+    for stream in (cp.stdout or "", cp.stderr or ""):
+        version = parse_engine_version(stream, engine)
+        if version:
+            return version
+    return None
+
+
 #: The runner reports one anonymous event per run unless this is set.
 MAESTRO_RUNNER_NO_TELEMETRY_ENV = "MAESTRO_RUNNER_NO_TELEMETRY"
 
@@ -97,21 +186,11 @@ def runner_version() -> str:
 
     The version is read so a run can say which build produced it: a verdict
     that belongs to one build must not be silently attributed to another.
+    The build prints a banner (`maestro-runner 1.1.31`) and then a block of
+    build details; only the banner names the version, so only the banner is
+    read.
     """
-    try:
-        cp = subprocess.run(
-            [MAESTRO_RUNNER_BIN, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    out = (cp.stdout or cp.stderr or "")
-    # The build prints a banner (`maestro-runner 1.1.31`) and then a block of
-    # build details; the version is the first number that looks like one.
-    match = re.search(r"\d+\.\d+\.\d+", out)
-    return match.group(0) if match else ""
+    return engine_version(ENGINE_MAESTRO_RUNNER) or ""
 
 
 def engine_env(engine: str) -> dict[str, str]:

@@ -9,7 +9,7 @@ in this project. All contributors must follow these rules.
 2. [IDs vs Text](#ids-vs-text)
 3. [Cyrillic and Unicode](#cyrillic-and-unicode)
 4. [Helpers](#helpers)
-5. [Timeouts](#timeouts)
+5. [Timeout budget](#timeout-budget)
 6. [Smoke Subset](#smoke-subset)
 7. [Tags](#tags)
 8. [Shell Setup](#shell-setup)
@@ -170,6 +170,33 @@ just ui-maestro Maestro/flows/auth/08-signup-network-error.yaml
 `--exclude-tags manual,auth-live` (or `EXCLUDE_TAGS=manual,auth-live`)
 reproduces the automated `full` selection; without it the CLI runs whatever
 `--flow` selects.
+
+### Qualification before a blocking scope
+
+A new or materially changed flow (its content or any helper it runs,
+transitively — helper flows and helper scripts alike) is not admitted to an
+automated blocking scope until it is
+qualified or explicitly excepted for its current fingerprint. Qualification is
+a small, bounded repeat run of the affected flow(s) in the same documented
+environment/build (default: 3 consecutive passing attempts on one device),
+with every attempt
+recorded and infrastructure failures never counted as test passes; an initial
+failure followed by a pass means the flow is flaky, not qualified. The attempts
+run an immutable snapshot of the flow tree, so they always see the same
+content, whatever happens to the checkout while the run is in progress. The
+attempts run the APK built from this checkout: the runner refuses an installed
+APK that is not this checkout's build, and the qualification runner does not
+accept `--allow-stale-apk`, so a qualification can never certify another
+program than the one the change is about. A flow
+that references content outside `Maestro/` is refused: the fingerprint and
+the snapshot both cover that tree, and nothing else.
+
+- Policy, evidence and exceptions: `docs/testing/maestro-flow-qualification.md`
+- Frozen set (pre-rule in-scope flows, pinned by a digest in the gate): `config/docs/maestro-flow-qualification-initial.yaml`
+- Baseline (fingerprints of the frozen set): `config/docs/maestro-flow-qualification-baseline.yaml`
+- Evidence/exceptions: `config/docs/maestro-flow-qualification.yaml`
+- Gate: `scripts/check-maestro-flow-qualification.py`
+- Runner: `scripts/maestro-qualify-flows.py` (targets affected flows only, reuses existing JUnit/environment outputs)
 
 ### Dates and locale
 

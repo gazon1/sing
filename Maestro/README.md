@@ -102,6 +102,18 @@ it. The trigger is specific to Maestro's driver interaction and is upstream;
 the mitigation experiments and their results are recorded in
 `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
 
+
+## Qualification (blocking scopes)
+
+A new or materially changed flow is not admitted to a blocking automated scope until it is qualified or explicitly excepted for its current content fingerprint. Qualification is a bounded repeat run of the affected flow(s) only (default: 3 consecutive passing attempts in the same documented environment/build), with every attempt recorded and infrastructure failures never counted as test passes.
+
+```bash
+python3 scripts/maestro-qualify-flows.py --admission-needed --list
+python3 scripts/maestro-qualify-flows.py --flow Maestro/flows/<area>/<flow>.yaml --serial <serial> --record
+```
+
+Policy and evidence: `docs/testing/maestro-flow-qualification.md`. Gate: `scripts/check-maestro-flow-qualification.py`.
+
 ## Store screenshots
 
 The store listing needs six raw captures, and they are the one thing in this

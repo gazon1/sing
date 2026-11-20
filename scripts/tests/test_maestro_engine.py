@@ -32,6 +32,7 @@ _SRC = _ROOT / "scripts" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from emulator.maestro import _engine  # noqa: E402
 from emulator.maestro._engine import (  # noqa: E402
     ENGINE_MAESTRO,
     ENGINE_MAESTRO_RUNNER,
@@ -386,3 +387,88 @@ class RunnerHomeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunnerVersionTest(unittest.TestCase):
+    """The version of the runner build, read as strictly as the CLI's.
+
+    The runner's version says which build produced a verdict. A verdict that
+    belongs to one build must not be attributed to another, so the version is
+    read from the build's own banner and from nothing else -- and a build
+    that fails to answer has named no version at all.
+    """
+
+    def _run(self, returncode: int, stdout: str, stderr: str = "") -> None:
+        import unittest.mock as mock
+
+        mock.patch.object(
+            _engine.subprocess,
+            "run",
+            return_value=mock.Mock(returncode=returncode, stdout=stdout, stderr=stderr),
+        ).start()
+        self.addCleanup(mock.patch.stopall)
+
+    def test_the_banner_names_the_version(self) -> None:
+        self._run(0, "maestro-runner 1.1.31\nbuild: linux-amd64\n")
+        self.assertEqual(_engine.runner_version(), "1.1.31")
+
+    def test_a_build_that_fails_names_no_version(self) -> None:
+        self._run(1, "maestro-runner 1.1.31\n")
+        self.assertEqual(_engine.runner_version(), "")
+
+    def test_a_number_that_belongs_to_something_else_is_not_the_version(self) -> None:
+        """The build details carry numbers of their own."""
+        self._run(0, "OpenJDK 64-Bit Server VM warning: build 17.0.1+12\n")
+        self.assertEqual(_engine.runner_version(), "")
+
+    def test_a_version_that_shares_its_line_is_not_the_version(self) -> None:
+        self._run(0, "maestro-runner 1.1.31 is not a version\n")
+        self.assertEqual(_engine.runner_version(), "")
+
+    def test_the_cli_banner_names_the_version(self) -> None:
+        self._run(0, "Maestro 2.10.0\n")
+        self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "2.10.0")
+
+    def test_the_cli_bare_version_names_the_version(self) -> None:
+        self._run(0, "2.10.0\n")
+        self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "2.10.0")
+
+    def test_a_version_split_across_the_streams_names_no_version(self) -> None:
+        """The streams are read one by one, never joined.
+
+        The end of stdout and the start of stderr are two independent
+        outputs. Joining them lets them compose a version nobody printed:
+        `stdout="2.10."` and `stderr="0"` read as `2.10.0` once glued, even
+        though neither stream says a version on its own.
+        """
+        self._run(0, "2.10.", stderr="0\n")
+        self.assertIsNone(_engine.engine_version(ENGINE_MAESTRO))
+
+    def test_the_runner_streams_are_not_joined_into_one_version(self) -> None:
+        self._run(0, "1.1.", stderr="31\n")
+        self.assertEqual(_engine.runner_version(), "")
+
+    def test_a_banner_in_one_stream_is_read_whatever_the_other_says(self) -> None:
+        """The other stream does not spoil the stream that names the version."""
+        self._run(0, "Maestro 1.39.0\n", stderr="OpenJDK 64-Bit Server VM warning\n")
+        self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "1.39.0")
+
+    def test_a_bare_version_in_one_stream_is_read(self) -> None:
+        """A stream that says nothing but a version names that version."""
+        self._run(0, "2.10.0\n", stderr="Maestro\n")
+        self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "2.10.0")
+
+    def test_a_banner_split_across_lines_names_no_version(self) -> None:
+        """A banner is a whole line, not two halves of one.
+
+        "Maestro" on one line and the version on the next is not a banner
+        anybody printed: the engine's name and its version belong to the
+        same line, and a reader that glued the lines together would name
+        a build that never ran.
+        """
+        self._run(0, "Maestro\n2.10.0\n")
+        self.assertIsNone(_engine.engine_version(ENGINE_MAESTRO))
+
+    def test_a_runner_banner_split_across_lines_names_no_version(self) -> None:
+        self._run(0, "maestro-runner\n1.1.31\n")
+        self.assertEqual(_engine.runner_version(), "")
