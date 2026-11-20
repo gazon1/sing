@@ -122,18 +122,21 @@ def classify_attempt(flow_rel: str, results_dir: pathlib.Path, return_code: int)
     env = read_json(results_dir / "environment.json")
     summary = read_json(results_dir / "run-summary.json")
     outcome, reason = flow_report_outcome(junit)
-    # If the flow was not measured or the run produced no report, treat as infra.
+    # If the flow was not measured or retried internally, it is not a clean passing attempt.
     if summary and isinstance(summary, dict):
         not_measured = summary.get("not_measured") or []
         if isinstance(not_measured, list) and stem in not_measured:
             outcome, reason = "infra_failure", "flow not measured (app/device unavailable)"
+        retried = summary.get("retried") or []
+        if isinstance(retried, list) and stem in retried and outcome == "pass":
+            outcome, reason = "test_failure", "flow retried internally during attempt (not a clean pass)"
     if not junit.is_file():
         outcome, reason = "infra_failure", reason or "no JUnit report produced for the flow"
     return Attempt(
         attempt=0,
         outcome=outcome,
         reason=reason,
-        junit=str(junit.relative_to(ROOT)) if junit.exists() else None,
+        junit=str(junit.relative_to(ROOT)) if junit.exists() and _inside(junit, ROOT) else (str(junit) if junit.exists() else None),
         results_dir=str(results_dir.relative_to(ROOT)) if _inside(results_dir, ROOT) else str(results_dir),
         environment=env if isinstance(env, dict) else None,
         run_summary=summary if isinstance(summary, dict) else None,
@@ -162,6 +165,9 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
         cmd += ["--skip-install"]
     if allow_stale_apk:
         cmd += ["--allow-stale-apk"]
+    # Qualification requires each attempt to pass cleanly; disable internal retries
+    # so a retry-recovered pass cannot count as a successful attempt.
+    cmd += ["--maestro-max-retries", "0"]
     cmd += extra
     env = os.environ.copy()
     # ensure this checkout's scripts/src is importable

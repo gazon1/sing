@@ -303,5 +303,40 @@ class QualificationRunnerPolicyTest(unittest.TestCase):
             self.assertFalse(out.exists(), "runner must not execute attempts or create artifacts")
 
 
+class QualificationRunnerOutcomeTest(unittest.TestCase):
+    def setUp(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows", runner_path)
+        self.mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def test_retried_flow_in_run_summary_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (d / "run-summary.json").write_text(
+                json.dumps(
+                    {
+                        "retried": ["01-a"],
+                        "not_measured": [],
+                        "passed": ["01-a"],
+                        "failed": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 0)
+        self.assertNotEqual(attempt.outcome, "pass")
+        self.assertEqual(attempt.outcome, "test_failure")
+        self.assertIn("retried internally", attempt.reason)
+
+
 if __name__ == "__main__":
     unittest.main()
