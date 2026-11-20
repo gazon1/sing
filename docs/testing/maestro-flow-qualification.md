@@ -32,6 +32,8 @@ A flow that is in the baseline map but not in the frozen set was added to the ba
 - a **qualification record** in `config/docs/maestro-flow-qualification.yaml` for the current fingerprint, or
 - an explicit, **evidence-backed exception** in the same file for the current fingerprint (reason + evidence/issue reference).
 
+The two are evaluated independently: a qualification recorded for an older fingerprint does not hide a valid exception, and an exception that does not match the current fingerprint does not cancel a valid qualification. When neither holds, the gate reports both reasons.
+
 `scripts/check-maestro-flow-qualification.py` is the blocking gate. It does not rewrite the baseline, the frozen set or the evidence files. `required_attempts` in the evidence file is a policy: a missing value means three attempts, and a value that is not a positive integer is a configuration error the gate refuses rather than silently rounding down to three.
 
 ## Qualification run (bounded, affected flows only)

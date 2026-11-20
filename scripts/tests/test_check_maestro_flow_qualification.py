@@ -272,6 +272,65 @@ class AdmissionTest(unittest.TestCase):
         self.assertEqual(findings, [])
         self.assertEqual(counts["excepted"], 1)
 
+    def test_stale_qualification_does_not_shadow_a_valid_exception(self):
+        """A qualification and an exception are evaluated independently.
+
+        A qualification recorded for an older fingerprint is not an admission
+        -- but it must not hide a valid exception either. The exception
+        admits the flow, and a stale record is not a finding on its own.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        fp = mod.fingerprint(flow, root)
+        write_baseline(baseline, {flow: "sha256:" + "0" * 64})
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {
+                        flow: {"fingerprint": "sha256:" + "1" * 64, "attempts": []}
+                    },
+                    "exceptions": {
+                        flow: {"fingerprint": fp, "reason": "known env issue", "evidence": "#3052"}
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual(findings, [])
+        self.assertEqual(counts["excepted"], 1)
+
+    def test_failed_qualification_and_failed_exception_are_both_reported(self):
+        """Neither admission holds: both reasons are reported.
+
+        The qualification failed and the exception failed. Reporting only the
+        qualification would hide the exception that a reader has to fix.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        # The baseline no longer matches, so the flow needs a qualification
+        # or an exception to be admitted at all.
+        write_baseline(baseline, {flow: "sha256:" + "0" * 64})
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {
+                        flow: {"fingerprint": "sha256:" + "1" * 64, "attempts": []}
+                    },
+                    "exceptions": {
+                        flow: {"fingerprint": "sha256:" + "2" * 64, "reason": "x", "evidence": "#1"}
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified", "invalid exception"])
+
     def test_manual_flow_excluded(self):
         root, _flow, catalogue, baseline, evidence = self._tree()
         flow = "Maestro/flows/auth/01-manual.yaml"

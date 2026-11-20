@@ -612,20 +612,29 @@ def scan(
             continue
 
         # Recovery for a changed/non-matching flow happens via qualification or
-        # exception for the current fingerprint (including stale baseline flows).
+        # exception for the current fingerprint (including stale baseline
+        # flows). The two are evaluated independently: a stale qualification
+        # must not shadow a valid exception, and a failed qualification must
+        # not hide the exception that admits the flow.
+        qualification_reason = None
         if flow in qualifications:
             ok, reason = is_qualified(qualifications[flow], fp, required)
             if ok:
                 counts["qualified"] += 1
                 continue
-            findings.append(Finding(flow, "not qualified", reason))
-            continue
+            qualification_reason = reason
+        exception_reason = None
         if flow in exceptions:
             ok, reason = is_excepted(exceptions[flow], fp)
             if ok:
                 counts["excepted"] += 1
                 continue
-            findings.append(Finding(flow, "invalid exception", reason))
+            exception_reason = reason
+        if qualification_reason is not None:
+            findings.append(Finding(flow, "not qualified", qualification_reason))
+        if exception_reason is not None:
+            findings.append(Finding(flow, "invalid exception", exception_reason))
+        if qualification_reason is not None or exception_reason is not None:
             continue
 
         if flow in baseline and flow not in initial_set:
