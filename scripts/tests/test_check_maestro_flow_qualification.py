@@ -1239,6 +1239,11 @@ class EngineVersionTest(unittest.TestCase):
     the admission gate rejects a record without it. If any output at all could
     be read as a version, the prerequisite would hold for free: the runner
     would record whatever the tool printed and the gate would accept it.
+
+    Both engines are read the same way -- the build is asked for its version,
+    and the answer has to be recognised as *that engine's* version. The
+    recognition lives in one place (`emulator.maestro._engine`), so the
+    runner and the diagnostic helper cannot drift apart.
     """
 
     def setUp(self):
@@ -1248,41 +1253,94 @@ class EngineVersionTest(unittest.TestCase):
         assert spec and spec.loader
         sys.modules[spec.name] = self.mod
         spec.loader.exec_module(self.mod)
+        from emulator.maestro import _engine as eng
+
+        self.eng = eng
 
     def test_the_banner_version_is_read(self):
-        self.assertEqual(self.mod._version_token("Maestro 1.39.0"), "1.39.0")
+        self.assertEqual(self.eng.parse_engine_version("Maestro 1.39.0", "maestro"), "1.39.0")
 
     def test_the_runner_banner_version_is_read(self):
-        self.assertEqual(self.mod._version_token("maestro-runner 1.2.3"), "1.2.3")
+        self.assertEqual(self.eng.parse_engine_version("maestro-runner 1.2.3", "maestro-runner"), "1.2.3")
 
     def test_a_banner_that_says_version_is_read(self):
-        self.assertEqual(self.mod._version_token("Maestro version 1.39.0"), "1.39.0")
+        self.assertEqual(self.eng.parse_engine_version("Maestro version 1.39.0", "maestro"), "1.39.0")
 
-    def test_a_bare_version_line_is_read(self):
-        self.assertEqual(self.mod._version_token("1.39.0"), "1.39.0")
+    def test_a_bare_version_output_is_read(self):
+        """The CLI prints its version alone; that output is a version."""
+        self.assertEqual(self.eng.parse_engine_version("1.39.0", "maestro"), "1.39.0")
 
     def test_the_banner_wins_over_a_jvm_warning(self):
         """A warning printed above the banner is not the engine's version."""
         text = "OpenJDK 64-Bit Server VM warning: Use -Xmx\nMaestro 1.39.0\n"
-        self.assertEqual(self.mod._version_token(text), "1.39.0")
+        self.assertEqual(self.eng.parse_engine_version(text, "maestro"), "1.39.0")
 
     def test_the_jvm_version_is_not_the_engines_version(self):
         """A JVM that names its version does not name the engine's."""
         text = 'OpenJDK Runtime Environment (build 17.0.1+12)\n"version 11.0.2" 2021-10-19 LTS'
-        self.assertIsNone(self.mod._version_token(text))
+        self.assertIsNone(self.eng.parse_engine_version(text, "maestro"))
 
     def test_output_that_names_no_version_names_no_version(self):
         """The failure mode this pins: any output was read as a version."""
         for text in ("Maestro version unavailable", "Maestro", "command not found", ""):
             with self.subTest(text=text):
-                self.assertIsNone(self.mod._version_token(text))
+                self.assertIsNone(self.eng.parse_engine_version(text, "maestro"))
 
     def test_a_version_number_after_other_words_is_not_the_engines(self):
         """A number that belongs to something else is not a version."""
-        self.assertIsNone(self.mod._version_token("Maestro version unavailable (build 1.2)"))
+        self.assertIsNone(self.eng.parse_engine_version("Maestro version unavailable (build 1.2)", "maestro"))
 
     def test_an_empty_output_names_no_version(self):
-        self.assertIsNone(self.mod._version_token("\n\n"))
+        self.assertIsNone(self.eng.parse_engine_version("\n\n", "maestro"))
+
+    def test_a_version_that_shares_its_line_with_words_is_not_a_version(self):
+        """The whole line has to be the version -- a prefix is not enough."""
+        for text in (
+            "1.39.0 is not an engine version",
+            "Maestro 1.39.0 version unavailable",
+            "maestro-fake-engine 9.9.9",
+            "9.9.9 maestro",
+        ):
+            with self.subTest(text=text):
+                self.assertIsNone(self.eng.parse_engine_version(text, "maestro"))
+
+    def test_a_version_of_another_engine_is_not_this_engines(self):
+        """The banner has to name the engine that was probed."""
+        self.assertIsNone(self.eng.parse_engine_version("maestro-runner 1.2.3", "maestro"))
+        self.assertIsNone(self.eng.parse_engine_version("maestro 1.2.3", "maestro-runner"))
+
+    def test_a_bare_version_mixed_into_other_output_is_not_a_version(self):
+        """A number among other lines belongs to somebody else."""
+        self.assertIsNone(self.eng.parse_engine_version("17.0.1\nsomething else\n", "maestro"))
+
+    def test_a_build_that_fails_has_named_no_version(self):
+        """`--version` exiting non-zero is not a version."""
+        with mock.patch.object(
+            self.eng.subprocess,
+            "run",
+            return_value=mock.Mock(returncode=1, stdout="Maestro 1.39.0\n", stderr=""),
+        ):
+            self.assertIsNone(self.eng.engine_version("maestro"))
+
+    def test_a_build_that_names_no_version_has_named_no_version(self):
+        with mock.patch.object(
+            self.eng.subprocess,
+            "run",
+            return_value=mock.Mock(returncode=0, stdout="Maestro version unavailable\n", stderr=""),
+        ):
+            self.assertIsNone(self.eng.engine_version("maestro"))
+
+    def test_the_runner_probes_the_selected_engine_the_same_way(self):
+        """The runner engine is read by the same recognition as the CLI."""
+        with mock.patch.object(self.eng, "engine_version", return_value="1.2.3") as probe:
+            self.assertEqual(self.mod.maestro_version("maestro-runner"), "1.2.3")
+        self.assertEqual(probe.call_args.args[0], "maestro-runner")
+
+    def test_the_runner_version_helper_is_not_a_second_way_in(self):
+        """The old bypass -- a helper with looser rules -- is gone."""
+        with mock.patch.object(self.eng, "runner_version", return_value="9.9.9"):
+            with mock.patch.object(self.eng, "engine_version", return_value=None):
+                self.assertIsNone(self.mod.maestro_version("maestro-runner"))
 
 
 class QualificationRecordWritingTest(unittest.TestCase):

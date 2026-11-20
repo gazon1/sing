@@ -37,7 +37,6 @@ import argparse
 import json
 import os
 import pathlib
-import re
 import shlex
 import shutil
 import subprocess
@@ -283,49 +282,6 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     return result
 
 
-#: The engine's own banner: the engine name, and the version right after it.
-#:
-#: The version has to belong to the engine. A number that follows some other
-#: word ("Maestro version unavailable (build 1.2)") is a number somebody
-#: else printed, and reading it as the engine's version would put a version
-#: in the record that nobody established.
-_ENGINE_BANNER = re.compile(
-    r"^\s*maestro[-\w.]*\s*(?:version\s+)?v?(\d+\.\d+(?:\.\d+)*)",
-    re.IGNORECASE,
-)
-#: A line that starts with a version number: the bare version some builds print.
-_VERSION_LINE = re.compile(r"^\s*v?(\d+\.\d+(?:\.\d+)*)(?![\d.])")
-
-
-def _version_token(text: str) -> str | None:
-    """The version in a `--version` output, or None if it names none.
-
-    The tool's own banner wins over any other line: a JVM warning printed
-    above the banner must not become the version of the tool that ran the
-    attempt.
-
-    Output that names no version names no version. A line without a version
-    number is not a version -- accepting one would turn any output at all
-    ("Maestro version unavailable") into a detected version, and the
-    qualification would carry a version nobody established. So a version is
-    read only from the engine's banner, or from a line that is a version and
-    nothing else.
-    """
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    for line in lines:
-        match = _ENGINE_BANNER.match(line)
-        if match:
-            return match.group(1)
-    for line in lines:
-        # A line that is a version number, with nothing before it: the bare
-        # version some builds print. A version that follows other words
-        # belongs to something else and is not the engine's.
-        match = _VERSION_LINE.match(line)
-        if match:
-            return match.group(1)
-    return None
-
-
 def effective_engine(engine: str | None) -> str:
     """The engine that will run the attempts.
 
@@ -345,28 +301,18 @@ def maestro_version(engine: str | None = None) -> str | None:
     attempt. An undetected version is not a smaller piece of evidence either —
     the admission gate rejects a record without it, so the runner refuses to
     write one.
+
+    Both engines are probed the same way and read the same way: the engine
+    build is asked for its version, and the answer is recognised as that
+    engine's version. A build that fails, or answers with something that is
+    not its version, has named no version — there is no second way in.
     """
-    selected = engine or "maestro"
-    if selected == "maestro-runner":
-        try:
-            from emulator.maestro import _engine as eng
-
-            v = eng.runner_version()
-            if v:
-                return v
-        except Exception:
-            pass
-        cmd = ["maestro-runner", "--version"]
-    else:
-        cmd = ["maestro", "--version"]
-
+    selected = effective_engine(engine)
     try:
-        cp = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
+        from emulator.maestro import _engine as eng
+    except Exception:
         return None
-    if cp.returncode != 0:
-        return None
-    return _version_token((cp.stdout or "").strip() or (cp.stderr or "").strip())
+    return eng.engine_version(selected, cwd=ROOT)
 
 
 def admission_needed(

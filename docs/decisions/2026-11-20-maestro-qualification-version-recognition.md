@@ -1,10 +1,18 @@
 ---
 title: "Maestro flow qualification — a version counts as detected only when it is recognised"
 date: 2026-11-20
-status: accepted
+status: superseded
+superseded-by: 2026-11-20-maestro-qualification-strict-version
 tags: [maestro, qualification, runner, evidence]
 issue: 3052
 ---
+
+> **Superseded (2026-11-20) by
+> `2026-11-20-maestro-qualification-strict-version`.** The decision stands — a
+> version is recognised, not merely present — but the recognition it describes
+> was implemented with prefix matches, applied to only one of the two engines,
+> and lived in the qualification runner. It now lives in one place and matches
+> whole lines.
 
 ## Context
 
