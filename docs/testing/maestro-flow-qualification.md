@@ -53,6 +53,8 @@ Every attempt is represented in the qualification record/report with:
 
 Environment/build identity must be consistent across the attempts that form a qualification run. Qualification records live in `config/docs/maestro-flow-qualification.yaml` (repo-owned evidence); raw per-attempt artifacts live under `build/` and are preserved as generated run output.
 
+The **engine version** is part of that identity, and it is read from the engine that runs the attempt (`maestro --version`, or the runner's own version for the `maestro-runner` engine) before the attempt starts — a version read afterwards names a build that nobody ran. The version is taken for the engine the run actually uses: `--engine`, else `MAESTRO_ENGINE`, else the Maestro CLI. If the version cannot be detected, the runner says so before it spends the attempts and writes **no** qualification record: a record without the version is not admissible, and a record the gate would reject is worse than no record.
+
 ## Outcomes
 
 - **`pass`**: the flow's JUnit report shows a passing testcase.

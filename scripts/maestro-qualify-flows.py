@@ -37,6 +37,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import shlex
 import shutil
 import subprocess
@@ -189,9 +190,11 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     env = os.environ.copy()
     # ensure this checkout's scripts/src is importable
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC), env.get("PYTHONPATH", "")]))
-    effective_engine = engine or os.environ.get("MAESTRO_ENGINE") or "maestro"
+    engine_used = effective_engine(engine)
     print(f"  attempt {attempt}: {' '.join(shlex.quote(c) for c in cmd)}")
-    mv = maestro_version(effective_engine)
+    # The version is read before the attempt: the evidence has to name the build
+    # that ran it, and a version read afterwards names a build nobody ran.
+    mv = maestro_version(engine_used)
     cp = subprocess.run(cmd, cwd=ROOT, env=env)
     result = classify_attempt(flow_rel, attempt_dir, cp.returncode)
     result.attempt = attempt
@@ -200,65 +203,71 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     return result
 
 
+#: A version number in a `--version` output.
+_VERSION_NUMBER = re.compile(r"\d+\.\d+(?:\.\d+)*")
+
+
 def _version_token(text: str) -> str | None:
-    for line in text.splitlines():
-        line = line.strip()
-        if line:
-            return line
-    return None
+    """The version in a `--version` output, or None if it names none.
+
+    The tool's own banner wins over any other line: a JVM warning printed
+    above the banner must not become the version of the tool that ran the
+    attempt.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    for line in lines:
+        if "maestro" in line.lower():
+            match = _VERSION_NUMBER.search(line)
+            if match:
+                return match.group(0)
+    for line in lines:
+        match = _VERSION_NUMBER.search(line)
+        if match:
+            return match.group(0)
+    return lines[0] if lines else None
+
+
+def effective_engine(engine: str | None) -> str:
+    """The engine that will run the attempts.
+
+    The same order the runner itself uses (`--engine`, then `MAESTRO_ENGINE`,
+    then the Maestro CLI), so the version recorded with an attempt is the
+    version of the engine that actually ran it.
+    """
+    return engine or os.environ.get("MAESTRO_ENGINE") or "maestro"
 
 
 def maestro_version(engine: str | None = None) -> str | None:
-    """Version string recorded with qualification evidence.
+    """Actual version of the selected Maestro engine, or None if undetected.
 
-    The gate requires a Maestro version; try the sources this repo uses
-    (engine helpers, runner/CLI binaries, pinned version files) before
-    giving up so a passing repeat run can produce admissible evidence.
+    Qualification evidence must identify the engine that executed the attempt,
+    so only the selected engine is probed and no pinned/other-engine substitute
+    is used: a version of a build that did not run is not the version of the
+    attempt. An undetected version is not a smaller piece of evidence either —
+    the admission gate rejects a record without it, so the runner refuses to
+    write one.
     """
-    try:
-        from emulator.maestro import _engine as eng
+    selected = engine or "maestro"
+    if selected == "maestro-runner":
+        try:
+            from emulator.maestro import _engine as eng
 
-        if engine == eng.ENGINE_MAESTRO_RUNNER:
             v = eng.runner_version()
             if v:
                 return v
-            pinned = getattr(eng, "MAESTRO_RUNNER_VERSION", None)
-            if pinned:
-                return str(pinned)
-    except Exception:
-        eng = None
-
-    probes = []
-    if engine == "maestro-runner":
-        probes = [["maestro-runner", "--version"], ["maestro", "--version"]]
+        except Exception:
+            pass
+        cmd = ["maestro-runner", "--version"]
     else:
-        probes = [["maestro", "--version"], ["maestro-runner", "--version"]]
-    for cmd in probes:
-        try:
-            cp = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=30)
-        except (OSError, subprocess.TimeoutExpired):
-            continue
-        if cp.returncode == 0 and cp.stdout.strip():
-            tok = _version_token(cp.stdout.strip())
-            if tok:
-                return tok
+        cmd = ["maestro", "--version"]
 
-    if eng is not None and engine == getattr(eng, "ENGINE_MAESTRO_RUNNER", "maestro-runner"):
-        pinned = getattr(eng, "MAESTRO_RUNNER_VERSION", None)
-        if pinned:
-            return str(pinned)
-
-    for name in (".maestro-version", ".maestro-runner-version"):
-        p = ROOT / name
-        if p.is_file():
-            try:
-                text = p.read_text(encoding="utf-8").strip()
-            except OSError:
-                continue
-            tok = _version_token(text)
-            if tok:
-                return tok
-    return None
+    try:
+        cp = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if cp.returncode != 0:
+        return None
+    return _version_token((cp.stdout or "").strip() or (cp.stderr or "").strip())
 
 
 def admission_needed(root: pathlib.Path, catalogue: pathlib.Path, baseline: pathlib.Path, evidence: pathlib.Path) -> list[str]:
@@ -272,7 +281,7 @@ def admission_needed(root: pathlib.Path, catalogue: pathlib.Path, baseline: path
     return seen
 
 
-def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pathlib.Path, engine: str | None = None) -> dict:
+def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pathlib.Path) -> dict:
     fp = GATE.fingerprint(flow_rel, root)
     # identity: prefer consistent values across attempts
     env = None
@@ -494,6 +503,15 @@ def main(argv=None) -> int:
     all_ok = True
     print(f"Qualifying {len(flows)} flow(s), {required} attempt(s) each")
     print(f"Artifacts: {args.out}")
+    engine_used = effective_engine(args.engine)
+    if maestro_version(engine_used) is None:
+        # Said before the attempts, not after them: the run would spend three
+        # attempts per flow on evidence the admission gate cannot accept.
+        print(
+            f"  note: the {engine_used} version could not be detected — a qualification record "
+            f"has to carry it, so nothing will be recorded as qualified",
+            file=sys.stderr,
+        )
 
     for flow in flows:
         print(f"\n=== {flow} ===")
@@ -501,7 +519,7 @@ def main(argv=None) -> int:
         for i in range(1, required + 1):
             attempts.append(run_one_attempt(flow, i, args.out, args.serial, args.engine, args.skip_install, args.allow_stale_apk, extra))
         qualified = all_pass(attempts, required)
-        record = build_qualification_record(flow, attempts, ROOT, args.engine)
+        record = build_qualification_record(flow, attempts, ROOT)
         issues = record_issues(record)
         record["qualified"] = qualified and not issues
         summary = {
@@ -528,7 +546,7 @@ def main(argv=None) -> int:
             print(f"  NOT RECORDED AS QUALIFIED: {flow} ({required} consecutive passing attempts)")
             for issue in issues:
                 print(f"  note: {issue}")
-            print("  note: attempt artifacts are preserved; re-run once the version is detectable or record manually")
+            print("  note: attempt artifacts are preserved; fix the issues above and re-run — a record is written only when every attempt carries the evidence the gate requires")
         else:
             all_ok = False
             outcomes = ", ".join(f"{a.attempt}:{a.outcome}" for a in attempts)

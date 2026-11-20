@@ -800,3 +800,104 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
                         )
         mv_mock.assert_called_once_with("maestro-runner")
         self.assertEqual(attempt.maestro_version, "maestro-runner 1.2.3")
+
+
+class QualificationRecordWritingTest(unittest.TestCase):
+    """The record the runner writes has to be one the gate can admit."""
+
+    def setUp(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows", runner_path)
+        self.mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def _fake_run(self, version: str | None):
+        """A runner whose attempts pass and whose engine version is as told."""
+
+        def run(cmd, *args, **kwargs):
+            if "--version" in cmd:
+                if version is None:
+                    return mock.Mock(returncode=1, stdout="", stderr="")
+                return mock.Mock(returncode=0, stdout=f"Maestro {version}\n", stderr="")
+            attempt_dir = pathlib.Path(cmd[cmd.index("--junit-dir") + 1])
+            attempt_dir.mkdir(parents=True, exist_ok=True)
+            (attempt_dir / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (attempt_dir / "run-summary.json").write_text(
+                json.dumps({"passed": ["01-a"], "failed": [], "retried": [], "not_measured": []}),
+                encoding="utf-8",
+            )
+            (attempt_dir / "environment.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": "emulator-5554",
+                        "commit": "abc123",
+                        "apk_commit_sha": "abc123",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return mock.Mock(returncode=0)
+
+        return run
+
+    def _run(self, version: str | None, tmp_path: pathlib.Path) -> tuple[int, dict]:
+        evidence = tmp_path / "evidence.yaml"
+        evidence.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        with mock.patch.object(self.mod.subprocess, "run", side_effect=self._fake_run(version)):
+            code = self.mod.main(
+                [
+                    "--flow",
+                    flow,
+                    "--attempts",
+                    "3",
+                    "--record",
+                    "--evidence",
+                    str(evidence),
+                    "--out",
+                    str(tmp_path / "out"),
+                ]
+            )
+        data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
+        return code, data
+
+    def test_undetectable_version_is_not_recorded_as_qualified(self):
+        """Three passing attempts and no engine version are not a qualification.
+
+        The record would be rejected by the admission gate, so the runner does
+        not write one: the user is told at record time, not at admission time.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            code, data = self._run(None, pathlib.Path(tmp))
+        self.assertEqual(code, 1)
+        self.assertEqual(data.get("qualifications") or {}, {})
+
+    def test_detected_version_is_recorded_as_qualified(self):
+        """The positive control: the same run with a version is recorded."""
+        with tempfile.TemporaryDirectory() as tmp:
+            code, data = self._run("1.39.0", pathlib.Path(tmp))
+        self.assertEqual(code, 0)
+        record = (data.get("qualifications") or {}).get("Maestro/flows/tasks/01-a.yaml")
+        self.assertIsNotNone(record)
+        self.assertEqual(record["maestro_version"], "1.39.0")
+        self.assertEqual(len(record["attempts"]), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()
