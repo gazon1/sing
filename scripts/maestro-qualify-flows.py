@@ -167,8 +167,46 @@ def _inside(path: pathlib.Path, root: pathlib.Path) -> bool:
         return False
 
 
-def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, allow_stale_apk: bool, extra: list[str]) -> Attempt:
-    flow_path = ROOT / flow_rel
+def snapshot_flow(flow_rel: str) -> tuple[pathlib.Path, pathlib.Path]:
+    """Copy the tree into an immutable snapshot and return the flow inside it.
+
+    The attempts of one qualification have to run the same content. Comparing
+    the fingerprint before and after the attempts is not enough: a flow edited
+    while it is being qualified and restored before the last attempt looks
+    unchanged from the outside, and the record would claim three passing runs
+    for a version that only one attempt ever saw.
+
+    The whole `Maestro/` tree is copied, not just the flow's dependency
+    closure: a flow can reach a helper script the closure does not track, and
+    the snapshot has to be what the run actually reads. The layout is kept, so
+    a helper reference resolves inside the snapshot exactly as it resolves in
+    the tree.
+
+    Returns the snapshot root and the flow path inside it.
+    """
+    flow_key = pathlib.PurePosixPath(flow_rel).with_suffix("")
+    # The snapshot lives inside the checkout: the runner reports flow paths
+    # relative to the repository root and refuses a path that escapes it.
+    snapshot_root = ROOT / "build" / "maestro-qualification-snapshot" / flow_key.as_posix().replace("/", "__")
+    if snapshot_root.exists():
+        shutil.rmtree(snapshot_root)
+    snapshot_root.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        ROOT / "Maestro",
+        snapshot_root / "Maestro",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    return snapshot_root, snapshot_root / flow_rel
+
+
+def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, allow_stale_apk: bool, extra: list[str], flow_path: pathlib.Path | None = None) -> Attempt:
+    """Run one attempt of a flow.
+
+    `flow_path` is the flow the attempt runs. The runner passes the immutable
+    snapshot of the tree, so every attempt of one qualification runs the same
+    content even when the working tree changes underneath the run.
+    """
+    flow_path = flow_path or (ROOT / flow_rel)
     flow_key = pathlib.PurePosixPath(flow_rel).with_suffix("")
     attempt_dir = out_base / flow_key / f"attempt-{attempt}"
     # Never read stale artifacts from a previous invocation of this attempt slot.
@@ -529,25 +567,46 @@ def main(argv=None) -> int:
 
     for flow in flows:
         print(f"\n=== {flow} ===")
-        # The fingerprint is taken before the first attempt: a record that
-        # names the flow as it looks after the run would certify attempts
-        # that ran against a different flow.
-        fingerprint_before = GATE.fingerprint(flow, ROOT)
-        attempts = []
-        for i in range(1, required + 1):
-            attempts.append(run_one_attempt(flow, i, args.out, args.serial, args.engine, args.skip_install, args.allow_stale_apk, extra))
-        fingerprint_after = GATE.fingerprint(flow, ROOT)
-        stable = fingerprint_before == fingerprint_after
-        qualified = all_pass(attempts, required)
-        record = build_qualification_record(flow, attempts, fingerprint_before)
-        issues = record_issues(record)
-        if not stable:
-            issues.insert(
-                0,
-                f"the flow changed while it was being qualified ({fingerprint_before} -> "
-                f"{fingerprint_after}); the attempts do not certify the current flow",
-            )
-        record["qualified"] = qualified and not issues
+        # The attempts run against an immutable snapshot of the tree. A
+        # fingerprint taken before and after the attempts would not catch a
+        # flow that is edited and restored while the attempts are running:
+        # the tree looks unchanged, and the record would claim three passing
+        # runs for a version that only one attempt ever saw.
+        snapshot_root, snapshot_flow_path = snapshot_flow(flow)
+        try:
+            # The fingerprint of the snapshot is the fingerprint of what the
+            # attempts run; the fingerprint of the tree is the fingerprint of
+            # what the record has to describe.
+            fingerprint_ran = GATE.fingerprint(flow, snapshot_root)
+            attempts = []
+            for i in range(1, required + 1):
+                attempts.append(
+                    run_one_attempt(
+                        flow,
+                        i,
+                        args.out,
+                        args.serial,
+                        args.engine,
+                        args.skip_install,
+                        args.allow_stale_apk,
+                        extra,
+                        flow_path=snapshot_flow_path,
+                    )
+                )
+            fingerprint_tree = GATE.fingerprint(flow, ROOT)
+            stable = fingerprint_ran == fingerprint_tree
+            qualified = all_pass(attempts, required)
+            record = build_qualification_record(flow, attempts, fingerprint_ran)
+            issues = record_issues(record)
+            if not stable:
+                issues.insert(
+                    0,
+                    f"the flow changed while it was being qualified ({fingerprint_ran} -> "
+                    f"{fingerprint_tree}); the attempts do not certify the current flow",
+                )
+            record["qualified"] = qualified and not issues
+        finally:
+            shutil.rmtree(snapshot_root, ignore_errors=True)
         summary = {
             "flow": flow,
             "qualified": qualified and not issues,

@@ -1077,5 +1077,115 @@ class QualificationRecordWritingTest(unittest.TestCase):
         self.assertEqual(data.get("qualifications") or {}, {})
 
 
+    def test_transient_edit_during_qualification_does_not_reach_the_attempts(self):
+        """The attempts run a snapshot, so a transient edit never reaches them.
+
+        A helper edited between two attempts and restored before the last one
+        leaves the tree looking unchanged, and a runner that read the tree
+        would certify three passing runs for a version only one attempt saw.
+        The attempts read the immutable snapshot, so every attempt sees the
+        same content -- and the record describes exactly that content.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            root = tmp_path / "tree"
+            flow_rel = "Maestro/flows/tasks/01-a.yaml"
+            helper_rel = "Maestro/helpers/open.yaml"
+            flow_path = root / flow_rel
+            helper_path = root / helper_rel
+            flow_path.parent.mkdir(parents=True, exist_ok=True)
+            helper_path.parent.mkdir(parents=True, exist_ok=True)
+            flow_path.write_text(
+                "appId: com.example\n---\n- runFlow: ../../helpers/open.yaml\n", encoding="utf-8"
+            )
+            original_helper = "appId: com.example\n---\n- launchApp\n"
+            helper_path.write_text(original_helper, encoding="utf-8")
+            edited_helper = original_helper + "- tapOn: edited\n"
+
+            evidence = tmp_path / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+
+            seen_helpers: list[str] = []
+            seen_flow_paths: list[pathlib.Path] = []
+
+            def run(cmd, *args, **kwargs):
+                if "--version" in cmd:
+                    return mock.Mock(returncode=0, stdout="Maestro 1.39.0\n", stderr="")
+                flow_under_test = pathlib.Path(cmd[cmd.index("--flow") + 1])
+                seen_flow_paths.append(flow_under_test)
+                # The helper the attempt would read, next to the flow it reads.
+                seen_helpers.append(
+                    (flow_under_test.parent.parent.parent / "helpers" / "open.yaml").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                # The tree is edited under the run and restored before the last attempt.
+                if len(seen_helpers) == 1:
+                    helper_path.write_text(edited_helper, encoding="utf-8")
+                elif len(seen_helpers) == 2:
+                    helper_path.write_text(original_helper, encoding="utf-8")
+                attempt_dir = pathlib.Path(cmd[cmd.index("--junit-dir") + 1])
+                attempt_dir.mkdir(parents=True, exist_ok=True)
+                (attempt_dir / "01-a.xml").write_text(
+                    "<?xml version='1.0'?>\n"
+                    "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                    "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                    encoding="utf-8",
+                )
+                (attempt_dir / "run-summary.json").write_text(
+                    json.dumps({"passed": ["01-a"], "failed": [], "retried": [], "not_measured": []}),
+                    encoding="utf-8",
+                )
+                (attempt_dir / "environment.json").write_text(
+                    json.dumps(
+                        {
+                            "kind": "emulator",
+                            "api": 35,
+                            "device": "Pixel",
+                            "serial": "emulator-5554",
+                            "commit": "abc123",
+                            "apk_commit_sha": "abc123",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return mock.Mock(returncode=0)
+
+            with mock.patch.object(self.mod, "ROOT", root):
+                with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
+                    code = self.mod.main(
+                        [
+                            "--flow",
+                            flow_rel,
+                            "--attempts",
+                            "3",
+                            "--record",
+                            "--evidence",
+                            str(evidence),
+                            "--out",
+                            str(tmp_path / "out"),
+                        ]
+                    )
+            data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
+            fingerprint_of_snapshot = self.mod.GATE.fingerprint(flow_rel, root)
+
+        self.assertEqual(code, 0)
+        # No attempt saw the edited helper.
+        self.assertEqual(seen_helpers, [original_helper] * 3)
+        # No attempt ran the flow in the working tree.
+        self.assertNotIn(root / flow_rel, seen_flow_paths)
+        for path in seen_flow_paths:
+            self.assertIn("maestro-qualification-snapshot", path.parts)
+        record = (data.get("qualifications") or {}).get(flow_rel)
+        self.assertIsNotNone(record)
+        self.assertEqual(record["fingerprint"], fingerprint_of_snapshot)
+
+
 if __name__ == "__main__":
     unittest.main()

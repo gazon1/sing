@@ -179,10 +179,13 @@ qualified or explicitly excepted for its current fingerprint. Qualification is
 a small, bounded repeat run of the affected flow(s) in the same documented
 environment/build (default: 3 consecutive passing attempts), with every attempt
 recorded and infrastructure failures never counted as test passes; an initial
-failure followed by a pass means the flow is flaky, not qualified.
+failure followed by a pass means the flow is flaky, not qualified. The attempts
+run an immutable snapshot of the flow tree, so they always see the same
+content, whatever happens to the checkout while the run is in progress.
 
 - Policy, evidence and exceptions: `docs/testing/maestro-flow-qualification.md`
-- Baseline (pre-rule in-scope flows): `config/docs/maestro-flow-qualification-baseline.yaml`
+- Frozen set (pre-rule in-scope flows, pinned by a digest in the gate): `config/docs/maestro-flow-qualification-initial.yaml`
+- Baseline (fingerprints of the frozen set): `config/docs/maestro-flow-qualification-baseline.yaml`
 - Evidence/exceptions: `config/docs/maestro-flow-qualification.yaml`
 - Gate: `scripts/check-maestro-flow-qualification.py`
 - Runner: `scripts/maestro-qualify-flows.py` (targets affected flows only, reuses existing JUnit/environment outputs)

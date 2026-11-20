@@ -33,6 +33,12 @@ Two more weaknesses showed up in the same review:
 - an invalid `required_attempts` in the evidence file silently fell back to
   three, so a typo decided what counted as a qualification.
 
+A third one came out of the next review round: comparing the fingerprint
+before and after the attempts does not prove that the attempts agreed with
+each other. A flow edited between two attempts and restored before the last
+one leaves the tree looking unchanged, and the record would claim three
+passing runs for a version that only one attempt ever saw.
+
 ## Idea
 
 Three ways to keep the trusted set from being edited into existence.
@@ -65,6 +71,12 @@ frozen set is pinned by a digest that lives in the gate.
   or its pin. A changed flow is requalified, not re-baselined.
 - The runner takes the fingerprint before the first attempt and again after the
   last one, and writes a record only when the two agree.
+- The attempts do not run the working tree. The runner copies the `Maestro/`
+  tree into an immutable snapshot before the first attempt and runs every
+  attempt from there, with the layout kept so a helper reference resolves
+  inside the snapshot as it does in the tree. The record carries the
+  fingerprint of the snapshot — the content that ran — and the tree is
+  compared with it afterwards.
 - An invalid `required_attempts` is a configuration error. A missing one means
   three attempts.
 
@@ -87,6 +99,12 @@ frozen set is pinned by a digest that lives in the gate.
 - **The record has to name the flow that ran.** A fingerprint taken after the
   attempts describes the tree, not the run; a flow edited mid-run would be
   certified by a record that never applied to it.
+- **Two fingerprints are not proof that the attempts agreed.** The tree can be
+  edited and restored between two attempts, and the comparison of the
+  fingerprints before and after the run would not see it. The attempts have to
+  run something that cannot change under them; the snapshot is that something.
+  A copy of the tree is cheap, and the alternative is evidence that does not
+  describe the run.
 - **A policy that cannot be parsed is not a policy.** Falling back to three
   attempts on a typo turns a configuration mistake into a silent change of
   what counts as a qualification.
@@ -106,6 +124,9 @@ frozen set is pinned by a digest that lives in the gate.
 - The runner refuses to write a record when the flow changed under it. The
   attempts are preserved; the flow is qualified again, against the version in
   the tree.
+- Each qualification copies the `Maestro/` tree into `build/` before it starts
+  and removes the copy afterwards. The copy is the size of the flow tree, and
+  it is written to the checkout's build directory, which is never committed.
 
 ## Links
 
