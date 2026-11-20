@@ -38,9 +38,11 @@ application {
     // is one version source: the release pipeline sets `desktopAppVersion`, and a client
     // that connects to the MCP server is told the same version the desktop launcher
     // prints.
-    // The debug property is the same source the opt-in resolution reads, so a standalone
-    // server started with `--inspector` in a development run resolves the host.
-    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion", "-Dsingularity.debug=true")
+    // The debug property is deliberately NOT here: `applicationDefaultJvmArgs` reaches the
+    // installed distribution's start scripts too, and a release distribution must not be
+    // able to host the screen inspector through an explicit opt-in. The development `run`
+    // task is the development-only path and carries the debug property.
+    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion")
 }
 
 // `applicationDefaultJvmArgs` reaches the installed distribution's start scripts; the
