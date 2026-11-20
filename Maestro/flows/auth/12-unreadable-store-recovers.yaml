@@ -69,6 +69,7 @@ tags:
 # the in-memory cache it parsed before the damage and nothing observes it.
 - stopApp: com.singularity.todo
 
+- runScript: ../../helpers/scripts/device-bridge.js
 - runScript: ../../helpers/scripts/damage-store.js
 
 # A fresh process, reading a file it cannot parse.

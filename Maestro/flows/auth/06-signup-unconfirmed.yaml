@@ -27,11 +27,15 @@ appId: com.singularity.todo
 name: auth-signup-unconfirmed
 onFlowStart:
   - runScript:
+      file: ../../helpers/scripts/device-bridge.js
+  - runScript:
       file: ../../helpers/scripts/set-stub-flag.js
       env:
         FLAG: unconfirmed_signup
         VALUE: "true"
 onFlowComplete:
+  - runScript:
+      file: ../../helpers/scripts/device-bridge.js
   - runScript:
       file: ../../helpers/scripts/set-stub-flag.js
       env:
