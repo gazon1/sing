@@ -37,7 +37,7 @@ Do not add one; the CLI route is the agreed one.
 
 ```bash
 compose-preview list                                    # what exists
-compose-preview render --module :shared --function TaskCardLightPreview
+compose-preview render --module :shared --preview TaskCardLightPreview
 compose-preview render --module :shared --preview TaskCard          # substring
 compose-preview show --json --filter TaskCardLightPreview           # id, path, sha256
 ```
@@ -49,10 +49,13 @@ selection flags, `compose-preview help --all` lists the general ones (`--gradle-
 
 | Flag | Matches |
 |---|---|
-| `--function <name>` | the exact function name |
+| `--preview <ref>` | the id, `Class.function`, the bare function name, or a substring of the id |
 | `--id <id>` | the exact preview id |
 | `--filter <text>` | a case-insensitive substring of the id |
-| `--preview <ref>` | the id, `Class.function`, the bare function name, or a substring of the id |
+
+`--preview TaskCardLightPreview` selects exactly that one preview (the bare function
+name is an exact match); `--preview TaskCard` selects every preview whose id contains
+`TaskCard` — reach for `--id` when exactly one is meant.
 
 **None of them is a glob.** `--preview '*TaskCard*Preview'` matches nothing,
 because the asterisks are ordinary characters in the search string.
@@ -82,7 +85,7 @@ Build outputs — **never commit them**. Inspect a PNG with any image viewer
 the Desktop lane unless it opts into Robolectric, so `:shared` lands here:
 
 ```bash
-compose-preview render --module :shared --function TaskCardLightPreview
+compose-preview render --module :shared --preview TaskCardLightPreview
 ```
 
 `:desktopApp` and `:androidApp` have **no previews of their own** — all previews
@@ -94,7 +97,7 @@ deliberate change, not part of this workflow. Render from `:shared`.
 takes the Robolectric lane only when it both opts in and declares a host test:
 
 ```bash
-compose-preview render --module :shared --function TaskCardLightPreview \
+compose-preview render --module :shared --preview TaskCardLightPreview \
   --gradle-arg=-PcomposePreview.kmpAndroidRobolectric=true
 ```
 
@@ -136,8 +139,11 @@ Render the preview that covers the component you touched, then look at the PNG.
 Do not render the whole catalogue; do not make rendering a gate on every change.
 
 **A change in shared UI affects both targets.** The Desktop lane checks layout,
-theme and spacing — it says nothing about Android-specific behaviour. Report it
-as such: the Android lane was not verified.
+theme and spacing — it says nothing about Android-specific behaviour. Treat a
+Desktop render as **partial** visual verification: when the change needs an
+Android-side visual check, use the Android Studio / device workflow (the skill
+`singularity-todo-android-cli` covers the on-device route), or say plainly that
+Android was not verified. Never report a Desktop render as an Android check.
 
 ## Failure modes worth knowing
 

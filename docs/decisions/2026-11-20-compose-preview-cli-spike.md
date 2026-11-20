@@ -47,8 +47,8 @@ Discovery (`compose-preview list`): **83 `@Preview` functions in `:shared`**
 **Desktop (Skia) backend — WORKS.**
 
 ```bash
-compose-preview render --module :shared --function TaskCardLightPreview
-compose-preview render --module :shared --function AgendaContentLoadedPreview
+compose-preview render --module :shared --preview TaskCardLightPreview
+compose-preview render --module :shared --preview AgendaContentLoadedPreview
 ```
 
 Gradle tasks: `:shared:composePreviewDiscover`, `:shared:composePreviewRender`
@@ -98,8 +98,8 @@ Forced with `--gradle-arg=-PcomposePreview.kmpAndroidRobolectric=true`.
 
 Forcing Robolectric 4.17 on the render classpath (throwaway init script in
 `/tmp`, never in the repo) got the render all the way into actual Robolectric
-execution, where only cause 2 remained. With causes 2 and 3 also worked around
-it still failed at the manifest merger.
+execution, where only cause 2 remained. With cause 2 also worked around, the
+render still failed — at the manifest merger, i.e. cause 3.
 
 ## Idea
 
@@ -156,7 +156,7 @@ around it.
 ## Consequences
 
 - Agents and developers can render a `:shared` preview to PNG without Android
-  Studio: `compose-preview render --module :shared --function <Name>`.
+  Studio: `compose-preview render --module :shared --preview <Name>`.
 - A Desktop render says nothing about Android-specific behaviour. Until the
   Android lane is unblocked, a shared-UI change is verified on Desktop only and
   must be reported as unverified on Android.
