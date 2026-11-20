@@ -25,7 +25,7 @@ fun main(args: Array<String>): Unit =
     runToolServer(
         args,
         KoinStartup,
-        inspectorHostOptIn = inspectorHostOptIn(args, isDebugBuild = System.getProperty("singularity.debug") == "true"),
+        inspectorHostOptIn = inspectorHostOptIn(args, isDebugBuild = InspectorHostBuildConfig.INSPECTOR_HOST_ENABLED),
     )
 
 /**

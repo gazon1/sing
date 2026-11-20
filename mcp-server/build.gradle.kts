@@ -1,3 +1,8 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
@@ -46,9 +51,50 @@ application {
 }
 
 // `applicationDefaultJvmArgs` reaches the installed distribution's start scripts; the
-// `run` task is a separate JavaExec and needs the same property.
+// `run` task is a separate JavaExec and needs the same property. The task-level debug
+// carries the development-only screen-inspector capability; the generated build constant
+// below is what the runtime gate reads, so a release distribution can never host the
+// inspector through a JVM property.
 tasks.named<JavaExec>("run") {
+    debug = true
     jvmArgs("-Dsingularity.version=$appVersion", "-Dsingularity.debug=true")
+}
+
+// The screen-inspector host capability is a build-time decision: enabled for the
+// development launch task, disabled for release distributions. It is generated into the
+// source set so the runtime gate never resolves a user-overridable JVM property.
+val inspectorHostBuildDir = layout.buildDirectory.dir("generated/src/main/kotlin")
+
+abstract class GenerateInspectorHostBuildConfig : DefaultTask() {
+    @get:Internal
+    abstract val buildDir: DirectoryProperty
+
+    @get:Internal
+    abstract val runDebug: Property<Boolean>
+
+    @TaskAction
+    fun generate() {
+        val dir = buildDir.get().dir("com/singularity/todo/mcp").asFile
+        dir.mkdirs()
+        dir.resolve("InspectorHostBuildConfig.kt").writeText(
+            "package com.singularity.todo.mcp\n\n" +
+                "object InspectorHostBuildConfig {\n" +
+                "    const val INSPECTOR_HOST_ENABLED: Boolean = ${runDebug.get()}\n" +
+                "}\n",
+        )
+    }
+}
+
+val generateInspectorHostBuildConfig =
+    tasks.register("generateInspectorHostBuildConfig", GenerateInspectorHostBuildConfig::class) {
+        buildDir.set(layout.buildDirectory.dir("generated/src/main/kotlin"))
+        runDebug.set(tasks.named<JavaExec>("run").map { it.debug })
+    }
+
+sourceSets["main"].kotlin.srcDir(inspectorHostBuildDir.get().asFile)
+
+tasks.named("compileKotlin") {
+    dependsOn(generateInspectorHostBuildConfig)
 }
 
 /*
