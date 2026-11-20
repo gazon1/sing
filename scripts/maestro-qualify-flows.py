@@ -174,15 +174,64 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     return result
 
 
-def maestro_version() -> str | None:
-    for cmd in [["maestro", "--version"], [sys.executable, "-m", "pip", "show", "maestro"]]:
+def _version_token(text: str) -> str | None:
+    for line in text.splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return None
+
+
+def maestro_version(engine: str | None = None) -> str | None:
+    """Version string recorded with qualification evidence.
+
+    The gate requires a Maestro version; try the sources this repo uses
+    (engine helpers, runner/CLI binaries, pinned version files) before
+    giving up so a passing repeat run can produce admissible evidence.
+    """
+    try:
+        from emulator.maestro import _engine as eng
+
+        if engine == eng.ENGINE_MAESTRO_RUNNER:
+            v = eng.runner_version()
+            if v:
+                return v
+            pinned = getattr(eng, "MAESTRO_RUNNER_VERSION", None)
+            if pinned:
+                return str(pinned)
+    except Exception:
+        eng = None
+
+    probes = []
+    if engine == "maestro-runner":
+        probes = [["maestro-runner", "--version"], ["maestro", "--version"]]
+    else:
+        probes = [["maestro", "--version"], ["maestro-runner", "--version"]]
+    for cmd in probes:
         try:
             cp = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=30)
         except (OSError, subprocess.TimeoutExpired):
             continue
         if cp.returncode == 0 and cp.stdout.strip():
-            # first line/token
-            return cp.stdout.strip().splitlines()[0].strip()
+            tok = _version_token(cp.stdout.strip())
+            if tok:
+                return tok
+
+    if eng is not None and engine == getattr(eng, "ENGINE_MAESTRO_RUNNER", "maestro-runner"):
+        pinned = getattr(eng, "MAESTRO_RUNNER_VERSION", None)
+        if pinned:
+            return str(pinned)
+
+    for name in (".maestro-version", ".maestro-runner-version"):
+        p = ROOT / name
+        if p.is_file():
+            try:
+                text = p.read_text(encoding="utf-8").strip()
+            except OSError:
+                continue
+            tok = _version_token(text)
+            if tok:
+                return tok
     return None
 
 
@@ -197,7 +246,7 @@ def admission_needed(root: pathlib.Path, catalogue: pathlib.Path, baseline: path
     return seen
 
 
-def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pathlib.Path) -> dict:
+def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pathlib.Path, engine: str | None = None) -> dict:
     fp = GATE.fingerprint(flow_rel, root)
     # identity: prefer consistent values across attempts
     env = None
@@ -206,7 +255,7 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
     device = None
     kind = None
     api = None
-    mv = maestro_version()
+    mv = maestro_version(engine)
     for a in attempts:
         e = a.environment or {}
         if env is None and e:
@@ -236,6 +285,7 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
             },
             "commit": e.get("commit"),
             "apk_commit_sha": e.get("apk_commit_sha"),
+            "maestro_version": mv,
             "return_code": a.return_code,
         })
     return {
@@ -247,6 +297,13 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
         "maestro_version": mv,
         "attempts": attempt_records,
     }
+
+
+def record_issues(record: dict) -> list[str]:
+    issues = []
+    if not record.get("maestro_version"):
+        issues.append("maestro version is unknown (the admission gate requires it)")
+    return issues
 
 
 def all_pass(attempts: list[Attempt], required: int) -> bool:
@@ -354,25 +411,34 @@ def main(argv=None) -> int:
         for i in range(1, required + 1):
             attempts.append(run_one_attempt(flow, i, args.out, args.serial, args.engine, args.skip_install, args.allow_stale_apk, extra))
         qualified = all_pass(attempts, required)
-        record = build_qualification_record(flow, attempts, ROOT)
-        record["qualified"] = qualified
+        record = build_qualification_record(flow, attempts, ROOT, args.engine)
+        issues = record_issues(record)
+        record["qualified"] = qualified and not issues
         summary = {
             "flow": flow,
-            "qualified": qualified,
+            "qualified": qualified and not issues,
+            "attempts_passed": qualified,
             "attempts_run": len(attempts),
             "outcomes": [a.outcome for a in attempts],
+            "record_issues": issues,
             "record": record,
         }
         all_results.append(summary)
-        if qualified:
+        if qualified and not issues:
             print(f"  QUALIFIED: {flow} ({required} consecutive passing attempts)")
             if args.record:
                 if args.no_write:
                     print("  (record not written: --no-write)")
-                    print(yaml.safe_dump({flow: {k: v for k, v in record.items() if k != 'qualified'}}, sort_keys=False))
+                    print(yaml.safe_dump({flow: {k: v for k, v in record.items() if k not in ('qualified',)}}, sort_keys=False))
                 else:
-                    update_evidence_file(args.evidence, flow, {k: v for k, v in record.items() if k != 'qualified'})
+                    update_evidence_file(args.evidence, flow, {k: v for k, v in record.items() if k not in ('qualified',)})
                     print(f"  recorded in {args.evidence}")
+        elif qualified and issues:
+            all_ok = False
+            print(f"  NOT RECORDED AS QUALIFIED: {flow} ({required} consecutive passing attempts)")
+            for issue in issues:
+                print(f"  note: {issue}")
+            print("  note: attempt artifacts are preserved; re-run once the version is detectable or record manually")
         else:
             all_ok = False
             outcomes = ", ".join(f"{a.attempt}:{a.outcome}" for a in attempts)
