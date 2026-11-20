@@ -883,7 +883,7 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
             attempt = self.mod.classify_attempt(flow, p, 0)
             attempt.attempt = i
             attempts.append(attempt)
-        record = self.mod.build_qualification_record(flow, attempts, self.mod.ROOT)
+        record = self.mod.build_qualification_record(flow, attempts, "sha256:" + "0" * 64)
         issues = self.mod.record_issues(record)
         self.assertTrue(any("documented environment" in x for x in issues), issues)
         self.assertTrue(any("build identity" in x for x in issues), issues)
@@ -912,7 +912,7 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
                     maestro_version=mv,
                 )
             )
-        record = self.mod.build_qualification_record(flow, attempts, self.mod.ROOT)
+        record = self.mod.build_qualification_record(flow, attempts, "sha256:" + "0" * 64)
         issues = self.mod.record_issues(record)
         self.assertTrue(any("do not share one Maestro version" in x for x in issues), issues)
         self.assertIsNone(record.get("maestro_version"))
@@ -1030,6 +1030,52 @@ class QualificationRecordWritingTest(unittest.TestCase):
         self.assertIsNotNone(record)
         self.assertEqual(record["maestro_version"], "1.39.0")
         self.assertEqual(len(record["attempts"]), 3)
+
+    def test_flow_that_changes_during_qualification_is_not_recorded(self):
+        """The attempts certify the flow they ran, not the one in the tree.
+
+        A flow edited while it is being qualified produces attempts for one
+        version and a record naming another. The record would then claim
+        three passing runs for a fingerprint nobody ran, so it is not written.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            evidence = tmp_path / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            flow = "Maestro/flows/tasks/01-a.yaml"
+            calls: list[int] = []
+
+            def fake_fingerprint(*args, **kwargs):
+                calls.append(1)
+                return "sha256:" + ("a" if len(calls) == 1 else "b") * 64
+
+            with mock.patch.object(self.mod.GATE, "fingerprint", side_effect=fake_fingerprint):
+                with mock.patch.object(
+                    self.mod.subprocess, "run", side_effect=self._fake_run("1.39.0")
+                ):
+                    code = self.mod.main(
+                        [
+                            "--flow",
+                            flow,
+                            "--attempts",
+                            "3",
+                            "--record",
+                            "--evidence",
+                            str(evidence),
+                            "--out",
+                            str(tmp_path / "out"),
+                        ]
+                    )
+            data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
+        self.assertEqual(code, 1)
+        self.assertEqual(data.get("qualifications") or {}, {})
+
 
 if __name__ == "__main__":
     unittest.main()

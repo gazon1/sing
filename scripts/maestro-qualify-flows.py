@@ -288,8 +288,14 @@ def admission_needed(
     return seen
 
 
-def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pathlib.Path) -> dict:
-    fp = GATE.fingerprint(flow_rel, root)
+def build_qualification_record(flow_rel: str, attempts: list[Attempt], fingerprint: str) -> dict:
+    """The record for a flow, carrying the fingerprint the attempts certify.
+
+    The fingerprint is passed in, not computed here: it is the one taken
+    before the first attempt, so the record names the flow that was actually
+    run and not whatever the tree looks like when the record is built.
+    """
+    fp = fingerprint
     # identity: prefer consistent values across attempts
     env = None
     commit = None
@@ -523,12 +529,24 @@ def main(argv=None) -> int:
 
     for flow in flows:
         print(f"\n=== {flow} ===")
+        # The fingerprint is taken before the first attempt: a record that
+        # names the flow as it looks after the run would certify attempts
+        # that ran against a different flow.
+        fingerprint_before = GATE.fingerprint(flow, ROOT)
         attempts = []
         for i in range(1, required + 1):
             attempts.append(run_one_attempt(flow, i, args.out, args.serial, args.engine, args.skip_install, args.allow_stale_apk, extra))
+        fingerprint_after = GATE.fingerprint(flow, ROOT)
+        stable = fingerprint_before == fingerprint_after
         qualified = all_pass(attempts, required)
-        record = build_qualification_record(flow, attempts, ROOT)
+        record = build_qualification_record(flow, attempts, fingerprint_before)
         issues = record_issues(record)
+        if not stable:
+            issues.insert(
+                0,
+                f"the flow changed while it was being qualified ({fingerprint_before} -> "
+                f"{fingerprint_after}); the attempts do not certify the current flow",
+            )
         record["qualified"] = qualified and not issues
         summary = {
             "flow": flow,
