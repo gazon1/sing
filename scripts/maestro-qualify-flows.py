@@ -467,13 +467,27 @@ def main(argv=None) -> int:
     extra = list(args.extra)
     if extra[:1] == ["--"]:
         extra = extra[1:]
+    # Qualification owns runner invariants (flow/junit-dir/engine/retries/cleanup, etc.).
+    # Prefer an explicit allowlist over a denylist; no forwarded options are currently
+    # supported to avoid overriding evidence/provenance or attempt isolation.
+    allowed_extra_options: set[str] = set()
     for token in extra:
-        if token == "--maestro-max-retries" or token.startswith("--maestro-max-retries="):
+        name = token.split("=", 1)[0] if token.startswith("-") else token
+        if token.startswith("-") and name in allowed_extra_options:
+            continue
+        if token.startswith("-"):
             print(
-                "extra arguments must not include --maestro-max-retries (qualification disables internal retries)",
+                f"extra argument {name} is not allowed (qualification runner controls "
+                f"runner-owned options for evidence integrity)",
                 file=sys.stderr,
             )
-            return 2
+        else:
+            print(
+                f"extra argument {token!r} is not allowed (qualification runner does not "
+                f"accept positional forwarded arguments)",
+                file=sys.stderr,
+            )
+        return 2
 
     required = args.attempts
     all_results = []

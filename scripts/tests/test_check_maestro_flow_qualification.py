@@ -454,7 +454,7 @@ class QualificationRunnerPolicyTest(unittest.TestCase):
             self.assertEqual((data.get("qualifications") or {}), {})
             self.assertFalse(out.exists(), "runner must not execute attempts or create artifacts")
 
-    def test_extra_args_cannot_override_maestro_max_retries(self):
+    def test_extra_args_cannot_override_runner_owned_options(self):
         root = pathlib.Path(__file__).resolve().parent.parent.parent
         runner = root / "scripts" / "maestro-qualify-flows.py"
         flow = "Maestro/flows/tasks/01-set-priority.yaml"
@@ -468,25 +468,35 @@ class QualificationRunnerPolicyTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            for extra in (["--", "--maestro-max-retries", "2"], ["--", "--maestro-max-retries=2"]):
-                result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(runner),
-                        "--flow",
-                        flow,
-                        "--attempts",
-                        "3",
-                        "--evidence",
-                        str(evidence),
-                    ]
-                    + extra,
-                    cwd=root,
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-                self.assertIn("must not include --maestro-max-retries", result.stdout + result.stderr)
+            cases = [
+                (["--", "--maestro-max-retries", "2"], "--maestro-max-retries"),
+                (["--", "--maestro-max-retries=2"], "--maestro-max-retries"),
+                (["--", "--engine", "maestro-runner"], "--engine"),
+                (["--", "--engine=maestro-runner"], "--engine"),
+                (["--", "--maestro-cleanup", "off"], "--maestro-cleanup"),
+                (["--", "--maestro-cleanup=off"], "--maestro-cleanup"),
+            ]
+            for extra, forbidden in cases:
+                with self.subTest(extra=extra):
+                    result = subprocess.run(
+                        [
+                            sys.executable,
+                            str(runner),
+                            "--flow",
+                            flow,
+                            "--attempts",
+                            "3",
+                            "--evidence",
+                            str(evidence),
+                        ]
+                        + extra,
+                        cwd=root,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn(forbidden, result.stdout + result.stderr)
+                    self.assertIn("not allowed", result.stdout + result.stderr)
 
 
 class QualificationRunnerOutcomeTest(unittest.TestCase):
