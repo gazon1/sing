@@ -125,6 +125,11 @@ where preview functions live, `PreviewSamples`, `PreviewThemed` — are in
 `docs/decisions/2026-09-06-compose-previews.md`. How to write a preview that
 needs a ViewModel is in the skill `singularity-todo-preview-with-koin`.
 
+The fixtures live in `shared/src/commonMain/kotlin/com/singularity/todo/preview/`
+(`PreviewSamples.kt`) and `.../core/ui/preview/` (`PreviewThemed.kt`) — the
+2026-09-06 decision note still records their earlier `core/ui/preview/` path for
+`PreviewSamples.kt`, which no longer exists.
+
 ## When to render
 
 Render the preview that covers the component you touched, then look at the PNG.
