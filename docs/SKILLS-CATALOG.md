@@ -7,7 +7,7 @@
 > The SKILL.md <= 500 lines and `description` <= 1024 chars budgets were enforced by a
 > doc-sizes gate that was removed on 2026-10-19; nothing enforces them now.
 
-127 skills: 85 project-specific, 42 generic/meta.
+128 skills: 86 project-specific, 42 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -29,7 +29,8 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-ci-cd` | 153 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 221 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 399 | Write-tool surface contract for Singularity Todo KMP MCP server. |
-| `singularity-todo-compose-overview` | 52 | Router skill — index to all Compose UI skills. |
+| `singularity-todo-compose-overview` | 56 | Router skill — index to all Compose UI skills. |
+| `singularity-todo-compose-preview-cli` | 156 | Render an existing @Preview composable in :shared to PNG from the command line with the upstream compose-preview CLI, without Android Studio. |
 | `singularity-todo-coroutine-scopes` | 211 | Canonical patterns for CoroutineScope ownership in this KMP project — where scopes live, anti-patterns to avoid, and how to fix hanging tests caused by repository-owned scopes. |
 | `singularity-todo-cross-feature-navigation` | 235 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 250 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |

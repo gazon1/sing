@@ -21,6 +21,7 @@ This is a **router skill** — it points to the right skill for your task. No di
 | `singularity-todo-multi-select` | Multi-select pattern in lists |
 | `singularity-todo-swipe-actions` | Swipe-to-complete/delete patterns |
 | `singularity-todo-preview-with-koin` | `@Preview` without Koin — VM-as-parameter pattern |
+| `singularity-todo-compose-preview-cli` | Render an existing `@Preview` to PNG without Android Studio |
 | `singularity-todo-nav3-nested-graphs` | Nested navigation graphs and route management |
 | `singularity-todo-nav3-savedstate` | Android vs JVM back stack handling |
 
@@ -50,4 +51,7 @@ Swipe or task interactions?
 
 Preview not working with Koin?
   → singularity-todo-preview-with-koin
+
+Want to SEE a preview rendered (PNG)?
+  → singularity-todo-compose-preview-cli
 ```
