@@ -432,3 +432,28 @@ class RunnerVersionTest(unittest.TestCase):
     def test_the_cli_bare_version_names_the_version(self) -> None:
         self._run(0, "2.10.0\n")
         self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "2.10.0")
+
+    def test_a_version_split_across_the_streams_names_no_version(self) -> None:
+        """The streams are read one by one, never joined.
+
+        The end of stdout and the start of stderr are two independent
+        outputs. Joining them lets them compose a version nobody printed:
+        `stdout="2.10."` and `stderr="0"` read as `2.10.0` once glued, even
+        though neither stream says a version on its own.
+        """
+        self._run(0, "2.10.", stderr="0\n")
+        self.assertIsNone(_engine.engine_version(ENGINE_MAESTRO))
+
+    def test_the_runner_streams_are_not_joined_into_one_version(self) -> None:
+        self._run(0, "1.1.", stderr="31\n")
+        self.assertEqual(_engine.runner_version(), "")
+
+    def test_a_banner_in_one_stream_is_read_whatever_the_other_says(self) -> None:
+        """The other stream does not spoil the stream that names the version."""
+        self._run(0, "Maestro 1.39.0\n", stderr="OpenJDK 64-Bit Server VM warning\n")
+        self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "1.39.0")
+
+    def test_a_bare_version_in_one_stream_is_read(self) -> None:
+        """A stream that says nothing but a version names that version."""
+        self._run(0, "2.10.0\n", stderr="Maestro\n")
+        self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "2.10.0")

@@ -128,7 +128,14 @@ def engine_version(engine: str, cwd: str | Path | None = None) -> str | None:
         return None
     if cp.returncode != 0:
         return None
-    return parse_engine_version((cp.stdout or "") + (cp.stderr or ""), engine)
+    # The streams are read one by one, never joined: a banner that only
+    # exists because the end of stdout was glued to the start of stderr is a
+    # banner nobody printed.
+    for stream in (cp.stdout or "", cp.stderr or ""):
+        version = parse_engine_version(stream, engine)
+        if version:
+            return version
+    return None
 
 
 #: The runner reports one anonymous event per run unless this is set.
