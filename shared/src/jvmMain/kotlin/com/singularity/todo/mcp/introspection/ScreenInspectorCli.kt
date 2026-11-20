@@ -37,7 +37,6 @@ import com.singularity.todo.mcp.ProfileSelection
 import com.singularity.todo.mcp.ServerDependencies
 import com.singularity.todo.mcp.ToolServerKoinStartup
 import com.singularity.todo.mcp.parseProfileSelection
-import com.singularity.todo.mcp.toolServerModules
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -53,7 +52,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.koin.core.context.GlobalContext
-import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.io.File
 
@@ -567,12 +565,14 @@ private fun ensureKoin(
     legacyLabel: String?,
 ): Boolean {
     if (GlobalContext.getOrNull() != null) return false
-    if (defaultKoinStartup != null) {
-        // Fixed-id mode is owned by the startup; legacy/stored modes start without a fixed profile id.
-        defaultKoinStartup.start(fixedProfileId)
-    } else {
-        startKoin { modules(toolServerModules(fixedProfileId)) }
-    }
+    val startup =
+        defaultKoinStartup
+            ?: throw InspectorException(
+                InspectorErrorCode.INTERNAL,
+                "Screen inspector requires a Koin startup because no container is running.",
+            )
+    // Fixed-id mode is owned by the startup; legacy/stored modes start without a fixed profile id.
+    startup.start(fixedProfileId)
     val deps = ServerDependencies.fromKoin()
     // Ensure DB/profile bootstrapping so the inspector runs against real app state.
     deps.database.hashCode()
