@@ -157,7 +157,8 @@ def _inside(path: pathlib.Path, root: pathlib.Path) -> bool:
 
 def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, allow_stale_apk: bool, extra: list[str]) -> Attempt:
     flow_path = ROOT / flow_rel
-    attempt_dir = out_base / pathlib.PurePosixPath(flow_rel).stem / f"attempt-{attempt}"
+    flow_key = pathlib.PurePosixPath(flow_rel).with_suffix("")
+    attempt_dir = out_base / flow_key / f"attempt-{attempt}"
     # Never read stale artifacts from a previous invocation of this attempt slot.
     if attempt_dir.exists():
         shutil.rmtree(attempt_dir)

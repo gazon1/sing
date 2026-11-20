@@ -39,7 +39,7 @@ python3 scripts/maestro-qualify-flows.py \
 python3 scripts/maestro-qualify-flows.py --admission-needed --serial <serial> --record
 ```
 
-Each attempt runs the flow through `python3 -m emulator.maestro` and writes its own result directory under `build/maestro-qualification/<flow>/attempt-N/`, reusing the runner's existing outputs: the flow's JUnit XML (`<flow>.xml`), `environment.json`, and `run-summary.json`. A JSON qualification report can be written with `--report`.
+Each attempt runs the flow through `python3 -m emulator.maestro` and writes its own result directory under `build/maestro-qualification/<flow-path-without-ext>/attempt-N/` (preserving the flow's repository-relative path), reusing the runner's existing outputs: the flow's JUnit XML (`<flow>.xml`), `environment.json`, and `run-summary.json`. A JSON qualification report can be written with `--report`.
 
 ## Evidence and identity
 

@@ -411,6 +411,20 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
             attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 2)
         self.assertEqual(attempt.outcome, "infra_failure")
 
+    def test_attempt_artifacts_do_not_collide_for_same_basename(self):
+        flow_a = "Maestro/flows/area1/01-same.yaml"
+        flow_b = "Maestro/flows/area2/01-same.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            with mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=2)):
+                self.mod.run_one_attempt(flow_a, 1, out, None, None, False, False, [])
+                self.mod.run_one_attempt(flow_b, 1, out, None, None, False, False, [])
+            dir_a = out / "Maestro" / "flows" / "area1" / "01-same" / "attempt-1"
+            dir_b = out / "Maestro" / "flows" / "area2" / "01-same" / "attempt-1"
+            self.assertTrue(dir_a.is_dir(), "artifacts for first flow must survive")
+            self.assertTrue(dir_b.is_dir(), "artifacts for second flow must be written separately")
+            self.assertNotEqual(dir_a, dir_b)
+
     def test_missing_environment_or_build_identity_prevents_admissible_record(self):
         flow = "Maestro/flows/tasks/01-a.yaml"
         attempts = []
