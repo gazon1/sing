@@ -203,11 +203,20 @@ def read_baseline(path: pathlib.Path) -> tuple[dict[str, str], set[str]]:
         if isinstance(flow, str) and isinstance(fp, str):
             result[flow] = fp
     initial = data.get("initial_flows")
-    if isinstance(initial, list):
-        initial_set = {x for x in initial if isinstance(x, str)}
-    else:
-        # Legacy/missing field: treat current baseline snapshot as the frozen initial set.
-        initial_set = set(result.keys())
+    if not isinstance(initial, list):
+        # Without the frozen set the gate cannot tell a flow that was in a
+        # blocking scope when the rule was introduced from one that was added
+        # to the baseline afterwards — and a baseline that grows is how an
+        # unqualified flow enters a blocking scope. The file is rejected
+        # instead of being read as "everything in it was there from the start".
+        raise ValueError(
+            f"{path}: initial_flows is missing or not a list — the baseline has to name the "
+            f"flows that were in blocking scopes when the rule was introduced "
+            f"(regenerate it with --init-baseline)"
+        )
+    initial_set = {x for x in initial if isinstance(x, str)}
+    if len(initial_set) != len(initial):
+        raise ValueError(f"{path}: initial_flows must be a list of unique strings")
     return result, initial_set
 
 

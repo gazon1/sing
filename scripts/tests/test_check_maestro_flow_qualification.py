@@ -11,6 +11,7 @@ import unittest
 from unittest import mock
 
 import yaml
+import click
 
 MODULE_PATH = (
     pathlib.Path(__file__).resolve().parent.parent
@@ -28,6 +29,24 @@ spec.loader.exec_module(mod)
 def write_flow(path: pathlib.Path, body: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
+
+
+def write_baseline(path: pathlib.Path, flows: dict[str, str], initial: list[str] | None = None) -> None:
+    """Write a baseline the gate accepts.
+
+    The baseline has to name the flows that were in a blocking scope when the
+    rule was introduced (`initial_flows`); without it the gate cannot tell an
+    admitted flow from one that was added to the baseline afterwards.
+    """
+    if initial is None:
+        initial = sorted(flows)
+    path.write_text(
+        yaml.safe_dump(
+            {"schema": 1, "initial_flows": initial, "flows": flows},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 FLOW_OK = "appId: com.singularity.todo\n---\n- assertVisible: ok\n"
@@ -95,22 +114,13 @@ class AdmissionTest(unittest.TestCase):
         write_flow(root / flow, FLOW_OK)
         catalogue.write_text(flow + "\n")
         fp = mod.fingerprint(flow, root)
-        baseline.write_text(
-            yaml.safe_dump(
-                {
-                    "schema": 1,
-                    "initial_flows": [],
-                    "flows": {flow: fp},
-                },
-                sort_keys=False,
-            )
-        )
+        write_baseline(baseline, {flow: fp}, initial=[])
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["baseline expansion"])
 
     def test_new_blocking_flow_is_unqualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["unqualified"])
         self.assertEqual(findings[0].flow, flow)
@@ -118,16 +128,42 @@ class AdmissionTest(unittest.TestCase):
     def test_baselined_flow_is_admitted(self):
         root, flow, catalogue, baseline, evidence = self._tree()
         fp = mod.fingerprint(flow, root)
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {flow: fp}}, sort_keys=False))
+        write_baseline(baseline, {flow: fp})
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["baselined"], 1)
 
+    def test_baseline_without_initial_flows_is_rejected(self):
+        """A baseline that does not name its frozen set is not read as one.
+
+        Without `initial_flows` the gate cannot tell a flow that was in a
+        blocking scope when the rule was introduced from one that was added to
+        the baseline afterwards, so the file is refused instead of admitting
+        everything it happens to list.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        fp = mod.fingerprint(flow, root)
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {flow: fp}}, sort_keys=False))
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence)
+        self.assertIn("initial_flows", str(raised.exception))
+
+    def test_baseline_with_duplicate_initial_flows_is_rejected(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        fp = mod.fingerprint(flow, root)
+        baseline.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "initial_flows": [flow, flow], "flows": {flow: fp}},
+                sort_keys=False,
+            )
+        )
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence)
+        self.assertIn("unique strings", str(raised.exception))
+
     def test_changed_flow_needs_requalification(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(
-            yaml.safe_dump({"schema": 1, "flows": {flow: "sha256:" + "0" * 64}}, sort_keys=False)
-        )
+        write_baseline(baseline, {flow: "sha256:" + "0" * 64})
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["stale baseline"])
 
@@ -137,12 +173,7 @@ class AdmissionTest(unittest.TestCase):
         write_flow(root / flow, FLOW_OK + "\n# changed\n")
         new_fp = mod.fingerprint(flow, root)
         self.assertNotEqual(old_fp, new_fp)
-        baseline.write_text(
-            yaml.safe_dump(
-                {"schema": 1, "initial_flows": [flow], "flows": {flow: old_fp}},
-                sort_keys=False,
-            )
-        )
+        write_baseline(baseline, {flow: old_fp}, initial=[flow])
         evidence.write_text(
             yaml.safe_dump(
                 {
@@ -164,12 +195,7 @@ class AdmissionTest(unittest.TestCase):
         write_flow(root / flow, FLOW_OK + "\n# changed\n")
         new_fp = mod.fingerprint(flow, root)
         self.assertNotEqual(old_fp, new_fp)
-        baseline.write_text(
-            yaml.safe_dump(
-                {"schema": 1, "initial_flows": [flow], "flows": {flow: old_fp}},
-                sort_keys=False,
-            )
-        )
+        write_baseline(baseline, {flow: old_fp}, initial=[flow])
         evidence.write_text(
             yaml.safe_dump(
                 {
@@ -192,7 +218,7 @@ class AdmissionTest(unittest.TestCase):
         flow = "Maestro/flows/auth/01-manual.yaml"
         write_flow(root / flow, FLOW_MANUAL)
         catalogue.write_text(flow + "\n")
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["flows"], 0)
@@ -202,7 +228,7 @@ class AdmissionTest(unittest.TestCase):
         flow = "Maestro/flows/auth/01-live.yaml"
         write_flow(root / flow, FLOW_AUTH_LIVE)
         catalogue.write_text(flow + "\n")
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["flows"], 0)
@@ -231,7 +257,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_qualified_record_admitted(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         evidence.write_text(
             yaml.safe_dump(
@@ -250,7 +276,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_top_level_metadata_does_not_fill_missing_attempt_environment(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         record = self._qualified_record(fp, ["pass", "pass", "pass"])
         record["attempts"][1].pop("environment", None)
@@ -271,7 +297,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_top_level_metadata_does_not_fill_missing_attempt_build_identity(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         record = self._qualified_record(fp, ["pass", "pass", "pass"])
         record["attempts"][0].pop("commit", None)
@@ -293,7 +319,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_top_level_metadata_does_not_fill_missing_attempt_maestro_version(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         record = self._qualified_record(fp, ["pass", "pass", "pass"])
         record["attempts"][2].pop("maestro_version", None)
@@ -314,7 +340,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_duplicate_attempt_numbers_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         record = self._qualified_record(fp, ["pass", "pass", "pass"])
         # duplicate attempt 1 instead of sequential 1,2,3
@@ -339,7 +365,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_missing_attempt_number_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         record = self._qualified_record(fp, ["pass", "pass", "pass"])
         record["attempts"][1].pop("attempt", None)
@@ -360,7 +386,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_boolean_required_attempts_defaults_to_three(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         record = self._qualified_record(fp, ["pass"])
         evidence.write_text(
@@ -380,7 +406,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_flaky_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         evidence.write_text(
             yaml.safe_dump(
@@ -400,7 +426,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_infra_failure_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         evidence.write_text(
             yaml.safe_dump(
@@ -420,7 +446,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_exception_admitted_when_pinned(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
         evidence.write_text(
             yaml.safe_dump(
@@ -441,7 +467,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_exception_without_fingerprint_rejected(self):
         root, flow, catalogue, baseline, evidence = self._tree()
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        write_baseline(baseline, {})
         evidence.write_text(
             yaml.safe_dump(
                 {
@@ -774,7 +800,3 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
                         )
         mv_mock.assert_called_once_with("maestro-runner")
         self.assertEqual(attempt.maestro_version, "maestro-runner 1.2.3")
-
-
-if __name__ == "__main__":
-    unittest.main()

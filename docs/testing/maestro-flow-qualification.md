@@ -15,7 +15,7 @@ Flows tagged `manual` or `auth-live` are outside the automated blocking suites a
 
 ## Blocking-scope admission
 
-`config/docs/maestro-flow-qualification-baseline.yaml` records the fingerprints of flows that were already in blocking scopes when this rule was introduced; a matching fingerprint admits the flow. After that, a blocking-scope flow is admitted only by:
+`config/docs/maestro-flow-qualification-baseline.yaml` records the fingerprints of flows that were already in blocking scopes when this rule was introduced; a matching fingerprint admits the flow. The baseline names its frozen set in `initial_flows` — the flows that were in a blocking scope when the rule was introduced. A flow that is in the baseline's `flows` map but not in `initial_flows` was added to the baseline afterwards, and the gate refuses it: the baseline only shrinks, and a new flow is admitted by qualifying it, not by being listed. After that, a blocking-scope flow is admitted only by:
 
 - a **qualification record** in `config/docs/maestro-flow-qualification.yaml` for the current fingerprint, or
 - an explicit, **evidence-backed exception** in the same file for the current fingerprint (reason + evidence/issue reference).
