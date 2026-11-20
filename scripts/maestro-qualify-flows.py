@@ -85,6 +85,7 @@ class Attempt:
     environment: dict | None
     run_summary: dict | None
     return_code: int
+    maestro_version: str | None = None
 
 
 def read_json(path: pathlib.Path):
@@ -152,6 +153,7 @@ def classify_attempt(flow_rel: str, results_dir: pathlib.Path, return_code: int)
         environment=env if isinstance(env, dict) else None,
         run_summary=summary if isinstance(summary, dict) else None,
         return_code=return_code,
+        maestro_version=None,
     )
 
 
@@ -188,9 +190,11 @@ def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial:
     # ensure this checkout's scripts/src is importable
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC), env.get("PYTHONPATH", "")]))
     print(f"  attempt {attempt}: {' '.join(shlex.quote(c) for c in cmd)}")
+    mv = maestro_version(engine)
     cp = subprocess.run(cmd, cwd=ROOT, env=env)
     result = classify_attempt(flow_rel, attempt_dir, cp.returncode)
     result.attempt = attempt
+    result.maestro_version = mv
     print(f"    -> {result.outcome}: {result.reason}")
     return result
 
@@ -276,7 +280,6 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
     device = None
     kind = None
     api = None
-    mv = maestro_version(engine)
     for a in attempts:
         e = a.environment or {}
         if env is None and e:
@@ -306,9 +309,11 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
             },
             "commit": e.get("commit"),
             "apk_commit_sha": e.get("apk_commit_sha"),
-            "maestro_version": mv,
+            "maestro_version": a.maestro_version,
             "return_code": a.return_code,
         })
+    versions = [a.maestro_version for a in attempts]
+    mv = versions[0] if versions and all(v and v == versions[0] for v in versions) else None
     return {
         "fingerprint": fp,
         "qualified_at": datetime.now(timezone.utc).date().isoformat(),
@@ -323,12 +328,9 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], root: pat
 def record_issues(record: dict) -> list[str]:
     issues = []
     attempts = record.get("attempts") or []
-    if not record.get("maestro_version") and not any(
-        isinstance(a, dict) and a.get("maestro_version") for a in attempts
-    ):
-        issues.append("maestro version is unknown (the admission gate requires it)")
     envs = set()
     builds = set()
+    mversions = set()
     for i, attempt in enumerate(attempts, start=1):
         if not isinstance(attempt, dict):
             issues.append(f"attempt {i} is not a mapping")
@@ -347,10 +349,16 @@ def record_issues(record: dict) -> list[str]:
         if not build:
             issues.append(f"attempt {i} does not record build identity (commit/apk_commit_sha)")
         builds.add(build)
+        mv = attempt.get("maestro_version")
+        if not mv:
+            issues.append(f"attempt {i} does not record the Maestro version")
+        mversions.add(mv)
     if attempts and len(envs) > 1:
         issues.append("qualification attempts do not share one documented environment")
     if attempts and len(builds) > 1:
         issues.append("qualification attempts do not share one build identity")
+    if attempts and len(mversions) > 1:
+        issues.append("qualification attempts do not share one Maestro version")
     return issues
 
 

@@ -662,6 +662,35 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         self.assertTrue(any("documented environment" in x for x in issues), issues)
         self.assertTrue(any("build identity" in x for x in issues), issues)
 
+    def test_version_change_between_attempts_prevents_admissible_record(self):
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        attempts = []
+        for i, mv in enumerate(["2.10.0", "2.11.0", "2.10.0"], start=1):
+            attempts.append(
+                self.mod.Attempt(
+                    attempt=i,
+                    outcome="pass",
+                    reason="ok",
+                    junit="x/01-a.xml",
+                    results_dir="x",
+                    environment={
+                        "kind": "device",
+                        "api": 35,
+                        "device": "d",
+                        "serial": "s",
+                        "commit": "c",
+                        "apk_commit_sha": "c",
+                    },
+                    run_summary={"passed": ["01-a"], "failed": [], "retried": [], "not_measured": []},
+                    return_code=0,
+                    maestro_version=mv,
+                )
+            )
+        record = self.mod.build_qualification_record(flow, attempts, self.mod.ROOT)
+        issues = self.mod.record_issues(record)
+        self.assertTrue(any("do not share one Maestro version" in x for x in issues), issues)
+        self.assertIsNone(record.get("maestro_version"))
+
 
 if __name__ == "__main__":
     unittest.main()
