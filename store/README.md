@@ -34,9 +34,11 @@ The workflow uploads them as an artifact.
 
 **Preview.** The set is looked at as a whole before it is uploaded. The
 renderer writes `build/store-assets/contact-sheet.png` — all six pictures on one
-sheet — and `build/store-assets/README.md`, a table of what each picture is and
-where it came from. Look at the contact sheet first: it is the store listing,
-small.
+sheet — and `build/store-assets/README.md`, a table of what each picture is,
+where it came from and where it was written. The `manifest.json` next to it
+says the same in a machine-readable way, with the output directory and the
+path of every picture. Look at the contact sheet first: it is the store
+listing, small.
 
 **Regenerate.** Two commands, in this order:
 
@@ -45,12 +47,17 @@ just sc    # capture the raw screenshots from the capture device
 just sr    # render the store screenshots from them
 ```
 
+The renderer needs Pillow and PyYAML, which come with the repository's own
+tooling: `pip install -e scripts/src/`.
+
 `just sr` alone is enough when the raw captures are already there (after
 `just sc`, or after a capture run in CI). It writes into `build/store-assets/`
 and refuses to write a picture that Google Play would not accept: the size,
 the shape, the colour depth and the weight of every rendered PNG are checked,
 and a headline the font cannot draw is an error rather than a row of empty
-boxes.
+boxes. A headline that does not fit the canvas — a word wider than the line,
+or more lines than the template allows — is refused too, rather than drawn
+past the margin.
 
 **Replace.** To publish a new set, capture again and render again — the same
 two commands. To change what a picture *says*, edit the headline in

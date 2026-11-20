@@ -356,12 +356,16 @@ def read_png_header(path: Path) -> tuple[int, int, int, int]:
 def missing_glyphs(text: str, font: ImageFont.FreeTypeFont) -> list[str]:
     """The characters of the text the font cannot draw.
 
-    A font without a glyph draws an empty box for it, and a store screenshot
-    with a row of empty boxes is not a screenshot anybody may publish. The
+    A font without a glyph draws its `.notdef` box for it, and a store
+    screenshot with a row of boxes is not a screenshot anybody may publish. The
     check is done on the rendered mask rather than on the font's tables, so it
     holds for whatever the font actually draws.
     """
-    notdef = bytes(font.getmask(""))
+    # The reference is a private-use character no font carries, so the
+    # font draws its `.notdef` for it — the same thing it draws for a
+    # character it has no glyph of. The escape is spelled out because the
+    # character itself is invisible in the source.
+    notdef = bytes(font.getmask("\ue000"))
     missing = []
     for character in dict.fromkeys(text):
         if character.isspace():
@@ -378,8 +382,8 @@ def wrap_text(
     """The text split into the lines that fit the width.
 
     Split on spaces: a word that does not fit on a line of its own is a
-    template that has to be fixed, and the caller refuses it when the word
-    still does not fit.
+    template that has to be fixed, and the caller refuses the line when the
+    word still does not fit.
     """
     lines: list[str] = []
     current = ""
@@ -431,6 +435,16 @@ def draw_headline(
             f"the headline {text!r} takes {len(lines)} lines and the template "
             f"allows {headline.max_lines}"
         )
+    too_wide = [line for line in lines if font.getlength(line) > canvas.width - 2 * canvas.margin]
+    if too_wide:
+        # A word longer than the line cannot be broken, and the line it sits on
+        # would run past the margin — a caption cut off at the edge of a store
+        # picture is a caption nobody reads.
+        raise RenderError(
+            f"the headline {text!r} has a line wider than the "
+            f"{canvas.width - 2 * canvas.margin} px the canvas leaves — "
+            f"{too_wide[0]!r} does not fit; shorten the word or widen the margin"
+        )
     draw = ImageDraw.Draw(image)
     line_height = int(headline.size * 1.25)
     y = canvas.margin
@@ -461,19 +475,37 @@ def draw_device(
 
     x = (canvas.width - device.width) // 2
     free = canvas.height - canvas.margin - top - frame_height
-    y = top + max(0, free // 2)
+    if free < 0:
+        # The frame has to fit between the headline and the bottom margin: a
+        # frame that runs past the canvas is a picture with a half device on it.
+        raise RenderError(
+            f"the device frame does not fit: {frame_height} px are needed below "
+            f"the headline, but only {canvas.height - canvas.margin - top} px are left"
+        )
+    y = top + free // 2
 
     scaled = capture.resize((inner_width, inner_height), Image.LANCZOS)
-    if device.radius > 0:
-        mask = Image.new("L", (inner_width, inner_height), 0)
-        ImageDraw.Draw(mask).rounded_rectangle(
-            [0, 0, inner_width - 1, inner_height - 1], radius=device.radius, fill=255
-        )
-    else:
-        mask = None
     frame = Image.new("RGB", (device.width, frame_height), device.color)
-    frame.paste(scaled, (device.bezel, device.bezel), mask)
-    image.paste(frame, (x, y))
+    # The frame is a rounded rectangle, so the capture's corners are rounded
+    # with it: the inner radius is the outer one less the bezel, which keeps
+    # the bezel the same width all the way round.
+    inner_radius = max(0, device.radius - device.bezel)
+    if inner_radius > 0:
+        inner_mask = Image.new("L", (inner_width, inner_height), 0)
+        ImageDraw.Draw(inner_mask).rounded_rectangle(
+            [0, 0, inner_width - 1, inner_height - 1], radius=inner_radius, fill=255
+        )
+        frame.paste(scaled, (device.bezel, device.bezel), inner_mask)
+    else:
+        frame.paste(scaled, (device.bezel, device.bezel))
+    if device.radius > 0:
+        outer_mask = Image.new("L", (device.width, frame_height), 0)
+        ImageDraw.Draw(outer_mask).rounded_rectangle(
+            [0, 0, device.width - 1, frame_height - 1], radius=device.radius, fill=255
+        )
+        image.paste(frame, (x, y), outer_mask)
+    else:
+        image.paste(frame, (x, y))
 
 
 def render_one(
@@ -591,6 +623,7 @@ def write_manifest(
     """The machine-readable description of the set."""
     manifest = {
         "locale": template.locale,
+        "output_dir": _repo_relative(out),
         "canvas": {
             "width": template.canvas.width,
             "height": template.canvas.height,
@@ -612,17 +645,20 @@ def write_readme(out: Path, template: Template, entries: list[dict]) -> None:
         "",
         "What this folder holds, and where every picture came from.",
         "",
-        "| # | File | Screen | Source flow | Locale | Size |",
-        "|---|------|--------|-------------|--------|------|",
+        "| # | File | Output | Screen | Source flow | Locale | Size |",
+        "|---|------|--------|--------|-------------|--------|------|",
     ]
     for entry in entries:
         lines.append(
-            f"| {entry['order']} | `{entry['file']}` | {entry['screen']} | "
-            f"`{entry['source_flow']}` | {entry['locale']} | {entry['width']}x{entry['height']} |"
+            f"| {entry['order']} | `{entry['file']}` | `{entry['output_path']}` | "
+            f"{entry['screen']} | `{entry['source_flow']}` | {entry['locale']} | "
+            f"{entry['width']}x{entry['height']} |"
         )
     lines += [
         "",
         f"Locale: **{template.locale}** — the store copy in `store/templates.yaml` is in it.",
+        "",
+        f"Rendered output: `{_repo_relative(out)}/`.",
         "",
         "The raw captures are the source of truth and live outside this folder;",
         "these pictures are rendered from them by `scripts/store-render.py`.",
@@ -658,6 +694,35 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def refuse_unsafe_out_dir(out_dir: Path, raw_dir: Path) -> None:
+    """Refuse an output directory that would swallow the raw captures.
+
+    The output directory is wiped before every run, so it has to be a place of
+    its own. An output directory that is the raw directory, that holds it, or
+    that holds the repository takes the captures — or the repository — with it.
+    """
+    if out_dir == raw_dir:
+        raise RenderError(
+            f"the output directory {out_dir} is the raw capture directory — "
+            "the rendered set goes somewhere else"
+        )
+    if raw_dir.is_relative_to(out_dir):
+        raise RenderError(
+            f"the output directory {out_dir} holds the raw captures at {raw_dir} — "
+            "the rendered set goes somewhere else"
+        )
+    if out_dir.is_relative_to(raw_dir):
+        raise RenderError(
+            f"the output directory {out_dir} is inside the raw capture directory — "
+            "the rendered set goes somewhere else"
+        )
+    if out_dir == ROOT or ROOT.is_relative_to(out_dir):
+        raise RenderError(
+            f"the output directory {out_dir} holds the repository — the rendered "
+            "set goes somewhere else"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Render the set. Returns the exit code."""
     try:
@@ -671,6 +736,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         template = load_templates()
         manifest = load_captures()
+        refuse_unsafe_out_dir(out_dir, raw_dir)
         captures = manifest.captures
         by_file = {capture.file: capture for capture in captures}
         missing = [
@@ -730,6 +796,7 @@ def main(argv: list[str] | None = None) -> int:
                 "screen": capture.screen,
                 "source_flow": capture.flow,
                 "source_capture": _repo_relative(raw),
+                "output_path": _repo_relative(out),
                 "headline": shot.headline,
                 "locale": template.locale,
                 "width": template.canvas.width,

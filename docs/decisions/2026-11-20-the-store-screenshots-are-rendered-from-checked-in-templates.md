@@ -49,7 +49,11 @@ another checkout's templates would be a renderer of something else.
 renderer reads `build/store-capture/*.png` and writes `build/store-assets/`.
 It never edits a raw capture, and a rendered picture never becomes an input.
 The two directories are separate on purpose: a picture that was rendered once
-and re-rendered from its own output is a picture that drifts.
+and re-rendered from its own output is a picture that drifts. The renderer
+wipes its output directory before every run, so it refuses an output directory
+that is the raw directory, that holds it, or that holds the repository: the
+one place where "the raw captures are never touched" could be broken by a
+mistyped path is the path of the output directory.
 
 **The compositions and the copy live in `store/templates.yaml`, and nowhere
 else.** The canvas, the colours, the type, the frame and the headline of every
@@ -93,12 +97,13 @@ if it fails, and refuses the set if it is too short or too long. A set that
 reaches the upload as an artifact is a set that was checked.
 
 **The rendered set describes itself.** `manifest.json` carries the locale, the
-canvas, the device profile the captures came from and one entry per picture —
-its order, its file, the screen it shows, the flow that produced it, the raw
-capture it was rendered from, the headline and the size. `README.md` is the
-same thing for a person. `contact-sheet.png` is the whole set on one picture:
-the preview a person looks at before an upload. It is a preview, not a store
-asset, and it is not in the manifest.
+canvas, the device profile the captures came from, the output directory and one
+entry per picture — its order, its file, the screen it shows, the flow that
+produced it, the raw capture it was rendered from, the path it was written to,
+the headline and the size. `README.md` is the same thing for a person.
+`contact-sheet.png` is the whole set on one picture: the preview a person looks
+at before an upload. It is a preview, not a store asset, and it is not in the
+manifest.
 
 **The device profile is read from the capture manifest, not written twice.**
 `Maestro/capture/manifest.yaml` is the capture command's own record of what a
@@ -158,10 +163,14 @@ the capture device's contract is written down.
   `scripts/src/pyproject.toml` so CI's venv has it.
 - `scripts/tests/test_store_render.py` covers the pure parts: the templates
   and the captures covering each other, the font being checked in, the font
-  drawing every headline (and refusing one it cannot), the Play rules
-  (accepted, too small, with an alpha channel, too long a side, not a PNG),
-  the whole run on synthetic captures, the manifest it writes, and the same
-  raw capture rendering the same picture twice.
+  drawing every headline (and refusing one it cannot), a headline that does not
+  fit the canvas (too wide, too many lines), the Play rules (accepted, too
+  small, with an alpha channel, 16-bit, over 8 MB, too long a side, not a
+  PNG), the size of the set (one refused, two accepted, nine refused), the
+  whole run on synthetic captures, the raw captures coming out of the run
+  unchanged, the output directory not being allowed to swallow them, the
+  manifest it writes, and the same raw capture rendering the same picture
+  twice.
 - The storyboard's own claim about Play's ratio rule was wrong and is fixed:
   the limit is 2.3 times the shortest side, not twice, so a 1080 × 2400
   capture is not refused by the ratio any more. The capture device is 9:16

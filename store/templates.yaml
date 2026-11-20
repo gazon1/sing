@@ -28,10 +28,10 @@
 #
 # THE GEOMETRY
 # ------------
-# The canvas is 1080x1920 (9:16, the aspect Google Play asks a phone set to
-# be), the device frame is a rounded rectangle with the raw capture inside it,
-# and the headline sits above it. Every number a picture depends on is here,
-# so the set looks the same every time it is rendered.
+# The canvas is 1080x1920 (9:16, the aspect Google Play recommends for a
+# phone set), the device frame is a rounded rectangle with the raw capture
+# inside it, and the headline sits above it. Every number a picture depends on
+# is here, so the set looks the same every time it is rendered.
 
 locale: ru-RU
 
@@ -64,7 +64,9 @@ device:
   # The frame's outer width, in canvas pixels. The raw capture is scaled to
   # fit inside it, so the store picture shows the whole screen with a caption.
   width: 792
-  # The bezel around the capture, and the radius of the frame's corners.
+  # The bezel around the capture, and the radius of the frame's outer corners.
+  # The capture's own corners are rounded with them, so the bezel keeps the
+  # same width all the way round.
   bezel: 18
   radius: 48
   color: "#05070D"

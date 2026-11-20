@@ -17,6 +17,7 @@ else. So they are tested here, on synthetic captures.
 """
 
 import contextlib
+import dataclasses
 import importlib.util
 import io
 import json
@@ -24,6 +25,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from PIL import Image, ImageFont
 
@@ -83,6 +85,51 @@ class TemplateTest(unittest.TestCase):
         self.assertTrue(missing, 'the vendored font has no CJK glyphs, as expected')
 
 
+class HeadlineTest(unittest.TestCase):
+    """The copy has to fit the picture it is drawn on."""
+
+    def setUp(self):
+        self.template = mod.load_templates()
+        self.font = ImageFont.truetype(
+            str(self.template.headline.font_path), self.template.headline.size
+        )
+        self.image = Image.new(
+            'RGB', (self.template.canvas.width, self.template.canvas.height)
+        )
+
+    def test_a_word_wider_than_the_line_is_refused(self):
+        # A word cannot be broken, and a caption that runs past the margin is
+        # a caption cut off at the edge of a store picture.
+        with self.assertRaises(mod.RenderError):
+            mod.draw_headline(
+                self.image,
+                self.template.canvas,
+                self.template.headline,
+                'А' * 300,
+                self.font,
+            )
+
+    def test_a_headline_with_too_many_lines_is_refused(self):
+        with self.assertRaises(mod.RenderError):
+            mod.draw_headline(
+                self.image,
+                self.template.canvas,
+                self.template.headline,
+                ' '.join(['слово'] * 20),
+                self.font,
+            )
+
+    def test_a_headline_that_fits_is_drawn(self):
+        bottom = mod.draw_headline(
+            self.image,
+            self.template.canvas,
+            self.template.headline,
+            self.template.screenshots[0].headline,
+            self.font,
+        )
+        self.assertGreater(bottom, 0)
+
+
 class PlayRuleTest(unittest.TestCase):
     """What Play accepts of a phone screenshot."""
 
@@ -103,6 +150,20 @@ class PlayRuleTest(unittest.TestCase):
         # Play asks for a 24-bit PNG: three channels, eight bits each.
         path = write_png(self.root / 'alpha.png', (1080, 1920), mode='RGBA')
         self.assertTrue(mod.validate_play(path))
+
+    def test_a_sixteen_bit_picture_is_refused(self):
+        path = self.root / 'sixteen.png'
+        Image.new('I;16', (1080, 1920)).save(path, format='PNG')
+        problems = mod.validate_play(path)
+        self.assertTrue(any('16-bit' in problem for problem in problems), problems)
+
+    def test_a_picture_of_more_than_eight_megabytes_is_refused(self):
+        # Play takes 8 MB per screenshot, and the check is on the file's weight.
+        path = write_png(self.root / 'heavy.png', (1080, 1920))
+        with path.open('ab') as handle:
+            handle.write(b'\0' * (mod.PLAY_MAX_BYTES + 1))
+        problems = mod.validate_play(path)
+        self.assertTrue(any('8 MB' in problem for problem in problems), problems)
 
     def test_a_picture_whose_longest_side_is_too_long_is_refused(self):
         path = write_png(self.root / 'tall.png', (400, 1000))
@@ -131,6 +192,45 @@ class RenderTest(unittest.TestCase):
         """Run the renderer, without its chatter in the test output."""
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return mod.main(['--raw-dir', str(self.raw), '--out-dir', str(self.out)])
+
+    def world_of(self, count):
+        """A template and a capture list of the given size, and the raw files.
+
+        Play's rules are about the size of the set, and the set is the number
+        of compositions — so a rule about a set of one or of nine needs a world
+        of one or of nine.
+        """
+        template = mod.load_templates()
+        captures = mod.load_captures()
+        shots = list(template.screenshots)[:count]
+        caps = list(captures.captures)[:count]
+        while len(shots) < count:
+            index = len(shots) + 1
+            name = f'{index:02d}-extra.png'
+            shots.append(mod.Screenshot(file=name, headline='Ещё один экран'))
+            caps.append(
+                mod.Capture(
+                    order=index,
+                    file=name,
+                    screen='Extra',
+                    flow='extra',
+                    width=caps[0].width,
+                    height=caps[0].height,
+                )
+            )
+            write_png(self.raw / name, (caps[0].width, caps[0].height))
+        return (
+            dataclasses.replace(template, screenshots=tuple(shots)),
+            dataclasses.replace(captures, captures=tuple(caps)),
+        )
+
+    def render_world(self, count):
+        """Run the renderer over a world of the given size."""
+        template, captures = self.world_of(count)
+        with mock.patch.object(mod, 'load_templates', return_value=template), mock.patch.object(
+            mod, 'load_captures', return_value=captures
+        ):
+            return self.render()
 
     def test_the_run_renders_a_set_play_accepts(self):
         self.assertEqual(self.render(), 0)
@@ -168,6 +268,47 @@ class RenderTest(unittest.TestCase):
     def test_a_missing_raw_capture_stops_the_run(self):
         (self.raw / '01-today.png').unlink()
         self.assertNotEqual(self.render(), mod.EXIT_OK)
+
+    def test_the_raw_captures_are_not_touched(self):
+        # The raw captures are the source of truth: a render that changed them
+        # would leave nothing to render the next set from.
+        before = {path.name: path.read_bytes() for path in sorted(self.raw.glob('*.png'))}
+        self.render()
+        after = {path.name: path.read_bytes() for path in sorted(self.raw.glob('*.png'))}
+        self.assertEqual(before, after)
+
+    def test_the_output_directory_may_not_be_the_raw_capture_directory(self):
+        # The renderer wipes its output directory before it runs, so the output
+        # directory may not be a place the raw captures live in.
+        before = {path.name: path.read_bytes() for path in sorted(self.raw.glob('*.png'))}
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = mod.main(['--raw-dir', str(self.raw), '--out-dir', str(self.raw)])
+        self.assertNotEqual(code, mod.EXIT_OK)
+        after = {path.name: path.read_bytes() for path in sorted(self.raw.glob('*.png'))}
+        self.assertEqual(before, after)
+
+    def test_the_output_directory_may_not_hold_the_raw_captures(self):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = mod.main(['--raw-dir', str(self.raw), '--out-dir', str(self.root)])
+        self.assertNotEqual(code, mod.EXIT_OK)
+        self.assertTrue((self.raw / '01-today.png').is_file())
+
+    def test_a_set_of_one_screenshot_is_refused(self):
+        # Play wants 2 to 8 screenshots in a phone listing.
+        self.assertNotEqual(self.render_world(1), mod.EXIT_OK)
+
+    def test_a_set_of_nine_screenshots_is_refused(self):
+        self.assertNotEqual(self.render_world(9), mod.EXIT_OK)
+
+    def test_a_set_of_two_screenshots_is_accepted(self):
+        self.assertEqual(self.render_world(2), mod.EXIT_OK)
+
+    def test_the_manifest_records_where_the_pictures_are(self):
+        self.render()
+        manifest = json.loads((self.out / 'manifest.json').read_text(encoding='utf-8'))
+        self.assertTrue(manifest['output_dir'])
+        for entry in manifest['screenshots']:
+            self.assertTrue(entry['output_path'].endswith(entry['file']), entry)
 
 
 if __name__ == '__main__':
