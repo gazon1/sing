@@ -1,7 +1,7 @@
 ---
 name: singularity-todo-compose-preview-cli
 status: active
-description: Render an existing @Preview composable in :shared to PNG with the upstream compose-preview CLI. Use when a Compose UI change needs a visual check, or when compose-preview rendering fails.
+description: Render an existing @Preview composable in :shared to PNG from the command line with the upstream compose-preview CLI, without Android Studio. Use when a preview must be rendered headlessly or when compose-preview rendering fails. Android Studio preview rendering is the `singularity-todo-android-cli` skill.
 ---
 
 # Compose preview CLI (render previews to PNG)
@@ -141,9 +141,11 @@ Do not render the whole catalogue; do not make rendering a gate on every change.
 **A change in shared UI affects both targets.** The Desktop lane checks layout,
 theme and spacing — it says nothing about Android-specific behaviour. Treat a
 Desktop render as **partial** visual verification: when the change needs an
-Android-side visual check, use the Android Studio / device workflow (the skill
-`singularity-todo-android-cli` covers the on-device route), or say plainly that
-Android was not verified. Never report a Desktop render as an Android check.
+Android-side visual check, use the Android Studio route (the skill
+`singularity-todo-android-cli` renders previews from the IDE) or the physical
+device route (the skill `singularity-todo-adb-workflow` installs, screenshots and
+inspects the app over USB) — or say plainly that Android was not verified. Never
+report a Desktop render as an Android check.
 
 ## Failure modes worth knowing
 
