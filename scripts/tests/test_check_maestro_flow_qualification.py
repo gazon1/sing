@@ -131,6 +131,62 @@ class AdmissionTest(unittest.TestCase):
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["stale baseline"])
 
+    def test_changed_baseline_flow_admitted_by_valid_qualification(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        old_fp = mod.fingerprint(flow, root)
+        write_flow(root / flow, FLOW_OK + "\n# changed\n")
+        new_fp = mod.fingerprint(flow, root)
+        self.assertNotEqual(old_fp, new_fp)
+        baseline.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "initial_flows": [flow], "flows": {flow: old_fp}},
+                sort_keys=False,
+            )
+        )
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: self._qualified_record(new_fp, ["pass", "pass", "pass"])},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual(findings, [])
+        self.assertEqual(counts["qualified"], 1)
+
+    def test_changed_baseline_flow_admitted_by_valid_exception(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        old_fp = mod.fingerprint(flow, root)
+        write_flow(root / flow, FLOW_OK + "\n# changed\n")
+        new_fp = mod.fingerprint(flow, root)
+        self.assertNotEqual(old_fp, new_fp)
+        baseline.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "initial_flows": [flow], "flows": {flow: old_fp}},
+                sort_keys=False,
+            )
+        )
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {},
+                    "exceptions": {
+                        flow: {"fingerprint": new_fp, "reason": "known env issue", "evidence": "#3052"}
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual(findings, [])
+        self.assertEqual(counts["excepted"], 1)
+
     def test_manual_flow_excluded(self):
         root, _flow, catalogue, baseline, evidence = self._tree()
         flow = "Maestro/flows/auth/01-manual.yaml"

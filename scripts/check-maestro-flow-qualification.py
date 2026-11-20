@@ -324,16 +324,12 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
 
     for flow in flows:
         fp = fingerprint(flow, root)
-        if flow in baseline:
-            if flow not in initial_baseline:
-                findings.append(Finding(flow, "baseline expansion", "new flow cannot be admitted by adding it to the qualification baseline; qualify it or add an evidence-backed exception"))
-                continue
-            if baseline[flow] == fp:
-                counts["baselined"] += 1
-                continue
-            # Baseline present but stale -> needs requalification (baseline only shrinks conceptually by requalifying/removing)
-            findings.append(Finding(flow, "stale baseline", f"flow or its helpers changed since the qualification baseline (current {fp}); requalify or add an evidence-backed exception"))
+        if flow in baseline and flow in initial_baseline and baseline[flow] == fp:
+            counts["baselined"] += 1
             continue
+
+        # Recovery for a changed/non-matching flow happens via qualification or
+        # exception for the current fingerprint (including stale baseline flows).
         if flow in qualifications:
             ok, reason = is_qualified(qualifications[flow], fp, required)
             if ok:
@@ -348,7 +344,31 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
                 continue
             findings.append(Finding(flow, "invalid exception", reason))
             continue
-        findings.append(Finding(flow, "unqualified", "new or unadmitted flow in a blocking automated scope; qualify it (bounded repeated run) or add an evidence-backed exception"))
+
+        if flow in baseline and flow not in initial_baseline:
+            findings.append(
+                Finding(
+                    flow,
+                    "baseline expansion",
+                    "new flow cannot be admitted by adding it to the qualification baseline; qualify it or add an evidence-backed exception",
+                )
+            )
+        elif flow in baseline:
+            findings.append(
+                Finding(
+                    flow,
+                    "stale baseline",
+                    f"flow or its helpers changed since the qualification baseline (current {fp}); requalify or add an evidence-backed exception",
+                )
+            )
+        else:
+            findings.append(
+                Finding(
+                    flow,
+                    "unqualified",
+                    "new or unadmitted flow in a blocking automated scope; qualify it (bounded repeated run) or add an evidence-backed exception",
+                )
+            )
     return findings, counts
 
 
