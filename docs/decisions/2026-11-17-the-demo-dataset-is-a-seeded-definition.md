@@ -149,9 +149,10 @@ guarantee that the listing shows stale data.
 - The capture flows, the local capture command and the Play compositions
   are separate issues (#3004, #3005, #3006). Nothing here runs yet: this
   issue delivers the dataset and the story.
-- The capture device is a 9:16 phone AVD — 1080 × 1920 px. Google Play caps the
-  longest side of a phone screenshot at twice the shortest, so the repository's
-  default 1080 × 2400 AVD cannot be a capture device, and a `wm size` override
+- The capture device is a 9:16 phone AVD — 1080 × 1920 px. The listing is built
+  around 9:16 (Google Play's cap on the longest side of a phone screenshot is
+  2.3 times the shortest, as of 2026-11-20), so the repository's
+  default 1080 × 2400 AVD is not a capture device, and a `wm size` override
   cannot turn it into one: the override leaves the captured image at its
   physical size and moves the screen out from under the Maestro flows'
   percentage coordinates. The profile is written down in the storyboard.

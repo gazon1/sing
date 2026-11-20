@@ -10,21 +10,28 @@ tags: [android, maestro, testing, release]
 ## Context
 
 Google Play's rules for a phone screenshot are short: every side between 320
-and 3840 px, and the longest side no more than twice the shortest. The tier
-Google recommends for apps is 9:16 portrait from 1080 × 1920 up.
+and 3840 px, and the longest side no more than 2.3 times the shortest (as of
+2026-11-20,
+<https://support.google.com/googleplay/android-developer/answer/9866151>).
+The tier Google recommends for apps is 9:16 portrait from 1080 × 1920 up.
+
+(The rule was twice the shortest when this was written; it is 2.3 times now,
+so a 1080 × 2400 capture is accepted by the ratio. The device below is 9:16
+because the listing is built around 9:16, not because the other shape would be
+refused.)
 
 The repository's own emulator is 1080 × 2400 — the `pixel_6` hardware profile
 that `scripts/ci/provision-avd.sh` creates by default, and the `Medium_Phone`
-AVD on this host. Its longest side is 2400, which is more than twice its
-shortest: a screenshot of it is not a screenshot Play accepts.
+AVD on this host. Its longest side is 2400, which is 2.22 times its shortest:
+inside Play's ratio, but not the 9:16 tier the listing is built around.
 
 The obvious workaround, `adb shell wm size 1080x1920`, is the recipe the
 RuStore how-to already uses, and it does not work here for two independent
 reasons. The override changes the logical resolution and leaves the captured
-image at its physical size, so the PNG is still 1080 × 2400 and still
-rejected. And the Maestro flows address the screen in percentages, which an
-override moves out from under them — the emulator-launch skill forbids it for
-that reason.
+image at its physical size, so the PNG is still 1080 × 2400 and not the 9:16
+the listing is built around. And the Maestro flows address the screen in
+percentages, which an override moves out from under them — the
+emulator-launch skill forbids it for that reason.
 
 So the screen has to be 9:16 in the AVD itself. The SDK's hardware profile
 table has exactly one phone profile with that shape: `pixel_2`, 1080 × 1920 at
