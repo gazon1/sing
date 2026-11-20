@@ -27,10 +27,8 @@ fun main(args: Array<String>): Unit =
         args,
         KoinStartup,
         inspectorHostOptIn =
-            args.any {
-                it ==
-                    McpServerCommandProvider.INSPECTOR_HOST_FLAG
-            },
+            System.getProperty("singularity.debug") == "true" &&
+                args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG },
     )
 
 /**
