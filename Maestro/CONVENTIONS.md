@@ -178,7 +178,7 @@ transitively — helper flows and helper scripts alike) is not admitted to an
 automated blocking scope until it is
 qualified or explicitly excepted for its current fingerprint. Qualification is
 a small, bounded repeat run of the affected flow(s) in the same documented
-environment/build (default: 3 consecutive passing attempts),
+environment/build (default: 3 consecutive passing attempts on one device),
 with every attempt
 recorded and infrastructure failures never counted as test passes; an initial
 failure followed by a pass means the flow is flaky, not qualified. The attempts

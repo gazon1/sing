@@ -341,6 +341,7 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], fingerpri
     device = None
     kind = None
     api = None
+    serial = None
     for a in attempts:
         e = a.environment or {}
         if env is None and e:
@@ -351,6 +352,7 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], fingerpri
                 "serial": e.get("serial"),
             }
             kind, api, device = e.get("kind"), e.get("api"), e.get("device")
+            serial = e.get("serial")
         commit = commit or e.get("commit")
         apk = apk or e.get("apk_commit_sha")
     attempt_records = []
@@ -378,7 +380,7 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], fingerpri
     return {
         "fingerprint": fp,
         "qualified_at": datetime.now(timezone.utc).date().isoformat(),
-        "environment": {"kind": kind, "api": api, "device": device},
+        "environment": {"kind": kind, "api": api, "device": device, "serial": serial},
         "commit": commit,
         "apk_commit_sha": apk,
         "maestro_version": mv,
@@ -399,11 +401,19 @@ def record_issues(record: dict) -> list[str]:
         env = attempt.get("environment") or {}
         if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
             issues.append(f"attempt {i} does not record a documented environment (kind/api)")
+        if not isinstance(env, dict) or not env.get("serial"):
+            # The device is part of the identity: a run that does not name the
+            # device it ran on cannot be told apart from a run on another one.
+            issues.append(f"attempt {i} does not record the device it ran on (serial)")
         envs.add(
             (
                 env.get("kind") if isinstance(env, dict) else None,
                 env.get("api") if isinstance(env, dict) else None,
                 env.get("device") if isinstance(env, dict) else None,
+                # The device itself, not only its model: two runs on two
+                # devices of the same model are two runs on two devices, and
+                # the flakiness a qualification hunts is often device-specific.
+                env.get("serial") if isinstance(env, dict) else None,
             )
         )
         build = attempt.get("apk_commit_sha") or attempt.get("commit")

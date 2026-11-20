@@ -384,8 +384,11 @@ def read_evidence(path: pathlib.Path) -> tuple[int, dict[str, dict], dict[str, d
 def _env_key(env: dict) -> tuple:
     if not isinstance(env, dict):
         return ()
-    # Same documented environment: kind, api, device model.
-    return (env.get("kind"), env.get("api"), env.get("device"))
+    # Same documented environment: kind, api, device model -- and the device
+    # itself. Two runs on two devices of the same model are two runs on two
+    # devices: the flakiness a qualification is meant to catch is often
+    # device-specific, so the device is part of the identity.
+    return (env.get("kind"), env.get("api"), env.get("device"), env.get("serial"))
 
 
 def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, str]:
@@ -426,6 +429,10 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
         env = attempt.get("environment")
         if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
             return False, f"attempt {i} does not record a documented environment (kind/api)"
+        if not env.get("serial"):
+            # The device is part of the identity. A run that does not name it
+            # cannot be told apart from another run on another device.
+            return False, f"attempt {i} does not record the device it ran on (serial)"
         envs.add(_env_key(env))
         build = attempt.get("apk_commit_sha") or attempt.get("commit")
         if not build:

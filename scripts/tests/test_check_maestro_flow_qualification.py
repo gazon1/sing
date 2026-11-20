@@ -1287,6 +1287,98 @@ class UntrackedDependencyTest(unittest.TestCase):
         self.assertEqual(counts["baselined"], 1)
 
 
+class EnvironmentIdentityTest(unittest.TestCase):
+    """The device is part of the identity of a qualification run."""
+
+    def _record(self, serials):
+        return {
+            "fingerprint": "sha256:" + "a" * 64,
+            "attempts": [
+                {
+                    "attempt": i + 1,
+                    "outcome": "pass",
+                    "environment": {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": serial,
+                    },
+                    "apk_commit_sha": "abc123",
+                    "maestro_version": "1.39.0",
+                }
+                for i, serial in enumerate(serials)
+            ],
+        }
+
+    def test_two_devices_are_not_one_environment(self):
+        ok, reason = mod.is_qualified(
+            self._record(["emulator-5554", "emulator-5554", "emulator-5556"]),
+            "sha256:" + "a" * 64,
+            3,
+        )
+        self.assertFalse(ok)
+        self.assertIn("environment", reason)
+
+    def test_one_device_is_one_environment(self):
+        """The positive control: three runs on one device are one environment."""
+        ok, reason = mod.is_qualified(
+            self._record(["emulator-5554"] * 3), "sha256:" + "a" * 64, 3
+        )
+        self.assertTrue(ok, reason)
+
+    def test_attempt_without_a_device_is_not_a_qualification(self):
+        """The serial is required, not merely compared.
+
+        An attempt that does not name the device it ran on cannot be told
+        apart from a run on another device, so it does not establish the
+        identity the qualification is about.
+        """
+        record = self._record(["emulator-5554"] * 3)
+        for attempt in record["attempts"]:
+            attempt["environment"].pop("serial")
+        ok, reason = mod.is_qualified(record, "sha256:" + "a" * 64, 3)
+        self.assertFalse(ok)
+        self.assertIn("serial", reason)
+
+    def test_runner_flags_attempts_on_two_devices(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows", runner_path)
+        runner = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = runner
+        spec.loader.exec_module(runner)
+        record = {
+            "attempts": [
+                {
+                    "attempt": 1,
+                    "outcome": "pass",
+                    "environment": {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": "emulator-5554",
+                    },
+                    "apk_commit_sha": "abc123",
+                    "maestro_version": "1.39.0",
+                },
+                {
+                    "attempt": 2,
+                    "outcome": "pass",
+                    "environment": {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": "emulator-5556",
+                    },
+                    "apk_commit_sha": "abc123",
+                    "maestro_version": "1.39.0",
+                },
+            ]
+        }
+        issues = runner.record_issues(record)
+        self.assertTrue(any("environment" in issue for issue in issues), issues)
+
+
 class RunnerRefusalTest(unittest.TestCase):
     """The runner refuses a flow it cannot qualify, before spending attempts."""
 

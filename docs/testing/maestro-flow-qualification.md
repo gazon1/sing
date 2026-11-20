@@ -57,11 +57,11 @@ Every attempt is represented in the qualification record/report with:
 
 - attempt number and outcome (`pass`, `test_failure`, `infra_failure`) and reason,
 - flow identity (path) and content fingerprint,
-- environment identity (`kind`, `api`, `device`, `serial` when available) from `environment.json`,
+- environment identity (`kind`, `api`, `device`, `serial`) from `environment.json`,
 - build/commit identity (`commit`, `apk_commit_sha`) and Maestro version,
 - the attempt's JUnit report and results directory path.
 
-Environment/build identity must be consistent across the attempts that form a qualification run. Qualification records live in `config/docs/maestro-flow-qualification.yaml` (repo-owned evidence); raw per-attempt artifacts live under `build/` and are preserved as generated run output.
+Environment/build identity must be consistent across the attempts that form a qualification run. The identity is the **device**, not only its model: `kind`, `api`, `device` and `serial` have to agree, so three attempts on three devices of the same model are three runs in three environments and do not form a qualification. An attempt that does not name the device it ran on does not record a documented environment, and is refused rather than admitted. Qualification records live in `config/docs/maestro-flow-qualification.yaml` (repo-owned evidence); raw per-attempt artifacts live under `build/` and are preserved as generated run output.
 
 The attempts do not run the working tree. Before the first attempt the runner copies the `Maestro/` tree into an immutable snapshot under `build/maestro-qualification-snapshot/` and runs every attempt from there, with the layout kept so a helper reference resolves inside the snapshot exactly as it resolves in the tree. The attempts of one qualification therefore always see the same content, whatever happens to the checkout while the run is in progress. A flow that references content outside the tree is refused before the snapshot is taken: the attempts would not run it either.
 
