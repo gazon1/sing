@@ -60,8 +60,10 @@ What the gate verifies, on the record:
 - the attempts share one build, and that build is both the checkout the
   qualification was made in and the APK that ran on the device (two
   identities that have to agree),
-- the attempts share one engine version, and that version was *recognised* as
-  the engine's own version.
+- the attempts share one engine version, and that version is *recognised* as a
+  version by the same recognition the runner applies
+  (`emulator.maestro._engine`) — a record cannot name "Maestro version
+  unavailable" as the engine that ran the flow.
 
 What the gate does not verify, and what it therefore never claims:
 
@@ -72,12 +74,26 @@ What the gate does not verify, and what it therefore never claims:
   real build.
 
 The fact of the run is established by the qualification runner, which is the
-only supported way to produce a record, and it is checked in review: the
-pull request that carries a new qualification is read by a reviewer (human or
-agent) against the diff, and the runner's own refusal rules — no stale APK, no
-unrecognised engine version, no untracked dependency, an immutable snapshot —
-are what make the record trustworthy in the first place. The gate is the
-*last* line, not the only line.
+only supported way to produce a record — but *established* is the runner's
+word, not the gate's. The gate never sees the run, and neither does a
+reviewer: the per-attempt artifacts (the JUnit reports, `run-summary.json`,
+the environment dumps) live under `build/maestro-qualification/` and are not
+committed, so the outcomes in the record cannot be re-derived from the pull
+request. What review adds is a reading of the record against the diff — this
+flow changed here, the record's fingerprint matches this flow, the device and
+the build are named — and a human's judgement about whether the record is
+credible. That step is a process, not a property the tooling enforces:
+nothing in the repository makes a reviewer re-run the flow.
+
+So the boundary is trust, and it is trust in the author of the record. The
+gate's job is to make that trust as narrow as it can be: it refuses every
+record that is internally inconsistent or stale, so the reviewer's remaining
+question is only "did these attempts really happen, on this device, with this
+build" — a question about the world — and not "is this a coherent
+qualification" — a question about the file. The runner's own refusal rules —
+no stale APK, no unrecognised engine version, no untracked dependency, an
+immutable snapshot — are what make the record worth trusting in the first
+place. The gate is the *last* line, not the only line.
 
 ## Rationale
 
@@ -96,6 +112,13 @@ are what make the record trustworthy in the first place. The gate is the
   engine version nobody recognised — these are the ways a qualification goes
   wrong without anybody editing the file on purpose, and every one of them is
   refused by the gate.
+- **The trust the gate cannot remove is trust in the author, and it has to be
+  named as such.** A reviewer who believes the record was produced by the
+  runner needs to know that this is a belief, not a check: the artifacts are
+  not committed, so nothing in the pull request re-derives the outcomes.
+  Saying so does not weaken the rule — it locates it. The alternative is a
+  document that claims the gate checks the run, and a reviewer who believes
+  it and reads nothing.
 - **Option 3 leaves the impression to the reader.** The gap between what the
   gate checks and what it is taken to check is exactly where an unreviewed
   evidence file would be edited. Naming the boundary is what makes the
@@ -110,6 +133,10 @@ are what make the record trustworthy in the first place. The gate is the
   attestation, and to check it against the diff: the flow changed, the
   record's fingerprint matches the changed flow, the device and the build are
   named. That is a small job, and it is the job the gate cannot do.
+- The boundary is trust in the author of the record, and it is a process step,
+  not an enforced property: no tooling in this repository makes a reviewer
+  re-run the flow, and no gate can. Publishing the per-attempt artifacts as
+  CI artifacts would narrow the trust, and is a separate piece of work.
 - The gate stays cheap and hermetic: it runs in CI without a device, and it
   fails when the record is stale, inconsistent or claims the wrong build.
 
@@ -120,5 +147,6 @@ are what make the record trustworthy in the first place. The gate is the
 - Gate: `scripts/check-maestro-flow-qualification.py`
 - Runner: `scripts/maestro-qualify-flows.py`
 - Related: `docs/decisions/2026-11-20-maestro-qualification-admission-invariant.md`,
+  `docs/decisions/2026-11-20-maestro-qualification-record-contract.md`,
   `docs/decisions/2026-11-20-maestro-qualification-device-identity.md`,
   `docs/decisions/2026-11-20-maestro-qualification-version-prerequisite.md`
