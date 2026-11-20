@@ -42,7 +42,7 @@ application {
     // installed distribution's start scripts too, and a release distribution must not be
     // able to host the screen inspector through an explicit opt-in. The development `run`
     // task is the development-only path and carries the debug property.
-    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion")
+    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion", "-Dsingularity.debug=false")
 }
 
 // `applicationDefaultJvmArgs` reaches the installed distribution's start scripts; the
