@@ -167,6 +167,11 @@ the capture device's contract is written down.
   directory it wrote itself — the marker says so — and only while the
   directory holds nothing but the files the renderer writes. A directory that
   holds files of somebody else's is refused instead of deleted.
+- The files a previous run wrote are still the renderer's files, even when the
+  templates no longer name them: the manifest of the last run is the record of
+  the set that was made, and a screenshot taken out of the templates since
+  then is deleted with the rest. Editing the templates and rendering again
+  replaces the set instead of tripping over the picture of the last one.
 - The notification key the CI workflow snoozes is text the device made up, so
   it is quoted before it reaches the remote shell of the device: a quote in
   the key closes the argument and starts a command. `scripts/tests/
@@ -188,7 +193,9 @@ the capture device's contract is written down.
   whole run on synthetic captures, the raw captures coming out of the run
   unchanged, the output directory not being allowed to swallow them, the
   manifest it writes, the same raw capture rendering the same picture
-  twice.
+  twice, and the output directory of somebody else — a file that is not ours
+  in it, a marker that says nothing, a directory where a file belongs — being
+  refused rather than deleted.
 - The storyboard's own claim about Play's ratio rule was wrong and is fixed:
   the limit is 2.3 times the shortest side, not twice, so a 1080 × 2400
   capture is not refused by the ratio any more. The capture device is 9:16

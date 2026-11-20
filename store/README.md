@@ -62,7 +62,10 @@ past the margin.
 
 The output directory is the renderer's own: it is wiped before every run, so
 the renderer wipes only a directory it wrote itself, and only while that
-directory holds nothing but the files the renderer writes.
+directory holds nothing but the files the renderer writes — now, or in an
+earlier run. A screenshot taken out of the templates since the last run is
+still the renderer's file, and it goes with the rest: edit the templates and
+re-run `just sr` to replace the set.
 
 **Replace.** To publish a new set, capture again and render again — the same
 two commands. To change what a picture *says*, edit the headline in

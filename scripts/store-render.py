@@ -772,6 +772,36 @@ def owns_out_dir(out_dir: Path) -> bool:
         return False
 
 
+def previous_outputs(out_dir: Path) -> set[str]:
+    """The names a previous run of this renderer wrote.
+
+    The manifest of the last run is the renderer's own record of the set it
+    made: a screenshot taken out of the templates since then is a file of ours
+    that has to go, not a file of somebody else.
+    """
+    manifest = out_dir / "manifest.json"
+    if not manifest.is_file():
+        return set()
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(data, dict):
+        return set()
+    names = set()
+    for entry in data.get("screenshots") or []:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("file")
+        if not isinstance(name, str):
+            continue
+        try:
+            names.add(_plain_file_name(name, "the file name in the rendered manifest"))
+        except RenderError:
+            continue
+    return names
+
+
 def wipe_out_dir(out_dir: Path, known: set[str]) -> None:
     """Empty the output directory — but only one this renderer wrote.
 
@@ -855,7 +885,7 @@ def main(argv: list[str] | None = None) -> int:
             "manifest.json",
             "README.md",
             "contact-sheet.png",
-        } | {shot.file for shot in template.screenshots}
+        } | {shot.file for shot in template.screenshots} | previous_outputs(out_dir)
         wipe_out_dir(out_dir, known_outputs)
         out_dir.mkdir(parents=True)
         (out_dir / OUT_MARKER).write_text(OUT_MARKER_TEXT, encoding="utf-8")

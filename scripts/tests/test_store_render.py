@@ -393,6 +393,15 @@ class RenderTest(unittest.TestCase):
         self.assertNotEqual(code, mod.EXIT_OK)
         self.assertTrue(keep.is_file())
 
+    def test_a_screenshot_taken_out_of_the_templates_is_wiped(self):
+        # Editing the templates and rendering again has to replace the set:
+        # the picture the last run left behind is ours, and it has to go.
+        self.assertEqual(self.render(), 0)
+        stale = self.out / '06-notes.png'
+        self.assertTrue(stale.is_file())
+        self.assertEqual(self.render_world(5), 0)
+        self.assertFalse(stale.exists())
+
     def test_a_directory_where_a_file_belongs_is_not_deleted(self):
         # The renderer writes files; a directory wearing the name of one of them
         # is somebody else's place and is refused, not removed with its content.
