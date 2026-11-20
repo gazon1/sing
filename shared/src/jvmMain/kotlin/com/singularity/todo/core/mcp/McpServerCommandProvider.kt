@@ -187,7 +187,12 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
                     "be started outside a packaged application",
             )
         }
-        val baseArgs = listOf("-cp", environment.classpath, DESKTOP_MAIN_CLASS, TOOL_SERVER_FLAG)
+        val baseArgs =
+            if (inspectorArgs.isEmpty()) {
+                listOf("-cp", environment.classpath, DESKTOP_MAIN_CLASS, TOOL_SERVER_FLAG)
+            } else {
+                listOf("-Dsingularity.debug=true", "-cp", environment.classpath, DESKTOP_MAIN_CLASS, TOOL_SERVER_FLAG)
+            }
         return ToolServerCommand.Available(
             command = java,
             args = baseArgs + inspectorArgs + profileArgs,
