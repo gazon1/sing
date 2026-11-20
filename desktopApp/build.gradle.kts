@@ -205,8 +205,10 @@ compose.desktop {
 }
 
 // The screen-inspector host capability for the desktop entry point is a build-time
-// decision: enabled for the development launch task, disabled for release distributions.
-// It is generated into the source set so the runtime gate never resolves a user-overridable
+// decision: the host is compiled in only when the build passes
+// `-Psingularity.inspector.host.enabled=true`. The release pipeline passes nothing, so a
+// release distribution carries the host out and no argument can turn it on. It is
+// generated into the source set so the runtime gate never resolves a user-overridable
 // JVM property.
 val desktopInspectorHostEnabled =
     providers

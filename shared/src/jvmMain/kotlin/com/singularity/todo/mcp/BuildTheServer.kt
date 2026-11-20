@@ -3,6 +3,7 @@ package com.singularity.todo.mcp
 import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.ai.McpToolCatalog
+import com.singularity.todo.mcp.introspection.ScreenInspectorTools
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
@@ -65,13 +66,7 @@ private fun build(
                             resources = ServerCapabilities.Resources(listChanged = true),
                         ),
                 ),
-            instructions =
-                "Singularity Todo MCP server. Use tools to read/write tasks, notes, " +
-                    "projects, tags, and ADR entries. Screen inspector tools (screen_list/open/describe/" +
-                    "snapshot/actions/invoke/wait/cancel/close) drive supported screens headlessly via the " +
-                    "canonical introspection contract. Call describe_toolbox to see which tools this server " +
-                    "is exposing and why. Surface contract version: " +
-                    "${McpToolCatalog.SURFACE_CONTRACT_VERSION}.",
+            instructions = instructions(inspectorHostEnabled),
         )
     val registrar =
         ToolRegistrar(
@@ -84,16 +79,7 @@ private fun build(
             sessionContext = { sessionContext.current() },
         )
     registrar.registerAll()
-    if (inspectorHostEnabled) {
-        com.singularity.todo.mcp.introspection
-            .ScreenInspectorTools()
-            .register(server)
-    } else {
-        startupLog.i {
-            "Screen inspector host not opted in; no screen inspector host starts. Pass " +
-                "${McpServerCommandProvider.INSPECTOR_HOST_FLAG} to opt in."
-        }
-    }
+    registerScreenInspectorHost(server, inspectorHostEnabled)
     ToolboxTool(registrar.snapshot).register(server)
     ToolboxResources(
         snapshot = registrar.snapshot,
@@ -114,4 +100,46 @@ private fun build(
         }
     }
     return server
+}
+
+/**
+ * The server's own description of what it exposes.
+ *
+ * The instructions name the screen inspector only when the host is enabled. A server that
+ * advertises a toolbox it did not register sends an agent looking for tools that are not there;
+ * `describe_toolbox` says what is actually registered, and these instructions agree with it.
+ */
+private fun instructions(inspectorHostEnabled: Boolean): String {
+    val screenInspector =
+        if (inspectorHostEnabled) {
+            " Screen inspector tools (screen_list/open/describe/snapshot/actions/invoke/wait/cancel/close) " +
+                "drive supported screens headlessly via the canonical introspection contract."
+        } else {
+            " Screen inspection is not enabled in this process; the screen_* tools are not registered."
+        }
+    return "Singularity Todo MCP server. Use tools to read/write tasks, notes, projects, tags, and " +
+        "ADR entries." + screenInspector +
+        " Call describe_toolbox to see which tools this server is exposing and why. " +
+        "Surface contract version: ${McpToolCatalog.SURFACE_CONTRACT_VERSION}."
+}
+
+/**
+ * Registers the screen-inspector tools only when the host may run.
+ *
+ * The decision is made once, at the entry point, and travels here as [inspectorHostEnabled]; this
+ * function only applies it. Without the opt-in the toolbox has no `screen_*` tool at all, so a
+ * request cannot reach a dispatch surface that was never registered.
+ */
+internal fun registerScreenInspectorHost(
+    server: Server,
+    inspectorHostEnabled: Boolean,
+) {
+    if (!inspectorHostEnabled) {
+        startupLog.i {
+            "Screen inspector host not opted in; no screen inspector host starts. Pass " +
+                "${McpServerCommandProvider.INSPECTOR_HOST_FLAG} to opt in."
+        }
+        return
+    }
+    ScreenInspectorTools().register(server)
 }

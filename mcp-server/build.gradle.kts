@@ -38,22 +38,20 @@ application {
     // is one version source: the release pipeline sets `desktopAppVersion`, and a client
     // that connects to the MCP server is told the same version the desktop launcher
     // prints.
-    // The debug property is deliberately NOT here: `applicationDefaultJvmArgs` reaches the
-    // installed distribution's start scripts too, and a release distribution must not be
-    // able to host the screen inspector through an explicit opt-in. The development `run`
-    // task is the development-only path and carries the debug property.
-    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion", "-Dsingularity.debug=false")
+    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion")
 }
 
 // `applicationDefaultJvmArgs` reaches the installed distribution's start scripts; the
 // `run` task is a separate JavaExec and needs the same property.
 tasks.named<JavaExec>("run") {
-    jvmArgs("-Dsingularity.version=$appVersion", "-Dsingularity.debug=true")
+    jvmArgs("-Dsingularity.version=$appVersion")
 }
 
-// The screen-inspector host capability is a build-time decision: enabled for the
-// development launch task, disabled for release distributions. It is generated into the
-// source set so the runtime gate never resolves a user-overridable JVM property.
+// The screen-inspector host capability is a build-time decision: the host is compiled in
+// only when the build passes `-Psingularity.inspector.host.enabled=true`. The release
+// pipeline passes nothing, so a release distribution carries the host out and no argument
+// can turn it on. It is generated into the source set so the runtime gate never resolves a
+// user-overridable JVM property.
 val inspectorHostEnabled =
     providers
         .gradleProperty(

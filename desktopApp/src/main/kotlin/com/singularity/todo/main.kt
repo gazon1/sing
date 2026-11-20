@@ -127,7 +127,7 @@ fun main(args: Array<String>) {
             inspectorHostOptIn =
                 inspectorHostOptIn(
                     args,
-                    isDebugBuild =
+                    inspectorHostCompiledIn =
                         DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
                 ),
         )

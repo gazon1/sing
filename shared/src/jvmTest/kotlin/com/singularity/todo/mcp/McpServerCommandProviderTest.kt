@@ -77,7 +77,6 @@ class McpServerCommandProviderTest {
             provider.commandFor(ProfileId("abc-123"), inspectorOptIn = true) as ToolServerCommand.Available
         assertEquals(
             listOf(
-                "-Dsingularity.debug=true",
                 "-cp",
                 "com/singularity/todo/MainKt",
                 "com.singularity.todo.MainKt",

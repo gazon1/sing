@@ -25,7 +25,11 @@ fun main(args: Array<String>): Unit =
     runToolServer(
         args,
         KoinStartup,
-        inspectorHostOptIn = inspectorHostOptIn(args, isDebugBuild = InspectorHostBuildConfig.INSPECTOR_HOST_ENABLED),
+        inspectorHostOptIn =
+            inspectorHostOptIn(
+                args,
+                inspectorHostCompiledIn = InspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
+            ),
     )
 
 /**

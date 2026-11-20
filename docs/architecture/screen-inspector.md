@@ -14,8 +14,8 @@ layer only — no business rules, no direct repository writes, no duplicate doma
 second MCP server.
 
 No production remote-control endpoint. Runs only as local development/test tooling (MCP
-server / CLI process with explicit profile selection; the MCP-server host additionally requires
-the explicit `--inspector` opt-in).
+server / CLI process with explicit profile selection; the MCP-server host is additionally compiled
+in by an explicit build property and opted into with an explicit process flag).
 
 ## Host and CLI shape
 
@@ -25,10 +25,12 @@ reuses the MCP server runtime (`shared/src/jvmMain/.../mcp`) and is exposed both
 the existing `:mcp-server` / desktop `--mcp-server` server and as a JSON CLI mode of the same
 entrypoint. No standalone executable is added (no demonstrated need beyond existing tooling).
 
-The MCP-server host is opt-in: it registers the screen inspector tools only when the process was
-started with `--inspector` (`McpServerCommandProvider.INSPECTOR_HOST_FLAG`). Without the flag no
-host starts, in any build — the opt-in is resolved by the start-up and the server reads the resolved
-value. The CLI host needs no flag of its own; it is entered through an explicit command. See ADR
+The MCP-server host is opt-in twice over: the build compiles the capability in only with
+`-Psingularity.inspector.host.enabled=true`, and the process registers the screen inspector tools
+only when it was started with `--inspector` (`McpServerCommandProvider.INSPECTOR_HOST_FLAG`).
+Without either one no host starts. A release build passes neither property nor flag, so the host
+is absent there and no argument can turn it on. The CLI host needs no flag of its own; it is
+entered through an explicit command. See ADR
 `2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
 
 CLI entry (same binaries/process model as MCP server):
@@ -45,17 +47,25 @@ java -jar mcp-server/build/libs/mcp-server.jar agent <command> [args]
 as MCP server). All commands print machine-readable JSON to stdout and exit 0 on success, 2 on
 structural/usage/operation failure reported as JSON, 1 on internal failure.
 
-For the MCP-server host itself (the long-lived runtime an agent drives through the `screen_*` tools):
+For the MCP-server host itself (the long-lived runtime an agent drives through the `screen_*` tools),
+build with the capability compiled in and pass the flag to the process:
 
 ```bash
-# via MCP server jar (development run: the debug property the opt-in resolution reads)
-java -Dsingularity.debug=true \
-  -jar mcp-server/build/libs/mcp-server.jar \
-  --inspector --profile-id=<id>
+# Development run: the Gradle property compiles the host in; --inspector opts this process in.
+./gw -Psingularity.inspector.host.enabled=true :mcp-server:run \
+  --args="--inspector --profile-id=<id>"
 
-# via desktop launcher in tool-server mode
-./path/to/singularity-todo --mcp-server --inspector --profile-id=<id>
+# Fat jar built with the capability, then started with the opt-in.
+./gw -Psingularity.inspector.host.enabled=true :mcp-server:jar
+java -jar mcp-server/build/libs/mcp-server.jar --inspector --profile-id=<id>
+
+# Desktop launcher in tool-server mode (development build with the capability).
+./gw -Psingularity.inspector.host.enabled=true :desktopApp:run \
+  --args="--mcp-server --inspector --profile-id=<id>"
 ```
+
+The property is a **build** input, not a JVM property: a release distribution built without it
+cannot host the inspector however it is launched.
 
 ## CLI commands (JSON)
 
@@ -249,4 +259,5 @@ Validation/availability are enforced by the canonical adapter/contract before di
 - Existing canonical adapter tests remain in
   `shared/src/commonTest/.../feature/tasks/presentation/introspection/TaskDetailScreenIntrospectionTest.kt`.
 - `shared/src/jvmTest/.../mcp/InspectorHostOptInTest.kt` pins the host opt-in: without the flag no
-  host starts, with the flag the host may run.
+  host starts, with the flag the host may run. It also pins the registration seam: no `screen_*`
+  tool is registered without the opt-in, and `screen_list` is registered with it.

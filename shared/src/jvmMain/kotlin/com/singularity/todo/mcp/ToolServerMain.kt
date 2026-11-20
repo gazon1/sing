@@ -198,12 +198,15 @@ private fun writeJsonRpcError(
 /**
  * The explicit opt-in that lets the local screen-inspection host run in this process.
  *
- * The host is opt-in and nothing else: without this flag no screen inspector host starts, in
- * any build. The opt-in is also build-bound — the host is unavailable in release builds, so no
- * argument can turn it on there; the build the caller is running as is what decides. The caller
- * owns the build decision and hands the resolved value to the start-up.
+ * Two things have to be true, and neither defaults on: the build compiled the host capability in
+ * ([inspectorHostCompiledIn]), and this process asked for it with the flag. A release build is
+ * compiled with the capability out, so no argument can turn it on there; a process in a
+ * development build that did not pass the flag starts no host either.
+ *
+ * The caller owns the build decision — the Gradle property is a build input, not a JVM property a
+ * user can flip at launch — and hands the resolved value to the start-up.
  */
 fun inspectorHostOptIn(
     args: Array<String>,
-    isDebugBuild: Boolean,
-): Boolean = isDebugBuild && args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }
+    inspectorHostCompiledIn: Boolean,
+): Boolean = inspectorHostCompiledIn && args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }
