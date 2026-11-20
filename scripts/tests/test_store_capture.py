@@ -746,6 +746,23 @@ class ImageValidationTest(unittest.TestCase):
         )
         self.assertEqual(self.check(data), [])
 
+    def test_a_pixel_that_points_outside_the_palette_is_refused(self):
+        # The pixels of an indexed image are indices into the palette, so a
+        # pixel that names a colour the palette does not have is an image
+        # that cannot be shown.
+        row = bytearray(135)
+        row[0] = 0x80  # The first pixel is index 1, and the palette holds one.
+        raw = b''.join(b'\x00' + bytes(row) for _ in range(1920))
+        data = (
+            mod.PNG_SIGNATURE
+            + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 1080, 1920, 1, 3, 0, 0, 0))
+            + png_chunk(b'PLTE', b'\x00\x00\x00')
+            + png_chunk(b'IDAT', zlib.compress(raw))
+            + png_chunk(b'IEND', b'')
+        )
+        problems = self.check(data)
+        self.assertTrue(any('outside its palette' in problem for problem in problems), problems)
+
     def test_a_malformed_palette_is_refused(self):
         # A palette is a whole number of three-byte entries.
         raw = b''.join(b'\x00' + b'\x00' * (1080 * 1) for _ in range(1920))

@@ -793,6 +793,79 @@ def _expected_scanlines(
     return height * (1 + row)
 
 
+def _paeth(left: int, up: int, upper_left: int) -> int:
+    """The predictor of the fourth PNG filter."""
+    estimate = left + up - upper_left
+    to_left = abs(estimate - left)
+    to_up = abs(estimate - up)
+    to_upper_left = abs(estimate - upper_left)
+    if to_left <= to_up and to_left <= to_upper_left:
+        return left
+    if to_up <= to_upper_left:
+        return up
+    return upper_left
+
+
+def _reconstruct(raw: bytes, row_bytes: int, height: int, unit: int) -> list[bytes]:
+    """The scanlines of a PNG, with their filters taken back off.
+
+    The bytes in a PNG are the differences the filter describes: the pixels
+    are those differences put back. A checker that reads the pixels of an
+    indexed image has to undo the filter first, or it reads the differences
+    instead of the picture.
+    """
+    rows: list[bytes] = []
+    prior = bytes(row_bytes)
+    stride = row_bytes + 1
+    for line in range(height):
+        start = line * stride
+        filter_type = raw[start]
+        source = raw[start + 1 : start + 1 + row_bytes]
+        current = bytearray(row_bytes)
+        for index, value in enumerate(source):
+            left = current[index - unit] if index >= unit else 0
+            up = prior[index]
+            upper_left = prior[index - unit] if index >= unit else 0
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = left
+            elif filter_type == 2:
+                predictor = up
+            elif filter_type == 3:
+                predictor = (left + up) // 2
+            else:
+                predictor = _paeth(left, up, upper_left)
+            current[index] = (value + predictor) & 0xFF
+        rows.append(bytes(current))
+        prior = bytes(current)
+    return rows
+
+
+def _index_outside_palette(
+    rows: list[bytes], width: int, bit_depth: int, entries: int
+) -> bool:
+    """Whether a pixel of an indexed image points outside its palette.
+
+    The indices are packed into the bytes of a scanline, most significant
+    bit first, so the pixels after the width of the image are not read: the
+    padding bits of the last byte are not pixels.
+    """
+    per_byte = 8 // bit_depth if bit_depth < 8 else 1
+    mask = (1 << bit_depth) - 1
+    for row in rows:
+        for pixel in range(width):
+            if bit_depth == 8:
+                value = row[pixel]
+            else:
+                byte = row[pixel // per_byte]
+                shift = 8 - bit_depth * (pixel % per_byte + 1)
+                value = (byte >> shift) & mask
+            if value >= entries:
+                return True
+    return False
+
+
 def _bad_filter(raw: bytes, row_bytes: int) -> int | None:
     """The first filter byte that is not one of the five PNG filters.
 
@@ -836,6 +909,7 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
     seen_idat = False
     # Whether the file carries a palette, and whether it is a legal one.
     has_palette = False
+    palette_entries = 0
     broken_checksums = 0
     problems: list[str] = []
     position = len(PNG_SIGNATURE)
@@ -914,6 +988,10 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
                 problems.append(
                     "has a palette with more entries than its bit depth allows"
                 )
+            else:
+                # The palette is legal, so its entries are the colours the
+                # pixels of an indexed image may point at.
+                palette_entries = length // 3
         elif kind == b"IEND":
             if length != 0:
                 problems.append("has data in its end marker")
@@ -983,11 +1061,19 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
             elif expected is not None and height > 0:
                 # Every scanline starts with a filter byte, and PNG knows
                 # only five of them.
-                bad = _bad_filter(raw, expected // height - 1)
+                row_bytes = expected // height - 1
+                bad = _bad_filter(raw, row_bytes)
                 if bad is not None:
                     problems.append(
                         f"has a scanline with the invalid filter {bad}"
                     )
+                elif color_type == 3 and palette_entries:
+                    # The pixels of an indexed image are indices into the
+                    # palette, and an index that points outside it is an
+                    # error a decoder has to raise.
+                    rows = _reconstruct(raw, row_bytes, height, 1)
+                    if _index_outside_palette(rows, width, bit_depth, palette_entries):
+                        problems.append("has a pixel that points outside its palette")
     if (width, height) != (profile.width, profile.height):
         problems.append(
             f"is {width}x{height}, expected {profile.width}x{profile.height}"

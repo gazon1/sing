@@ -105,7 +105,12 @@ The palette is checked as well. An indexed image is a list of indices into a
 palette, so a palette is required for one, there is at most one of it, it has
 to be a whole number of three-byte entries, it has to be in the file before
 the pixels that index into it, and a colour type that has no colours to index
-must not carry one at all. A chunk is also named the way the format says: four
+must not carry one at all. The indices themselves are checked as well: a pixel of
+an indexed image names a colour, and one that names a colour the palette does not
+have is an image that cannot be shown. Reading the indices means taking the row
+filters back off first, because the bytes in the file are the differences the
+filter describes and not the picture itself. A chunk is also named the way the
+format says: four
 letters, with the reserved bit of the third one set. A name that is not that
 is not a chunk name, and a decoder has to refuse the file.
 
@@ -215,7 +220,8 @@ drift.
   a chunk before the header, a second header, data in or after the end marker,
   an unknown critical chunk, image data that is not one run of chunks, a split
   run hidden behind an empty image-data chunk, a palette that is missing,
-  malformed or late, a second palette, a chunk with a name that is not four
+  malformed or late, a second palette, a pixel that points outside the
+  palette, a chunk with a name that is not four
   letters, data
   after the compressed image, and the profile: a reset the device refuses, an
   app that cannot be stopped, a property that does not take, a settings file
