@@ -42,7 +42,10 @@ compose-preview render --module :shared --preview TaskCard          # substring
 compose-preview show --json --filter TaskCardLightPreview           # id, path, sha256
 ```
 
-Selection flags (`compose-preview render --help`):
+Selection flags — **the installed binary's own help is the source of truth**, because
+the flag set changes between CLI versions: `compose-preview render --help` lists the
+selection flags, `compose-preview help --all` lists the general ones (`--gradle-arg`,
+`--output`, …). On the validated 2.101.1:
 
 | Flag | Matches |
 |---|---|
@@ -95,8 +98,9 @@ compose-preview render --module :shared --function TaskCardLightPreview \
   --gradle-arg=-PcomposePreview.kmpAndroidRobolectric=true
 ```
 
-`:shared` declares `withHostTest { }`, so the opt-in is what moves it. The render
-then fails, for three stacked reasons:
+`:shared` declares `withHostTest { }`, so the opt-in is what moves it. `--gradle-arg`
+forwards the property to the injected plugin (it is a general flag — see
+`compose-preview help --all`). The render then fails, for three stacked reasons:
 
 1. the upstream renderer calls a Robolectric method that **4.18** removed
    (this repo pins `robolectric = "4.18"`);
