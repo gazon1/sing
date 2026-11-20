@@ -1,7 +1,7 @@
 ---
 name: singularity-todo-compose-preview-cli
 status: active
-description: Render an existing @Preview composable in :shared to PNG with the upstream compose-preview CLI. Use when a Compose UI change needs a visual check, or when a preview render fails.
+description: Render an existing @Preview composable in :shared to PNG with the upstream compose-preview CLI. Use when a Compose UI change needs a visual check, or when compose-preview rendering fails.
 ---
 
 # Compose preview CLI (render previews to PNG)
