@@ -12,6 +12,7 @@ The application's active profile lives in a preferences store that takes a file 
 
 | Argument | Meaning | Failure behaviour |
 |---|---|---|
+| `--inspector` | Opt in to the local screen-inspection host for this server process; without it the host does not start and the screen inspector tools are not registered. | Without the flag the host stays off; no refusal, no host, no dispatch surface. |
 | `--profile-id=ID` | Work as this profile id. Do **not** open the stored active-profile state, do not switch anything. | Missing or unknown id → clear diagnostic, non-zero exit. Never a fallback. |
 | `--profile=NAME` | Legacy label semantics, unchanged: the agent label activates that profile; any other label leaves things as they are. | Unknown label → warn, do nothing (current behaviour, preserved). |
 | both | — | Startup error: the request is ambiguous. |

@@ -182,6 +182,9 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
         /** The flag that turns the application into the tool server. */
         const val TOOL_SERVER_FLAG = "--mcp-server"
 
+        /** The flag that opts the server process into the local screen-inspection host. */
+        const val INSPECTOR_HOST_FLAG = "--inspector"
+
         /** The flag that tells the server which profile to work as. */
         const val PROFILE_ID_FLAG = "--profile-id"
 

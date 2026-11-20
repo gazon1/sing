@@ -64,6 +64,11 @@ external agent its tool access by running **the same server** in the application
 
 The same server/runtime also hosts the headless screen-inspector driver ([#3041](https://github.com/gazon1/sing/issues/3041), `shared/src/jvmMain/.../mcp/introspection/`): MCP tools `screen_list/open/describe/snapshot/actions/invoke/wait/cancel/close/sessions` drive supported screens through the canonical `core/llm` introspection contract (no business rules, no direct repo writes, no duplicate domain tools). The `:mcp-server`/desktop entrypoint also supports a JSON CLI mode (`agent <command> ...`) reusing this runtime; see `docs/architecture/screen-inspector.md` for commands and JSON contract.
 
+The host is opt-in: the screen inspector tools are registered only when the server process was
+started with `--inspector` (the flag `McpServerCommandProvider` names, resolved by the start-up).
+Without it no host starts, in any build; the CLI host is entered through an explicit command. See
+ADR `2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
+
 ## When to Use This Skill
 
 - Adding a new `:mcp-server` Gradle module that hosts an MCP server.

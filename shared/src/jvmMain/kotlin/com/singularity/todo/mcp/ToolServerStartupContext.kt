@@ -26,6 +26,15 @@ internal class ToolServerStartupContext(
      * used by two processes, and a library does not own the composition root.
      */
     val koinStartup: ToolServerKoinStartup,
+    /**
+     * The explicit opt-in that lets the local screen-inspection host run in this process.
+     *
+     * The host is opt-in: a process that did not opt in starts no host, in any build, and a
+     * release build is no different from a debug one until the opt-in is made. It is an input
+     * to the decision, not the decision — the start-up resolves it and the host reads the
+     * resolved value.
+     */
+    val inspectorHostOptIn: Boolean = false,
 ) {
     /**
      * The profile the caller named, or null when the caller named none.
@@ -60,6 +69,16 @@ internal class ToolServerStartupContext(
      * and the session is created after the tools are registered.
      */
     val sessionContext = SessionContextHolder()
+
+    /**
+     * Whether the local screen-inspection host may run in this process.
+     *
+     * The host is opt-in and nothing else: an explicit opt-in from this process, and no
+     * default. A process that did not opt in resolves to false here, whatever its build, and
+     * a release build is therefore no different from a debug one until the opt-in is made.
+     */
+    val inspectorHostEnabled: Boolean
+        get() = inspectorHostOptIn
 
     /**
      * The server, once it is built.

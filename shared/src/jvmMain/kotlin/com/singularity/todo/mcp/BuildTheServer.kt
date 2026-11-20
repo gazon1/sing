@@ -1,5 +1,6 @@
 package com.singularity.todo.mcp
 
+import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.ai.McpToolCatalog
 import io.modelcontextprotocol.kotlin.sdk.server.Server
@@ -26,7 +27,7 @@ internal object BuildTheServer : ToolServerStartupStep {
                 "The order does not read the configuration before this step."
             }
         startupLog.i { "singularity-todo MCP server started" }
-        context.server = build(dependencies, configuration, context.sessionContext)
+        context.server = build(dependencies, configuration, context.sessionContext, context.inspectorHostEnabled)
         return null
     }
 }
@@ -41,6 +42,7 @@ private fun build(
     dependencies: ServerDependencies,
     configuration: ToolConfiguration,
     sessionContext: SessionContextHolder,
+    inspectorHostEnabled: Boolean,
 ): Server {
     val server =
         Server(
@@ -82,9 +84,16 @@ private fun build(
             sessionContext = { sessionContext.current() },
         )
     registrar.registerAll()
-    com.singularity.todo.mcp.introspection
-        .ScreenInspectorTools()
-        .register(server)
+    if (inspectorHostEnabled) {
+        com.singularity.todo.mcp.introspection
+            .ScreenInspectorTools()
+            .register(server)
+    } else {
+        startupLog.i {
+            "Screen inspector host not opted in; no screen inspector host starts. Pass " +
+                "${McpServerCommandProvider.INSPECTOR_HOST_FLAG} to opt in."
+        }
+    }
     ToolboxTool(registrar.snapshot).register(server)
     ToolboxResources(
         snapshot = registrar.snapshot,
