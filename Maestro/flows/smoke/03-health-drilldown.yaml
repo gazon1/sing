@@ -3,7 +3,7 @@
 #
 # Merged from former 03/04/05 flows: one cold start instead of three.
 # Each bucket is exercised in sequence; back navigation returns to Statistics.
-# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
+# прогнан на устройстве: нет (текущая ревизия не прогнана; ранее да 2026-11-06 — realme RMX3938, 0O65321F32204DD5)
 appId: com.singularity.todo
 name: smoke-health-drilldown
 tags:

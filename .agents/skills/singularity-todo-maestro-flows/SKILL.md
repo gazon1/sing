@@ -290,7 +290,7 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 
 | Helper | What it does |
 |---|---|
-| `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
+| `launch-clean.yaml` | `launchApp`, then bounded wait for `nav_tab_today` (30s cold start) |
 | `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
 | `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); waits for the shell and leaves the app on Today |
 | `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |

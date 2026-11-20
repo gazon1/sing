@@ -158,7 +158,7 @@ Maestro/
 ├── config.yaml                 # workspace metadata
 ├── TAGS.md                     # complete catalogue of Maestro-addressable ids
 ├── helpers/                    # 21 subflows — never run standalone; the table is in CONVENTIONS.md
-│   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
+│   ├── launch-clean.yaml       # clean launch + wait for the shell (30s budget)
 │   └── seed.yaml               # the deep-link contract: one entity per link
 ├── capture/                    # the Google Play screenshot storyboard — the dataset plus the shot list
 │   ├── demo-dataset.yaml       # the fixed demo dataset behind the store screenshots

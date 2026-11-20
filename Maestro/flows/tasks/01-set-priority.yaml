@@ -31,9 +31,8 @@ tags:
     timeout: 8000
 - tapOn:
     text: "High priority"
-# The sheet closes and the row label updates to the selected priority.
+# The sheet closes and the row updates: the previous priority is no longer shown.
 - extendedWaitUntil:
-    visible: "High priority"
+    notVisible: "No priority"
     timeout: 8000
-- assertNotVisible:
-    text: "No priority"
+- assertVisible: "High priority"
