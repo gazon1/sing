@@ -54,6 +54,24 @@ class InspectorHostOptInTest {
     }
 
     @Test
+    fun `a release build cannot opt in through the flag even when the debug property is injected`() {
+        // The release gate is the build's decision; even a debug property injected through
+        // the JVM and the explicit opt-in flag cannot turn a release build's host on.
+        System.setProperty("singularity.debug", "true")
+        try {
+            assertFalse(inspectorHostOptIn(arrayOf(McpServerCommandProvider.INSPECTOR_HOST_FLAG), isDebugBuild = false))
+            assertFalse(
+                inspectorHostOptIn(
+                    arrayOf("--mcp-server", McpServerCommandProvider.INSPECTOR_HOST_FLAG, "--profile-id=abc-123"),
+                    isDebugBuild = false,
+                ),
+            )
+        } finally {
+            System.clearProperty("singularity.debug")
+        }
+    }
+
+    @Test
     fun `the inspector host is off without the opt-in`() {
         val context = ToolServerStartupContext(ProfileSelection.Stored, toolServerKoinStartup)
 
