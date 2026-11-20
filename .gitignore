@@ -143,6 +143,9 @@ target/
 .zcode/plans
 /.tmp-screens/
 
+
+# Maestro flow qualification attempt artifacts (generated, device-run)
+build/maestro-qualification/
 # UI verification screenshots
 *.png
 # …except the Maestro → Allure fixtures: one real failure screenshot per shard,

@@ -674,6 +674,12 @@ gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 # A flow deleted without a word leaves the suite smaller and every run green,
 # because a suite reports the flows that are left.
 gate blocking "maestro flow catalogue is current" sgate maestro_flow_catalogue_is_current
+# A new or materially changed flow does not enter a blocking automated
+# scope until it is qualified by a bounded repeat run (or explicitly excepted
+# with evidence) for its current fingerprint. The gate admits baselined pre-rule
+# flows, qualified records in config/docs/maestro-flow-qualification.yaml, and
+# evidence-backed exceptions; it never rewrites them.
+gate blocking "maestro flows are qualified for blocking scopes" python3 scripts/check-maestro-flow-qualification.py
 # The wait budgets: one written number for the screen both UI layers wait for.
 # The instrumented suite and the Maestro flows cannot share a constant — separate
 # runners — and they drifted: forty-one waits for the same shell carried five

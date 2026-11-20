@@ -171,6 +171,22 @@ just ui-maestro Maestro/flows/auth/08-signup-network-error.yaml
 reproduces the automated `full` selection; without it the CLI runs whatever
 `--flow` selects.
 
+### Qualification before a blocking scope
+
+A new or materially changed flow (its content or any helper it runs,
+transitively) is not admitted to an automated blocking scope until it is
+qualified or explicitly excepted for its current fingerprint. Qualification is
+a small, bounded repeat run of the affected flow(s) in the same documented
+environment/build (default: 3 consecutive passing attempts), with every attempt
+recorded and infrastructure failures never counted as test passes; an initial
+failure followed by a pass means the flow is flaky, not qualified.
+
+- Policy, evidence and exceptions: `docs/testing/maestro-flow-qualification.md`
+- Baseline (pre-rule in-scope flows): `config/docs/maestro-flow-qualification-baseline.yaml`
+- Evidence/exceptions: `config/docs/maestro-flow-qualification.yaml`
+- Gate: `scripts/check-maestro-flow-qualification.py`
+- Runner: `scripts/maestro-qualify-flows.py` (targets affected flows only, reuses existing JUnit/environment outputs)
+
 ### Dates and locale
 
 A flow must not assert a date the app *formats*. The month title

@@ -745,6 +745,16 @@ Maestro""",
 A flow deleted without a word leaves the suite smaller and every run green,
 because a suite reports the flows that are left.""",
     ),
+
+    "maestro flows are qualified for blocking scopes": Placement(
+        kind=PlacementKind.STATIC,
+        command="python3 scripts/check-maestro-flow-qualification.py",
+        note="""A new or materially changed flow does not enter a blocking automated
+scope until it is qualified by a bounded repeat run (or explicitly excepted
+with evidence) for its current fingerprint. The gate admits baselined pre-rule
+flows, qualified records in config/docs/maestro-flow-qualification.yaml, and
+evidence-backed exceptions; it never rewrites them.""",
+    ),
     "ui wait budgets are consistent": Placement(
         kind=PlacementKind.STATIC,
         command='sgate ui_wait_budgets_are_consistent',

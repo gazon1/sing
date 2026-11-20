@@ -1,0 +1,7 @@
+# Maestro flow qualification evidence and exceptions.
+# A qualification requires required_attempts consecutive passing test attempts
+# in the same documented environment/build, with every attempt recorded.
+schema: 1
+required_attempts: 3
+qualifications: {}
+exceptions: {}

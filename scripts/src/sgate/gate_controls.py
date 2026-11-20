@@ -604,6 +604,17 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="maestro-flow-qualification",
+        cmd=[sys.executable, "scripts/check-maestro-flow-qualification.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        why=(
+            "a flow removed from the qualification baseline is no longer admitted to "
+            "a blocking automated scope; without qualification or an evidence-backed "
+            "exception the gate must refuse it"
+        ),
+    ),
+    ScriptGate(
         name="maestro-keyboard-commands",
         cmd=[sys.executable, "scripts/check-maestro-keyboard-commands.py"],
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);

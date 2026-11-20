@@ -513,6 +513,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-maestro-flow-catalogue.py"),
     ),
     GateSpec(
+        name="maestro flows are qualified for blocking scopes",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-maestro-flow-qualification.py"),
+    ),
+    GateSpec(
         name="ui wait budgets are consistent",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1415,6 +1421,19 @@ GATE_CONTROLS: dict[str, Control] = {
     ),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),
     'maestro-flow-catalogue': Control(kind='sabotage', proves='scripts/check-maestro-flow-catalogue.py', argv=('{python}', 'scripts/check-maestro-flow-catalogue.py'), path='config/docs/maestro-flows.txt', edit=Edit(kind='regex', pattern=r'^Maestro/flows/smoke/01-launch-today\.yaml\n', repl='', flags='MULTILINE'), why='a flow deleted from the tree without a word leaves the suite smaller and the run green: the suite reports the flows that are left, and the one that is gone is a line in a diff nobody reads. Removing a line from the catalogue puts the flow back into the tree without putting it back into the promise, which is the state this gate exists to refuse'),
+    'maestro-flow-qualification': Control(
+        kind='sabotage',
+        proves='scripts/check-maestro-flow-qualification.py',
+        argv=('{python}', 'scripts/check-maestro-flow-qualification.py'),
+        path='config/docs/maestro-flow-qualification-baseline.yaml',
+        edit=Edit(
+            kind='regex',
+            pattern=r'^  Maestro/flows/smoke/01-launch-today\.yaml: sha256:[0-9a-f]{64}\n',
+            repl='',
+            flags='MULTILINE',
+        ),
+        why='a flow removed from the baseline is no longer admitted to a blocking scope; without qualification or an evidence-backed exception the gate must refuse it, so an unqualified flow cannot enter a blocking suite silently',
+    ),
     'maestro-keyboard-commands': Control(kind='sabotage', proves='scripts/check-maestro-keyboard-commands.py', argv=('{python}', 'scripts/check-maestro-keyboard-commands.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- hideKeyboard\n- assertVisible:\n    id: tasks_fab', count=1), why='a `hideKeyboard` that follows nothing but assertions is a BACK keypress in disguise: the editors are dialogs, so BACK dismisses them, and the flow then fails on an element the editor was holding. The probe adds exactly that command to a flow that types nothing, and the gate must say so instead of reading the flow as well-formed'),
     'maestro-screen-geometry': Control(kind='sabotage', proves='scripts/check-maestro-screen-geometry.py', argv=('{python}', 'scripts/check-maestro-screen-geometry.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- swipe:\n    start: 105, 2000\n    end: 105, 1600\n- assertVisible:\n    id: tasks_fab', count=1), why='a flow that swipes to a point in pixels only works on the display it was measured on: on a 720x1600 phone the start point is off-screen, the swipe never happens, and the flow fails on a screen it never claimed to know about. The probe adds exactly that swipe to a flow that needs none and is not on the exceptions registry, and the gate must say so instead of reading the flow as portable'),
     'ui-wait-budgets': Control(kind='sabotage', proves='scripts/check-ui-wait-budgets.py', argv=('{python}', 'scripts/check-ui-wait-budgets.py'), path='config/docs/ui-wait-budgets.txt', edit=Edit(kind='replace', old='shell 30000', new='shell 12000', count=1), why='the two UI layers wait for the same screen from two runners that cannot share a constant, and the only thing that keeps them honest is one written budget. Moving the shell budget in the catalogue while the Kotlin constant and the Maestro flows keep the old number is exactly the drift this gate exists for: the instrumented suite waited 8 s while the Maestro helper had already learned that 8 s is not enough on a loaded CI runner, and `android-device-tests` was red on every run of `main` for days'),
