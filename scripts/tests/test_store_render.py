@@ -393,6 +393,20 @@ class RenderTest(unittest.TestCase):
         self.assertNotEqual(code, mod.EXIT_OK)
         self.assertTrue(keep.is_file())
 
+    def test_a_directory_where_a_file_belongs_is_not_deleted(self):
+        # The renderer writes files; a directory wearing the name of one of them
+        # is somebody else's place and is refused, not removed with its content.
+        self.assertEqual(self.render(), 0)
+        (self.out / 'manifest.json').unlink()
+        (self.out / 'manifest.json').mkdir()
+        keep = self.out / 'manifest.json' / 'notes.txt'
+        keep.write_text('not ours', encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = mod.main(['--raw-dir', str(self.raw), '--out-dir', str(self.out)])
+        self.assertNotEqual(code, mod.EXIT_OK)
+        self.assertTrue(keep.is_file())
+        self.assertEqual(keep.read_text(encoding='utf-8'), 'not ours')
+
     def test_a_set_of_one_screenshot_is_refused(self):
         # Play wants 2 to 8 screenshots in a phone listing.
         self.assertNotEqual(self.render_world(1), mod.EXIT_OK)

@@ -784,7 +784,7 @@ def wipe_out_dir(out_dir: Path, known: set[str]) -> None:
         return
     if not out_dir.is_dir():
         raise RenderError(f"the output path {out_dir} is not a directory")
-    entries = sorted(entry.name for entry in out_dir.iterdir())
+    entries = sorted(out_dir.iterdir(), key=lambda entry: entry.name)
     if not entries:
         shutil.rmtree(out_dir)
         return
@@ -793,12 +793,19 @@ def wipe_out_dir(out_dir: Path, known: set[str]) -> None:
             f"the output directory {out_dir} is not one this renderer wrote "
             "— refusing to delete it. Remove it yourself if it is yours."
         )
-    unexpected = [name for name in entries if name not in known]
+    unexpected = [entry.name for entry in entries if entry.name not in known]
     if unexpected:
         raise RenderError(
             f"the output directory {out_dir} holds files this renderer did "
             f"not write ({', '.join(unexpected)}) — refusing to delete them. "
             "Remove them yourself if they are yours."
+        )
+    directories = [entry.name for entry in entries if entry.is_dir()]
+    if directories:
+        raise RenderError(
+            f"the output directory {out_dir} holds directories "
+            f"({', '.join(directories)}) — refusing to delete them. Remove them "
+            "yourself if they are yours."
         )
     shutil.rmtree(out_dir)
 
