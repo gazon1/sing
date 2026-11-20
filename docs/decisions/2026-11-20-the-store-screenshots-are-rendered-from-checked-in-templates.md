@@ -167,6 +167,11 @@ the capture device's contract is written down.
   directory it wrote itself — the marker says so — and only while the
   directory holds nothing but the files the renderer writes. A directory that
   holds files of somebody else's is refused instead of deleted.
+- The notification key the CI workflow snoozes is text the device made up, so
+  it is quoted before it reaches the remote shell of the device: a quote in
+  the key closes the argument and starts a command. `scripts/tests/
+  test_store_workflow.py` runs the quoting with a key that carries a quote and
+  holds that the key survives as one argument.
 - The capture manifest decides the order of the set: the renderer walks the
   manifest's captures and looks up the composition for each one. The templates
   say what a picture looks like and what it says, not where it stands in the
@@ -182,7 +187,7 @@ the capture device's contract is written down.
   PNG), the size of the set (one refused, two accepted, nine refused), the
   whole run on synthetic captures, the raw captures coming out of the run
   unchanged, the output directory not being allowed to swallow them, the
-  manifest it writes, and the same raw capture rendering the same picture
+  manifest it writes, the same raw capture rendering the same picture
   twice.
 - The storyboard's own claim about Play's ratio rule was wrong and is fixed:
   the limit is 2.3 times the shortest side, not twice, so a 1080 × 2400

@@ -221,7 +221,11 @@ jobs:
                 if [ "$pkg" = "android" ]; then
                   continue
                 fi
-                adb -s "$SERIAL" shell "cmd notification snooze --for 3600000 '$key'"
+                # The key is text the device made up, so it has to reach the
+                # remote shell as one literal argument: a quote in it is closed,
+                # escaped and opened again before it goes.
+                quoted=${key//\'/\'\\\'\'}
+                adb -s "$SERIAL" shell "cmd notification snooze --for 3600000 '$quoted'"
               done
 
       # The capture itself: install this build on the capture device, put the
