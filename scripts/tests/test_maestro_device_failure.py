@@ -236,6 +236,85 @@ class RunnerReadsTheReportTest(unittest.TestCase):
         self.assertFalse(ok)
 
 
+class PinnedDeviceSurvivesRecoveryTest(unittest.TestCase):
+    """The pinned device is the device the flow runs on — also after a reset.
+
+    The runner used to take the first device adb happened to list once it had
+    reset the adb server. A serial never changes, so that could only put the
+    flow on somebody else's phone: the capture would photograph the pinned
+    device while the flow ran on another one.
+    """
+
+    def test_the_flow_stays_on_the_pinned_device(self):
+        commands: list[list[str]] = []
+        acquired: list[str] = []
+        devices_asked: list[bool] = []
+
+        def fake_try_run(cmd, **kwargs):
+            commands.append(list(cmd))
+            out = cmd[cmd.index("--output") + 1]
+            body = (
+                _DEAD_DEVICE_REPORT
+                if len(commands) == 1
+                else "<testsuites><testsuite name='Test Suite' tests='1' failures='0'/></testsuites>"
+            )
+            pathlib.Path(out).write_text(body, encoding="utf-8")
+            cp = unittest.mock.Mock()
+            cp.returncode = 1 if len(commands) == 1 else 0
+            cp.stdout = ""
+            cp.stderr = ""
+            return cp
+
+        noop = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+        def fake_adb(*args, **kwargs):
+            devices_asked.append(True)
+            return "List of devices attached\n0O65321F32204DD5\tdevice\n"
+
+        deps = DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: noop,
+            acquire_device=lambda pin: acquired.append(pin) or Acquisition("other-device", EXIT_OK),
+            adb=fake_adb,
+            adb_on=lambda s, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, t=20: True,
+            wait_for_main_activity_resumed=lambda s, t=30: True,
+            cleanup_run_fixtures=lambda *a, **kw: None,
+            capture_artifacts=lambda *a, **kw: None,
+            git_sha=lambda deps: "abc123def456",
+            probe_device_health=lambda s: DeviceHealth("gone", "the device did not answer"),
+            emulator_process_alive=lambda: True,
+        )
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
+            ok, _run_id, _attempts = run_one_flow(
+                flow_path=flow,
+                serial="emulator-5554",
+                junit_dir=pathlib.Path(tempfile.mkdtemp()),
+                skip_install=True,
+                allow_stale=True,
+                max_retries=2,
+                expected_sha="",
+                deps=deps,
+            )
+
+        self.assertTrue(ok, "the flow was not retried after the device died")
+        self.assertEqual(acquired, [], "the pinned device was replaced")
+        self.assertFalse(devices_asked, "the runner went looking for another device")
+        for cmd in commands:
+            self.assertEqual(
+                cmd[cmd.index("--device") + 1],
+                "emulator-5554",
+                "the flow ran on a device nobody asked for",
+            )
+
+
 class InstallRecoveryTest(unittest.TestCase):
     """A device that dies under the install must not end the whole run."""
 

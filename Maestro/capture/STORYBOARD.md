@@ -12,8 +12,10 @@ there. Change one, change the other.
 
 The capture flows themselves live in `Maestro/flows/capture/` — one flow per
 screenshot, in the order above, each of them seeding the dataset below before
-it takes its shot. The local capture command and the raw-image validation land
-with #3005; until that command lands, the flows are run by hand, one at a time.
+it takes its shot. The local capture command runs them: `just sc` builds the
+capture APK, installs it on the pinned device, runs the six flows in the order
+below and checks every raw PNG against the profile in
+[`manifest.yaml`](manifest.yaml).
 
 ## The story
 
@@ -113,6 +115,48 @@ every capture machine, or the set cannot be compared with the previous one.
 
 The status bar and the navigation bar stay as they are: they are part of what
 the app looks like in a hand.
+
+The local capture command applies the device half of this profile — the app
+locale, the light theme, the font scale, the status bar and the screen
+timeout — before the first flow runs.
+
+The profile is a contract, not a wish. The locale, the light theme and the
+font scale have to hold, and each one is read back from the device after it
+is set: a screenshot of the app in the wrong theme or the wrong language is
+not the screenshot this storyboard documents, and no check on the picture's
+shape would notice. The locale is read as the ordered list the device reports
+— the first entry is the language the app is shown in, so a device that shows
+English first and keeps Russian as a fallback is refused. A property the
+device refuses aborts the capture. Two
+properties are best-effort and only cost a warning: the screen timeout, which
+changes no pixel, and hiding the battery percentage, which the status bar may
+refuse to give up.
+
+The status bar is the same kind of contract. The command hides the battery
+percentage and collapses the shade, and a device with a notification waiting
+is refused: a notification on the screen is a notification in the picture, and
+a store screenshot with somebody's message in it is not a screenshot anybody
+may publish. The system's own notifications are left alone — they carry
+nothing of the person who owns the device. A device that cannot be asked
+about its notifications, whose shade cannot be collapsed, or whose
+notification cannot be read refuses the capture as well: a status bar nobody
+managed to read is not a clean one. A dump that holds no notification at all
+has to look like the state of the notification manager — a format the command
+does not know is not an empty list.
+
+The notifications are looked at again before every single screenshot, and the
+shade is collapsed again with them: a notification that arrives while a flow
+plays is a notification in the picture, and a check that ran before the first
+capture says nothing about the sixth one.
+
+The theme and the font scale are the *app's* settings, not the system's: they
+live in the app's own data, and a device where somebody once chose the dark
+theme keeps the dark theme after an install. The command therefore stops the
+app and resets its settings file before the first flow, so the app comes up
+with its defaults — the system theme, which the command puts into light mode,
+and a font scale of 1.0. A build that does not allow that reset, or a device
+that cannot stop the app, aborts the capture: the pictures would show the app
+in somebody's old look.
 
 **The profile is the dataset's own.** `demo-dataset.yaml` switches to `Play
 demo` before it writes anything, so the rows land in that profile and the reset

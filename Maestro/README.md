@@ -102,6 +102,55 @@ it. The trigger is specific to Maestro's driver interaction and is upstream;
 the mitigation experiments and their results are recorded in
 `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
 
+## Store screenshots
+
+The store listing needs six raw captures, and they are the one thing in this
+repository that is *produced* rather than *measured*: the flows under
+`Maestro/flows/capture/` drive the app into a known state, and the command
+below photographs the result and checks it.
+
+```bash
+just sc                                          # the whole set
+just sc 01-today                                 # one capture, for iteration
+SERIAL=emulator-5554 just sc                     # pin the capture device
+just android::store-capture 01-today emulator-5554   # both, positionally
+```
+
+`just` binds arguments by position, so the recipe takes the capture name, then
+the serial, then an APK path. The serial is not optional: the capture device
+is always named, because one attached device is just as likely to be somebody's
+phone as the capture AVD.
+
+The command:
+
+- builds this checkout's debug APK — or takes the one `--apk` names — and
+  installs it on the pinned device;
+- refuses to go on when the device is not named or not attached, and when the
+  build on the device is not the build in the APK: a capture from a stale
+  install looks exactly like a good capture;
+- runs the capture flows in the order `Maestro/capture/manifest.yaml` gives,
+  one flow per invocation, and takes the screen right after each of them;
+- resets the app's own settings and puts the device into the capture profile
+  before the first flow — the theme and the font scale are the app's settings,
+  and the system's settings do not reach them. The locale, the light theme and
+  the font scale are read back from the device afterwards; one that did not
+  take refuses the capture, because a picture of the app in the wrong theme is
+  not the picture the storyboard documents. Two properties are best-effort and
+  only cost a warning: the screen timeout, which changes no pixel, and hiding
+  the battery percentage, which the status bar may refuse to give up;
+- writes the raw PNGs into `build/store-capture/`, wiped at the start of every
+  run — a stale image must not be able to stand in for a capture that did not
+  happen;
+- checks every image: it is a readable PNG, its chunks are whole, its header
+  describes a shape the checker can measure, it carries the pixels that header
+  promises, every scanline uses a filter PNG knows, and it is the size and
+  shape the manifest documents;
+- leaves the Maestro logs and the JUnit reports in `build/store-capture/`, and
+  exits non-zero when a flow or an image failed.
+
+The storyboard — what the six images are, and why — is
+[`capture/STORYBOARD.md`](capture/STORYBOARD.md).
+
 ## Layout
 
 ```
