@@ -198,12 +198,11 @@ private fun writeJsonRpcError(
  * The explicit opt-in that lets the local screen-inspection host run in this process.
  *
  * The host is opt-in and nothing else: without this flag no screen inspector host starts, in
- * any build, and a release build is therefore no different from a debug one until the opt-in is
- * made. It is read from the process arguments the same way the profile selection is — one
- * argument, recognised whole, never defaulted.
+ * any build. The opt-in is also build-bound — the host is unavailable in release builds, so no
+ * argument can turn it on there. It is read from the process arguments the same way the profile
+ * selection is — one argument, recognised whole, never defaulted.
  */
-internal fun inspectorHostOptIn(args: Array<String>): Boolean =
-    args.any {
-        it ==
-            McpServerCommandProvider.INSPECTOR_HOST_FLAG
-    }
+internal fun inspectorHostOptIn(
+    args: Array<String>,
+    isDebugBuild: Boolean = System.getProperty("singularity.debug") == "true",
+): Boolean = isDebugBuild && args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }

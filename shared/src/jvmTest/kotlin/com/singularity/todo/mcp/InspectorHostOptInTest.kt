@@ -11,21 +11,33 @@ import kotlin.test.assertTrue
  *
  * The host starts only through the explicit flag, and the start-up resolves the flag
  * from the process arguments the same way it resolves the profile selection. Without
- * the flag the start-up resolves no host, in any build, and a release build is
- * therefore no different from a debug one until the opt-in is made.
+ * the flag the start-up resolves no host, in any build, and a release build cannot be
+ * opted in at all.
  */
 @Tag("fast")
 class InspectorHostOptInTest {
     @Test
     fun `the inspector host opts in only through the explicit flag`() {
-        assertTrue(inspectorHostOptIn(arrayOf(McpServerCommandProvider.INSPECTOR_HOST_FLAG)))
+        assertTrue(inspectorHostOptIn(arrayOf(McpServerCommandProvider.INSPECTOR_HOST_FLAG), isDebugBuild = true))
         assertTrue(
             inspectorHostOptIn(
                 arrayOf("--mcp-server", McpServerCommandProvider.INSPECTOR_HOST_FLAG, "--profile-id=abc-123"),
+                isDebugBuild = true,
             ),
         )
-        assertFalse(inspectorHostOptIn(arrayOf("--mcp-server")))
-        assertFalse(inspectorHostOptIn(arrayOf("--mcp-server", "--profile-id=abc-123")))
+        assertFalse(inspectorHostOptIn(arrayOf("--mcp-server"), isDebugBuild = true))
+        assertFalse(inspectorHostOptIn(arrayOf("--mcp-server", "--profile-id=abc-123"), isDebugBuild = true))
+    }
+
+    @Test
+    fun `the inspector host cannot opt in through the flag in a release build`() {
+        assertFalse(inspectorHostOptIn(arrayOf(McpServerCommandProvider.INSPECTOR_HOST_FLAG), isDebugBuild = false))
+        assertFalse(
+            inspectorHostOptIn(
+                arrayOf("--mcp-server", McpServerCommandProvider.INSPECTOR_HOST_FLAG, "--profile-id=abc-123"),
+                isDebugBuild = false,
+            ),
+        )
     }
 
     @Test

@@ -31,9 +31,11 @@ fun acpModule(): Module =
         single { McpServerCommandProvider() }
 
         // The application's opt-in for the local screen-inspection host, carried into the
-        // tool-server command an external agent is handed. The host is opt-in; the default
-        // is no host, so a process that did not opt in starts none.
-        single { false }
+        // tool-server command an external agent is handed. The host is opt-in; the default is
+        // no host, so a process that did not opt in starts none. The value is the application's
+        // own for the sessions it hosts, and it is build-bound: a release build hosts no host,
+        // which the opt-in resolution enforces.
+        single { System.getProperty("singularity.debug") == "true" }
 
         // How an agent is started. Bound rather than defaulted, so that the graph says
         // what it does and a test can put its own launcher in its place.
