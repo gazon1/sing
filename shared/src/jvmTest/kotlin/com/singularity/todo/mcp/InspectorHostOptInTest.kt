@@ -41,6 +41,19 @@ class InspectorHostOptInTest {
     }
 
     @Test
+    fun `the standalone server cannot opt in through the flag in a release build`() {
+        // The standalone entry point applies the same debug gate as the desktop one; a
+        // release launch hands the inspector host none even when the flag is supplied.
+        assertFalse(inspectorHostOptIn(arrayOf(McpServerCommandProvider.INSPECTOR_HOST_FLAG), isDebugBuild = false))
+        assertFalse(
+            inspectorHostOptIn(
+                arrayOf("--mcp-server", McpServerCommandProvider.INSPECTOR_HOST_FLAG, "--profile-id=abc-123"),
+                isDebugBuild = false,
+            ),
+        )
+    }
+
+    @Test
     fun `the inspector host is off without the opt-in`() {
         val context = ToolServerStartupContext(ProfileSelection.Stored, toolServerKoinStartup)
 
