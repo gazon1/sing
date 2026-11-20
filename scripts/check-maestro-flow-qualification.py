@@ -26,6 +26,17 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    ``config/docs/maestro-flow-qualification-baseline.yaml``; a fingerprint that
    no longer matches is not an admission, it is a change that needs
    qualification.
+
+   The *frozen set* — the flows that were in a blocking scope when the rule
+   was introduced — is not part of that baseline. It lives in its own
+   artifact, ``config/docs/maestro-flow-qualification-initial.yaml``, and it
+   is pinned by a digest kept here, in the gate that enforces it. The two are
+   independent on purpose: a baseline that carried its own frozen set could be
+   edited once to admit a flow nobody ever ran, and a gate whose trusted set
+   lives in the file it also updates cannot tell the difference. So the
+   baseline map can only carry fingerprints of flows in the frozen set, and
+   the frozen set can only grow through a change to this file — a change that
+   reads as what it is: a decision to admit flows without qualifying them.
 2. **Qualified.** ``config/docs/maestro-flow-qualification.yaml`` records a
    qualification run for the flow's current fingerprint: at least
    ``required_attempts`` consecutive attempts, every attempt represented,
@@ -41,17 +52,18 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
 
 The gate reads the flow and its helpers to compute the fingerprint, so a
 change to a helper requalifies every flow that runs it. It never rewrites the
-baseline or the qualification file.
+baseline, the frozen set or the qualification file.
 
 Usage:
     python3 scripts/check-maestro-flow-qualification.py [--json] [--check]
         [--root DIR] [--catalogue FILE] [--baseline FILE] [--evidence FILE]
-        [--init-baseline] [--init-evidence]
+        [--initial FILE] [--init-baseline] [--init-evidence]
+        [--print-initial-digest]
 
 Exit codes:
     0 — every flow in a blocking automated scope is admitted
     1 — an unqualified, flaky, stale or unexcepted flow is in a blocking scope
-    2 — the catalogue, baseline or evidence file could not be read
+    2 — the catalogue, baseline, frozen set or evidence file could not be read
 """
 from __future__ import annotations
 
@@ -85,7 +97,21 @@ IO_ERROR = 2
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_CATALOGUE = ROOT / "config" / "docs" / "maestro-flows.txt"
 DEFAULT_BASELINE = ROOT / "config" / "docs" / "maestro-flow-qualification-baseline.yaml"
+DEFAULT_INITIAL = ROOT / "config" / "docs" / "maestro-flow-qualification-initial.yaml"
 DEFAULT_EVIDENCE = ROOT / "config" / "docs" / "maestro-flow-qualification.yaml"
+
+#: The pinned digest of the frozen set (the flows that were in a blocking scope
+#: when the rule was introduced).
+#:
+#: The frozen set lives in its own artifact, and this digest is the lock on
+#: it. The two are kept apart on purpose: a frozen set stored next to the
+#: baseline map it guards is a frozen set that one edit can grow, and growing
+#: it is how an unqualified flow enters a blocking scope. Changing the digest
+#: here is how the frozen set is deliberately changed — it is a source change,
+#: it is reviewed as one, and it says in the diff that flows were admitted
+#: without being qualified. Print the current digest with
+#: ``--print-initial-digest``.
+FROZEN_SET_DIGEST = "sha256:9b7797e0faa5981077509b32c8d95b8e9d7d05bc681587c4eaa40a63c88a122c"
 
 #: A reference inside a flow/helper: `file: path.yaml` or `- runFlow: path.yaml`.
 _FILE_REF = re.compile(r"(?m)^\s*(?:-\s*)?file:\s*['\"]?([^\s#'\"]+\.ya?ml)['\"]?\s*$")
@@ -193,8 +219,87 @@ def read_yaml(path: pathlib.Path) -> dict:
     return data
 
 
-def read_baseline(path: pathlib.Path) -> tuple[dict[str, str], set[str]]:
+def initial_set_digest(names: list[str]) -> str:
+    """The digest that pins a frozen set of flow names.
+
+    Sorted and newline-separated, so the digest does not depend on the order
+    the names are written in.
+    """
+    payload = "".join(f"{name}\n" for name in sorted(names))
+    return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+
+
+def read_initial_set(path: pathlib.Path) -> list[str]:
+    """The frozen set: the flows that were in blocking scopes at rule introduction.
+
+    The set is a list of unique flow names. Anything else is refused: a set
+    that cannot be read as a set of names is a set the gate cannot trust.
+    """
     data = read_yaml(path)
+    initial = data.get("initial_flows")
+    if not isinstance(initial, list):
+        raise ValueError(
+            f"{path}: initial_flows is missing or not a list — the frozen set has to name "
+            f"the flows that were in blocking scopes when the rule was introduced"
+        )
+    if not initial:
+        # An empty frozen set admits nothing, which is safe: every flow in a
+        # blocking scope then has to be qualified. It is refused nowhere,
+        # because a rule that has just been introduced has no pre-rule flow.
+        return []
+    names = []
+    for name in initial:
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{path}: initial_flows must be a list of unique strings")
+        names.append(name)
+    if len(set(names)) != len(names):
+        raise ValueError(f"{path}: initial_flows must be a list of unique strings")
+    return sorted(names)
+
+
+def _read_frozen_set(path: pathlib.Path) -> list[str]:
+    """The frozen set, read for the CLI paths that work on it directly."""
+    try:
+        return read_initial_set(path)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise click.ClickException(f"cannot read the frozen set {path}: {exc}") from exc
+
+
+def verify_frozen_set(names: list[str], expected_digest: str | None) -> str:
+    """Check the frozen set against its pinned digest.
+
+    The frozen set is only as trustworthy as the lock on it. A set that does
+    not match its pin is refused: a flow that nobody ever ran may have been
+    added to it, and the gate would admit it as if it had been there when the
+    rule was introduced.
+    """
+    digest = initial_set_digest(names)
+    if expected_digest is not None and digest != expected_digest:
+        raise ValueError(
+            f"the frozen set does not match its pinned digest: expected {expected_digest}, "
+            f"got {digest} — the frozen set only changes deliberately (update the pinned "
+            f"digest in {pathlib.Path(__file__).name} and say in the change that flows are "
+            f"admitted without being qualified)"
+        )
+    return digest
+
+
+def read_baseline(path: pathlib.Path, initial_path: pathlib.Path | None = None) -> dict[str, str]:
+    """The baseline map: flow -> fingerprint, for flows of the frozen set only.
+
+    The baseline used to carry its own ``initial_flows`` list. It does not
+    any more: a frozen set stored in the file it guards can be grown by
+    editing that file, and a grown frozen set admits flows nobody ran. The
+    frozen set lives in its own artifact now, pinned by a digest.
+    """
+    data = read_yaml(path)
+    if "initial_flows" in data:
+        where = initial_path.name if initial_path is not None else "the initial set artifact"
+        raise ValueError(
+            f"{path}: initial_flows does not belong in the baseline — the frozen set lives in "
+            f"{where} and is pinned by a digest; a baseline that names its own frozen set is a "
+            f"baseline that can admit new flows"
+        )
     flows = data.get("flows") or {}
     if not isinstance(flows, dict):
         raise ValueError(f"{path}: flows is not a mapping")
@@ -202,29 +307,22 @@ def read_baseline(path: pathlib.Path) -> tuple[dict[str, str], set[str]]:
     for flow, fp in flows.items():
         if isinstance(flow, str) and isinstance(fp, str):
             result[flow] = fp
-    initial = data.get("initial_flows")
-    if not isinstance(initial, list):
-        # Without the frozen set the gate cannot tell a flow that was in a
-        # blocking scope when the rule was introduced from one that was added
-        # to the baseline afterwards — and a baseline that grows is how an
-        # unqualified flow enters a blocking scope. The file is rejected
-        # instead of being read as "everything in it was there from the start".
-        raise ValueError(
-            f"{path}: initial_flows is missing or not a list — the baseline has to name the "
-            f"flows that were in blocking scopes when the rule was introduced "
-            f"(regenerate it with --init-baseline)"
-        )
-    initial_set = {x for x in initial if isinstance(x, str)}
-    if len(initial_set) != len(initial):
-        raise ValueError(f"{path}: initial_flows must be a list of unique strings")
-    return result, initial_set
+    return result
 
 
 def read_evidence(path: pathlib.Path) -> tuple[int, dict[str, dict], dict[str, dict]]:
     data = read_yaml(path)
-    required = data.get("required_attempts", 3)
-    if type(required) is not int or required < 1:
+    if "required_attempts" not in data:
         required = 3
+    else:
+        required = data["required_attempts"]
+        if type(required) is not int or required < 1:
+            # An invalid policy is a configuration error, not a smaller
+            # requirement: silently falling back to three would let a typo
+            # decide what counts as a qualification.
+            raise ValueError(
+                f"{path}: required_attempts must be a positive integer, got {required!r}"
+            )
     qualifications = data.get("qualifications") or {}
     exceptions = data.get("exceptions") or {}
     if not isinstance(qualifications, dict):
@@ -314,13 +412,27 @@ def is_excepted(record: dict, current_fp: str) -> tuple[bool, str]:
     return True, ""
 
 
-def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathlib.Path, evidence_path: pathlib.Path) -> tuple[list[Finding], dict[str, int]]:
+def scan(
+    root: pathlib.Path,
+    catalogue_path: pathlib.Path,
+    baseline_path: pathlib.Path,
+    evidence_path: pathlib.Path,
+    initial_path: pathlib.Path | None = None,
+    expected_digest: str | None = FROZEN_SET_DIGEST,
+) -> tuple[list[Finding], dict[str, int]]:
+    initial_path = initial_path or DEFAULT_INITIAL
     try:
         catalogue = read_catalogue(catalogue_path)
     except OSError as exc:
         raise click.ClickException(f"cannot read catalogue {catalogue_path}: {exc}") from exc
     try:
-        baseline, initial_baseline = read_baseline(baseline_path) if baseline_path.is_file() else ({}, set())
+        initial_names = read_initial_set(initial_path)
+        verify_frozen_set(initial_names, expected_digest)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise click.ClickException(f"cannot read the frozen set {initial_path}: {exc}") from exc
+    initial_set = set(initial_names)
+    try:
+        baseline = read_baseline(baseline_path, initial_path) if baseline_path.is_file() else {}
     except (OSError, ValueError, yaml.YAMLError) as exc:
         raise click.ClickException(f"cannot read baseline {baseline_path}: {exc}") from exc
     try:
@@ -333,7 +445,7 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
 
     for flow in flows:
         fp = fingerprint(flow, root)
-        if flow in baseline and flow in initial_baseline and baseline[flow] == fp:
+        if flow in initial_set and baseline.get(flow) == fp:
             counts["baselined"] += 1
             continue
 
@@ -354,15 +466,15 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
             findings.append(Finding(flow, "invalid exception", reason))
             continue
 
-        if flow in baseline and flow not in initial_baseline:
+        if flow in baseline and flow not in initial_set:
             findings.append(
                 Finding(
                     flow,
                     "baseline expansion",
-                    "new flow cannot be admitted by adding it to the qualification baseline; qualify it or add an evidence-backed exception",
+                    "the baseline map cannot admit a flow outside the frozen set; qualify it or add an evidence-backed exception",
                 )
             )
-        elif flow in baseline:
+        elif flow in initial_set:
             findings.append(
                 Finding(
                     flow,
@@ -381,18 +493,24 @@ def scan(root: pathlib.Path, catalogue_path: pathlib.Path, baseline_path: pathli
     return findings, counts
 
 
-def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path) -> dict:
+def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path, initial_names: list[str]) -> dict:
+    """The baseline map for the frozen set.
+
+    Only flows of the frozen set get a fingerprint: the baseline is what the
+    frozen set admits, so a flow outside it has no place here. And the
+    baseline is written once — a flow that changed is requalified, not
+    re-baselined, so re-running this would quietly undo the rule.
+    """
     catalogue = read_catalogue(catalogue_path)
     flows, findings = blocking_scope_flows(catalogue, root)
     missing = [f for f in findings if f.kind == "flow file missing"]
     if missing:
         raise click.ClickException("cannot build baseline: " + "; ".join(f.detail for f in missing))
-    mapping = {flow: fingerprint(flow, root) for flow in flows}
-    flow_names = sorted(mapping.keys())
+    frozen = set(initial_names)
+    mapping = {flow: fingerprint(flow, root) for flow in flows if flow in frozen}
     return {
         "schema": 1,
         "policy": "flows in automated blocking scopes at rule introduction; a matching fingerprint admits the flow, a change requires qualification",
-        "initial_flows": flow_names,
         "flows": dict(sorted(mapping.items())),
     }
 
@@ -403,17 +521,33 @@ def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path) -> dict:
 @click.option("--root", type=click.Path(path_type=pathlib.Path), default=ROOT, show_default=False)
 @click.option("--catalogue", type=click.Path(path_type=pathlib.Path), default=DEFAULT_CATALOGUE)
 @click.option("--baseline", type=click.Path(path_type=pathlib.Path), default=DEFAULT_BASELINE)
+@click.option("--initial", type=click.Path(path_type=pathlib.Path), default=DEFAULT_INITIAL, help="The frozen set of flows that were in blocking scopes at rule introduction.")
 @click.option("--evidence", type=click.Path(path_type=pathlib.Path), default=DEFAULT_EVIDENCE)
-@click.option("--init-baseline", is_flag=True, help="Write the baseline for current in-scope flows and exit")
+@click.option("--init-baseline", is_flag=True, help="Write the baseline for the frozen set and exit")
 @click.option("--init-evidence", is_flag=True, help="Write an empty evidence file if missing and exit")
+@click.option("--print-initial-digest", is_flag=True, help="Print the digest that pins the frozen set and exit")
 @click.pass_context
-def cli(ctx: click.Context, as_json: bool, check: bool, root: pathlib.Path, catalogue: pathlib.Path, baseline: pathlib.Path, evidence: pathlib.Path, init_baseline: bool, init_evidence: bool) -> None:
+def cli(ctx: click.Context, as_json: bool, check: bool, root: pathlib.Path, catalogue: pathlib.Path, baseline: pathlib.Path, initial: pathlib.Path, evidence: pathlib.Path, init_baseline: bool, init_evidence: bool, print_initial_digest: bool) -> None:
     root = root.resolve()
     try:
+        if print_initial_digest:
+            names = _read_frozen_set(initial)
+            click.echo(initial_set_digest(names))
+            raise ctx.exit(CLEAN)
         if init_baseline:
-            data = build_baseline(root, catalogue)
+            names = _read_frozen_set(initial)
+            try:
+                verify_frozen_set(names, FROZEN_SET_DIGEST)
+            except ValueError as exc:
+                raise click.ClickException(f"cannot build the baseline: {exc}") from exc
+            if baseline.exists():
+                raise click.ClickException(
+                    f"{baseline} already exists — the baseline is written once; a flow that "
+                    f"changed is requalified, not re-baselined"
+                )
+            data = build_baseline(root, catalogue, names)
             baseline.parent.mkdir(parents=True, exist_ok=True)
-            baseline.write_text("# Maestro flow qualification baseline: pre-rule flows in blocking scopes.\n# This map only shrinks; a changed flow must be qualified or excepted instead.\n" + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+            baseline.write_text("# Maestro flow qualification baseline: fingerprints of the frozen set.\n# This map only shrinks; a changed flow must be qualified or excepted instead.\n" + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
             click.echo(f"check-maestro-flow-qualification: wrote baseline for {len(data['flows'])} flow(s) to {baseline}")
             raise ctx.exit(CLEAN)
         if init_evidence:
@@ -425,7 +559,7 @@ def cli(ctx: click.Context, as_json: bool, check: bool, root: pathlib.Path, cata
                 click.echo(f"check-maestro-flow-qualification: evidence file exists: {evidence}")
             raise ctx.exit(CLEAN)
 
-        findings, counts = scan(root, catalogue, baseline, evidence)
+        findings, counts = scan(root, catalogue, baseline, evidence, initial)
     except click.ClickException as exc:
         click.echo(f"check-maestro-flow-qualification: {exc.format_message()}", err=True)
         raise ctx.exit(IO_ERROR)

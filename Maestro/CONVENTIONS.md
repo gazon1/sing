@@ -9,7 +9,7 @@ in this project. All contributors must follow these rules.
 2. [IDs vs Text](#ids-vs-text)
 3. [Cyrillic and Unicode](#cyrillic-and-unicode)
 4. [Helpers](#helpers)
-5. [Timeouts](#timeouts)
+5. [Timeout budget](#timeout-budget)
 6. [Smoke Subset](#smoke-subset)
 7. [Tags](#tags)
 8. [Shell Setup](#shell-setup)

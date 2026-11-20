@@ -71,6 +71,7 @@ GATE = _load_gate()
 
 DEFAULT_CATALOGUE = ROOT / "config" / "docs" / "maestro-flows.txt"
 DEFAULT_BASELINE = ROOT / "config" / "docs" / "maestro-flow-qualification-baseline.yaml"
+DEFAULT_INITIAL = ROOT / "config" / "docs" / "maestro-flow-qualification-initial.yaml"
 DEFAULT_EVIDENCE = ROOT / "config" / "docs" / "maestro-flow-qualification.yaml"
 DEFAULT_OUT = ROOT / "build" / "maestro-qualification"
 FLOWS_ROOT = ROOT / "Maestro" / "flows"
@@ -270,8 +271,14 @@ def maestro_version(engine: str | None = None) -> str | None:
     return _version_token((cp.stdout or "").strip() or (cp.stderr or "").strip())
 
 
-def admission_needed(root: pathlib.Path, catalogue: pathlib.Path, baseline: pathlib.Path, evidence: pathlib.Path) -> list[str]:
-    findings, _counts = GATE.scan(root, catalogue, baseline, evidence)
+def admission_needed(
+    root: pathlib.Path,
+    catalogue: pathlib.Path,
+    baseline: pathlib.Path,
+    evidence: pathlib.Path,
+    initial: pathlib.Path,
+) -> list[str]:
+    findings, _counts = GATE.scan(root, catalogue, baseline, evidence, initial)
     seen = []
     for f in findings:
         if f.kind in {"flow file missing"}:
@@ -413,6 +420,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=pathlib.Path, default=DEFAULT_OUT, help="Base directory for attempt artifacts.")
     ap.add_argument("--catalogue", type=pathlib.Path, default=DEFAULT_CATALOGUE)
     ap.add_argument("--baseline", type=pathlib.Path, default=DEFAULT_BASELINE)
+    ap.add_argument("--initial", type=pathlib.Path, default=DEFAULT_INITIAL, help="The frozen set of flows that were in blocking scopes at rule introduction.")
     ap.add_argument("--evidence", type=pathlib.Path, default=DEFAULT_EVIDENCE)
     ap.add_argument("--record", action="store_true", help="Write qualification records for flows that qualify.")
     ap.add_argument("--no-write", action="store_true", help="With --record, print the record but do not update the evidence file.")
@@ -450,7 +458,7 @@ def main(argv=None) -> int:
 
     if args.admission_needed:
         try:
-            flows.extend(admission_needed(ROOT, args.catalogue, args.baseline, args.evidence))
+            flows.extend(admission_needed(ROOT, args.catalogue, args.baseline, args.evidence, args.initial))
         except Exception as exc:
             print(f"cannot determine unadmitted flows: {exc}", file=sys.stderr)
             return 2

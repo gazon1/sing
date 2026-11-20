@@ -15,12 +15,20 @@ Flows tagged `manual` or `auth-live` are outside the automated blocking suites a
 
 ## Blocking-scope admission
 
-`config/docs/maestro-flow-qualification-baseline.yaml` records the fingerprints of flows that were already in blocking scopes when this rule was introduced; a matching fingerprint admits the flow. The baseline names its frozen set in `initial_flows` — the flows that were in a blocking scope when the rule was introduced. A flow that is in the baseline's `flows` map but not in `initial_flows` was added to the baseline afterwards, and the gate refuses it: the baseline only shrinks, and a new flow is admitted by qualifying it, not by being listed. After that, a blocking-scope flow is admitted only by:
+Two files carry the admission, and they are kept apart on purpose.
+
+`config/docs/maestro-flow-qualification-initial.yaml` holds the **frozen set**: the flows that were in a blocking scope when this rule was introduced. It is pinned by a digest kept in the gate itself (`FROZEN_SET_DIGEST` in `scripts/check-maestro-flow-qualification.py`), and the gate refuses to run when the artifact does not match that digest. The frozen set is therefore not something a flow can join by being listed: adding a flow to it is a deliberate, reviewed change — a source change that says in the diff that flows are admitted without being qualified.
+
+`config/docs/maestro-flow-qualification-baseline.yaml` holds the **fingerprints** of the frozen set's flows. A flow is admitted when it is in the frozen set *and* its current fingerprint still matches the baseline. A fingerprint that no longer matches is not an admission, it is a change that needs qualification.
+
+The separation matters: a baseline that carried its own frozen set could be edited once — a new flow added to both the map and the set — and the gate would read that flow as one that was there when the rule was introduced. `--init-baseline` used to be exactly that way to admit a flow, which is why it now writes the fingerprint map for the frozen set only, refuses to overwrite an existing baseline, and never touches the frozen set or its pin.
+
+A flow that is in the baseline map but not in the frozen set was added to the baseline afterwards, and the gate refuses it as a baseline expansion. After that, a blocking-scope flow is admitted only by:
 
 - a **qualification record** in `config/docs/maestro-flow-qualification.yaml` for the current fingerprint, or
 - an explicit, **evidence-backed exception** in the same file for the current fingerprint (reason + evidence/issue reference).
 
-`scripts/check-maestro-flow-qualification.py` is the blocking gate. It does not rewrite the baseline or evidence files.
+`scripts/check-maestro-flow-qualification.py` is the blocking gate. It does not rewrite the baseline, the frozen set or the evidence files. `required_attempts` in the evidence file is a policy: a missing value means three attempts, and a value that is not a positive integer is a configuration error the gate refuses rather than silently rounding down to three.
 
 ## Qualification run (bounded, affected flows only)
 

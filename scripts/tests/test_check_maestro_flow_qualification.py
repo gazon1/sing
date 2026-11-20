@@ -31,20 +31,23 @@ def write_flow(path: pathlib.Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def write_baseline(path: pathlib.Path, flows: dict[str, str], initial: list[str] | None = None) -> None:
-    """Write a baseline the gate accepts.
+def write_baseline(path: pathlib.Path, flows: dict[str, str]) -> None:
+    """Write a baseline: the fingerprint map, and nothing else.
 
-    The baseline has to name the flows that were in a blocking scope when the
-    rule was introduced (`initial_flows`); without it the gate cannot tell an
-    admitted flow from one that was added to the baseline afterwards.
+    The frozen set is a separate artifact now, pinned by a digest — a baseline
+    that named its own frozen set could be edited once to admit a flow nobody
+    ever ran.
     """
-    if initial is None:
-        initial = sorted(flows)
     path.write_text(
-        yaml.safe_dump(
-            {"schema": 1, "initial_flows": initial, "flows": flows},
-            sort_keys=False,
-        ),
+        yaml.safe_dump({"schema": 1, "flows": flows}, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+def write_initial_set(path: pathlib.Path, flows: list[str]) -> None:
+    """Write the frozen set: the flows that were in blocking scopes at rule introduction."""
+    path.write_text(
+        yaml.safe_dump({"schema": 1, "initial_flows": sorted(flows)}, sort_keys=False),
         encoding="utf-8",
     )
 
@@ -96,6 +99,9 @@ class AdmissionTest(unittest.TestCase):
         catalogue = root / "catalogue.txt"
         catalogue.write_text(flow + "\n")
         baseline = root / "baseline.yaml"
+        # The frozen set starts empty: a flow is in it only if it was in a
+        # blocking scope when the rule was introduced.
+        write_initial_set(root / "initial.yaml", [])
         evidence = root / "evidence.yaml"
         evidence.write_text(
             yaml.safe_dump(
@@ -105,8 +111,14 @@ class AdmissionTest(unittest.TestCase):
         )
         return root, flow, catalogue, baseline, evidence
 
-    def _scan(self, root, catalogue, baseline, evidence):
-        return mod.scan(root, catalogue, baseline, evidence)
+    def _initial(self, root):
+        return root / "initial.yaml"
+
+    def _scan(self, root, catalogue, baseline, evidence, expected_digest=None):
+        initial = self._initial(root)
+        if expected_digest is None:
+            expected_digest = mod.initial_set_digest(mod.read_initial_set(initial))
+        return mod.scan(root, catalogue, baseline, evidence, initial, expected_digest)
 
     def test_new_flow_cannot_be_admitted_by_baseline_expansion(self):
         root, _flow, catalogue, baseline, evidence = self._tree()
@@ -114,7 +126,7 @@ class AdmissionTest(unittest.TestCase):
         write_flow(root / flow, FLOW_OK)
         catalogue.write_text(flow + "\n")
         fp = mod.fingerprint(flow, root)
-        write_baseline(baseline, {flow: fp}, initial=[])
+        write_baseline(baseline, {flow: fp})
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["baseline expansion"])
 
@@ -127,53 +139,77 @@ class AdmissionTest(unittest.TestCase):
 
     def test_baselined_flow_is_admitted(self):
         root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
         fp = mod.fingerprint(flow, root)
         write_baseline(baseline, {flow: fp})
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["baselined"], 1)
 
-    def test_baseline_without_initial_flows_is_rejected(self):
-        """A baseline that does not name its frozen set is not read as one.
+    def test_baseline_that_names_its_own_frozen_set_is_rejected(self):
+        """A baseline that carries `initial_flows` is refused.
 
-        Without `initial_flows` the gate cannot tell a flow that was in a
-        blocking scope when the rule was introduced from one that was added to
-        the baseline afterwards, so the file is refused instead of admitting
-        everything it happens to list.
+        The frozen set is a separate, pinned artifact. A baseline that names
+        its own frozen set is a baseline one edit away from admitting a flow
+        nobody ever ran.
         """
-        root, flow, catalogue, baseline, evidence = self._tree()
-        fp = mod.fingerprint(flow, root)
-        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {flow: fp}}, sort_keys=False))
-        with self.assertRaises(click.ClickException) as raised:
-            self._scan(root, catalogue, baseline, evidence)
-        self.assertIn("initial_flows", str(raised.exception))
-
-    def test_baseline_with_duplicate_initial_flows_is_rejected(self):
         root, flow, catalogue, baseline, evidence = self._tree()
         fp = mod.fingerprint(flow, root)
         baseline.write_text(
             yaml.safe_dump(
-                {"schema": 1, "initial_flows": [flow, flow], "flows": {flow: fp}},
+                {"schema": 1, "initial_flows": [flow], "flows": {flow: fp}},
                 sort_keys=False,
             )
         )
         with self.assertRaises(click.ClickException) as raised:
             self._scan(root, catalogue, baseline, evidence)
+        self.assertIn("initial_flows does not belong in the baseline", str(raised.exception))
+
+    def test_frozen_set_with_duplicate_names_is_rejected(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow, flow])
+        write_baseline(baseline, {})
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence, expected_digest="sha256:" + "0" * 64)
         self.assertIn("unique strings", str(raised.exception))
+
+    def test_new_flow_cannot_be_admitted_by_expanding_the_frozen_set(self):
+        """The positive control: editing the frozen set and the baseline together.
+
+        The attack the rule exists against: a new flow is added to the
+        baseline map *and* to the frozen set, so that the gate reads it as a
+        flow that was there when the rule was introduced. The frozen set is
+        pinned by a digest, so the pair of edits does not add up to an
+        admission — the gate refuses before it looks at any flow.
+        """
+        root, _flow, catalogue, baseline, evidence = self._tree()
+        flow = "Maestro/flows/tasks/02-new.yaml"
+        write_flow(root / flow, FLOW_OK)
+        catalogue.write_text(flow + "\n")
+        fp = mod.fingerprint(flow, root)
+        pinned = mod.initial_set_digest(mod.read_initial_set(self._initial(root)))
+        # The attacker edits both files; the pin stays where it was.
+        write_initial_set(self._initial(root), [flow])
+        write_baseline(baseline, {flow: fp})
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence, expected_digest=pinned)
+        self.assertIn("pinned digest", str(raised.exception))
 
     def test_changed_flow_needs_requalification(self):
         root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
         write_baseline(baseline, {flow: "sha256:" + "0" * 64})
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["stale baseline"])
 
     def test_changed_baseline_flow_admitted_by_valid_qualification(self):
         root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
         old_fp = mod.fingerprint(flow, root)
         write_flow(root / flow, FLOW_OK + "\n# changed\n")
         new_fp = mod.fingerprint(flow, root)
         self.assertNotEqual(old_fp, new_fp)
-        write_baseline(baseline, {flow: old_fp}, initial=[flow])
+        write_baseline(baseline, {flow: old_fp})
         evidence.write_text(
             yaml.safe_dump(
                 {
@@ -191,11 +227,12 @@ class AdmissionTest(unittest.TestCase):
 
     def test_changed_baseline_flow_admitted_by_valid_exception(self):
         root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
         old_fp = mod.fingerprint(flow, root)
         write_flow(root / flow, FLOW_OK + "\n# changed\n")
         new_fp = mod.fingerprint(flow, root)
         self.assertNotEqual(old_fp, new_fp)
-        write_baseline(baseline, {flow: old_fp}, initial=[flow])
+        write_baseline(baseline, {flow: old_fp})
         evidence.write_text(
             yaml.safe_dump(
                 {
@@ -232,6 +269,33 @@ class AdmissionTest(unittest.TestCase):
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["flows"], 0)
+
+    def test_missing_required_attempts_defaults_to_three(self):
+        """A policy that says nothing is a policy of three attempts."""
+        root, flow, catalogue, baseline, evidence = self._tree()
+        evidence.write_text(
+            yaml.safe_dump({"schema": 1, "qualifications": {}, "exceptions": {}}, sort_keys=False)
+        )
+        self.assertEqual(mod.read_evidence(evidence)[0], 3)
+
+    def test_invalid_required_attempts_is_refused(self):
+        """An invalid policy is a configuration error, not a smaller requirement.
+
+        Silently falling back to three would let a typo decide what counts as
+        a qualification.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        evidence.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "required_attempts": "three", "qualifications": {}, "exceptions": {}},
+                sort_keys=False,
+            )
+        )
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence)
+        self.assertIn("required_attempts", str(raised.exception))
 
     def _qualified_record(self, fp, outcomes):
         attempts = []
@@ -384,7 +448,8 @@ class AdmissionTest(unittest.TestCase):
         self.assertEqual([f.kind for f in findings], ["not qualified"])
         self.assertIn("sequential attempt number", findings[0].detail)
 
-    def test_boolean_required_attempts_defaults_to_three(self):
+    def test_boolean_required_attempts_is_refused(self):
+        """A boolean is not a number of attempts: the policy is a configuration error."""
         root, flow, catalogue, baseline, evidence = self._tree()
         write_baseline(baseline, {})
         fp = mod.fingerprint(flow, root)
@@ -400,9 +465,9 @@ class AdmissionTest(unittest.TestCase):
                 sort_keys=False,
             )
         )
-        findings, _ = self._scan(root, catalogue, baseline, evidence)
-        self.assertEqual([f.kind for f in findings], ["not qualified"])
-        self.assertIn("3 required", findings[0].detail)
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence)
+        self.assertIn("required_attempts", str(raised.exception))
 
     def test_flaky_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
@@ -481,6 +546,74 @@ class AdmissionTest(unittest.TestCase):
         )
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["invalid exception"])
+
+
+class FrozenSetPolicyTest(unittest.TestCase):
+    """The frozen set is anchored outside the file it guards."""
+
+    def test_init_baseline_cannot_expand_the_frozen_set(self):
+        """Writing the baseline does not touch the set of flows it admits.
+
+        `--init-baseline` used to rebuild the frozen set from the current
+        catalogue, which made it a way to admit flows nobody ever ran.
+        """
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        initial = repo / "config" / "docs" / "maestro-flow-qualification-initial.yaml"
+        before = initial.read_text(encoding="utf-8")
+        frozen = mod.read_initial_set(initial)
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = pathlib.Path(tmp) / "baseline.yaml"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--root",
+                    str(repo),
+                    "--catalogue",
+                    str(repo / "config" / "docs" / "maestro-flows.txt"),
+                    "--initial",
+                    str(initial),
+                    "--baseline",
+                    str(baseline),
+                    "--init-baseline",
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            data = yaml.safe_load(baseline.read_text(encoding="utf-8")) or {}
+        self.assertNotIn("initial_flows", data)
+        self.assertTrue(data.get("flows"))
+        self.assertLessEqual(set(data["flows"]), set(frozen))
+        self.assertEqual(initial.read_text(encoding="utf-8"), before, "the frozen set must not be rewritten")
+
+    def test_init_baseline_refuses_to_overwrite_an_existing_baseline(self):
+        """The baseline is written once: a changed flow is requalified, not re-baselined."""
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = pathlib.Path(tmp) / "baseline.yaml"
+            baseline.write_text("schema: 1\nflows: {}\n", encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--root",
+                    str(repo),
+                    "--catalogue",
+                    str(repo / "config" / "docs" / "maestro-flows.txt"),
+                    "--initial",
+                    str(repo / "config" / "docs" / "maestro-flow-qualification-initial.yaml"),
+                    "--baseline",
+                    str(baseline),
+                    "--init-baseline",
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("written once", result.stdout + result.stderr)
 
 
 class RepositoryStateTest(unittest.TestCase):
@@ -897,7 +1030,6 @@ class QualificationRecordWritingTest(unittest.TestCase):
         self.assertIsNotNone(record)
         self.assertEqual(record["maestro_version"], "1.39.0")
         self.assertEqual(len(record["attempts"]), 3)
-
 
 if __name__ == "__main__":
     unittest.main()
