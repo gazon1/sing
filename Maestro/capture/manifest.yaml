@@ -19,7 +19,13 @@
 # the device has to show and the shape of the image that comes out of it. The
 # capture command reads it and checks every image against it, so the numbers
 # live next to the captures they constrain.
+#
+# `device` and `density` name the capture device itself. The capture command
+# does not need them; the renderer records them next to the rendered
+# screenshots, so a store asset says which device it came from.
 profile:
+  device: capture_9x16
+  density: 420
   width: 1080
   height: 1920
   aspect: "9:16"
