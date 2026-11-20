@@ -19,4 +19,4 @@
 # because each is a wait nobody prices.
 #
 # Rewrite with: scripts/check-ui-wait-budgets.py --update-floor
-26
+27

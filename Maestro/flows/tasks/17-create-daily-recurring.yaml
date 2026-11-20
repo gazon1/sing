@@ -43,8 +43,9 @@ tags:
 - tapOn:
     id: task_editor_title_input
 - inputText: "${RUN_ID} Water the plants"
+# Hide the IME and confirm the field kept the typed value before proceeding.
 - hideKeyboard
-- waitForAnimationToEnd
+- assertVisible: "${RUN_ID} Water the plants"
 
 # ── Open the recurrence picker ────────────────────────────────────────
 # The recurrence row is below the fold on phone after the keyboard is shown.

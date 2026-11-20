@@ -31,14 +31,8 @@ tags:
     timeout: 8000
 - tapOn:
     text: "High priority"
-# Wait for the sheet to close and the row label to update before asserting.
-# Without this, the prior "High priority" text (still in the closing sheet) can
-# satisfy the visibility check prematurely.
-- waitForAnimationToEnd:
-    timeout: 1000
-# Now assert the row label shows the new priority (not the old "No priority").
+# The sheet closes and the row updates: the previous priority is no longer shown.
 - extendedWaitUntil:
-    visible: "High priority"
+    notVisible: "No priority"
     timeout: 8000
-- assertNotVisible:
-    text: "No priority"
+- assertVisible: "High priority"

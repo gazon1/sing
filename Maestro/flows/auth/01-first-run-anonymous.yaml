@@ -32,7 +32,6 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Anonymous%20task"
-- waitForAnimationToEnd
 
 # The task appears in Inbox. Scroll to it: tasks from other runs may sit above it.
 - tapOn:

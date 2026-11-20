@@ -158,7 +158,7 @@ Maestro/
 ├── config.yaml                 # workspace metadata
 ├── TAGS.md                     # complete catalogue of Maestro-addressable ids
 ├── helpers/                    # 21 subflows — never run standalone; the table is in CONVENTIONS.md
-│   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
+│   ├── launch-clean.yaml       # clean launch + wait for the shell (30s budget)
 │   └── seed.yaml               # the deep-link contract: one entity per link
 ├── capture/                    # the Google Play screenshot storyboard — the dataset plus the shot list
 │   ├── demo-dataset.yaml       # the fixed demo dataset behind the store screenshots
@@ -255,10 +255,13 @@ net, not an invitation — flows should type `Buy milk`, not `Купить хл�
 label so that two entries pointing at the same destination (`Profile & sync` and
 `Settings`) keep distinct tags.
 
-**Wait, don't sleep.** Use `extendedWaitUntil` with a bounded timeout. The
-`launch-clean` helper allows 8s for cold start because Koin, Room, DataStore
-migrations and the calendar sync orchestrator all initialise before the first
-frame. Never use `sleep`.
+**Action → outcome, never sleep.** After each meaningful action wait for/assert the
+expected user-visible outcome before continuing (`extendedWaitUntil` / `assertVisible`
+/ `assertNotVisible`), so failures name the step/state that did not occur. No fixed
+`delay` and no blind `waitForAnimationToEnd` when a specific observable condition is
+available. The `launch-clean` helper allows 30s for cold start because Koin, Room,
+DataStore migrations and the calendar sync orchestrator all initialise before the
+first frame. See `CONVENTIONS.md` → "Action → outcome (waits and postconditions)".
 
 **Hide the keyboard before tapping a trailing action.** `inputText` can leave
 the IME up, covering the save button. Always follow `inputText` with

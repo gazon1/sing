@@ -3,7 +3,7 @@
 #
 # Merged from former 03/04/05 flows: one cold start instead of three.
 # Each bucket is exercised in sequence; back navigation returns to Statistics.
-# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
+# прогнан на устройстве: нет (текущая ревизия не прогнана; ранее да 2026-11-06 — realme RMX3938, 0O65321F32204DD5)
 appId: com.singularity.todo
 name: smoke-health-drilldown
 tags:
@@ -43,11 +43,11 @@ tags:
 
 # ── Open Statistics (shared scaffold) ──────────────────────────────────────
 - runFlow: ../../helpers/open-app-menu.yaml
+# Reveal the lower menu items, then wait for the Statistics entry to be visible.
 - swipe:
     start: "50%, 80%"
     end: "50%, 30%"
     duration: 1000
-- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: menu_statistics

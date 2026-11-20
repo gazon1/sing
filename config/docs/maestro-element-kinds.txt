@@ -107,6 +107,7 @@ menu_sheet menu
 menu_statistics menu
 multi_date_picker_cancel button
 multi_date_picker_month_title text
+multi_date_picker_ok button
 nav_tab_inbox tab
 nav_tab_today shell
 note_action_edit button
