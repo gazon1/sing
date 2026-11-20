@@ -162,6 +162,7 @@ class AcpExternalAgentViewModel(
     private val commandProvider: McpServerCommandProvider,
     private val launcher: AcpAgentLauncher = SubprocessAcpAgentLauncher,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    private val inspectorOptIn: Boolean = false,
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AcpExternalAgentUiState, AcpExternalAgentViewModel.Intent, AcpExternalAgentViewModel.UiEvent>(
         initialState = AcpExternalAgentUiState(),
@@ -346,7 +347,10 @@ class AcpExternalAgentViewModel(
         }
 
     private fun toolServerCommand(): ToolServerCommand =
-        commandProvider.commandFor(profileRepository.activeProfileId.value)
+        commandProvider.commandFor(
+            profileId = profileRepository.activeProfileId.value,
+            inspectorOptIn = inspectorOptIn,
+        )
 
     private fun reasonOfUnavailable(): String =
         (toolServerCommand() as? ToolServerCommand.Unavailable)?.reason

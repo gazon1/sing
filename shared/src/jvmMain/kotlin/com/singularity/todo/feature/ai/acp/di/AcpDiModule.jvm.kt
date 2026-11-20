@@ -30,6 +30,11 @@ fun acpModule(): Module =
         // environment once, and the environment does not change while the application runs.
         single { McpServerCommandProvider() }
 
+        // The application's opt-in for the local screen-inspection host, carried into the
+        // tool-server command an external agent is handed. The host is opt-in; the default
+        // is no host, so a process that did not opt in starts none.
+        single { false }
+
         // How an agent is started. Bound rather than defaulted, so that the graph says
         // what it does and a test can put its own launcher in its place.
         single<AcpAgentLauncher> { SubprocessAcpAgentLauncher }
@@ -41,6 +46,7 @@ fun acpModule(): Module =
                 commandProvider = get(),
                 launcher = get(),
                 crashReporter = get(),
+                inspectorOptIn = get(),
             )
         }
     }
