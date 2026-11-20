@@ -516,7 +516,7 @@ def update_evidence_file(evidence_path: pathlib.Path, flow_rel: str, record: dic
     else:
         data = {}
     data.setdefault("schema", 1)
-    data.setdefault("required_attempts", 3)
+    data.setdefault("required_attempts", GATE.MIN_REQUIRED_ATTEMPTS)
     quals = data.setdefault("qualifications", {})
     if not isinstance(quals, dict):
         quals = {}

@@ -38,6 +38,8 @@ The two are evaluated independently: a qualification recorded for an older finge
 
 `scripts/check-maestro-flow-qualification.py` is the blocking gate. It does not rewrite the baseline, the frozen set or the evidence files. `required_attempts` in the evidence file is a policy: a missing value means three attempts, and a value that is not a positive integer is a configuration error the gate refuses rather than silently rounding down to three.
 
+The attempt count also has a **floor**, and the floor lives in the gate, not in the file. `MIN_REQUIRED_ATTEMPTS = 3` in `scripts/check-maestro-flow-qualification.py` is the minimum a policy may ask for: the evidence file may ask for *more* attempts, but a value below the floor is refused. The rule this gate holds is that a flow enters a blocking scope on the strength of a *repeated* run; a policy that asked for one attempt would turn "passes repeatedly" into "passes once" — the exact failure the rule was introduced to prevent. Because the floor is a constant in the gate's source, lowering it is a source change that shows up in a diff and is reviewed as one, not a line somebody edits in an evidence file.
+
 ## Qualification run (bounded, affected flows only)
 
 Use `scripts/maestro-qualify-flows.py` to run only the affected flow(s), not the whole catalogue. Default policy: **3 consecutive attempts** of each flow in the same documented environment/build.

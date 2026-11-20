@@ -474,6 +474,39 @@ class AdmissionTest(unittest.TestCase):
             self._scan(root, catalogue, baseline, evidence)
         self.assertIn("required_attempts", str(raised.exception))
 
+    def test_required_attempts_below_the_floor_is_refused(self):
+        """The evidence file may ask for more attempts, not for fewer.
+
+        A qualification is a *repeated* run: that is the whole rule. If the
+        file could ask for one attempt, a flow would enter a blocking scope on
+        its first green run -- exactly the failure the rule exists to
+        prevent. The floor lives in the gate, so lowering it is a source
+        change that a review can see, not a line in an editable file.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_baseline(baseline, {})
+        evidence.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "required_attempts": 1, "qualifications": {}, "exceptions": {}},
+                sort_keys=False,
+            )
+        )
+        with self.assertRaises(click.ClickException) as raised:
+            self._scan(root, catalogue, baseline, evidence)
+        self.assertIn("required_attempts", str(raised.exception))
+
+    def test_required_attempts_above_the_floor_is_allowed(self):
+        """A stricter policy is the file's own business: the floor is a floor, not a ceiling."""
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_baseline(baseline, {})
+        evidence.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "required_attempts": 5, "qualifications": {}, "exceptions": {}},
+                sort_keys=False,
+            )
+        )
+        self.assertEqual(mod.read_evidence(evidence)[0], 5)
+
     def _qualified_record(self, fp, outcomes):
         attempts = []
         for i, outcome in enumerate(outcomes, start=1):

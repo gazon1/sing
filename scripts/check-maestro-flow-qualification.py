@@ -143,6 +143,15 @@ _REF_EXTENSIONS = (".yaml", ".yml", ".js", ".mjs", ".cjs")
 #: YAML and a reference behind one is a reference.
 _LINE_REF = re.compile(rf"(?m)^\s*(?:-\s*)?(?:file|runFlow|runScript):\s*['\"]?({_REF_PATTERN})['\"]?\s*(?:#.*)?$")
 
+#: The number of consecutive attempts a qualification takes.
+#:
+#: The evidence file names the number of attempts it wants, but it cannot go
+#: below this one: the rule this gate holds is that a flow enters a blocking
+#: scope on the strength of a *repeated* run, and a file that says one attempt
+#: would turn "passes repeatedly" into "passes once". The floor lives in the
+#: gate, so lowering it is a source change, reviewed as one.
+MIN_REQUIRED_ATTEMPTS = 3
+
 #: The tree a flow is qualified against: the `Maestro/` flow tree, relative to
 #: the repository root.
 #:
@@ -518,7 +527,7 @@ def read_baseline(path: pathlib.Path, initial_path: pathlib.Path | None = None) 
 def read_evidence(path: pathlib.Path) -> tuple[int, dict[str, dict], dict[str, dict]]:
     data = read_yaml(path)
     if "required_attempts" not in data:
-        required = 3
+        required = MIN_REQUIRED_ATTEMPTS
     else:
         required = data["required_attempts"]
         if type(required) is not int or required < 1:
@@ -527,6 +536,15 @@ def read_evidence(path: pathlib.Path) -> tuple[int, dict[str, dict], dict[str, d
             # decide what counts as a qualification.
             raise ValueError(
                 f"{path}: required_attempts must be a positive integer, got {required!r}"
+            )
+        if required < MIN_REQUIRED_ATTEMPTS:
+            # The evidence file may ask for more attempts than the floor, but
+            # not for fewer: a qualification is a *repeated* run, and a file
+            # that says one attempt admits a flow on its first green run --
+            # the failure the rule was introduced to prevent.
+            raise ValueError(
+                f"{path}: required_attempts must be at least {MIN_REQUIRED_ATTEMPTS}, "
+                f"got {required!r}"
             )
     qualifications = data.get("qualifications") or {}
     exceptions = data.get("exceptions") or {}
