@@ -261,5 +261,47 @@ class RepositoryStateTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+class QualificationRunnerPolicyTest(unittest.TestCase):
+    def test_attempts_below_policy_cannot_record_qualification(self):
+        root = pathlib.Path(__file__).resolve().parent.parent.parent
+        runner = root / "scripts" / "maestro-qualify-flows.py"
+        flow = "Maestro/flows/tasks/01-set-priority.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            evidence = tmp_path / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            out = tmp_path / "out"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(runner),
+                    "--flow",
+                    flow,
+                    "--attempts",
+                    "1",
+                    "--record",
+                    "--evidence",
+                    str(evidence),
+                    "--out",
+                    str(out),
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            combined = result.stdout + result.stderr
+            self.assertIn("below required_attempts=3", combined)
+            data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
+            self.assertEqual((data.get("qualifications") or {}), {})
+            self.assertFalse(out.exists(), "runner must not execute attempts or create artifacts")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -358,6 +358,18 @@ def main(argv=None) -> int:
         print("--attempts must be >= 1", file=sys.stderr)
         return 2
 
+    try:
+        required_by_policy, _, _ = GATE.read_evidence(args.evidence)
+    except Exception as exc:
+        print(f"cannot read evidence {args.evidence}: {exc}", file=sys.stderr)
+        return 2
+    if args.attempts < required_by_policy:
+        print(
+            f"--attempts {args.attempts} is below required_attempts={required_by_policy} in {args.evidence}",
+            file=sys.stderr,
+        )
+        return 2
+
     flows = []
     for f in args.flow:
         p = pathlib.Path(f)
