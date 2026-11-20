@@ -208,7 +208,7 @@ def read_baseline(path: pathlib.Path) -> dict[str, str]:
 def read_evidence(path: pathlib.Path) -> tuple[int, dict[str, dict], dict[str, dict]]:
     data = read_yaml(path)
     required = data.get("required_attempts", 3)
-    if not isinstance(required, int) or required < 1:
+    if type(required) is not int or required < 1:
         required = 3
     qualifications = data.get("qualifications") or {}
     exceptions = data.get("exceptions") or {}
@@ -251,6 +251,9 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
     for i, attempt in enumerate(attempts, start=1):
         if not isinstance(attempt, dict):
             return False, f"attempt {i} is not a mapping"
+        num = attempt.get("attempt")
+        if type(num) is not int or num != i:
+            return False, f"attempt {i} does not have a valid sequential attempt number"
         outcome = attempt.get("outcome")
         if outcome == "test_failure":
             return False, f"attempt {i} was a test failure (a flaky or failing flow is not qualified)"

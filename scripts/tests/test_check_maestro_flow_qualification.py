@@ -236,6 +236,72 @@ class AdmissionTest(unittest.TestCase):
         self.assertEqual([f.kind for f in findings], ["not qualified"])
         self.assertIn("attempt 3 does not record the Maestro version", findings[0].detail)
 
+    def test_duplicate_attempt_numbers_not_qualified(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        fp = mod.fingerprint(flow, root)
+        record = self._qualified_record(fp, ["pass", "pass", "pass"])
+        # duplicate attempt 1 instead of sequential 1,2,3
+        record["attempts"][1] = dict(record["attempts"][0])
+        record["attempts"][1]["attempt"] = 1
+        record["attempts"][2] = dict(record["attempts"][0])
+        record["attempts"][2]["attempt"] = 1
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: record},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified"])
+        self.assertIn("sequential attempt number", findings[0].detail)
+
+    def test_missing_attempt_number_not_qualified(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        fp = mod.fingerprint(flow, root)
+        record = self._qualified_record(fp, ["pass", "pass", "pass"])
+        record["attempts"][1].pop("attempt", None)
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: record},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified"])
+        self.assertIn("sequential attempt number", findings[0].detail)
+
+    def test_boolean_required_attempts_defaults_to_three(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        fp = mod.fingerprint(flow, root)
+        record = self._qualified_record(fp, ["pass"])
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": True,
+                    "qualifications": {flow: record},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified"])
+        self.assertIn("3 required", findings[0].detail)
+
     def test_flaky_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
         baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
