@@ -140,7 +140,9 @@ the format; the image check reads them from there. The storyboard, the manifest
 and the checker cannot drift apart, and the numbers are not written twice. A
 profile without a size or without an aspect is refused, and the size has to
 be a whole number of pixels: a contract that does not say what the images
-have to look like is not a contract.
+have to look like is not a contract. The format has to be PNG as well: the
+checker reads a PNG, so a manifest that names another format promises
+something nobody verifies.
 
 **The output directory is a dedicated generated directory, wiped at the start
 of every run.** A PNG left by an earlier run must never be able to stand in
@@ -237,7 +239,8 @@ drift.
   notification that cannot be inspected, a notification record without a
   readable package, a dump that is not a notification dump, a shade that cannot
   be collapsed, a locale that is only a fallback, a profile without a size or
-  an aspect). The order of the capture
+  an aspect, a profile that names a format the checker cannot read). The order
+  of the capture
   is covered as well: the notifications are looked at again after the flow and
   before the screenshot.
 - The six flows are still `manual` and `capture`-tagged, so the nightly full

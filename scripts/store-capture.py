@@ -180,11 +180,19 @@ def _profile(raw: dict) -> Profile:
             ) from exc
     if aspect is None:
         raise CaptureError(f"the manifest's profile has no aspect ratio: {raw!r}")
+    image_format = str(raw.get("format", "png")).lower()
+    if image_format != "png":
+        # The check below reads a PNG, so a manifest that names another
+        # format would promise something nobody verifies.
+        raise CaptureError(
+            f"the manifest's profile names a format this command cannot check: "
+            f"{image_format!r}"
+        )
     return Profile(
         width=_positive_int(width, "width"),
         height=_positive_int(height, "height"),
         aspect=aspect,
-        format=str(raw.get("format", "png")).lower(),
+        format=image_format,
     )
 
 
@@ -894,7 +902,7 @@ def validate_png(path: Path, profile: Profile) -> list[str]:
         return [f"cannot be read: {exc}"]
     if not data:
         return ["is empty"]
-    if profile.format == "png" and not data.startswith(PNG_SIGNATURE):
+    if not data.startswith(PNG_SIGNATURE):
         return ["is not a PNG (the file signature is missing)"]
 
     width: int | None = None

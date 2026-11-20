@@ -188,6 +188,20 @@ class ManifestTest(unittest.TestCase):
             with self.assertRaises(mod.CaptureError):
                 mod.load_manifest(path)
 
+    def test_a_profile_that_names_another_format_is_refused(self):
+        # The checker reads a PNG, so a manifest that promises another
+        # format promises something nobody verifies.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'manifest.yaml'
+            path.write_text(
+                'profile:\n  width: 1080\n  height: 1920\n  aspect: "9:16"\n'
+                '  format: jpeg\n'
+                'captures:\n  - {order: 1, file: a.png, flow: a.yaml}\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(mod.CaptureError):
+                mod.load_manifest(path)
+
 
 class DeviceResolutionTest(unittest.TestCase):
     def test_the_daemon_chatter_is_not_a_device(self):
