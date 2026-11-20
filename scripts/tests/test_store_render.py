@@ -27,6 +27,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+import yaml
 from PIL import Image, ImageFont
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'store-render.py'
@@ -83,6 +84,71 @@ class TemplateTest(unittest.TestCase):
         font = ImageFont.truetype(str(template.headline.font_path), template.headline.size)
         missing = mod.missing_glyphs('任务列表', font)
         self.assertTrue(missing, 'the vendored font has no CJK glyphs, as expected')
+
+    def template_file(self, raw):
+        """The templates, changed, in a temporary file.
+
+        The font is named by its absolute path, so the copy in the temporary
+        directory finds the checked-in font and the refusal the test is after
+        is the one the change is about.
+        """
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = pathlib.Path(directory.name) / 'templates.yaml'
+        raw['headline']['font'] = str(mod.ROOT / 'store' / 'fonts' / 'Roboto-Regular.ttf')
+        path.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding='utf-8')
+        return path
+
+    def test_a_composition_file_name_that_is_a_path_is_refused(self):
+        # A name with a path in it would take the renderer out of the raw
+        # capture directory and out of the output directory.
+        raw = yaml.safe_load(mod.TEMPLATES_PATH.read_text(encoding='utf-8'))
+        raw['screenshots'][0]['file'] = '../escape.png'
+        with self.assertRaises(mod.RenderError):
+            mod.load_templates(self.template_file(raw))
+
+    def test_two_compositions_with_the_same_file_name_are_refused(self):
+        raw = yaml.safe_load(mod.TEMPLATES_PATH.read_text(encoding='utf-8'))
+        raw['screenshots'][1]['file'] = raw['screenshots'][0]['file']
+        with self.assertRaises(mod.RenderError):
+            mod.load_templates(self.template_file(raw))
+
+
+class ManifestTest(unittest.TestCase):
+    """The capture manifest: what a capture is called, and where it stands."""
+
+    def manifest(self, captures):
+        """A capture manifest with the given captures, in a temporary file."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = pathlib.Path(directory.name) / 'manifest.yaml'
+        lines = ['profile:', '  width: 1080', '  height: 1920', 'captures:']
+        for capture in captures:
+            lines += [
+                f'  - order: {capture[0]}',
+                f'    file: {capture[1]}',
+                '    screen: Screen',
+                '    flow: flow',
+            ]
+        path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        return path
+
+    def test_a_capture_file_name_that_is_a_path_is_refused(self):
+        # A name with a path in it would take the renderer out of the raw
+        # capture directory and out of the output directory.
+        path = self.manifest([(1, '../escape.png')])
+        with self.assertRaises(mod.RenderError):
+            mod.load_captures(path)
+
+    def test_two_captures_with_the_same_file_name_are_refused(self):
+        path = self.manifest([(1, '01-today.png'), (2, '01-today.png')])
+        with self.assertRaises(mod.RenderError):
+            mod.load_captures(path)
+
+    def test_two_captures_with_the_same_order_are_refused(self):
+        path = self.manifest([(1, '01-today.png'), (1, '02-upcoming.png')])
+        with self.assertRaises(mod.RenderError):
+            mod.load_captures(path)
 
 
 class HeadlineTest(unittest.TestCase):

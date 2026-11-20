@@ -203,6 +203,20 @@ def _positive_int(value: object, what: str) -> int:
     return value
 
 
+def _plain_file_name(value: object, what: str) -> str:
+    """A file name, and not a path.
+
+    The manifest and the templates are checked in, but a name with a path in
+    it would take the renderer out of the raw capture directory and out of the
+    output directory — into places the renderer has no business reading from
+    or writing to.
+    """
+    name = str(value)
+    if not name or name in (".", "..") or name != Path(name).name or "/" in name:
+        raise RenderError(f"{what} {name!r} is not a plain file name")
+    return name
+
+
 def load_templates(path: Path = TEMPLATES_PATH) -> Template:
     """Read the compositions out of the template file."""
     try:
@@ -240,9 +254,14 @@ def load_templates(path: Path = TEMPLATES_PATH) -> Template:
         headline = entry.get("headline")
         if not isinstance(name, str) or not name:
             raise RenderError(f"a screenshot in {path} has no file name")
+        name = _plain_file_name(name, f"the screenshot in {path}")
         if not isinstance(headline, str) or not headline.strip():
             raise RenderError(f"the screenshot {name} has no headline")
         screenshots.append(Screenshot(file=name, headline=headline))
+
+    names = [shot.file for shot in screenshots]
+    if len(set(names)) != len(names):
+        raise RenderError(f"the template file {path} composes the same file twice")
 
     margin = canvas_raw.get("margin", 0)
     if not isinstance(margin, int) or isinstance(margin, bool) or margin < 0:
@@ -323,7 +342,7 @@ def load_captures(path: Path = CAPTURE_MANIFEST_PATH) -> Captures:
         captures.append(
             Capture(
                 order=int(entry["order"]),
-                file=str(entry["file"]),
+                file=_plain_file_name(entry["file"], f"the capture in {path}"),
                 screen=str(entry.get("screen", "")),
                 flow=str(entry.get("flow", "")),
                 width=width,
@@ -332,6 +351,12 @@ def load_captures(path: Path = CAPTURE_MANIFEST_PATH) -> Captures:
         )
     if not captures:
         raise RenderError(f"the capture manifest {path} holds no captures")
+    orders = [capture.order for capture in captures]
+    files = [capture.file for capture in captures]
+    if len(set(orders)) != len(orders):
+        raise RenderError(f"the capture manifest {path} has two captures with the same order")
+    if len(set(files)) != len(files):
+        raise RenderError(f"the capture manifest {path} has two captures with the same file name")
     return Captures(
         captures=tuple(sorted(captures, key=lambda capture: capture.order)),
         profile=dict(profile),

@@ -171,6 +171,9 @@ the capture device's contract is written down.
   manifest's captures and looks up the composition for each one. The templates
   say what a picture looks like and what it says, not where it stands in the
   listing.
+- Both files are checked before the renderer uses them: a file name has to be
+  a plain name and not a path, and no two captures may share a file name or an
+  order. A capture command that writes the raw captures holds the same rule.
 - `scripts/tests/test_store_render.py` covers the pure parts: the templates
   and the captures covering each other, the font being checked in, the font
   drawing every headline (and refusing one it cannot), a headline that does not
