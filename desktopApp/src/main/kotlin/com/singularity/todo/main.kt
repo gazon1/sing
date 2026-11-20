@@ -35,7 +35,6 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
 import com.singularity.todo.mcp.ToolServerKoinStartup
-import com.singularity.todo.mcp.inspectorHostOptIn
 import com.singularity.todo.mcp.runToolServer
 import com.singularity.todo.mcp.toolServerModules
 import com.singularity.todo.shell.LocalWindowCloseRequest
@@ -119,17 +118,12 @@ fun main(args: Array<String>) {
     // rejected by the desktop GUI CLI parser.
     if (isToolServerMode(args)) {
         prepareDataDirectory()
-        // The host opt-in is decided here, where the application's own build is known, and
-        // handed to the server; a release build hands none.
+        // The host capability is decided here, where the application's own build is known,
+        // and handed to the server; a release build compiled the host out.
         runToolServer(
             args,
             ToolServerKoin,
-            inspectorHostOptIn =
-                inspectorHostOptIn(
-                    args,
-                    inspectorHostCompiledIn =
-                        DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
-                ),
+            inspectorHostCompiledIn = DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
         )
         return
     }

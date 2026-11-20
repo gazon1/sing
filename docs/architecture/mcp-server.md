@@ -68,7 +68,8 @@ The host is opt-in twice over: the build compiles it in only with
 `-Psingularity.inspector.host.enabled=true`, and the process registers the screen inspector tools
 only when it was started with `--inspector` (the flag `McpServerCommandProvider` names, resolved by
 the entry point). Without either one no host starts; a release build carries neither and no
-argument can turn the host on. The CLI host is entered through an explicit command instead. See
+argument can turn the host on. The `agent` CLI is governed by the same build capability — it needs
+no runtime flag, but a build compiled without the property refuses it. See
 ADR `2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
 
 ## When to Use This Skill

@@ -1,12 +1,14 @@
 package com.singularity.todo.mcp
 
 import com.singularity.todo.core.mcp.McpServerCommandProvider
+import com.singularity.todo.mcp.introspection.ScreenInspectorCli
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -106,6 +108,30 @@ class InspectorHostOptInTest {
             "screen_list" in server.tools,
             "the opted-in host must register its tools, got ${server.tools.keys}",
         )
+    }
+
+    @Test
+    fun `the agent CLI refuses to run when the host is not compiled in`() {
+        val code =
+            ScreenInspectorCli.run(
+                listOf("screens"),
+                defaultKoinStartup = null,
+                inspectorHostCompiledIn = false,
+            )
+
+        assertEquals(2, code)
+    }
+
+    @Test
+    fun `the agent CLI answers help when the host is compiled in`() {
+        val code =
+            ScreenInspectorCli.run(
+                listOf("help"),
+                defaultKoinStartup = null,
+                inspectorHostCompiledIn = true,
+            )
+
+        assertEquals(0, code)
     }
 
     private fun server(): Server =

@@ -33,7 +33,10 @@ is absent there and no argument can turn it on. The CLI host needs no flag of it
 entered through an explicit command. See ADR
 `2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
 
-CLI entry (same binaries/process model as MCP server):
+CLI entry (same binaries/process model as MCP server). The CLI is a host too, so the build
+capability applies: a build compiled without `-Psingularity.inspector.host.enabled=true` answers
+`unsupported` and exits 2 instead of running a command. It needs no `--inspector` flag of its own —
+entering the command is the opt-in.
 
 ```bash
 # via MCP server jar

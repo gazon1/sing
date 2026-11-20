@@ -39,12 +39,16 @@ JVM/desktop host decision lives.
    (`McpServerCommandProvider.INSPECTOR_HOST_FLAG`). Without the flag the host does not start, even
    in a build that compiled the capability in. The flag is read whole from the process arguments,
    the same way the profile selector is — never defaulted, never partially matched.
-4. **The entry point resolves the opt-in and the server applies the resolved value.** The entry
-   point (desktop `main`, standalone `Main`) ANDs the compiled-in capability with the flag and hands
-   the result to the start-up as `inspectorHostOptIn`; `ToolServerStartupContext` exposes it as
-   `inspectorHostEnabled`, and `BuildTheServer` registers the screen inspector tools only when it is
-   true. Otherwise the toolbox has no `screen_*` tool at all, and the server's `instructions` do not
-   advertise them.
+4. **The `agent` CLI is a host too, and the build gate applies to it.** It needs no `--inspector`
+   flag — entering the command is the opt-in — but a build compiled without the capability answers
+   `unsupported` and exits 2 before it parses a command or starts a container. A release build
+   therefore has no CLI dispatch path either.
+5. **The entry point resolves the opt-in and the server applies the resolved value.** The entry
+   point (desktop `main`, standalone `Main`) passes the compiled-in capability to `runToolServer`;
+   `runToolServer` ANDs it with the flag and hands the result to the start-up as
+   `inspectorHostOptIn`; `ToolServerStartupContext` exposes it as `inspectorHostEnabled`, and
+   `BuildTheServer` registers the screen inspector tools only when it is true. Otherwise the
+   toolbox has no `screen_*` tool at all, and the server's `instructions` do not advertise them.
 
 ## Rationale
 
@@ -58,7 +62,8 @@ JVM/desktop host decision lives.
   could be opted in by anyone who knows the property name. The Gradle property is fixed when the
   artifact is compiled.
 - The CLI host needs no flag of its own: it is entered through an explicit command
-  (`agent`, `screen-inspector`, `--agent`, `--screen-inspector`), so its opt-in is structural.
+  (`agent`, `screen-inspector`, `--agent`, `--screen-inspector`), so its opt-in is structural. It
+  is still build-gated: a release build refuses the command, because the capability is not there.
 - The test-created coordinator #3039 used was sufficient to prove the contract, but it is not the
   running application's graph. The tool-server host reuses the real Koin graph, the real
   coordinator and the real intent path, so what an agent inspects is the application, not a
