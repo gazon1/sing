@@ -51,7 +51,10 @@ and refuses the record when either is missing, or when the two disagree:
 
 `record_issues()` in `scripts/maestro-qualify-flows.py` applies the same two
 rules, so the runner says why a record is not admissible *before* it writes
-the record, instead of leaving the gate to reject it later.
+the record, instead of leaving the gate to reject it later. Both sides apply
+one implementation of the rule — `attempt_admission_issues()` in the gate
+module — so the runner's refusal and the gate's admission cannot drift
+apart; see the record contract ADR below.
 
 ## Rationale
 
@@ -88,4 +91,5 @@ the record, instead of leaving the gate to reject it later.
 - Gate: `scripts/check-maestro-flow-qualification.py`
 - Runner: `scripts/maestro-qualify-flows.py`
 - Related: `docs/decisions/2026-11-20-maestro-qualification-apk-provenance.md`,
+  `docs/decisions/2026-11-20-maestro-qualification-record-contract.md`,
   `docs/decisions/2026-11-20-maestro-qualification-evidence-trust-boundary.md`

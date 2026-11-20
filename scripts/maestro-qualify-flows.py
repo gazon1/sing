@@ -411,55 +411,18 @@ def build_qualification_record(flow_rel: str, attempts: list[Attempt], fingerpri
 
 
 def record_issues(record: dict) -> list[str]:
-    issues = []
+    """Why a record would not be admissible, by the gate's own rules.
+
+    The rules are the gate's: the runner asks the gate module what it
+    would refuse, instead of keeping a second copy of the same contract.
+    A rule written twice is a rule that can drift, and a rule that drifted
+    is a rule the gate no longer holds.
+    """
+    issues: list[str] = []
     attempts = record.get("attempts") or []
-    envs = set()
-    builds = set()
-    mversions = set()
     for i, attempt in enumerate(attempts, start=1):
-        if not isinstance(attempt, dict):
-            issues.append(f"attempt {i} is not a mapping")
-            continue
-        env = attempt.get("environment") or {}
-        if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
-            issues.append(f"attempt {i} does not record a documented environment (kind/api)")
-        if not isinstance(env, dict) or not env.get("serial"):
-            # The device is part of the identity: a run that does not name the
-            # device it ran on cannot be told apart from a run on another one.
-            issues.append(f"attempt {i} does not record the device it ran on (serial)")
-        envs.add(
-            (
-                env.get("kind") if isinstance(env, dict) else None,
-                env.get("api") if isinstance(env, dict) else None,
-                env.get("device") if isinstance(env, dict) else None,
-                # The device itself, not only its model: two runs on two
-                # devices of the same model are two runs on two devices, and
-                # the flakiness a qualification hunts is often device-specific.
-                env.get("serial") if isinstance(env, dict) else None,
-            )
-        )
-        # The APK has to be this checkout's build: the two values are the
-        # checkout SHA and the build id read from the device, and a record
-        # that names two different builds certifies a program the checkout
-        # does not hold. The gate refuses such a record; the runner says so
-        # before it writes one.
-        checkout_sha = attempt.get("commit")
-        apk_sha = attempt.get("apk_commit_sha")
-        if not checkout_sha or not apk_sha:
-            issues.append(f"attempt {i} does not record both the checkout and the APK identity")
-        elif checkout_sha != apk_sha:
-            issues.append(f"attempt {i} ran an APK that is not the checkout build ({apk_sha} vs {checkout_sha})")
-        builds.add(checkout_sha or apk_sha)
-        mv = attempt.get("maestro_version")
-        if not mv:
-            issues.append(f"attempt {i} does not record the Maestro version")
-        mversions.add(mv)
-    if attempts and len(envs) > 1:
-        issues.append("qualification attempts do not share one documented environment")
-    if attempts and len(builds) > 1:
-        issues.append("qualification attempts do not share one build identity")
-    if attempts and len(mversions) > 1:
-        issues.append("qualification attempts do not share one Maestro version")
+        issues.extend(GATE.attempt_admission_issues(attempt, i))
+    issues.extend(GATE.record_consistency_issues(record))
     return issues
 
 

@@ -88,6 +88,7 @@ if _SCRIPTS_SRC not in sys.path:
 
 import yaml  # noqa: E402
 
+from emulator.maestro._engine import parse_engine_version  # noqa: E402
 from emulator.maestro._flow import (  # noqa: E402
     AUTOMATED_FULL_EXCLUDE_TAGS,
     flow_tags,
@@ -565,6 +566,103 @@ def _env_key(env: dict) -> tuple:
     return (env.get("kind"), env.get("api"), env.get("device"), env.get("serial"))
 
 
+def is_recognised_version(value: object) -> bool:
+    """Whether a recorded version string is a version the engines recognise.
+
+    The recognition is the runner's contract, read from the same place the
+    runner reads it: `emulator.maestro._engine`. A record that names
+    something the runner would have refused to record -- "Maestro version
+    unavailable", a build number, a sentence -- is not a version, and a
+    gate that accepted it would admit a record naming a build that never
+    ran.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    parsed = parse_engine_version(value)
+    return parsed is not None and parsed == value.strip().removeprefix("v")
+
+
+def attempt_admission_issues(attempt: dict, index: int) -> list[str]:
+    """What one attempt has to record to count towards a qualification.
+
+    The rules live here, once. The gate uses them to admit or refuse a
+    record; the qualification runner uses the same ones to say why a
+    record is not admissible *before* it writes one. A rule implemented
+    twice is a rule that can drift -- and a rule that drifted is a rule
+    the gate no longer holds.
+    """
+    issues: list[str] = []
+    if not isinstance(attempt, dict):
+        return [f"attempt {index} is not a mapping"]
+    env = attempt.get("environment")
+    if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
+        issues.append(f"attempt {index} does not record a documented environment (kind/api)")
+    if not isinstance(env, dict) or not env.get("serial"):
+        # The device is part of the identity. A run that does not name it
+        # cannot be told apart from another run on another device.
+        issues.append(f"attempt {index} does not record the device it ran on (serial)")
+    # The APK that ran the attempt has to be this checkout's build. The
+    # runner refuses to run a flow against a stale APK, and the gate
+    # refuses to admit a record that says otherwise: the two values are
+    # the checkout SHA and the build id read from the device, and a
+    # qualification that names two different builds certifies a program
+    # the checkout does not hold. The check is on the recorded values, so
+    # it holds whatever produced them.
+    checkout_sha = attempt.get("commit")
+    apk_sha = attempt.get("apk_commit_sha")
+    if not checkout_sha or not apk_sha:
+        issues.append(f"attempt {index} does not record both the checkout and the APK identity")
+    elif checkout_sha != apk_sha:
+        issues.append(
+            f"attempt {index} ran an APK that is not the checkout build "
+            f"({apk_sha} vs {checkout_sha})"
+        )
+    mv = attempt.get("maestro_version")
+    if not mv:
+        issues.append(f"attempt {index} does not record the Maestro version")
+    elif not is_recognised_version(mv):
+        # A version has to be a version: the same recognition the runner
+        # applies before it writes one. Otherwise a record could name
+        # "Maestro version unavailable" as the engine that ran the flow.
+        issues.append(
+            f"attempt {index} records a Maestro version that is not a "
+            f"recognised version ({mv!r})"
+        )
+    return issues
+
+
+def record_consistency_issues(record: dict) -> list[str]:
+    """The rules about the record as a whole: one environment, one build, one version.
+
+    A qualification is a run *in one place*: the attempts of one
+    qualification have to share the device, the build and the engine
+    version. The rules are here for the same reason the per-attempt ones
+    are -- the gate and the runner apply the same contract.
+    """
+    issues: list[str] = []
+    envs: set = set()
+    builds: set = set()
+    mversions: set = set()
+    attempts = record.get("attempts")
+    if not isinstance(attempts, list):
+        return issues
+    for attempt in attempts:
+        if not isinstance(attempt, dict):
+            continue
+        env = attempt.get("environment")
+        if isinstance(env, dict):
+            envs.add(_env_key(env))
+        builds.add(attempt.get("commit") or attempt.get("apk_commit_sha"))
+        mversions.add(attempt.get("maestro_version"))
+    if len(envs) > 1:
+        issues.append("qualification attempts do not share one documented environment")
+    if len(builds) > 1:
+        issues.append("qualification attempts do not share one build identity")
+    if len(mversions) > 1:
+        issues.append("qualification attempts do not share one Maestro version")
+    return issues
+
+
 def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, str]:
     if not isinstance(record, dict):
         return False, "qualification record is not a mapping"
@@ -584,9 +682,6 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
     # consecutive passes in the same environment/build; all attempts recorded.
     # Simpler and stricter: every recorded attempt must be a pass and the
     # sequence must be >= required, all in the same environment and build.
-    envs = set()
-    builds = set()
-    mversions = set()
     for i, attempt in enumerate(attempts, start=1):
         if not isinstance(attempt, dict):
             return False, f"attempt {i} is not a mapping"
@@ -600,38 +695,12 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
             return False, f"attempt {i} was an infrastructure failure (not a successful test attempt)"
         if outcome != "pass":
             return False, f"attempt {i} has outcome {outcome!r}, not a passing test attempt"
-        env = attempt.get("environment")
-        if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
-            return False, f"attempt {i} does not record a documented environment (kind/api)"
-        if not env.get("serial"):
-            # The device is part of the identity. A run that does not name it
-            # cannot be told apart from another run on another device.
-            return False, f"attempt {i} does not record the device it ran on (serial)"
-        envs.add(_env_key(env))
-        # The APK that ran the attempt has to be this checkout's build. The
-        # runner refuses to run a flow against a stale APK, and the gate
-        # refuses to admit a record that says otherwise: the two values are
-        # the checkout SHA and the build id read from the device, and a
-        # qualification that names two different builds certifies a program
-        # the checkout does not hold. The check is on the recorded values, so
-        # it holds whatever produced them.
-        checkout_sha = attempt.get("commit")
-        apk_sha = attempt.get("apk_commit_sha")
-        if not checkout_sha or not apk_sha:
-            return False, f"attempt {i} does not record both the checkout and the APK identity"
-        if checkout_sha != apk_sha:
-            return False, f"attempt {i} ran an APK that is not the checkout build ({apk_sha} vs {checkout_sha})"
-        builds.add(checkout_sha)
-        mv = attempt.get("maestro_version")
-        if not mv:
-            return False, f"attempt {i} does not record the Maestro version"
-        mversions.add(mv)
-    if len(envs) > 1:
-        return False, "qualification attempts do not share one documented environment"
-    if len(builds) > 1:
-        return False, "qualification attempts do not share one build identity"
-    if len(mversions) > 1:
-        return False, "qualification attempts do not share one Maestro version"
+        issues = attempt_admission_issues(attempt, i)
+        if issues:
+            return False, issues[0]
+    issues = record_consistency_issues(record)
+    if issues:
+        return False, issues[0]
     return True, ""
 
 
