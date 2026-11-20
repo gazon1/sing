@@ -305,6 +305,17 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(keep.is_file())
         self.assertEqual(keep.read_text(encoding='utf-8'), 'not ours')
 
+    def test_a_marker_with_the_wrong_text_is_not_a_claim_of_ownership(self):
+        # The name of the marker is not a proof that the renderer wrote it.
+        self.out.mkdir()
+        (self.out / mod.OUT_MARKER).write_text('somebody else\n', encoding='utf-8')
+        keep = self.out / 'notes.txt'
+        keep.write_text('not ours', encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = mod.main(['--raw-dir', str(self.raw), '--out-dir', str(self.out)])
+        self.assertNotEqual(code, mod.EXIT_OK)
+        self.assertTrue(keep.is_file())
+
     def test_a_set_of_one_screenshot_is_refused(self):
         # Play wants 2 to 8 screenshots in a phone listing.
         self.assertNotEqual(self.render_world(1), mod.EXIT_OK)

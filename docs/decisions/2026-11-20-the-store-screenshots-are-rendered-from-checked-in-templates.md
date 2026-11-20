@@ -164,8 +164,9 @@ the capture device's contract is written down.
   the set was verified with — Pillow's own releases do not promise the same
   pixels, and the set's promise is the same picture from the same raw capture.
 - The renderer wipes its output directory before every run. It only wipes a
-  directory it wrote itself — it leaves a marker file in it — so a directory
-  that holds files of somebody else's is refused instead of deleted.
+  directory it wrote itself — it leaves a marker file in it and checks what
+  that marker says before it deletes anything — so a directory that holds
+  files of somebody else's is refused instead of deleted.
 - The capture manifest decides the order of the set: the renderer walks the
   manifest's captures and looks up the composition for each one. The templates
   say what a picture looks like and what it says, not where it stands in the

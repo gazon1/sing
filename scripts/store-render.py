@@ -74,6 +74,10 @@ OUT_DIR = ROOT / "build" / "store-assets"
 #: the renderer's to wipe.
 OUT_MARKER = ".store-render-output"
 
+#: What the marker says. The name alone is not a proof of ownership — a
+#: directory that holds a file with that name is still somebody else's.
+OUT_MARKER_TEXT = "store-render.py output marker\n"
+
 #: Google Play's rules for phone screenshots, as of 2026-11-20
 #: (https://support.google.com/googleplay/android-developer/answer/9866151):
 #: PNG or JPEG, each side between 320 and 3840 px, and the longest side no
@@ -728,6 +732,21 @@ def refuse_unsafe_out_dir(out_dir: Path, raw_dir: Path) -> None:
         )
 
 
+def owns_out_dir(out_dir: Path) -> bool:
+    """Whether the output directory is one this renderer wrote.
+
+    The marker has to carry more than its name: a directory that holds a
+    file called `.store-render-output` is not the renderer's directory.
+    """
+    marker = out_dir / OUT_MARKER
+    if not marker.is_file():
+        return False
+    try:
+        return marker.read_text(encoding="utf-8") == OUT_MARKER_TEXT
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def wipe_out_dir(out_dir: Path) -> None:
     """Empty the output directory — but only one this renderer wrote.
 
@@ -739,10 +758,11 @@ def wipe_out_dir(out_dir: Path) -> None:
         return
     if not out_dir.is_dir():
         raise RenderError(f"the output path {out_dir} is not a directory")
-    if not (out_dir / OUT_MARKER).is_file() and any(out_dir.iterdir()):
+    if not owns_out_dir(out_dir) and any(out_dir.iterdir()):
         raise RenderError(
             f"the output directory {out_dir} holds files this renderer did "
-            "not write — refusing to delete them"
+            "not write — refusing to delete them. Remove it yourself if it is "
+            "yours."
         )
     shutil.rmtree(out_dir)
 
@@ -789,11 +809,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
         wipe_out_dir(out_dir)
         out_dir.mkdir(parents=True)
-        (out_dir / OUT_MARKER).write_text(
-            "Written by scripts/store-render.py. The renderer wipes this "
-            "directory on every run.\n",
-            encoding="utf-8",
-        )
+        (out_dir / OUT_MARKER).write_text(OUT_MARKER_TEXT, encoding="utf-8")
     except RenderError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_SETUP
