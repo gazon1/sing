@@ -48,8 +48,10 @@ structural/usage/operation failure reported as JSON, 1 on internal failure.
 For the MCP-server host itself (the long-lived runtime an agent drives through the `screen_*` tools):
 
 ```bash
-# via MCP server jar
-java -jar mcp-server/build/libs/mcp-server.jar --inspector --profile-id=<id>
+# via MCP server jar (development run: the debug property the opt-in resolution reads)
+java -Dsingularity.debug=true \
+  -jar mcp-server/build/libs/mcp-server.jar \
+  --inspector --profile-id=<id>
 
 # via desktop launcher in tool-server mode
 ./path/to/singularity-todo --mcp-server --inspector --profile-id=<id>
