@@ -99,6 +99,102 @@ class FingerprintTest(unittest.TestCase):
         self.assertIn("Maestro/helpers/b.yaml", deps)
 
 
+class ReferenceDiscoveryTest(unittest.TestCase):
+    """The references a flow makes are read from the document, not from lines.
+
+    A reference the scanner misses is a dependency the fingerprint does not
+    cover: the helper changes, the fingerprint does not, and a changed helper
+    enters a blocking scope without anyone qualifying it again.
+    """
+
+    def test_trailing_comment_does_not_hide_a_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/helpers/h.yaml", "appId: x\n---\n- tapOn: a\n")
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runFlow:\n    file: ../../helpers/h.yaml # shared setup\n",
+            )
+            refs = mod.flow_refs(root / "Maestro/flows/tasks/01-a.yaml")
+        self.assertEqual(["../../helpers/h.yaml"], refs)
+
+    def test_trailing_comment_on_an_inline_runflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runFlow: ../../helpers/h.yaml # shared setup\n",
+            )
+            refs = mod.flow_refs(root / "Maestro/flows/tasks/01-a.yaml")
+        self.assertEqual(["../../helpers/h.yaml"], refs)
+
+    def test_trailing_comment_on_a_quoted_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                'appId: x\n---\n- runFlow:\n    file: "../../helpers/h.yaml" # shared setup\n',
+            )
+            refs = mod.flow_refs(root / "Maestro/flows/tasks/01-a.yaml")
+        self.assertEqual(["../../helpers/h.yaml"], refs)
+
+    def test_trailing_comment_on_a_script_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/helpers/s.js", "function main() {}\n")
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runScript: ../../helpers/s.js # cleanup\n",
+            )
+            deps = mod.flow_dependencies("Maestro/flows/tasks/01-a.yaml", root)
+        self.assertIn("Maestro/helpers/s.js", deps)
+
+    def test_a_commented_helper_is_part_of_the_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/helpers/h.yaml", "appId: x\n---\n- tapOn: a\n")
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runFlow:\n    file: ../../helpers/h.yaml # shared setup\n",
+            )
+            fp1 = mod.fingerprint("Maestro/flows/tasks/01-a.yaml", root)
+            write_flow(root / "Maestro/helpers/h.yaml", "appId: x\n---\n- tapOn: b\n")
+            fp2 = mod.fingerprint("Maestro/flows/tasks/01-a.yaml", root)
+        self.assertNotEqual(fp1, fp2)
+
+    def test_a_flow_named_instead_of_pathed_is_a_dependency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/flows/tasks/sub.yaml", "appId: x\n---\n- tapOn: a\n")
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runFlow: sub\n",
+            )
+            deps = mod.flow_dependencies("Maestro/flows/tasks/01-a.yaml", root)
+        self.assertIn("Maestro/flows/tasks/sub.yaml", deps)
+
+    def test_a_reference_that_is_not_a_flow_file_is_not_a_dependency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/capture/01-today.png", "not a flow\n")
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- copyTextFrom: ../../capture/01-today.png\n",
+            )
+            deps = mod.flow_dependencies("Maestro/flows/tasks/01-a.yaml", root)
+        self.assertEqual(["Maestro/flows/tasks/01-a.yaml"], deps)
+
+    def test_a_document_yaml_cannot_parse_falls_back_to_a_line_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runFlow: ../../helpers/h.yaml\n  broken: [unclosed\n",
+            )
+            refs = mod.flow_refs(root / "Maestro/flows/tasks/01-a.yaml")
+        self.assertEqual(["../../helpers/h.yaml"], refs)
+
+
 class AdmissionTest(unittest.TestCase):
     def _tree(self):
         tmp = tempfile.TemporaryDirectory()

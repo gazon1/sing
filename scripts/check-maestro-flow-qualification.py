@@ -135,11 +135,13 @@ BASELINE_DIGEST = "sha256:5beec8064bb20ca705b40b09fcf5d5a98e544c6fef073bf3842fde
 #: a helper script, and content the fingerprint does not cover is content the
 #: qualification cannot attest to.
 _REF_PATTERN = r"[^\s#'\"]+\.(?:ya?ml|js|mjs|cjs)"
-_FILE_REF = re.compile(rf"(?m)^\s*(?:-\s*)?file:\s*['\"]?({_REF_PATTERN})['\"]?\s*$")
-_RUNFLOW_REF = re.compile(rf"(?m)^\s*-\s*runFlow:\s*['\"]?({_REF_PATTERN})['\"]?\s*$")
-_SCRIPT_REF = re.compile(rf"(?m)^\s*-\s*runScript:\s*['\"]?({_REF_PATTERN})['\"]?\s*$")
-#: Every reference a flow or a helper can make.
-_ALL_REFS = (_FILE_REF, _RUNFLOW_REF, _SCRIPT_REF)
+#: The extensions a reference can name. A reference to anything else (an image
+#: a capture step reads, for instance) is not a flow the qualification runs.
+_REF_EXTENSIONS = (".yaml", ".yml", ".js", ".mjs", ".cjs")
+#: The fallback scan, for a document YAML cannot parse: the same references,
+#: found by line. It tolerates a trailing comment, because a comment is valid
+#: YAML and a reference behind one is a reference.
+_LINE_REF = re.compile(rf"(?m)^\s*(?:-\s*)?(?:file|runFlow|runScript):\s*['\"]?({_REF_PATTERN})['\"]?\s*(?:#.*)?$")
 
 #: The tree a flow is qualified against: the `Maestro/` flow tree, relative to
 #: the repository root.
@@ -216,6 +218,67 @@ def resolve_ref(ref: str, source: pathlib.Path, root: pathlib.Path) -> pathlib.P
     return candidate if candidate.is_file() else None
 
 
+def _collect_references(node: object, values: list[tuple[str, str]]) -> None:
+    """Collect the references a parsed document makes, as (kind, value) pairs.
+
+    `file` names a file, `runScript` names a script, `runFlow` names a flow --
+    either by path or by the name it is known under.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(value, str):
+                if key == "file":
+                    values.append(("file", value))
+                elif key == "runScript":
+                    values.append(("script", value))
+                elif key == "runFlow":
+                    values.append(("flow", value))
+            _collect_references(value, values)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_references(item, values)
+
+
+def _reference_values(path: pathlib.Path, text: str) -> list[tuple[str, str]]:
+    """The references a document makes, read from the document itself.
+
+    A YAML flow is read as YAML, not as lines of text: a line-based scan does
+    not know where a value ends in YAML. A trailing comment
+    (`file: helper.yaml # shared setup`) is a valid reference that a scan of
+    lines does not see, and a reference the scanner misses is a dependency the
+    fingerprint does not cover -- the helper changes, the fingerprint does not,
+    and a changed helper enters a blocking scope unrequalified.
+
+    A document YAML cannot parse falls back to a line scan: the gate still has
+    to say what it found, and a flow Maestro cannot parse cannot run either.
+    """
+    if path.suffix.lower() in (".yaml", ".yml"):
+        try:
+            documents = list(yaml.safe_load_all(text))
+        except yaml.YAMLError:
+            documents = None
+        if documents is not None:
+            values: list[tuple[str, str]] = []
+            for document in documents:
+                _collect_references(document, values)
+            return values
+    return [("file", match.group(1)) for match in _LINE_REF.finditer(text)]
+
+
+def _ref_path(kind: str, value: str) -> str | None:
+    """The path a reference names, or None when it names nothing the gate tracks."""
+    candidate = value.strip()
+    if not candidate:
+        return None
+    if candidate.lower().endswith(_REF_EXTENSIONS):
+        return candidate
+    if kind == "flow":
+        # A flow can be named instead of pathed (`runFlow: SubFlow`); Maestro
+        # looks for `SubFlow.yaml` next to the flow that names it.
+        return f"{candidate}.yaml"
+    return None
+
+
 def flow_refs(path: pathlib.Path) -> list[str]:
     """Every file reference the file at `path` makes."""
     try:
@@ -223,14 +286,13 @@ def flow_refs(path: pathlib.Path) -> list[str]:
     except OSError:
         return []
     refs: list[str] = []
-    for pattern in _ALL_REFS:
-        for match in pattern.finditer(text):
-            ref = match.group(1)
-            # The same reference can be named by two patterns -- a `runScript`
-            # with an inline path also carries a `file:` line -- and one
-            # reference is one dependency.
-            if ref not in refs:
-                refs.append(ref)
+    for kind, value in _reference_values(path, text):
+        ref = _ref_path(kind, value)
+        # The same reference can be named twice -- a `runScript` with an inline
+        # path also carries a `file:` line -- and one reference is one
+        # dependency.
+        if ref is not None and ref not in refs:
+            refs.append(ref)
     return refs
 
 
