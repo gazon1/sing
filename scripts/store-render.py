@@ -69,6 +69,11 @@ CAPTURE_MANIFEST_PATH = ROOT / "Maestro" / "capture" / "manifest.yaml"
 RAW_DIR = ROOT / "build" / "store-capture"
 OUT_DIR = ROOT / "build" / "store-assets"
 
+#: The marker the renderer writes into its output directory. The directory is
+#: wiped before every run, and a directory the renderer did not write is not
+#: the renderer's to wipe.
+OUT_MARKER = ".store-render-output"
+
 #: Google Play's rules for phone screenshots, as of 2026-11-20
 #: (https://support.google.com/googleplay/android-developer/answer/9866151):
 #: PNG or JPEG, each side between 320 and 3840 px, and the longest side no
@@ -723,6 +728,25 @@ def refuse_unsafe_out_dir(out_dir: Path, raw_dir: Path) -> None:
         )
 
 
+def wipe_out_dir(out_dir: Path) -> None:
+    """Empty the output directory — but only one this renderer wrote.
+
+    The output directory is wiped before every run, so it has to be a place
+    of its own. A directory that holds files this renderer did not write
+    belongs to somebody else: it is refused, not deleted.
+    """
+    if not out_dir.exists():
+        return
+    if not out_dir.is_dir():
+        raise RenderError(f"the output path {out_dir} is not a directory")
+    if not (out_dir / OUT_MARKER).is_file() and any(out_dir.iterdir()):
+        raise RenderError(
+            f"the output directory {out_dir} holds files this renderer did "
+            "not write — refusing to delete them"
+        )
+    shutil.rmtree(out_dir)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Render the set. Returns the exit code."""
     try:
@@ -762,13 +786,16 @@ def main(argv: list[str] | None = None) -> int:
                 raise RenderError(
                     f"the raw capture {raw} is not there — run the capture command first"
                 )
+        wipe_out_dir(out_dir)
+        out_dir.mkdir(parents=True)
+        (out_dir / OUT_MARKER).write_text(
+            "Written by scripts/store-render.py. The renderer wipes this "
+            "directory on every run.\n",
+            encoding="utf-8",
+        )
     except RenderError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_SETUP
-
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True)
 
     entries: list[dict] = []
     pictures: list[tuple[Screenshot, Image.Image]] = []

@@ -59,6 +59,10 @@ boxes. A headline that does not fit the canvas — a word wider than the line,
 or more lines than the template allows — is refused too, rather than drawn
 past the margin.
 
+The output directory is the renderer's own: it is wiped before every run, so
+the renderer wipes only a directory it wrote itself and refuses one that holds
+somebody else's files.
+
 **Replace.** To publish a new set, capture again and render again — the same
 two commands. To change what a picture *says*, edit the headline in
 `store/templates.yaml` and re-run `just sr`; no picture is edited by hand. To

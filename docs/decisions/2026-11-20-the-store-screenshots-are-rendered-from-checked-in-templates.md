@@ -161,6 +161,9 @@ the capture device's contract is written down.
 - The renderer needs Pillow and PyYAML. Both come with the repository's own
   tooling (`pip install -e scripts/src/`); Pillow is declared in
   `scripts/src/pyproject.toml` so CI's venv has it.
+- The renderer wipes its output directory before every run. It only wipes a
+  directory it wrote itself — it leaves a marker file in it — so a directory
+  that holds files of somebody else's is refused instead of deleted.
 - `scripts/tests/test_store_render.py` covers the pure parts: the templates
   and the captures covering each other, the font being checked in, the font
   drawing every headline (and refusing one it cannot), a headline that does not
