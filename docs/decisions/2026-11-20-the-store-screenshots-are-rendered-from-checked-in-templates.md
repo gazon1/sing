@@ -160,7 +160,9 @@ the capture device's contract is written down.
   set fails the check, so it can be used in a script without being read.
 - The renderer needs Pillow and PyYAML. Both come with the repository's own
   tooling (`pip install -e scripts/src/`); Pillow is declared in
-  `scripts/src/pyproject.toml` so CI's venv has it.
+  `scripts/src/pyproject.toml` so CI's venv has it, and pinned to the version
+  the set was verified with — Pillow's own releases do not promise the same
+  pixels, and the set's promise is the same picture from the same raw capture.
 - The renderer wipes its output directory before every run. It only wipes a
   directory it wrote itself — it leaves a marker file in it — so a directory
   that holds files of somebody else's is refused instead of deleted.

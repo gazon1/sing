@@ -16,7 +16,9 @@ dependencies = [
     # The store screenshot renderer (scripts/store-render.py) draws the
     # compositions: a canvas, a font and a rectangle. Pillow is the whole
     # drawing stack — no design tool, no browser, no rendering engine.
-    "pillow>=10.1",
+    # Pinned, because the renderer promises the same picture from the same
+    # raw capture every time, and Pillow's own releases do not promise that.
+    "pillow==12.3.0",
     # The git operations of the gate tooling (the merge base, the diffs, the
     # untracked files) are GitPython's, not a hand-written `git` wrapper.
     "GitPython==3.2.1",

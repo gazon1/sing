@@ -48,7 +48,8 @@ just sr    # render the store screenshots from them
 ```
 
 The renderer needs Pillow and PyYAML, which come with the repository's own
-tooling: `pip install -e scripts/src/`.
+tooling: `pip install -e scripts/src/`. Pillow is pinned, because the renderer
+promises the same picture from the same raw capture every time.
 
 `just sr` alone is enough when the raw captures are already there (after
 `just sc`, or after a capture run in CI). It writes into `build/store-assets/`
