@@ -247,6 +247,7 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
     # sequence must be >= required, all in the same environment and build.
     envs = set()
     builds = set()
+    mversions = set()
     for i, attempt in enumerate(attempts, start=1):
         if not isinstance(attempt, dict):
             return False, f"attempt {i} is not a mapping"
@@ -257,34 +258,24 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
             return False, f"attempt {i} was an infrastructure failure (not a successful test attempt)"
         if outcome != "pass":
             return False, f"attempt {i} has outcome {outcome!r}, not a passing test attempt"
-        env = attempt.get("environment") or record.get("environment") or {}
+        env = attempt.get("environment")
+        if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
+            return False, f"attempt {i} does not record a documented environment (kind/api)"
         envs.add(_env_key(env))
-        build = attempt.get("apk_commit_sha") or attempt.get("commit") or record.get("apk_commit_sha") or record.get("commit")
+        build = attempt.get("apk_commit_sha") or attempt.get("commit")
+        if not build:
+            return False, f"attempt {i} does not record build identity (commit/apk_commit_sha)"
         builds.add(build)
-    if len(envs) != 1 or envs == {()}:
-        # allow missing env fields only if consistently missing (legacy), but prefer documented
-        pass
-    if len(builds) != 1 or builds == {None}:
-        pass
-    # Environment/build identity must be documented.
-    env = record.get("environment") or {}
-    if not env:
-        # try to read from attempts
-        for attempt in attempts:
-            if isinstance(attempt, dict) and attempt.get("environment"):
-                env = attempt["environment"]
-                break
-    if not isinstance(env, dict) or not env.get("kind") or env.get("api") is None:
-        return False, "qualification does not record a documented environment (kind/api)"
-    if not (record.get("commit") or record.get("apk_commit_sha") or any(isinstance(a, dict) and (a.get("commit") or a.get("apk_commit_sha")) for a in attempts)):
-        return False, "qualification does not record build identity (commit/apk_commit_sha)"
-    if not (record.get("maestro_version") or any(isinstance(a, dict) and a.get("maestro_version") for a in attempts)):
-        return False, "qualification does not record the Maestro version"
-    # Consistency across attempts
+        mv = attempt.get("maestro_version")
+        if not mv:
+            return False, f"attempt {i} does not record the Maestro version"
+        mversions.add(mv)
     if len(envs) > 1:
         return False, "qualification attempts do not share one documented environment"
     if len(builds) > 1:
         return False, "qualification attempts do not share one build identity"
+    if len(mversions) > 1:
+        return False, "qualification attempts do not share one Maestro version"
     return True, ""
 
 

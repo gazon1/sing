@@ -141,6 +141,7 @@ class AdmissionTest(unittest.TestCase):
                     "environment": {"kind": "device", "api": 35, "device": "RMX3938", "serial": "s"},
                     "commit": "abc123",
                     "apk_commit_sha": "abc123",
+                    "maestro_version": "2.0.0",
                 }
             )
         return {
@@ -170,6 +171,70 @@ class AdmissionTest(unittest.TestCase):
         findings, counts = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual(findings, [])
         self.assertEqual(counts["qualified"], 1)
+
+    def test_top_level_metadata_does_not_fill_missing_attempt_environment(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        fp = mod.fingerprint(flow, root)
+        record = self._qualified_record(fp, ["pass", "pass", "pass"])
+        record["attempts"][1].pop("environment", None)
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: record},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified"])
+        self.assertIn("attempt 2 does not record a documented environment", findings[0].detail)
+
+    def test_top_level_metadata_does_not_fill_missing_attempt_build_identity(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        fp = mod.fingerprint(flow, root)
+        record = self._qualified_record(fp, ["pass", "pass", "pass"])
+        record["attempts"][0].pop("commit", None)
+        record["attempts"][0].pop("apk_commit_sha", None)
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: record},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified"])
+        self.assertIn("attempt 1 does not record build identity", findings[0].detail)
+
+    def test_top_level_metadata_does_not_fill_missing_attempt_maestro_version(self):
+        root, flow, catalogue, baseline, evidence = self._tree()
+        baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}, sort_keys=False))
+        fp = mod.fingerprint(flow, root)
+        record = self._qualified_record(fp, ["pass", "pass", "pass"])
+        record["attempts"][2].pop("maestro_version", None)
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: record},
+                    "exceptions": {},
+                },
+                sort_keys=False,
+            )
+        )
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["not qualified"])
+        self.assertIn("attempt 3 does not record the Maestro version", findings[0].detail)
 
     def test_flaky_not_qualified(self):
         root, flow, catalogue, baseline, evidence = self._tree()
