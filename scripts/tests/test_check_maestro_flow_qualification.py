@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import yaml
 
@@ -302,6 +303,40 @@ class QualificationRunnerPolicyTest(unittest.TestCase):
             self.assertEqual((data.get("qualifications") or {}), {})
             self.assertFalse(out.exists(), "runner must not execute attempts or create artifacts")
 
+    def test_extra_args_cannot_override_maestro_max_retries(self):
+        root = pathlib.Path(__file__).resolve().parent.parent.parent
+        runner = root / "scripts" / "maestro-qualify-flows.py"
+        flow = "Maestro/flows/tasks/01-set-priority.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            evidence = tmp_path / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            for extra in (["--", "--maestro-max-retries", "2"], ["--", "--maestro-max-retries=2"]):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(runner),
+                        "--flow",
+                        flow,
+                        "--attempts",
+                        "3",
+                        "--evidence",
+                        str(evidence),
+                    ]
+                    + extra,
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("must not include --maestro-max-retries", result.stdout + result.stderr)
+
 
 class QualificationRunnerOutcomeTest(unittest.TestCase):
     def setUp(self):
@@ -336,6 +371,45 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         self.assertNotEqual(attempt.outcome, "pass")
         self.assertEqual(attempt.outcome, "test_failure")
         self.assertIn("retried internally", attempt.reason)
+
+    def test_stale_passing_artifacts_not_used_on_failed_invocation(self):
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            attempt_dir = out / "01-a" / "attempt-1"
+            attempt_dir.mkdir(parents=True)
+            passing_junit = (
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>"
+            )
+            (attempt_dir / "01-a.xml").write_text(passing_junit, encoding="utf-8")
+            (attempt_dir / "run-summary.json").write_text(
+                json.dumps({"passed": ["01-a"], "failed": [], "retried": [], "not_measured": []}),
+                encoding="utf-8",
+            )
+            (attempt_dir / "environment.json").write_text("{}", encoding="utf-8")
+            # Failed new invocation produces no fresh reports; stale files must not count.
+            with mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=2)):
+                attempt = self.mod.run_one_attempt(flow, 1, out, None, None, False, False, [])
+        self.assertEqual(attempt.outcome, "infra_failure")
+        self.assertNotIn("SUCCESS", attempt.reason or "")
+
+    def test_nonzero_return_code_with_passing_report_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "01-a.xml").write_text(
+                "<?xml version='1.0'?>\n"
+                "<testsuites><testsuite tests=\"1\" failures=\"0\">"
+                "<testcase id=\"a\" name=\"a\" status=\"SUCCESS\"/></testsuite></testsuites>",
+                encoding="utf-8",
+            )
+            (d / "run-summary.json").write_text(
+                json.dumps({"passed": ["01-a"], "failed": [], "retried": [], "not_measured": []}),
+                encoding="utf-8",
+            )
+            attempt = self.mod.classify_attempt("Maestro/flows/tasks/01-a.yaml", d, 2)
+        self.assertEqual(attempt.outcome, "infra_failure")
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ import json
 import os
 import pathlib
 import shlex
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -132,6 +133,8 @@ def classify_attempt(flow_rel: str, results_dir: pathlib.Path, return_code: int)
             outcome, reason = "test_failure", "flow retried internally during attempt (not a clean pass)"
     if not junit.is_file():
         outcome, reason = "infra_failure", reason or "no JUnit report produced for the flow"
+    if return_code != 0 and outcome == "pass":
+        outcome, reason = "infra_failure", f"maestro runner exited with code {return_code} despite a passing report"
     return Attempt(
         attempt=0,
         outcome=outcome,
@@ -155,6 +158,9 @@ def _inside(path: pathlib.Path, root: pathlib.Path) -> bool:
 def run_one_attempt(flow_rel: str, attempt: int, out_base: pathlib.Path, serial: str | None, engine: str | None, skip_install: bool, allow_stale_apk: bool, extra: list[str]) -> Attempt:
     flow_path = ROOT / flow_rel
     attempt_dir = out_base / pathlib.PurePosixPath(flow_rel).stem / f"attempt-{attempt}"
+    # Never read stale artifacts from a previous invocation of this attempt slot.
+    if attempt_dir.exists():
+        shutil.rmtree(attempt_dir)
     attempt_dir.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-m", "emulator.maestro", "--flow", str(flow_path), "--junit-dir", str(attempt_dir)]
     if serial:
@@ -416,6 +422,13 @@ def main(argv=None) -> int:
     extra = list(args.extra)
     if extra[:1] == ["--"]:
         extra = extra[1:]
+    for token in extra:
+        if token == "--maestro-max-retries" or token.startswith("--maestro-max-retries="):
+            print(
+                "extra arguments must not include --maestro-max-retries (qualification disables internal retries)",
+                file=sys.stderr,
+            )
+            return 2
 
     required = args.attempts
     all_results = []
