@@ -41,6 +41,8 @@ tags:
     id: calendar_view_mode_four_days
 - tapOn:
     id: calendar_view_mode_week
-# The dropdown closes after selection.  The flow is a smoke test — a crash
-# or hang would fail the flow; we simply verify it completes without error.
-- waitForAnimationToEnd
+# Selecting a mode closes the dropdown; the options are no longer visible.
+- extendedWaitUntil:
+    notVisible:
+      id: calendar_view_mode_month
+    timeout: 8000

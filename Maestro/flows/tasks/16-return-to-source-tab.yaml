@@ -49,11 +49,8 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 # Navigating away from the detail screen auto-saves (no explicit save needed).
+# The outcome: the editor closes and we are back on Today with the task visible.
 - pressKey: BACK
-# Wait for the editor close animation to finish before the agenda re-renders.
-- waitForAnimationToEnd:
-    timeout: 2000
-# Verify we are back on the Today tab with the task row visible.
 - extendedWaitUntil:
     visible:
       id: "task_item_return_to_today"
@@ -85,10 +82,8 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
+# Back returns to the Inbox tab; the task row is the outcome.
 - pressKey: BACK
-- waitForAnimationToEnd:
-    timeout: 2000
-# Verify we are back on the Inbox tab (task row still visible).
 - extendedWaitUntil:
     visible:
       id: "task_item_return_to_inbox"

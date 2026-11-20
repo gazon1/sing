@@ -262,12 +262,17 @@ step time, not at authoring time:
 
 ## Animation and timing
 
-- **`waitForAnimationToEnd` after PORTRAIT rotation: use 5 000 ms, not 2 000 ms.**
-  The CI emulator is slower to complete the LANDSCAPE→PORTRAIT transition than a
-  local machine. Flows that rotate back to portrait and immediately assert
-  UI state will flake on CI with 2 000 ms.
-- **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
-  genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
+- **Action → outcome.** After each meaningful action wait for/assert the expected
+  user-visible outcome before continuing (`extendedWaitUntil` / `assertVisible` /
+  `assertNotVisible`) so a failure names the action/state that did not occur. Before
+  tapping a critical control, wait for it to be `visible` (and scrolled into view) — a
+  selector present in the tree is not proof it is actionable on screen.
+- **No blind waits.** Never use `delay`/sleep. Do not use `waitForAnimationToEnd`
+  when a specific observable condition is available — wait for that condition. A fixed
+  animation wait (including after rotation) is a last resort only when no stable
+  condition can be observed; prefer a bounded `extendedWaitUntil` on the resulting state.
+- **Cold start.** Use a bounded `extendedWaitUntil` for the shell (e.g. `nav_tab_today`);
+  cold start genuinely needs time (Koin + Room + DataStore migrations + calendar sync).
 - **`hideKeyboard` is a commit, not a dismiss.** Never place it before the
   `task_editor_save` tap — the following step fails on a screen that is already
   gone. Use it only when leaving an editor is the intent, and assert on the

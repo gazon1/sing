@@ -127,17 +127,14 @@ tags:
 - tapOn:
     id: dialog_date_picker_ok
 
-# The date picker closes and the new due date is already applied: the task detail
-# editor edits live (TaskDetailContent passes bottomBar = null and wires each row
-# straight to coordinator.onIntent), so there is no save button to press here.
-# Back simply returns to Inbox.
-- waitForAnimationToEnd
+# Confirm closes the date picker and applies the date (the detail editor edits
+# live), so wait for the sheet to close before leaving the editor.
+- extendedWaitUntil:
+    notVisible:
+      id: dialog_date_picker_sheet
+    timeout: 8000
+# Back returns to Inbox; the dated task leaves the inbox.
 - back
-- waitForAnimationToEnd
-
-# Back on the Inbox tab. The task is now dated, so it moved out of "No Date" —
-# and out of the inbox altogether: the inbox holds the undated tasks, the dated
-# ones belong to the Today or the Upcoming tab.
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox

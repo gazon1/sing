@@ -194,25 +194,69 @@ goes through `runFlow … env:` and the helper waits for `${NAME}`.
 
 ---
 
-## Timeouts
+## Action → outcome (waits and postconditions)
 
-Use `extendedWaitUntil` with a specific condition — never a fixed `delay`.
+Drive flows as **action → bounded wait/assertion → next action**. After each meaningful
+action, wait for or assert the expected user-visible outcome before continuing, so a
+failure names the action/state that did not occur instead of cascading into later steps.
+
+- **No blind waits.** Never use a fixed `delay`/sleep. Do not use `waitForAnimationToEnd`
+  (with or without a timeout) when a specific observable condition is available — wait
+  for that condition instead (`extendedWaitUntil` / `assertVisible` / `assertNotVisible`).
+  `waitForAnimationToEnd` is only a last resort when animation genuinely blocks
+  visibility checks and no stable condition can be observed; prefer a bounded condition.
+- **Assert meaningful outcomes.** Editor opens, sheet/dialog opens or closes, task/row
+  appears or disappears, checked state changes, mode/tab/screen becomes active, typed
+  text is visible, save/navigation lands on the expected screen — assert the outcome the
+  user would see. Do not assert implementation details or duplicate every intermediate
+  animation.
+- **Controls must be visible/actionable, not just present.** Before tapping a critical
+  control, wait for it to be `visible` (and scroll it into view when needed). A selector
+  existing in the UI/accessibility tree is not enough if the control is obscured or off
+  screen.
+- **Prefer bounded waits.** Use `extendedWaitUntil` with an explicit timeout when the
+  outcome may take time; use `assertVisible`/`assertNotVisible` when it must already hold.
 
 ```yaml
-# ✅ Correct
+# ✅ Correct — wait for the control, act, then assert the outcome
 - extendedWaitUntil:
     visible:
-      id: nav_tab_today
-    timeout: 30000
+      id: task_editor_save
+    timeout: 8000
+- tapOn:
+    id: task_editor_save
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
 
-# ❌ Wrong — no condition, arbitrary sleep
+# ✅ Correct — dialog closes and result is visible
+- tapOn:
+    id: dialog_confirm
+- extendedWaitUntil:
+    notVisible:
+      id: dialog_confirm
+    timeout: 8000
+- assertVisible:
+    id: expected_result
+
+# ✅ Correct — state change
+- tapOn:
+    id: task_checkbox_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_checkbox_buy_milk
+      checked: true
+    timeout: 5000
+
+# ❌ Wrong — blind fixed/animation wait instead of an observable outcome
+- tapOn:
+    id: task_editor_save
 - waitForAnimationToEnd:
     timeout: 2000
+- tapOn:
+    id: next_step
 ```
-
-Exception: `waitForAnimationToEnd` may be used as a fallback when the app uses animations
-that interfere with visibility checks (e.g., shared element transitions), but a specific
-id assertion is always preferred.
 
 ### Timeout budget
 

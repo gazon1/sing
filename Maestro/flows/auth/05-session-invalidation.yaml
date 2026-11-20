@@ -48,7 +48,10 @@ tags:
 # bottom sheet, and the Account tab is the last row of its last group, so the
 # helper opens the sheet and scrolls the row into view before tapping it.
 - runFlow: ../../helpers/open-app-menu.yaml
-- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: menu_sheet
+    timeout: 5000
 - scrollUntilVisible:
     element:
       id: menu_sheet
