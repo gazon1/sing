@@ -609,9 +609,9 @@ SCRIPT_GATES = [
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
         # this entry exists so Part B proves the gate can actually fail.
         why=(
-            "a flow removed from the qualification baseline is no longer admitted to "
-            "a blocking automated scope; without qualification or an evidence-backed "
-            "exception the gate must refuse it"
+            "a flow that leaves the manual scope enters a blocking automated scope "
+            "with nothing qualified it and nothing baselined it — the gate must "
+            "refuse it rather than let the suite run it as if it had been shown to pass"
         ),
     ),
     ScriptGate(

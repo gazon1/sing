@@ -1425,14 +1425,15 @@ GATE_CONTROLS: dict[str, Control] = {
         kind='sabotage',
         proves='scripts/check-maestro-flow-qualification.py',
         argv=('{python}', 'scripts/check-maestro-flow-qualification.py'),
-        path='config/docs/maestro-flow-qualification-baseline.yaml',
-        edit=Edit(
-            kind='regex',
-            pattern=r'^  Maestro/flows/smoke/01-launch-today\.yaml: sha256:[0-9a-f]{64}\n',
-            repl='',
-            flags='MULTILINE',
+        path='Maestro/flows/capture/01-today.yaml',
+        edit=Edit(kind='drop_lines', old='- manual'),
+        why=(
+            'a flow that leaves the manual scope without a word enters a blocking '
+            'automated scope: nobody qualified it, nothing baselined it, and the '
+            'suite would run it as if it had been shown to pass. The probe drops '
+            'exactly the tag that keeps the flow out of the blocking scopes, and '
+            'the gate must refuse it'
         ),
-        why='a flow removed from the baseline is no longer admitted to a blocking scope; without qualification or an evidence-backed exception the gate must refuse it, so an unqualified flow cannot enter a blocking suite silently',
     ),
     'maestro-keyboard-commands': Control(kind='sabotage', proves='scripts/check-maestro-keyboard-commands.py', argv=('{python}', 'scripts/check-maestro-keyboard-commands.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- hideKeyboard\n- assertVisible:\n    id: tasks_fab', count=1), why='a `hideKeyboard` that follows nothing but assertions is a BACK keypress in disguise: the editors are dialogs, so BACK dismisses them, and the flow then fails on an element the editor was holding. The probe adds exactly that command to a flow that types nothing, and the gate must say so instead of reading the flow as well-formed'),
     'maestro-screen-geometry': Control(kind='sabotage', proves='scripts/check-maestro-screen-geometry.py', argv=('{python}', 'scripts/check-maestro-screen-geometry.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- swipe:\n    start: 105, 2000\n    end: 105, 1600\n- assertVisible:\n    id: tasks_fab', count=1), why='a flow that swipes to a point in pixels only works on the display it was measured on: on a 720x1600 phone the start point is off-screen, the swipe never happens, and the flow fails on a screen it never claimed to know about. The probe adds exactly that swipe to a flow that needs none and is not on the exceptions registry, and the gate must say so instead of reading the flow as portable'),

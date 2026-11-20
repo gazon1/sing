@@ -17,10 +17,15 @@ gate that passes.
 """
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import re
+import shutil
 import sys
+import tempfile
 import unittest
+
+import yaml
 
 
 # This script must resolve `sgate` against *this* checkout: an editable
@@ -31,8 +36,23 @@ if _SCRIPTS_SRC not in sys.path:
 
 from sgate.commands._registry import GATE_CONTROLS, GATES
 from sgate.controls import Control, Edit
+from sgate.gate_controls import control_from_edit
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+
+def _load_gate():
+    """The qualification gate itself, loaded from this checkout."""
+    path = ROOT / "scripts" / "check-maestro-flow-qualification.py"
+    spec = importlib.util.spec_from_file_location("check_maestro_flow_qualification_sgate", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+gate = _load_gate()
 
 
 def _step_containing(text: str, needle: str) -> str | None:
@@ -348,6 +368,77 @@ class TestUnchangedValidation(unittest.TestCase):
         """
         edit = Edit(kind="replace", old="a", new="b")
         self.assertIsNone(edit.repl)
+
+
+class TestTheQualificationControlProvesTheAdmissionRule(unittest.TestCase):
+    """The qualification control has to prove the rule the gate holds.
+
+    The gate admits a flow to a blocking scope on the strength of a
+    qualification, an exception, or the baseline. The baseline is pinned by a
+    digest and has unit tests of its own, so a control that tampered with the
+    baseline would prove only that the pin works -- not the admission rule the
+    gate exists to hold. The control therefore has to make the gate refuse an
+    admission it would otherwise allow: a flow that leaves the manual scope
+    with nothing qualified it.
+    """
+
+    def test_the_control_leaves_the_manual_scope_and_the_gate_refuses_it(self):
+        control = GATE_CONTROLS["maestro-flow-qualification"]
+        source = ROOT / control.path
+        self.assertTrue(source.is_file(), f"{control.path} is not in the tree")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sabotaged = pathlib.Path(tmp) / source.name
+            shutil.copy(source, sabotaged)
+            before = sabotaged.read_text(encoding="utf-8")
+            control_from_edit(control.edit)(sabotaged)
+            after = sabotaged.read_text(encoding="utf-8")
+            self.assertNotEqual(before, after, "the sabotage changed nothing")
+
+            # The flow is manual in the tree, and blocking once the tag is gone.
+            self.assertFalse(
+                gate.is_automated_blocking(source),
+                "the flow is not in the manual scope to begin with",
+            )
+            self.assertTrue(
+                gate.is_automated_blocking(sabotaged),
+                "the sabotage did not move the flow into a blocking scope",
+            )
+
+            # And the gate refuses it: nothing qualified the flow, nothing
+            # baselined it, so it cannot enter a blocking suite.
+            root = pathlib.Path(tmp) / "tree"
+            flow = "Maestro/flows/capture/01-today.yaml"
+            shutil.copytree(ROOT / "Maestro", root / "Maestro")
+            shutil.copy(sabotaged, root / flow)
+            catalogue = root / "catalogue.txt"
+            catalogue.write_text(flow + "\n", encoding="utf-8")
+            baseline = root / "baseline.yaml"
+            baseline.write_text(yaml.safe_dump({"schema": 1, "flows": {}}), encoding="utf-8")
+            initial = root / "initial.yaml"
+            initial.write_text(
+                yaml.safe_dump({"schema": 1, "initial_flows": []}), encoding="utf-8"
+            )
+            evidence = root / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}}
+                ),
+                encoding="utf-8",
+            )
+            findings, _counts = gate.scan(
+                root,
+                catalogue,
+                baseline,
+                evidence,
+                initial,
+                gate.initial_set_digest(gate.read_initial_set(initial)),
+                gate.baseline_digest(gate.read_baseline(baseline, initial)),
+            )
+        self.assertTrue(
+            [f for f in findings if f.kind == "unqualified"],
+            f"the gate did not refuse the unqualified flow: {findings}",
+        )
 
 
 if __name__ == "__main__":

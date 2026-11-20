@@ -101,6 +101,12 @@ exceptions:
 
 Exceptions are pinned to the current fingerprint and must be reissued after material changes. They are for dispositioned cases, not a blanket retry/quarantine, and must not weaken assertions, scopes, or failure floors.
 
+## The gate's own proof
+
+A gate that cannot fail proves nothing, so this gate carries a positive control: the sgate registry declares the one input change that must make it refuse, and the wiring harness applies that change and expects a failure (`scripts/src/sgate/commands/_registry.py`, control `maestro-flow-qualification`).
+
+The control drops the `manual` tag from `Maestro/flows/capture/01-today.yaml`. That flow then leaves the manual scope and enters a blocking automated scope with nothing qualified it and nothing baselined it, and the gate has to refuse it. The control deliberately does **not** tamper with the baseline: the baseline is pinned by a digest and has unit tests of its own, so a control that broke it would only prove that the pin holds — a different property from the one the gate exists to enforce. The control has to exercise the admission rule, and the admission rule is what refuses a flow nobody qualified.
+
 ## Constraints honored
 
 - Targets only affected flow(s); never the whole suite by default.
