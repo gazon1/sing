@@ -7,9 +7,11 @@ A new Maestro flow, or a materially changed one, must not enter a blocking autom
 Qualification is required when a flow can affect a blocking automated scope and either:
 
 - the flow is **new** (in `Maestro/flows/`, listed in `config/docs/maestro-flows.txt`, and not admitted yet), or
-- the flow or one of the helpers it runs (transitively, via `runFlow` / `file:` references) **materially changes**: selectors/ids or text waits, timing/waits, navigation, setup/seed/helpers, launch/state assumptions, or assertions/outcomes.
+- the flow or one of the files it runs (transitively, via `runFlow` / `file:` / `runScript` references) **materially changes**: selectors/ids or text waits, timing/waits, navigation, setup/seed/helpers, launch/state assumptions, or assertions/outcomes.
 
-The gate fingerprints each in-scope flow as the SHA-256 of the flow file and every helper it runs, transitively (`Maestro/**/*.yaml`). Any fingerprint change for a blocking-scope flow requires requalification (or an explicit evidence-backed exception for that fingerprint).
+The gate fingerprints each in-scope flow as the SHA-256 of the flow file and every file it runs, transitively — helper flows (`runFlow`, `file:`) *and* helper scripts (`runScript`). Any fingerprint change for a blocking-scope flow requires requalification (or an explicit evidence-backed exception for that fingerprint).
+
+A flow that reads content the tree cannot cover is not qualified at all. A reference by absolute path, or a relative path that climbs out of the repository, points at content that is in neither the fingerprint nor the snapshot the attempts run; the gate reports such a flow as **untracked dependency** and the runner refuses it before the first attempt. Make every reference relative to the repository.
 
 Flows tagged `manual` or `auth-live` are outside the automated blocking suites and are not subject to this gate.
 
@@ -61,7 +63,7 @@ Every attempt is represented in the qualification record/report with:
 
 Environment/build identity must be consistent across the attempts that form a qualification run. Qualification records live in `config/docs/maestro-flow-qualification.yaml` (repo-owned evidence); raw per-attempt artifacts live under `build/` and are preserved as generated run output.
 
-The attempts do not run the working tree. Before the first attempt the runner copies the `Maestro/` tree into an immutable snapshot under `build/maestro-qualification-snapshot/` and runs every attempt from there, with the layout kept so a helper reference resolves inside the snapshot exactly as it resolves in the tree. The attempts of one qualification therefore always see the same content, whatever happens to the checkout while the run is in progress.
+The attempts do not run the working tree. Before the first attempt the runner copies the `Maestro/` tree into an immutable snapshot under `build/maestro-qualification-snapshot/` and runs every attempt from there, with the layout kept so a helper reference resolves inside the snapshot exactly as it resolves in the tree. The attempts of one qualification therefore always see the same content, whatever happens to the checkout while the run is in progress. A flow that references content outside the tree is refused before the snapshot is taken: the attempts would not run it either.
 
 The **fingerprint** in the record is the one of the snapshot — the content the attempts ran. The fingerprint of the working tree is taken again after the last attempt, and a difference means the tree changed while the flow was being qualified: the record is then not written, because the tree no longer holds the version the attempts ran. A flow edited and restored between two attempts changes nothing for the record — the attempts ran the snapshot, and the tree matches it again.
 

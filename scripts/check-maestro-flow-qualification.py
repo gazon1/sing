@@ -113,9 +113,16 @@ DEFAULT_EVIDENCE = ROOT / "config" / "docs" / "maestro-flow-qualification.yaml"
 #: ``--print-initial-digest``.
 FROZEN_SET_DIGEST = "sha256:9b7797e0faa5981077509b32c8d95b8e9d7d05bc681587c4eaa40a63c88a122c"
 
-#: A reference inside a flow/helper: `file: path.yaml` or `- runFlow: path.yaml`.
-_FILE_REF = re.compile(r"(?m)^\s*(?:-\s*)?file:\s*['\"]?([^\s#'\"]+\.ya?ml)['\"]?\s*$")
-_RUNFLOW_REF = re.compile(r"(?m)^\s*-\s*runFlow:\s*['\"]?([^\s#'\"]+\.ya?ml)['\"]?\s*$")
+#: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
+#: `- runScript: path`. The extension is not restricted to YAML: a flow can run
+#: a helper script, and content the fingerprint does not cover is content the
+#: qualification cannot attest to.
+_REF_PATTERN = r"[^\s#'\"]+\.(?:ya?ml|js|mjs|cjs)"
+_FILE_REF = re.compile(rf"(?m)^\s*(?:-\s*)?file:\s*['\"]?({_REF_PATTERN})['\"]?\s*$")
+_RUNFLOW_REF = re.compile(rf"(?m)^\s*-\s*runFlow:\s*['\"]?({_REF_PATTERN})['\"]?\s*$")
+_SCRIPT_REF = re.compile(rf"(?m)^\s*-\s*runScript:\s*['\"]?({_REF_PATTERN})['\"]?\s*$")
+#: Every reference a flow or a helper can make.
+_ALL_REFS = (_FILE_REF, _RUNFLOW_REF, _SCRIPT_REF)
 
 
 @dataclass(frozen=True)
@@ -155,9 +162,7 @@ def blocking_scope_flows(catalogue: list[str], root: pathlib.Path) -> tuple[list
 
 
 def resolve_ref(ref: str, source: pathlib.Path, root: pathlib.Path) -> pathlib.Path | None:
-    """Resolve a YAML file reference relative to the file that contains it."""
-    if not ref.endswith((".yaml", ".yml")):
-        return None
+    """Resolve a file reference relative to the file that contains it."""
     candidate = (source.parent / ref).resolve()
     try:
         candidate.relative_to(root.resolve())
@@ -166,8 +171,34 @@ def resolve_ref(ref: str, source: pathlib.Path, root: pathlib.Path) -> pathlib.P
     return candidate if candidate.is_file() else None
 
 
-def flow_dependencies(flow_rel: str, root: pathlib.Path) -> list[str]:
-    """The flow and every helper it runs, transitively, as repo-relative paths."""
+def flow_refs(path: pathlib.Path) -> list[str]:
+    """Every file reference the file at `path` makes."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    refs: list[str] = []
+    for pattern in _ALL_REFS:
+        for match in pattern.finditer(text):
+            ref = match.group(1)
+            # The same reference can be named by two patterns -- a `runScript`
+            # with an inline path also carries a `file:` line -- and one
+            # reference is one dependency.
+            if ref not in refs:
+                refs.append(ref)
+    return refs
+
+
+def dependency_issues(flow_rel: str, root: pathlib.Path) -> list[str]:
+    """References of a flow that the tree it is qualified against cannot cover.
+
+    A reference that leaves the tree -- an absolute path, or a relative path
+    that climbs out of it -- is read from outside the tree the fingerprint
+    describes and outside the snapshot the attempts run. Such a flow cannot be
+    qualified: the evidence would attest to content the gate never sees, and
+    an edit there between two attempts would go unnoticed.
+    """
+    issues: list[str] = []
     seen: set[str] = set()
     stack = [flow_rel]
     while stack:
@@ -176,22 +207,40 @@ def flow_dependencies(flow_rel: str, root: pathlib.Path) -> list[str]:
             continue
         seen.add(current)
         path = root / current
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        for ref in flow_refs(path):
+            if ref.startswith("/"):
+                issues.append(f"{current} references {ref} by absolute path")
+                continue
+            candidate = (path.parent / ref).resolve()
+            try:
+                rel = candidate.relative_to(root.resolve()).as_posix()
+            except ValueError:
+                issues.append(f"{current} references {ref}, which leaves the tree")
+                continue
+            if rel not in seen:
+                stack.append(rel)
+    return issues
+
+
+def flow_dependencies(flow_rel: str, root: pathlib.Path) -> list[str]:
+    """The flow and every file it runs, transitively, as repo-relative paths."""
+    seen: set[str] = set()
+    stack = [flow_rel]
+    while stack:
+        current = stack.pop()
+        if current in seen:
             continue
-        refs: list[str] = []
-        for match in _FILE_REF.finditer(text):
-            refs.append(match.group(1))
-        for match in _RUNFLOW_REF.finditer(text):
-            refs.append(match.group(1))
-        for ref in refs:
+        seen.add(current)
+        path = root / current
+        for ref in flow_refs(path):
             resolved = resolve_ref(ref, path, root)
             if resolved is None:
                 continue
             rel = resolved.relative_to(root.resolve()).as_posix()
-            # Only Maestro YAMLs are part of the flow's contract.
-            if rel.startswith("Maestro/") and rel not in seen:
+            # Every file the flow reads is part of its contract: a helper
+            # script is content the qualification has to attest to as much as
+            # a helper flow is.
+            if rel not in seen:
                 stack.append(rel)
     return sorted(seen)
 
@@ -445,6 +494,20 @@ def scan(
 
     for flow in flows:
         fp = fingerprint(flow, root)
+        # A flow that reads content the tree does not cover cannot be admitted
+        # by anything: the fingerprint says nothing about that content, and the
+        # snapshot the attempts run does not contain it.
+        untracked = dependency_issues(flow, root)
+        if untracked:
+            findings.append(
+                Finding(
+                    flow,
+                    "untracked dependency",
+                    "; ".join(untracked)
+                    + " — the flow reads content outside the tree; make every reference relative to the repository and requalify",
+                )
+            )
+            continue
         if flow in initial_set and baseline.get(flow) == fp:
             counts["baselined"] += 1
             continue

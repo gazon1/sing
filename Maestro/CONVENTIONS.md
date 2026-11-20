@@ -174,14 +174,18 @@ reproduces the automated `full` selection; without it the CLI runs whatever
 ### Qualification before a blocking scope
 
 A new or materially changed flow (its content or any helper it runs,
-transitively) is not admitted to an automated blocking scope until it is
+transitively — helper flows and helper scripts alike) is not admitted to an
+automated blocking scope until it is
 qualified or explicitly excepted for its current fingerprint. Qualification is
 a small, bounded repeat run of the affected flow(s) in the same documented
-environment/build (default: 3 consecutive passing attempts), with every attempt
+environment/build (default: 3 consecutive passing attempts),
+with every attempt
 recorded and infrastructure failures never counted as test passes; an initial
 failure followed by a pass means the flow is flaky, not qualified. The attempts
 run an immutable snapshot of the flow tree, so they always see the same
-content, whatever happens to the checkout while the run is in progress.
+content, whatever happens to the checkout while the run is in progress. A flow
+that references content outside the repository is refused: the fingerprint and
+the snapshot both cover the repository, and nothing else.
 
 - Policy, evidence and exceptions: `docs/testing/maestro-flow-qualification.md`
 - Frozen set (pre-rule in-scope flows, pinned by a digest in the gate): `config/docs/maestro-flow-qualification-initial.yaml`

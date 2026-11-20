@@ -567,6 +567,33 @@ def main(argv=None) -> int:
 
     for flow in flows:
         print(f"\n=== {flow} ===")
+        # A flow that reads content the tree does not cover cannot be
+        # qualified at all: the fingerprint says nothing about that content,
+        # the snapshot the attempts run does not contain it, and an edit there
+        # between two attempts would go unnoticed. Refusing before the
+        # attempts saves three runs on evidence the gate cannot accept.
+        untracked = GATE.dependency_issues(flow, ROOT)
+        if untracked:
+            issues = [
+                f"{issue} — the flow reads content outside the tree; make every "
+                "reference relative to the repository and requalify"
+                for issue in untracked
+            ]
+            summary = {
+                "flow": flow,
+                "qualified": False,
+                "attempts_passed": False,
+                "attempts_run": 0,
+                "outcomes": [],
+                "record_issues": issues,
+                "record": None,
+            }
+            all_results.append(summary)
+            all_ok = False
+            print("  REFUSED: the flow was not qualified (untracked dependency)")
+            for issue in issues:
+                print(f"  note: {issue}")
+            continue
         # The attempts run against an immutable snapshot of the tree. A
         # fingerprint taken before and after the attempts would not catch a
         # flow that is edited and restored while the attempts are running:

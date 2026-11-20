@@ -1187,5 +1187,154 @@ class QualificationRecordWritingTest(unittest.TestCase):
         self.assertEqual(record["fingerprint"], fingerprint_of_snapshot)
 
 
+class UntrackedDependencyTest(unittest.TestCase):
+    """A flow that reads content outside the tree cannot be qualified.
+
+    The fingerprint describes the tree, and the attempts run a snapshot of the
+    tree. A reference that leaves it -- an absolute path, or a relative path
+    that climbs out -- points at content neither of them covers: an edit
+    there would go unnoticed, and the evidence would attest to a flow nobody
+    ran in full.
+    """
+
+    def _tree(self, flow_body: str):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        flow = "Maestro/flows/tasks/01-a.yaml"
+        write_flow(root / flow, flow_body)
+        catalogue = root / "catalogue.txt"
+        catalogue.write_text(flow + "\n")
+        baseline = root / "baseline.yaml"
+        write_initial_set(root / "initial.yaml", [flow])
+        evidence = root / "evidence.yaml"
+        evidence.write_text(
+            yaml.safe_dump(
+                {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                sort_keys=False,
+            )
+        )
+        return root, flow, catalogue, baseline, evidence
+
+    def _scan(self, root, catalogue, baseline, evidence):
+        initial = root / "initial.yaml"
+        digest = mod.initial_set_digest(mod.read_initial_set(initial))
+        return mod.scan(root, catalogue, baseline, evidence, initial, digest)
+
+    def test_absolute_reference_is_refused(self):
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runFlow: /etc/other.yaml\n"
+        )
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["untracked dependency"])
+        self.assertIn("absolute path", findings[0].detail)
+        self.assertEqual(counts["baselined"], 0)
+
+    def test_reference_leaving_the_tree_is_refused(self):
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runFlow: ../../../../outside/helper.yaml\n"
+        )
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["untracked dependency"])
+        self.assertIn("leaves the tree", findings[0].detail)
+
+    def test_baseline_does_not_admit_a_flow_with_an_untracked_dependency(self):
+        """The baseline admits a flow by fingerprint; it does not admit a lie.
+
+        The fingerprint of a flow that reads outside the tree is a fingerprint
+        of the part the tree can see. Admitting the flow on it would grant a
+        qualification for content the gate never looks at.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runScript: /opt/tools/helper.js\n"
+        )
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["untracked dependency"])
+        self.assertEqual(counts["baselined"], 0)
+
+    def test_helper_script_is_part_of_the_fingerprint(self):
+        """A helper script is content the qualification has to attest to.
+
+        A flow runs scripts through `runScript`; an edit to the script
+        changes what the flow does, so it has to change the fingerprint.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_flow(root / "Maestro/helpers/scripts/tool.js", "console.log('a');\n")
+            write_flow(
+                root / "Maestro/flows/tasks/01-a.yaml",
+                "appId: x\n---\n- runScript: ../../helpers/scripts/tool.js\n",
+            )
+            deps = mod.flow_dependencies("Maestro/flows/tasks/01-a.yaml", root)
+            self.assertIn("Maestro/helpers/scripts/tool.js", deps)
+            fp1 = mod.fingerprint("Maestro/flows/tasks/01-a.yaml", root)
+            write_flow(root / "Maestro/helpers/scripts/tool.js", "console.log('b');\n")
+            fp2 = mod.fingerprint("Maestro/flows/tasks/01-a.yaml", root)
+        self.assertNotEqual(fp1, fp2)
+
+    def test_a_flow_inside_the_tree_is_not_refused(self):
+        """The positive control: relative references inside the tree stay legal."""
+        root, flow, catalogue, baseline, evidence = self._tree(
+            "appId: x\n---\n- runFlow: ../../helpers/h.yaml\n"
+        )
+        write_flow(root / "Maestro/helpers/h.yaml", "appId: x\n---\n- tapOn: a\n")
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual(findings, [])
+        self.assertEqual(counts["baselined"], 1)
+
+
+class RunnerRefusalTest(unittest.TestCase):
+    """The runner refuses a flow it cannot qualify, before spending attempts."""
+
+    def setUp(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows", runner_path)
+        self.mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def test_flow_with_untracked_dependency_is_refused_without_attempts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            evidence = tmp_path / "evidence.yaml"
+            evidence.write_text(
+                yaml.safe_dump(
+                    {"schema": 1, "required_attempts": 3, "qualifications": {}, "exceptions": {}},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            flow = "Maestro/flows/tasks/01-a.yaml"
+            run = mock.Mock(returncode=0)
+            with mock.patch.object(
+                self.mod.GATE, "dependency_issues", return_value=["01-a.yaml references /etc/x.yaml"]
+            ):
+                with mock.patch.object(self.mod.subprocess, "run", side_effect=run):
+                    code = self.mod.main(
+                        [
+                            "--flow",
+                            flow,
+                            "--attempts",
+                            "3",
+                            "--record",
+                            "--evidence",
+                            str(evidence),
+                            "--out",
+                            str(tmp_path / "out"),
+                        ]
+                    )
+            data = yaml.safe_load(evidence.read_text(encoding="utf-8")) or {}
+        self.assertEqual(code, 1)
+        # The only command that ran is the engine version probe: no attempt ran.
+        for call_args, _ in run.call_args_list:
+            self.assertIn("--version", call_args[0])
+        self.assertEqual(data.get("qualifications") or {}, {})
+
+
 if __name__ == "__main__":
     unittest.main()
