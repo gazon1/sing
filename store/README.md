@@ -61,8 +61,8 @@ or more lines than the template allows — is refused too, rather than drawn
 past the margin.
 
 The output directory is the renderer's own: it is wiped before every run, so
-the renderer wipes only a directory it wrote itself and refuses one that holds
-somebody else's files.
+the renderer wipes only a directory it wrote itself, and only while that
+directory holds nothing but the files the renderer writes.
 
 **Replace.** To publish a new set, capture again and render again — the same
 two commands. To change what a picture *says*, edit the headline in

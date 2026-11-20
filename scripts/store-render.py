@@ -747,22 +747,33 @@ def owns_out_dir(out_dir: Path) -> bool:
         return False
 
 
-def wipe_out_dir(out_dir: Path) -> None:
+def wipe_out_dir(out_dir: Path, known: set[str]) -> None:
     """Empty the output directory — but only one this renderer wrote.
 
     The output directory is wiped before every run, so it has to be a place
-    of its own. A directory that holds files this renderer did not write
-    belongs to somebody else: it is refused, not deleted.
+    of its own: the marker has to be one this renderer wrote, and every
+    file in it has to be a file this renderer writes. Anything else belongs
+    to somebody else: it is refused, not deleted.
     """
     if not out_dir.exists():
         return
     if not out_dir.is_dir():
         raise RenderError(f"the output path {out_dir} is not a directory")
-    if not owns_out_dir(out_dir) and any(out_dir.iterdir()):
+    entries = sorted(entry.name for entry in out_dir.iterdir())
+    if not entries:
+        shutil.rmtree(out_dir)
+        return
+    if not owns_out_dir(out_dir):
+        raise RenderError(
+            f"the output directory {out_dir} is not one this renderer wrote "
+            "— refusing to delete it. Remove it yourself if it is yours."
+        )
+    unexpected = [name for name in entries if name not in known]
+    if unexpected:
         raise RenderError(
             f"the output directory {out_dir} holds files this renderer did "
-            "not write — refusing to delete them. Remove it yourself if it is "
-            "yours."
+            f"not write ({', '.join(unexpected)}) — refusing to delete them. "
+            "Remove them yourself if they are yours."
         )
     shutil.rmtree(out_dir)
 
@@ -807,7 +818,13 @@ def main(argv: list[str] | None = None) -> int:
                 raise RenderError(
                     f"the raw capture {raw} is not there — run the capture command first"
                 )
-        wipe_out_dir(out_dir)
+        known_outputs = {
+            OUT_MARKER,
+            "manifest.json",
+            "README.md",
+            "contact-sheet.png",
+        } | {shot.file for shot in template.screenshots}
+        wipe_out_dir(out_dir, known_outputs)
         out_dir.mkdir(parents=True)
         (out_dir / OUT_MARKER).write_text(OUT_MARKER_TEXT, encoding="utf-8")
     except RenderError as exc:

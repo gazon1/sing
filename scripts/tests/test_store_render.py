@@ -316,6 +316,17 @@ class RenderTest(unittest.TestCase):
         self.assertNotEqual(code, mod.EXIT_OK)
         self.assertTrue(keep.is_file())
 
+    def test_a_rendered_directory_holds_only_what_the_renderer_writes(self):
+        # A directory the renderer wrote is wiped — but only while it holds
+        # nothing but the files the renderer writes.
+        self.assertEqual(self.render(), 0)
+        keep = self.out / 'notes.txt'
+        keep.write_text('not ours', encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = mod.main(['--raw-dir', str(self.raw), '--out-dir', str(self.out)])
+        self.assertNotEqual(code, mod.EXIT_OK)
+        self.assertTrue(keep.is_file())
+
     def test_a_set_of_one_screenshot_is_refused(self):
         # Play wants 2 to 8 screenshots in a phone listing.
         self.assertNotEqual(self.render_world(1), mod.EXIT_OK)
