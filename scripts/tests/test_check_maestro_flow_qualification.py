@@ -589,7 +589,10 @@ class AdmissionTest(unittest.TestCase):
         )
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["not qualified"])
-        self.assertIn("attempt 1 does not record build identity", findings[0].detail)
+        self.assertIn(
+            "attempt 1 does not record both the checkout and the APK identity",
+            findings[0].detail,
+        )
 
     def test_top_level_metadata_does_not_fill_missing_attempt_maestro_version(self):
         root, flow, catalogue, baseline, evidence = self._tree()
@@ -1183,7 +1186,7 @@ class QualificationRunnerOutcomeTest(unittest.TestCase):
         record = self.mod.build_qualification_record(flow, attempts, "sha256:" + "0" * 64)
         issues = self.mod.record_issues(record)
         self.assertTrue(any("documented environment" in x for x in issues), issues)
-        self.assertTrue(any("build identity" in x for x in issues), issues)
+        self.assertTrue(any("checkout and the APK identity" in x for x in issues), issues)
 
     def test_version_change_between_attempts_prevents_admissible_record(self):
         flow = "Maestro/flows/tasks/01-a.yaml"
@@ -1913,6 +1916,7 @@ class EnvironmentIdentityTest(unittest.TestCase):
                         "device": "Pixel",
                         "serial": serial,
                     },
+                    "commit": "abc123",
                     "apk_commit_sha": "abc123",
                     "maestro_version": "1.39.0",
                 }
@@ -1968,6 +1972,7 @@ class EnvironmentIdentityTest(unittest.TestCase):
                         "device": "Pixel",
                         "serial": "emulator-5554",
                     },
+                    "commit": "abc123",
                     "apk_commit_sha": "abc123",
                     "maestro_version": "1.39.0",
                 },
@@ -1980,6 +1985,7 @@ class EnvironmentIdentityTest(unittest.TestCase):
                         "device": "Pixel",
                         "serial": "emulator-5556",
                     },
+                    "commit": "abc123",
                     "apk_commit_sha": "abc123",
                     "maestro_version": "1.39.0",
                 },
@@ -1987,6 +1993,90 @@ class EnvironmentIdentityTest(unittest.TestCase):
         }
         issues = runner.record_issues(record)
         self.assertTrue(any("environment" in issue for issue in issues), issues)
+
+
+class ApkProvenanceTest(unittest.TestCase):
+    """The APK that ran the attempt has to be the build of this checkout.
+
+    A qualification certifies that the flow in *this* checkout passes on a
+    device. If the attempt ran an APK built from another commit, the
+    qualification says nothing about this checkout -- so the gate refuses a
+    record whose two identities disagree, and the runner says so before it
+    writes one.
+    """
+
+    def _record(self, checkout="abc123", apk="abc123"):
+        return {
+            "fingerprint": "sha256:" + "a" * 64,
+            "attempts": [
+                {
+                    "attempt": i + 1,
+                    "outcome": "pass",
+                    "environment": {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": "emulator-5554",
+                    },
+                    "commit": checkout,
+                    "apk_commit_sha": apk,
+                    "maestro_version": "1.39.0",
+                }
+                for i in range(3)
+            ],
+        }
+
+    def _runner(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows_provenance", runner_path)
+        runner = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = runner
+        spec.loader.exec_module(runner)
+        return runner
+
+    def test_the_same_build_on_both_sides_is_qualified(self):
+        """The positive control: the APK is this checkout's build."""
+        ok, reason = mod.is_qualified(self._record(), "sha256:" + "a" * 64, 3)
+        self.assertTrue(ok, reason)
+
+    def test_an_apk_from_another_commit_is_not_qualified(self):
+        """The failure mode this pins: a stale APK qualified the flow."""
+        ok, reason = mod.is_qualified(
+            self._record(checkout="abc123", apk="def456"), "sha256:" + "a" * 64, 3
+        )
+        self.assertFalse(ok)
+        self.assertIn("not the checkout build", reason)
+
+    def test_a_record_without_the_apk_identity_is_not_qualified(self):
+        """Without the APK identity there is nothing to compare, so nothing is certified."""
+        record = self._record()
+        for attempt in record["attempts"]:
+            attempt.pop("apk_commit_sha")
+        ok, reason = mod.is_qualified(record, "sha256:" + "a" * 64, 3)
+        self.assertFalse(ok)
+        self.assertIn("checkout and the APK identity", reason)
+
+    def test_a_record_without_the_checkout_identity_is_not_qualified(self):
+        record = self._record()
+        for attempt in record["attempts"]:
+            attempt.pop("commit")
+        ok, reason = mod.is_qualified(record, "sha256:" + "a" * 64, 3)
+        self.assertFalse(ok)
+        self.assertIn("checkout and the APK identity", reason)
+
+    def test_the_runner_refuses_to_record_a_stale_apk(self):
+        issues = self._runner().record_issues(self._record(checkout="abc123", apk="def456"))
+        self.assertTrue(any("not the checkout build" in issue for issue in issues), issues)
+
+    def test_the_runner_refuses_to_record_a_missing_apk_identity(self):
+        record = self._record()
+        for attempt in record["attempts"]:
+            attempt.pop("apk_commit_sha")
+        issues = self._runner().record_issues(record)
+        self.assertTrue(
+            any("checkout and the APK identity" in issue for issue in issues), issues
+        )
 
 
 class RunnerRefusalTest(unittest.TestCase):

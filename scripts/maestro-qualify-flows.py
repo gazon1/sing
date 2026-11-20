@@ -438,10 +438,18 @@ def record_issues(record: dict) -> list[str]:
                 env.get("serial") if isinstance(env, dict) else None,
             )
         )
-        build = attempt.get("apk_commit_sha") or attempt.get("commit")
-        if not build:
-            issues.append(f"attempt {i} does not record build identity (commit/apk_commit_sha)")
-        builds.add(build)
+        # The APK has to be this checkout's build: the two values are the
+        # checkout SHA and the build id read from the device, and a record
+        # that names two different builds certifies a program the checkout
+        # does not hold. The gate refuses such a record; the runner says so
+        # before it writes one.
+        checkout_sha = attempt.get("commit")
+        apk_sha = attempt.get("apk_commit_sha")
+        if not checkout_sha or not apk_sha:
+            issues.append(f"attempt {i} does not record both the checkout and the APK identity")
+        elif checkout_sha != apk_sha:
+            issues.append(f"attempt {i} ran an APK that is not the checkout build ({apk_sha} vs {checkout_sha})")
+        builds.add(checkout_sha or apk_sha)
         mv = attempt.get("maestro_version")
         if not mv:
             issues.append(f"attempt {i} does not record the Maestro version")

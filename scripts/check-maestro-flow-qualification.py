@@ -608,10 +608,20 @@ def is_qualified(record: dict, current_fp: str, required: int) -> tuple[bool, st
             # cannot be told apart from another run on another device.
             return False, f"attempt {i} does not record the device it ran on (serial)"
         envs.add(_env_key(env))
-        build = attempt.get("apk_commit_sha") or attempt.get("commit")
-        if not build:
-            return False, f"attempt {i} does not record build identity (commit/apk_commit_sha)"
-        builds.add(build)
+        # The APK that ran the attempt has to be this checkout's build. The
+        # runner refuses to run a flow against a stale APK, and the gate
+        # refuses to admit a record that says otherwise: the two values are
+        # the checkout SHA and the build id read from the device, and a
+        # qualification that names two different builds certifies a program
+        # the checkout does not hold. The check is on the recorded values, so
+        # it holds whatever produced them.
+        checkout_sha = attempt.get("commit")
+        apk_sha = attempt.get("apk_commit_sha")
+        if not checkout_sha or not apk_sha:
+            return False, f"attempt {i} does not record both the checkout and the APK identity"
+        if checkout_sha != apk_sha:
+            return False, f"attempt {i} ran an APK that is not the checkout build ({apk_sha} vs {checkout_sha})"
+        builds.add(checkout_sha)
         mv = attempt.get("maestro_version")
         if not mv:
             return False, f"attempt {i} does not record the Maestro version"
