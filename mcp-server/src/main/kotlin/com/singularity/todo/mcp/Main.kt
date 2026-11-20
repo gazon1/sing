@@ -1,5 +1,6 @@
 package com.singularity.todo.mcp
 
+import com.singularity.todo.core.mcp.McpServerCommandProvider
 import org.koin.core.context.startKoin
 
 /**
@@ -21,7 +22,16 @@ import org.koin.core.context.startKoin
  * stored active-profile state; `--profile` keeps its legacy label meaning and is
  * deprecated.
  */
-fun main(args: Array<String>): Unit = runToolServer(args, KoinStartup)
+fun main(args: Array<String>): Unit =
+    runToolServer(
+        args,
+        KoinStartup,
+        inspectorHostOptIn =
+            args.any {
+                it ==
+                    McpServerCommandProvider.INSPECTOR_HOST_FLAG
+            },
+    )
 
 /**
  * The composition root of the standalone server.

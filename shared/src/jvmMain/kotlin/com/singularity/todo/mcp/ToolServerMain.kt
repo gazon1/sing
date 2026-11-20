@@ -73,6 +73,7 @@ import kotlin.system.exitProcess
 fun runToolServer(
     args: Array<String>,
     koinStartup: ToolServerKoinStartup,
+    inspectorHostOptIn: Boolean,
 ) {
     if (isScreenInspectorCli(args)) {
         val cliArgs = stripScreenInspectorCliArgs(args)
@@ -101,7 +102,7 @@ fun runToolServer(
                 exitProcess(EXIT_USAGE)
             }
 
-        when (val startup = startToolServer(selection, koinStartup, inspectorHostOptIn(args))) {
+        when (val startup = startToolServer(selection, koinStartup, inspectorHostOptIn)) {
             is ToolServerStartup.Refused -> {
                 // The refusal is a value, not an exit buried in the middle of a sequence:
                 // the client is told why on the protocol channel, and the process leaves
@@ -199,10 +200,9 @@ private fun writeJsonRpcError(
  *
  * The host is opt-in and nothing else: without this flag no screen inspector host starts, in
  * any build. The opt-in is also build-bound — the host is unavailable in release builds, so no
- * argument can turn it on there. It is read from the process arguments the same way the profile
- * selection is — one argument, recognised whole, never defaulted.
+ * argument can turn it on there; the build the caller is running as is what decides.
  */
 internal fun inspectorHostOptIn(
     args: Array<String>,
-    isDebugBuild: Boolean = System.getProperty("singularity.debug") == "true",
+    isDebugBuild: Boolean,
 ): Boolean = isDebugBuild && args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }

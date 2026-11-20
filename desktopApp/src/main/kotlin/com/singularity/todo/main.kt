@@ -118,7 +118,12 @@ fun main(args: Array<String>) {
     // rejected by the desktop GUI CLI parser.
     if (isToolServerMode(args)) {
         prepareDataDirectory()
-        runToolServer(args, ToolServerKoin)
+        // The host opt-in is decided here, where the application's own build is known, and
+        // handed to the server; a release build hands none.
+        val inspectorHostOptIn =
+            System.getProperty("singularity.debug") == "true" &&
+                args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }
+        runToolServer(args, ToolServerKoin, inspectorHostOptIn)
         return
     }
 
