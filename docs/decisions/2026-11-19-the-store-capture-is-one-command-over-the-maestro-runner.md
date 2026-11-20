@@ -56,6 +56,14 @@ recovery, the fixture wipe, the session reset, the provenance check and the
 failure artifacts stay in one place. The runner's own semantics and its suite
 selection are not touched, and the E2E runner is not touched at all.
 
+**One change is made to the shared runner, and it holds for every caller.**
+When the runner recovers from an adb-server reset, it used to take the first
+device adb happened to list and run the flow on it — a phone of somebody
+else's, or the wrong emulator. The serial of a device never changes, so the
+runner now keeps the device it was given and says so in the log. This is not
+a capture-only rule: every caller that pins a device — the E2E suite and the
+Maestro flows included — gets the pinned device back after a recovery.
+
 **The screenshot is `adb exec-out screencap -p`.** Not Maestro's own
 `takeScreenshot` output: that directory's layout is a property of the Maestro
 version, and adb is deterministic and gives byte-exact PNGs. The screen is
