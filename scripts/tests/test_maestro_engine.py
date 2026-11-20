@@ -457,3 +457,18 @@ class RunnerVersionTest(unittest.TestCase):
         """A stream that says nothing but a version names that version."""
         self._run(0, "2.10.0\n", stderr="Maestro\n")
         self.assertEqual(_engine.engine_version(ENGINE_MAESTRO), "2.10.0")
+
+    def test_a_banner_split_across_lines_names_no_version(self) -> None:
+        """A banner is a whole line, not two halves of one.
+
+        "Maestro" on one line and the version on the next is not a banner
+        anybody printed: the engine's name and its version belong to the
+        same line, and a reader that glued the lines together would name
+        a build that never ran.
+        """
+        self._run(0, "Maestro\n2.10.0\n")
+        self.assertIsNone(_engine.engine_version(ENGINE_MAESTRO))
+
+    def test_a_runner_banner_split_across_lines_names_no_version(self) -> None:
+        self._run(0, "maestro-runner\n1.1.31\n")
+        self.assertEqual(_engine.runner_version(), "")

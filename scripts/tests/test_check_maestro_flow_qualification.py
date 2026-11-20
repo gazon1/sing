@@ -2079,6 +2079,171 @@ class ApkProvenanceTest(unittest.TestCase):
         )
 
 
+class VersionRecognitionTest(unittest.TestCase):
+    """The recorded engine version has to be a version the engines recognise.
+
+    A record that names "Maestro version unavailable" as the engine that
+    ran the flow names a build that never ran. The recognition is the
+    runner's contract -- the same one `emulator.maestro._engine` applies
+    before the runner writes a record -- and the gate applies it too, so
+    the two cannot disagree about what a version is.
+    """
+
+    def _record(self, version="1.39.0"):
+        return {
+            "fingerprint": "sha256:" + "a" * 64,
+            "attempts": [
+                {
+                    "attempt": i + 1,
+                    "outcome": "pass",
+                    "environment": {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": "emulator-5554",
+                    },
+                    "commit": "abc123",
+                    "apk_commit_sha": "abc123",
+                    "maestro_version": version,
+                }
+                for i in range(3)
+            ],
+        }
+
+    def _runner(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows_version", runner_path)
+        runner = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = runner
+        spec.loader.exec_module(runner)
+        return runner
+
+    def test_a_recognised_version_is_qualified(self):
+        ok, reason = mod.is_qualified(self._record(), "sha256:" + "a" * 64, 3)
+        self.assertTrue(ok, reason)
+
+    def test_a_string_that_is_not_a_version_is_not_qualified(self):
+        """The failure mode this pins: a record naming something that is not a version."""
+        ok, reason = mod.is_qualified(
+            self._record(version="not-a-version"), "sha256:" + "a" * 64, 3
+        )
+        self.assertFalse(ok)
+        self.assertIn("not a recognised version", reason)
+
+    def test_a_sentence_is_not_a_version(self):
+        ok, reason = mod.is_qualified(
+            self._record(version="Maestro version unavailable"), "sha256:" + "a" * 64, 3
+        )
+        self.assertFalse(ok)
+        self.assertIn("not a recognised version", reason)
+
+    def test_a_banner_is_not_a_version_number(self):
+        """The record carries the version, not the banner it was read from."""
+        ok, reason = mod.is_qualified(
+            self._record(version="Maestro 1.39.0"), "sha256:" + "a" * 64, 3
+        )
+        self.assertFalse(ok)
+        self.assertIn("not a recognised version", reason)
+
+    def test_a_missing_version_is_not_qualified(self):
+        record = self._record()
+        for attempt in record["attempts"]:
+            attempt.pop("maestro_version")
+        ok, reason = mod.is_qualified(record, "sha256:" + "a" * 64, 3)
+        self.assertFalse(ok)
+        self.assertIn("does not record the Maestro version", reason)
+
+    def test_the_runner_refuses_to_record_an_unrecognised_version(self):
+        issues = self._runner().record_issues(self._record(version="not-a-version"))
+        self.assertTrue(any("not a recognised version" in issue for issue in issues), issues)
+
+
+class GateRunnerParityTest(unittest.TestCase):
+    """The gate and the runner apply one contract to one record.
+
+    The rules live in the gate module, and the runner asks the gate
+    module for them instead of keeping a second copy. A record the
+    runner would refuse to write is a record the gate refuses to admit —
+    otherwise the runner's refusal and the gate's admission would be two
+    different contracts.
+    """
+
+    def _runner(self):
+        runner_path = pathlib.Path(__file__).resolve().parent.parent / "maestro-qualify-flows.py"
+        spec = importlib.util.spec_from_file_location("maestro_qualify_flows_parity", runner_path)
+        runner = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        sys.modules[spec.name] = runner
+        spec.loader.exec_module(runner)
+        return runner
+
+    def _record(self):
+        return {
+            "fingerprint": "sha256:" + "a" * 64,
+            "attempts": [
+                {
+                    "attempt": i + 1,
+                    "outcome": "pass",
+                    "environment": {
+                        "kind": "emulator",
+                        "api": 35,
+                        "device": "Pixel",
+                        "serial": "emulator-5554",
+                    },
+                    "commit": "abc123",
+                    "apk_commit_sha": "abc123",
+                    "maestro_version": "1.39.0",
+                }
+                for i in range(3)
+            ],
+        }
+
+    def _assert_both_refuse(self, record, expected):
+        ok, reason = mod.is_qualified(record, "sha256:" + "a" * 64, 3)
+        self.assertFalse(ok)
+        self.assertIn(expected, reason)
+        issues = self._runner().record_issues(record)
+        self.assertTrue(
+            any(expected in issue for issue in issues),
+            f"the runner did not report {expected!r}: {issues}",
+        )
+
+    def test_a_missing_checkout_identity_is_refused_by_both(self):
+        record = self._record()
+        for attempt in record["attempts"]:
+            attempt.pop("commit")
+        self._assert_both_refuse(record, "checkout and the APK identity")
+
+    def test_a_missing_apk_identity_is_refused_by_both(self):
+        record = self._record()
+        for attempt in record["attempts"]:
+            attempt.pop("apk_commit_sha")
+        self._assert_both_refuse(record, "checkout and the APK identity")
+
+    def test_two_builds_are_refused_by_both(self):
+        record = self._record()
+        record["attempts"][2]["commit"] = "def456"
+        record["attempts"][2]["apk_commit_sha"] = "def456"
+        self._assert_both_refuse(record, "do not share one build identity")
+
+    def test_two_devices_are_refused_by_both(self):
+        record = self._record()
+        record["attempts"][2]["environment"]["serial"] = "emulator-5556"
+        self._assert_both_refuse(record, "do not share one documented environment")
+
+    def test_two_versions_are_refused_by_both(self):
+        record = self._record()
+        record["attempts"][2]["maestro_version"] = "1.40.0"
+        self._assert_both_refuse(record, "do not share one Maestro version")
+
+    def test_a_valid_record_is_refused_by_neither(self):
+        record = self._record()
+        ok, reason = mod.is_qualified(record, "sha256:" + "a" * 64, 3)
+        self.assertTrue(ok, reason)
+        self.assertEqual([], self._runner().record_issues(record))
+
+
 class RunnerRefusalTest(unittest.TestCase):
     """The runner refuses a flow it cannot qualify, before spending attempts."""
 
