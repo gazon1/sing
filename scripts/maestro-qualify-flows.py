@@ -338,7 +338,18 @@ def admission_needed(
     evidence: pathlib.Path,
     initial: pathlib.Path,
 ) -> list[str]:
-    findings, _counts = GATE.scan(root, catalogue, baseline, evidence, initial)
+    try:
+        findings, _counts = GATE.scan(root, catalogue, baseline, evidence, initial)
+    except GATE.click.ClickException as exc:
+        # The gate refuses a tampered artifact -- a baseline that does not
+        # match its pinned digest, a frozen set that does not match its pin.
+        # Nothing can be qualified in that state, and the reason is said
+        # instead of a traceback.
+        print(
+            f"the qualification gate refused to run: {exc.format_message()}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
     seen = []
     for f in findings:
         if f.kind in {"flow file missing"}:

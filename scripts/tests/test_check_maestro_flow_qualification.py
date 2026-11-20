@@ -1725,5 +1725,42 @@ class RunnerRefusalTest(unittest.TestCase):
         self.assertEqual(data.get("qualifications") or {}, {})
 
 
+    def test_runner_reports_a_baseline_that_does_not_match_its_pin(self):
+        """The runner says why it cannot run, instead of raising a traceback.
+
+        The runner reads the admission through the gate, and the gate refuses
+        a baseline that does not match its pinned digest. The refusal has to
+        reach the person who ran the command, not as a stack trace.
+        """
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        runner = repo / "scripts" / "maestro-qualify-flows.py"
+        source = repo / "config" / "docs" / "maestro-flow-qualification-baseline.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = pathlib.Path(tmp) / "baseline.yaml"
+            data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+            flows = data.get("flows") or {}
+            first = sorted(flows)[0]
+            flows[first] = "sha256:" + "0" * 64
+            baseline.write_text(
+                yaml.safe_dump({"schema": 1, "flows": flows}, sort_keys=False), encoding="utf-8"
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(runner),
+                    "--admission-needed",
+                    "--list",
+                    "--baseline",
+                    str(baseline),
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("pinned digest", result.stdout + result.stderr)
+        self.assertNotIn("Traceback", result.stdout + result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
