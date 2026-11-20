@@ -200,9 +200,10 @@ private fun writeJsonRpcError(
  *
  * The host is opt-in and nothing else: without this flag no screen inspector host starts, in
  * any build. The opt-in is also build-bound — the host is unavailable in release builds, so no
- * argument can turn it on there; the build the caller is running as is what decides.
+ * argument can turn it on there; the build the caller is running as is what decides. The caller
+ * owns the build decision and hands the resolved value to the start-up.
  */
-internal fun inspectorHostOptIn(
+fun inspectorHostOptIn(
     args: Array<String>,
     isDebugBuild: Boolean,
 ): Boolean = isDebugBuild && args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }

@@ -35,6 +35,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
 import com.singularity.todo.mcp.ToolServerKoinStartup
+import com.singularity.todo.mcp.inspectorHostOptIn
 import com.singularity.todo.mcp.runToolServer
 import com.singularity.todo.mcp.toolServerModules
 import com.singularity.todo.shell.LocalWindowCloseRequest
@@ -120,10 +121,16 @@ fun main(args: Array<String>) {
         prepareDataDirectory()
         // The host opt-in is decided here, where the application's own build is known, and
         // handed to the server; a release build hands none.
-        val inspectorHostOptIn =
-            System.getProperty("singularity.debug") == "true" &&
-                args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }
-        runToolServer(args, ToolServerKoin, inspectorHostOptIn)
+        runToolServer(
+            args,
+            ToolServerKoin,
+            inspectorHostOptIn =
+                inspectorHostOptIn(
+                    args,
+                    isDebugBuild =
+                        System.getProperty("singularity.debug") == "true",
+                ),
+        )
         return
     }
 

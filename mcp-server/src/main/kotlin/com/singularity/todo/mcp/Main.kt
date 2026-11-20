@@ -1,6 +1,5 @@
 package com.singularity.todo.mcp
 
-import com.singularity.todo.core.mcp.McpServerCommandProvider
 import org.koin.core.context.startKoin
 
 /**
@@ -26,9 +25,7 @@ fun main(args: Array<String>): Unit =
     runToolServer(
         args,
         KoinStartup,
-        inspectorHostOptIn =
-            System.getProperty("singularity.debug") == "true" &&
-                args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG },
+        inspectorHostOptIn = inspectorHostOptIn(args, isDebugBuild = System.getProperty("singularity.debug") == "true"),
     )
 
 /**
