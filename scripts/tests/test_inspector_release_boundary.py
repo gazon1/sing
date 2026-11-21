@@ -16,14 +16,24 @@ bypassed:
   only acceptable while the release workflow publishes no ``mcp-server``
   artefact at all: the JAR is a ``build/libs`` output nobody ships.
 
-So this file asserts exactly the two facts the boundary rests on. If the release
-workflow ever starts publishing the fat JAR, the reasoning above stops holding
-and this test says so instead of letting a host-enabled JAR ride out on a
-release.
+Two kinds of assertion follow, and both are needed:
+
+* the **static** ones read the build scripts and the workflow. They are cheap and
+  they run everywhere, but structure is not behavior: a guard whose condition
+  was rewritten to ``if (false)`` still contains every string they look for.
+
+* the **behavioral** one actually asks Gradle to package with the property
+  enabled and requires the build to fail. That is the only assertion that proves
+  the refusal, and it is gated behind ``INSPECTOR_RELEASE_BOUNDARY_GRADLE=1``
+  for the reason ``check-gate-wiring.py`` gives for its own Gradle controls: a
+  casual local run must not cold-boot a daemon and hold the shared cache lock.
+  ``hk.pkl`` sets it, so the hook and CI do run it.
 """
 
+import os
 import pathlib
 import re
+import subprocess
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -31,6 +41,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 DESKTOP_BUILD = ROOT / "desktopApp" / "build.gradle.kts"
 MCP_SERVER_BUILD = ROOT / "mcp-server" / "build.gradle.kts"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+
+#: The behavioral control is skipped unless this is set to `1` — the same
+#: trade-off `check-gate-wiring.py` documents for its Gradle-backed controls.
+GRADLE_ENV = "INSPECTOR_RELEASE_BOUNDARY_GRADLE"
+
+#: One guarded packaging task per module. The behavioral control runs each one in
+#: its own build, because a single build asking for both lets either guard answer
+#: the assertion for the other.
+GUARDED_TASKS = (":mcp-server:installDist", ":desktopApp:packageDeb")
 
 
 def read(path: pathlib.Path) -> str:
@@ -156,6 +175,84 @@ class GuardActionReaderTest(unittest.TestCase):
             action = guard_action(path)
             self.assertTrue(action.startswith("{"), f"{path.name}: no doFirst action found")
             self.assertGreater(len(action), 100, f"{path.name}: the action looks truncated")
+
+
+class PackagingGuardBehaviorTest(unittest.TestCase):
+    """The positive control: a host-enabled packaging build must fail.
+
+    Everything else in this file reads text. This test asks Gradle, because a
+    guard is only worth what it refuses — ``if (false)`` leaves every string the
+    static assertions look for in place and refuses nothing.
+
+    Skipped unless ``INSPECTOR_RELEASE_BOUNDARY_GRADLE=1``; see the module
+    docstring for why, and ``hk.pkl`` for where it is set.
+    """
+
+    @unittest.skipUnless(
+        os.environ.get(GRADLE_ENV) == "1",
+        f"set {GRADLE_ENV}=1 to run the Gradle-backed release-boundary control",
+    )
+    def test_host_enabled_packaging_is_refused(self):
+        # One invocation per module, deliberately. Asking for both tasks in one build makes
+        # either guard satisfy the assertion, so neutering the *other* one still passed
+        # this control — which is exactly the vacuous control it exists to prevent.
+        for task in GUARDED_TASKS:
+            self.assert_refused(task)
+
+    def assert_refused(self, task: str):
+        # No `--dry-run`: Gradle skips task actions in a dry run, so the guard's
+        # `doFirst` would never execute and the control would pass while measuring
+        # nothing. The guard throws in `doFirst`, i.e. before the task does any work,
+        # so the refusal costs a task-graph configuration, not a package build.
+        proc = subprocess.run(
+            ["./gw", "-q", task, "-Psingularity.inspector.host.enabled=true"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+        output = proc.stdout + proc.stderr
+        self.assertNotEqual(
+            0,
+            proc.returncode,
+            f":{task} with the inspector host enabled SUCCEEDED. That module's release "
+            "guard is not refusing, so a distributable artefact can be built with the "
+            f"host compiled in. Output:\n{output[-4000:]}",
+        )
+        self.assertIn(
+            "release artefact",
+            output,
+            f":{task} failed, but not with the release guard's message. Output:\n{output[-4000:]}",
+        )
+
+    @unittest.skipUnless(
+        os.environ.get(GRADLE_ENV) == "1",
+        f"set {GRADLE_ENV}=1 to run the Gradle-backed release-boundary control",
+    )
+    def test_default_packaging_is_not_refused(self):
+        # The other half of the control: the guard must not break the ordinary build.
+        # A guard that refuses unconditionally would pass the test above and make every
+        # packaging task in the repository impossible.
+        #
+        # The tasks are only *configured* — `--dry-run` is right here, because this asserts
+        # that nothing refuses, and a refusal raised outside a task action would fire
+        # during configuration.
+        proc = subprocess.run(
+            ["./gw", "-q", "--dry-run", *GUARDED_TASKS],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+        output = proc.stdout + proc.stderr
+        self.assertNotIn(
+            "release artefact",
+            output,
+            "A default packaging build was refused by the release guard. The guard must "
+            f"only fire when the host is enabled. Output:\n{output[-4000:]}",
+        )
 
 
 if __name__ == "__main__":
