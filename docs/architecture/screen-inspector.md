@@ -303,9 +303,10 @@ Validation/availability are enforced by the canonical adapter/contract before di
 
 ### UI wiring is not what the headless tests verify
 
-Every test above drives the adapter. None of them touches a Compose control, so a
-control whose `onClick` goes nowhere passes all of them: the adapter reaches
-`TaskDetailCoordinator.onIntent`, and the control is a different call site.
+The screen-behavior tests above drive the adapter. None of them touches a Compose
+control, so a control whose `onClick` goes nowhere passes all of them: the adapter
+reaches `TaskDetailCoordinator.onIntent`, and the control is a different call site.
+(The host opt-in test is not one of these — it pins registration, not screen behavior.)
 
 `desktopApp/src/jvmTest/.../feature/flows/tasks/TaskDetailCompletionWiringTest.kt` is
 the missing half for the Task Detail's completion control — a tap on the real control,
