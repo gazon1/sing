@@ -45,9 +45,12 @@ class InspectorHostOptInTest {
     }
 
     @Test
-    fun `a release build cannot opt in even when the flag and the debug property are present`() {
-        // The release gate is the build's decision. A JVM property is not a build input, so
-        // neither it nor the explicit flag can turn a release build's host on.
+    fun `a build that compiled the host out cannot opt in even when the flag and the debug property are present`() {
+        // The build gate is the compiled-in constant, not the flag and not a JVM property.
+        // This pins the resolution rule; that the shipped constant really is false is
+        // asserted where it is generated — `InspectorHostBuildConfigTest` in `:mcp-server`
+        // and `DesktopInspectorHostBuildConfigTest` in `:desktopApp` read the constant the
+        // build wrote instead of supplying one here.
         System.setProperty("singularity.debug", "true")
         try {
             assertFalse(

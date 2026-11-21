@@ -206,10 +206,15 @@ compose.desktop {
 
 // The screen-inspector host capability for the desktop entry point is a build-time
 // decision: the host is compiled in only when the build passes
-// `-Psingularity.inspector.host.enabled=true`. The release pipeline passes nothing, so a
-// release distribution carries the host out and no argument can turn it on. It is
-// generated into the source set so the runtime gate never resolves a user-overridable
-// JVM property.
+// `-Psingularity.inspector.host.enabled=true`. It is generated into the source set so the
+// runtime gate never resolves a user-overridable JVM property.
+//
+// The property is not the release boundary by itself. "The release pipeline passes
+// nothing" is a convention, and a convention is not an invariant: `:desktopApp:packageDeb
+// -Psingularity.inspector.host.enabled=true` produces a distributable package with a
+// remote-control host compiled in, which is the exact artefact the Issue forbids. So the
+// packaging path refuses the combination instead of relying on nobody passing it — see
+// the `package*`/`createDistributable*` guard below.
 val desktopInspectorHostEnabled =
     providers
         .gradleProperty(
@@ -217,12 +222,18 @@ val desktopInspectorHostEnabled =
         ).orElse("false")
         .get()
         .toBoolean()
+
 val desktopInspectorHostBuildDir = layout.buildDirectory.dir("generated/src/main/kotlin")
 
 val generateDesktopInspectorHostBuildConfig =
     tasks.register("generateDesktopInspectorHostBuildConfig") {
         val generatedRoot = layout.buildDirectory.get().asFile
         val hostEnabled = desktopInspectorHostEnabled
+        // Declared so Gradle tracks this task as a real generation step: without an
+        // output the task always runs, and without an input a changed property does not
+        // invalidate it. The property is the input, the directory is the output.
+        inputs.property("singularity.inspector.host.enabled", hostEnabled)
+        outputs.dir(generatedRoot.resolve("generated/src/main/kotlin"))
         doLast {
             val dir = generatedRoot.resolve("generated/src/main/kotlin").resolve("com/singularity/todo")
             dir.mkdirs()
@@ -240,6 +251,35 @@ sourceSets["main"].kotlin.srcDir(desktopInspectorHostBuildDir.get().asFile)
 tasks.named("compileKotlin") {
     dependsOn(generateDesktopInspectorHostBuildConfig)
 }
+
+// The packaging tasks produce what a user installs, so they are the release boundary.
+// `compileKotlin` is deliberately not guarded — a developer who wants a host-enabled
+// build still has `:desktopApp:run` and the test tasks. The refusal is a `doFirst` and
+// not a configuration-time check: this must break the packaging task, not every task in
+// a host-enabled checkout.
+//
+// Everything the closure needs is a plain `String`/`Boolean` captured at configuration
+// time. A `doFirst` that touches a script-level `val` (a task reference, the project)
+// makes the task unserializable for the configuration cache, and the failure lands in
+// whichever build reuses the entry — not in this one.
+val desktopInspectorHostInPackagedArtifacts = desktopInspectorHostEnabled
+tasks
+    .matching {
+        it.name.startsWith("package") || it.name.startsWith("createDistributable")
+    }.configureEach {
+        val releaseArtifact = "${project.path}:$name"
+        doFirst {
+            if (desktopInspectorHostInPackagedArtifacts) {
+                throw GradleException(
+                    "$releaseArtifact is a distributable release artefact, and the " +
+                        "screen-inspector host is a development/test capability that must not be " +
+                        "compiled into one. Package without " +
+                        "-Psingularity.inspector.host.enabled=true; use `:desktopApp:run` or a test " +
+                        "task for a host-enabled build.",
+                )
+            }
+        }
+    }
 
 // ---------------------------------------------------------------------------
 // D1 (#686): Patch jpackage's postinst to be a no-op.
