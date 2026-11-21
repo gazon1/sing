@@ -118,7 +118,13 @@ fun main(args: Array<String>) {
     // rejected by the desktop GUI CLI parser.
     if (isToolServerMode(args)) {
         prepareDataDirectory()
-        runToolServer(args, ToolServerKoin)
+        // The host capability is decided here, where the application's own build is known,
+        // and handed to the server; a release build compiled the host out.
+        runToolServer(
+            args,
+            ToolServerKoin,
+            inspectorHostCompiledIn = DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
+        )
         return
     }
 
@@ -157,7 +163,7 @@ fun main(args: Array<String>) {
                     domainModule() +
                     listOf(
                         gateModule(RELEASES_URL),
-                        acpModule(),
+                        acpModule(inspectorHostOptIn = DesktopInspectorHostBuildConfig.INSPECTOR_HOST_ENABLED),
                     ),
             )
         }

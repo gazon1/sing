@@ -120,21 +120,33 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
      * @param profileId the profile the server works as. It is passed on the command
      *   line so the server never opens the stored active-profile state: that store
      *   takes a file lock, and the application is holding it.
+     * @param inspectorOptIn whether the caller opted the server into the local
+     *   screen-inspection host. The flag travels on the command line and the server
+     *   registers the screen inspector tools only when it is on; a command that does
+     *   not carry it opts out.
      */
-    fun commandFor(profileId: ProfileId): ToolServerCommand {
+    fun commandFor(
+        profileId: ProfileId,
+        inspectorOptIn: Boolean = false,
+    ): ToolServerCommand {
         // One argument, not two: the tool server parses `--profile-id=ID`, and a
         // command that says `--profile-id ID` is a command it does not recognise —
         // and a command it does not recognise is a command that silently serves the
         // wrong profile.
         val profileArgs = listOf("$PROFILE_ID_FLAG=${profileId.value}")
+        val inspectorArgs =
+            if (inspectorOptIn) listOf(McpServerCommandProvider.INSPECTOR_HOST_FLAG) else emptyList()
         return if (environment.packaged) {
-            packagedCommand(profileArgs)
+            packagedCommand(inspectorArgs, profileArgs)
         } else {
-            developmentCommand(profileArgs)
+            developmentCommand(inspectorArgs, profileArgs)
         }
     }
 
-    private fun packagedCommand(profileArgs: List<String>): ToolServerCommand {
+    private fun packagedCommand(
+        inspectorArgs: List<String>,
+        profileArgs: List<String>,
+    ): ToolServerCommand {
         val launcher =
             environment.launcher
                 ?: return ToolServerCommand.Unavailable(
@@ -149,11 +161,14 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
         }
         return ToolServerCommand.Available(
             command = launcher,
-            args = listOf(TOOL_SERVER_FLAG) + profileArgs,
+            args = listOf(TOOL_SERVER_FLAG) + inspectorArgs + profileArgs,
         )
     }
 
-    private fun developmentCommand(profileArgs: List<String>): ToolServerCommand {
+    private fun developmentCommand(
+        inspectorArgs: List<String>,
+        profileArgs: List<String>,
+    ): ToolServerCommand {
         val java =
             environment.javaBinary
                 ?: return ToolServerCommand.Unavailable(
@@ -174,13 +189,19 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
         }
         return ToolServerCommand.Available(
             command = java,
-            args = listOf("-cp", environment.classpath, DESKTOP_MAIN_CLASS, TOOL_SERVER_FLAG) + profileArgs,
+            args =
+                listOf("-cp", environment.classpath, DESKTOP_MAIN_CLASS, TOOL_SERVER_FLAG) +
+                    inspectorArgs +
+                    profileArgs,
         )
     }
 
     companion object {
         /** The flag that turns the application into the tool server. */
         const val TOOL_SERVER_FLAG = "--mcp-server"
+
+        /** The flag that opts the server process into the local screen-inspection host. */
+        const val INSPECTOR_HOST_FLAG = "--inspector"
 
         /** The flag that tells the server which profile to work as. */
         const val PROFILE_ID_FLAG = "--profile-id"

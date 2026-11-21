@@ -14,7 +14,8 @@ layer only — no business rules, no direct repository writes, no duplicate doma
 second MCP server.
 
 No production remote-control endpoint. Runs only as local development/test tooling (MCP
-server / CLI process with explicit profile selection).
+server / CLI process with explicit profile selection; the MCP-server host is additionally compiled
+in by an explicit build property and opted into with an explicit process flag).
 
 ## Host and CLI shape
 
@@ -24,7 +25,41 @@ reuses the MCP server runtime (`shared/src/jvmMain/.../mcp`) and is exposed both
 the existing `:mcp-server` / desktop `--mcp-server` server and as a JSON CLI mode of the same
 entrypoint. No standalone executable is added (no demonstrated need beyond existing tooling).
 
-CLI entry (same binaries/process model as MCP server):
+The MCP-server host is opt-in twice over: the build compiles the capability in only with
+`-Psingularity.inspector.host.enabled=true`, and the process registers the screen inspector tools
+only when it was started with `--inspector` (`McpServerCommandProvider.INSPECTOR_HOST_FLAG`).
+Without either one no host starts. A release build passes neither property nor flag, so the host
+is absent there and no argument can turn it on. The build gate is enforced rather than assumed:
+the packaging tasks of `:desktopApp` and `:mcp-server` refuse to produce an artefact with the
+capability compiled in, so `-P` cannot turn a release package into a host. The CLI host needs no
+flag of its own; it is entered through an explicit command. See ADR
+`2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
+
+### What the host attaches to — and what it does not
+
+The host is the tool-server **process**. It builds its own Koin container from the
+application's real module list and opens its own `TaskDetailCoordinator`, whose actions reach the
+real `TaskDetailCoordinator.onIntent`. The contract and the behavior path are the application's,
+not a fixture's.
+
+It is **not** the window the user has open. A running Desktop window and `--mcp-server` are two
+processes with two graphs and two screen sessions, so the host cannot observe transient on-screen
+state (an unsaved editor buffer, for instance). An agent driving the host operates *a* real
+session of the screen, not the one currently rendered. Attaching to the live window would need a
+local-only transport into the GUI process or an in-process host, which #3042 does not build. See
+ADR `2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`.
+
+### Android
+
+The logical contract is `commonMain` and the Task Detail adapter is shared, but the inspector
+runtime and its host start-up are `jvmMain`. Android debug/test does not expose a host yet: that
+slice needs its own lifecycle seam and a gate that cannot ship, and it is tracked separately in
+[#3074](https://github.com/gazon1/sing/issues/3074). Issue #3042 is not complete until it lands.
+
+CLI entry (same binaries/process model as MCP server). The CLI is a host too, so the build
+capability applies: a build compiled without `-Psingularity.inspector.host.enabled=true` answers
+`unsupported` and exits 2 instead of running a command. It needs no `--inspector` flag of its own —
+entering the command is the opt-in.
 
 ```bash
 # via MCP server jar
@@ -37,6 +72,39 @@ java -jar mcp-server/build/libs/mcp-server.jar agent <command> [args]
 `--profile-id=<id>` / `--profile=<name>` are honored for data isolation/bootstrap (same contract
 as MCP server). All commands print machine-readable JSON to stdout and exit 0 on success, 2 on
 structural/usage/operation failure reported as JSON, 1 on internal failure.
+
+For the MCP-server host itself (the long-lived runtime an agent drives through the `screen_*` tools),
+build with the capability compiled in and pass the flag to the process:
+
+```bash
+# Development run: the Gradle property compiles the host in; --inspector opts this process in.
+./gw -Psingularity.inspector.host.enabled=true :mcp-server:run \
+  --args="--inspector --profile-id=<id>"
+
+# Fat jar built with the capability, then started with the opt-in.
+./gw -Psingularity.inspector.host.enabled=true :mcp-server:jar
+java -jar mcp-server/build/libs/mcp-server.jar --inspector --profile-id=<id>
+
+# Desktop launcher in tool-server mode (development build with the capability).
+./gw -Psingularity.inspector.host.enabled=true :desktopApp:run \
+  --args="--mcp-server --inspector --profile-id=<id>"
+```
+
+The property is a **build** input, not a JVM property: a release distribution built without it
+cannot host the inspector however it is launched.
+
+### Which artefacts are guarded, and which are not
+
+The guard covers the tasks that produce something a user installs: `package*` and
+`createDistributable*` in `:desktopApp`, and `distZip`/`distTar`/`installDist` in `:mcp-server`.
+
+`:mcp-server:jar` is deliberately **not** guarded. It is an executable fat JAR, but it is a
+`build/libs` development output: `McpServerEndToEndTest` spawns it, and a host-enabled development
+build is exactly what it is for. That is safe only while the release workflow publishes no
+`:mcp-server` artefact at all — which it does not, and which
+`scripts/tests/test_inspector_release_boundary.py` asserts. If release ever starts shipping the fat
+JAR, that test fails and the JAR task has to be guarded too: an unguarded executable artefact is a
+release path the moment somebody publishes it.
 
 ## CLI commands (JSON)
 
@@ -229,3 +297,6 @@ Validation/availability are enforced by the canonical adapter/contract before di
   (unknown screen/action/input/session/operation).
 - Existing canonical adapter tests remain in
   `shared/src/commonTest/.../feature/tasks/presentation/introspection/TaskDetailScreenIntrospectionTest.kt`.
+- `shared/src/jvmTest/.../mcp/InspectorHostOptInTest.kt` pins the host opt-in: without the flag no
+  host starts, with the flag the host may run. It also pins the registration seam: no `screen_*`
+  tool is registered without the opt-in, and `screen_list` is registered with it.

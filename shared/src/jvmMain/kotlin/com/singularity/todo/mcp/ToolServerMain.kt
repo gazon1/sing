@@ -3,6 +3,7 @@ package com.singularity.todo.mcp
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.RedactingLogWriter
 import com.singularity.todo.core.log.StderrLogWriter
+import com.singularity.todo.core.mcp.McpServerCommandProvider
 import io.ktor.utils.io.asSink
 import io.ktor.utils.io.asSource
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
@@ -72,12 +73,13 @@ import kotlin.system.exitProcess
 fun runToolServer(
     args: Array<String>,
     koinStartup: ToolServerKoinStartup,
+    inspectorHostCompiledIn: Boolean,
 ) {
     if (isScreenInspectorCli(args)) {
         val cliArgs = stripScreenInspectorCliArgs(args)
         val code =
             com.singularity.todo.mcp.introspection.ScreenInspectorCli
-                .run(cliArgs, koinStartup)
+                .run(cliArgs, koinStartup, inspectorHostCompiledIn)
         if (code != 0) exitProcess(code)
         return
     }
@@ -100,7 +102,8 @@ fun runToolServer(
                 exitProcess(EXIT_USAGE)
             }
 
-        when (val startup = startToolServer(selection, koinStartup)) {
+        val inspectorHostEnabled = inspectorHostOptIn(args, inspectorHostCompiledIn)
+        when (val startup = startToolServer(selection, koinStartup, inspectorHostEnabled)) {
             is ToolServerStartup.Refused -> {
                 // The refusal is a value, not an exit buried in the middle of a sequence:
                 // the client is told why on the protocol channel, and the process leaves
@@ -192,3 +195,19 @@ private fun writeJsonRpcError(
     val stream = protocolOut.asPrintStream()
     OutputStreamWriter(stream, Charsets.UTF_8).use { it.write(jsonRpcError(code, message) + "\n") }
 }
+
+/**
+ * The explicit opt-in that lets the local screen-inspection host run in this process.
+ *
+ * Two things have to be true, and neither defaults on: the build compiled the host capability in
+ * ([inspectorHostCompiledIn]), and this process asked for it with the flag. A release build is
+ * compiled with the capability out, so no argument can turn it on there; a process in a
+ * development build that did not pass the flag starts no host either.
+ *
+ * The caller owns the build decision — the Gradle property is a build input, not a JVM property a
+ * user can flip at launch — and hands the resolved value to the start-up.
+ */
+internal fun inspectorHostOptIn(
+    args: Array<String>,
+    inspectorHostCompiledIn: Boolean,
+): Boolean = inspectorHostCompiledIn && args.any { it == McpServerCommandProvider.INSPECTOR_HOST_FLAG }

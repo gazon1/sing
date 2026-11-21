@@ -26,6 +26,14 @@ internal class ToolServerStartupContext(
      * used by two processes, and a library does not own the composition root.
      */
     val koinStartup: ToolServerKoinStartup,
+    /**
+     * Whether the local screen-inspection host may run in this process.
+     *
+     * The host is opt-in and nothing else: the entry point resolves the compiled-in capability
+     * and the explicit process flag, and this is that resolved answer. A process that did not opt
+     * in is false here, and a release build is false however it was asked.
+     */
+    val inspectorHostEnabled: Boolean = false,
 ) {
     /**
      * The profile the caller named, or null when the caller named none.

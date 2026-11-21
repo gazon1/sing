@@ -24,7 +24,7 @@ import org.koin.dsl.module
  * resolve, defaults included. An explicit lambda says what is injected and what is
  * left alone.
  */
-fun acpModule(): Module =
+fun acpModule(inspectorHostOptIn: Boolean): Module =
     module {
         // The command that starts the tool server. One instance: it reads the
         // environment once, and the environment does not change while the application runs.
@@ -41,6 +41,7 @@ fun acpModule(): Module =
                 commandProvider = get(),
                 launcher = get(),
                 crashReporter = get(),
+                inspectorOptIn = inspectorHostOptIn,
             )
         }
     }

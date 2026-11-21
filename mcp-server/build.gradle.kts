@@ -47,6 +47,52 @@ tasks.named<JavaExec>("run") {
     jvmArgs("-Dsingularity.version=$appVersion")
 }
 
+// The screen-inspector host capability is a build-time decision: the host is compiled in
+// only when the build passes `-Psingularity.inspector.host.enabled=true`. It is generated
+// into the source set so the runtime gate never resolves a user-overridable JVM property.
+//
+// The property is not the release boundary by itself. "The release pipeline passes
+// nothing" is a convention, and a convention is not an invariant: anything that can pass
+// `-P` to the packaging task can produce a release artefact with a remote-control host
+// compiled in. So the release path refuses the combination instead of relying on nobody
+// passing it — see the `distZip`/`distTar`/`installDist` guard below.
+val inspectorHostEnabled =
+    providers
+        .gradleProperty(
+            "singularity.inspector.host.enabled",
+        ).orElse("false")
+        .get()
+        .toBoolean()
+
+val inspectorHostBuildDir = layout.buildDirectory.dir("generated/src/main/kotlin")
+
+val generateInspectorHostBuildConfig =
+    tasks.register("generateInspectorHostBuildConfig") {
+        val generatedRoot = layout.buildDirectory.get().asFile
+        val hostEnabled = inspectorHostEnabled
+        // Declared so Gradle tracks this task as a real generation step: without an
+        // output the task always runs, and without an input a changed property does not
+        // invalidate it. The property is the input, the directory is the output.
+        inputs.property("singularity.inspector.host.enabled", hostEnabled)
+        outputs.dir(generatedRoot.resolve("generated/src/main/kotlin"))
+        doLast {
+            val dir = generatedRoot.resolve("generated/src/main/kotlin").resolve("com/singularity/todo/mcp")
+            dir.mkdirs()
+            dir.resolve("InspectorHostBuildConfig.kt").writeText(
+                "package com.singularity.todo.mcp\n\n" +
+                    "object InspectorHostBuildConfig {\n" +
+                    "    const val INSPECTOR_HOST_ENABLED: Boolean = $hostEnabled\n" +
+                    "}\n",
+            )
+        }
+    }
+
+sourceSets["main"].kotlin.srcDir(inspectorHostBuildDir.get().asFile)
+
+tasks.named("compileKotlin") {
+    dependsOn(generateInspectorHostBuildConfig)
+}
+
 /*
  * Compose Multiplatform reaches `savedstate-compose-desktop` by two routes on the
  * runtime classpath, and Gradle refuses to install a distribution that lists the
@@ -57,6 +103,35 @@ distributions {
     main {
         contents {
             duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
+    }
+}
+
+// A packaged distribution is what leaves the checkout: it is the artefact a user runs,
+// so it is the release boundary. `compileKotlin` is deliberately not guarded — a
+// developer who wants a host-enabled build still has `run`, `jar` and the test tasks.
+// The refusal is a `doFirst` and not a configuration-time check: this must break the
+// packaging task, not every task in a host-enabled checkout.
+//
+// Everything the closure needs is a plain `String`/`Boolean` captured at configuration
+// time. A `doFirst` that touches a script-level `val` (a task reference, the project)
+// makes the task unserializable for the configuration cache, and the failure lands in
+// whichever build reuses the entry — not in this one.
+listOf("distZip", "distTar", "installDist").forEach { name ->
+    val releaseArtifact = ":mcp-server:$name"
+    // A local, captured by the action below. `scripts/tests/test_inspector_release_boundary.py`
+    // pins that the action reads this name rather than a build-script property.
+    val hostInArtifacts = inspectorHostEnabled
+    tasks.named(name) {
+        doFirst {
+            if (hostInArtifacts) {
+                throw GradleException(
+                    "$releaseArtifact is a release artefact, and the screen-inspector host is a " +
+                        "development/test capability that must not be compiled into one. Build it " +
+                        "without -Psingularity.inspector.host.enabled=true; use `run`, `jar` or a " +
+                        "test task for a host-enabled build.",
+                )
+            }
         }
     }
 }
@@ -129,6 +204,14 @@ val testTaskHeap =
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // The build capability the generated constant carries, handed to the test JVM.
+    //
+    // `InspectorHostBuildConfigTest` asserts that the constant matches this property in
+    // *both* directions: a default build must generate `false`, and a build that passed
+    // `-Psingularity.inspector.host.enabled=true` must generate `true`. A test that only
+    // asserted `false` would fail the explicitly supported host-enabled development build
+    // — the configuration this module is meant to be exercised in.
+    systemProperty("singularity.inspector.host.enabled", inspectorHostEnabled.toString())
     useJUnitPlatform {
         // Jupiter parallel execution — see Phase 5 plan note in shared/build.gradle.kts.
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")

@@ -64,6 +64,19 @@ external agent its tool access by running **the same server** in the application
 
 The same server/runtime also hosts the headless screen-inspector driver ([#3041](https://github.com/gazon1/sing/issues/3041), `shared/src/jvmMain/.../mcp/introspection/`): MCP tools `screen_list/open/describe/snapshot/actions/invoke/wait/cancel/close/sessions` drive supported screens through the canonical `core/llm` introspection contract (no business rules, no direct repo writes, no duplicate domain tools). The `:mcp-server`/desktop entrypoint also supports a JSON CLI mode (`agent <command> ...`) reusing this runtime; see `docs/architecture/screen-inspector.md` for commands and JSON contract.
 
+The host is opt-in twice over: the build compiles it in only with
+`-Psingularity.inspector.host.enabled=true`, and the process registers the screen inspector tools
+only when it was started with `--inspector` (the flag `McpServerCommandProvider` names, resolved by
+the entry point). Without either one no host starts. The build gate is enforced, not defaulted:
+the packaging tasks of `:mcp-server` and `:desktopApp` refuse to produce an artefact with the
+capability compiled in, so no `-P` flag can turn a release package into a host. The `agent` CLI is
+governed by the same build capability — it needs no runtime flag, but a build compiled without the
+property refuses it. The host inspects a real-graph session built from the application's modules,
+not the window currently on screen; see `docs/architecture/screen-inspector.md`. Android does not
+expose the host yet ([#3074](https://github.com/gazon1/sing/issues/3074)). See
+ADR `2026-11-20-the-local-screen-inspector-host-is-explicit.md` and
+`2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`.
+
 ## When to Use This Skill
 
 - Adding a new `:mcp-server` Gradle module that hosts an MCP server.

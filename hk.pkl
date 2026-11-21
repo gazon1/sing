@@ -134,7 +134,11 @@ hooks {
       ["gate script tests"] {
         exclusive = true
         profiles = List("!fast")
-        check = "python3 -m unittest discover -s scripts/tests"
+        // INSPECTOR_RELEASE_BOUNDARY_GRADLE arms the Gradle-backed release-boundary
+        // control: whether a packaging build with the inspector host compiled in is
+        // actually refused. Static assertions cannot prove a guard's condition, and this
+        // hook is where a warm daemon already exists (see "gate wiring" above).
+        check = "env INSPECTOR_RELEASE_BOUNDARY_GRADLE=1 python3 -m unittest discover -s scripts/tests"
       }
 
       ["detekt-rules:test"] {

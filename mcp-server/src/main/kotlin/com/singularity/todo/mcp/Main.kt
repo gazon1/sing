@@ -21,7 +21,12 @@ import org.koin.core.context.startKoin
  * stored active-profile state; `--profile` keeps its legacy label meaning and is
  * deprecated.
  */
-fun main(args: Array<String>): Unit = runToolServer(args, KoinStartup)
+fun main(args: Array<String>): Unit =
+    runToolServer(
+        args,
+        KoinStartup,
+        inspectorHostCompiledIn = InspectorHostBuildConfig.INSPECTOR_HOST_ENABLED,
+    )
 
 /**
  * The composition root of the standalone server.
