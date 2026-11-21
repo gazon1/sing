@@ -71,8 +71,10 @@ import kotlin.time.Instant
  *   `describe()` does not publish. The snapshot is an allowlisted projection, not a promise
  *   of UI parity.
  * * An adapter action with no control of its own: `restore_task`. The undo is the snackbar's
- *   action, drawn by `NotificationHost` rather than by an attribute row, and the snackbar is
- *   covered by `TaskDetailOverflowActionsTest`.
+ *   action, drawn by `NotificationHost` rather than by an attribute row.
+ *   `TaskDetailOverflowActionsTest` covers only the *appearance* of that offer — it waits for
+ *   the action and clicks nothing. Whether tapping Undo restores the task is open defect
+ *   #2723, so that test must not be read as covering the restore.
  * * Unavailable states: the adapter refuses every action while the screen is `loading` or
  *   `error`, and both screens are asserted in the isolated tests. What is not asserted here
  *   is that *no* control offers an action in those states — that is a claim about the error
