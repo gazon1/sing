@@ -44,13 +44,19 @@ import kotlin.time.Instant
  * Both paths end at `TaskDetailCoordinator.onIntent(intent: TaskDetailIntent.Domain)`:
  * the hero's control constructs `TaskDetailIntent.Domain.ToggleComplete`, and
  * `TaskDetailScreenIntrospection.intentFor` returns the same variant for `toggle_complete`.
- * That is a fact about the two call sites, not something this file asserts — comparing the
- * constructed values needs the coordinator instance the composition owns, and neither the
- * app harness nor the isolated one hands it out. Exposing it would mean a test-only seam,
- * which is the custom DSL the issue rules out. The screenshot-free middle ground taken
- * here is behavioural: the tap reaches the repository through the coordinator's own slot,
- * so a control wiring that skipped `onIntent` and wrote directly would pass the write
- * assertion only by duplicating the slot.
+ * That is a fact about the two call sites, and it is established by reading them, not by
+ * this file. Nothing here observes the dispatch: comparing the constructed values needs the
+ * coordinator instance the composition owns, and neither the app harness nor the isolated
+ * one hands it out — exposing it would be a test-only seam, which is the custom DSL the
+ * issue rules out.
+ *
+ * So what these tests prove is narrower, and worth stating exactly: a tap on the control
+ * produces the write and the rendered state, and removing the control's callback removes
+ * both. What they do **not** prove is that the write went through `onIntent` — a callback
+ * that wrote to the repository directly, producing the same state, would pass them. The
+ * difference matters for the effects the slot adds (a recurring task's close, the blocked-
+ * close confirmation), which a direct write would skip. Closing that gap needs a seam, and
+ * that is a separate decision, not something this test quietly claims.
  *
  * ## What else is verified, and what is not
  *
@@ -101,7 +107,7 @@ class TaskDetailCompletionWiringTest {
             assertNotNull(
                 taskRepository(koin).get(taskId)?.completedAt,
                 "the completion control changed the icon and the date without writing: " +
-                    "the tap never reached the coordinator's slot",
+                    "the tap never reached a write at all",
             )
         }
 

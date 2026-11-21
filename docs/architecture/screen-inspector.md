@@ -314,7 +314,8 @@ KDoc names the boundary; the parts worth knowing here:
 
 - **Verified:** `toggle_complete` through the hero's control, in both directions
   (complete → reopen), asserted on the repository write *and* on the rendered
-  completion date.
+  completion date. Removing the control's callback makes both tests fail, so they
+  measure the wiring and not the adapter's own behaviour.
 - **Covered by a flow already, not repeated:** the priority row → picker → relabel
   (`SetPriorityFlowTest`) and the checklist inline add-row
   (`TaskDetailEmptyChildSectionsTest`, `TaskItemListScenarioTest`). They assert rendered
@@ -325,11 +326,17 @@ KDoc names the boundary; the parts worth knowing here:
   *end* at `TaskDetailCoordinator.onIntent` is a fact about the call sites; no test
   compares the constructed values, because neither desktop harness hands out the
   coordinator instance the composition owns and exposing it would be a test-only seam.
+  So the tests do not prove the write went through `onIntent` — a callback that wrote to
+  the repository directly, with the same resulting state, would pass them. That matters
+  for what the slots add on the way (a recurring task's close, the blocked-close
+  confirmation), which a direct write would skip.
 - **Not verified, by design:** that a control exists for every published action
-  (`restore_task` has no tap of its own — the undo lives in the snackbar, covered by
-  `TaskDetailOverflowActionsTest`); that no control offers an action in the `loading` and
-  `error` states the adapter refuses actions in; and any row or section the snapshot does
-  not publish. The snapshot is an allowlisted projection, not an inventory of the screen.
+  (`restore_task` has no tap of its own — the undo lives in the snackbar, and
+  `TaskDetailOverflowActionsTest` asserts only that the offer *appears*: whether tapping
+  Undo restores the task is open defect #2723, so that test must not be read as covering
+  the restore); that no control offers an action in the `loading` and `error` states the
+  adapter refuses actions in; and any row or section the snapshot does not publish. The
+  snapshot is an allowlisted projection, not an inventory of the screen.
 
 So: passing the headless suite is not evidence that a control is wired or that anything
 is rendered. It is evidence about the adapter and the coordinator only.
