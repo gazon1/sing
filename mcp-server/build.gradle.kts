@@ -119,10 +119,12 @@ distributions {
 // whichever build reuses the entry — not in this one.
 listOf("distZip", "distTar", "installDist").forEach { name ->
     val releaseArtifact = ":mcp-server:$name"
-    val hostEnabled = inspectorHostEnabled
+    // A local, captured by the action below. `scripts/tests/test_inspector_release_boundary.py`
+    // pins that the action reads this name rather than a build-script property.
+    val hostInArtifacts = inspectorHostEnabled
     tasks.named(name) {
         doFirst {
-            if (hostEnabled) {
+            if (hostInArtifacts) {
                 throw GradleException(
                     "$releaseArtifact is a release artefact, and the screen-inspector host is a " +
                         "development/test capability that must not be compiled into one. Build it " +

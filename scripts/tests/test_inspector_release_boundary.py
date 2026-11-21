@@ -60,7 +60,20 @@ class ReleaseWorkflowPublishesNoMcpServerTest(unittest.TestCase):
 
 
 class PackagingGuardTest(unittest.TestCase):
-    """The property must break a release artefact, not merely default to false."""
+    """The property must break a release artefact, not merely default to false.
+
+    A presence check is not enough on its own: the guard could be present and still be a
+    no-op (a `doFirst` that logs, a condition that is always false). Three things are
+    asserted per module, and each one is a way the guard has actually been broken:
+
+    1. the guard is attached to a task action (`doFirst`), not to configuration time —
+       a configuration-time check would break every host-enabled checkout, which is why
+       it was not written that way;
+    2. the action *throws*, because a refusal that only logs is not a refusal;
+    3. the action reads a value captured outside it. A `doFirst` that reads a build-script
+       property is unserializable for the configuration cache, and this repository makes
+       configuration-cache problems fatal.
+    """
 
     def assert_guard_over(self, path: pathlib.Path, task_patterns, property_name):
         text = read(path)
@@ -74,6 +87,20 @@ class PackagingGuardTest(unittest.TestCase):
             text,
             f"{path.name} has no release guard: the property would only default the "
             f"capability off instead of refusing a release artefact that carries it.",
+        )
+        guard = guard_action(path)
+        self.assertIn(
+            "throw GradleException",
+            guard,
+            f"{path.name}: the release guard does not throw. A guard that logs is not a "
+            f"refusal, and the packaging task still produces a host-enabled artefact.",
+        )
+        self.assertIn(
+            host_flag_reference := "hostInArtifacts",
+            guard,
+            f"{path.name}: the guard action must read a value captured outside it "
+            f"({host_flag_reference}), not a build-script property — the latter makes the "
+            f"task unserializable for the configuration cache.",
         )
         for pattern in task_patterns:
             self.assertIn(
@@ -96,6 +123,39 @@ class PackagingGuardTest(unittest.TestCase):
             task_patterns=["distZip", "distTar", "installDist"],
             property_name="singularity.inspector.host.enabled",
         )
+
+
+def guard_action(path: pathlib.Path) -> str:
+    """The text of the `doFirst { … }` action in a build script, braces balanced.
+
+    The word also appears in the prose comments around the guard, so the match is the
+    action syntax (`doFirst` followed by its block) and never a mention in a comment.
+    """
+    text = read(path)
+    for match in re.finditer(r"doFirst\s*\{", text):
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        if text[line_start : match.start()].lstrip().startswith("//"):
+            continue
+        brace = match.end() - 1
+        depth = 0
+        for index in range(brace, len(text)):
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[brace : index + 1]
+    return ""
+
+
+class GuardActionReaderTest(unittest.TestCase):
+    """`guard_action` is the test's own reader — it must not pass by returning ''."""
+
+    def test_reads_the_real_action(self):
+        for path in (DESKTOP_BUILD, MCP_SERVER_BUILD):
+            action = guard_action(path)
+            self.assertTrue(action.startswith("{"), f"{path.name}: no doFirst action found")
+            self.assertGreater(len(action), 100, f"{path.name}: the action looks truncated")
 
 
 if __name__ == "__main__":

@@ -258,18 +258,21 @@ tasks.named("compileKotlin") {
 // not a configuration-time check: this must break the packaging task, not every task in
 // a host-enabled checkout.
 //
-// Everything the closure needs is a plain `String`/`Boolean` captured at configuration
-// time. A `doFirst` that touches a script-level `val` (a task reference, the project)
-// makes the task unserializable for the configuration cache, and the failure lands in
-// whichever build reuses the entry — not in this one.
+// Everything the closure needs is captured into a local `Boolean` inside the
+// `configureEach` block. A `doFirst` that reads a script-level `val` — the property below,
+// a task reference, `project` — makes the task unserializable for the configuration
+// cache, and `org.gradle.configuration-cache.problems=fail` turns that into a red build in
+// whichever invocation reuses or stores the entry.
 val desktopInspectorHostInPackagedArtifacts = desktopInspectorHostEnabled
 tasks
     .matching {
         it.name.startsWith("package") || it.name.startsWith("createDistributable")
     }.configureEach {
+        // Locals, not script properties: these are what the task action captures.
         val releaseArtifact = "${project.path}:$name"
+        val hostInArtifacts = desktopInspectorHostInPackagedArtifacts
         doFirst {
-            if (desktopInspectorHostInPackagedArtifacts) {
+            if (hostInArtifacts) {
                 throw GradleException(
                     "$releaseArtifact is a distributable release artefact, and the " +
                         "screen-inspector host is a development/test capability that must not be " +
