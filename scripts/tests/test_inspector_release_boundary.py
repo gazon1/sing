@@ -231,28 +231,33 @@ class PackagingGuardBehaviorTest(unittest.TestCase):
         f"set {GRADLE_ENV}=1 to run the Gradle-backed release-boundary control",
     )
     def test_default_packaging_is_not_refused(self):
-        # The other half of the control: the guard must not break the ordinary build.
-        # A guard that refuses unconditionally would pass the test above and make every
-        # packaging task in the repository impossible.
-        #
-        # The tasks are only *configured* — `--dry-run` is right here, because this asserts
-        # that nothing refuses, and a refusal raised outside a task action would fire
-        # during configuration.
-        proc = subprocess.run(
-            ["./gw", "-q", "--dry-run", *GUARDED_TASKS],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
-        )
-        output = proc.stdout + proc.stderr
-        self.assertNotIn(
-            "release artefact",
-            output,
-            "A default packaging build was refused by the release guard. The guard must "
-            f"only fire when the host is enabled. Output:\n{output[-4000:]}",
-        )
+        # The other half of the control, and it has to *run* the tasks. A guard changed to
+        # refuse unconditionally satisfies `test_host_enabled_packaging_is_refused` while
+        # breaking every ordinary package build; `--dry-run` cannot see that, because a dry
+        # run skips task actions and the guard lives in `doFirst`. So: real task execution,
+        # and the exit code is the assertion.
+        for task in GUARDED_TASKS:
+            proc = subprocess.run(
+                ["./gw", "-q", task],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=1800,
+                check=False,
+            )
+            output = proc.stdout + proc.stderr
+            self.assertNotIn(
+                "release artefact",
+                output,
+                f":{task} was refused by the release guard without the host enabled. The "
+                f"guard must only fire when the property is passed. Output:\n{output[-4000:]}",
+            )
+            self.assertEqual(
+                0,
+                proc.returncode,
+                f":{task} FAILED on a default build. The release guard must not break the "
+                f"ordinary packaging path. Output:\n{output[-4000:]}",
+            )
 
 
 if __name__ == "__main__":
