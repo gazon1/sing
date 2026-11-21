@@ -392,6 +392,15 @@ val testTaskHeap =
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // The build capability the generated constant carries, handed to the test JVM.
+    //
+    // `DesktopInspectorHostBuildConfigTest` asserts that the constant matches this property
+    // in *both* directions: a default build must generate `false`, and a build that passed
+    // `-Psingularity.inspector.host.enabled=true` must generate `true`. A test that only
+    // asserted `false` would fail the explicitly supported host-enabled development build
+    // — the configuration this module is meant to be exercised in.
+    systemProperty("singularity.inspector.host.enabled", desktopInspectorHostEnabled.toString())
+
     // Before every class here was tagged, `includeTags("fast","slow")` selected nothing
     // and this task still reported BUILD SUCCESSFUL. Discovering zero tests is a
     // configuration error, not a pass — see also `TestTagCoverageTest`.

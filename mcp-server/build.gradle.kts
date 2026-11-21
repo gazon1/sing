@@ -202,6 +202,14 @@ val testTaskHeap =
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // The build capability the generated constant carries, handed to the test JVM.
+    //
+    // `InspectorHostBuildConfigTest` asserts that the constant matches this property in
+    // *both* directions: a default build must generate `false`, and a build that passed
+    // `-Psingularity.inspector.host.enabled=true` must generate `true`. A test that only
+    // asserted `false` would fail the explicitly supported host-enabled development build
+    // — the configuration this module is meant to be exercised in.
+    systemProperty("singularity.inspector.host.enabled", inspectorHostEnabled.toString())
     useJUnitPlatform {
         // Jupiter parallel execution — see Phase 5 plan note in shared/build.gradle.kts.
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")

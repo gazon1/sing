@@ -93,6 +93,19 @@ java -jar mcp-server/build/libs/mcp-server.jar --inspector --profile-id=<id>
 The property is a **build** input, not a JVM property: a release distribution built without it
 cannot host the inspector however it is launched.
 
+### Which artefacts are guarded, and which are not
+
+The guard covers the tasks that produce something a user installs: `package*` and
+`createDistributable*` in `:desktopApp`, and `distZip`/`distTar`/`installDist` in `:mcp-server`.
+
+`:mcp-server:jar` is deliberately **not** guarded. It is an executable fat JAR, but it is a
+`build/libs` development output: `McpServerEndToEndTest` spawns it, and a host-enabled development
+build is exactly what it is for. That is safe only while the release workflow publishes no
+`:mcp-server` artefact at all — which it does not, and which
+`scripts/tests/test_inspector_release_boundary.py` asserts. If release ever starts shipping the fat
+JAR, that test fails and the JAR task has to be guarded too: an unguarded executable artefact is a
+release path the moment somebody publishes it.
+
 ## CLI commands (JSON)
 
 All responses are JSON objects: `{"ok":true,"result":...}` or
