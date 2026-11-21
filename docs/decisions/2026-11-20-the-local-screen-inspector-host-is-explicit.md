@@ -46,9 +46,9 @@ JVM/desktop host decision lives.
 5. **The entry point resolves the opt-in and the server applies the resolved value.** The entry
    point (desktop `main`, standalone `Main`) passes the compiled-in capability to `runToolServer`;
    `runToolServer` ANDs it with the flag and hands the result to the start-up as
-   `inspectorHostOptIn`; `ToolServerStartupContext` exposes it as `inspectorHostEnabled`, and
-   `BuildTheServer` registers the screen inspector tools only when it is true. Otherwise the
-   toolbox has no `screen_*` tool at all, and the server's `instructions` do not advertise them.
+   `inspectorHostEnabled`; `BuildTheServer` registers the screen inspector tools only when it is
+   true. Otherwise the toolbox has no `screen_*` tool at all, and the server's `instructions` do
+   not advertise them.
 
 ## Rationale
 

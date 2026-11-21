@@ -76,9 +76,9 @@ internal const val EXIT_USAGE = 2
 internal suspend fun startToolServer(
     selection: ProfileSelection,
     koinStartup: ToolServerKoinStartup,
-    inspectorHostOptIn: Boolean = false,
+    inspectorHostEnabled: Boolean = false,
 ): ToolServerStartup {
-    val context = ToolServerStartupContext(selection, koinStartup, inspectorHostOptIn)
+    val context = ToolServerStartupContext(selection, koinStartup, inspectorHostEnabled)
     for (step in ToolServerStartupOrder.steps) {
         val refusal = step.run(context)
         if (refusal != null) return refusal

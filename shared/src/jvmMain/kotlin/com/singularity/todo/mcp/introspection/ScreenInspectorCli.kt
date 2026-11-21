@@ -66,21 +66,31 @@ internal object ScreenInspectorCli {
         args: List<String>,
         defaultKoinStartup: ToolServerKoinStartup? = null,
         inspectorHostCompiledIn: Boolean,
-    ): Int {
-        // The CLI is a host too, and the build gate applies to it: a release build compiled
-        // the inspector out, so no command may reach a dispatch path there. This is checked
-        // before help and before the container starts.
-        if (!inspectorHostCompiledIn) {
-            printJson(
-                err(
-                    InspectorErrorCode.UNSUPPORTED.wire,
-                    "The screen inspector host is not compiled into this build. " +
-                        "Build with -Psingularity.inspector.host.enabled=true to use the agent CLI.",
-                ),
-            )
-            return 2
+    ): Int =
+        if (inspectorHostCompiledIn) {
+            runCompiledIn(args, defaultKoinStartup)
+        } else {
+            refuseNotCompiledIn()
         }
 
+    // The CLI is a host too, and the build gate applies to it: a release build compiled the
+    // inspector out, so no command may reach a dispatch path there. The refusal is checked before
+    // help and before the container starts.
+    private fun refuseNotCompiledIn(): Int {
+        printJson(
+            err(
+                InspectorErrorCode.UNSUPPORTED.wire,
+                "The screen inspector host is not compiled into this build. " +
+                    "Build with -Psingularity.inspector.host.enabled=true to use the agent CLI.",
+            ),
+        )
+        return 2
+    }
+
+    private fun runCompiledIn(
+        args: List<String>,
+        defaultKoinStartup: ToolServerKoinStartup?,
+    ): Int {
         // `help` is a command in the JSON contract (not Clikt's text help).
         if (args.firstOrNull() == "help") {
             printJson(helpPayload())

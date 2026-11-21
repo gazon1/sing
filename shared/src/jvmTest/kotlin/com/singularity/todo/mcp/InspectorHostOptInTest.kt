@@ -80,7 +80,7 @@ class InspectorHostOptInTest {
             ToolServerStartupContext(
                 selection = ProfileSelection.Stored,
                 koinStartup = toolServerKoinStartup,
-                inspectorHostOptIn = true,
+                inspectorHostEnabled = true,
             )
 
         assertTrue(context.inspectorHostEnabled)
