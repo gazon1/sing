@@ -29,9 +29,32 @@ The MCP-server host is opt-in twice over: the build compiles the capability in o
 `-Psingularity.inspector.host.enabled=true`, and the process registers the screen inspector tools
 only when it was started with `--inspector` (`McpServerCommandProvider.INSPECTOR_HOST_FLAG`).
 Without either one no host starts. A release build passes neither property nor flag, so the host
-is absent there and no argument can turn it on. The CLI host needs no flag of its own; it is
-entered through an explicit command. See ADR
+is absent there and no argument can turn it on. The build gate is enforced rather than assumed:
+the packaging tasks of `:desktopApp` and `:mcp-server` refuse to produce an artefact with the
+capability compiled in, so `-P` cannot turn a release package into a host. The CLI host needs no
+flag of its own; it is entered through an explicit command. See ADR
 `2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
+
+### What the host attaches to — and what it does not
+
+The host is the tool-server **process**. It builds its own Koin container from the
+application's real module list and opens its own `TaskDetailCoordinator`, whose actions reach the
+real `TaskDetailCoordinator.onIntent`. The contract and the behavior path are the application's,
+not a fixture's.
+
+It is **not** the window the user has open. A running Desktop window and `--mcp-server` are two
+processes with two graphs and two screen sessions, so the host cannot observe transient on-screen
+state (an unsaved editor buffer, for instance). An agent driving the host operates *a* real
+session of the screen, not the one currently rendered. Attaching to the live window would need a
+local-only transport into the GUI process or an in-process host, which #3042 does not build. See
+ADR `2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`.
+
+### Android
+
+The logical contract is `commonMain` and the Task Detail adapter is shared, but the inspector
+runtime and its host start-up are `jvmMain`. Android debug/test does not expose a host yet: that
+slice needs its own lifecycle seam and a gate that cannot ship, and it is tracked separately in
+[#3074](https://github.com/gazon1/sing/issues/3074). Issue #3042 is not complete until it lands.
 
 CLI entry (same binaries/process model as MCP server). The CLI is a host too, so the build
 capability applies: a build compiled without `-Psingularity.inspector.host.enabled=true` answers

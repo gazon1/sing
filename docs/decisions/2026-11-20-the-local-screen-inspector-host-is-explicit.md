@@ -61,6 +61,13 @@ JVM/desktop host decision lives.
 - A JVM property would be the wrong seam: `-D` is user-overridable at launch, so a release jar
   could be opted in by anyone who knows the property name. The Gradle property is fixed when the
   artifact is compiled.
+- "The release pipeline passes nothing" is a convention, and a convention is not an invariant:
+  `-P` reaches any task, so `:desktopApp:packageDeb -Psingularity.inspector.host.enabled=true`
+  would have produced a distributable package with the host compiled in. The packaging tasks
+  therefore refuse the combination (`refuseInspectorHostInReleaseArtifact` in `:desktopApp` and
+  `:mcp-server`), so a release artefact carrying the host cannot be built rather than is not
+  built today. The refusal is a `doFirst`, not a configuration-time check, so a host-enabled
+  development checkout still compiles, runs and tests normally.
 - The CLI host needs no flag of its own: it is entered through an explicit command
   (`agent`, `screen-inspector`, `--agent`, `--screen-inspector`), so its opt-in is structural. It
   is still build-gated: a release build refuses the command, because the capability is not there.
@@ -68,6 +75,16 @@ JVM/desktop host decision lives.
   running application's graph. The tool-server host reuses the real Koin graph, the real
   coordinator and the real intent path, so what an agent inspects is the application, not a
   fixture.
+- **What the host does not attach to, stated plainly.** The host is the tool-server *process*,
+  which builds its own Koin container from the application's real module list and opens its own
+  `TaskDetailCoordinator` from it. That coordinator is the production implementation and its
+  actions land on the real `TaskDetailCoordinator.onIntent` — but it is not the instance the
+  GUI holds for the window the user has open. A running Desktop window and the host process are
+  two processes with two graphs and two screen sessions, so the host cannot observe transient
+  on-screen state such as an unsaved editor buffer. Calling it "inspection of the running
+  application session" would overstate it: [the sibling
+  `2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`](2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md)
+  records that gap and why the live-window attach was not chosen here.
 
 ## Lifecycle
 
@@ -102,12 +119,16 @@ one the introspection contract already carries — the opt-in does not relax it:
 
 - **JVM Desktop** — delivered here. The host is the existing desktop / `:mcp-server` tool-server
   process, guarded by the build capability and the `--inspector` flag. The application always uses
-  the real runtime graph.
+  the real runtime graph, and its actions reach the real coordinator intent path — but it is a
+  separate process from the on-screen window, which
+  `2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md` records.
 - **Android** — the same logical contract is what the Android screen path already implements (the
   canonical contract and the Task Detail adapter live in `commonMain`), and the intended Android
   host is the same in-process bridge. **This change does not wire an Android host**: the inspector
-  runtime lives in `jvmMain` and is not compiled into the Android target. Android exposure is a
-  separate vertical slice; this ADR does not claim it.
+  runtime lives in `jvmMain` and is not compiled into the Android target. The Issue's Android
+  criterion is therefore **not met** by this change, and #3042 stays open until
+  [#3074](https://github.com/gazon1/sing/issues/3074) delivers the Android debug/test host. A
+  comment in an ADR is not a delivery.
 
 ## Consequences
 
@@ -125,6 +146,8 @@ one the introspection contract already carries — the opt-in does not relax it:
 
 - Issue: https://github.com/gazon1/sing/issues/3042
 - Epic: https://github.com/gazon1/sing/issues/3038
+- Android follow-up: https://github.com/gazon1/sing/issues/3074
+- Session-scope note: `docs/decisions/2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`
 - Contract: `docs/decisions/2026-11-18-the-reusable-screen-introspection-contract.md`
 - Reference: `docs/architecture/screen-inspector.md`
 - Implementation: `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/` (`ToolServerStartupContext`,

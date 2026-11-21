@@ -67,10 +67,15 @@ The same server/runtime also hosts the headless screen-inspector driver ([#3041]
 The host is opt-in twice over: the build compiles it in only with
 `-Psingularity.inspector.host.enabled=true`, and the process registers the screen inspector tools
 only when it was started with `--inspector` (the flag `McpServerCommandProvider` names, resolved by
-the entry point). Without either one no host starts; a release build carries neither and no
-argument can turn the host on. The `agent` CLI is governed by the same build capability — it needs
-no runtime flag, but a build compiled without the property refuses it. See
-ADR `2026-11-20-the-local-screen-inspector-host-is-explicit.md`.
+the entry point). Without either one no host starts. The build gate is enforced, not defaulted:
+the packaging tasks of `:mcp-server` and `:desktopApp` refuse to produce an artefact with the
+capability compiled in, so no `-P` flag can turn a release package into a host. The `agent` CLI is
+governed by the same build capability — it needs no runtime flag, but a build compiled without the
+property refuses it. The host inspects a real-graph session built from the application's modules,
+not the window currently on screen; see `docs/architecture/screen-inspector.md`. Android does not
+expose the host yet ([#3074](https://github.com/gazon1/sing/issues/3074)). See
+ADR `2026-11-20-the-local-screen-inspector-host-is-explicit.md` and
+`2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`.
 
 ## When to Use This Skill
 
