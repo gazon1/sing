@@ -137,7 +137,20 @@ internal object NoDirectDispatchersPolicy {
     /** Kept as a named constant for the single-file case in existing callers and messages. */
     const val ALLOWED_FILE = "core/log/FileLogWriter.kt"
 
-    private val PLATFORM_SOURCE_SETS = listOf("jvmMain", "androidMain", "iosMain", "jsMain", "nativeMain")
+    private val PLATFORM_SOURCE_SETS =
+        listOf(
+            "jvmMain",
+            "androidMain",
+            // Compiled into both the JVM and the Android target. It is a platform source
+            // set by the rule's own definition — the code can pick a real dispatcher, and
+            // there is no third target whose port would have to provide one — so leaving it
+            // out reported `Dispatchers.Default` in `TaskDetailScreenSession` as if the file
+            // were `commonMain`. It is not: nothing here compiles for Native, JS or Wasm.
+            "jvmAndroidMain",
+            "iosMain",
+            "jsMain",
+            "nativeMain",
+        )
     private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")
 
     /**

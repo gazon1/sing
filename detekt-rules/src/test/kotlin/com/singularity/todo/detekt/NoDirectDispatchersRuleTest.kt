@@ -161,7 +161,14 @@ class NoDirectDispatchersRuleTest {
         // Verified against the tree 2026-10-05: jvmMain has 8 such sites and androidMain
         // 11, all inside port implementations. Banning them would ban the ports from
         // implementing their ports.
-        for (sourceSet in listOf("jvmMain", "androidMain", "iosMain")) {
+        //
+        // `jvmAndroidMain` joined on 2026-11-22 with the screen-inspector runtime (#3074).
+        // It is compiled into the JVM and Android targets and for no other, so it is a
+        // platform set by this rule's own definition — and it is where
+        // `TaskDetailScreenSession` picks `Dispatchers.Default` for a coordinator scope it
+        // owns. Without this entry the move to share the runtime reported a ban the code
+        // was never subject to.
+        for (sourceSet in listOf("jvmMain", "androidMain", "jvmAndroidMain", "iosMain")) {
             val path = "/repo/shared/src/$sourceSet/kotlin/com/singularity/todo/core/x/X.kt"
             assertNull(violation(path), "$sourceSet chooses its own dispatcher by design")
         }

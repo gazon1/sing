@@ -67,10 +67,17 @@ WORKSPACE = Path(__file__).resolve().parent.parent
 
 # Source set -> directories it may import from. commonMain is included by
 # androidMain and jvmMain, so a commonMain import counts for all three.
+#
+# `jvmAndroidMain` is the intermediate set compiled into both the JVM and the Android
+# target (see the declaration in shared/build.gradle.kts). It sees commonMain and its own
+# sources, and each target sees it on top of commonMain — leaving it out would make a
+# dependency used only there read as unused, and would exempt a `libs.*` reference in it
+# from being declared.
 SOURCE_SET_DIRS = {
     "commonMain": ["commonMain"],
-    "androidMain": ["commonMain", "androidMain"],
-    "jvmMain": ["commonMain", "jvmMain"],
+    "jvmAndroidMain": ["commonMain", "jvmAndroidMain"],
+    "androidMain": ["commonMain", "jvmAndroidMain", "androidMain"],
+    "jvmMain": ["commonMain", "jvmAndroidMain", "jvmMain"],
 }
 
 MODULES_WITH_ROOT = ("shared", "androidApp", "desktopApp", "mcp-server")

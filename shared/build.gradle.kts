@@ -143,6 +143,28 @@ kotlin {
     }
 
     sourceSets {
+        // Production code that only the JVM and Android targets can compile, and that
+        // both of them need. There is exactly one inhabitant today: the screen-inspector
+        // runtime (`mcp/introspection`), which the desktop tool-server host drives and
+        // which the Android debug host must reach to expose the same logical contract
+        // (#3074). It was in `jvmMain`, where the Android target could not see it.
+        //
+        // Why not `commonMain`: the runtime is not platform-neutral — it takes a Koin
+        // container and a `TaskDetailCoordinator`, and it uses `java.util.UUID`,
+        // `java.util.concurrent` and `synchronized`. Moving it to `commonMain` would mean
+        // rewriting working concurrency for a third target this project does not build
+        // (`CommonMainJvmApiTest` would refuse the move anyway). A source set that says
+        // what is actually true — JVM bytecode, two targets — costs four lines and no
+        // rewrite.
+        //
+        // Nothing else may move in here without the same argument: `commonMain` is the
+        // default, and this set exists for code that genuinely cannot live there.
+        val jvmAndroidMain by creating {
+            dependsOn(commonMain.get())
+        }
+        jvmMain.get().dependsOn(jvmAndroidMain)
+        androidMain.get().dependsOn(jvmAndroidMain)
+
         commonMain.dependencies {
             // ADR rules live in `:adr-core` so that `:adr-cli` can use them without
             // depending on this module. `api` because the Koog adapters in
@@ -864,6 +886,21 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
                 rootProject.file("mcp-server/build.gradle.kts"),
             ).withPropertyName("moduleBuildFiles")
             .withPathSensitivity(PathSensitivity.RELATIVE)
+        // The manifests, for `ScreenInspectorHostIsDebugOnlyTest`, which asserts that the
+        // Android debug host is declared in `androidApp/src/debug` and **not** in
+        // `androidApp/src/main`. Measured 2026-11-22 while writing the gate: with the
+        // provider deliberately injected into the main manifest, the arch task reported
+        // the previous run's GREEN and exited 0, because a manifest is not a compile input
+        // of `:shared` and nothing invalidated the task. That is the same defect the
+        // MaestroFlows input below exists for — a blocking gate re-reporting a verdict
+        // about a file it never re-read — and it is why the input is declared here rather
+        // than trusted to the source-set walk the test does.
+        inputs
+            .files(
+                rootProject.file("androidApp/src/main/AndroidManifest.xml"),
+                rootProject.file("androidApp/src/debug/AndroidManifest.xml"),
+            ).withPropertyName("androidManifests")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
     }
     // MaestroFlowTagsTest walks up from commonMain.root to the worktree root and reads
     // Maestro/. That tree is not a compile input of :shared at all, so the gate went
@@ -1291,7 +1328,7 @@ tasks.register("printResolvedArtifacts") {
     // until execution — so declaring it uncacheable is the honest description.
     notCompatibleWithConfigurationCache("Reads dependency resolution state, which is only known at execution time.")
 
-    val sourceSets = listOf("commonMain", "androidMain", "jvmMain")
+    val sourceSets = listOf("commonMain", "jvmAndroidMain", "androidMain", "jvmMain")
     doLast {
         sourceSets.forEach { name ->
             // The `${sourceSet}Implementation` configuration is declared
@@ -1325,6 +1362,11 @@ detekt {
         "src/commonTest/kotlin",
         "src/jvmMain/kotlin",
         "src/jvmTest/kotlin",
+        // Shared by the JVM and Android targets only — see the comment on the source set
+        // declaration above. It holds the screen-inspector runtime, which the desktop host
+        // drives and the Android debug host reaches, so both platforms serve one contract.
+        // Issue #3074.
+        "src/jvmAndroidMain/kotlin",
         "src/androidMain/kotlin",
         // `androidHostTest` is declared and configured — `androidHostTestRuntimeOnly`
         // pulls the JUnit Vintage engine — and it holds Kotlin sources: the

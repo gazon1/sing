@@ -78,7 +78,12 @@ CLEAN = 0
 VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SOURCE_SETS = ("shared/src/commonMain", "shared/src/androidMain", "shared/src/jvmMain")
+SOURCE_SETS = (
+    "shared/src/commonMain",
+    "shared/src/androidMain",
+    "shared/src/jvmAndroidMain",
+    "shared/src/jvmMain",
+)
 BASELINE = ROOT / "scripts/check-dead-settings-baseline.txt"
 
 COMMON = "com/singularity/todo"

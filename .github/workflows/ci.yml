@@ -83,18 +83,24 @@ jobs:
             android:
               - 'androidApp/**'
               - 'shared/src/android*/**'
+              # `jvmAndroidMain` is compiled into the Android target too, so a change
+              # there has to select the Android lane. The glob above does not match it:
+              # `android*` anchors at the start of the source-set name.
+              - 'shared/src/jvmAndroidMain/**'
               - 'core-domain/**'
               - 'core-database/**'
               - 'gradle.properties'
             shared:
               - 'shared/src/commonMain/**'
               - 'shared/src/androidMain/**'
+              - 'shared/src/jvmAndroidMain/**'
               - 'shared/src/jvmMain/**'
               - 'core-domain/**'
               - 'core-database/**'
             desktop:
               - 'desktopApp/**'
               - 'shared/src/jvmMain/**'
+              - 'shared/src/jvmAndroidMain/**'
               - 'core-domain/**'
               - 'core-database/**'
             adr:

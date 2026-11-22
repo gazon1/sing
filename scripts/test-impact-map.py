@@ -245,6 +245,7 @@ PRODUCTION_SOURCE_DIRS: tuple[str, ...] = (
     'core-database/src/commonMain',
     'core-domain/src/commonMain',
     'shared/src/jvmMain',
+    'shared/src/jvmAndroidMain',
     'shared/src/androidMain',
     'androidApp/src/main',
     'desktopApp/src/jvmMain',
