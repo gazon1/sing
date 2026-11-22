@@ -20,10 +20,7 @@ import kotlinx.serialization.Serializable
  * call that named both would have no single answer.
  */
 @Serializable
-data class GetKnowledgeBriefInput(
-    val projectId: String? = null,
-    val taskId: String? = null,
-)
+data class GetKnowledgeBriefInput(val projectId: String? = null, val taskId: String? = null)
 
 /**
  * The brief, as the model reads it.
@@ -83,10 +80,11 @@ class GetKnowledgeBriefTool(
 
         val output =
             when {
-                projectId != null && taskId != null ->
+                projectId != null && taskId != null -> {
                     answer(reason = "Pass a projectId or a taskId, not both.")
+                }
 
-                projectId != null ->
+                projectId != null -> {
                     if (projectsRepository.get(ProjectId.fromString(projectId)) == null) {
                         answer(reason = "There is no project with id \"$projectId\".")
                     } else {
@@ -98,8 +96,9 @@ class GetKnowledgeBriefTool(
                                     .first(),
                         )
                     }
+                }
 
-                taskId != null ->
+                taskId != null -> {
                     if (taskRepository.get(TaskId.fromString(taskId)) == null) {
                         answer(reason = "There is no task with id \"$taskId\".")
                     } else {
@@ -108,8 +107,11 @@ class GetKnowledgeBriefTool(
                             notes = notesRepository.watchForTask(TaskId.fromString(taskId)).first(),
                         )
                     }
+                }
 
-                else -> answer(reason = "Pass a projectId or a taskId.")
+                else -> {
+                    answer(reason = "Pass a projectId or a taskId.")
+                }
             }
 
         return ToolOutputJson.encodeToString(GetKnowledgeBriefOutput.serializer(), output)
