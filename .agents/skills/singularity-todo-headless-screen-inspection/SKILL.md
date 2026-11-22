@@ -92,20 +92,25 @@ server you are already connected to:
 list_tasks   →  one row's "id" is a taskId this screen can open
 ```
 
-The inspector and the MCP server read the same profile-scoped database, so pass the
-same profile to both. Rows are owned by `<profileId>/<accountId>`; the profile id is
-the part before the slash:
+`list_tasks` already scopes to the right profile, so it is the only source you need.
+The inspector and the MCP server read the same database, so a task `list_tasks`
+returns is one the screen can open under the same profile.
+
+If the host answers `status: "error"`, `message: "Not found"` for an id `list_tasks`
+returned, the two calls ran under different profiles. Compare the profile flags
+rather than reading the database. Only when you must resolve a profile id itself is
+the active profile name needed, and it is one value:
 
 ```bash
-sqlite3 ~/.singularity-todo/singularity-todo.db \
-  "select id, user_id, substr(title,1,40) from tasks where archived_at is null limit 5;"
+grep -ao '01[A-Z0-9]\{24\}' ~/.singularity-todo/profile_state.preferences_pb | head -1
 ```
 
-Pass that prefix as `--profile-id`. A row that exists but is opened under another
-profile (or under none) answers `status: "error"`, `message: "Not found"` — which
-reads like a broken host and is really a profile mismatch. `list_tasks` already
-scopes correctly, so if the id came from there and the host still says `Not found`,
-the profile flags on the two calls differ.
+That prints the active profile id — no task rows, no titles, no account identifiers.
+Pass it before the subcommand (`agent --profile-id=<id> open …`).
+
+Do not query `tasks` for ids or titles. The snapshot and `list_tasks` are allowlisted
+projections; the raw table is not, and a title is exactly the private text the safety
+rules keep out of your context.
 
 A clean checkout's `~/.singularity-todo/` is created on the first run and holds no
 tasks. Create one in the Desktop app, or through the MCP tools, under the same
@@ -129,7 +134,10 @@ $INSPECTOR open --screen tasks.task-detail --task-id <TASK_ID>   # or --params '
 
 `open` returns one JSON object with `sessionId`, `screen`, `params`,
 `description`, `snapshot` and `actions`. It **waits for the screen to settle**, so
-`snapshot.status` is `loaded` or `error` — never a `loading` you have to poll past.
+in practice `snapshot.status` is `loaded` or `error` by the time you read it — the
+wait is what removed the always-`loading` race. It is a bounded wait (5 s), so a
+screen that is still initialising at the deadline comes back as `loading`: treat that
+as "ask again", not as a transport failure, and check the status before you invoke.
 The snapshot is an **allowlisted projection**, not an inventory of the screen: a
 field absent from it is not evidence that the screen does not show that field.
 

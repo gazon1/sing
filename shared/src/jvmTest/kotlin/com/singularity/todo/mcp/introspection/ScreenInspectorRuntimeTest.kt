@@ -159,6 +159,45 @@ class ScreenInspectorRuntimeTest {
         }
 
     @Test
+    fun `the settle wait returns a still-loading screen at its deadline instead of failing`() {
+        // A screen that never settles is the branch `open` cannot exercise against the real
+        // task-detail screen (it always loads). Without this, the deadline could start
+        // throwing or reporting `loaded` and every other test here would still pass.
+        var clock = 0L
+        var sleeps = 0
+
+        kotlinx.coroutines.runBlocking {
+            awaitSettledStatus(
+                status = { "loading" },
+                timeoutMs = 100L,
+                pollMs = 20L,
+                now = { clock },
+                sleep = { step ->
+                    sleeps++
+                    clock += step
+                },
+            )
+        }
+
+        assertTrue(sleeps > 0, "the wait must poll while the screen reports loading")
+        assertTrue(clock >= 100L, "the wait must run until its deadline, clock=$clock")
+
+        // The other half: a screen that settles stops the wait early.
+        var polls = 0
+        var secondClock = 0L
+        kotlinx.coroutines.runBlocking {
+            awaitSettledStatus(
+                status = { if (++polls >= 3) "loaded" else "loading" },
+                timeoutMs = 100L,
+                pollMs = 20L,
+                now = { secondClock },
+                sleep = { secondClock += it },
+            )
+        }
+        assertEquals(3, polls, "the wait must stop as soon as the screen leaves loading")
+    }
+
+    @Test
     fun `idempotent and destructive actions complete against real coordinator and repository`() =
         withRuntime { runtime, koin ->
             val taskRepo: TaskRepository = koin.get()

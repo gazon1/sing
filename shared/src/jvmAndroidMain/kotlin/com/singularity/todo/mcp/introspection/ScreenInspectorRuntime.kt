@@ -67,11 +67,10 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
      * the state is genuinely unknown then, and `error` is a different answer.
      */
     private suspend fun awaitSettled(session: ScreenSession) {
-        val deadline = System.currentTimeMillis() + OPEN_SETTLE_TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
-            if (session.snapshot()["status"]?.jsonPrimitive?.contentOrNull != "loading") return
-            delay(SETTLE_POLL_MS)
-        }
+        awaitSettledStatus(
+            status = { session.snapshot()["status"]?.jsonPrimitive?.contentOrNull },
+            timeoutMs = OPEN_SETTLE_TIMEOUT_MS,
+        )
     }
 
     fun describe(sessionId: String?): JsonObject = session(sessionId).describe()
@@ -181,6 +180,31 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
                     put("openSessions", sessions())
                 },
         )
+}
+
+/**
+ * Waits until [status] reports something other than `loading`, or [timeoutMs] elapses.
+ *
+ * Extracted from [ScreenInspectorRuntime.open] so the deadline branch is testable without a
+ * screen that refuses to settle: the caller passes the clock reading it already has, and the
+ * test passes a status that never changes.
+ *
+ * Returns normally when the deadline passes. A screen still `loading` at that point is the
+ * observed state, not a failure — `error` is a different answer and only the screen can give
+ * it.
+ */
+internal suspend fun awaitSettledStatus(
+    status: () -> String?,
+    timeoutMs: Long,
+    pollMs: Long = SETTLE_POLL_MS,
+    now: () -> Long = System::currentTimeMillis,
+    sleep: suspend (Long) -> Unit = { delay(it) },
+) {
+    val deadline = now() + timeoutMs
+    while (now() < deadline) {
+        if (status() != "loading") return
+        sleep(pollMs)
+    }
 }
 
 /** How long `open` waits for the screen to leave `loading` before reporting it as it is. */

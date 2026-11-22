@@ -48,9 +48,17 @@ it out would be documenting a race rather than a workflow.
   to `ScreenInspectorCli`, and hands the reserved stream in as the CLI's result sink
   (`ScreenInspectorCli.run(..., resultOut)`). `printJson` writes there; `System.out` is no
   longer the result channel.
+- The result sink is a `ThreadLocal`, not a plain field. The production model is one command
+  per process, so a field looked correct; the test suite runs classes concurrently, and a
+  shared field let one running test redirect another test's result. `run` sets the value and
+  removes it in a `finally`. The first version of the CLI test also redirected `System.out`,
+  which is the same hazard one layer out; it now asserts the reserved stream alone.
 - `ScreenInspectorRuntime.open` is `suspend` and waits for the session to leave `loading`
   (5 s deadline, 20 ms poll). At the deadline it returns whatever the state is, which is
-  `loading` — the state is genuinely unknown then, and `error` is a different answer.
+  `loading` — the state is genuinely unknown then, and `error` is a different answer. That
+  branch is `awaitSettledStatus`, extracted so a test can drive the deadline with a clock it
+  controls: a fake that never settles proves the wait runs to its deadline and returns, and a
+  fake that settles proves it stops early.
 - The runtime test asserts that `open` itself reports `loaded`, so the property is pinned
   where a poller cannot hide it.
 - The Android host (`ScreenInspectorHost`, whose `handle` is synchronous by design — a binder

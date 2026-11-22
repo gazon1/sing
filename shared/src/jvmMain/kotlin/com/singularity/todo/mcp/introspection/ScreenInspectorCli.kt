@@ -66,13 +66,17 @@ internal object ScreenInspectorCli {
     /**
      * Where a command's JSON result goes.
      *
-     * Set once per process by [run]. The host reserves standard output for the result
+     * Set once per run by [run]. The host reserves standard output for the result
      * ([com.singularity.todo.mcp.ProtocolStdout]) and moves every stray print to standard
      * error, so a result written to `System.out` after that reservation would land on the
      * wrong stream. Overridable so a test can capture the result without a process.
+     *
+     * Per-thread rather than a plain field: the production model is one command per
+     * process, but the test suite runs classes concurrently, and a shared field meant one
+     * running test could redirect another test's result. The thread is the unit that owns
+     * a command invocation, so it owns the stream.
      */
-    @Volatile
-    private var resultStream: PrintStream? = null
+    private val resultStream: ThreadLocal<PrintStream?> = ThreadLocal()
 
     fun run(
         args: List<String>,
@@ -80,17 +84,21 @@ internal object ScreenInspectorCli {
         inspectorHostCompiledIn: Boolean,
         resultOut: PrintStream? = null,
     ): Int {
-        resultStream = resultOut
-        return if (inspectorHostCompiledIn) {
-            runCompiledIn(args, defaultKoinStartup)
-        } else {
-            refuseNotCompiledIn()
+        resultStream.set(resultOut)
+        return try {
+            if (inspectorHostCompiledIn) {
+                runCompiledIn(args, defaultKoinStartup)
+            } else {
+                refuseNotCompiledIn()
+            }
+        } finally {
+            resultStream.remove()
         }
     }
 
     /** Writes one JSON result line to the reserved stream, or to standard output when none was given. */
     internal fun writeResult(line: String) {
-        (resultStream ?: System.out).println(line)
+        (resultStream.get() ?: System.out).println(line)
     }
 
     // The CLI is a host too, and the build gate applies to it: a release build compiled the
