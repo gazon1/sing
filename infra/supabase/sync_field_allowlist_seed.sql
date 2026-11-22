@@ -67,6 +67,7 @@ insert into sync_field_allowlist (entity_type, field, writable) values
     ('task', 'kind', true),
     ('task', 'projectId', true),
     ('task', 'parentTaskId', true),
+    ('task', 'sortOrder', true),
     ('task', 'tags', true),
     ('task', 'dueDate', true),
     ('task', 'dueTime', true),

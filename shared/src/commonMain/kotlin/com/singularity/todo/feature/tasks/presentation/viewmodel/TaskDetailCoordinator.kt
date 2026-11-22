@@ -566,6 +566,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.DeleteChecklistItem,
             is TaskDetailIntent.Domain.AddChecklistItem,
             is TaskDetailIntent.Domain.MoveChecklistItem,
+            is TaskDetailIntent.Domain.MoveSubtask,
             is TaskDetailIntent.Domain.ToggleSubtask,
             is TaskDetailIntent.Domain.DeleteSubtask,
             is TaskDetailIntent.Domain.RestoreChecklistItem,

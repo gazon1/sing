@@ -707,6 +707,60 @@ private class FakeTaskDao(
                 t.userId == userId && t.archivedAt == null && t.recurrenceRule != null && t.seriesId == null
             }.sortedBy { it.dueDate }
 
+    override fun watchSubtasksForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<TaskEntity>> =
+        store.map { map ->
+            map.values
+                .filter { it.parentTaskId == parentId && it.userId == userId && it.archivedAt == null }
+                .sortedWith(compareBy<TaskEntity> { it.sortOrder }.thenBy { it.createdAt })
+        }
+
+    override suspend fun maxSubtaskSortOrderForUser(
+        parentId: String,
+        userId: String,
+    ): Int? =
+        store.value.values
+            .filter { it.parentTaskId == parentId && it.userId == userId && it.archivedAt == null }
+            .maxOfOrNull { it.sortOrder }
+
+    override suspend fun reorderSubtasksForUser(
+        parentId: String,
+        orderedIds: List<String>,
+        updatedAt: Long,
+        userId: String,
+    ) {
+        store.update { current ->
+            val updated = current.toMutableMap()
+            orderedIds.forEachIndexed { index, id ->
+                val existing = updated[id] ?: return@forEachIndexed
+                if (existing.parentTaskId != parentId || existing.userId != userId) return@forEachIndexed
+                updated[id] = existing.copy(sortOrder = index, updatedAt = updatedAt)
+            }
+            updated
+        }
+    }
+
+    override suspend fun updateSubtaskSortOrderForUser(
+        taskId: String,
+        parentId: String,
+        sortOrder: Int,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
+        var updated = 0
+        store.update { current ->
+            val existing = current[taskId]
+            if (existing == null || existing.parentTaskId != parentId || existing.userId != userId) {
+                return@update current
+            }
+            updated = 1
+            current + (taskId to existing.copy(sortOrder = sortOrder, updatedAt = updatedAt))
+        }
+        return updated
+    }
+
     override fun watchByTag(
         userId: String,
         tagId: String,
@@ -2843,6 +2897,23 @@ private class FakeChecklistDao(
                 .map { it.id }
                 .toSet()
         return store.value.values.filter { it.taskId in ownedTaskIds }
+    }
+
+    override suspend fun reorderForUser(
+        taskId: String,
+        orderedIds: List<String>,
+        updatedAt: Long,
+        userId: String,
+    ) {
+        orderedIds.forEachIndexed { index, id ->
+            updateSortOrderForUser(
+                itemId = id,
+                taskId = taskId,
+                sortOrder = index,
+                updatedAt = updatedAt,
+                userId = userId,
+            )
+        }
     }
 }
 

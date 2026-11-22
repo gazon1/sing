@@ -235,13 +235,42 @@ class TaskRepositoryImpl(
 
     override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            taskDao.withExtras(
-                uid,
-                taskDao.watchActive(uid.value).map { rows ->
-                    rows.filter { it.parentTaskId == parentId.value }
-                },
-            )
+            taskDao.withExtras(uid, taskDao.watchSubtasksForUser(parentId.value, uid.value))
         }
+
+    override suspend fun reorderSubtasks(
+        parentId: TaskId,
+        orderedIds: List<TaskId>,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val now = clock.now().toEpochMilliseconds()
+                val uid = currentUser.scopedUserId.value
+                taskDao.reorderSubtasksForUser(
+                    parentId = parentId.value,
+                    orderedIds = orderedIds.map { it.value },
+                    updatedAt = now,
+                    userId = uid.value,
+                )
+                orderedIds.forEach { id -> enqueueFresh(id) }
+            }
+        }
+
+    /**
+     * New subtasks append after the parent's current children.
+     *
+     * The order is the number the user gave the row, so a freshly created
+     * subtask that kept the default `0` would jump to the top of a list that
+     * has already been ordered. We only assign when the caller left the
+     * default: an explicit value (restore/import paths) is kept as-is.
+     */
+    private suspend fun Task.withAssignedSubtaskSortOrder(uid: com.singularity.todo.core.ids.UserId): Task {
+        val parentId = parentTaskId ?: return this
+        if (sortOrder != 0) return this
+        val maxSortOrder =
+            taskDao.maxSubtaskSortOrderForUser(parentId.value, uid.value) ?: return this
+        return copy(sortOrder = maxSortOrder + 1)
+    }
 
     override suspend fun create(item: Task): Result<Task> =
         runCatchingCancellable {
@@ -252,7 +281,7 @@ class TaskRepositoryImpl(
                 // UI doors, an AI tool, the MCP server — so the refusal lives here
                 // rather than in the doors.
                 TaskSeriesShape.requireRuleLivesInSeries(item)
-                val toInsert = item.copy(userId = currentUid)
+                val toInsert = item.copy(userId = currentUid).withAssignedSubtaskSortOrder(currentUid)
                 taskDao.upsert(toInsert.toEntity())
                 saveOutgoingLinks(
                     toInsert.id,
@@ -1113,6 +1142,7 @@ private fun Task.toEntity(outgoingLinks: String = linksJsonOf(description, descr
         kind = kind,
         projectId = projectId?.value,
         parentTaskId = parentTaskId?.value,
+        sortOrder = sortOrder,
         dueDate = dueDate?.toIsoOrNull(),
         dueTime = dueTime.toLocalTimeIsoOrNull(),
         startDate = startDate?.toIsoOrNull(),

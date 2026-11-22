@@ -1008,6 +1008,11 @@ fun TaskDetailContent(
                                                     TaskDetailIntent.Domain.AddSubtask(it),
                                                 )
                                             },
+                                            onMove = { task, direction ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.MoveSubtask(task.id, direction),
+                                                )
+                                            },
                                             expanded =
                                                 TaskOptionalProperty.Subtasks in expandedProperties,
                                             onToggleExpanded = {

@@ -138,6 +138,9 @@ internal fun RoomDatabase.Builder<AppDatabase>.applyAppMigrations(): RoomDatabas
         Migration51To52(),
         // Drops claimed_at from sync_outbox. See Migration52To53.
         Migration52To53(),
+        // Adds tasks.sort_order without rewriting the `tasks` table: subtasks
+        // keep a stable order. See Migration54To55.
+        Migration54To55(),
         // Creates the full-text indexes — virtual tables, which an
         // AutoMigrationSpec cannot describe. See Migration42To43.
         Migration42To43(),

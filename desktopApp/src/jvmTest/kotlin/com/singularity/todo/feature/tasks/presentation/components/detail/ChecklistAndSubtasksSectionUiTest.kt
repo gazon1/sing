@@ -242,8 +242,9 @@ class ChecklistAndSubtasksSectionUiTest {
         }
 
     @Test
-    fun `subtasks show no reorder controls`() =
+    fun `reorder controls step a subtask and are disabled at the ends`() =
         runIsolatedComposeTest {
+            val moves = mutableListOf<Pair<String, ChecklistMove>>()
             setContent {
                 SubtasksSection(
                     subtasks = subtasks(3),
@@ -251,10 +252,34 @@ class ChecklistAndSubtasksSectionUiTest {
                     onDelete = {},
                     onOpen = {},
                     onAddSubtask = {},
+                    onMove = { task, direction -> moves += task.id.value to direction },
                 )
             }
 
-            assertTagNotExists(TestTags.checklistItemMoveUp("s1", "Child 1"))
-            assertTagNotExists(TestTags.checklistItemMoveDown("s1", "Child 1"))
+            assertTagNotEnabled(TestTags.subtaskMoveUp("Child 1"))
+            assertTagEnabled(TestTags.subtaskMoveDown("Child 1"))
+            assertTagEnabled(TestTags.subtaskMoveUp("Child 3"))
+            assertTagNotEnabled(TestTags.subtaskMoveDown("Child 3"))
+
+            clickTag(TestTags.subtaskMoveDown("Child 1"))
+            assertEquals(listOf("s1" to ChecklistMove.Down), moves)
+        }
+
+    @Test
+    fun `a single subtask has no reorder controls`() =
+        runIsolatedComposeTest {
+            setContent {
+                SubtasksSection(
+                    subtasks = subtasks(1),
+                    onToggle = {},
+                    onDelete = {},
+                    onOpen = {},
+                    onAddSubtask = {},
+                    onMove = { _, _ -> },
+                )
+            }
+
+            assertTagNotExists(TestTags.subtaskMoveUp("Child 1"))
+            assertTagNotExists(TestTags.subtaskMoveDown("Child 1"))
         }
 }

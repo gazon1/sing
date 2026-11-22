@@ -56,6 +56,12 @@ data class TaskDto(
      * held, not a promise that the parent is in the payload too.
      */
     val parentTaskId: String? = null,
+    /**
+     * Position among siblings with the same [parentTaskId], lowest first.
+     *
+     * Older payloads did not carry it; `0` restores the pre-reorder default.
+     */
+    val sortOrder: Int = 0,
     val dueDate: String? = null,
     @Serializable(with = LocalTimeSerializer::class)
     val dueTime: LocalTime? = null,
@@ -108,6 +114,7 @@ fun TaskEntity.toDto(): TaskDto =
         kind = kind.wireName,
         projectId = projectId,
         parentTaskId = parentTaskId,
+        sortOrder = sortOrder,
         dueDate = dueDate,
         dueTime = dueTime.toLocalTimeOrNull(),
         startDate = startDate,
@@ -142,6 +149,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
             parseWireName<TaskKind>(kind),
         projectId = projectId,
         parentTaskId = parentTaskId,
+        sortOrder = sortOrder,
         dueDate = dueDate,
         dueTime = dueTime?.let { LocalTimeFormats.format(it) },
         startDate = startDate,

@@ -282,4 +282,14 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * Re-subscribes automatically when the user changes.
      */
     fun observeSubtasks(parentId: TaskId): Flow<List<Task>>
+
+    /**
+     * Rewrites the subtask order for [parentId] to [orderedIds], in one
+     * transaction. The list is the full visible order; omitted ids keep their
+     * old sort order and may tie with renumbered rows.
+     */
+    suspend fun reorderSubtasks(
+        parentId: TaskId,
+        orderedIds: List<TaskId>,
+    ): Result<Unit>
 }

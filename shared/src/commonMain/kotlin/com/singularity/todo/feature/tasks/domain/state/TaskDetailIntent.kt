@@ -219,6 +219,17 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskChildrenIntent
 
+        /**
+         * Moves a subtask one step within its parent's list.
+         *
+         * The slot renumbers the whole visible order, the same way checklist
+         * reorder does: the order is the numbers, so a pair swap would leave
+         * two rows claiming one position.
+         */
+        data class MoveSubtask(val taskId: TaskId, val direction: ChecklistMove) :
+            Domain,
+            TaskChildrenIntent
+
         // ── Reminders ─────────────────────────────────────────────────────
 
         data class SetReminder(val offset: ReminderOffset) :
