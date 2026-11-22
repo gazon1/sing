@@ -66,8 +66,8 @@ Parameters:
 | `--notes` | Note count |
 | `--checklist-items` | Checklist item count |
 | `--due-date-share` | Share of tasks with a due date, default `0.75` |
-| `--due-date-window-start-days` | First day of the due-date window, default `-30` (negative = before the base epoch, i.e. overdue) |
-| `--due-date-window-end-days` | Last day of the due-date window, default `120` |
+| `--due-date-window-start-days` | First day of the due-date window, **inclusive**, default `-30` (negative = before the base epoch, i.e. overdue) |
+| `--due-date-window-end-days` | End of the due-date window, **exclusive**, default `120`; a window of `-10..-1` produces due dates for days `-10` through `-2` |
 | `--completed-share` | Share of tasks that are completed, default `0.20` |
 | `--next-up-share` | Share of the *not-completed* tasks claimed as `next_up`, default `0.19` |
 | `--in-progress-share` | Share of the *not-completed* tasks claimed as `in_progress`, default `0.13`; together with `--next-up-share` it must not exceed `1.0` |

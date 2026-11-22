@@ -46,9 +46,9 @@ data class GenerateParams(
     val checklistItems: Int,
     /** Share of tasks that carry a due date, `0.0..1.0`. */
     val dueDateShare: Double = 0.75,
-    /** First day of the due-date window, as an offset in days from the base epoch. */
+    /** First day of the due-date window, inclusive, as an offset in days from the base epoch. */
     val dueDateWindowStartDays: Int = -30,
-    /** Last day of the due-date window, as an offset in days from the base epoch. */
+    /** End of the due-date window, **exclusive**, as an offset in days from the base epoch. */
     val dueDateWindowEndDays: Int = 120,
     /** Share of tasks that are completed, `0.0..1.0`. */
     val completedShare: Double = 0.20,
@@ -261,6 +261,9 @@ object SyntheticBackupGenerator {
             "priorityWeights must hold ${PRIORITIES.size} values, in the order ${PRIORITIES.joinToString()}"
         }
         require(params.priorityWeights.all { it >= 0.0 }) { "priorityWeights must not be negative" }
+        require(params.priorityWeights.all { it.isFinite() }) {
+            "priorityWeights must be finite — an infinite or NaN weight has no ratio to the others"
+        }
         require(params.priorityWeights.any { it > 0.0 }) { "priorityWeights needs at least one positive weight" }
         val maxSubtasks = if (params.taskHierarchyDepth <= 1) 0 else params.tasks - 1
         val requestedSubtasks = (params.tasks * params.subtaskShare).roundToInt()

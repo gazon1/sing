@@ -162,11 +162,13 @@ class GenerateCommand : CliktCommand(name = "generate") {
     ).double()
     val dueDateWindowStartDays by option(
         "--due-date-window-start-days",
-        help = "First day of the due-date window, in days from the fixed base epoch (negative = overdue)",
+        help =
+            "First day of the due-date window, inclusive, in days from the fixed base epoch " +
+                "(negative = overdue)",
     ).int()
     val dueDateWindowEndDays by option(
         "--due-date-window-end-days",
-        help = "Last day of the due-date window, in days from the fixed base epoch",
+        help = "End of the due-date window, exclusive, in days from the fixed base epoch",
     ).int()
     val completedShare by option("--completed-share", help = "Share of completed tasks (0.0..1.0)").double()
     val nextUpShare by option(

@@ -353,6 +353,13 @@ class SyntheticBackupGeneratorTest {
         assertFailsWith<IllegalArgumentException> {
             SyntheticBackupGenerator.generate(base.copy(priorityWeights = listOf(-1.0, 1.0, 1.0, 1.0, 1.0)))
         }
+        // An infinite weight has no ratio to the others: dividing it by itself is NaN,
+        // so it used to pass validation and then throw deep inside the draw.
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(
+                base.copy(priorityWeights = listOf(1.0, Double.POSITIVE_INFINITY, 0.0, 0.0, 0.0)),
+            )
+        }
     }
 
     @Test
