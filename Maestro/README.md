@@ -31,7 +31,7 @@ Environment variables understood by `run-maestro`:
 
 The same flow files can be run by [maestro-runner](https://github.com/devicelab-dev/maestro-runner),
 a single Go binary that reads the same YAML without a JVM. The CLI starts a JVM
-per flow, and a suite of 127 flows pays that warm-up 127 times.
+per flow, so it pays that warm-up once for every flow in the suite.
 
 ```bash
 scripts/run-maestro-e2e.py --engine maestro-runner -f Maestro/flows/smoke
@@ -196,7 +196,7 @@ Maestro/
 │   ├── STORYBOARD.md           # why each screenshot is there, and the capture profile
 │   └── manifest.yaml           # the file names and the order
 └── flows/
-    ├── smoke/                  # 5 of the 27 must-pass flows; the tag `smoke` selects all 27
+    ├── smoke/                  # part of the smoke subset; the `smoke` tag, not this path, selects the suite
     ├── nav/                    # bottom-bar navigation
     ├── tasks/                  # task CRUD and the task editor attribute rows
     ├── agenda/                 # smart lists (Inbox buckets) + saved agenda views
