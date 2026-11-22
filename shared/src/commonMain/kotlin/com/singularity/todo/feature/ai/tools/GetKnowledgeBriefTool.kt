@@ -31,8 +31,10 @@ data class GetKnowledgeBriefInput(val projectId: String? = null, val taskId: Str
  *   it back as `expectedUpdatedAt` when it refreshes the brief, so an update written
  *   against a note nobody has touched since is the only one that lands.
  * @property attachedNotesSeen how many attached notes the read looked at — a page, not
- *   a total. The reads are bounded, so a project with more than the page reports the
- *   page size; more than one means [noteId] is the newest of them, not the only one.
+ *   a total. The reads are bounded, and the page is applied before the brief marker is
+ *   checked, so this says what was examined rather than what was found: an owner with
+ *   notes and no brief reports them here, which is how a caller tells "nothing attached"
+ *   from "nothing that is a brief".
  */
 @Serializable
 data class GetKnowledgeBriefOutput(
@@ -148,8 +150,17 @@ class GetKnowledgeBriefTool(
             briefs.sortedWith(NOTE_ORDER).firstOrNull()
                 ?: return answer(
                     owner = owner,
-                    attachedNotesSeen = 0,
-                    reason = "No note is attached to this $owner yet, so there is no brief to read.",
+                    // What was read, not what was found: "twenty attached notes, none of
+                    // them a brief" and "nothing attached" are different answers, and a
+                    // caller deciding whether to create one needs to tell them apart.
+                    attachedNotesSeen = notes.size,
+                    reason =
+                        if (notes.isEmpty()) {
+                            "No note is attached to this $owner yet, so there is no brief to read."
+                        } else {
+                            "${notes.size} note(s) are attached to this $owner, and none of them " +
+                                "is a brief — a brief is a note with a \"## Sources\" section."
+                        },
                 )
         return GetKnowledgeBriefOutput(
             found = true,
@@ -157,7 +168,7 @@ class GetKnowledgeBriefTool(
             title = newest.title,
             bodyMarkdown = bodyOf(newest),
             updatedAt = newest.updatedAt.toEpochMilliseconds(),
-            attachedNotesSeen = briefs.size,
+            attachedNotesSeen = notes.size,
             owner = owner,
         )
     }
@@ -197,7 +208,16 @@ class GetKnowledgeBriefTool(
          * A brief is one note; the bound is what keeps a project that accumulated
          * dozens of attached notes from making every read un bounded.
          */
-        private const val NOTE_LIMIT = 20
+        /**
+         * How many attached notes a read looks through.
+         *
+         * The page is applied by the statement, *before* the brief marker is checked —
+         * the marker lives in the body, and no index answers it. So the page is wider
+         * than one brief needs: a project whose twenty newest attached notes are all
+         * logbook entries must still be able to report the older brief it has. Past this
+         * many, the read is what the caller asked for: a page, not the whole history.
+         */
+        private const val NOTE_LIMIT = 200
 
         /**
          * Newest first, then by ascending id — exactly the `ORDER BY created_at DESC,

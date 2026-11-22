@@ -26,14 +26,17 @@ import com.singularity.todo.feature.notes.domain.NoteContentMapper
  */
 internal object KnowledgeBriefShape {
     /**
-     * The word a brief's provenance lives under.
+     * The heading a brief's provenance lives under, as a line of its own.
      *
-     * The heading itself is written as Markdown by the agent, as HTML by the editor and
-     * as whatever the rich-text round trip produces — so the check is on the word, not
-     * on one markup for it. A note that says "Sources" as a section is one; a note that
-     * merely mentions the word in prose is a note, and the extraction writes a heading.
+     * The heading is written as Markdown by the agent and as HTML by the editor, so both
+     * forms are recognised — but only as a **heading**. A note whose prose mentions the
+     * word ("potential sources include…") is an ordinary note, and treating it as a
+     * brief is the data-loss scenario this check exists to prevent.
      */
-    private const val SOURCES_HEADING = "Sources"
+    private val SOURCES_HEADING = Regex("""(?m)^\s*(?:#{1,6}\s*Sources|\*\*Sources\*\*)\s*$""")
+
+    /** The same heading, as the HTML an editor writes it in. */
+    private val SOURCES_HEADING_HTML = Regex("""(?i)<h[1-6][^>]*>\s*Sources\s*</h[1-6]>""")
 
     /**
      * Whether [note] is a knowledge brief: attached to an owner, plain, and carrying the
@@ -47,18 +50,20 @@ internal object KnowledgeBriefShape {
 
     /** Whether the note's body carries the provenance section. */
     fun carriesSources(note: Note): Boolean {
-        // Both representations are read, because neither is guaranteed to survive the
-        // other: a proposal writes HTML, the editor keeps markdown next to it, and the
-        // heading may render as `## Sources` in one form and as an HTML heading in the
-        // other. Asking only one would make a note a brief or not depending on which
-        // field happened to be filled.
+        // HTML first, because that is the canonical form and a heading the editor wrote
+        // is an HTML heading; the markdown projection is the fallback for a note that has
+        // no HTML yet. Either way the section has to be a heading, not a mention.
+        note.bodyHtml?.takeIf { it.isNotBlank() }?.let { html ->
+            if (SOURCES_HEADING_HTML.containsMatchIn(html)) return true
+        }
         val markdown = note.bodyMarkdown.orEmpty()
+        if (SOURCES_HEADING.containsMatchIn(markdown)) return true
+        // An HTML body whose heading rounded-tripped into markdown text.
         val fromHtml =
             note.bodyHtml
                 ?.takeIf { it.isNotBlank() }
                 ?.let { NoteContentMapper.toMarkdown(it) }
                 .orEmpty()
-        val text = markdown + "\n" + fromHtml
-        return text.contains(SOURCES_HEADING)
+        return SOURCES_HEADING.containsMatchIn(fromHtml)
     }
 }

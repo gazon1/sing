@@ -303,6 +303,28 @@ class KnowledgeBriefTest : KnowledgeBriefTestBase() {
             assertNotNull(output.reason, "the answer says there is no brief yet")
         }
 
+    @Test
+    fun `a note that merely mentions the word Sources is not a brief`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            // Prose, not a section: this is the note the check must not mistake for a
+            // brief, because an agent would then write a summary over it.
+            notes.seed(
+                note(
+                    title = "Ideas",
+                    html = "<p>Potential sources include the official documentation.</p>",
+                    projectId = project.id,
+                    withSources = false,
+                ),
+            )
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = project.id.value)))
+
+            assertFalse(output.found, "prose that mentions the word is not a brief: ${output.noteId}")
+            assertNotNull(output.reason, "the answer says there is no brief yet")
+        }
+
     // ── The catalogue and the round trip ───────────────────────────────────────
 
     @Test
