@@ -2907,6 +2907,11 @@ open class FakeNotesRepository(
     ): Result<com.singularity.todo.feature.notes.Note> {
         createOverride?.let { return it }
         return runCatchingCancellable {
+            // The same invariant the production write states: a note hangs on a project
+            // or on a task, never on both.
+            require(item.projectId == null || item.taskId == null) {
+                "A note attaches to a project or to a task, not to both"
+            }
             store.upsert(item)
             item
         }

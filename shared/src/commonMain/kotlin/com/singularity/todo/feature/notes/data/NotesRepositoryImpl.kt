@@ -58,6 +58,7 @@ class NotesRepositoryImpl(
 
     override suspend fun create(item: Note): Result<Note> =
         runCatchingCancellable {
+            requireSingleAttachment(item)
             unitOfWork.write {
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 noteDao.upsert(item.toEntity())
@@ -67,6 +68,7 @@ class NotesRepositoryImpl(
 
     override suspend fun update(item: Note): Result<Note> =
         runCatchingCancellable {
+            requireSingleAttachment(item)
             unitOfWork.write {
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 // Read-before-write guard: reject updates to non-existent entities.
@@ -82,6 +84,20 @@ class NotesRepositoryImpl(
                 toUpdate.also { syncRepository.enqueue(it).getOrThrow() }
             }
         }
+
+    /**
+     * A note hangs on a project or on a task, never on both.
+     *
+     * The tool and the planner both refuse the pair, but a note also arrives from
+     * elsewhere — a remote document, a caller of the repository. Stating the rule where
+     * every write passes says the invariant holds for the table, not only for the two
+     * callers someone remembered to check.
+     */
+    private fun requireSingleAttachment(note: Note) {
+        require(note.projectId == null || note.taskId == null) {
+            "Note ${note.id.value} attaches to a project or to a task, not to both"
+        }
+    }
 
     private suspend fun enqueueFresh(id: NoteId) {
         val row = noteDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
@@ -317,7 +333,11 @@ class NotesRepositoryImpl(
     ): Result<Int> =
         runCatchingCancellable {
             unitOfWork.write {
-                val markdown = bodyMarkdown.orEmpty()
+                // The counts describe the body that was written. A body-only update
+                // clears the markdown projection and leaves HTML, so counting the
+                // markdown alone would report an empty note — one word count for the
+                // note and another for what the reader sees.
+                val markdown = bodyMarkdown.orEmpty().ifBlank { bodyHtml.orEmpty() }
                 // The new version advances *strictly* past the one being replaced. A
                 // write inside the same millisecond would otherwise stamp the version it
                 // just matched, and the next change written against that version would
