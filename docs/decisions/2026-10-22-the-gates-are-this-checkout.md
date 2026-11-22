@@ -3,6 +3,7 @@ title: "The gates are this checkout, and a rule that matters is a gate that can 
 date: 2026-10-22
 status: open
 tags: [gates, tooling, verification, ai]
+review-by: 2026-12-01
 ---
 
 # The gates are this checkout, and a rule that matters is a gate that can fail

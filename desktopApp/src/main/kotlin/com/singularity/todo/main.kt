@@ -9,6 +9,8 @@ import co.touchlab.kermit.Logger
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.context
 import com.github.ajalt.clikt.core.parse
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.singularity.todo.core.coroutines.createBackgroundScope
@@ -245,6 +247,12 @@ private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
     private val deeplink: String? by option("--deeplink")
     private val deeplinkMagicEmail: String? by option("--deeplink-magic-email")
     private val deeplinkMagicToken: String? by option("--deeplink-magic-token")
+
+    // jpackage and OS launchers may prepend the executable path as a positional arg.
+    // The version flag is recognized wherever it appears; consume extra positionals
+    // so they don't make --version (or other flags) fail parsing.
+    @Suppress("unused")
+    private val ignoredArgs: List<String> by argument().multiple()
 
     init {
         context {
