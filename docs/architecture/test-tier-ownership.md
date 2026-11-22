@@ -20,7 +20,7 @@ not.
 | record retention == policy | desktop JVM | the window is one common constant (`ToolCallRecordPolicy.RETENTION_DAYS`) that both writers delete on, and the policy is one file; the JVM tier asserts the constant against the file, which covers the JVM writer and the Android one | **removed** — the Android copy asserted the same constant in a second tier | desktop JVM |
 | notifier permission matrix | desktop JVM | the matrix is a rule, not a measurement: which cells hold is the same on every device, so the rule lives in common code (`NotificationSupport`) and the JVM tier asserts every cell | **removed** — the Android class keeps only what is about the port: that the grant is read per call, and that a denied permission enqueues nothing | desktop JVM (+ android host, for the port) |
 | secure store recovery | desktop JVM | the decision — erase and reopen — is pure, and the JVM tier asserts all three of its outcomes | **kept deliberately** — the device class is not the recovery policy: it is the real `EncryptedSharedPreferences`/Keystore IO, which no fake can stand in for. The recovery in a fresh process is covered by `Maestro/flows/auth/12-unreadable-store-recovers.yaml`, because the keystore caches its keyset per process. | desktop JVM + device |
-| create a task from the FAB | desktop JVM | the desktop flow test drives the FAB and the editor that opens from it, in seconds | **removed** — the device copy asserted the same scenario; the instrumented floor is updated below and the loss acknowledged. The device tier keeps the FAB's *visibility* contract in `NavigationSmokeTest` — which tab shows it — which is a different assertion about a different thing. | desktop JVM |
+| create a task from the FAB | desktop JVM | the desktop flow test drives the FAB and the editor that opens from it, in seconds | **investigate** — `androidApp/.../ui/CreateTaskFlowTest.kt` still exists on device (3 tests: create, cancel, empty editor) and overlaps the desktop flow + `Maestro/flows/tasks/create-task.yaml`. Do not remove it until Android shell FAB/resource-id/editor wiring assertions it still covers are explicitly owned by `NavigationSmokeTest`/`AppStartupTest` or another Android-specific test. | desktop JVM + device (investigate before consolidation) |
 | shell / navigation reachability | desktop JVM | the JVM tier renders the *desktop* shell, and the reachability of that shell is what it asserts | **kept deliberately** — only a device can observe the *Android* shell (`AndroidShellNav3`), which is a different shell with a different set of destinations; the device copy is that observation, not a second copy of the desktop one. The Maestro smoke flow stays as the device-level entry check. | desktop JVM + device + Maestro |
 | custom emoji entry: the typed value becomes the project's icon | the rule in common code (`customEmojiFromInput`, asserted by `CustomEmojiInputTest`) | the rule is one function, and it is the same function every platform calls | **kept deliberately** — the desktop test drives the *sheet*: it proves what the field holds is what the button hands back. The device flow drives the *app*: the platform keyboard, the sheet, and the icon the project draws. A value that never leaves the field, or that the app drops on the way to the project, is invisible to the desktop copy — so the device copy asserts the other half, not the same half twice. | desktop JVM + device (instrumentation + Maestro) |
 | a project icon crosses the persistence boundaries unchanged | desktop JVM | the boundaries are our own code — the column, the backup DTO and the sync document — and the rule is one string crossing all of them | **kept deliberately** — the boundary test walks the model and the mappers, not a database, so `ProjectIconRoomRoundTripTest` writes the composed sequences into a real SQLite and reads them back. The device flow sees the icon *drawn*, not the bytes. | desktop JVM (mapper + real SQLite) |
@@ -78,15 +78,9 @@ Three copies went, each because the scenario had an owner that could assert it:
   constant, and
 - the **notifier matrix** out of the Android host class, now that the rule is common
   code, and
-- the device tier's **FAB** flow test, whose scenario the desktop flow test owns.
+- the device tier's original **FAB** flow test was removed as a duplicate; a later device `CreateTaskFlowTest` currently exists and is tracked as `investigate` in the Android inventory below. It must not be removed until its remaining Android shell/editor/resource-id wiring assertions have explicit owners.
 
-The instrumented tier lost one class and three tests; `TaskEditorDraftTest` later
-added one class and two tests for a scenario only a device can observe (a persisted
-draft being restored). `config/docs/instrumented-test-floor.txt` records the tier's
-current floor — fifteen classes and forty-eight tests — with the loss acknowledged in
-that file's notes rather than regenerated silently. The android host tier lost four
-tests, and its six classes deliver 13 again — the number
-`config/docs/test-runs-baseline.txt` records.
+The instrumented tier lost one class and three tests when that earlier FAB flow was removed; `TaskEditorDraftTest` later added one class and two tests for a scenario only a device can observe (a persisted draft being restored). `config/docs/instrumented-test-floor.txt` currently records the tier's floor as 17 classes and 53 tests. The android host tier's executed allowlisted baseline is currently 23 tests (`config/docs/test-runs-baseline.txt`: `shared:testAndroidHostTest 23 0`); the source set contains 9 test classes, with `AndroidFileSourceTest` present but not in the Gradle execution allowlist (see inventory).
 
 ## The four features that had no end-to-end flow
 
@@ -103,3 +97,38 @@ tests, and its six classes deliver 13 again — the number
 - `docs/testing/what-each-tier-proves.md` — what each tier can and cannot see.
 - `config/docs/test-runs-baseline.txt` and `config/docs/instrumented-test-floor.txt` —
   the floors that hold the tiers to what they used to deliver.
+
+## Android test inventory (#3086)
+
+Audit-only inventory for issue [#3086](https://github.com/gazon1/sing/issues/3086): no tests, production code, Gradle config, floors, or CI lanes changed. Detailed per-class notes, overlaps, and replacement seams are in [`docs/testing/android-test-inventory.md`](../testing/android-test-inventory.md). Reproducible scope: 22 Kotlin files / 17 test classes / 53 direct `@Test` in `androidApp/src/androidTest`; 9 Kotlin files / 9 test classes / 22 direct + 4 inherited `@Test` in `shared/src/androidHostTest` (allowlisted executed set: 23, baseline `shared:testAndroidHostTest 23 0`).
+
+| Class | Tier | Disposition | Owner / rationale |
+|---|---|---|---|
+| `androidApp/.../core/security/AndroidSecureStorageRecoveryTest.kt` | device | keep | Real Android Keystore/EncryptedSharedPreferences IO; recovery decision owned by `shared/src/jvmTest/.../SecureStoreRecoveryTest.kt`, fresh-process recovery by `Maestro/flows/auth/12-unreadable-store-recovers.yaml`. |
+| `androidApp/.../debug/DebugSeedOrderTest.kt` | device | keep | Android `singleTask`/`onNewIntent` debug-seed ordering; no faster seam found. |
+| `androidApp/.../observability/AppTracerInstrumentedTest.kt` | device | keep | Real app startup + CrashReportingPort/SDK no-throw smoke; not equivalent to host graph resolution. |
+| `androidApp/.../ui/ActionRecordingTest.kt` | device | keep | Android instrumentation step-recorder contract; infra guard, not app behavior. |
+| `androidApp/.../ui/AppStartupTest.kt` | device | keep | Android bypass/build flag, sign-in absence, testTag-to-resource-id accessibility mapping; shared tag reachability owned by `desktopApp/src/jvmTest/.../ShellTestTagReachabilityTest.kt`. |
+| `androidApp/.../ui/CreateTaskFlowTest.kt` | device | investigate | Behavior overlaps `desktopApp/src/jvmTest/.../feature/flows/tasks/CreateTaskFlowTest.kt` and `Maestro/flows/tasks/create-task.yaml`; preserve and assign explicit owners for Android FAB/resource-id/editor wiring assertions before removal. |
+| `androidApp/.../ui/EditorBackGuardTest.kt` | device | keep | Android system back + IME dirty-draft contract; desktop `PlatformBackHandler` is no-op. |
+| `androidApp/.../ui/FailureBundleDeliveryTest.kt` | device | keep | Device artifact delivery to `/data/local/tmp`; CI artifact-loss guard. |
+| `androidApp/.../ui/IconPickerCustomInputTest.kt` | device | keep | Android picker text-input/Compose semantics; rule owned by common `CustomEmojiInputTest`, desktop field by `IconPickerCustomEmojiTest`, real IME by `Maestro/flows/projects/05-custom-emoji.yaml`. |
+| `androidApp/.../ui/MenuSheetBoundsTest.kt` | device | keep | Android density/window bounds, rail clearance, menu reachability; no JVM/Maestro equivalent. |
+| `androidApp/.../ui/NavigationSmokeTest.kt` | device | keep | Android `AndroidShellNav3` reachability/FAB contract; distinct from AppStartupTest. |
+| `androidApp/.../ui/NotificationPermissionRequesterComposeTest.kt` | device | keep | Production Compose permission-requester wiring/disposal/owner swap; observer behavior owned by `shared/src/androidHostTest/.../NotificationPermissionRequesterTest.kt`, rule by `shared/src/jvmTest/.../NotificationSupportTest.kt`. |
+| `androidApp/.../ui/ProjectIconEmojiRenderTest.kt` | device | keep | Android font/pixel rendering; desktop render test covers desktop font only. |
+| `androidApp/.../ui/SearchBackTest.kt` | device | keep | Android search IME/back/filter-sheet behavior. |
+| `androidApp/.../ui/TaskDetailImeInsetsTest.kt` | device | keep | Android IME/window insets layout contract. |
+| `androidApp/.../ui/TaskDetailOverflowActionsTest.kt` | device | keep | Android shell top-bar overflow wiring/popup/resource-id; desktop `TaskDetailOverflowActionsTest` covers shared Compose behavior only. |
+| `androidApp/.../ui/TaskEditorDraftTest.kt` | device | keep | Device-persisted draft restoration across process; only device can observe. |
+| `shared/.../androidHostTest/core/backup/AndroidBackupCodecBudgetTest.kt` | androidHostTest | keep | Android backup codec implementation budget guard; JVM cannot reach androidMain codec. |
+| `shared/.../androidHostTest/core/di/AndroidGraphResolutionTest.kt` | androidHostTest | keep | Android Koin graph/platform bindings; distinct from JVM graph tests. |
+| `shared/.../androidHostTest/core/files/AndroidFileSourceTest.kt` | androidHostTest | investigate | Android content:// streaming behavior is platform-relevant, but class is not in `testAndroidHostTest` include allowlist; currently not executed by baseline. |
+| `shared/.../androidHostTest/core/files/AndroidFileSystemMoveTest.kt` | androidHostTest | keep | Android `ATOMIC_MOVE`/replace-target contract for backup writes. |
+| `shared/.../androidHostTest/core/notifications/AndroidNotifierTest.kt` | androidHostTest | keep | Android notification permission read-per-call and no-enqueue-on-denied port behavior; rule matrix owned by JVM `NotificationSupportTest`. |
+| `shared/.../androidHostTest/core/notifications/NotificationPermissionRequesterTest.kt` | androidHostTest | keep | Lifecycle observer contract; Compose wiring owned by device `NotificationPermissionRequesterComposeTest`. |
+| `shared/.../androidHostTest/core/security/ArchiveCryptoGoldenAndroidTest.kt` | androidHostTest | keep | Sanctioned cross-platform golden contract (same cases as `ArchiveCryptoGoldenJvmTest` via `ArchiveCryptoGoldenContract`). |
+| `shared/.../androidHostTest/mcp/ToolSurfaceWiringTest.kt` | androidHostTest | keep | Deliberate Android/desktop two-binding MCP wiring check; catalog parity must hold per platform. |
+| `shared/.../androidHostTest/test/stubs/TestOnboardingModuleTest.kt` | androidHostTest | keep | AndroidMain E2E onboarding stub contract; JVM wiring covered separately by `E2eOnboardingWiringTest`. |
+
+Support files with no `@Test` (keep as infra): `androidApp/.../testing/InstrumentedTestBase.kt`, `androidApp/.../ui/FailureBundle.kt`, `androidApp/.../ui/ShellProbe.kt`, `androidApp/.../ui/StepRecorder.kt`, `androidApp/.../ui/UiActions.kt`.
