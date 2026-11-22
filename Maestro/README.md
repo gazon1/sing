@@ -35,8 +35,8 @@ per flow, so it pays that warm-up once for every flow in the suite.
 
 ```bash
 # --engine, or the MAESTRO_ENGINE variable the runner reads when the flag is absent
-python3 scripts/run-maestro-e2e.py --apk <apk> --suite smoke --shard 1 --shards 1 --engine maestro-runner
-MAESTRO_ENGINE=maestro-runner python3 scripts/run-maestro-e2e.py --apk <apk> --suite smoke --shard 1 --shards 1
+python3 scripts/run-maestro-e2e.py --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk --suite smoke --shard 1 --shards 1 --engine maestro-runner
+MAESTRO_ENGINE=maestro-runner python3 scripts/run-maestro-e2e.py --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk --suite smoke --shard 1 --shards 1
 ```
 
 The CLI stays the default: the failure floor of this repository was calibrated
