@@ -152,21 +152,18 @@ class ScreenInspectorHostIsDebugOnlyTest {
     @Test
     fun `the release source-set list covers the sets the build actually compiles`() {
         // The anti-vacuity assertion for the list above, and the exact thing that was
-        // missing: a hand-written enumeration is only as good as its coverage. Every
-        // `src/*Main` source set that the build declares must either be scanned as a
-        // release set or be the debug-only one.
-        val sharedBuild = File(repoRoot, "shared/build.gradle.kts").readText()
-        val declared =
-            Regex("""src/([A-Za-z]+Main)/kotlin""")
-                .findAll(sharedBuild)
-                .map { it.groupValues[1] }
-                .toSet()
+        // missing: a hand-written enumeration is only as good as its coverage.
+        //
+        // It reads the **declaration**, not any `src/<x>Main/kotlin` string in the file.
+        // The first version matched the path strings, which also appear in the detekt
+        // `source.setFrom(...)` list — so deleting the source-set declaration while
+        // leaving the detekt entry kept the gate green about a set that no longer existed.
+        val declared = declaredSharedSourceSets()
 
         val scanned =
             RELEASE_SOURCE_SETS
-                .mapNotNull {
-                    it.substringAfter("shared/src/", "").takeIf { s -> s.endsWith("Main") }
-                }.toSet()
+                .mapNotNull { it.substringAfter("shared/src/", "").takeIf { s -> s.endsWith("Main") } }
+                .toSet()
         val unscanned = declared - scanned
 
         assertTrue(
@@ -176,7 +173,33 @@ class ScreenInspectorHostIsDebugOnlyTest {
                 "about it — which is how the first revision passed while the entry point " +
                 "shipped in $CONTRACT_CLASS's directory.",
         )
-        assertTrue(declared.isNotEmpty(), "the source-set scan matched nothing — it reports green over an empty corpus")
+        assertTrue(
+            declared.isNotEmpty() && "commonMain" in declared,
+            "the source-set scan found $declared — it is not reading the real declarations, so " +
+                "the coverage assertion above compares against an incomplete list",
+        )
+    }
+
+    /**
+     * The `*Main` source sets `shared/build.gradle.kts` actually declares.
+     *
+     * Two shapes count, and both are the KMP DSL rather than a convention: a dedicated
+     * `val <name> by creating {` block, and a `<name>.dependencies {` / `<name>.get()`
+     * accessor. Path strings are deliberately not a source: they name directories the
+     * detekt and test configurations scan, which can outlive the declaration.
+     */
+    private fun declaredSharedSourceSets(): Set<String> {
+        val text = File(repoRoot, "shared/build.gradle.kts").readText()
+        val created =
+            Regex("""\bval\s+(\w+Main)\s+by\s+creating\b""")
+                .findAll(text)
+                .map { it.groupValues[1] }
+        val accessed =
+            Regex(
+                """\b(commonMain|androidMain|jvmMain|jvmAndroidMain|androidHostTest|androidDeviceTest)\.(?:dependencies|get\()""",
+            ).findAll(text)
+                .map { it.groupValues[1] }
+        return (created + accessed).filter { it.endsWith("Main") }.toSet()
     }
 
     @Test

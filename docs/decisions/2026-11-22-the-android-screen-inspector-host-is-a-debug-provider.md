@@ -177,7 +177,7 @@ is still only reachable from a debug build.
   --method screen_inspector --arg '{"op":"screens"}'` returns the same JSON the CLI prints.
 - The desktop host, the CLI and the MCP tools take the same code path they did; their files
   moved but nothing about their behavior changed, and their existing tests pass unchanged.
-- A release APK has no provider, no host class and no manifest entry. The gate is a source
+- A release APK has no provider, no transport entry point (`ScreenInspectorDeviceHost`) and no manifest entry — nothing that can reach the inspector. The contract classes are compiled in and inert (decision 5). The gate is a source
   set, so no launch argument, property or intent can turn it on.
 - `jvmAndroidMain` now exists. It is not a general home for "code two platforms share" —
   `commonMain` is that. The declaration states the one argument that justifies it, and the

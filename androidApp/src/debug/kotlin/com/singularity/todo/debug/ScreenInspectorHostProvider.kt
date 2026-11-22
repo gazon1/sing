@@ -1,5 +1,7 @@
 package com.singularity.todo.debug
 
+import android.app.Activity
+import android.app.Application
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
@@ -7,6 +9,7 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
 import android.os.Process
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Debug-only host for the headless screen-inspector contract (#3074).
@@ -37,7 +40,58 @@ import android.os.Process
  * network at all — nothing here opens a socket.
  */
 class ScreenInspectorHostProvider : ContentProvider() {
-    override fun onCreate(): Boolean = true
+    /**
+     * Registers the host's release with the application's lifecycle.
+     *
+     * `stop()` had no caller in the first revision: it was documented as a lifecycle hook
+     * and nothing called it, so the runtime and its sessions lasted until the process died.
+     * The application is the right owner, and its existing [ActivityLifecycleCallbacks] are
+     * enough — no lifecycle artifact is added for this. A debug surface that pulls a
+     * dependency into the app to tidy itself up is a worse trade than the tidying is worth.
+     *
+     * The host is released when the **last** activity stops: with none resumed, no agent
+     * can be driving a screen, so an open session has no reader. A provider's `onCreate`
+     * runs before any activity is created, so the callbacks are registered before the first
+     * request can arrive.
+     */
+    override fun onCreate(): Boolean {
+        val application =
+            context?.applicationContext as? Application
+                ?: return true
+        runCatching {
+            // Counted here rather than read from the Application: `Application` exposes no
+            // "how many activities are resumed" and the counter is two integer updates.
+            val resumed = AtomicInteger(0)
+            application.registerActivityLifecycleCallbacks(
+                object : Application.ActivityLifecycleCallbacks {
+                    override fun onActivityStopped(activity: Activity) {
+                        if (resumed.decrementAndGet() <= 0) ScreenInspectorDeviceHost.stop()
+                    }
+
+                    override fun onActivityCreated(
+                        activity: Activity,
+                        savedInstanceState: Bundle?,
+                    ) = Unit
+
+                    override fun onActivityStarted(activity: Activity) = Unit
+
+                    override fun onActivityResumed(activity: Activity) {
+                        resumed.incrementAndGet()
+                    }
+
+                    override fun onActivityPaused(activity: Activity) = Unit
+
+                    override fun onActivitySaveInstanceState(
+                        activity: Activity,
+                        outState: Bundle,
+                    ) = Unit
+
+                    override fun onActivityDestroyed(activity: Activity) = Unit
+                },
+            )
+        }
+        return true
+    }
 
     override fun call(
         method: String,

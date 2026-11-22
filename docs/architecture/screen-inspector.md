@@ -63,23 +63,20 @@ actually using. There is no Application hook, no Koin binding, no service and no
 provider reads the container the application already started, and answers one request with
 one JSON envelope.
 
-The transport is the binder, so one shell command is one inspect or one action:
+The transport is the binder, so one shell command is one inspect or one action. Requests
+are passed in a file and expanded by the device-side shell. A request typed
+inline does **not** survive `adb shell` re-parsing the argument list — the inner quotes are
+lost before `content` sees them, and the host answers `invalid_arguments` with the mangled
+JSON it received. That is the fail-closed behavior working (nothing was dispatched), but it
+is not what you wanted, so every example below uses the file form:
 
 ```bash
 # Discovery: the same JSON the CLI prints.
-adb shell content call \
-  --uri content://com.singularity.todo.screen-inspector-host \
-  --method screen_inspector \
-  --arg '{"op":"screens"}'
-```
+printf '%s' '{"op":"screens"}' > /tmp/req.json
+adb push /tmp/req.json /data/local/tmp/req.json
+adb shell 'content call --uri content://com.singularity.todo.screen-inspector-host \
+  --method screen_inspector --arg "$(cat /data/local/tmp/req.json)"'
 
-A request with nested quotes does **not** survive `adb shell` re-parsing the argument list —
-the inner quotes are lost before `content` sees them, and the host answers
-`invalid_arguments` with the mangled JSON it received (which is the fail-closed behavior
-working: nothing was dispatched). Put the request in a file and let the device-side shell
-expand it:
-
-```bash
 printf '%s' '{"op":"open","screen":"tasks.task-detail","params":{"taskId":"<id>"}}' > /tmp/req.json
 adb push /tmp/req.json /data/local/tmp/req.json
 adb shell 'content call --uri content://com.singularity.todo.screen-inspector-host \

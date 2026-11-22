@@ -78,6 +78,9 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
 
     private var runtime: ScreenInspectorRuntime? = null
 
+    /** The container [runtime] was built from; a different one means a stale graph. */
+    private var currentKoin: Koin? = null
+
     private val requestJson =
         Json {
             ignoreUnknownKeys = true
@@ -124,7 +127,13 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
     }
 
     override fun close() {
-        val closed = synchronized(lock) { runtime.also { runtime = null } }
+        val closed =
+            synchronized(lock) {
+                runtime.also {
+                    runtime = null
+                    currentKoin = null
+                }
+            }
         closed?.let { runCatching { it.close() } }
     }
 
@@ -210,36 +219,48 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
         return ok(dispatch(op, request, koin))
     }
 
+    /**
+     * Dispatches an already-validated op.
+     *
+     * Every branch reads and validates its own fields **before** the runtime is touched.
+     * That order is the invariant, and it is why the runtime is obtained inside each branch
+     * rather than once at the top: creating it first meant a request that was about to be
+     * refused still initialized a runtime, which then kept the container it captured.
+     */
     @Suppress("LongMethod") // one branch per op, mirroring the CLI's dispatch table
     private fun dispatch(
         op: String,
         request: JsonObject,
         koin: Koin,
-    ): JsonObject {
-        val runtime = runtimeOrCreate(koin)
-        return when (op) {
+    ): JsonObject =
+        when (op) {
             "screens" -> {
-                runtime.capabilities()
+                runtimeFor(koin).capabilities()
             }
 
             "sessions" -> {
-                runtime.sessions()
+                runtimeFor(koin).sessions()
             }
 
             "open" -> {
-                runtime.open(request.string("screen"), request.obj("params"))
+                val screen = request.string("screen")
+                val params = request.obj("params")
+                runtimeFor(koin).open(screen, params)
             }
 
             "describe" -> {
-                runtime.describe(request.optString("sessionId"))
+                val sessionId = request.optString("sessionId")
+                runtimeFor(koin).describe(sessionId)
             }
 
             "snapshot", "inspect" -> {
-                runtime.snapshot(request.optString("sessionId"))
+                val sessionId = request.optString("sessionId")
+                runtimeFor(koin).snapshot(sessionId)
             }
 
             "actions" -> {
-                runtime.actions(request.optString("sessionId"))
+                val sessionId = request.optString("sessionId")
+                runtimeFor(koin).actions(sessionId)
             }
 
             "invoke" -> {
@@ -252,6 +273,7 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
                 // the client has no way to know the write happened.
                 val input = request.obj("input")
                 val waitMs = request.nonNegativeLongOrNull("waitMs")
+                val runtime = runtimeFor(koin)
                 val result = runBlocking { runtime.invoke(sessionId, action, input) }
                 val operationId = result["operationId"]?.jsonPrimitive?.contentOrNull
                 if (waitMs == null || operationId == null) {
@@ -265,33 +287,50 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
             }
 
             "wait" -> {
-                runBlocking {
-                    runtime.wait(
-                        request.optString("sessionId"),
-                        request.string("operationId"),
-                        request.nonNegativeLongOrNull("timeoutMs") ?: DEFAULT_WAIT_MS,
-                    )
-                }
+                val sessionId = request.optString("sessionId")
+                val operationId = request.string("operationId")
+                val timeoutMs = request.nonNegativeLongOrNull("timeoutMs") ?: DEFAULT_WAIT_MS
+                runBlocking { runtimeFor(koin).wait(sessionId, operationId, timeoutMs) }
             }
 
             "cancel" -> {
-                runtime.cancel(request.optString("sessionId"), request.string("operationId"))
+                val sessionId = request.optString("sessionId")
+                val operationId = request.string("operationId")
+                runtimeFor(koin).cancel(sessionId, operationId)
             }
 
             "close" -> {
-                runtime.close(request.optString("sessionId"))
+                val sessionId = request.optString("sessionId")
+                runtimeFor(koin).close(sessionId)
             }
 
             else -> {
                 throw InspectorException(InspectorErrorCode.INVALID_ARGUMENTS, "Unknown host op '$op'.")
             }
         }
-    }
 
-    private fun runtimeOrCreate(koin: Koin): ScreenInspectorRuntime =
+    /**
+     * The runtime for [koin], rebuilt when the container it was captured from changed.
+     *
+     * The runtime holds the container it was constructed with, so reusing it after `Koin`
+     * was stopped and started again would dispatch through a stale application graph — a
+     * request would find the *new* container and then drive the *old* one. On Android the
+     * container is created once per process, so this normally never fires; on the JVM a
+     * test that starts a second container in the same process does trip it, which is
+     * exactly the case where the wrong graph would otherwise go unnoticed.
+     */
+    private fun runtimeFor(koin: Koin): ScreenInspectorRuntime =
         synchronized(lock) {
-            runtime
-                ?: ScreenInspectorRuntime(koin).also { runtime = it }
+            val current = runtime
+            if (current != null && currentKoin === koin) {
+                current
+            } else {
+                current?.close()
+                ScreenInspectorRuntime(koin).also {
+                    runtime = it
+                    currentKoin = koin
+                }
+            }
         }
 
     private fun JsonObject.string(key: String): String {

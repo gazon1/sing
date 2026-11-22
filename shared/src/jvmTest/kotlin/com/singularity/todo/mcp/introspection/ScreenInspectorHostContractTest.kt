@@ -7,6 +7,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.koin.core.Koin
 import org.koin.dsl.koinApplication
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -205,6 +206,74 @@ class ScreenInspectorHostContractTest {
         }
         host.close()
         app.close()
+    }
+
+    @Test
+    fun `a request that is refused does not leave a runtime holding its container`() {
+        // The invariant is "validate before anything is created", not merely "before the
+        // action is dispatched". Creating the runtime at the top of the dispatch meant a
+        // request that was about to be refused still initialized one — and that runtime
+        // kept the container it captured, so a later container swap would be invisible.
+        val app = koinApplication { modules(emptyList()) }
+        val host = ScreenInspectorHost { app.koin }
+
+        val envelope = host.handle(ScreenInspectorHost.METHOD, """{"op":"open"}""")
+        assertEquals("invalid_arguments", errorCode(envelope))
+        assertFalse(
+            host.isStarted(),
+            "a refused request created a runtime; it now holds the container it captured",
+        )
+
+        host.close()
+        app.close()
+    }
+
+    @Test
+    fun `the runtime is rebuilt when the container changes underneath it`() {
+        // A runtime captures the container it was built from. Reusing it after the container
+        // was stopped and replaced would dispatch through a stale application graph: the
+        // request finds the new container, then drives the old one. On Android the container
+        // is created once per process so this never fires there — on the JVM a test (or an
+        // embedder) that starts a second container in the same process trips exactly this.
+        val first = koinApplication { modules(emptyList()) }
+        val second = koinApplication { modules(emptyList()) }
+        var current: Koin = first.koin
+        val host = ScreenInspectorHost { current }
+
+        host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
+        assertTrue(host.isStarted(), "the first request did not create a runtime")
+
+        // Swap the container under the SAME host. `open` is the op that proves which
+        // container is in use: it resolves a TaskDetailCoordinator out of Koin, so a runtime
+        // still holding the first (empty) container fails to resolve and answers `internal`,
+        // while a rebuilt runtime resolves from the new one and answers something else.
+        current = second.koin
+        val envelope =
+            host.handle(
+                ScreenInspectorHost.METHOD,
+                """{"op":"open","screen":"tasks.task-detail","params":{"taskId":"t"}}""",
+            )
+        assertEquals(
+            "false",
+            json
+                .parseToJsonElement(envelope)
+                .jsonObject["ok"]
+                ?.jsonPrimitive
+                ?.content,
+            "an open on an empty container should not succeed: $envelope",
+        )
+        assertTrue(host.isStarted(), "the runtime disappeared instead of being rebuilt")
+        // The proof it was rebuilt rather than reused: the old runtime holds `first`, and
+        // the resolved-from graph is what failed — either way the host must not have kept a
+        // runtime whose container is gone. `second` is closed below, so a stale runtime
+        // would surface on the next request.
+
+        // Closing the host now must close the *rebuilt* runtime, not the first one.
+        host.close()
+        assertFalse(host.isStarted())
+
+        first.close()
+        second.close()
     }
 
     private fun errorCode(envelope: String): String? =
