@@ -300,7 +300,9 @@ class ProposalPlanner(private val clock: Clock) {
         value: NoteValue,
     ): Note =
         when (value) {
-            is NoteValue.Title -> note.copy(title = value.value.trim())
+            is NoteValue.Title -> {
+                note.copy(title = value.value.trim())
+            }
 
             is NoteValue.Body -> {
                 // The guard the tool stated when it proposed the change. Checking it
@@ -321,12 +323,16 @@ class ProposalPlanner(private val clock: Clock) {
                 note.copy(bodyHtml = value.value, updatedAt = clock.now())
             }
 
-            is NoteValue.Summary -> note.copy(bodyHtml = value.value, updatedAt = clock.now())
+            is NoteValue.Summary -> {
+                note.copy(bodyHtml = value.value, updatedAt = clock.now())
+            }
 
             // A value this build cannot read. The change stays on the card with the
             // reason it cannot be applied, and the user can type a value that does
             // read.
-            is NoteValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
+            is NoteValue.Unreadable -> {
+                error(value.readFailure ?: "This value cannot be read.")
+            }
         }
 
     /**

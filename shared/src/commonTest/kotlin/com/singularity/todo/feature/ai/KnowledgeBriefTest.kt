@@ -440,8 +440,18 @@ class KnowledgeBriefTest {
             // Same created_at: the tie the ordering has to break the same way the store
             // does — `created_at DESC, id ASC`.
             val tied = clock.now()
-            val lowId = note(title = "oldest id", html = "<p>a</p>", projectId = project.id).copy(id = NoteId("aaa"), createdAt = tied)
-            val highId = note(title = "largest id", html = "<p>b</p>", projectId = project.id).copy(id = NoteId("zzz"), createdAt = tied)
+            val lowId =
+                note(
+                    title = "oldest id",
+                    html = "<p>a</p>",
+                    projectId = project.id,
+                ).copy(id = NoteId("aaa"), createdAt = tied)
+            val highId =
+                note(
+                    title = "largest id",
+                    html = "<p>b</p>",
+                    projectId = project.id,
+                ).copy(id = NoteId("zzz"), createdAt = tied)
             notes.seed(highId)
             notes.seed(lowId)
 

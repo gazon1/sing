@@ -345,10 +345,7 @@ sealed interface NoteValue : ProposalValue {
      */
     @Serializable
     @SerialName("Body")
-    data class Body(
-        val value: String,
-        val expectedUpdatedAt: Long? = null,
-    ) : NoteValue {
+    data class Body(val value: String, val expectedUpdatedAt: Long? = null) : NoteValue {
         override val fieldName: String = "Body"
         override val summary: String = "Set the note body to «${value.asCardValue()}»"
         override val text: String = value

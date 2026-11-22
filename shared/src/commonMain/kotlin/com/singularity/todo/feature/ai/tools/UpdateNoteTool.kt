@@ -130,9 +130,10 @@ class UpdateNoteTool(
                 // The version travels with the change, so the check holds at the moment
                 // the user confirms it and not only at the moment the model asked. See
                 // `ProposalPlanner.withNoteValue`.
-                kinds += ProposalItemKind.SetNoteField(
-                    NoteValue.Body(value, expectedUpdatedAt = args.expectedUpdatedAt),
-                )
+                kinds +=
+                    ProposalItemKind.SetNoteField(
+                        NoteValue.Body(value, expectedUpdatedAt = args.expectedUpdatedAt),
+                    )
             }
         }
 
