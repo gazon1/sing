@@ -26,6 +26,13 @@ data class ProjectPickerMatch(val project: Project, val ancestorNames: Immutable
  * considered. A project matches when [SEARCH_MODE] matches it; its ancestors are
  * retained as context, but unrelated siblings are never emitted unless they
  * match themselves. Results follow the hierarchy's display order.
+ *
+ * Damaged hierarchies are not repaired. A project whose parent is missing from
+ * the active set, or a project reached only through cycle backfill, is treated
+ * as a root of its reachable fragment: its [ProjectPickerMatch.ancestorNames]
+ * are empty at that boundary and traversal-relative below it. The backfill is
+ * deterministic (display order), so the degraded paths are stable for a given
+ * project graph.
  */
 object ProjectPickerSearch {
     /**
