@@ -289,6 +289,51 @@ class ScreenIntrospectionTest {
     }
 
     @Test
+    fun `a snapshot publishes the destination the screen decided on`() {
+        val screen =
+            ScreenIntrospection(
+                "screen.list",
+                listOf(action("open", required = listOf("taskId"), properties = mapOf("taskId" to stringProperty()))),
+            )
+
+        // A screen that asked for nothing publishes no navigation key at all: the field is a
+        // fact about this state, not a slot that is always present and usually empty.
+        val still = screen.snapshot(ScreenState(status = "loaded"))
+        assertTrue("navigation" !in still.keys, "a screen that asked for nothing publishes no navigation")
+
+        val moving =
+            screen.snapshot(
+                ScreenState(
+                    status = "loaded",
+                    navigation =
+                        buildJsonObject {
+                            put("screen", "screen.detail")
+                            put("params", buildJsonObject { put("taskId", "t1") })
+                        },
+                ),
+            )
+        val navigation = moving["navigation"] as JsonObject
+        assertTrue(
+            (navigation["screen"] as JsonPrimitive).content == "screen.detail",
+            "the destination is the one the screen named: $navigation",
+        )
+        assertTrue(
+            ((navigation["params"] as JsonObject)["taskId"] as JsonPrimitive).content == "t1",
+            "the destination carries the parameters the screen named: $navigation",
+        )
+    }
+
+    @Test
+    fun `the contract version moves with the published meaning`() {
+        // Version 2 added the published `navigation` destination. A driver that reads version 1
+        // must not be told snapshots can carry it, so the constant and the field move together.
+        assertTrue(
+            SCREEN_INTROSPECTION_CONTRACT_VERSION == 2,
+            "the published snapshot shape changed; the version says which shape a driver reads",
+        )
+    }
+
+    @Test
     fun `an action whose schema uses an unsupported keyword is refused`() {
         val problem =
             runCatching {

@@ -273,6 +273,10 @@ Validation/availability are enforced by the canonical adapter/contract before di
   `TaskDetailScreenIntrospection` via DI-resolved dependencies.
 - Initial supported screen: `tasks.task-detail` (reference adapter; actions per canonical
   contract: `set_priority`, `add_checklist_item`, `toggle_complete`, `delete_task`, `restore_task`).
+- Second adapter, **not** registered with the host: `agenda.tasks`
+  (`AgendaScreenIntrospection`; actions `open_task`, `toggle_complete`, `select_task`; the project
+  is an optional parameter, so the Inbox tab and a project's list are one screen). It is reached
+  by the cross-screen journeys; a host session over it is separate work, see the ADR named above.
 - Completion observation is action-correlated: an operation becomes `completed` when verified
   post-dispatch screen state satisfies the action's post-condition (including explicit idempotent
   no-op post-conditions where applicable), not from arbitrary state emissions. A satisfied
@@ -301,12 +305,61 @@ Validation/availability are enforced by the canonical adapter/contract before di
   host starts, with the flag the host may run. It also pins the registration seam: no `screen_*`
   tool is registered without the opt-in, and `screen_list` is registered with it.
 
+### Cross-screen journeys (#3043)
+
+`shared/src/commonTest/.../feature/journey/ScreenJourneyTest.kt` drives more than one screen per
+test, over the application's real ViewModels and the existing fakes — no emulator, no Compose
+rendering, no wall-clock sleep:
+
+| Journey | Screens | What it proves |
+|---|---|---|
+| list → detail → change → list | `agenda.tasks` (Inbox) → `tasks.task-detail` → back to the list | the change reaches the repository *and* the next list render |
+| project list → task → complete | `agenda.tasks` (project) → `tasks.task-detail` | the list is project-scoped: another project's task is refused, not dispatched |
+| complete + create | `agenda.tasks` + the real task editor | a completion and a created task both appear in the list |
+
+`JourneyScreens.kt` is the fixture: one `SlotFakes` aggregate behind every screen, so the agenda,
+the coordinator and the editor read and write the same `FakeTaskRepository`. That shared store is
+what makes a journey a journey rather than three independent screen tests.
+
+**Navigation is published, not performed.** `ScreenState.navigation` carries the destination the
+screen itself decided on — the value its click handler would hand the application's navigator — so
+a journey opens the next screen from the list's own answer rather than from an id the test made
+up. The driver only reads it; nothing dispatches navigation. The contract version moved to 2 with
+this field. See ADR `2026-11-22-cross-screen-journeys-and-published-navigation.md`.
+
+**The second adapter does not change the contract's semantics.** `AgendaScreenIntrospection`
+(`agenda.tasks`, the project as a parameter) supplies a snapshot projection, an intent mapping and
+an availability rule; the allow-list, the schema check and validate-before-dispatch still come
+from `ScreenIntrospection`. A negative control confirms the journeys measure the application: with
+`dispatch` reduced to a no-op, exactly the three dispatch journeys fail and the three
+contract/refusal journeys still pass.
+
+**Availability is a function of the screen's own mode, and the schema says what the dispatcher
+does.** Two review findings shaped this, and both are pinned by tests that fail without the fix:
+
+- `open_task` and `select_task` are unavailable while the list is in multi-selection mode. The
+  screen's own handler toggles the selection for the first and returns early for the second, so
+  advertising them there reported `accepted` while doing something else, or nothing.
+  `toggle_complete` stays available: its handler has no selection branch. This is the general
+  lesson for the next adapter — an action's availability has to match *that action's* behaviour in
+  the current state, not just whether the screen loaded.
+- The `taskId` property publishes `minLength: 1` **and** `pattern: "\\S"`, because the dispatcher
+  rejects a blank id. A schema that accepts `" "` and a dispatcher that refuses it are two
+  different statements about the same input; the published schema is the one an agent reads, so it
+  has to be the one that is true. Dispatch also converts that refusal into a `Result` failure
+  rather than throwing, so the documented error channel stays the only one.
+
 ### UI wiring is not what the headless tests verify
 
 The screen-behavior tests above drive the adapter. None of them touches a Compose
 control, so a control whose `onClick` goes nowhere passes all of them: the adapter
 reaches `TaskDetailCoordinator.onIntent`, and the control is a different call site.
 (The host opt-in test is not one of these — it pins registration, not screen behavior.)
+
+The same boundary applies to the journeys: they say the contract, the dispatcher and each
+screen's intent path agree. They do **not** say that a Compose control is wired to a published
+action, that every UI-visible value is in a snapshot, or that anything renders — and a passing
+journey must not be described as end-to-end UI correctness. That half is #3049.
 
 `desktopApp/src/jvmTest/.../feature/flows/tasks/TaskDetailCompletionWiringTest.kt` is
 the missing half for the Task Detail's completion control — a tap on the real control,
