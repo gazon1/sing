@@ -6,15 +6,20 @@ package com.singularity.todo.feature.notes
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
+import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.core.repository.CrossUserWriteException
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
@@ -22,6 +27,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -248,4 +254,127 @@ class NotesRepositorySyncTest {
             assertTrue(anonymous.isSuccess, "anonymous must be normalised, not orphaned")
             assertEquals(user, anonymous.getOrThrow().userId)
         }
+
+    // ── The conditional write and the brief reads, against real SQLite ──────────
+
+    @Test
+    fun `the conditional write matches the version in the statement`() =
+        runTest {
+            repo.createWithContent(NoteId("n1"), "T", "v1", "<p>v1</p>")
+            val readAt = assertNotNull(repo.get(NoteId("n1")), "the note was created").updatedAt.toEpochMilliseconds()
+            sync.enqueuedEntities.clear()
+
+            val stale = repo.updateContentIfVersion(NoteId("n1"), "T", "v2", "<p>v2</p>", readAt - 1)
+
+            assertEquals(0, stale.getOrThrow(), "a version that does not match writes no row")
+            assertEquals("<p>v1</p>", repo.get(NoteId("n1"))?.bodyHtml, "the body was not replaced")
+            assertTrue(sync.enqueuedEntities.isEmpty(), "a write that did not happen is not enqueued")
+
+            val fresh = repo.updateContentIfVersion(NoteId("n1"), "T", null, "<p>v2</p>", readAt)
+
+            assertEquals(1, fresh.getOrThrow(), "the matching version writes the row")
+            assertEquals("<p>v2</p>", repo.get(NoteId("n1"))?.bodyHtml, "the body was replaced")
+            assertNull(repo.get(NoteId("n1"))?.bodyMarkdown, "the legacy projection is cleared")
+            assertEquals(1, sync.enqueuedEntities.size, "a confirmed write reaches the outbox")
+        }
+
+    @Test
+    fun `the brief reads ask for plain notes only, before the limit`() =
+        runTest {
+            val project = ProjectId.generate()
+            val task = TaskId.generate()
+            // The foreign keys are real here, so the rows the note points at exist.
+            db.projectDao().upsert(
+                ProjectEntity(
+                    id = project.value,
+                    userId = user.value,
+                    name = "Kitchen",
+                    color = 0,
+                    icon = null,
+                    description = null,
+                    createdAt = 0,
+                    updatedAt = 0,
+                    dueDate = null,
+                    team = null,
+                    externalId = null,
+                    deletedAt = null,
+                    parentId = null,
+                ),
+            )
+            db.taskDao().upsert(
+                TaskEntity(
+                    id = task.value,
+                    title = "Draft",
+                    description = null,
+                    projectId = project.value,
+                    dueDate = null,
+                    dueTime = null,
+                    startDate = null,
+                    startTime = null,
+                    endDate = null,
+                    endTime = null,
+                    accentColor = null,
+                    emoji = null,
+                    completedAt = null,
+                    archivedAt = null,
+                    createdAt = 0,
+                    updatedAt = 0,
+                    userId = user.value,
+                ),
+            )
+            // One brief, buried behind more than the page of newer daily notes.
+            notesDomainSeed(
+                id = "brief",
+                kind = NoteKind.Plain,
+                projectId = project,
+                taskId = task,
+                createdAtMs = 1_000,
+            )
+            repeat(60) { index ->
+                notesDomainSeed(
+                    id = "daily-$index",
+                    kind = NoteKind.Daily,
+                    projectId = project,
+                    taskId = task,
+                    createdAtMs = 2_000L + index,
+                )
+            }
+
+            val byProject = repo.watchAttachedToProject(project, 20).first()
+            val byTask = repo.watchPlainAttachedToTask(task, 20).first()
+
+            assertEquals("brief", byProject.singleOrNull()?.id?.value, "the project brief is found")
+            assertEquals("brief", byTask.singleOrNull()?.id?.value, "the task brief is found")
+        }
+
+    @Test
+    fun `a non-positive limit is refused rather than becoming unbounded`() =
+        runTest {
+            val project = ProjectId.generate()
+            val failure = runCatching { repo.watchAttachedToProject(project, -1) }
+            assertTrue(failure.isFailure, "a negative limit is not a bound")
+        }
+
+    /** Seeds a note row directly, with the kind and attachments the reads filter on. */
+    private suspend fun notesDomainSeed(
+        id: String,
+        kind: NoteKind,
+        projectId: ProjectId,
+        taskId: TaskId,
+        createdAtMs: Long,
+    ) {
+        repo.upsert(
+            Note(
+                id = NoteId(id),
+                userId = user,
+                title = id,
+                bodyHtml = "<p>$id</p>",
+                kind = kind,
+                projectId = projectId,
+                taskId = taskId,
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(createdAtMs),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(createdAtMs),
+            ),
+        )
+    }
 }
