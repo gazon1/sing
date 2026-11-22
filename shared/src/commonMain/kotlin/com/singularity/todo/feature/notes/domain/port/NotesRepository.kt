@@ -84,6 +84,24 @@ interface NotesRepository :
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
     suspend fun createNoteWithTitle(title: String): Result<NoteId>
 
+    /**
+     * Writes a note's content only if the stored version is still [expectedUpdatedAt].
+     *
+     * The predicate lives in the write, not in a read before it: a caller that reads
+     * the version, checks it and then writes leaves a window in which another writer
+     * commits — and the write then replaces an edit it never saw. A write that finds a
+     * different version fails instead, which the caller reports as a stale change.
+     *
+     * @return [Result] holding the rows written; `0` means the note moved.
+     */
+    suspend fun updateContentIfVersion(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        expectedUpdatedAt: Long,
+    ): Result<Int>
+
     /** Updates title and body content (autosave path). */
     suspend fun updateContent(
         id: NoteId,

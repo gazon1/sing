@@ -1239,6 +1239,34 @@ private class FakeNoteDao(
             n.userId == userId && n.deletedAt == null && n.hangsOnTaskOf(projectId)
         }
 
+    override suspend fun updateContentIfVersion(
+        id: String,
+        title: String,
+        markdown: String?,
+        html: String?,
+        wordCount: Int,
+        charCount: Int,
+        updatedAt: Long,
+        expectedUpdatedAt: Long,
+        userId: String,
+    ): Int {
+        val existing = store.value[id]?.takeIf { it.userId == userId } ?: return 0
+        if (existing.updatedAt != expectedUpdatedAt) return 0
+        store.update {
+            it + (
+                id to existing.copy(
+                    title = title,
+                    bodyMarkdown = markdown,
+                    bodyHtml = html,
+                    wordCount = wordCount,
+                    charCount = charCount,
+                    updatedAt = updatedAt,
+                )
+            )
+        }
+        return 1
+    }
+
     override fun watchPlainAttachedToTaskForUser(
         taskId: String,
         userId: String,

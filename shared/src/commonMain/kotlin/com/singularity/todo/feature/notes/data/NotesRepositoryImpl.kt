@@ -308,6 +308,41 @@ class NotesRepositoryImpl(
             }
         }
 
+    override suspend fun updateContentIfVersion(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        expectedUpdatedAt: Long,
+    ): Result<Int> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val markdown = bodyMarkdown.orEmpty()
+                // The new version advances *strictly* past the one being replaced. A
+                // write inside the same millisecond would otherwise stamp the version it
+                // just matched, and the next change written against that version would
+                // pass a guard that should have refused it.
+                val now = clock.now().toEpochMilliseconds()
+                val rows =
+                    noteDao.updateContentIfVersion(
+                        id = id.value,
+                        title = title,
+                        markdown = bodyMarkdown,
+                        html = bodyHtml,
+                        wordCount = markdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                        charCount = markdown.length,
+                        updatedAt = maxOf(now, expectedUpdatedAt + 1),
+                        expectedUpdatedAt = expectedUpdatedAt,
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                // A row that did not match the version is a note somebody else moved. The
+                // caller decides what that means; this returns the count rather than
+                // throwing, so "stale" and "storage failure" stay separate answers.
+                if (rows > 0) enqueueFresh(id)
+                rows
+            }
+        }
+
     override suspend fun updateContent(
         id: NoteId,
         title: String,
@@ -583,12 +618,16 @@ class NotesRepositoryImpl(
     override fun watchPlainAttachedToTask(
         taskId: TaskId,
         limit: Int,
-    ): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
+    ): Flow<List<Note>> {
+        // SQLite reads a negative LIMIT as "no limit". A bound that silently disappears
+        // is the opposite of a bound, so the caller is told instead.
+        require(limit > 0) { "A bounded read needs a positive limit, got $limit" }
+        return currentUser.observeForCurrentUser { uid ->
             noteDao
                 .watchPlainAttachedToTaskForUser(taskId.value, uid.value, limit)
                 .map { list -> list.map { it.toNote() } }
         }
+    }
 
     override fun watchForProject(
         projectId: ProjectId,
@@ -608,12 +647,15 @@ class NotesRepositoryImpl(
     override fun watchAttachedToProject(
         projectId: ProjectId,
         limit: Int,
-    ): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
+    ): Flow<List<Note>> {
+        // Same rule as the task read: a negative LIMIT means "unbounded" to SQLite.
+        require(limit > 0) { "A bounded read needs a positive limit, got $limit" }
+        return currentUser.observeForCurrentUser { uid ->
             noteDao
                 .watchAttachedToProjectForUser(projectId.value, uid.value, limit)
                 .map { list -> list.map { it.toNote() } }
         }
+    }
 
     override suspend fun createForTask(
         id: NoteId,

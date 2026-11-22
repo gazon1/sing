@@ -874,6 +874,40 @@ interface NoteDao {
         userId: String,
     ): Int
 
+    /**
+     * Writes a note's content **only if** the stored version is the one expected.
+     *
+     * The version predicate is in the statement, not in a read before it: a
+     * read-then-write leaves a window in which another writer commits, and the write
+     * then replaces an edit it never saw. Returns `0` rows when the note moved, which
+     * the caller reports as a stale change rather than treating as success.
+     */
+    @Query(
+        """
+        UPDATE notes
+        SET title = :title,
+            body_markdown = :markdown,
+            body_html = :html,
+            word_count = :wordCount,
+            char_count = :charCount,
+            updated_at = :updatedAt
+        WHERE id = :id
+          AND user_id = :userId
+          AND updated_at = :expectedUpdatedAt
+        """,
+    )
+    suspend fun updateContentIfVersion(
+        id: String,
+        title: String,
+        markdown: String?,
+        html: String?,
+        wordCount: Int,
+        charCount: Int,
+        updatedAt: Long,
+        expectedUpdatedAt: Long,
+        userId: String,
+    ): Int
+
     @Query(
         "UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id AND user_id = :userId",
     )

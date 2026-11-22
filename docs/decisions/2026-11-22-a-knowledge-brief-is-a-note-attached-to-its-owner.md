@@ -85,15 +85,23 @@ names for the same two acts would be the split
 The read returns `updatedAt` so the next `update_note` can pass it back as
 `expectedUpdatedAt`.
 
-**Stale means refused, not merged — at both ends.** The version travels with the
-change: `update_note` compares `expectedUpdatedAt` with the note it just read and refuses a
-mismatch before anything is proposed, and `NoteValue.Body` carries the same value into the
-proposal so `ProposalPlanner.withNoteValue` refuses again at apply time. Both checks are
-needed and neither is redundant: the first stops a summary written from an old note from
-ever becoming a proposal, the second stops a proposal from landing on an edit the user
-made while the card was waiting. The value is optional — a `Body` built by the in-app
-editor carries none, because a human who pressed "improve" and then confirms the result is
-the decision itself.
+**Stale means refused, not merged — at both ends, and in one statement.** The version
+travels with the change: `update_note` compares `expectedUpdatedAt` with the note it just
+read and refuses a mismatch before anything is proposed, and the value carries it into the
+proposal. The first check stops a summary written from an old note from ever becoming a
+proposal; the second runs at apply time, so a proposal cannot land on an edit the user made
+while the card was waiting.
+
+The apply-time check is not a read followed by a write. `NotesRepository.updateContentIfVersion`
+puts the version predicate **inside** the `UPDATE`, so an edit committed between the read and
+the write makes the statement match no row — which the caller reports as stale. A read-then-write
+would leave exactly the window the guard exists to close.
+
+Which value carries the version: `NoteValue.Title` and `NoteValue.Body` both do. It belongs to
+the *change*, not to the body, because a title-only update clobbers an edit just as a body
+update does. `NoteValue.Summary` does not, because nothing outside the app builds one. A value
+with no stated version is unguarded, and every proposal written before this field existed
+reads back that way — the payload only grows.
 
 Applying a note write also advances `updatedAt`. The task path already did this through
 its repository, so the note path's silence was an inconsistency rather than a choice: a
@@ -144,6 +152,10 @@ the field cannot reach a device running a build that does not know it.
   person to read `watchForProject` will otherwise assume it covers attachments.
 - `update_note` gained an optional field. A caller that omits it keeps the old behaviour;
   a caller that states it gets the refusal. The payload only grows, so no client breaks.
+- One note update is one change (`SetNoteFields`), not one change per field. A caller that
+  proposed a title and a body as two items would otherwise see the second refused as stale
+  once the first landed. The kind is new, so a proposal written by an older build still
+  reads; nothing writes the old per-field shape for a multi-field edit.
 - A note write now advances `updatedAt` when a proposal is applied, which it did not do
   before. Any reader that treated a note's `updatedAt` as "the last time the editor
   autosaved" now also sees agent-approved changes there — which is what the field already

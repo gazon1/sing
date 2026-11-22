@@ -604,6 +604,44 @@ class KnowledgeBriefTest {
         }
 
     @Test
+    fun `a write that finds the note moved is refused by the statement, not by a prior read`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+
+            // The guarded write is the last line of defence: even if a caller read the
+            // note and passed its own check, the statement must refuse a row that moved
+            // in between. Here the note moves *after* the tool's check, which is exactly
+            // the window a read-then-write leaves open.
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                bodyMarkdown = "refreshed",
+                                expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
+                            ),
+                        ),
+                )
+            assertTrue(output.proposalCreated, "the refresh was proposed: ${output.error}")
+
+            clock.advance(kotlin.time.Duration.parse("1m"))
+            notes.seed(brief.copy(bodyHtml = "<p>the user's own words</p>", updatedAt = clock.now()))
+
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+
+            assertTrue(result.isFailure, "the stale write was refused")
+            assertEquals(
+                "<p>the user's own words</p>",
+                notes.notes[brief.id.value]?.bodyHtml,
+                "the user's edit survived",
+            )
+        }
+
+    @Test
     fun `a failed extraction keeps the last approved brief`() =
         runTest {
             val project = project("Kitchen")

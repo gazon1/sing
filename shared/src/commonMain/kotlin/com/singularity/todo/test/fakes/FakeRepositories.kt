@@ -3086,6 +3086,37 @@ open class FakeNotesRepository(
         }
     }
 
+    override suspend fun updateContentIfVersion(
+        id: com.singularity.todo.feature.notes.NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        expectedUpdatedAt: Long,
+    ): Result<Int> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing = store.state.value[id.value]?.takeIf { it.userId == uid }
+                ?: return@runCatchingCancellable 0
+            // The production statement matches on the version; the fake does the same
+            // comparison the SQL does, so a stale write is visible here too.
+            if (existing.updatedAt.toEpochMilliseconds() != expectedUpdatedAt) {
+                return@runCatchingCancellable 0
+            }
+            // Strictly newer, the same rule the production write follows.
+            val now = clock.now().toEpochMilliseconds()
+            store.upsert(
+                existing.copy(
+                    title = title,
+                    bodyMarkdown = bodyMarkdown,
+                    bodyHtml = bodyHtml,
+                    updatedAt = kotlin.time.Instant.fromEpochMilliseconds(
+                        maxOf(now, expectedUpdatedAt + 1),
+                    ),
+                ),
+            )
+            1
+        }
+
     override suspend fun updateContent(
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
