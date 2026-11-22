@@ -49,6 +49,13 @@ class AgendaScreenIntrospection(
      * tap would hand the application's navigator. Published in the snapshot so a driver opens
      * the next screen instead of mutating navigation state itself, and cleared by
      * [clearNavigation] once the driver has acted on it.
+     *
+     * **Only task-opening is published.** The agenda also emits `NavigateToOverdue`,
+     * `CreateInSection` and `OpenCreateWithDates`; those are deliberately not mapped. Each
+     * names a destination this adapter has not been asked to describe, and inventing routes
+     * for them would be guessing at the application's navigation rather than reporting it.
+     * A driver sees `navigation: null` for those transitions and must treat that as "the
+     * screen moved somewhere this contract does not cover", not as "nothing happened".
      */
     @Volatile
     var navigation: JsonObject? = null
@@ -61,6 +68,16 @@ class AgendaScreenIntrospection(
     fun describe(state: AgendaUiState): JsonObject = introspection.describe(stateOf(state))
 
     fun snapshot(): JsonObject = introspection.snapshot(stateOf(viewModel.stateFlow.value))
+
+    /**
+     * The screen's state as this adapter publishes it — the same value [describe] and
+     * [snapshot] build from, and the only thing [actions] availability is a function of.
+     *
+     * Exposed because a driver's question "can I act on this?" is answered about *this*, not
+     * about the ViewModel's internal state: the two can disagree in principle, and a test that
+     * asked the ViewModel could pass while the published availability was wrong.
+     */
+    fun publishedState(): ScreenState = stateOf(viewModel.stateFlow.value)
 
     fun snapshot(state: AgendaUiState): JsonObject = introspection.snapshot(stateOf(state))
 
@@ -95,8 +112,16 @@ class AgendaScreenIntrospection(
         val state = viewModel.stateFlow.value
         val validated = introspection.validate(stateOf(state), action, input)
         if (validated.isFailure) return validated
+        // The published schema rejects a blank id, so this cannot normally fire. It is here
+        // because dispatch promises a Result<Unit>, and a refusal that escapes as a thrown
+        // exception would be a second, undocumented error channel the moment the two ever
+        // disagree.
+        val taskId =
+            taskIdOf(input)
+                ?: return Result.failure(
+                    IllegalArgumentException("'$ACTION_TASK_ID' is required and must be a non-empty string"),
+                )
         val listed = stateOf(state).subject?.taskIds().orEmpty()
-        val taskId = taskIdOf(input)
         if (taskId !in listed) {
             return Result.failure(
                 IllegalArgumentException(
@@ -126,7 +151,7 @@ class AgendaScreenIntrospection(
                     focus =
                         if (state.isSelectionMode) {
                             buildJsonObject {
-                                put("selection", JsonArray(state.selectedTaskIds.map { JsonPrimitive(it.value) }))
+                                put(FOCUS_SELECTION, JsonArray(state.selectedTaskIds.map { JsonPrimitive(it.value) }))
                             }
                         } else {
                             null
@@ -176,25 +201,35 @@ class AgendaScreenIntrospection(
             ScreenAction(
                 name = ACTION_OPEN_TASK,
                 summary = "Open one of the tasks the list shows.",
-                requirement = REQUIREMENT_LOADED,
+                requirement = REQUIREMENT_NOT_SELECTING,
                 inputSchema = schema(),
-                isAvailable = { state -> state.status == STATUS_LOADED },
+                // In selection mode the screen's own click handler toggles the selection
+                // instead of navigating, so "open this task" is not a thing the screen can
+                // do right now — and reporting the dispatch as accepted would be a lie.
+                isAvailable = { state -> state.status == STATUS_LOADED && !state.isSelecting() },
             ),
             ScreenAction(
                 name = ACTION_TOGGLE_COMPLETE,
                 summary = "Mark one of the listed tasks done, or a done one not done.",
                 requirement = REQUIREMENT_LOADED,
                 inputSchema = schema(),
+                // The check handler has no selection-mode branch: it completes the task
+                // whatever the mode, so this action stays available while selecting.
                 isAvailable = { state -> state.status == STATUS_LOADED },
             ),
             ScreenAction(
                 name = ACTION_SELECT_TASK,
                 summary = "Start multi-selection with one of the listed tasks.",
-                requirement = REQUIREMENT_LOADED,
+                requirement = REQUIREMENT_NOT_SELECTING,
                 inputSchema = schema(),
-                isAvailable = { state -> state.status == STATUS_LOADED },
+                // The long-press handler returns early when the mode is already on, so a
+                // dispatch here would be accepted and do nothing.
+                isAvailable = { state -> state.status == STATUS_LOADED && !state.isSelecting() },
             ),
         )
+
+    /** Whether the published state says the screen is in multi-selection mode. */
+    private fun ScreenState.isSelecting(): Boolean = focus?.containsKey(FOCUS_SELECTION) == true
 
     private fun intentFor(
         action: String,
@@ -227,6 +262,11 @@ class AgendaScreenIntrospection(
                         buildJsonObject {
                             put("type", "string")
                             put("minLength", 1)
+                            // Same statement the dispatcher makes below: a blank id is not an
+                            // id. Without it the schema accepts `" "` and the refusal arrives
+                            // after validation, which is not what "the schema says what the
+                            // dispatcher enforces" promises an agent.
+                            put("pattern", "\\S")
                         },
                     )
                 },
@@ -234,12 +274,11 @@ class AgendaScreenIntrospection(
             put("additionalProperties", false)
         }
 
-    private fun taskIdOf(input: JsonObject): String =
+    private fun taskIdOf(input: JsonObject): String? =
         (input[ACTION_TASK_ID] as? JsonPrimitive)
             ?.takeIf { it.isString }
             ?.content
             ?.takeIf { it.isNotBlank() }
-            ?: throw IllegalArgumentException("'$ACTION_TASK_ID' is required and must be a non-empty string")
 
     private companion object {
         /** The stable name of the screen this contract describes. */
@@ -256,6 +295,10 @@ class AgendaScreenIntrospection(
         const val VIEW_PROJECT = "project"
 
         const val REQUIREMENT_LOADED = "the list has to be showing its tasks"
+        const val REQUIREMENT_NOT_SELECTING = "the list must not be in multi-selection mode"
+
+        /** The focus key that says the screen is selecting; the same key the snapshot publishes. */
+        const val FOCUS_SELECTION = "selection"
 
         const val ACTION_OPEN_TASK = "open_task"
         const val ACTION_TOGGLE_COMPLETE = "toggle_complete"

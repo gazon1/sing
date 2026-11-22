@@ -334,6 +334,21 @@ from `ScreenIntrospection`. A negative control confirms the journeys measure the
 `dispatch` reduced to a no-op, exactly the three dispatch journeys fail and the three
 contract/refusal journeys still pass.
 
+**Availability is a function of the screen's own mode, and the schema says what the dispatcher
+does.** Two review findings shaped this, and both are pinned by tests that fail without the fix:
+
+- `open_task` and `select_task` are unavailable while the list is in multi-selection mode. The
+  screen's own handler toggles the selection for the first and returns early for the second, so
+  advertising them there reported `accepted` while doing something else, or nothing.
+  `toggle_complete` stays available: its handler has no selection branch. This is the general
+  lesson for the next adapter — an action's availability has to match *that action's* behaviour in
+  the current state, not just whether the screen loaded.
+- The `taskId` property publishes `minLength: 1` **and** `pattern: "\\S"`, because the dispatcher
+  rejects a blank id. A schema that accepts `" "` and a dispatcher that refuses it are two
+  different statements about the same input; the published schema is the one an agent reads, so it
+  has to be the one that is true. Dispatch also converts that refusal into a `Result` failure
+  rather than throwing, so the documented error channel stays the only one.
+
 ### UI wiring is not what the headless tests verify
 
 The screen-behavior tests above drive the adapter. None of them touches a Compose

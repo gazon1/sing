@@ -44,6 +44,7 @@ import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.JsonObject
@@ -52,6 +53,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -211,6 +213,101 @@ class ScreenJourneyTest {
             assertTrue(
                 created.id.value in refreshed.snapshot().listedTaskIds(),
                 "the created task is in the list: ${refreshed.snapshot().listedTaskIds()}",
+            )
+        }
+
+    /**
+     * A blank task id is refused by the published schema, not after it.
+     *
+     * Review finding (Role A, MINOR): the schema said `minLength: 1`, which accepts `" "`, while
+     * the dispatcher rejected blanks. The refusal then arrived from a path the schema did not
+     * describe — and because that path threw, it escaped the `Result` channel entirely. Both
+     * halves are pinned here: the published schema carries the non-blank rule, and a dispatch
+     * that manages to reach the dispatcher anyway comes back as a failure rather than a throw.
+     */
+    @Test
+    fun `a blank task id is refused by the schema the list publishes`() =
+        runTest {
+            val screens = JourneyScreens(this)
+            screens.seed(screens.task(id = "t1", title = "Buy milk"))
+
+            val inbox = screens.inbox()
+            awaitState { inbox.snapshot().text("status") == "loaded" }
+
+            val blank = inbox.dispatch("open_task", buildJsonObject { put("taskId", " ") })
+            assertTrue(blank.isFailure, "a whitespace-only id is refused, not accepted: $blank")
+
+            // The published schema is where the agent reads the rule, so it has to say it.
+            val schema = assertNotNull(inbox.describe().action("open_task")?.obj("input"))
+            val taskIdProperty = assertNotNull(schema.obj("properties")?.obj("taskId"))
+            assertEquals("string", taskIdProperty.text("type"))
+            assertEquals("\\S", taskIdProperty.text("pattern"))
+            assertNull(inbox.snapshot().obj("navigation"), "the refused dispatch navigated nowhere")
+        }
+
+    /**
+     * Selection mode changes what the row actions do, so availability has to follow the mode.
+     *
+     * Review finding (Role A, MINOR): `open_task` and `select_task` were advertised whenever the
+     * list was loaded. In selection mode the screen's own handler *toggles the selection*
+     * instead of navigating for the first, and returns early for the second — so both reported
+     * `accepted` while doing something else, or nothing. `toggle_complete` is unaffected: its
+     * handler has no selection branch.
+     */
+    @Test
+    fun `row actions are unavailable while the list is selecting`() =
+        runTest {
+            val screens = JourneyScreens(this)
+            screens.seed(screens.task(id = "t1", title = "Buy milk"))
+            screens.seed(screens.task(id = "t2", title = "Ship release"))
+
+            val inbox = screens.inbox()
+            awaitState { inbox.snapshot().text("status") == "loaded" }
+
+            // Before selecting, everything is on offer. Availability is read from the
+            // adapter's own published state, which is the state an agent would read.
+            val idle = inbox.publishedState()
+            assertTrue(
+                inbox.actions.all { it.isAvailable(idle) },
+                "every row action is available on a loaded list that is not selecting",
+            )
+
+            // Enter selection mode through the screen's own long-press intent.
+            assertTrue(inbox.dispatch("select_task", buildJsonObject { put("taskId", "t1") }).isSuccess)
+            // `runCurrent`, not `awaitState`: the agenda collects a `while (true) { emit; delay }`
+            // clock flow, so advancing virtual time never drains the scheduler — the same reason
+            // `AgendaViewModelTest` documents for its own waits. `runCurrent` dispatches the
+            // selection update the intent launched, without moving the clock.
+            runCurrent()
+            // The contract publishes focus in `describe`, not in the snapshot.
+            assertNotNull(
+                inbox.describe().obj("focus")?.array("selection"),
+                "the selection is published as focus: ${inbox.describe()}",
+            )
+
+            val selecting = inbox.publishedState()
+            assertTrue(
+                inbox.actions.filter { it.name != "toggle_complete" }.none { it.isAvailable(selecting) },
+                "open_task and select_task are not on offer while selecting: ${selecting.focus}",
+            )
+            assertTrue(
+                inbox.actions.first { it.name == "toggle_complete" }.isAvailable(selecting),
+                "toggle_complete stays on offer — its handler has no selection branch",
+            )
+
+            // And the refusal is real, not just a label: dispatching does not navigate.
+            val opened = inbox.dispatch("open_task", buildJsonObject { put("taskId", "t2") })
+            assertTrue(opened.isFailure, "opening a task is refused while selecting: $opened")
+            assertNull(inbox.snapshot().obj("navigation"), "nothing navigated while selecting")
+
+            // The selection itself was not disturbed by the refused dispatch.
+            assertEquals(
+                listOf("t1"),
+                inbox
+                    .describe()
+                    .obj("focus")
+                    ?.array("selection")
+                    ?.map { it.jsonPrimitive.content },
             )
         }
 
@@ -537,3 +634,12 @@ private fun JsonObject.boolOf(
 
 private fun kotlinx.serialization.json.JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> =
     this ?: emptyList()
+
+/** The named field, read as an array. */
+private fun JsonObject.array(key: String) = this[key]?.jsonArray
+
+/** The named action, as a description publishes it. */
+private fun JsonObject.action(name: String): JsonObject? =
+    array("actions")
+        ?.map { it.jsonObject }
+        ?.firstOrNull { it.text("name") == name }
