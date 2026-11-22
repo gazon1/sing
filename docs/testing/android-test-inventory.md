@@ -4,7 +4,7 @@ Audit for [#3086](https://github.com/gazon1/sing/issues/3086) (parent [#3085](ht
 
 ## Reproducible scope
 
-The scope is the two source sets named by #3086. Counts below are a point-in-time snapshot for PR #3092, audited 2026-11-22 and verified against head `b083992173c9e725aa3e44a4849877b51cef9b8b` (this revision) from repository source files in the worktree. Counts are reproducible from the repository tree and `@Test` annotations:
+The scope is the two source sets named by #3086. Counts below are a point-in-time snapshot for PR #3092, audited 2026-11-22. The test-source inventory was verified against commit `b083992173c9e725aa3e44a4849877b51cef9b8b`; subsequent commits in this PR update only audit documentation and do not change files under `androidApp/src/androidTest` or `shared/src/androidHostTest`. Counts are reproducible from the repository tree and `@Test` annotations:
 
 ```bash
 # Test classes (files with @Test, or contract subclasses listed in androidHostTest allowlist)
