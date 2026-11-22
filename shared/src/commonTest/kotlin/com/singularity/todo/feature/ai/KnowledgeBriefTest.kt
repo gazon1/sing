@@ -282,6 +282,27 @@ class KnowledgeBriefTest : KnowledgeBriefTestBase() {
             assertEquals(brief.id.value, output.noteId, "the approved note is the brief")
         }
 
+    @Test
+    fun `an ordinary task logbook note is not a knowledge brief`() =
+        runTest {
+            val task = task("Draft the brief")
+            tasks.seed(task)
+            // What the logbook writes: a plain note attached to the task, no provenance.
+            notes.seed(
+                note(
+                    title = "Meeting notes",
+                    html = "<p>talked about the draft</p>",
+                    taskId = task.id,
+                    withSources = false,
+                ),
+            )
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(taskId = task.id.value)))
+
+            assertFalse(output.found, "an ordinary logbook note is not a brief: ${output.noteId}")
+            assertNotNull(output.reason, "the answer says there is no brief yet")
+        }
+
     // ── The catalogue and the round trip ───────────────────────────────────────
 
     @Test

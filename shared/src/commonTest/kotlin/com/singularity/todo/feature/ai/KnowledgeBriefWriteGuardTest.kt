@@ -82,16 +82,18 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
                         .execute(
                             UpdateNoteInput(
                                 noteId = brief.id.value,
-                                bodyMarkdown = "refreshed",
+                                // A refreshed brief keeps its provenance: the section is
+                                // what makes it a brief, so an extraction that dropped it
+                                // would leave a note the reader no longer recognises.
+                                bodyMarkdown = "refreshed\n\n## Sources\n\n- https://example.com",
                                 expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
                             ),
                         ),
                 )
 
             assertTrue(output.proposalCreated, "the refresh was proposed: ${output.error}")
-            assertEquals(
-                "<p>approved</p>",
-                notes.notes[brief.id.value]?.bodyHtml,
+            assertTrue(
+                notes.notes[brief.id.value]?.bodyHtml?.startsWith("<p>approved</p>") == true,
                 "the approved brief is unchanged until the user confirms",
             )
 
@@ -122,9 +124,8 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
 
             assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
             assertNotNull(output.error, "the model is told the note moved")
-            assertEquals(
-                "<p>approved</p>",
-                notes.notes[brief.id.value]?.bodyHtml,
+            assertTrue(
+                notes.notes[brief.id.value]?.bodyHtml?.startsWith("<p>approved</p>") == true,
                 "the user's edit was not overwritten",
             )
             assertTrue(
@@ -147,7 +148,9 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
                         .execute(
                             UpdateNoteInput(
                                 noteId = brief.id.value,
-                                bodyMarkdown = "refreshed",
+                                // A refreshed brief keeps its provenance: the section is
+                                // what makes it a brief.
+                                bodyMarkdown = "refreshed\n\n## Sources\n\n- https://example.com",
                                 expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
                             ),
                         ),
@@ -408,7 +411,9 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
                         .execute(
                             UpdateNoteInput(
                                 noteId = brief.id.value,
-                                bodyMarkdown = "refreshed",
+                                // A refreshed brief keeps its provenance: the section is
+                                // what makes it a brief.
+                                bodyMarkdown = "refreshed\n\n## Sources\n\n- https://example.com",
                                 expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
                             ),
                         ),
@@ -437,7 +442,7 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
             // A note that still carries the legacy markdown projection next to the HTML.
             val brief =
                 note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
-                    .copy(bodyMarkdown = "approved")
+                    .copy(bodyMarkdown = "approved\n\n## Sources\n\n- https://example.com")
             notes.seed(brief)
 
             val output =
@@ -446,7 +451,9 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
                         .execute(
                             UpdateNoteInput(
                                 noteId = brief.id.value,
-                                bodyMarkdown = "refreshed",
+                                // A refreshed brief keeps its provenance: the section is
+                                // what makes it a brief.
+                                bodyMarkdown = "refreshed\n\n## Sources\n\n- https://example.com",
                                 expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
                             ),
                         ),

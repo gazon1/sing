@@ -69,6 +69,14 @@ logbook's read and must keep answering with every attached note. Without the fil
 newest attached note could be a journal, and an extraction written over it would destroy
 it.
 
+**The attachment is not the identity.** A task's logbook is made of plain notes attached
+to the task — the same shape a brief has — so reading "attached and plain" as "brief"
+would hand the user's own logbook entry to an extraction, and a confirmation would write
+the summary over it. The marker is the `## Sources` section, which the brief shape already
+makes mandatory: a brief without provenance is not a brief, and a logbook note does not
+carry one. `KnowledgeBriefShape` is the one place that answers the question, and both the
+reader and the stale-update guard ask it.
+
 **The candidate is the proposal.** A refresh already produces something the user has to
 approve — that is what `PROPOSAL_WRITE` means — and the proposal card is where a diff
 between the approved brief and the new extraction is decided item by item. No new

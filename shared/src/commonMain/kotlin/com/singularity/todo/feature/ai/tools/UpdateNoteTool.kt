@@ -111,7 +111,7 @@ class UpdateNoteTool(
         // whatever the note has become by the time the user confirms it, which is the
         // failure this tool exists to avoid. Ordinary in-app editing does not come
         // through here; it has its own path.
-        if (existing.knowsWhatItIs() && args.expectedUpdatedAt == null) {
+        if (KnowledgeBriefShape.isBrief(existing) && args.expectedUpdatedAt == null) {
             return failure(
                 args.noteId,
                 "An update to a knowledge brief states the version it was read at: read it " +
@@ -175,16 +175,6 @@ class UpdateNoteTool(
 
         return if (values.isEmpty()) emptyList() else listOf(ProposalItemKind.SetNoteFields(values))
     }
-
-    /**
-     * Whether this note is a brief — a **plain** note attached to a project or a task.
-     *
-     * The same three conditions the read asks for. A daily note and a folder are both
-     * excluded, so a caller is never told to state a version for a note that is not a
-     * brief and is never allowed to skip one for a note that is.
-     */
-    private fun Note.knowsWhatItIs(): Boolean =
-        !isFolder && kind == NoteKind.Plain && (projectId != null || taskId != null)
 
     private fun failure(
         noteId: String,

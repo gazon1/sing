@@ -140,8 +140,12 @@ class GetKnowledgeBriefTool(
         owner: String,
         notes: List<Note>,
     ): GetKnowledgeBriefOutput {
+        // Attached and plain is not enough: a task's logbook notes are attached and
+        // plain too, and answering with one of those would invite an extraction to be
+        // written over the user's own writing.
+        val briefs = notes.filter(KnowledgeBriefShape::isBrief)
         val newest =
-            notes.sortedWith(NOTE_ORDER).firstOrNull()
+            briefs.sortedWith(NOTE_ORDER).firstOrNull()
                 ?: return answer(
                     owner = owner,
                     attachedNotesSeen = 0,
@@ -153,7 +157,7 @@ class GetKnowledgeBriefTool(
             title = newest.title,
             bodyMarkdown = bodyOf(newest),
             updatedAt = newest.updatedAt.toEpochMilliseconds(),
-            attachedNotesSeen = notes.size,
+            attachedNotesSeen = briefs.size,
             owner = owner,
         )
     }

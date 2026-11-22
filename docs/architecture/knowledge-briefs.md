@@ -124,6 +124,17 @@ The note changed since it was read (updatedAt 1763800060000, expected 1763800000
 Apply a refresh and the note's `updatedAt` moves, so a second proposal built from the same
 read cannot land on top of the first one.
 
+## What makes a note a brief
+
+Not the attachment. A task's logbook is made of plain notes attached to the task, and
+they have the same shape a brief has — so the attachment says where a note hangs, not
+what it is.
+
+A brief carries the `## Sources` section. That is the one part of the shape below that is
+mandatory anyway (a brief without provenance is not a brief), and it is what
+`KnowledgeBriefShape` checks. An ordinary logbook note is therefore not a brief: the
+reader reports "no brief yet" instead of offering the user's own writing to an extraction.
+
 ## A brief is a plain note
 
 The attachment alone does not make a note a brief. A project's daily note carries the

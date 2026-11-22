@@ -125,16 +125,24 @@ abstract class KnowledgeBriefTestBase {
             updatedAt = clock.now(),
         )
 
+    /**
+     * A note, with the provenance section a brief carries by default.
+     *
+     * The section is what makes a note a brief — see `KnowledgeBriefShape` — so the
+     * fixtures that stand for briefs carry it and a test that wants an ordinary logbook
+     * note says so with [withSources] = false.
+     */
     protected fun note(
         title: String,
         html: String,
         projectId: ProjectId? = null,
         taskId: TaskId? = null,
+        withSources: Boolean = true,
     ) = Note(
         id = NoteId.generate(),
         userId = user,
         title = title,
-        bodyHtml = html,
+        bodyHtml = if (withSources) "$html<h2>Sources</h2><p>https://example.com</p>" else html,
         projectId = projectId,
         taskId = taskId,
         createdAt = clock.now(),
