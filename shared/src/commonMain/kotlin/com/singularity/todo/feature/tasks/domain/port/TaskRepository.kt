@@ -285,8 +285,8 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 
     /**
      * Rewrites the subtask order for [parentId] to [orderedIds], in one
-     * transaction. The list is the full visible order; omitted ids keep their
-     * old sort order and may tie with renumbered rows.
+     * transaction. The list must be the full current visible direct-child
+     * subtask set for [parentId]; stale or incomplete lists are rejected.
      */
     suspend fun reorderSubtasks(
         parentId: TaskId,

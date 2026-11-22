@@ -395,6 +395,26 @@ abstract class TaskRepositoryContractTest {
             )
         }
 
+    @Test
+    fun `reorderSubtasks rejects a stale incomplete id list`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("parent")).getOrThrow()
+            repo.create(task("c1").copy(parentTaskId = TaskId("parent"), sortOrder = 0)).getOrThrow()
+            repo.create(task("c2").copy(parentTaskId = TaskId("parent"), sortOrder = 1)).getOrThrow()
+            repo.create(task("c3").copy(parentTaskId = TaskId("parent"), sortOrder = 2)).getOrThrow()
+            advanceUntilIdle()
+
+            val result = repo.reorderSubtasks(TaskId("parent"), listOf(TaskId("c2"), TaskId("c1")))
+            advanceUntilIdle()
+
+            assertTrue(result.isFailure)
+            assertEquals(
+                listOf("c1", "c2", "c3"),
+                repo.observeSubtasks(TaskId("parent")).first().map { it.id.value },
+            )
+        }
+
     // ─── Series ───────────────────────────────────────────────────────────────
 
     @Test

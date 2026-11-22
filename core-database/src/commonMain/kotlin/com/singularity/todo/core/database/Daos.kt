@@ -137,6 +137,17 @@ interface TaskDao {
 
     @Query(
         """
+        SELECT id FROM tasks
+        WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
+        """,
+    )
+    suspend fun listSubtaskIdsForUser(
+        parentId: String,
+        userId: String,
+    ): List<String>
+
+    @Query(
+        """
         SELECT MAX(sort_order) FROM tasks
         WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
         """,
@@ -153,6 +164,10 @@ interface TaskDao {
         updatedAt: Long,
         userId: String,
     ) {
+        val currentIds = listSubtaskIdsForUser(parentId, userId).toSet()
+        require(orderedIds.size == currentIds.size && orderedIds.toSet() == currentIds) {
+            "Reorder must include the full current subtask set for parent $parentId"
+        }
         orderedIds.forEachIndexed { index, id ->
             updateSubtaskSortOrderForUser(
                 taskId = id,

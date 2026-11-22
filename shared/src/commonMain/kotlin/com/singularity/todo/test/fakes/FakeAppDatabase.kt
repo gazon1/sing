@@ -725,12 +725,25 @@ private class FakeTaskDao(
             .filter { it.parentTaskId == parentId && it.userId == userId && it.archivedAt == null }
             .maxOfOrNull { it.sortOrder }
 
+    override suspend fun listSubtaskIdsForUser(
+        parentId: String,
+        userId: String,
+    ): List<String> =
+        store.value.values
+            .filter { it.parentTaskId == parentId && it.userId == userId && it.archivedAt == null }
+            .sortedWith(compareBy<TaskEntity> { it.sortOrder }.thenBy { it.createdAt })
+            .map { it.id }
+
     override suspend fun reorderSubtasksForUser(
         parentId: String,
         orderedIds: List<String>,
         updatedAt: Long,
         userId: String,
     ) {
+        val currentIds = listSubtaskIdsForUser(parentId, userId).toSet()
+        require(orderedIds.size == currentIds.size && orderedIds.toSet() == currentIds) {
+            "Reorder must include the full current subtask set for parent $parentId"
+        }
         store.update { current ->
             val updated = current.toMutableMap()
             orderedIds.forEachIndexed { index, id ->

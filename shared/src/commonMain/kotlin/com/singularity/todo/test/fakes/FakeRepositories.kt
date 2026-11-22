@@ -768,6 +768,11 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
         userId: String,
     ): Int? = error("not implemented")
 
+    override suspend fun listSubtaskIdsForUser(
+        parentId: String,
+        userId: String,
+    ): List<String> = error("not implemented")
+
     override suspend fun updateSubtaskSortOrderForUser(
         taskId: String,
         parentId: String,
@@ -1298,11 +1303,20 @@ open class FakeTaskRepository(
             val now = clock.now()
             val uid = currentUser.scopedUserId.value
             store.update { map ->
+                val currentIds =
+                    map.values
+                        .filter { it.parentTaskId == parentId && it.userId == uid && it.archivedAt == null }
+                        .map { it.id.value }
+                        .toSet()
+                val requestedIds = orderedIds.map { it.value }
+                require(requestedIds.size == currentIds.size && requestedIds.toSet() == currentIds) {
+                    "Reorder must include the full current subtask set for parent ${parentId.value}"
+                }
                 val next = map.toMutableMap()
-                orderedIds.forEachIndexed { index, id ->
-                    val task = next[id.value] ?: return@forEachIndexed
+                requestedIds.forEachIndexed { index, id ->
+                    val task = next[id] ?: return@forEachIndexed
                     if (task.parentTaskId != parentId || task.userId != uid) return@forEachIndexed
-                    next[id.value] = task.copy(sortOrder = index, updatedAt = now)
+                    next[id] = task.copy(sortOrder = index, updatedAt = now)
                 }
                 next
             }
