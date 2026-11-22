@@ -1,16 +1,23 @@
 package com.singularity.todo.mcp
 
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.api.parallel.Isolated
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * The agent CLI's standard output carries its JSON result and nothing else.
@@ -86,17 +93,19 @@ class AgentCliStdoutTest {
     }
 
     /**
-     * The `open` subcommand serialises a settled snapshot, over the real suspend bridge.
+     * The `open` subcommand serialises a **settled, loaded** snapshot through the CLI.
      *
      * The runtime test drives `ScreenInspectorRuntime.open` directly, so it cannot see the
      * CLI half: `OpenCommand` calls it through `blockSuspend`/`runBlocking` and serialises
-     * the answer. A change that dropped the settle, or that serialised the pre-wait state,
-     * would leave that test green. This reads the CLI's own JSON for a task that does not
-     * exist, which is enough to prove the path: the envelope arrives, its `snapshot` is a
-     * settled `error` rather than `loading`, and it is one line on standard output.
+     * the answer. A change that dropped the settle would leave that test green.
+     *
+     * A missing task id would not do it either: that screen reaches `error` on its own, so
+     * the assertion would hold without any wait. This seeds a real task and requires
+     * `"status":"loaded"` in the CLI's own JSON — only the settle produces that in a
+     * one-command process.
      */
     @Test
-    fun `the open subcommand answers with a settled snapshot through the CLI`() {
+    fun `the open subcommand answers with a loaded snapshot through the CLI`() {
         val realOut = System.out
         val out = ByteArrayOutputStream()
         System.setOut(PrintStream(out, true))
@@ -108,34 +117,40 @@ class AgentCliStdoutTest {
         val previousHome = System.getProperty("user.home")
         System.setProperty("user.home", temporaryHome.absolutePath)
         try {
+            // Start the container before the CLI runs, seed one task, then let the CLI find
+            // the running container instead of starting its own — the graph the host drives
+            // is the same either way, and this is the only way to put a task in front of it.
+            koinStartup.start(fixedProfileId = null)
+            val taskRepository: TaskRepository = GlobalContext.get().get()
+            val userId = runBlocking { taskRepository.currentUserId() }
+            val taskId = TaskId("cli-loaded-task")
+            runBlocking {
+                taskRepository.create(
+                    Task(
+                        id = taskId,
+                        title = "Loaded through the CLI",
+                        priority = TaskPriority.None,
+                        userId = userId,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now(),
+                    ),
+                )
+            }.getOrThrow()
+
             val code =
                 runScreenInspectorCliHost(
-                    args =
-                        arrayOf(
-                            "agent",
-                            "open",
-                            "--screen",
-                            "tasks.task-detail",
-                            "--task-id",
-                            "01AAAAAAAAAAAAAAAAAAAAAAAA",
-                        ),
+                    args = arrayOf("agent", "open", "--screen", "tasks.task-detail", "--task-id", taskId.value),
                     koinStartup = koinStartup,
                     inspectorHostCompiledIn = true,
                 )
 
             val resultLines = out.toString().lines().filter { it.isNotBlank() }
-            val envelope = resultLines.joinToString("")
-            assertTrue(code == 0 || code == 2, "unexpected exit code $code: $envelope")
-
-            // The screen answers `error`/`Not found` for an unknown id; the point is that the
-            // CLI produced a parsed envelope with a snapshot, not that the id was found.
+            assertEquals(1, resultLines.size, "standard output must be one JSON line: $resultLines")
+            val envelope = resultLines.single()
+            assertEquals(0, code, "open must succeed: $envelope")
             assertTrue(
-                envelope.contains("\"snapshot\""),
-                "the CLI must serialise the snapshot, got: ${envelope.take(200)}",
-            )
-            assertTrue(
-                !envelope.contains("\"status\":\"loading\""),
-                "open must serialise a settled snapshot, not the pre-wait one: ${envelope.take(300)}",
+                envelope.contains("\"status\":\"loaded\""),
+                "open must serialise a settled, loaded snapshot: ${envelope.take(300)}",
             )
         } finally {
             System.setOut(realOut)
