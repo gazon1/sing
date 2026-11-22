@@ -330,10 +330,42 @@ abstract class TaskRepositoryContractTest {
             val t1 = Instant.fromEpochMilliseconds(1_000)
             val t2 = Instant.fromEpochMilliseconds(2_000)
             val t3 = Instant.fromEpochMilliseconds(3_000)
-            repo.create(task("c1").copy(parentTaskId = TaskId("parent"), sortOrder = 2, createdAt = t1, updatedAt = t1)).getOrThrow()
-            repo.create(task("c2").copy(parentTaskId = TaskId("parent"), sortOrder = 1, createdAt = t2, updatedAt = t2)).getOrThrow()
-            repo.create(task("c3").copy(parentTaskId = TaskId("parent"), sortOrder = 1, createdAt = t3, updatedAt = t3)).getOrThrow()
-            repo.create(task("other-parent").copy(parentTaskId = TaskId("p2"), sortOrder = 0, createdAt = t1, updatedAt = t1)).getOrThrow()
+            repo
+                .create(
+                    task("c1").copy(
+                        parentTaskId = TaskId("parent"),
+                        sortOrder = 2,
+                        createdAt = t1,
+                        updatedAt = t1,
+                    ),
+                ).getOrThrow()
+            repo
+                .create(
+                    task("c2").copy(
+                        parentTaskId = TaskId("parent"),
+                        sortOrder = 1,
+                        createdAt = t2,
+                        updatedAt = t2,
+                    ),
+                ).getOrThrow()
+            repo
+                .create(
+                    task("c3").copy(
+                        parentTaskId = TaskId("parent"),
+                        sortOrder = 1,
+                        createdAt = t3,
+                        updatedAt = t3,
+                    ),
+                ).getOrThrow()
+            repo
+                .create(
+                    task("other-parent").copy(
+                        parentTaskId = TaskId("p2"),
+                        sortOrder = 0,
+                        createdAt = t1,
+                        updatedAt = t1,
+                    ),
+                ).getOrThrow()
             advanceUntilIdle()
 
             val subtasks = repo.observeSubtasks(TaskId("parent")).first()

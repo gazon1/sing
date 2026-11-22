@@ -25,8 +25,11 @@ import kotlin.test.assertEquals
 @Epic("Tasks")
 @Feature("Presentation")
 class TaskChildrenSlotSubtaskReorderTest {
-    private fun subtask(id: String, title: String, order: Int) =
-        task(id, title).copy(parentTaskId = TaskId("t1"), sortOrder = order)
+    private fun subtask(
+        id: String,
+        title: String,
+        order: Int,
+    ) = task(id, title).copy(parentTaskId = TaskId("t1"), sortOrder = order)
 
     @Test
     fun `moving a subtask down renumbers the list`() =
@@ -51,10 +54,15 @@ class TaskChildrenSlotSubtaskReorderTest {
 
             assertEquals(
                 listOf("One", "Three", "Two"),
-                slot.state.value.subtasks.map { it.title },
+                slot.state.value.subtasks
+                    .map { it.title },
                 "the list is renumbered, not just the two rows swapped",
             )
-            assertEquals(listOf(0, 1, 2), slot.state.value.subtasks.map { it.sortOrder })
+            assertEquals(
+                listOf(0, 1, 2),
+                slot.state.value.subtasks
+                    .map { it.sortOrder },
+            )
         }
 
     @Test
@@ -77,7 +85,11 @@ class TaskChildrenSlotSubtaskReorderTest {
             )
             runCurrent()
 
-            assertEquals(listOf("One", "Two"), slot.state.value.subtasks.map { it.title })
+            assertEquals(
+                listOf("One", "Two"),
+                slot.state.value.subtasks
+                    .map { it.title },
+            )
         }
 
     @Test
@@ -103,6 +115,10 @@ class TaskChildrenSlotSubtaskReorderTest {
             runCurrent()
 
             assertEquals(listOf("Reorder failed"), errors)
-            assertEquals(listOf("One", "Two"), slot.state.value.subtasks.map { it.title })
+            assertEquals(
+                listOf("One", "Two"),
+                slot.state.value.subtasks
+                    .map { it.title },
+            )
         }
 }
