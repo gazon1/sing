@@ -143,22 +143,40 @@ class ProjectPickerSearchTest {
     }
 
     @Test
-    fun `a project with a missing parent is still searchable`() {
+    fun `a project with a missing parent is a searchable root of its fragment`() {
         val orphan = project("orphan", "Orphan", parent = "missing")
-        val matches = ProjectPickerSearch.filter(listOf(orphan), "orph")
+        val child = project("child", "Orphan Child", parent = "orphan")
 
-        assertEquals(listOf("orphan"), matches.map { it.project.id.value })
-        assertEquals(emptyList(), matches.single().ancestorNames)
+        val matches = ProjectPickerSearch.filter(listOf(orphan, child), "orphan")
+
+        assertEquals(listOf("orphan", "child"), matches.map { it.project.id.value })
+        assertEquals(emptyList(), matches[0].ancestorNames)
+        assertEquals(listOf("Orphan"), matches[1].ancestorNames)
     }
 
     @Test
-    fun `cyclic hierarchies do not loop and still return matching projects`() {
+    fun `cyclic hierarchies do not loop and backfill uses stable display-order roots`() {
         val a = project("a", "Alpha", parent = "b")
         val b = project("b", "Beta", parent = "a")
+
         val matches = ProjectPickerSearch.filter(listOf(a, b), "a")
 
         assertEquals(listOf("a", "b"), matches.map { it.project.id.value })
-        assertEquals(2, matches.size)
+        assertEquals(emptyList(), matches[0].ancestorNames)
+        assertEquals(listOf("Alpha"), matches[1].ancestorNames)
+    }
+
+    @Test
+    fun `a cycle backfill fragment keeps ancestor paths within the reachable fragment`() {
+        val a = project("a", "Alpha", parent = "b")
+        val b = project("b", "Beta", parent = "a")
+        val child = project("child", "Alpha Child", parent = "b")
+
+        val matches = ProjectPickerSearch.filter(listOf(a, b, child), "alpha")
+
+        assertEquals(listOf("a", "child"), matches.map { it.project.id.value })
+        assertEquals(emptyList(), matches[0].ancestorNames)
+        assertEquals(listOf("Alpha", "Beta"), matches[1].ancestorNames)
     }
 
     private fun project(
