@@ -247,6 +247,85 @@ class SyntheticBackupGeneratorTest {
         assertTrue(noneDue.none { it.dueDate != null }, "dueDateShare=0.0 must date no task")
     }
 
+    /**
+     * A deep subtask share on a shallow hierarchy is feasible — every subtask can
+     * hang off the one top-level task while the depth stays at 2 — but the first
+     * version drew parents uniformly from all tasks, so most attempts hit a task
+     * already at max depth and the attempt budget ran out. `validate()` accepted the
+     * parameters and `generate()` threw, which is the worst shape of failure.
+     */
+    @Test
+    fun `a near-total subtask share terminates on a shallow hierarchy`() {
+        val params =
+            GenerateParams(
+                seed = 1L,
+                profile = null,
+                tasks = 1_000,
+                projects = 0,
+                taskHierarchyDepth = 2,
+                subtaskShare = 0.999,
+                tags = 0,
+                dependencyDensity = 0.0,
+                notes = 0,
+                checklistItems = 0,
+            )
+        val tasks = SyntheticBackupGenerator.generate(params).payload.tasks
+
+        assertEquals(1_000, tasks.size)
+        val roots = tasks.filter { it.parentTaskId == null }
+        assertEquals(1, roots.size, "0.999 subtask share leaves a single top-level task")
+        // Depth 2 means every child's parent is that root, and nothing is deeper.
+        assertEquals(999, tasks.count { it.parentTaskId == roots.single().id })
+        SyntheticBackupValidator.validate(SyntheticBackupGenerator.generate(params).payload)
+    }
+
+    @Test
+    fun `priority weights steer the generated priorities`() {
+        val params = SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 5L)
+
+        val allUrgent =
+            SyntheticBackupGenerator
+                .generate(params.copy(priorityWeights = listOf(0.0, 0.0, 0.0, 0.0, 1.0)))
+                .payload
+                .tasks
+        assertTrue(allUrgent.all { it.priority == "urgent" }, "a single weighted priority must be used for every task")
+
+        val noMedium =
+            SyntheticBackupGenerator
+                .generate(params.copy(priorityWeights = listOf(1.0, 1.0, 0.0, 1.0, 1.0)))
+                .payload
+                .tasks
+        assertTrue(noMedium.none { it.priority == "medium" }, "a zero weight must never be drawn")
+        assertEquals(1_000, noMedium.size)
+
+        // The default is uniform: all five values should appear in 1000 draws.
+        val uniform =
+            SyntheticBackupGenerator
+                .generate(params)
+                .payload.tasks
+                .map { it.priority }
+                .toSet()
+        assertEquals(
+            setOf("none", "low", "medium", "high", "urgent"),
+            uniform,
+            "uniform weights should exercise every priority",
+        )
+    }
+
+    @Test
+    fun `incoherent priority weights are rejected`() {
+        val base = SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 1L)
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(base.copy(priorityWeights = listOf(1.0, 1.0)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(base.copy(priorityWeights = listOf(0.0, 0.0, 0.0, 0.0, 0.0)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(base.copy(priorityWeights = listOf(-1.0, 1.0, 1.0, 1.0, 1.0)))
+        }
+    }
+
     @Test
     fun `incoherent status shares are rejected`() {
         val base = SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 1L)

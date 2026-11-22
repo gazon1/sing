@@ -177,6 +177,12 @@ class GenerateCommand : CliktCommand(name = "generate") {
         "--in-progress-share",
         help = "Share of not-completed tasks claimed as in_progress (0.0..1.0)",
     ).double()
+    val priorityWeights by option(
+        "--priority-weights",
+        help =
+            "Relative weight per priority, comma-separated in the order none,low,medium,high,urgent " +
+                "(default 1,1,1,1,1). E.g. 0,0,0,1,9 for mostly urgent tasks",
+    )
 
     override fun run() {
         val params = resolveParams()
@@ -201,9 +207,19 @@ class GenerateCommand : CliktCommand(name = "generate") {
                 GenerateProfile.fromCliName(requested) ?: error(unsupportedProfileMessage(requested))
             }
         val base = profile?.let { SyntheticBackupGenerator.defaultParams(it, seed) } ?: customBaseParams()
-        return base.copy(
+        return overlayExplicitParams(base).copy(profile = profile?.cliName ?: base.profile)
+    }
+
+    /**
+     * Overlays the flags the caller actually passed onto [base].
+     *
+     * The overlay is a separate function from the profile lookup so neither carries
+     * the whole set of nullable options in one branch — the profile is resolved once,
+     * and every other parameter is one "flag or default" pair.
+     */
+    private fun overlayExplicitParams(base: GenerateParams): GenerateParams =
+        base.copy(
             seed = seed,
-            profile = profile?.cliName ?: base.profile,
             tasks = tasks ?: base.tasks,
             projects = projects ?: base.projects,
             taskHierarchyDepth = taskHierarchyDepth ?: base.taskHierarchyDepth,
@@ -218,7 +234,22 @@ class GenerateCommand : CliktCommand(name = "generate") {
             completedShare = completedShare ?: base.completedShare,
             nextUpShare = nextUpShare ?: base.nextUpShare,
             inProgressShare = inProgressShare ?: base.inProgressShare,
+            priorityWeights = priorityWeights?.let(::parsePriorityWeights) ?: base.priorityWeights,
         )
+
+    /** The weights arrive as free text, so a typo has to fail with the flag named. */
+    private fun parsePriorityWeights(raw: String): List<Double> {
+        val parts = raw.split(',').map { it.trim() }
+        val weights =
+            parts.map { part ->
+                part.toDoubleOrNull()
+                    ?: error("--priority-weights expects comma-separated numbers, got '$part' in '$raw'")
+            }
+        require(weights.size == PRIORITY_COUNT) {
+            "--priority-weights expects $PRIORITY_COUNT values (none,low,medium,high,urgent), " +
+                "got ${weights.size} in '$raw'"
+        }
+        return weights
     }
 
     private fun unsupportedProfileMessage(requested: String): String {
@@ -357,4 +388,9 @@ class GenerateCommand : CliktCommand(name = "generate") {
         } else {
             "$archivePath.manifest.json"
         }
+
+    private companion object {
+        /** Priorities the format knows: none, low, medium, high, urgent. */
+        const val PRIORITY_COUNT = 5
+    }
 }

@@ -71,6 +71,7 @@ Parameters:
 | `--completed-share` | Share of tasks that are completed, default `0.20` |
 | `--next-up-share` | Share of the *not-completed* tasks claimed as `next_up`, default `0.19` |
 | `--in-progress-share` | Share of the *not-completed* tasks claimed as `in_progress`, default `0.13`; together with `--next-up-share` it must not exceed `1.0` |
+| `--priority-weights` | Relative weight per priority, comma-separated in the order `none,low,medium,high,urgent`, default `1,1,1,1,1`. `0,0,0,1,9` gives roughly 10% `high` and 90% `urgent` |
 
 The base epoch is fixed at `2025-01-01T00:00:00Z`, so the same seed and params always produce the same dates on any machine. Nothing reads the current time.
 

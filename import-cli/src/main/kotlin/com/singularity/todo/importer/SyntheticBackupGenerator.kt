@@ -56,6 +56,13 @@ data class GenerateParams(
     val nextUpShare: Double = 0.19,
     /** Share of the not-completed tasks claimed as `in_progress`, `0.0..1.0`. */
     val inProgressShare: Double = 0.13,
+    /**
+     * Relative weight of each priority, in the order `none, low, medium, high,
+     * urgent`. Weights are normalised, so `[0.0, 0.0, 0.0, 0.0, 1.0]` gives every
+     * task `urgent` and `[1, 1, 1, 1, 1]` is uniform. Every weight is non-negative
+     * and at least one is positive.
+     */
+    val priorityWeights: List<Double> = listOf(1.0, 1.0, 1.0, 1.0, 1.0),
 )
 
 @Serializable
@@ -250,6 +257,11 @@ object SyntheticBackupGenerator {
         require(params.nextUpShare + params.inProgressShare <= 1.0) {
             "nextUpShare + inProgressShare must not exceed 1.0 — they split the not-completed tasks"
         }
+        require(params.priorityWeights.size == PRIORITIES.size) {
+            "priorityWeights must hold ${PRIORITIES.size} values, in the order ${PRIORITIES.joinToString()}"
+        }
+        require(params.priorityWeights.all { it >= 0.0 }) { "priorityWeights must not be negative" }
+        require(params.priorityWeights.any { it > 0.0 }) { "priorityWeights needs at least one positive weight" }
         val maxSubtasks = if (params.taskHierarchyDepth <= 1) 0 else params.tasks - 1
         val requestedSubtasks = (params.tasks * params.subtaskShare).roundToInt()
         require(requestedSubtasks <= maxSubtasks) {
@@ -365,17 +377,20 @@ object SyntheticBackupGenerator {
         }
 
         // Create subtasks by attaching to existing tasks, respecting max depth.
+        //
+        // The parent is drawn from the tasks that can still take a child, not from all
+        // tasks: a uniform draw over the whole list spends its attempts on tasks that
+        // are already at `taskHierarchyDepth`, and with a shallow hierarchy almost every
+        // task becomes ineligible, so the loop exhausted its attempt budget and threw
+        // for parameters `validate()` had accepted.
         val depthById = HashMap<String, Int>(params.tasks * 2)
         for (t in tasks) depthById[t.id] = 1
+        val eligibleParents = tasks.filterTo(ArrayList(tasks.size)) { 1 < params.taskHierarchyDepth }
         var createdSubtasks = 0
-        var attempt = 0
-        val maxAttempts = subtaskCount * 20 + 100
-        while (createdSubtasks < subtaskCount && attempt < maxAttempts) {
-            attempt++
-            val parentIndex = random.nextInt(tasks.size)
-            val parent = tasks[parentIndex]
-            val parentDepth = depthById[parent.id] ?: 1
-            if (parentDepth >= params.taskHierarchyDepth) continue
+        while (createdSubtasks < subtaskCount) {
+            if (eligibleParents.isEmpty()) break
+            val parent = eligibleParents[random.nextInt(eligibleParents.size)]
+            val parentDepth = depthById.getValue(parent.id)
             val index = topLevelCount + createdSubtasks
             val child =
                 buildTask(
@@ -387,7 +402,9 @@ object SyntheticBackupGenerator {
                     forceProjectId = parent.projectId,
                 )
             tasks.add(child)
-            depthById[child.id] = parentDepth + 1
+            val childDepth = parentDepth + 1
+            depthById[child.id] = childDepth
+            if (childDepth < params.taskHierarchyDepth) eligibleParents.add(child)
             createdSubtasks++
         }
         require(createdSubtasks == subtaskCount) {
@@ -427,7 +444,7 @@ object SyntheticBackupGenerator {
                 openRoll < params.nextUpShare + params.inProgressShare -> "in_progress"
                 else -> "open"
             }
-        val priority = PRIORITIES[random.nextInt(PRIORITIES.size)]
+        val priority = pickPriority(params.priorityWeights, random)
         val projectId =
             forceProjectId ?: projects.takeIf { it.isNotEmpty() }?.let {
                 if (random.nextDouble() < 0.8) it[random.nextInt(it.size)].id else null
@@ -455,6 +472,29 @@ object SyntheticBackupGenerator {
             createdAt = createdAt,
             updatedAt = createdAt + 1_000L,
         )
+    }
+
+    /**
+     * Draws a priority from [weights], which run in [PRIORITIES] order.
+     *
+     * One `nextDouble` sees a [0, total) interval cut into one band per priority, so
+     * the draw consumes a single random value whatever the weights are — the payload
+     * stays reproducible for a seed that way.
+     */
+    private fun pickPriority(
+        weights: List<Double>,
+        random: Random,
+    ): String {
+        val total = weights.sum()
+        var roll = random.nextDouble() * total
+        for (index in PRIORITIES.indices) {
+            roll -= weights[index]
+            if (roll < 0.0) return PRIORITIES[index]
+        }
+        // A roll landing exactly on the total (or a rounding residue) belongs to the
+        // last priority that carries weight.
+        val lastWeighted = PRIORITIES.indices.last { weights[it] > 0.0 }
+        return PRIORITIES[lastWeighted]
     }
 
     private fun generateTaskTags(
