@@ -25,7 +25,9 @@ tags:
 - tapOn:
     id: attachments_add_url_button
 
-# Verify the attachment row renders correctly: title, URL text, and delete affordance.
+# Verify the attachment row renders correctly: title, URL text, and delete
+# affordance. The pick that opened the sheet also opened the section.
+- runFlow: ../../helpers/reveal-attachments-section.yaml
 - extendedWaitUntil:
     visible:
       text: "Render Test Article"

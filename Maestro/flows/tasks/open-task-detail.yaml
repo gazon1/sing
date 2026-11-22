@@ -46,14 +46,17 @@ tags:
 - assertVisible:
     text: "Detail description"
 
+# The row's id is the slug of its title (`TestTags.taskItem`), so the edit this
+# flow just made moved it: the row is `task_item_buy_milk_edited` from here on,
+# and waiting for the old id would wait for a row the edit renamed.
 - back
 - extendedWaitUntil:
     visible:
-      id: task_item_buy_milk
+      id: task_item_buy_milk_edited
     timeout: 8000
 
 - tapOn:
-    id: task_item_buy_milk
+    id: task_item_buy_milk_edited
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -65,5 +68,5 @@ tags:
 - back
 - extendedWaitUntil:
     visible:
-      id: task_item_buy_milk
+      id: task_item_buy_milk_edited
     timeout: 8000

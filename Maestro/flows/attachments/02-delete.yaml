@@ -22,18 +22,23 @@ tags:
 - tapOn:
     id: attachments_add_url_button
 
-# Verify attachment is present.
+# The pick that opened the sheet also opened the section; reveal its rows.
+- runFlow: ../../helpers/reveal-attachments-section.yaml
 - extendedWaitUntil:
     visible:
       text: "https://example.com/to-delete"
     timeout: 5000
 
-- runFlow: ../../helpers/open-attachments-sheet.yaml
-
-# Delete the attachment by its accessibility label (no stable testTag — UUID-based).
-# Maestro matches a content description through `text`, which is what it exposes.
+# The attachment is deleted from the tile it is drawn as, not from the sheet:
+# the sheet is the way in for a task that has none, and this one now has one, so
+# its "Add file" row is on the screen already (a section with content is not in
+# the `+ Ещё` sheet).
+#
+# The tile's delete button carries a content description and no stable testTag —
+# the attachment id is a UUID — and Maestro exposes a content description as
+# `text`.
 - tapOn:
-    text: "Delete"
+    text: "Delete attachment"
 - extendedWaitUntil:
     notVisible:
       text: "https://example.com/to-delete"

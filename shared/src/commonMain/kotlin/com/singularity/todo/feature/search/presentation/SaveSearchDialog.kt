@@ -44,7 +44,7 @@ fun SaveSearchDialog(
                     state = nameState,
                     label = { Text("Search name") },
                     lineLimits = TextFieldLineLimits.SingleLine,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag(TestTags.SavedSearches.SAVE_DIALOG_NAME),
                 )
             }
         },

@@ -1,48 +1,85 @@
-# Search: the suggestion row's lifecycle on a device — selection, outside tap,
-# focus, clear, and a tap on a result while the row is on screen.
+# Search: the suggestion row's lifecycle on a device — outside tap, focus,
+# clear, and a tap on a result while the row is on screen.
 #
-# The saved search the flow works with is created by `07-saved-search`, which is
-# also the only way to make one from a wiped profile: the row — and the "Save"
-# chip in it — is drawn only once a saved search exists. Running that flow first
-# is what gives this one its fixture, and it ends with the saved search selected.
+# This flow makes its own saved search rather than inheriting one from
+# `07-saved-search`. Two reasons, both learned the hard way: a flow that starts
+# from whatever the previous one ended on breaks when that flow's last step
+# changes, and a fixture another flow owns cannot be counted on across the
+# attempts of a qualification run — the reset between them does not reach it,
+# and the chip this flow looked for was simply not there.
 #
-# The chip is addressed by the id its name produces, not by the name: the name is
-# the runner's run id plus words, so the id template is the stable selector, and
-# `saved_search_chip_${RUN_ID}_my_saved_query` is the shape `TestTags.SavedSearches.chip`
-# gives it.
+# The name carries the run id, so a chip left behind by an earlier attempt is a
+# different chip and does not stand in for this one.
+#
+# The chip is addressed by the id its name produces, not by the name: the name
+# is the runner's run id plus words, so the id template is the stable selector,
+# and `saved_search_chip_${RUN_ID}_my_saved_query` is the shape
+# `TestTags.SavedSearches.chip` gives it.
 appId: com.singularity.todo
 name: search-suggestion-dismissal
 tags:
   - search
 ---
-- runFlow: 07-saved-search.yaml
+# The task the saved query has to find, and the query itself.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Saved%20Search%202026%20Alpha&due=today"
 
-# The suggestion the flow selected is gone from the row, and the query it carries
-# is the one that runs: the seeded task is what the stored query finds.
+# Open quick search.
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
-    notVisible:
-      id: saved_search_chip_${RUN_ID}_my_saved_query
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# A query the seeded task answers, saved under this run's own name.
+- tapOn:
+    id: search_input
+- inputText: "Saved Search 2026"
+- extendedWaitUntil:
+    visible:
+      id: task_item_saved_search_2026_alpha
     timeout: 8000
-# The row is collapsed, not removed: the current query can still be saved.
-- assertVisible:
+- tapOn:
     id: search_save_chip
 - extendedWaitUntil:
     visible:
-      id: task_item_savedalpha2026
+      id: search_save_dialog_name
+    timeout: 5000
+- tapOn:
+    id: search_save_dialog_name
+- eraseText
+- inputText: "${RUN_ID} My Saved Query"
+- tapOn:
+    id: search_save_dialog_confirm
+- extendedWaitUntil:
+    visible:
+      text: "Search saved"
     timeout: 8000
 
-# Clearing the field brings every suggestion back — an empty field offers all of
-# them, and the clear is the field's own button.
+# An idle prompt only exists over a blank field; the clear is the field's own
+# button.
 - tapOn:
     id: search_clear_button
 - extendedWaitUntil:
     visible:
       id: search_empty_placeholder
     timeout: 8000
-- extendedWaitUntil:
-    visible:
-      id: saved_search_chip_${RUN_ID}_my_saved_query
-    timeout: 8000
+
+# An empty field offers every saved search, and the "Save" chip is what says the
+# row is drawn at all. The chip itself is looked for a step later, over the
+# field narrowed to this run's name: the row is a horizontal LazyRow, and a chip
+# past its right edge is not composed at all — every earlier attempt of this
+# flow and of `07-saved-search` leaves one behind, so the row only grows.
+- assertVisible:
+    id: search_save_chip
 
 # An outside tap dismisses the row and leaves the query alone: the field is empty,
 # so the idle prompt is the thing under the tap and it is still what the screen
@@ -55,10 +92,15 @@ tags:
     timeout: 8000
 - assertVisible:
     id: search_empty_placeholder
+# The row is collapsed, not removed: the current query can still be saved.
+- assertVisible:
+    id: search_save_chip
 
-# Focusing the field again offers them again.
+# Focusing the field again offers them again — narrowed to this run's name, so
+# the chip is the first one in the row and is composed.
 - tapOn:
     id: search_input
+- inputText: "${RUN_ID}"
 - extendedWaitUntil:
     visible:
       id: saved_search_chip_${RUN_ID}_my_saved_query
@@ -67,17 +109,37 @@ tags:
 # A result is tapped while the row is on screen. The tap dismisses the row and
 # still opens the task — an outside tap that swallowed the result's own click
 # would leave the person on a screen that looks like it ignored them.
+#
+# The field holds the run id from the step above and `inputText` appends, so it
+# is emptied first: the query here has to be the one the seeded task answers.
 - tapOn:
     id: search_input
-- inputText: "Saved2026"
+- eraseText
+- inputText: "Saved Search 2026"
 - hideKeyboard
 - extendedWaitUntil:
     visible:
-      id: saved_search_chip_${RUN_ID}_my_saved_query
+      id: task_item_saved_search_2026_alpha
     timeout: 8000
 - tapOn:
-    id: task_item_savedalpha2026
+    id: task_item_saved_search_2026_alpha
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
     timeout: 5000
+
+# Leave the detail and the search screen, so the next flow starts in the shell.
+# The task detail draws its own bar (`top_bar_back_button`); the search screen is
+# a shell destination and uses the shell's.
+- tapOn:
+    id: top_bar_back_button
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 8000
+- tapOn:
+    id: shell_back_button
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000

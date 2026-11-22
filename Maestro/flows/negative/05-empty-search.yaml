@@ -14,11 +14,11 @@ tags:
     timeout: 5000
 - scrollUntilVisible:
     element:
-      id: menu_search
+      id: menu_quick_search
     direction: DOWN
     timeout: 5000
 - tapOn:
-    id: menu_search
+    id: menu_quick_search
 - extendedWaitUntil:
     visible:
       id: search_input

@@ -28,8 +28,9 @@ tags:
 - tapOn:
     id: attachments_add_url_button
 
-# Sheet closes automatically after adding. Verify the attachment appears
-# in the task detail section (shows link icon, title, delete button).
+# The sheet closes automatically after adding, and the pick that opened it also
+# opened the section. Reveal its rows: an open section grows past the fold.
+- runFlow: ../../helpers/reveal-attachments-section.yaml
 - extendedWaitUntil:
     visible:
       text: "Example Article"

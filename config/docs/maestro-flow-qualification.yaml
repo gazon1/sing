@@ -3,5 +3,707 @@
 # in the same documented environment/build, with every attempt recorded.
 schema: 1
 required_attempts: 3
-qualifications: {}
+qualifications:
+  Maestro/flows/attachments/02-delete.yaml:
+    fingerprint: sha256:c2e09890a6bd183c44a7bfe5119a87516efe44f829082ca8e93a6b1668ca2bb2
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-1/02-delete.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-2/02-delete.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-3/02-delete.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/attachments/04-persistence.yaml:
+    fingerprint: sha256:6dc00abe4c9052e6765a84d4c2131ba79341bfe607dba7ea76ebd52681c821fb
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-1/04-persistence.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-2/04-persistence.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-3/04-persistence.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/attachments/01-add-url.yaml:
+    fingerprint: sha256:938ef2ee49187a4fcaee141dc447364c4e5df80d82d6f6457fc415a784037655
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-1/01-add-url.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-2/01-add-url.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-3/01-add-url.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/attachments/05-renders-correctly.yaml:
+    fingerprint: sha256:e34808a0c0e97a135fcaf3d6abd8babe4109595936b362f5f108916360ca3eb6
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-1/05-renders-correctly.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-2/05-renders-correctly.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-3/05-renders-correctly.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/attachments/03-empty-url-rejected.yaml:
+    fingerprint: sha256:2b609894f83d6b3e3392723b9ecb6e731aab02e67e62498744e876172c78640f
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-1/03-empty-url-rejected.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-2/03-empty-url-rejected.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-3/03-empty-url-rejected.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/agenda/01-smart-lists.yaml:
+    fingerprint: sha256:3e12dff5cb842fffbdc1cb14ddfd98c6d330eb1e69ea70e87d9d6107854d3454
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-1/01-smart-lists.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-2/01-smart-lists.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-3/01-smart-lists.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/09-attach-account-entry.yaml:
+    fingerprint: sha256:426e14f70868a1c349a48c63cc43a40d4abcbfc767bc131fdd5be4b01d3731a0
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-1/09-attach-account-entry.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-2/09-attach-account-entry.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-3/09-attach-account-entry.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/negative/05-empty-search.yaml:
+    fingerprint: sha256:0e4b542d1ac3b3e7598d76b746b353360b1434478f553ca72b12c6b62b0b6174
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/negative/05-empty-search/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/negative/05-empty-search/attempt-1/05-empty-search.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/negative/05-empty-search/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/negative/05-empty-search/attempt-2/05-empty-search.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/negative/05-empty-search/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/negative/05-empty-search/attempt-3/05-empty-search.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/02-cyrillic.yaml:
+    fingerprint: sha256:226ccae8290e3069a636647821d140f6b27bde6c11ec2ce0f178171b2a008aca
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-1/02-cyrillic.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-2/02-cyrillic.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-3/02-cyrillic.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/open-task-detail.yaml:
+    fingerprint: sha256:2b20dc0da91a28e0442a6589b59f9efb3b145aa7ab789a0a94644e55fa3ce4da
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-1/open-task-detail.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-2/open-task-detail.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-3/open-task-detail.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/07-saved-search.yaml:
+    fingerprint: sha256:48f1f7cd4a714a95a9d0d34e4d6686e2d0ec2bbcd84ee7cfadaa2146c329dd8f
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-1/07-saved-search.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-2/07-saved-search.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-3/07-saved-search.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/auth/05-session-invalidation.yaml:
+    fingerprint: sha256:7e9da4c72efc9ee0f88a3b5feebafbe38e6901c004b9c555a23239c7b8daf5c3
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-1/05-session-invalidation.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-2/05-session-invalidation.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-3/05-session-invalidation.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/13-suggestion-dismissal.yaml:
+    fingerprint: sha256:31521a7e9dbc643e93091377890108315d8596f762c7ea123b60a844023121f9
+    qualified_at: '2026-11-22'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: 74b8712b414f
+    apk_commit_sha: 74b8712b414f
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-1/13-suggestion-dismissal.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-2/13-suggestion-dismissal.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-3/13-suggestion-dismissal.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: 74b8712b414f
+      apk_commit_sha: 74b8712b414f
+      maestro_version: 2.10.0
+      return_code: 0
 exceptions: {}

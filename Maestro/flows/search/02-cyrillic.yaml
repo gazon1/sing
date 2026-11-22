@@ -1,9 +1,17 @@
-# Search: Cyrillic text in query is matched and rendered correctly.
+# Search: Cyrillic text in a task title is matched and rendered correctly.
 #
-# Maestro's `inputText` cannot type non-ASCII on Android, so the Cyrillic
-# task is seeded via the debug deep-link and the search query is typed
-# normally — the flow verifies that the Cyrillic title stored in the DB
-# is correctly displayed in the results list.
+# Maestro's `inputText` drives the IME key by key and cannot type non-ASCII on
+# Android, and this Maestro build has no `pasteText` in its flow schema — so the
+# query cannot be Cyrillic on the device. What the flow can still say is that a
+# Cyrillic record reaches the results list and renders as Cyrillic: it seeds the
+# Cyrillic task, searches by a term that record carries, and asserts the row —
+# addressed by the id the Cyrillic title slugs to — and its text.
+#
+# The searched term is `due:today`, which every seeded task carries, so the flow
+# does not depend on transliteration that neither the tokenizer nor the index
+# produces. A query of Latin letters would match nothing here: the word rule is
+# a prefix rule over tokens, so "Pokupki" is not a prefix of "Покупки", and the
+# previous version of this flow asserted exactly that mismatch.
 appId: com.singularity.todo
 name: search-cyrillic
 tags:
@@ -33,13 +41,16 @@ tags:
       id: search_input
     timeout: 5000
 
-# Type the Cyrillic task title (ASCII equivalent of the seeded title).
+# Ask for the records that are due today — the seeded task is one of them.
 - tapOn:
     id: search_input
-- inputText: "Pokupki"
+- inputText: "due:today"
 
-# The task with Cyrillic title must appear in results.
+# The Cyrillic record reaches the results, and its title renders as Cyrillic:
+# the row's id is the slug of the title (the slug keeps the letters it was
+# given), and the title text is asserted as it is written.
 - extendedWaitUntil:
     visible:
-      id: task_item_pokupki
+      id: task_item_покупки
     timeout: 8000
+- assertVisible: "Покупки"

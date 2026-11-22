@@ -1,0 +1,42 @@
+# Puts the task detail's attachments rows on the screen for a caller to assert on.
+#
+# Usage: none — the flow is already on the task detail, with the section open.
+#
+# ## Why this does not toggle anything
+#
+# A section with content is drawn collapsed, but the one place a flow opens it
+# from — the `+ Ещё` sheet — adds the property *and* opens it. So after
+# `open-attachments-sheet` the section is already open, and a tap on its header
+# closes it. A helper that tapped whenever the tiles were not on screen would
+# be wrong exactly when they were composed but scrolled past: off-screen is
+# "not visible" to Maestro, and the tap it would then send shuts the section.
+#
+# A flow that arrives at a *collapsed* section — one whose expansion the pick
+# did not cause, such as a reopened task after a restart — taps the header
+# itself before calling this helper.
+#
+# ## Why it scrolls
+#
+# An open section grows past the bottom of the screen: its header can sit on the
+# last row of the viewport while the tiles it revealed are below it. Scrolling
+# the section's last row into view is what puts them on the screen.
+appId: com.singularity.todo
+name: reveal-attachments-section
+---
+# The sheet that added the attachment is still dismissing when the caller gets
+# here, and its scrim swallows a scroll underneath it.
+- extendedWaitUntil:
+    notVisible:
+      id: attachments_url_input
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    # The sheet's last row can be "visible" while sitting on the
+    # gesture-navigation strip: its bounds are on screen and a tap there is a
+    # home gesture. Centering moves it to the middle of the screen, which also
+    # brings the tiles above it into view — the same measurement that made
+    # `open-menu-item.yaml` center its row.
+    centerElement: true
+    timeout: 8000

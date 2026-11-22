@@ -94,44 +94,36 @@ tags:
 - tapOn:
     id: task_editor_due_row
 
-# DatePickerSheet opens as a bottom sheet. Assert the sheet BODY, not the
-# "Select date" heading — that heading is Material3's own copy and carries no app
-# testTag, so matching it ties the flow to library text. The OK/CANCEL/CLEAR tags
-# are no substitute here either: they sit at the bottom of a scrolling column and
-# can be below the fold before the sheet has been scrolled.
+# Tapping the due row opens the scheduling sheet — the one sheet that owns the
+# due date, the time and the deadline. Assert the sheet BODY rather than its
+# heading: the heading is copy the sheet is free to reword, the tag is not.
 #
-# The day is picked with the sheet's own "Today" chip, not with a day cell in the
-# Material3 grid: a day cell carries only the library's date description ("Today,
-# Monday, October 12, 2026" in English, "Сегодня, понедельник, 12 октября 2026 г."
-# in Russian), and the grid composes the cells that fit on screen — on a short
-# phone the row the day is in is not composed at all, so the cell is neither
-# visible nor reachable. The chip is app-owned, always on top of the sheet, and
-# sets the very date the grid would set.
+# The day is picked with the sheet's own "Today" chip, not with a day cell: a
+# day cell carries only the library's date description, and the grid composes
+# only the cells that fit on screen — on a short phone the row the day is in is
+# not composed at all. The chip is app-owned and always on top of the sheet.
 - extendedWaitUntil:
     visible:
-      id: dialog_date_picker_sheet
+      id: task_scheduling_sheet
     timeout: 8000
 - tapOn:
-    id: dialog_date_picker_today
+    id: task_scheduling_today_chip
 
-# Confirm the date. The sheet body scrolls (SheetScaffold is scrollable), so the
-# actions row starts below the fold — scroll it into reach first, then tap OK by
-# its testTag. Scrolling to the row is also what keeps this off a fixed
-# coordinate: a swipe to a hardcoded point is a swipe to the wrong place on a
-# screen of a different height.
+# Confirm the date. The sheet body scrolls, so the actions row can start below
+# the fold — scroll it into reach first, then tap Save by its testTag.
 - scrollUntilVisible:
     element:
-      id: dialog_date_picker_ok
+      id: task_scheduling_confirm
     direction: DOWN
     timeout: 8000
 - tapOn:
-    id: dialog_date_picker_ok
+    id: task_scheduling_confirm
 
-# Confirm closes the date picker and applies the date (the detail editor edits
-# live), so wait for the sheet to close before leaving the editor.
+# Confirm closes the sheet and applies the date (the detail editor edits live),
+# so wait for the sheet to close before leaving the editor.
 - extendedWaitUntil:
     notVisible:
-      id: dialog_date_picker_sheet
+      id: task_scheduling_sheet
     timeout: 8000
 # Back returns to Inbox; the dated task leaves the inbox.
 - back
