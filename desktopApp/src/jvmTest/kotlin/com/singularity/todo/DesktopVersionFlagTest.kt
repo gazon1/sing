@@ -61,11 +61,13 @@ class DesktopVersionFlagTest {
 
     @Test
     fun `extra positional arguments beyond launcher arg are rejected`() {
-        val error = kotlin.test.assertFailsWith<com.github.ajalt.clikt.core.UsageError> {
-            DesktopLaunchCli().parse(arrayOf("/opt/singularity-todo/bin/singularity-todo", "unexpected-command"))
-        }
-        val message = listOfNotNull(error.message, error.localizedMessage, error.toString())
-            .joinToString(" | ")
+        val error =
+            kotlin.test.assertFailsWith<com.github.ajalt.clikt.core.UsageError> {
+                DesktopLaunchCli().parse(arrayOf("/opt/singularity-todo/bin/singularity-todo", "unexpected-command"))
+            }
+        val message =
+            listOfNotNull(error.message, error.localizedMessage, error.toString())
+                .joinToString(" | ")
         kotlin.test.assertTrue(
             message.contains("unexpected", ignoreCase = true) ||
                 message.contains("extra", ignoreCase = true) ||
