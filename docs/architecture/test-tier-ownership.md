@@ -103,3 +103,38 @@ tests, and its six classes deliver 13 again — the number
 - `docs/testing/what-each-tier-proves.md` — what each tier can and cannot see.
 - `config/docs/test-runs-baseline.txt` and `config/docs/instrumented-test-floor.txt` —
   the floors that hold the tiers to what they used to deliver.
+
+## Android test inventory (#3086)
+
+Audit-only inventory for issue [#3086](https://github.com/gazon1/sing/issues/3086): no tests, production code, Gradle config, floors, or CI lanes changed. Detailed per-class notes, overlaps, and replacement seams are in [`docs/testing/android-test-inventory.md`](../testing/android-test-inventory.md). Reproducible scope: 22 Kotlin files / 17 test classes / 53 direct `@Test` in `androidApp/src/androidTest`; 9 Kotlin files / 9 test classes / 22 direct + 4 inherited `@Test` in `shared/src/androidHostTest` (allowlisted executed set: 23, baseline `shared:testAndroidHostTest 23 0`).
+
+| Class | Tier | Disposition | Owner / rationale |
+|---|---|---|---|
+| `androidApp/.../core/security/AndroidSecureStorageRecoveryTest.kt` | device | keep | Real Android Keystore/EncryptedSharedPreferences IO; recovery decision owned by `shared/src/jvmTest/.../SecureStoreRecoveryTest.kt`, fresh-process recovery by `Maestro/flows/auth/12-unreadable-store-recovers.yaml`. |
+| `androidApp/.../debug/DebugSeedOrderTest.kt` | device | keep | Android `singleTask`/`onNewIntent` debug-seed ordering; no faster seam found. |
+| `androidApp/.../observability/AppTracerInstrumentedTest.kt` | device | keep | Real app startup + CrashReportingPort/SDK no-throw smoke; not equivalent to host graph resolution. |
+| `androidApp/.../ui/ActionRecordingTest.kt` | device | keep | Android instrumentation step-recorder contract; infra guard, not app behavior. |
+| `androidApp/.../ui/AppStartupTest.kt` | device | keep | Android bypass/build flag, sign-in absence, testTag-to-resource-id accessibility mapping; shared tag reachability owned by `desktopApp/src/jvmTest/.../ShellTestTagReachabilityTest.kt`. |
+| `androidApp/.../ui/CreateTaskFlowTest.kt` | device | replace | Behavior overlaps `desktopApp/src/jvmTest/.../feature/flows/tasks/CreateTaskFlowTest.kt` and `Maestro/flows/tasks/create-task.yaml`; preserve Android FAB/resource-id/editor wiring assertions before removal. |
+| `androidApp/.../ui/EditorBackGuardTest.kt` | device | keep | Android system back + IME dirty-draft contract; desktop `PlatformBackHandler` is no-op. |
+| `androidApp/.../ui/FailureBundleDeliveryTest.kt` | device | keep | Device artifact delivery to `/data/local/tmp`; CI artifact-loss guard. |
+| `androidApp/.../ui/IconPickerCustomInputTest.kt` | device | keep | Android picker text-input/Compose semantics; rule owned by common `CustomEmojiInputTest`, desktop field by `IconPickerCustomEmojiTest`, real IME by `Maestro/flows/projects/05-custom-emoji.yaml`. |
+| `androidApp/.../ui/MenuSheetBoundsTest.kt` | device | keep | Android density/window bounds, rail clearance, menu reachability; no JVM/Maestro equivalent. |
+| `androidApp/.../ui/NavigationSmokeTest.kt` | device | keep | Android `AndroidShellNav3` reachability/FAB contract; distinct from AppStartupTest. |
+| `androidApp/.../ui/NotificationPermissionRequesterComposeTest.kt` | device | keep | Production Compose permission-requester wiring/disposal/owner swap; observer behavior owned by `shared/src/androidHostTest/.../NotificationPermissionRequesterTest.kt`, rule by `shared/src/jvmTest/.../NotificationSupportTest.kt`. |
+| `androidApp/.../ui/ProjectIconEmojiRenderTest.kt` | device | keep | Android font/pixel rendering; desktop render test covers desktop font only. |
+| `androidApp/.../ui/SearchBackTest.kt` | device | keep | Android search IME/back/filter-sheet behavior. |
+| `androidApp/.../ui/TaskDetailImeInsetsTest.kt` | device | keep | Android IME/window insets layout contract. |
+| `androidApp/.../ui/TaskDetailOverflowActionsTest.kt` | device | keep | Android shell top-bar overflow wiring/popup/resource-id; desktop `TaskDetailOverflowActionsTest` covers shared Compose behavior only. |
+| `androidApp/.../ui/TaskEditorDraftTest.kt` | device | keep | Device-persisted draft restoration across process; only device can observe. |
+| `shared/.../androidHostTest/core/backup/AndroidBackupCodecBudgetTest.kt` | androidHostTest | keep | Android backup codec implementation budget guard; JVM cannot reach androidMain codec. |
+| `shared/.../androidHostTest/core/di/AndroidGraphResolutionTest.kt` | androidHostTest | keep | Android Koin graph/platform bindings; distinct from JVM graph tests. |
+| `shared/.../androidHostTest/core/files/AndroidFileSourceTest.kt` | androidHostTest | investigate | Android content:// streaming behavior is platform-relevant, but class is not in `testAndroidHostTest` include allowlist; currently not executed by baseline. |
+| `shared/.../androidHostTest/core/files/AndroidFileSystemMoveTest.kt` | androidHostTest | keep | Android `ATOMIC_MOVE`/replace-target contract for backup writes. |
+| `shared/.../androidHostTest/core/notifications/AndroidNotifierTest.kt` | androidHostTest | keep | Android notification permission read-per-call and no-enqueue-on-denied port behavior; rule matrix owned by JVM `NotificationSupportTest`. |
+| `shared/.../androidHostTest/core/notifications/NotificationPermissionRequesterTest.kt` | androidHostTest | keep | Lifecycle observer contract; Compose wiring owned by device `NotificationPermissionRequesterComposeTest`. |
+| `shared/.../androidHostTest/core/security/ArchiveCryptoGoldenAndroidTest.kt` | androidHostTest | keep | Sanctioned cross-platform golden contract (same cases as `ArchiveCryptoGoldenJvmTest` via `ArchiveCryptoGoldenContract`). |
+| `shared/.../androidHostTest/mcp/ToolSurfaceWiringTest.kt` | androidHostTest | keep | Deliberate Android/desktop two-binding MCP wiring check; catalog parity must hold per platform. |
+| `shared/.../androidHostTest/test/stubs/TestOnboardingModuleTest.kt` | androidHostTest | keep | AndroidMain E2E onboarding stub contract; JVM wiring covered separately by `E2eOnboardingWiringTest`. |
+
+Support files with no `@Test` (keep as infra): `androidApp/.../testing/InstrumentedTestBase.kt`, `androidApp/.../ui/FailureBundle.kt`, `androidApp/.../ui/ShellProbe.kt`, `androidApp/.../ui/StepRecorder.kt`, `androidApp/.../ui/UiActions.kt`.
