@@ -151,6 +151,7 @@ fun TaskEntity.toTask(
         kind = kind,
         projectId = projectId.toProjectIdOrNull(),
         parentTaskId = parentTaskId?.toId(),
+        sortOrder = sortOrder,
         tags = tags,
         dueDate = dueDate.toLocalDateOrNull(),
         dueTime = dueTime.toLocalTimeOrNull(),

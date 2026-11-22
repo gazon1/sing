@@ -32,7 +32,9 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sectionTitle
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.feature.checklist.ChecklistMove
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
+import com.singularity.todo.feature.checklist.components.ChecklistRowReorder
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.preview.PreviewSamples
@@ -66,6 +68,7 @@ fun SubtasksSection(
     onDelete: (Task) -> Unit,
     onOpen: (Task) -> Unit,
     onAddSubtask: (String) -> Unit,
+    onMove: ((Task, ChecklistMove) -> Unit)? = null,
     modifier: Modifier = Modifier,
     expanded: Boolean = false,
     onToggleExpanded: (() -> Unit)? = null,
@@ -95,6 +98,7 @@ fun SubtasksSection(
                 }
 
                 visibleSubtasks.forEach { task ->
+                    val index = subtasks.indexOf(task)
                     ChecklistItemRow(
                         text = task.title,
                         checked = task.isCompleted,
@@ -106,6 +110,16 @@ fun SubtasksSection(
                         // A subtask is a task and keeps its own screen, so its
                         // title opens it. A checklist item has no such screen.
                         onOpen = { onOpen(task) },
+                        reorder =
+                            onMove?.let { move ->
+                                ChecklistRowReorder(
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index in 0 until subtasks.lastIndex,
+                                    moveUpTag = TestTags.subtaskMoveUp(task.title),
+                                    moveDownTag = TestTags.subtaskMoveDown(task.title),
+                                    onMove = { direction -> move(task, direction) },
+                                )
+                            },
                         tags = ChecklistRowTags.forSubtask(task.title),
                     )
                 }

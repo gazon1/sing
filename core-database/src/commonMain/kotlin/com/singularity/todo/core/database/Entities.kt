@@ -37,6 +37,7 @@ data class TaskEntity(
     @ColumnInfo("kind") val kind: TaskKind = TaskKind.Task,
     @ColumnInfo("project_id") val projectId: String?,
     @ColumnInfo("parent_task_id") val parentTaskId: String? = null,
+    @ColumnInfo("sort_order", defaultValue = "0") val sortOrder: Int = 0,
     @ColumnInfo("due_date") val dueDate: String?, // ISO LocalDate
     @ColumnInfo("due_time") val dueTime: String?, // ISO "HH:mm:ss"; map to kotlinx LocalTime via Mappers
     @ColumnInfo("start_date") val startDate: String?, // ISO LocalDate — when the task becomes active

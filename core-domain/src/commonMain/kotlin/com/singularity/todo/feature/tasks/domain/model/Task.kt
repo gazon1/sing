@@ -196,6 +196,14 @@ data class Task(
     val kind: TaskKind = TaskKind.Task,
     val projectId: ProjectId? = null,
     val parentTaskId: TaskId? = null,
+    /**
+     * Position among siblings with the same [parentTaskId], lowest first.
+     *
+     * Subtasks are tasks; this is the order the Subtasks section restores on
+     * reopen. A task with no parent keeps the default — the field is on the
+     * row, not on a relation, so the value is always present.
+     */
+    val sortOrder: Int = 0,
     @SerialName(TAGS_WIRE_NAME)
     val tags: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,

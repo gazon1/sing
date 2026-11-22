@@ -63,6 +63,11 @@ class InMemoryStore<E : Any>(private val keyOf: (E) -> String, initial: Map<Stri
      */
     fun seed(vararg items: E) = seed(items.toList())
 
+    /** Applies [transform] atomically to the whole state. */
+    fun update(transform: (Map<String, E>) -> Map<String, E>) {
+        _state.value = transform(_state.value)
+    }
+
     /** Returns a snapshot copy of the current state. */
     fun snapshot(): Map<String, E> = _state.value.toMap()
 }

@@ -118,6 +118,85 @@ interface TaskDao {
     ): List<TaskEntity>
 
     /**
+     * Direct children of [parentId], in the order the user gave them.
+     *
+     * `sort_order` is the persisted position; `created_at` breaks ties for rows
+     * that predate the reorder column or were created with the same order.
+     */
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
+        ORDER BY sort_order ASC, created_at ASC
+        """,
+    )
+    fun watchSubtasksForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<TaskEntity>>
+
+    @Query(
+        """
+        SELECT id FROM tasks
+        WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
+        """,
+    )
+    suspend fun listSubtaskIdsForUser(
+        parentId: String,
+        userId: String,
+    ): List<String>
+
+    @Query(
+        """
+        SELECT MAX(sort_order) FROM tasks
+        WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
+        """,
+    )
+    suspend fun maxSubtaskSortOrderForUser(
+        parentId: String,
+        userId: String,
+    ): Int?
+
+    @Transaction
+    suspend fun reorderSubtasksForUser(
+        parentId: String,
+        orderedIds: List<String>,
+        updatedAt: Long,
+        userId: String,
+    ) {
+        val currentIds = listSubtaskIdsForUser(parentId, userId).toSet()
+        require(orderedIds.size == currentIds.size && orderedIds.toSet() == currentIds) {
+            "Reorder must include the full current subtask set for parent $parentId"
+        }
+        orderedIds.forEachIndexed { index, id ->
+            updateSubtaskSortOrderForUser(
+                taskId = id,
+                parentId = parentId,
+                sortOrder = index,
+                updatedAt = updatedAt,
+                userId = userId,
+            )
+        }
+    }
+
+    @Query(
+        """
+        UPDATE tasks
+        SET sort_order = :sortOrder, updated_at = :updatedAt
+        WHERE id = :taskId
+          AND parent_task_id = :parentId
+          AND user_id = :userId
+        """,
+    )
+    suspend fun updateSubtaskSortOrderForUser(
+        taskId: String,
+        parentId: String,
+        sortOrder: Int,
+        updatedAt: Long,
+        userId: String,
+    ): Int
+
+    /**
      * The active profile's legacy repeating rows: a rule but no series.
      *
      * The launch repair adopts these into series. The condition — a rule and no

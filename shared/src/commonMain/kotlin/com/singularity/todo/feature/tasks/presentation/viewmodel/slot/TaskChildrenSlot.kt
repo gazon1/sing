@@ -90,6 +90,10 @@ class TaskChildrenSlot(
                 addSubtask(intent.title)
             }
 
+            is TaskDetailIntent.Domain.MoveSubtask -> {
+                moveSubtask(intent)
+            }
+
             is TaskDetailIntent.Domain.ToggleSubtask -> {
                 toggleSubtask(intent.task)
             }
@@ -178,6 +182,25 @@ class TaskChildrenSlot(
         }
 
     // ── Subtasks ────────────────────────────────────────────────────────────
+
+    /**
+     * Moves one subtask a step and writes the whole visible order back.
+     *
+     * The same rule as a checklist reorder: the list is renumbered from its
+     * first row in one write, because the order is the numbers the rows carry.
+     */
+    private fun moveSubtask(intent: TaskDetailIntent.Domain.MoveSubtask) =
+        scope.launch {
+            val items = _state.value.subtasks
+            val from = items.indexOfFirst { it.id == intent.taskId }
+            if (from < 0) return@launch
+            val to = if (intent.direction == ChecklistMove.Up) from - 1 else from + 1
+            if (to !in items.indices) return@launch
+            val reordered = items.toMutableList().apply { add(to, removeAt(from)) }
+            core.taskRepo
+                .reorderSubtasks(taskId, reordered.map { it.id })
+                .onFailure { onError("Reorder failed") }
+        }
 
     private fun addSubtask(title: String) =
         scope.launch {

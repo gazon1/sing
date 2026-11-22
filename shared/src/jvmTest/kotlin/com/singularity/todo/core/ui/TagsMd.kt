@@ -349,6 +349,14 @@ object TagsMd {
                 DynamicMeta(fnName, "Tasks", "Item", "Checklist item move-down halves")
             }
 
+            "subtaskMoveUp" -> {
+                DynamicMeta(fnName, "Tasks", "Child task", "Subtask move-up halves")
+            }
+
+            "subtaskMoveDown" -> {
+                DynamicMeta(fnName, "Tasks", "Child task", "Subtask move-down halves")
+            }
+
             "noteItem" -> {
                 DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)")
             }

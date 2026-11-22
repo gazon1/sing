@@ -674,6 +674,15 @@ object TestTags {
     ) = "checklist_item_move_down_${slug(title)}"
 
     /**
+     * Dynamic tag of the form `subtask_move_up_<slug>` — move a subtask one
+     * step up in its parent's list.
+     */
+    fun subtaskMoveUp(title: String) = "subtask_move_up_${slug(title)}"
+
+    /** @see subtaskMoveUp */
+    fun subtaskMoveDown(title: String) = "subtask_move_down_${slug(title)}"
+
+    /**
      * Dynamic tag of the form `checklist_item_<slug>` — one per checklist item row.
      * Derived from the item's id and title, slugified the same way as [taskItem].
      */

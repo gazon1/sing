@@ -320,6 +320,101 @@ abstract class TaskRepositoryContractTest {
             )
         }
 
+    // ─── Subtasks ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `observeSubtasks returns direct children ordered by sortOrder then createdAt`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("parent")).getOrThrow()
+            val t1 = Instant.fromEpochMilliseconds(1_000)
+            val t2 = Instant.fromEpochMilliseconds(2_000)
+            val t3 = Instant.fromEpochMilliseconds(3_000)
+            repo
+                .create(
+                    task("c1").copy(
+                        parentTaskId = TaskId("parent"),
+                        sortOrder = 2,
+                        createdAt = t1,
+                        updatedAt = t1,
+                    ),
+                ).getOrThrow()
+            repo
+                .create(
+                    task("c2").copy(
+                        parentTaskId = TaskId("parent"),
+                        sortOrder = 1,
+                        createdAt = t2,
+                        updatedAt = t2,
+                    ),
+                ).getOrThrow()
+            repo
+                .create(
+                    task("c3").copy(
+                        parentTaskId = TaskId("parent"),
+                        sortOrder = 1,
+                        createdAt = t3,
+                        updatedAt = t3,
+                    ),
+                ).getOrThrow()
+            repo
+                .create(
+                    task("other-parent").copy(
+                        parentTaskId = TaskId("p2"),
+                        sortOrder = 0,
+                        createdAt = t1,
+                        updatedAt = t1,
+                    ),
+                ).getOrThrow()
+            advanceUntilIdle()
+
+            val subtasks = repo.observeSubtasks(TaskId("parent")).first()
+            assertEquals(listOf("c2", "c3", "c1"), subtasks.map { it.id.value })
+        }
+
+    @Test
+    fun `reorderSubtasks renumbers the full visible subtask order`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("parent")).getOrThrow()
+            repo.create(task("c1").copy(parentTaskId = TaskId("parent"), sortOrder = 0)).getOrThrow()
+            repo.create(task("c2").copy(parentTaskId = TaskId("parent"), sortOrder = 1)).getOrThrow()
+            repo.create(task("c3").copy(parentTaskId = TaskId("parent"), sortOrder = 2)).getOrThrow()
+            advanceUntilIdle()
+
+            repo.reorderSubtasks(TaskId("parent"), listOf(TaskId("c3"), TaskId("c1"), TaskId("c2"))).getOrThrow()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("c3", "c1", "c2"),
+                repo.observeSubtasks(TaskId("parent")).first().map { it.id.value },
+            )
+            assertEquals(
+                listOf(0, 1, 2),
+                repo.observeSubtasks(TaskId("parent")).first().map { it.sortOrder },
+            )
+        }
+
+    @Test
+    fun `reorderSubtasks rejects a stale incomplete id list`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("parent")).getOrThrow()
+            repo.create(task("c1").copy(parentTaskId = TaskId("parent"), sortOrder = 0)).getOrThrow()
+            repo.create(task("c2").copy(parentTaskId = TaskId("parent"), sortOrder = 1)).getOrThrow()
+            repo.create(task("c3").copy(parentTaskId = TaskId("parent"), sortOrder = 2)).getOrThrow()
+            advanceUntilIdle()
+
+            val result = repo.reorderSubtasks(TaskId("parent"), listOf(TaskId("c2"), TaskId("c1")))
+            advanceUntilIdle()
+
+            assertTrue(result.isFailure)
+            assertEquals(
+                listOf("c1", "c2", "c3"),
+                repo.observeSubtasks(TaskId("parent")).first().map { it.id.value },
+            )
+        }
+
     // ─── Series ───────────────────────────────────────────────────────────────
 
     @Test

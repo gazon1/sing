@@ -758,6 +758,29 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
 
     override fun watchArchivableCountForUser(userId: String): Flow<Int> = error("not implemented")
 
+    override fun watchSubtasksForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+
+    override suspend fun maxSubtaskSortOrderForUser(
+        parentId: String,
+        userId: String,
+    ): Int? = error("not implemented")
+
+    override suspend fun listSubtaskIdsForUser(
+        parentId: String,
+        userId: String,
+    ): List<String> = error("not implemented")
+
+    override suspend fun updateSubtaskSortOrderForUser(
+        taskId: String,
+        parentId: String,
+        sortOrder: Int,
+        updatedAt: Long,
+        userId: String,
+    ): Int = error("not implemented")
+
     override suspend fun getTrashForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> =
         error("not implemented")
 
@@ -958,6 +981,9 @@ open class FakeTaskRepository(
     var createCallOverride: ((String) -> Result<Task>?)? = null
     var updateOverride: Result<Task>? = null
     var deleteOverride: Result<Unit>? = null
+
+    /** Lets a test force a reorder failure without changing the stored order. */
+    var reorderSubtasksOverride: Result<Unit>? = null
     var softDeleteOverride: Result<Unit>? = null
     var restoreOverride: Result<Unit>? = null
     var completeOverride: Result<Boolean>? = null
@@ -1261,8 +1287,41 @@ open class FakeTaskRepository(
         currentUser.observeForCurrentUser { uid ->
             store.state
                 .onStart { emit(store.state.value) }
-                .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId == uid } }
+                .map { map ->
+                    map.values
+                        .filter { it.parentTaskId == parentId && it.userId == uid && it.archivedAt == null }
+                        .sortedWith(compareBy<Task> { it.sortOrder }.thenBy { it.createdAt })
+                }
         }
+
+    override suspend fun reorderSubtasks(
+        parentId: TaskId,
+        orderedIds: List<TaskId>,
+    ): Result<Unit> {
+        reorderSubtasksOverride?.let { return it }
+        return runCatchingCancellable {
+            val now = clock.now()
+            val uid = currentUser.scopedUserId.value
+            store.update { map ->
+                val currentIds =
+                    map.values
+                        .filter { it.parentTaskId == parentId && it.userId == uid && it.archivedAt == null }
+                        .map { it.id.value }
+                        .toSet()
+                val requestedIds = orderedIds.map { it.value }
+                require(requestedIds.size == currentIds.size && requestedIds.toSet() == currentIds) {
+                    "Reorder must include the full current subtask set for parent ${parentId.value}"
+                }
+                val next = map.toMutableMap()
+                requestedIds.forEachIndexed { index, id ->
+                    val task = next[id] ?: return@forEachIndexed
+                    if (task.parentTaskId != parentId || task.userId != uid) return@forEachIndexed
+                    next[id] = task.copy(sortOrder = index, updatedAt = now)
+                }
+                next
+            }
+        }
+    }
 
     // ── Legacy / DAO-backed methods ─────────────────────────────────────────────
 
