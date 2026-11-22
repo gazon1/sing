@@ -154,8 +154,8 @@ for a screen's shape **within a single invocation** — in a fresh process they 
 
 `invoke` returns `status: "accepted"` when the action was validated and handed to
 the real screen path. That is **dispatch**, not outcome. Outcome is observed from
-post-dispatch screen state, and `waitMs` on a journey step (or `--wait-ms` in the
-same invocation that opened the session) waits for it:
+post-dispatch screen state, and `waitMs` on the journey step waits for it — inside
+the one runtime that also holds the session:
 
 ```json
 { "name": "prioritize", "op": "invoke",
@@ -345,9 +345,10 @@ one profile is invisible under another. Get an id from the app's own database
 in the wrong place — it belongs before the subcommand (`agent --profile-id=<id>
 open …`), not after it.
 
-**`accepted` and nothing else.** You did not wait. Either pass `--wait-ms` to
-`invoke`, or `wait --operation <id>` in the same runtime (a journey step). A
-timeout is not a failure — wait again.
+**`accepted` and nothing else.** You did not wait. There is no CLI command that
+opens and invokes in one call, so the fix is a journey step with `waitMs`, or
+`wait --operation <id>` as the next step of the same journey — a bare `wait` in a
+fresh process has no operation to find. A timeout is not a failure — wait again.
 
 **`action_not_available` while the screen looks loaded.** Availability is per
 action and per mode. The list screen refuses row actions in multi-selection mode;

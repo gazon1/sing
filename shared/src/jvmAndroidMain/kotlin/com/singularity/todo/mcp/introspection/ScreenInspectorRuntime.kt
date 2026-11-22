@@ -13,7 +13,17 @@ import org.koin.core.Koin
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
-internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
+internal class ScreenInspectorRuntime(
+    private val koin: Koin,
+    /**
+     * How `open` waits for a fresh session to settle; `null` means the real wait. Injected so
+     * a test can hold the wait open — the real screen settles too fast to cancel reliably,
+     * which is exactly the race the cancellation test must not depend on. `null` rather than a
+     * default lambda because the real wait is a member, which cannot be referenced before the
+     * instance exists.
+     */
+    private val settle: (suspend (ScreenSession) -> Unit)? = null,
+) : AutoCloseable {
     private val sessions = ConcurrentHashMap<String, ScreenSession>()
     private val currentSessionId = AtomicReference<String?>(null)
 
@@ -40,9 +50,19 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
                         },
                 )
         val session = ScreenRegistry.open(screenId, params, koin)
+        // The session is registered *after* the wait, and closed if the wait is cancelled.
+        // `awaitSettled` suspends, which is a cancellation point; registering first would
+        // leave a session nobody can name — still running its state collector — whenever a
+        // caller cancels (the MCP host rethrows `CancellationException`). Registering after
+        // also means `sessions()` never lists a screen that is not yet answerable.
+        try {
+            (settle ?: { awaitSettled(it) })(session)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            runCatching { session.close() }
+            throw e
+        }
         sessions[session.sessionId] = session
         currentSessionId.set(session.sessionId)
-        awaitSettled(session)
         return buildJsonObject {
             put("sessionId", session.sessionId)
             put("screen", session.screenId)

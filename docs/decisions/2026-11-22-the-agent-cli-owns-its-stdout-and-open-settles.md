@@ -63,6 +63,13 @@ it out would be documenting a race rather than a workflow.
   branch is `awaitSettledStatus`, extracted so a test can drive the deadline with a clock it
   controls: a fake that never settles proves the wait runs to its deadline and returns, and a
   fake that settles proves it stops early.
+- The session is registered **after** the wait, and closed if the wait is cancelled. The wait
+  suspends, so it is a cancellation point; registering first left a session nobody can name —
+  still running its state collector — whenever a caller cancelled, which the MCP host does by
+  design (`CancellationException` is rethrown). Registering after also means `sessions()`
+  never lists a screen that is not yet answerable. The wait is injectable (`settle`), so the
+  test holds it open instead of racing a screen that settles in milliseconds; the control
+  (pre-fix order) fails it.
 - The runtime test asserts that `open` itself reports `loaded`, so the property is pinned
   where a poller cannot hide it.
 - The Android host (`ScreenInspectorHost`, whose `handle` is synchronous by design — a binder

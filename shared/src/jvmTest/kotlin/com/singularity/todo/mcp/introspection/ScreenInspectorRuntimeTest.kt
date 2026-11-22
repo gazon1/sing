@@ -13,6 +13,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -323,6 +327,59 @@ class ScreenInspectorRuntimeTest {
             )
 
             runtime.close(sessionId)
+        }
+
+    @Test
+    fun `a cancelled open leaves no session behind`() =
+        withRuntime { runtime, koin ->
+            // The wait is held open by the injected settle, so the cancel lands while `open`
+            // is genuinely suspended. The real screen settles too fast to race reliably —
+            // that race is what made the first version of this test flaky.
+            val holding = ScreenInspectorRuntime(koin) { kotlinx.coroutines.awaitCancellation() }
+            val taskRepo: TaskRepository = koin.get()
+            val created =
+                kotlinx.coroutines
+                    .runBlocking {
+                        taskRepo.create(
+                            Task(
+                                id = TaskId("task-cancelled"),
+                                title = "Cancelled",
+                                priority = TaskPriority.None,
+                                userId = taskRepo.currentUserId(),
+                                createdAt = Clock.System.now(),
+                                updatedAt = Clock.System.now(),
+                            ),
+                        )
+                    }.getOrThrow()
+
+            try {
+                kotlinx.coroutines.runBlocking {
+                    val job =
+                        CoroutineScope(Job()).launch(start = CoroutineStart.UNDISPATCHED) {
+                            holding.open(
+                                "tasks.task-detail",
+                                buildJsonObject { put("taskId", created.id.value) },
+                            )
+                        }
+                    job.cancel()
+                    job.join()
+                }
+
+                val listed = holding.sessions()
+                assertEquals(
+                    0,
+                    listed["sessions"]!!.jsonArray.size,
+                    "a cancelled open must not leave a session: $listed",
+                )
+                assertEquals(
+                    kotlinx.serialization.json.JsonNull,
+                    listed["currentSessionId"],
+                    "a cancelled open must not become the current session: $listed",
+                )
+            } finally {
+                holding.close()
+            }
+            runtime.sessions() // the outer runtime is untouched
         }
 
     @Test
