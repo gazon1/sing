@@ -437,6 +437,12 @@ class ProposalPlanner(private val clock: Clock) {
         userId: UserId,
     ): Note {
         val proposed = kind.note
+        // A note hangs on a project or on a task, never on both: the two attachments
+        // pick different owners, and a note that carried both would answer "which
+        // project's brief is this?" with two rows.
+        require(proposed.projectId.isNullOrBlank() || proposed.taskId.isNullOrBlank()) {
+            "A note attaches to a project or to a task, not to both"
+        }
         val now = clock.now()
         return Note(
             id = NoteId(targetId),
@@ -445,6 +451,8 @@ class ProposalPlanner(private val clock: Clock) {
             bodyHtml = proposed.bodyHtml,
             isFolder = proposed.isFolder,
             parentNoteId = proposed.parentNoteId?.takeIf { it.isNotBlank() }?.let { NoteId.fromString(it) },
+            projectId = proposed.projectId?.takeIf { it.isNotBlank() }?.let { ProjectId.fromString(it) },
+            taskId = proposed.taskId?.takeIf { it.isNotBlank() }?.let { TaskId.fromString(it) },
             createdAt = now,
             updatedAt = now,
             userId = userId,

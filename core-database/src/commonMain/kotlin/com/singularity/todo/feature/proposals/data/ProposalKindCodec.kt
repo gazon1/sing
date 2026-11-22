@@ -310,6 +310,8 @@ private fun decodeProposedNote(obj: JsonObject): ProposedNote =
         bodyHtml = obj.stringOrNull("bodyHtml"),
         isFolder = obj.stringOrNull("isFolder") == "true",
         parentNoteId = obj.stringOrNull("parentNoteId"),
+        projectId = obj.stringOrNull("projectId"),
+        taskId = obj.stringOrNull("taskId"),
     )
 
 /**

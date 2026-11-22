@@ -555,6 +555,20 @@ and their policy is the ADR one.
 
 `singularity-adr search` is the same search from a terminal, over the same storage.
 
+### Knowledge briefs
+
+`get_knowledge_brief(projectId | taskId)` answers "what does the app already know about
+this project or task?" — the note attached to it, as markdown, plus the `updatedAt` a
+refresh passes back as `expectedUpdatedAt`. The write side is not a new pair of tools:
+`create_note` takes `projectId` or `taskId` to attach the note, and `update_note`
+proposes the change. Both go through the proposal pipeline, so the brief is a candidate
+until the user confirms it.
+
+The brief is a **note**, not a document type of its own: the attachment is the
+`notes.project_id` / `notes.task_id` column, and the provenance is Markdown in the body.
+`docs/architecture/knowledge-briefs.md` is the workflow an external agent follows, and
+ADR `2026-11-22-a-knowledge-brief-is-a-note-attached-to-its-owner.md` is why.
+
 ### Resources
 
 Read-only documents, for the clients that speak them:
@@ -1039,6 +1053,7 @@ reports it under `unmatchedFlags`.
 | notes | `create_note` |
 | notes | `delete_note` |
 | notes | `get_daily_note` |
+| notes | `get_knowledge_brief` |
 | notes | `get_note` |
 | notes | `update_note` |
 | projects | `create_project` |

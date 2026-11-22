@@ -648,6 +648,11 @@ data class ProposedProject(
  * The note a [ProposalItemKind.CreateNote] item proposes to bring into being.
  *
  * @property bodyHtml The body as canonical HTML — the form the notes are stored in.
+ * @property projectId the project the note is attached to, if it is attached to one.
+ *   The attachment is structural (`notes.project_id`), not a link in the body: it is
+ *   what makes a note findable as *the* brief of a project instead of one note among
+ *   many that mentions it. At most one of [projectId] and [taskId] is set.
+ * @property taskId the task the note is attached to, if it is attached to one.
  */
 @Serializable
 data class ProposedNote(
@@ -655,6 +660,8 @@ data class ProposedNote(
     val bodyHtml: String? = null,
     val isFolder: Boolean = false,
     val parentNoteId: String? = null,
+    val projectId: String? = null,
+    val taskId: String? = null,
 )
 
 /** The names a task's priority can be written with, as the model writes them. */

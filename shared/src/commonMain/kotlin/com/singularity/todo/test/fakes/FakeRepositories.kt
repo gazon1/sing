@@ -3373,6 +3373,23 @@ open class FakeNotesRepository(
     }
 
     /**
+     * The notes attached directly to a project — `notes.project_id`, not the join
+     * through the project's tasks that [watchForProject] runs.
+     */
+    override fun watchAttachedToProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter { it.userId == uid && it.deletedAt == null && it.projectId == projectId }
+                    .sortedWith(noteOrder)
+                    .take(limit)
+            }
+        }
+
+    /**
      * The order the notes come back in — newest first, then by id.
      *
      * The id breaks the tie, so two calls cannot swap two notes that were written in

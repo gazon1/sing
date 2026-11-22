@@ -20,6 +20,16 @@ data class UpdateNoteInput(
     val title: String? = null,
     val bodyMarkdown: String? = null,
     val bodyHtml: String? = null,
+    /**
+     * The `updatedAt` (epoch millis) the caller read the note at, when the change is a
+     * refresh of an existing brief.
+     *
+     * A refresh re-reads a source and proposes what changed. If the user edited the
+     * note in between, the model's summary was written against a note that no longer
+     * exists, and applying it would overwrite the edit. So the caller states what it
+     * read, and a note that has moved since is refused before anything is proposed.
+     */
+    val expectedUpdatedAt: Long? = null,
 )
 
 /**
@@ -54,6 +64,19 @@ class UpdateNoteTool(
         val existing =
             notesRepository.get(NoteId(args.noteId))
                 ?: return failure(args.noteId, "There is no note with id \"${args.noteId}\".")
+
+        // The note moved since the caller read it: what it wrote about is not what is
+        // here any more. Refused before the proposal, so the user's edit is never
+        // silently replaced by a summary of an older note.
+        val expected = args.expectedUpdatedAt
+        val actual = existing.updatedAt.toEpochMilliseconds()
+        if (expected != null && expected != actual) {
+            return failure(
+                args.noteId,
+                "The note changed since it was read (updatedAt $actual, expected $expected). " +
+                    "Read it again and propose the change against what is there now.",
+            )
+        }
 
         val kinds = changes(args, existing)
         if (kinds.isEmpty()) {
@@ -133,6 +156,8 @@ class UpdateNoteTool(
             "Proposes a change to a note's title and/or body. The change is not applied yet — the " +
                 "user sees it and decides. Say that it has been proposed, not that it has been done. " +
                 "Pass only what to change; a field left out is not touched. " +
-                "The body is markdown unless bodyHtml is given."
+                "The body is markdown unless bodyHtml is given. " +
+                "When refreshing a note you read earlier, pass expectedUpdatedAt from that read: " +
+                "a note that changed since then is refused instead of overwritten."
     }
 }

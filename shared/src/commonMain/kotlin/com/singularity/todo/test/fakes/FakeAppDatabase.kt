@@ -1240,6 +1240,22 @@ private class FakeNoteDao(
         }
 
     /**
+     * The notes attached directly to a project — `notes.project_id`, not the join
+     * through the project's tasks that [watchByProjectForUser] runs.
+     */
+    override fun watchAttachedToProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n -> n.userId == userId && n.deletedAt == null && n.projectId == projectId }
+                .sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
+                .take(limit)
+        }
+
+    /**
      * Whether the note hangs on a task of [projectId] — the fake's stand-in for the
      * join the real query runs over `notes.task_id → tasks.project_id`.
      */

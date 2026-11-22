@@ -278,6 +278,24 @@ class ApplyProposalItemUseCase(
             // A creation has no row to read: the change named the id the thing
             // *will* have.
             is ProposalTarget.Creation -> {
+                // Resolve the note's attachment against the real rows before the
+                // claim. Without this a brief would be written against a project id
+                // the sqlite foreign key rejects — after the user said yes, which is
+                // the one moment the refusal cannot be explained away.
+                if (kind is ProposalItemKind.CreateNote) {
+                    val projectId = kind.note.projectId?.takeIf { it.isNotBlank() }
+                    val taskId = kind.note.taskId?.takeIf { it.isNotBlank() }
+                    if (projectId != null) {
+                        check(projects.get(ProjectId.fromString(projectId)) != null) {
+                            "Project $projectId not found"
+                        }
+                    }
+                    if (taskId != null) {
+                        check(tasks.get(TaskId.fromString(taskId)) != null) {
+                            "Task $taskId not found"
+                        }
+                    }
+                }
                 planner.planCreateItem(item, target.kind, userId)
             }
 

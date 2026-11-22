@@ -203,6 +203,21 @@ interface NotesRepository :
     suspend fun countForProject(projectId: ProjectId): Int
 
     /**
+     * Watches the notes attached **directly** to [projectId], newest first.
+     *
+     * The attachment is the `project_id` column, written once when the note is
+     * created — the same structural rule [watchForTask] follows for tasks. It is
+     * *not* [watchForProject], which answers a different question: the notes of the
+     * project's tasks.
+     *
+     * @param limit how many notes the page carries at most.
+     */
+    fun watchAttachedToProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>>
+
+    /**
      * Creates a new note attached to [taskId] and returns its id.
      *
      * The caller owns [id]: the editor generates it before the note exists, so the

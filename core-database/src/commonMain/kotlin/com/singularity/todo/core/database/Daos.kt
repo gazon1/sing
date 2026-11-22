@@ -1073,6 +1073,33 @@ interface NoteDao {
     ): Int
 
     /**
+     * Returns the notes attached **directly** to a project, newest first, at most
+     * [limit] of them.
+     *
+     * [watchByProjectForUser] answers a different question: the notes of the
+     * project's *tasks*. This one reads `notes.project_id`, the attachment that
+     * belongs to the project itself — the shape a project brief has. The two are
+     * separate because a note that hangs on the project is not a note that hangs on
+     * one of its tasks, and a read that merged them could not name which one it
+     * returned.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE project_id = :projectId
+          AND user_id = :userId
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC, id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchAttachedToProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>>
+
+    /**
      * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
      * [watchByTaskForUser] should be preferred for new code — this method is kept for backward
      * compatibility with existing wikilink-only notes.

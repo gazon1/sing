@@ -381,8 +381,17 @@ private fun samples(): List<ProposalItemKind> =
                 icon = Emoji("🍳"),
             ),
         ),
+        // The attachment is part of the change: a brief is a note hanging on a project
+        // or a task, and a round trip that dropped it would turn a brief into an
+        // ordinary note on the way to the card.
         ProposalItemKind.CreateNote(
-            ProposedNote(title = "Agenda", bodyHtml = "<p>Buy milk</p>", isFolder = false, parentNoteId = "note-0"),
+            ProposedNote(
+                title = "Agenda",
+                bodyHtml = "<p>Buy milk</p>",
+                isFolder = false,
+                parentNoteId = "note-0",
+                projectId = "project-1",
+            ),
         ),
         ProposalItemKind.CreateTag(ProposedTag(name = "chore", color = 0xFF9E9E9E.toInt())),
         ProposalItemKind.ExtractActions(listOf("Buy milk", "Call the vet")),
