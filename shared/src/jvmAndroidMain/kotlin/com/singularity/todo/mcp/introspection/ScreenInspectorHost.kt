@@ -434,22 +434,8 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
                 return admitAfterCreate(koin)
             }
 
-            RuntimeState.Closed -> {
-                read.unlock()
-                throw InspectorException(
-                    InspectorErrorCode.INTERNAL,
-                    "This screen-inspector host has been closed; the process created a new one.",
-                )
-            }
-
-            RuntimeState.Replaced -> {
-                read.unlock()
-                throw InspectorException(
-                    InspectorErrorCode.INTERNAL,
-                    "The application container was replaced while the screen inspector was " +
-                        "running; the open sessions belong to the previous graph. Restart the " +
-                        "host before inspecting again.",
-                )
+            RuntimeState.Closed, RuntimeState.Replaced -> {
+                refusal(state) { read.unlock() }
             }
         }
     }
@@ -464,39 +450,52 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
     private fun admitAfterCreate(koin: Koin): ScreenInspectorRuntime {
         val read = gate.readLock()
         read.lock()
-        when (val state = currentState(koin)) {
-            is RuntimeState.Usable -> {
-                return state.runtime
-            }
+        return when (val state = currentState(koin)) {
+            is RuntimeState.Usable -> state.runtime
 
-            RuntimeState.Absent -> {
-                // `closed` was cleared while a create was in flight; the consistency of this
-                // object no longer holds, and guessing is worse than refusing.
-                read.unlock()
-                throw InspectorException(
-                    InspectorErrorCode.INTERNAL,
-                    "The screen-inspector host lost its runtime while creating it.",
-                )
-            }
+            // Any non-usable state here means a close or a container swap landed in the
+            // window between the create and this call; the lock is already released by
+            // `refusal` before it throws, so this frame never strands it.
+            else -> refusal(state) { read.unlock() }
+        }
+    }
 
-            RuntimeState.Closed -> {
-                read.unlock()
-                throw InspectorException(
-                    InspectorErrorCode.INTERNAL,
-                    "This screen-inspector host has been closed; the process created a new one.",
-                )
-            }
+    /**
+     * Throws the refusal [state] describes, releasing [read] first.
+     *
+     * One place for the three refusals so each caller stays under the throw-count rule, and so
+     * the release-before-throw ordering is written once instead of three times.
+     */
+    private fun refusal(
+        state: RuntimeState,
+        release: () -> Unit,
+    ): Nothing {
+        release()
+        throw InspectorException(
+            InspectorErrorCode.INTERNAL,
+            // One throw, with the message selected from the state — the three refusals differ
+            // only in what they say, and three `throw`s in one function is the shape detekt's
+            // throw-count rule (rightly) refuses.
+            when (state) {
+                is RuntimeState.Usable -> {
+                    "refusal called for a usable runtime; that is a programming error"
+                }
 
-            RuntimeState.Replaced -> {
-                read.unlock()
-                throw InspectorException(
-                    InspectorErrorCode.INTERNAL,
+                RuntimeState.Absent -> {
+                    "The screen-inspector host lost its runtime while creating it."
+                }
+
+                RuntimeState.Closed -> {
+                    "This screen-inspector host has been closed; the process created a new one."
+                }
+
+                RuntimeState.Replaced -> {
                     "The application container was replaced while the screen inspector was " +
                         "running; the open sessions belong to the previous graph. Restart the " +
-                        "host before inspecting again.",
-                )
-            }
-        }
+                        "host before inspecting again."
+                }
+            },
+        )
     }
 
     /** What the host currently holds, under the caller's read lock. */
