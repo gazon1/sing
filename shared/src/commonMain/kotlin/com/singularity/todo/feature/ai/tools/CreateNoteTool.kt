@@ -68,6 +68,12 @@ class CreateNoteTool(
             return failure(title, "A note attaches to a project or to a task, not to both.")
         }
 
+        // A folder is not a brief: the reads look for a plain note, so an attached folder
+        // would be a proposal that cannot be found afterwards by the call that made it.
+        if (args.isFolder && (projectId != null || taskId != null)) {
+            return failure(title, "A folder is not attached to a project or a task. Attach a note.")
+        }
+
         // The id the note will have if the user says yes.
         val noteId = NoteId.generate()
         val kind =

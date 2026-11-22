@@ -245,6 +245,28 @@ class KnowledgeBriefTest : KnowledgeBriefTestBase() {
     // ── Refresh: the candidate, and the refusal ────────────────────────────────
 
     @Test
+    fun `create_note refuses to attach a folder`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+
+            val output =
+                decodeCreate(
+                    CreateNoteTool(proposals, currentUser, clock)
+                        .execute(
+                            CreateNoteInput(
+                                title = "Sources",
+                                isFolder = true,
+                                projectId = project.id.value,
+                            ),
+                        ),
+                )
+
+            assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
+            assertNotNull(output.error, "the model is told a folder is not a brief")
+        }
+
+    @Test
     fun `a failed extraction keeps the last approved brief`() =
         runTest {
             val project = project("Kitchen")
