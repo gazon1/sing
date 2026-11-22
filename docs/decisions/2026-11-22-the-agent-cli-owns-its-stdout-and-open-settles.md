@@ -47,7 +47,11 @@ it out would be documenting a race rather than a workflow.
 - `runToolServer` installs stderr logging and reserves standard output **before** dispatching
   to `ScreenInspectorCli`, and hands the reserved stream in as the CLI's result sink
   (`ScreenInspectorCli.run(..., resultOut)`). `printJson` writes there; `System.out` is no
-  longer the result channel.
+  longer the result channel. That setup is `runScreenInspectorCliHost`, extracted so a test
+  can drive it in-process: `AgentCliStdoutTest` runs a command that starts Koin and asserts
+  standard output carries exactly one JSON line. Its control — the guard removed — reproduces
+  the original defect verbatim (`kotlin-logging: initializing…`, two `Debug:` lines, then the
+  JSON), which is what makes the test evidence rather than decoration.
 - The result sink is a `ThreadLocal`, not a plain field. The production model is one command
   per process, so a field looked correct; the test suite runs classes concurrently, and a
   shared field let one running test redirect another test's result. `run` sets the value and

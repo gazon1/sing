@@ -141,32 +141,31 @@ as "ask again", not as a transport failure, and check the status before you invo
 The snapshot is an **allowlisted projection**, not an inventory of the screen: a
 field absent from it is not evidence that the screen does not show that field.
 
-```bash
-$INSPECTOR describe   # the same snapshot, with contractVersion, via the describe envelope
-$INSPECTOR actions    # name, summary, requirement, available, input schema
-```
-
-**Each of those commands is its own process over its own runtime.** So the session
-`open` printed is gone by the time the next command runs: `inspect`, `actions`,
-`describe` and `invoke` all answer `session_not_found` (or, with no session at all,
-`invalid_arguments`). Use them as *is-what* probes on a screen's shape, and use a
-**journey** (or the MCP tools) for anything that needs a sequence.
+`open`'s own answer already carries the first `snapshot` and the full `actions` list
+with schemas, so the discovery step is done in one command. What it does **not**
+carry forward is the session: every non-journey command is its own process over its
+own in-memory runtime, so the `sessionId` `open` printed is dead by the next command.
+`describe`, `inspect`, `actions`, `invoke`, `wait` and `cancel` are one-shot probes
+for a screen's shape **within a single invocation** — in a fresh process they answer
+`invalid_arguments`, "No screen session is open". Anything that has to span steps
+(inspect → invoke → verify) is a **journey** (below) or the MCP tools.
 
 ## Invoke an action and wait for its outcome
 
 `invoke` returns `status: "accepted"` when the action was validated and handed to
 the real screen path. That is **dispatch**, not outcome. Outcome is observed from
-post-dispatch screen state, and `--wait-ms` waits for it inside the same
-invocation:
+post-dispatch screen state, and `waitMs` on a journey step (or `--wait-ms` in the
+same invocation that opened the session) waits for it:
 
-```bash
-$INSPECTOR invoke --action set_priority --input '{"priority":"high"}' --wait-ms 5000
+```json
+{ "name": "prioritize", "op": "invoke",
+  "action": "set_priority", "input": { "priority": "high" }, "waitMs": 5000 }
 ```
 
 ```json
-{"ok":true,"result":{"operationId":"op-…","action":"set_priority","status":"accepted",
-  "wait":{"operationId":"op-…","action":"set_priority","status":"completed",
-          "snapshot":{"status":"loaded","subject":{"priority":"high"}}}}}
+{"operationId":"op-…","action":"set_priority","status":"accepted",
+ "wait":{"operationId":"op-…","action":"set_priority","status":"completed",
+         "snapshot":{"status":"loaded","subject":{"priority":"high"}}}}
 ```
 
 Read it like this:
@@ -187,10 +186,12 @@ Read it like this:
 ## Verify: state after the change
 
 Read the state back and compare it with what the action promised. The post-condition
-is in the action's summary; the value to assert is in the snapshot.
+is in the action's summary; the value to assert is in the snapshot. The read-back is
+a `snapshot` step of the same journey — that is what keeps it in the session that
+holds the write:
 
-```bash
-$INSPECTOR inspect | jq '.result.snapshot.subject.priority'   # expect "high"
+```json
+{ "name": "verify", "op": "snapshot" }
 ```
 
 A verification that does not name the field it checked and the value it expected is

@@ -76,17 +76,7 @@ fun runToolServer(
     inspectorHostCompiledIn: Boolean,
 ) {
     if (isScreenInspectorCli(args)) {
-        // The CLI's standard output is its JSON result, and an agent parses every line
-        // there. The same two polluters the server branch guards against reach this one:
-        // the application's own log (Kermit's platform writer, which prints to standard
-        // output until something points it elsewhere) and a third-party banner. Both
-        // landed on stdout of `agent open`, in front of the JSON.
-        installStderrLogging()
-        val resultOut = ProtocolStdout.reserve()
-        val cliArgs = stripScreenInspectorCliArgs(args)
-        val code =
-            com.singularity.todo.mcp.introspection.ScreenInspectorCli
-                .run(cliArgs, koinStartup, inspectorHostCompiledIn, resultOut.asPrintStream())
+        val code = runScreenInspectorCliHost(args, koinStartup, inspectorHostCompiledIn)
         if (code != 0) exitProcess(code)
         return
     }
@@ -171,6 +161,35 @@ private suspend fun serve(
 }
 
 // ─── JSON-RPC error response for startup failures ─────────────────────────────
+
+/**
+ * Runs the agent CLI with standard output reserved for its JSON result.
+ *
+ * The CLI's standard output is what an agent parses, and two things used to reach it ahead
+ * of the result: the application's own log (Kermit's platform writer prints to standard
+ * output until something points it elsewhere) and a third-party banner. Both landed on
+ * `agent open` in front of the JSON, so a `… | jq` pipe failed on every command that
+ * started Koin. This is the same guard the MCP server's protocol channel has, applied to
+ * the CLI's result channel.
+ *
+ * Extracted from [runToolServer] so a test can assert the routing without forking a JVM:
+ * [installStderrLogging] points the log at standard error, [ProtocolStdout.reserve] takes
+ * standard output and moves stray prints there, and the reserved stream is handed to the
+ * CLI as its result sink.
+ *
+ * @return the CLI's exit code.
+ */
+internal fun runScreenInspectorCliHost(
+    args: Array<String>,
+    koinStartup: ToolServerKoinStartup,
+    inspectorHostCompiledIn: Boolean,
+): Int {
+    installStderrLogging()
+    val resultOut = ProtocolStdout.reserve()
+    val cliArgs = stripScreenInspectorCliArgs(args)
+    return com.singularity.todo.mcp.introspection.ScreenInspectorCli
+        .run(cliArgs, koinStartup, inspectorHostCompiledIn, resultOut.asPrintStream())
+}
 
 /**
  * Points the logger at standard error.
