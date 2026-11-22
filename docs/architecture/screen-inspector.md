@@ -340,4 +340,6 @@ KDoc names the boundary; the parts worth knowing here:
   snapshot is an allowlisted projection, not an inventory of the screen.
 
 So: passing the headless suite is not evidence that a control is wired or that anything
-is rendered. It is evidence about the adapter and the coordinator only.
+is rendered. The screen-behavior tests in it are evidence about the adapter and the
+coordinator only; the host opt-in test separately pins registration, and neither kind
+says anything about a Compose control.
