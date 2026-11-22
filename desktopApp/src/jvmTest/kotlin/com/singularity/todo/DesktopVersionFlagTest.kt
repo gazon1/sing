@@ -78,11 +78,13 @@ class DesktopVersionFlagTest {
 
     @Test
     fun `single unexpected positional argument is rejected`() {
-        val error = kotlin.test.assertFailsWith<com.github.ajalt.clikt.core.UsageError> {
-            DesktopLaunchCli().parse(arrayOf("unexpected-command"))
-        }
-        val message = listOfNotNull(error.message, error.localizedMessage, error.toString())
-            .joinToString(" | ")
+        val error =
+            kotlin.test.assertFailsWith<com.github.ajalt.clikt.core.UsageError> {
+                DesktopLaunchCli().parse(arrayOf("unexpected-command"))
+            }
+        val message =
+            listOfNotNull(error.message, error.localizedMessage, error.toString())
+                .joinToString(" | ")
         kotlin.test.assertTrue(
             message.contains("unexpected", ignoreCase = true) ||
                 message.contains("argument", ignoreCase = true),

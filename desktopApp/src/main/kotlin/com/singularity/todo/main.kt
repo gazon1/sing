@@ -260,7 +260,7 @@ internal class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
         // CLI validation for typos and unsupported invocations.
         require(
             value.contains('/') || value.contains('\\') ||
-                value.endsWith(".exe") || value.endsWith(".bat") || value.endsWith(".cmd")
+                value.endsWith(".exe") || value.endsWith(".bat") || value.endsWith(".cmd"),
         ) { "unexpected argument \"$value\"" }
     }
 
