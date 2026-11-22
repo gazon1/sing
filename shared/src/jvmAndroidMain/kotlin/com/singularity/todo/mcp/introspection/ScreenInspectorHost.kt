@@ -126,15 +126,20 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
         return encode(envelope)
     }
 
+    /**
+     * Releases the runtime, holding the same lock [withRuntime] holds.
+     *
+     * Closing *inside* the lock is the point, not an accident: a teardown that released the
+     * lock first would leave a window where a request obtains the runtime and then finds its
+     * sessions closed underneath it — it would report failure for an action it had already
+     * performed, which is the exact class of bug this host has already paid for once.
+     */
     override fun close() {
-        val closed =
-            synchronized(lock) {
-                runtime.also {
-                    runtime = null
-                    currentKoin = null
-                }
-            }
-        closed?.let { runCatching { it.close() } }
+        synchronized(lock) {
+            runCatching { runtime?.close() }
+            runtime = null
+            currentKoin = null
+        }
     }
 
     /** True once a request has created the runtime; the host's diagnostics read it. */
@@ -235,32 +240,32 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
     ): JsonObject =
         when (op) {
             "screens" -> {
-                runtimeFor(koin).capabilities()
+                withRuntime(koin) { it.capabilities() }
             }
 
             "sessions" -> {
-                runtimeFor(koin).sessions()
+                withRuntime(koin) { it.sessions() }
             }
 
             "open" -> {
                 val screen = request.string("screen")
                 val params = request.obj("params")
-                runtimeFor(koin).open(screen, params)
+                withRuntime(koin) { it.open(screen, params) }
             }
 
             "describe" -> {
                 val sessionId = request.optString("sessionId")
-                runtimeFor(koin).describe(sessionId)
+                withRuntime(koin) { it.describe(sessionId) }
             }
 
             "snapshot", "inspect" -> {
                 val sessionId = request.optString("sessionId")
-                runtimeFor(koin).snapshot(sessionId)
+                withRuntime(koin) { it.snapshot(sessionId) }
             }
 
             "actions" -> {
                 val sessionId = request.optString("sessionId")
-                runtimeFor(koin).actions(sessionId)
+                withRuntime(koin) { it.actions(sessionId) }
             }
 
             "invoke" -> {
@@ -273,15 +278,16 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
                 // the client has no way to know the write happened.
                 val input = request.obj("input")
                 val waitMs = request.nonNegativeLongOrNull("waitMs")
-                val runtime = runtimeFor(koin)
-                val result = runBlocking { runtime.invoke(sessionId, action, input) }
-                val operationId = result["operationId"]?.jsonPrimitive?.contentOrNull
-                if (waitMs == null || operationId == null) {
-                    result
-                } else {
-                    buildJsonObject {
-                        result.forEach { (key, value) -> put(key, value) }
-                        put("wait", runBlocking { runtime.wait(sessionId, operationId, waitMs) })
+                withRuntime(koin) { runtime ->
+                    val result = runBlocking { runtime.invoke(sessionId, action, input) }
+                    val operationId = result["operationId"]?.jsonPrimitive?.contentOrNull
+                    if (waitMs == null || operationId == null) {
+                        result
+                    } else {
+                        buildJsonObject {
+                            result.forEach { (key, value) -> put(key, value) }
+                            put("wait", runBlocking { runtime.wait(sessionId, operationId, waitMs) })
+                        }
                     }
                 }
             }
@@ -290,18 +296,18 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
                 val sessionId = request.optString("sessionId")
                 val operationId = request.string("operationId")
                 val timeoutMs = request.nonNegativeLongOrNull("timeoutMs") ?: DEFAULT_WAIT_MS
-                runBlocking { runtimeFor(koin).wait(sessionId, operationId, timeoutMs) }
+                withRuntime(koin) { runBlocking { it.wait(sessionId, operationId, timeoutMs) } }
             }
 
             "cancel" -> {
                 val sessionId = request.optString("sessionId")
                 val operationId = request.string("operationId")
-                runtimeFor(koin).cancel(sessionId, operationId)
+                withRuntime(koin) { it.cancel(sessionId, operationId) }
             }
 
             "close" -> {
                 val sessionId = request.optString("sessionId")
-                runtimeFor(koin).close(sessionId)
+                withRuntime(koin) { it.close(sessionId) }
             }
 
             else -> {
@@ -310,27 +316,63 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
         }
 
     /**
-     * The runtime for [koin], rebuilt when the container it was captured from changed.
+     * Runs [block] against the runtime, holding the host lock for its whole duration.
      *
-     * The runtime holds the container it was constructed with, so reusing it after `Koin`
-     * was stopped and started again would dispatch through a stale application graph — a
-     * request would find the *new* container and then drive the *old* one. On Android the
-     * container is created once per process, so this normally never fires; on the JVM a
-     * test that starts a second container in the same process does trip it, which is
-     * exactly the case where the wrong graph would otherwise go unnoticed.
+     * Two properties come from that one lock, and they are the reason it is held across the
+     * call rather than only around the lookup:
+     *
+     * - **A closed runtime is never in use.** [close] takes the same lock, so a request
+     *   cannot be mid-dispatch while its runtime is being torn down. Replacing the runtime
+     *   under a live request was the defect an earlier revision of this host had: one
+     *   request closed the runtime another was still using, and the second request reported
+     *   failure for an action it had already performed.
+     * - **A changed container fails closed.** The runtime captures the container it was
+     *   built from, so a different container means the graph is not the one the sessions
+     *   belong to. That is not something to paper over by swapping the runtime — it is a
+     *   programming error, and the honest answer is `internal`, not a request silently
+     *   dispatched against a graph nobody asked for.
+     *
+     * The lock is coarse on purpose. This is a debug surface driven by one agent at a time,
+     * and the waits it accepts are bounded; a finer scheme would buy throughput nobody is
+     * asking for in exchange for exactly the kind of lifecycle race it is here to prevent.
+     *
+     * **This is protected by construction, not by a test.** A test that races a close
+     * against a request cannot fail here without a real container and a blocking op: the
+     * runtime's `sessions` map is concurrent, so a torn teardown looks like an empty list
+     * rather than an error, and an attempt at such a test passed with the close moved back
+     * outside the lock. It was removed rather than kept as a green checkmark over nothing.
+     * The property it would have pinned is visible in this file instead: [withRuntime] and
+     * [close] take the same monitor, and every dispatch branch goes through [withRuntime].
      */
-    private fun runtimeFor(koin: Koin): ScreenInspectorRuntime =
+    private fun <T> withRuntime(
+        koin: Koin,
+        block: (ScreenInspectorRuntime) -> T,
+    ): T =
         synchronized(lock) {
             val current = runtime
-            if (current != null && currentKoin === koin) {
-                current
-            } else {
-                current?.close()
-                ScreenInspectorRuntime(koin).also {
-                    runtime = it
-                    currentKoin = koin
+            val usable =
+                when {
+                    current == null -> {
+                        ScreenInspectorRuntime(koin).also {
+                            runtime = it
+                            currentKoin = koin
+                        }
+                    }
+
+                    currentKoin === koin -> {
+                        current
+                    }
+
+                    else -> {
+                        throw InspectorException(
+                            InspectorErrorCode.INTERNAL,
+                            "The application container was replaced while the screen inspector " +
+                                "was running; the open sessions belong to the previous graph. " +
+                                "Restart the host before inspecting again.",
+                        )
+                    }
                 }
-            }
+            block(usable)
         }
 
     private fun JsonObject.string(key: String): String {
@@ -359,17 +401,25 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
             ?: throw InspectorException(InspectorErrorCode.INVALID_ARGUMENTS, "Field '$key' must be a JSON object.")
     }
 
-    /** A duration the caller supplied: absent, or a non-negative whole number. */
+    /**
+     * A duration the caller supplied: absent, or a whole number within [MAX_WAIT_MS].
+     *
+     * The upper bound is not cosmetic. The provider serves the request on a binder thread,
+     * and `Long.MAX_VALUE` is a legal JSON number — accepting it would park that thread for
+     * essentially ever. Enough such requests exhaust the process's binder threads, and then
+     * *unrelated* IPC in the app stops answering. A debug surface must not be able to do
+     * that, so a value above [MAX_WAIT_MS] is refused before anything is dispatched.
+     */
     private fun JsonObject.nonNegativeLongOrNull(key: String): Long? {
         val element = this[key] ?: return null
         if (element is JsonNull) return null
-        // A string is not a number, a boolean is not a number, and a negative duration is
-        // not a duration. All three are the same refusal, so they are one branch.
+        // A string is not a number, a boolean is not a number, a negative duration is not a
+        // duration, and an unbounded one is not a bounded wait. All four are one refusal.
         val value = (element as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
-        return value?.takeIf { it >= 0L }
+        return value?.takeIf { it in 0L..MAX_WAIT_MS }
             ?: throw InspectorException(
                 InspectorErrorCode.INVALID_ARGUMENTS,
-                "Field '$key' must be a non-negative integer.",
+                "Field '$key' must be an integer between 0 and $MAX_WAIT_MS.",
             )
     }
 
@@ -400,5 +450,14 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
             )
 
         private const val DEFAULT_WAIT_MS = 30_000L
+
+        /**
+         * The longest a single request may occupy its binder thread.
+         *
+         * Above the default (30s) so a caller can ask for more observation time, low enough
+         * that a handful of stalled requests cannot hold every binder thread the process
+         * has. See [nonNegativeLongOrNull].
+         */
+        private const val MAX_WAIT_MS = 120_000L
     }
 }

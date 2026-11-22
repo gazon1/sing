@@ -229,12 +229,17 @@ class ScreenInspectorHostContractTest {
     }
 
     @Test
-    fun `the runtime is rebuilt when the container changes underneath it`() {
-        // A runtime captures the container it was built from. Reusing it after the container
-        // was stopped and replaced would dispatch through a stale application graph: the
-        // request finds the new container, then drives the old one. On Android the container
-        // is created once per process so this never fires there — on the JVM a test (or an
-        // embedder) that starts a second container in the same process trips exactly this.
+    fun `a replaced container fails closed instead of dispatching through the old graph`() {
+        // The runtime captures the container it was built from, so a *different* container
+        // means the open sessions belong to a graph that is gone. That is a programming
+        // error, and the honest answer is `internal` — not a silent swap, and certainly not
+        // a request dispatched against a graph nobody asked for.
+        //
+        // Both containers hold a container-shaped object and neither holds any binding, so
+        // the assertion cannot pass by the *content* of the containers differing. The
+        // message is what distinguishes the paths: a host that reused the stale runtime
+        // would have reached `ScreenRegistry` and produced a session or a registry error,
+        // never this refusal.
         val first = koinApplication { modules(emptyList()) }
         val second = koinApplication { modules(emptyList()) }
         var current: Koin = first.koin
@@ -243,37 +248,50 @@ class ScreenInspectorHostContractTest {
         host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
         assertTrue(host.isStarted(), "the first request did not create a runtime")
 
-        // Swap the container under the SAME host. `open` is the op that proves which
-        // container is in use: it resolves a TaskDetailCoordinator out of Koin, so a runtime
-        // still holding the first (empty) container fails to resolve and answers `internal`,
-        // while a rebuilt runtime resolves from the new one and answers something else.
         current = second.koin
-        val envelope =
-            host.handle(
-                ScreenInspectorHost.METHOD,
-                """{"op":"open","screen":"tasks.task-detail","params":{"taskId":"t"}}""",
-            )
-        assertEquals(
-            "false",
-            json
-                .parseToJsonElement(envelope)
-                .jsonObject["ok"]
-                ?.jsonPrimitive
-                ?.content,
-            "an open on an empty container should not succeed: $envelope",
-        )
-        assertTrue(host.isStarted(), "the runtime disappeared instead of being rebuilt")
-        // The proof it was rebuilt rather than reused: the old runtime holds `first`, and
-        // the resolved-from graph is what failed — either way the host must not have kept a
-        // runtime whose container is gone. `second` is closed below, so a stale runtime
-        // would surface on the next request.
+        val envelope = host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
 
-        // Closing the host now must close the *rebuilt* runtime, not the first one.
+        val parsed = json.parseToJsonElement(envelope).jsonObject
+        assertEquals("false", parsed["ok"]?.jsonPrimitive?.content, "a replaced container was not refused: $envelope")
+        assertEquals("internal", errorCode(envelope))
+        assertTrue(
+            envelope.contains("container was replaced"),
+            "the refusal did not come from the container-change check, so the host reused the " +
+                "stale runtime instead of failing closed: $envelope",
+        )
+
         host.close()
         assertFalse(host.isStarted())
-
         first.close()
         second.close()
+    }
+
+    @Test
+    fun `an unbounded wait is refused before anything is dispatched`() {
+        // The provider answers on a binder thread. `Long.MAX_VALUE` is a legal JSON number,
+        // and accepting it parks that thread for effectively ever; enough of them exhaust
+        // the process's binder threads and unrelated IPC in the app stops answering.
+        val app = koinApplication { modules(emptyList()) }
+        val host = ScreenInspectorHost { app.koin }
+
+        // `waitMs` belongs to `invoke` and `timeoutMs` to `wait`; each is bounded by the
+        // same rule, and the refusal names the field that was out of range — which is also
+        // how the assertion knows the bound fired rather than some later failure.
+        val requests =
+            mapOf(
+                "waitMs" to
+                    """{"op":"invoke","action":"set_priority","input":{"priority":"high"},"waitMs":9223372036854775807}""",
+                "timeoutMs" to
+                    """{"op":"wait","operationId":"op-1","timeoutMs":9223372036854775807}""",
+            )
+        requests.forEach { (field, request) ->
+            val envelope = host.handle(ScreenInspectorHost.METHOD, request)
+            assertEquals("invalid_arguments", errorCode(envelope), "$field was not bounded: $envelope")
+            assertTrue(envelope.contains(field), "the refusal does not name $field: $envelope")
+        }
+
+        host.close()
+        app.close()
     }
 
     private fun errorCode(envelope: String): String? =

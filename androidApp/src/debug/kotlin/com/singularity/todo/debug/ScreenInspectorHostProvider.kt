@@ -9,7 +9,7 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
 import android.os.Process
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Debug-only host for the headless screen-inspector contract (#3074).
@@ -59,13 +59,27 @@ class ScreenInspectorHostProvider : ContentProvider() {
             context?.applicationContext as? Application
                 ?: return true
         runCatching {
-            // Counted here rather than read from the Application: `Application` exposes no
-            // "how many activities are resumed" and the counter is two integer updates.
-            val resumed = AtomicInteger(0)
+            // The started activities, tracked by identity. `onActivityStarted` and
+            // `onActivityStopped` are a genuine pair in Android's lifecycle — unlike
+            // resume/stop, which mix (an activity pauses and resumes many times without
+            // stopping, and can stop without ever resuming), so a counter over them drifts
+            // and either never releases or releases too early. A set is exact by
+            // construction.
+            //
+            // Release happens when *no* activity is started: nothing is on screen, so no
+            // agent can be driving one. Not on pause — a permission dialog or a
+            // configuration change pauses an activity without meaning the session is over.
+            val started = ConcurrentHashMap.newKeySet<Activity>()
             application.registerActivityLifecycleCallbacks(
                 object : Application.ActivityLifecycleCallbacks {
+                    override fun onActivityStarted(activity: Activity) {
+                        started.add(activity)
+                    }
+
                     override fun onActivityStopped(activity: Activity) {
-                        if (resumed.decrementAndGet() <= 0) ScreenInspectorDeviceHost.stop()
+                        if (started.remove(activity) && started.isEmpty()) {
+                            ScreenInspectorDeviceHost.stop()
+                        }
                     }
 
                     override fun onActivityCreated(
@@ -73,11 +87,7 @@ class ScreenInspectorHostProvider : ContentProvider() {
                         savedInstanceState: Bundle?,
                     ) = Unit
 
-                    override fun onActivityStarted(activity: Activity) = Unit
-
-                    override fun onActivityResumed(activity: Activity) {
-                        resumed.incrementAndGet()
-                    }
+                    override fun onActivityResumed(activity: Activity) = Unit
 
                     override fun onActivityPaused(activity: Activity) = Unit
 
@@ -86,7 +96,12 @@ class ScreenInspectorHostProvider : ContentProvider() {
                         outState: Bundle,
                     ) = Unit
 
-                    override fun onActivityDestroyed(activity: Activity) = Unit
+                    override fun onActivityDestroyed(activity: Activity) {
+                        // Destroyed without a stop we saw — a finish in the same frame, or a
+                        // recreate — would otherwise pin the set non-empty and the host
+                        // would never be released.
+                        started.remove(activity)
+                    }
                 },
             )
         }

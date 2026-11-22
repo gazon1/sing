@@ -105,13 +105,35 @@ answers both.
    cheaper side of that trade, and `ScreenInspectorHostContractTest` pins the host's side of
    it.
 
-8. **Every field is validated before anything is dispatched.** A request is read whole and
+8. **Requests are serialised, and a replaced container fails closed.** One monitor covers
+   both the dispatch and the teardown, so a request cannot be mid-flight while its runtime is
+   closed — the failure mode being a request that reports failure for an action it already
+   performed. The runtime captures the container it was built from, so a *different*
+   container means the open sessions belong to a graph that no longer exists: that answers
+   `internal` rather than silently swapping the runtime. On Android the container is created
+   once per process, so this is a programming-error path, not a normal one.
+
+9. **Caller-supplied waits are bounded.** `waitMs` and `timeoutMs` accept 0…120 000 ms. The
+   provider answers on a binder thread, and `Long.MAX_VALUE` is legal JSON — enough such
+   requests would park every binder thread the process has and make *unrelated* IPC in the
+   app stop answering. A debug surface must not be able to do that.
+
+10. **The lifecycle hook releases on the last activity *stopped*, tracked by identity.**
+   `onActivityStarted`/`onActivityStopped` are a genuine pair; resume/stop are not (an
+   activity pauses and resumes many times without stopping, and can stop without ever
+   resuming), so a counter over them drifts — it either never releases the runtime or
+   releases it too early. Pause is deliberately not the trigger: a permission dialog or a
+   configuration change pauses without meaning the session is over.
+
+11. **Every field is validated before anything is dispatched.** A request is read whole and
    rejected whole: an unknown `op`, a non-string `op`, a malformed body, a negative or
    non-numeric `waitMs`/`timeoutMs` — each answers `invalid_arguments` **before** a runtime
    is touched. This is stated as a decision because the first revision got it wrong for
    `waitMs`: it validated *after* `runtime.invoke`, so a request with `"waitMs": -1` performed
    a real domain action and then reported the request as refused. A client had no way to
-   learn the write happened.
+   learn the write happened. A later revision still created the *runtime* before validating,
+   which is the same mistake one level down: the runtime captured a container the refused
+   request had no business initialising.
 
 ## Rationale
 
