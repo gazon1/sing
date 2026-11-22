@@ -12,8 +12,10 @@ There is no flow count here on purpose: the catalogue is
 `config/docs/maestro-flows.txt`, held to the tree by
 `scripts/check-maestro-flow-catalogue.py`. Read it when a number is needed.
 
-Current E2E health — which flows fail, and why — is tracked in issue #2837,
-not in this skill. A result recorded here would be stale by the next run.
+Which flows fail today is not here — a result recorded in this skill would be
+stale by the next run. The accepted causes and their owning issues are in
+`config/docs/maestro-debt.yaml`, and the reliability work is tracked in
+issue #2837.
 
 ## Prerequisites: emulator first
 
