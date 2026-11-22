@@ -16,7 +16,7 @@ import kotlinx.serialization.json.put
  * reads the constant to know which semantics to apply. The version moves only when a
  * published meaning changes.
  */
-const val SCREEN_INTROSPECTION_CONTRACT_VERSION: Int = 1
+const val SCREEN_INTROSPECTION_CONTRACT_VERSION: Int = 2
 
 private val SUPPORTED_SCHEMA_KEYS: Set<String> =
     setOf("type", "required", "properties", "additionalProperties")
@@ -33,12 +33,19 @@ private val SUPPORTED_PROPERTY_KEYS: Set<String> =
  * shows no subject. [focus] is the focused element within that subject, or null when nothing
  * is focused; it carries only what the screen shows, so a title draft is the title an agent
  * reads.
+ *
+ * [navigation] is where the screen has asked to go, or null when it has asked for nothing.
+ * It is the destination the screen itself decided on — the same one its own click handler
+ * would hand the application's navigator — published as `{"screen": "<id>", "params": {...}}`
+ * so a driver can open the next screen instead of mutating navigation state behind the
+ * application's back. A screen that cannot navigate never publishes it.
  */
 data class ScreenState(
     val status: String,
     val message: String? = null,
     val subject: JsonObject? = null,
     val focus: JsonObject? = null,
+    val navigation: JsonObject? = null,
 )
 
 /**
@@ -328,6 +335,7 @@ class ScreenIntrospection(val screenId: String, actions: List<ScreenAction>) {
             put("status", state.status)
             state.message?.let { put("message", it) }
             state.subject?.let { put("subject", it) }
+            state.navigation?.let { put("navigation", it) }
         }
 
     /**
