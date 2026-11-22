@@ -138,6 +138,7 @@ class VerifyCommand : CliktCommand(name = "verify") {
 class GenerateCommand : CliktCommand(name = "generate") {
     override fun help(context: com.github.ajalt.clikt.core.Context): String =
         "Generate a deterministic synthetic native backup dataset for performance testing."
+
     val output by option("--output", help = "Output native backup ZIP path").required()
     val seed by option("--seed", help = "Deterministic generation seed").long().default(1L)
     val profileName by option(
@@ -174,10 +175,10 @@ class GenerateCommand : CliktCommand(name = "generate") {
     }
 
     private fun resolveParams(): GenerateParams {
-        val profile = profileName?.let {
-            GenerateProfile.fromCliName(it)
-                ?: error("Unknown profile '$it'. Supported: ${GenerateProfile.entries.joinToString { p -> p.cliName }}")
-        }
+        val profile =
+            profileName?.let { requested ->
+                GenerateProfile.fromCliName(requested) ?: error(unsupportedProfileMessage(requested))
+            }
         val base = profile?.let { SyntheticBackupGenerator.defaultParams(it, seed) } ?: customBaseParams()
         return base.copy(
             seed = seed,
@@ -191,6 +192,11 @@ class GenerateCommand : CliktCommand(name = "generate") {
             notes = notes ?: base.notes,
             checklistItems = checklistItems ?: base.checklistItems,
         )
+    }
+
+    private fun unsupportedProfileMessage(requested: String): String {
+        val supported = GenerateProfile.entries.joinToString(", ") { it.cliName }
+        return "Unknown profile '$requested'. Supported: $supported"
     }
 
     private fun customBaseParams(): GenerateParams =
@@ -223,7 +229,10 @@ class GenerateCommand : CliktCommand(name = "generate") {
     private fun encodeManifest(manifest: BackupManifest): ByteArray =
         StableJson.encodeToString(BackupManifest.serializer(), manifest).encodeToByteArray()
 
-    private fun buildManifest(payload: BackupPayload, payloadBytes: ByteArray): BackupManifest =
+    private fun buildManifest(
+        payload: BackupPayload,
+        payloadBytes: ByteArray,
+    ): BackupManifest =
         BackupDomain.buildManifest(
             appVersion = appVersion().name,
             nowEpochMillis = 0L,
@@ -232,7 +241,10 @@ class GenerateCommand : CliktCommand(name = "generate") {
             counts = BackupDomain.countsOf(payload),
         )
 
-    private fun writeArchive(manifestBytes: ByteArray, payloadBytes: ByteArray) {
+    private fun writeArchive(
+        manifestBytes: ByteArray,
+        payloadBytes: ByteArray,
+    ) {
         System.err.print("\r[3/5] Writing archive...")
         System.err.flush()
         runBlocking {
@@ -240,23 +252,28 @@ class GenerateCommand : CliktCommand(name = "generate") {
         }
     }
 
-    private fun writeSidecar(generated: GeneratedDataset, manifest: BackupManifest): String {
+    private fun writeSidecar(
+        generated: GeneratedDataset,
+        manifest: BackupManifest,
+    ): String {
         System.err.print("\r[4/5] Writing sidecar...")
         System.err.flush()
         val payload = generated.payload
-        val sidecar = generated.manifest.copy(
-            actualCounts = generated.manifest.actualCounts.copy(
-                tasks = payload.tasks.size,
-                projects = payload.projects.size,
-                tags = payload.tags.size,
-                notes = payload.notes.size,
-                checklistItems = payload.checklistItems.size,
-                taskDependencies = payload.taskDependencies.size,
-                taskTags = payload.taskTags.size,
-            ),
-            schemaVersion = manifest.schemaVersion,
-            payloadChecksum = manifest.payloadChecksum,
-        )
+        val sidecar =
+            generated.manifest.copy(
+                actualCounts =
+                    generated.manifest.actualCounts.copy(
+                        tasks = payload.tasks.size,
+                        projects = payload.projects.size,
+                        tags = payload.tags.size,
+                        notes = payload.notes.size,
+                        checklistItems = payload.checklistItems.size,
+                        taskDependencies = payload.taskDependencies.size,
+                        taskTags = payload.taskTags.size,
+                    ),
+                schemaVersion = manifest.schemaVersion,
+                payloadChecksum = manifest.payloadChecksum,
+            )
         val sidecarPath = sidecarPathFor(output)
         File(sidecarPath).writeText(StableJson.encodeToString(GenerateManifest.serializer(), sidecar))
         return sidecarPath
@@ -267,10 +284,11 @@ class GenerateCommand : CliktCommand(name = "generate") {
         System.err.flush()
         val read = runBlocking { JvmBackupCodec().import(output, JvmFileSystem()).getOrThrow() }
         val decodedPayload = StableJson.decodeFromString(BackupPayload.serializer(), read.payloadBytes.decodeToString())
-        BackupDomain.validateManifest(
-            StableJson.decodeFromString(BackupManifest.serializer(), read.manifestBytes.decodeToString()),
-            read.payloadBytes,
-        ).getOrThrow()
+        BackupDomain
+            .validateManifest(
+                StableJson.decodeFromString(BackupManifest.serializer(), read.manifestBytes.decodeToString()),
+                read.payloadBytes,
+            ).getOrThrow()
         SyntheticBackupValidator.validate(decodedPayload)
     }
 
@@ -291,7 +309,9 @@ class GenerateCommand : CliktCommand(name = "generate") {
                 "notes=${payload.notes.size} checklistItems=${payload.checklistItems.size} " +
                 "taskDependencies=${payload.taskDependencies.size} taskTags=${payload.taskTags.size}",
         )
-        println("Manifest: schemaVersion=${manifest.schemaVersion} formatVersion=${manifest.formatVersion} payloadChecksum=${manifest.payloadChecksum}")
+        println(
+            "Manifest: schemaVersion=${manifest.schemaVersion} formatVersion=${manifest.formatVersion} payloadChecksum=${manifest.payloadChecksum}",
+        )
         println(
             "Archive: entries=2 decompressedBytes=${payloadBytes.size.toLong() + manifestBytes.size.toLong()} " +
                 "(budget entries=${ArchiveBudget.MAX_ENTRIES} bytes=${ArchiveBudget.MAX_TOTAL_BYTES})",
@@ -299,6 +319,9 @@ class GenerateCommand : CliktCommand(name = "generate") {
     }
 
     private fun sidecarPathFor(archivePath: String): String =
-        if (archivePath.endsWith(".zip")) archivePath.removeSuffix(".zip") + ".manifest.json"
-        else "$archivePath.manifest.json"
+        if (archivePath.endsWith(".zip")) {
+            archivePath.removeSuffix(".zip") + ".manifest.json"
+        } else {
+            "$archivePath.manifest.json"
+        }
 }

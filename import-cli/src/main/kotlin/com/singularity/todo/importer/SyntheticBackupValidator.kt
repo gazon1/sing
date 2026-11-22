@@ -42,7 +42,9 @@ object SyntheticBackupValidator {
 
         payload.taskDependencies.forEach { dep ->
             require(dep.taskId in taskIds) { "dependency references missing task ${dep.taskId}" }
-            require(dep.dependsOnTaskId in taskIds) { "dependency references missing dependsOnTaskId ${dep.dependsOnTaskId}" }
+            require(
+                dep.dependsOnTaskId in taskIds,
+            ) { "dependency references missing dependsOnTaskId ${dep.dependsOnTaskId}" }
             require(dep.taskId != dep.dependsOnTaskId) { "dependency self-loop on ${dep.taskId}" }
         }
         ensureNoDependencyCycles(payload)
@@ -57,7 +59,11 @@ object SyntheticBackupValidator {
         }
     }
 
-    fun ensureWithinArchiveBudget(payloadBytes: ByteArray, manifestBytes: ByteArray, attachmentCount: Int = 0) {
+    fun ensureWithinArchiveBudget(
+        payloadBytes: ByteArray,
+        manifestBytes: ByteArray,
+        attachmentCount: Int = 0,
+    ) {
         val entryCount = 2 + attachmentCount
         val totalBytes = payloadBytes.size.toLong() + manifestBytes.size.toLong()
         if (entryCount > ArchiveBudget.MAX_ENTRIES || totalBytes > ArchiveBudget.MAX_TOTAL_BYTES) {
@@ -74,6 +80,7 @@ object SyntheticBackupValidator {
         val parentById = payload.projects.associate { it.id to it.parentId }
         val visiting = HashSet<String>()
         val visited = HashSet<String>()
+
         fun dfs(id: String) {
             if (!visiting.add(id)) error("project hierarchy cycle detected at $id")
             if (id in visited) {
@@ -91,6 +98,7 @@ object SyntheticBackupValidator {
         val parentById = payload.tasks.associate { it.id to it.parentTaskId }
         val visiting = HashSet<String>()
         val visited = HashSet<String>()
+
         fun dfs(id: String) {
             if (!visiting.add(id)) error("task hierarchy cycle detected at $id")
             if (id in visited) {
@@ -112,6 +120,7 @@ object SyntheticBackupValidator {
         }
         val visiting = HashSet<String>()
         val visited = HashSet<String>()
+
         fun dfs(id: String) {
             if (!visiting.add(id)) error("task dependency cycle detected at $id")
             if (id in visited) {

@@ -29,25 +29,32 @@ class SyntheticBackupGeneratorTest {
 
     @Test
     fun `different seed produces different payload`() {
-        val a = SyntheticBackupGenerator.generate(SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 1L))
-        val b = SyntheticBackupGenerator.generate(SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 2L))
+        val a =
+            SyntheticBackupGenerator.generate(
+                SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 1L),
+            )
+        val b =
+            SyntheticBackupGenerator.generate(
+                SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 2L),
+            )
         assertTrue(a.payload != b.payload, "different seeds should change generated data")
     }
 
     @Test
     fun `counts and relationships match requested params`() {
-        val params = GenerateParams(
-            seed = 7L,
-            profile = "custom",
-            tasks = 120,
-            projects = 8,
-            taskHierarchyDepth = 3,
-            subtaskShare = 0.25,
-            tags = 12,
-            dependencyDensity = 0.2,
-            notes = 15,
-            checklistItems = 40,
-        )
+        val params =
+            GenerateParams(
+                seed = 7L,
+                profile = "custom",
+                tasks = 120,
+                projects = 8,
+                taskHierarchyDepth = 3,
+                subtaskShare = 0.25,
+                tags = 12,
+                dependencyDensity = 0.2,
+                notes = 15,
+                checklistItems = 40,
+            )
         val generated = SyntheticBackupGenerator.generate(params)
         val payload = generated.payload
 
@@ -122,13 +129,18 @@ class SyntheticBackupGeneratorTest {
 
     @Test
     fun `dependency graph is acyclic`() {
-        val payload = SyntheticBackupGenerator.generate(
-            SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_10K, seed = 99L).copy(dependencyDensity = 0.8),
-        ).payload
+        val payload =
+            SyntheticBackupGenerator
+                .generate(
+                    SyntheticBackupGenerator
+                        .defaultParams(GenerateProfile.TASKS_10K, seed = 99L)
+                        .copy(dependencyDensity = 0.8),
+                ).payload
 
         val outgoing = payload.taskDependencies.groupBy({ it.taskId }) { it.dependsOnTaskId }
         val visiting = HashSet<String>()
         val visited = HashSet<String>()
+
         fun dfs(id: String) {
             if (!visiting.add(id)) error("cycle at $id")
             if (id in visited) {
@@ -142,14 +154,54 @@ class SyntheticBackupGeneratorTest {
         payload.tasks.forEach { dfs(it.id) }
     }
 
+    /**
+     * A dataset with fewer than three tags used to generate forever: the per-task
+     * tag count could ask for two or three distinct tags out of a pool of one, and
+     * the draw below it only stops when the set holds that many.
+     *
+     * The test is a hang detector, which is why it asserts on the result rather than
+     * on a timeout: a regression fails the suite instead of wedging it if the build
+     * runs with a test timeout.
+     */
+    @Test
+    fun `small tag pool does not hang the generator`() {
+        for (tagCount in 0..3) {
+            val params =
+                GenerateParams(
+                    seed = 5L,
+                    profile = null,
+                    tasks = 200,
+                    projects = 4,
+                    taskHierarchyDepth = 2,
+                    subtaskShare = 0.25,
+                    tags = tagCount,
+                    dependencyDensity = 0.1,
+                    notes = 5,
+                    checklistItems = 10,
+                )
+            val payload = SyntheticBackupGenerator.generate(params).payload
+
+            assertEquals(tagCount, payload.tags.size)
+            val tagIds = payload.tags.map { it.id }.toSet()
+            payload.taskTags.forEach { ref -> assertTrue(ref.tagId in tagIds, "dangling tag ${ref.tagId}") }
+            // No task may carry the same tag twice, whatever the pool size was.
+            val perTask = payload.taskTags.groupBy { it.taskId }.mapValues { (_, refs) -> refs.map { it.tagId } }
+            perTask.forEach { (taskId, tagIdsOfTask) ->
+                assertEquals(tagIdsOfTask.size, tagIdsOfTask.toSet().size, "duplicate tag on $taskId")
+                assertTrue(tagIdsOfTask.size <= tagCount, "$taskId has more tags than the pool holds")
+            }
+        }
+    }
+
     @Test
     fun `archive budget overflow is reported and not bypassed`() {
-        val ex = assertFailsWith<IllegalArgumentException> {
-            SyntheticBackupValidator.ensureWithinArchiveBudget(
-                payloadBytes = ByteArray((ArchiveBudget.MAX_TOTAL_BYTES + 1).toInt().coerceAtLeast(1)),
-                manifestBytes = ByteArray(0),
-            )
-        }
+        val ex =
+            assertFailsWith<IllegalArgumentException> {
+                SyntheticBackupValidator.ensureWithinArchiveBudget(
+                    payloadBytes = ByteArray((ArchiveBudget.MAX_TOTAL_BYTES + 1).toInt().coerceAtLeast(1)),
+                    manifestBytes = ByteArray(0),
+                )
+            }
         assertTrue(ex.message!!.contains("exceeds backup archive budget"), ex.message)
     }
 
@@ -162,13 +214,14 @@ class SyntheticBackupGeneratorTest {
             SyntheticBackupValidator.validate(payload)
 
             val payloadBytes = StableJson.encodeToString(BackupPayload.serializer(), payload).encodeToByteArray()
-            val manifest = BackupDomain.buildManifest(
-                appVersion = "test",
-                nowEpochMillis = 0L,
-                userId = UserId.anonymous,
-                payloadBytes = payloadBytes,
-                counts = BackupDomain.countsOf(payload),
-            )
+            val manifest =
+                BackupDomain.buildManifest(
+                    appVersion = "test",
+                    nowEpochMillis = 0L,
+                    userId = UserId.anonymous,
+                    payloadBytes = payloadBytes,
+                    counts = BackupDomain.countsOf(payload),
+                )
             val manifestBytes = StableJson.encodeToString(BackupManifest.serializer(), manifest).encodeToByteArray()
 
             val fs = JvmFileSystem()
@@ -177,8 +230,16 @@ class SyntheticBackupGeneratorTest {
             try {
                 codec.export(manifestBytes, payloadBytes, emptyList(), tmp.toString(), fs).getOrThrow()
                 val read = codec.import(tmp.toString(), fs).getOrThrow()
-                val decodedManifest = StableJson.decodeFromString(BackupManifest.serializer(), read.manifestBytes.decodeToString())
-                val decodedPayload = StableJson.decodeFromString(BackupPayload.serializer(), read.payloadBytes.decodeToString())
+                val decodedManifest =
+                    StableJson.decodeFromString(
+                        BackupManifest.serializer(),
+                        read.manifestBytes.decodeToString(),
+                    )
+                val decodedPayload =
+                    StableJson.decodeFromString(
+                        BackupPayload.serializer(),
+                        read.payloadBytes.decodeToString(),
+                    )
                 BackupDomain.validateManifest(decodedManifest, read.payloadBytes).getOrThrow()
                 SyntheticBackupValidator.validate(decodedPayload)
                 assertEquals(payload.tasks.size, decodedPayload.tasks.size)

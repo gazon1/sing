@@ -12,7 +12,6 @@ import com.singularity.todo.core.backup.TaskDto
 import com.singularity.todo.core.backup.TaskTagDto
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -71,45 +70,100 @@ data class ActualCounts(
 
 data class GeneratedDataset(val payload: BackupPayload, val manifest: GenerateManifest)
 
+/** Everything a named profile fixes besides its task count. */
+data class ProfileComposition(
+    val projects: Int,
+    val taskHierarchyDepth: Int,
+    val subtaskShare: Double,
+    val tags: Int,
+    val dependencyDensity: Double,
+    val notes: Int,
+    val checklistItems: Int,
+)
+
 @Suppress("TooManyFunctions")
 object SyntheticBackupGenerator {
     private const val BASE_EPOCH_MS = 1_735_689_600_000L // 2025-01-01T00:00:00Z
     private const val DAY_MS = 86_400_000L
     private val PRIORITIES = listOf("none", "low", "medium", "high", "urgent")
-    private val WORKFLOW_STATES = listOf("open", "next_up", "in_progress")
 
-    fun defaultParams(profile: GenerateProfile, seed: Long): GenerateParams {
-        val tasks = profile.taskCount
-        val projects = when (profile) {
-            GenerateProfile.TASKS_1K -> 20
-            GenerateProfile.TASKS_10K -> 100
-            GenerateProfile.TASKS_50K -> 250
-            GenerateProfile.TASKS_100K -> 400
-        }
-        val depth = when (profile) {
-            GenerateProfile.TASKS_1K -> 3
-            GenerateProfile.TASKS_10K -> 4
-            GenerateProfile.TASKS_50K -> 5
-            GenerateProfile.TASKS_100K -> 5
-        }
-        val notes = max(1, tasks / 10)
-        val checklistItems = tasks * 2
+    /**
+     * The composition each named profile carries.
+     *
+     * A profile is a promise that the dataset fits [ArchiveBudget.MAX_TOTAL_BYTES]
+     * and round-trips through the codec — not a promise about a task count. The
+     * compositions below were measured against the budget, not derived from the
+     * task count: the first version multiplied the task count by two and made both
+     * 50k and 100k exceed the 64 MB ceiling, so the two names a caller reaches for
+     * at scale produced no archive at all.
+     */
+    internal val PROFILE_COMPOSITIONS: Map<GenerateProfile, ProfileComposition> =
+        mapOf(
+            GenerateProfile.TASKS_1K to
+                ProfileComposition(
+                    projects = 20,
+                    taskHierarchyDepth = 3,
+                    subtaskShare = 0.25,
+                    tags = 30,
+                    dependencyDensity = 0.15,
+                    notes = 100,
+                    checklistItems = 2_000,
+                ),
+            GenerateProfile.TASKS_10K to
+                ProfileComposition(
+                    projects = 100,
+                    taskHierarchyDepth = 4,
+                    subtaskShare = 0.25,
+                    tags = 100,
+                    dependencyDensity = 0.15,
+                    notes = 1_000,
+                    checklistItems = 20_000,
+                ),
+            // 50k keeps the full per-task attachment density (2 checklist items and
+            // 100 notes per 1k tasks) that 10k has, only the tag count is trimmed.
+            GenerateProfile.TASKS_50K to
+                ProfileComposition(
+                    projects = 250,
+                    taskHierarchyDepth = 5,
+                    subtaskShare = 0.25,
+                    tags = 120,
+                    dependencyDensity = 0.10,
+                    notes = 2_000,
+                    checklistItems = 25_000,
+                ),
+            // 100k is the ceiling of the format, not of the profile list: the 100k
+            // task rows alone are ~61.7 MB of the 64 MB budget, so this profile
+            // carries no tags or notes and only a token dependency graph. Asking for
+            // a richer 100k composition fails the budget by design (the archive
+            // limit is a contract the app enforces on import).
+            GenerateProfile.TASKS_100K to
+                ProfileComposition(
+                    projects = 300,
+                    taskHierarchyDepth = 5,
+                    subtaskShare = 0.25,
+                    tags = 0,
+                    dependencyDensity = 0.02,
+                    notes = 0,
+                    checklistItems = 0,
+                ),
+        )
+
+    fun defaultParams(
+        profile: GenerateProfile,
+        seed: Long,
+    ): GenerateParams {
+        val composition = PROFILE_COMPOSITIONS.getValue(profile)
         return GenerateParams(
             seed = seed,
             profile = profile.cliName,
-            tasks = tasks,
-            projects = projects,
-            taskHierarchyDepth = depth,
-            subtaskShare = 0.25,
-            tags = when (profile) {
-                GenerateProfile.TASKS_1K -> 30
-                GenerateProfile.TASKS_10K -> 100
-                GenerateProfile.TASKS_50K -> 200
-                GenerateProfile.TASKS_100K -> 300
-            },
-            dependencyDensity = 0.15,
-            notes = notes,
-            checklistItems = checklistItems,
+            tasks = profile.taskCount,
+            projects = composition.projects,
+            taskHierarchyDepth = composition.taskHierarchyDepth,
+            subtaskShare = composition.subtaskShare,
+            tags = composition.tags,
+            dependencyDensity = composition.dependencyDensity,
+            notes = composition.notes,
+            checklistItems = composition.checklistItems,
         )
     }
 
@@ -124,38 +178,42 @@ object SyntheticBackupGenerator {
         val notes = generateNotes(params, tasks, projects, random)
         val checklistItems = generateChecklistItems(params, tasks, random)
 
-        val payload = BackupPayload(
-            schemaVersion = BackupFormat.SCHEMA_VERSION,
-            tasks = tasks,
-            notes = notes,
-            projects = projects,
-            tags = tags,
-            taskTags = taskTags,
-            taskDependencies = dependencies,
-            checklistItems = checklistItems,
-        )
+        val payload =
+            BackupPayload(
+                schemaVersion = BackupFormat.SCHEMA_VERSION,
+                tasks = tasks,
+                notes = notes,
+                projects = projects,
+                tags = tags,
+                taskTags = taskTags,
+                taskDependencies = dependencies,
+                checklistItems = checklistItems,
+            )
 
-        val payloadBytes = com.singularity.todo.core.serialization.StableJson
-            .encodeToString(BackupPayload.serializer(), payload)
-            .encodeToByteArray()
+        val payloadBytes =
+            com.singularity.todo.core.serialization.StableJson
+                .encodeToString(BackupPayload.serializer(), payload)
+                .encodeToByteArray()
         val checksum = BackupDomain.sha256Hex(payloadBytes)
 
-        val manifest = GenerateManifest(
-            seed = params.seed,
-            profile = params.profile,
-            params = params,
-            actualCounts = ActualCounts(
-                tasks = payload.tasks.size,
-                projects = payload.projects.size,
-                tags = payload.tags.size,
-                notes = payload.notes.size,
-                checklistItems = payload.checklistItems.size,
-                taskDependencies = payload.taskDependencies.size,
-                taskTags = payload.taskTags.size,
-            ),
-            schemaVersion = payload.schemaVersion,
-            payloadChecksum = checksum,
-        )
+        val manifest =
+            GenerateManifest(
+                seed = params.seed,
+                profile = params.profile,
+                params = params,
+                actualCounts =
+                    ActualCounts(
+                        tasks = payload.tasks.size,
+                        projects = payload.projects.size,
+                        tags = payload.tags.size,
+                        notes = payload.notes.size,
+                        checklistItems = payload.checklistItems.size,
+                        taskDependencies = payload.taskDependencies.size,
+                        taskTags = payload.taskTags.size,
+                    ),
+                schemaVersion = payload.schemaVersion,
+                payloadChecksum = checksum,
+            )
         return GeneratedDataset(payload, manifest)
     }
 
@@ -175,17 +233,21 @@ object SyntheticBackupGenerator {
         }
     }
 
-    private fun generateProjects(params: GenerateParams, random: Random): List<ProjectDto> {
-        return List(params.projects) { index ->
+    private fun generateProjects(
+        params: GenerateParams,
+        random: Random,
+    ): List<ProjectDto> =
+        List(params.projects) { index ->
             val id = deterministicId("project", index, params.seed)
-            val parentId = if (index > 0 && params.taskHierarchyDepth > 1 && random.nextDouble() < 0.3) {
-                // parent must be earlier index to keep hierarchy acyclic and bounded
-                val maxParent = index - 1
-                val candidate = random.nextInt(maxParent + 1)
-                deterministicId("project", candidate, params.seed)
-            } else {
-                null
-            }
+            val parentId =
+                if (index > 0 && params.taskHierarchyDepth > 1 && random.nextDouble() < 0.3) {
+                    // parent must be earlier index to keep hierarchy acyclic and bounded
+                    val maxParent = index - 1
+                    val candidate = random.nextInt(maxParent + 1)
+                    deterministicId("project", candidate, params.seed)
+                } else {
+                    null
+                }
             val createdAt = BASE_EPOCH_MS + index * 1_000L
             ProjectDto(
                 id = id,
@@ -198,20 +260,25 @@ object SyntheticBackupGenerator {
                 sortOrder = index,
             )
         }.let { projects -> sanitizeProjectHierarchy(projects, params.taskHierarchyDepth) }
-    }
 
-    private fun sanitizeProjectHierarchy(projects: List<ProjectDto>, maxDepth: Int): List<ProjectDto> {
+    private fun sanitizeProjectHierarchy(
+        projects: List<ProjectDto>,
+        maxDepth: Int,
+    ): List<ProjectDto> {
         if (projects.isEmpty()) return projects
         val byId = projects.associateBy { it.id }.toMutableMap()
         val depthMemo = mutableMapOf<String, Int>()
-        fun depth(id: String): Int = depthMemo.getOrPut(id) {
-            val parent = byId[id]?.parentId ?: return@getOrPut 1
-            val parentDepth = if (parent in byId) depth(parent) else 0
-            parentDepth + 1
-        }
+
+        fun depth(id: String): Int =
+            depthMemo.getOrPut(id) {
+                val parent = byId[id]?.parentId ?: return@getOrPut 1
+                val parentDepth = if (parent in byId) depth(parent) else 0
+                parentDepth + 1
+            }
         // break depth violations by clearing parent; also break any accidental cycles
         val visiting = mutableSetOf<String>()
         val safe = mutableSetOf<String>()
+
         fun ensureAcyclic(id: String) {
             if (id in safe) return
             if (!visiting.add(id)) {
@@ -226,15 +293,16 @@ object SyntheticBackupGenerator {
         }
         projects.forEach { ensureAcyclic(it.id) }
         // enforce depth
-        val adjusted = projects.map { p ->
-            var cur = p
-            while (cur.parentId != null && depth(cur.id) > maxDepth) {
-                cur = cur.copy(parentId = null)
-                byId[cur.id] = cur
-                depthMemo.clear()
+        val adjusted =
+            projects.map { p ->
+                var cur = p
+                while (cur.parentId != null && depth(cur.id) > maxDepth) {
+                    cur = cur.copy(parentId = null)
+                    byId[cur.id] = cur
+                    depthMemo.clear()
+                }
+                cur
             }
-            cur
-        }
         return adjusted
     }
 
@@ -251,7 +319,11 @@ object SyntheticBackupGenerator {
             )
         }
 
-    private fun generateTasks(params: GenerateParams, projects: List<ProjectDto>, random: Random): List<TaskDto> {
+    private fun generateTasks(
+        params: GenerateParams,
+        projects: List<ProjectDto>,
+        random: Random,
+    ): List<TaskDto> {
         val subtaskCount = min(params.tasks - 1, (params.tasks * params.subtaskShare).roundToInt()).coerceAtLeast(0)
         val topLevelCount = params.tasks - subtaskCount
         val tasks = ArrayList<TaskDto>(params.tasks)
@@ -281,14 +353,15 @@ object SyntheticBackupGenerator {
             val parentDepth = depthById[parent.id] ?: 1
             if (parentDepth >= params.taskHierarchyDepth) continue
             val index = topLevelCount + createdSubtasks
-            val child = buildTask(
-                index = index,
-                parentTaskId = parent.id,
-                params = params,
-                projects = projects,
-                random = random,
-                forceProjectId = parent.projectId,
-            )
+            val child =
+                buildTask(
+                    index = index,
+                    parentTaskId = parent.id,
+                    params = params,
+                    projects = projects,
+                    random = random,
+                    forceProjectId = parent.projectId,
+                )
             tasks.add(child)
             depthById[child.id] = parentDepth + 1
             createdSubtasks++
@@ -315,20 +388,23 @@ object SyntheticBackupGenerator {
         val hasDueDate = random.nextDouble() < 0.75
         val dueDate = if (hasDueDate) epochDayString(BASE_EPOCH_MS + dueOffsetDays * DAY_MS) else null
         val statusRoll = random.nextDouble()
-        val completedAt = when {
-            statusRoll < 0.20 -> createdAt + 3_600_000L
-            else -> null
-        }
-        val workflowState = when {
-            completedAt != null -> "open"
-            statusRoll < 0.35 -> "next_up"
-            statusRoll < 0.45 -> "in_progress"
-            else -> "open"
-        }
+        val completedAt =
+            when {
+                statusRoll < 0.20 -> createdAt + 3_600_000L
+                else -> null
+            }
+        val workflowState =
+            when {
+                completedAt != null -> "open"
+                statusRoll < 0.35 -> "next_up"
+                statusRoll < 0.45 -> "in_progress"
+                else -> "open"
+            }
         val priority = PRIORITIES[random.nextInt(PRIORITIES.size)]
-        val projectId = forceProjectId ?: projects.takeIf { it.isNotEmpty() }?.let {
-            if (random.nextDouble() < 0.8) it[random.nextInt(it.size)].id else null
-        }
+        val projectId =
+            forceProjectId ?: projects.takeIf { it.isNotEmpty() }?.let {
+                if (random.nextDouble() < 0.8) it[random.nextInt(it.size)].id else null
+            }
         return TaskDto(
             id = id,
             title = "Task ${index + 1}",
@@ -339,7 +415,14 @@ object SyntheticBackupGenerator {
             parentTaskId = parentTaskId,
             sortOrder = index,
             dueDate = dueDate,
-            dueTime = if (hasDueDate && random.nextDouble() < 0.4) LocalTime(random.nextInt(0, 24), listOf(0, 15, 30, 45)[random.nextInt(4)]) else null,
+            dueTime =
+                if (hasDueDate &&
+                    random.nextDouble() < 0.4
+                ) {
+                    LocalTime(random.nextInt(0, 24), listOf(0, 15, 30, 45)[random.nextInt(4)])
+                } else {
+                    null
+                },
             completedAt = completedAt,
             workflowState = workflowState,
             createdAt = createdAt,
@@ -347,16 +430,25 @@ object SyntheticBackupGenerator {
         )
     }
 
-    private fun generateTaskTags(tasks: List<TaskDto>, tags: List<TagDto>, random: Random): List<TaskTagDto> {
+    private fun generateTaskTags(
+        tasks: List<TaskDto>,
+        tags: List<TagDto>,
+        random: Random,
+    ): List<TaskTagDto> {
         if (tags.isEmpty() || tasks.isEmpty()) return emptyList()
         val out = ArrayList<TaskTagDto>(tasks.size)
         for (task in tasks) {
-            val count = when (random.nextInt(4)) {
-                0 -> 0
-                1 -> 1
-                2 -> 2
-                else -> min(3, tags.size)
-            }
+            val countWanted =
+                when (random.nextInt(4)) {
+                    0 -> 0
+                    1 -> 1
+                    2 -> 2
+                    else -> 3
+                }
+            // Never ask for more distinct tags than exist: `chosen` is a set of
+            // tag indexes, so a count above `tags.size` can never be reached and
+            // the draw below would spin forever.
+            val count = min(countWanted, tags.size)
             if (count == 0) continue
             val chosen = HashSet<Int>(count * 2)
             while (chosen.size < count) chosen.add(random.nextInt(tags.size))
@@ -367,7 +459,11 @@ object SyntheticBackupGenerator {
         return out
     }
 
-    private fun generateDependencies(tasks: List<TaskDto>, params: GenerateParams, random: Random): List<TaskDependencyDto> {
+    private fun generateDependencies(
+        tasks: List<TaskDto>,
+        params: GenerateParams,
+        random: Random,
+    ): List<TaskDependencyDto> {
         if (tasks.size < 2 || params.dependencyDensity <= 0.0) return emptyList()
         val maxEdges = tasks.size * 3 // keep sane; density is relative
         val targetEdges = (tasks.size * params.dependencyDensity).roundToInt().coerceIn(0, maxEdges)
@@ -389,17 +485,23 @@ object SyntheticBackupGenerator {
         }
     }
 
-    private fun generateNotes(params: GenerateParams, tasks: List<TaskDto>, projects: List<ProjectDto>, random: Random): List<NoteDto> {
+    private fun generateNotes(
+        params: GenerateParams,
+        tasks: List<TaskDto>,
+        projects: List<ProjectDto>,
+        random: Random,
+    ): List<NoteDto> {
         if (params.notes <= 0) return emptyList()
         return List(params.notes) { index ->
             val createdAt = BASE_EPOCH_MS + index * 90_000L
             val attachToTask = tasks.isNotEmpty() && random.nextDouble() < 0.7
             val taskId = if (attachToTask) tasks[random.nextInt(tasks.size)].id else null
-            val projectId = if (!attachToTask && projects.isNotEmpty() && random.nextDouble() < 0.6) {
-                projects[random.nextInt(projects.size)].id
-            } else {
-                null
-            }
+            val projectId =
+                if (!attachToTask && projects.isNotEmpty() && random.nextDouble() < 0.6) {
+                    projects[random.nextInt(projects.size)].id
+                } else {
+                    null
+                }
             val body = "Synthetic note ${index + 1}\nSeed dataset note body."
             NoteDto(
                 id = deterministicId("note", index, params.seed),
@@ -416,7 +518,11 @@ object SyntheticBackupGenerator {
         }
     }
 
-    private fun generateChecklistItems(params: GenerateParams, tasks: List<TaskDto>, random: Random): List<ChecklistItemDto> {
+    private fun generateChecklistItems(
+        params: GenerateParams,
+        tasks: List<TaskDto>,
+        random: Random,
+    ): List<ChecklistItemDto> {
         if (params.checklistItems <= 0 || tasks.isEmpty()) return emptyList()
         return List(params.checklistItems) { index ->
             val task = tasks[index % tasks.size]
@@ -433,7 +539,11 @@ object SyntheticBackupGenerator {
         }
     }
 
-    private fun deterministicId(kind: String, index: Int, seed: Long): String {
+    private fun deterministicId(
+        kind: String,
+        index: Int,
+        seed: Long,
+    ): String {
         val h1 = mix64(seed xor kind.hashCode().toLong() xor (index.toLong() * 0x9E3779B97F4A7C15uL.toLong()))
         val h2 = mix64(h1 xor 0xBF58476D1CE4E5B9uL.toLong() xor index.toLong())
         val bytes = ByteArray(16)
@@ -441,8 +551,14 @@ object SyntheticBackupGenerator {
         for (i in 0 until 8) bytes[8 + i] = ((h2 ushr (8 * i)) and 0xFF).toByte()
         bytes[6] = (bytes[6].toInt() and 0x0F or 0x40).toByte() // version 4
         bytes[8] = (bytes[8].toInt() and 0x3F or 0x80).toByte() // variant
-        return bytes.joinToString("") { b -> (b.toInt() and 0xFF).toString(16).padStart(2, '0') }
-            .let { hex -> "${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}" }
+        return bytes
+            .joinToString("") { b -> (b.toInt() and 0xFF).toString(16).padStart(2, '0') }
+            .let { hex ->
+                "${hex.substring(
+                    0,
+                    8,
+                )}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}"
+            }
     }
 
     private fun mix64(value: Long): Long {
@@ -452,7 +568,10 @@ object SyntheticBackupGenerator {
         return x xor (x ushr 33)
     }
 
-    private fun deterministicColor(index: Int, seed: Long): Int {
+    private fun deterministicColor(
+        index: Int,
+        seed: Long,
+    ): Int {
         val r = Random(seed xor (index.toLong() * 31))
         val rgb = r.nextInt(0x1000000)
         return (0xFF000000.toInt()) or rgb
@@ -461,7 +580,9 @@ object SyntheticBackupGenerator {
     private fun epochDayString(epochMs: Long): String {
         // deterministic date formatting without java.time in common style; JVM is fine but keep simple
         val days = Math.floorDiv(epochMs, DAY_MS)
-        return java.time.LocalDate.ofEpochDay(days).toString()
+        return java.time.LocalDate
+            .ofEpochDay(days)
+            .toString()
     }
 
     private fun wordCount(s: String): Int = s.split(Regex("\\s+")).count { it.isNotBlank() }

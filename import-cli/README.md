@@ -28,7 +28,16 @@ Generates a deterministic synthetic native backup ZIP for performance testing. T
 
 Named profiles set defaults; explicit params override them. Actual support for a profile is gated by archive budget checks and `verify`/decoder validation, not by the task count alone.
 
-Profiles: `1k`, `10k`, `50k`, `100k`.
+Profiles: `1k`, `10k`, `50k`, `100k`. A profile is a composition that fits the archive budget, not just a task count — `SyntheticBackupProfileBudgetTest` fails the build if a profile stops fitting or stops round-tripping through the codec. The payload column is what each profile produced with seed `42` (the archive payload, not the compressed ZIP); the budget is 64 MiB of decompressed payload.
+
+| Profile | Tasks | Projects | Tags | Notes | Checklist items | Dependencies | Payload |
+|---|---|---|---|---|---|---|---|
+| `1k` | 1 000 | 20 | 30 | 100 | 2 000 | 150 | 1.4 MB |
+| `10k` | 10 000 | 100 | 100 | 1 000 | 20 000 | 1 500 | 13.9 MB |
+| `50k` | 50 000 | 250 | 120 | 2 000 | 25 000 | 5 000 | 48.2 MB |
+| `100k` | 100 000 | 300 | 0 | 0 | 0 | 2 000 | 65.8 MB |
+
+`100k` is the ceiling the payload format allows, not a tuning choice: the 100k task rows alone are ~61.7 MB of the 64 MiB budget, so that profile carries no tags, notes or checklist items and only a token dependency graph. Ask for a richer 100k composition with the explicit parameters and the command fails the archive budget check, as designed — the limit is a contract the app enforces on import.
 
 ```bash
 # Reproducible 10k profile
