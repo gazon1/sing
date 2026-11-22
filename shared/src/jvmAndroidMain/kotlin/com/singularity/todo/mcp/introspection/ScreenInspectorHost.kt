@@ -391,37 +391,92 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
         // double unlock, which threw `attempt to unlock read lock` on the very first request
         // to a fresh host. It survived the unit tests because they never made two calls on an
         // empty host in the same shape; the device found it immediately.
-        val admitted = admit(koin)
+        // Every path out of [admit] holds the read lock — the create path drops it only to
+        // take the write lock and then re-takes it. There is no boolean to get wrong: if
+        // admit returns, this frame owns one read hold, and it is released here.
+        val runtime = admit(koin)
         try {
-            return block(admitted.runtime)
+            return block(runtime)
         } finally {
-            if (admitted.holdsReadLock) gate.readLock().unlock()
+            gate.readLock().unlock()
         }
     }
 
-    private class Admission(val runtime: ScreenInspectorRuntime, val holdsReadLock: Boolean)
-
     /**
-     * Admits one request, returning its runtime and whether the caller still holds the read
-     * lock afterwards.
+     * Admits one request and returns its runtime, holding the read lock on return.
      *
-     * The create path cannot keep the read lock: a read-to-write upgrade is not possible on a
-     * `ReentrantReadWriteLock` and attempting one deadlocks. So it drops the read lock and
-     * takes the write lock in [createRuntime], and reports `holdsReadLock = false`.
+     * The create path cannot keep the read lock through the create: a read-to-write upgrade is
+     * not possible on a `ReentrantReadWriteLock` and attempting one deadlocks. It drops the
+     * read lock, creates under the write lock, and then **re-takes** the read lock before
+     * returning — otherwise the very first request on a fresh host would dispatch with no lock
+     * held, and a concurrent `close()` could tear the runtime down underneath it. Both earlier
+     * versions of this function got a different half of that wrong.
      */
-    private fun admit(koin: Koin): Admission {
+    private fun admit(koin: Koin): ScreenInspectorRuntime {
         val read = gate.readLock()
         read.lock()
         // Decide while holding the read lock, then act. A throw from a refusal releases it
         // here first, so the caller's frame never sees a lock it did not take.
         when (val state = currentState(koin)) {
             is RuntimeState.Usable -> {
-                return Admission(state.runtime, holdsReadLock = true)
+                return state.runtime
             }
 
             RuntimeState.Absent -> {
                 read.unlock()
-                return Admission(createRuntime(koin), holdsReadLock = false)
+                // Create, then RE-TAKE the read lock before handing the runtime out. Without
+                // that last step the first request on a fresh host would dispatch with no lock
+                // held at all — a concurrent `close()` could tear the runtime down underneath
+                // it, which is the very race this lock exists to prevent. Dropping the read
+                // lock for the create is unavoidable (a read-to-write upgrade deadlocks);
+                // running the request unlocked afterwards is not.
+                createRuntime(koin)
+                return admitAfterCreate(koin)
+            }
+
+            RuntimeState.Closed -> {
+                read.unlock()
+                throw InspectorException(
+                    InspectorErrorCode.INTERNAL,
+                    "This screen-inspector host has been closed; the process created a new one.",
+                )
+            }
+
+            RuntimeState.Replaced -> {
+                read.unlock()
+                throw InspectorException(
+                    InspectorErrorCode.INTERNAL,
+                    "The application container was replaced while the screen inspector was " +
+                        "running; the open sessions belong to the previous graph. Restart the " +
+                        "host before inspecting again.",
+                )
+            }
+        }
+    }
+
+    /**
+     * Re-admits after a create, so the request runs under the read lock.
+     *
+     * The state is read again rather than assumed: a `close()` or a container swap can land
+     * in the window between the create and this call, and both must fail closed rather than
+     * hand out a runtime that is already gone.
+     */
+    private fun admitAfterCreate(koin: Koin): ScreenInspectorRuntime {
+        val read = gate.readLock()
+        read.lock()
+        when (val state = currentState(koin)) {
+            is RuntimeState.Usable -> {
+                return state.runtime
+            }
+
+            RuntimeState.Absent -> {
+                // `closed` was cleared while a create was in flight; the consistency of this
+                // object no longer holds, and guessing is worse than refusing.
+                read.unlock()
+                throw InspectorException(
+                    InspectorErrorCode.INTERNAL,
+                    "The screen-inspector host lost its runtime while creating it.",
+                )
             }
 
             RuntimeState.Closed -> {
