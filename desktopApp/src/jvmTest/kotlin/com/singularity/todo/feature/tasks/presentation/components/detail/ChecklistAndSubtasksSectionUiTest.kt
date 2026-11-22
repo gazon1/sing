@@ -266,7 +266,7 @@ class ChecklistAndSubtasksSectionUiTest {
         }
 
     @Test
-    fun `a single subtask has no reorder controls`() =
+    fun `a single subtask shows disabled reorder controls`() =
         runIsolatedComposeTest {
             setContent {
                 SubtasksSection(
@@ -279,7 +279,7 @@ class ChecklistAndSubtasksSectionUiTest {
                 )
             }
 
-            assertTagNotExists(TestTags.subtaskMoveUp("Child 1"))
-            assertTagNotExists(TestTags.subtaskMoveDown("Child 1"))
+            assertTagNotEnabled(TestTags.subtaskMoveUp("Child 1"))
+            assertTagNotEnabled(TestTags.subtaskMoveDown("Child 1"))
         }
 }

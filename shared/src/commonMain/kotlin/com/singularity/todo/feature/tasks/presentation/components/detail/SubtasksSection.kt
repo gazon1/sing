@@ -111,7 +111,7 @@ fun SubtasksSection(
                         // title opens it. A checklist item has no such screen.
                         onOpen = { onOpen(task) },
                         reorder =
-                            onMove?.takeIf { subtasks.size > 1 }?.let { move ->
+                            onMove?.let { move ->
                                 ChecklistRowReorder(
                                     canMoveUp = index > 0,
                                     canMoveDown = index in 0 until subtasks.lastIndex,

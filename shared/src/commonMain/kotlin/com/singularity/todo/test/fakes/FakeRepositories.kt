@@ -1297,13 +1297,15 @@ open class FakeTaskRepository(
         return runCatchingCancellable {
             val now = clock.now()
             val uid = currentUser.scopedUserId.value
-            val updates =
-                orderedIds.mapIndexedNotNull { index, id ->
-                    val task = store[id.value] ?: return@mapIndexedNotNull null
-                    if (task.parentTaskId != parentId || task.userId != uid) return@mapIndexedNotNull null
-                    task.copy(sortOrder = index, updatedAt = now)
+            store.update { map ->
+                val next = map.toMutableMap()
+                orderedIds.forEachIndexed { index, id ->
+                    val task = next[id.value] ?: return@forEachIndexed
+                    if (task.parentTaskId != parentId || task.userId != uid) return@forEachIndexed
+                    next[id.value] = task.copy(sortOrder = index, updatedAt = now)
                 }
-            updates.forEach { store.upsert(it) }
+                next
+            }
         }
     }
 
