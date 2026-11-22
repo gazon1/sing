@@ -208,7 +208,7 @@ check takes.
   "steps": [
     { "name": "open",      "op": "open",   "screen": "tasks.task-detail", "params": { "taskId": "<TASK_ID>" } },
     { "name": "inspect",   "op": "snapshot" },
-    { "name": "prioritize","op": "invoke", "action": "set_priority", "input": { "priority": "high" }, "waitMs": 5000 },
+    { "name": "prioritize","op": "invoke", "action": "set_priority", "input": { "priority": "urgent" }, "waitMs": 5000 },
     { "name": "verify",    "op": "snapshot" },
     { "name": "close",     "op": "close" }
   ]

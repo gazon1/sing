@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -335,7 +336,16 @@ class ScreenInspectorRuntimeTest {
             // The wait is held open by the injected settle, so the cancel lands while `open`
             // is genuinely suspended. The real screen settles too fast to race reliably —
             // that race is what made the first version of this test flaky.
-            val holding = ScreenInspectorRuntime(koin) { kotlinx.coroutines.awaitCancellation() }
+            //
+            // The settle also captures the session, so the cleanup is observable: an empty
+            // registry alone would still pass if `open` forgot to close the session, and the
+            // leak is the abandoned state collector, not the map entry.
+            var captured: ScreenSession? = null
+            val holding =
+                ScreenInspectorRuntime(koin) { session ->
+                    captured = session
+                    kotlinx.coroutines.awaitCancellation()
+                }
             val taskRepo: TaskRepository = koin.get()
             val created =
                 kotlinx.coroutines
@@ -376,6 +386,35 @@ class ScreenInspectorRuntimeTest {
                     listed["currentSessionId"],
                     "a cancelled open must not become the current session: $listed",
                 )
+
+                // A closed session's collector is dead, so a later repository write never
+                // reaches its snapshot. An unclosed one picks the new title up — that is the
+                // resource leak this test exists to catch, made observable. The write happens
+                // *after* the cancellation, so a `loaded` snapshot alone proves nothing.
+                val session = assertNotNull(captured, "the settle must have received the session")
+                kotlinx.coroutines.runBlocking {
+                    taskRepo.update(
+                        created.copy(
+                            title = "Changed after cancellation",
+                            updatedAt = Clock.System.now(),
+                        ),
+                    )
+                }
+                val deadline = System.currentTimeMillis() + 2_000
+                while (System.currentTimeMillis() < deadline) {
+                    val title =
+                        session
+                            .snapshot()["subject"]
+                            ?.jsonObject
+                            ?.get("title")
+                            ?.jsonPrimitive
+                            ?.contentOrNull
+                    assertTrue(
+                        title != "Changed after cancellation",
+                        "the cancelled session must be closed, but its collector still ran: $title",
+                    )
+                    Thread.sleep(25)
+                }
             } finally {
                 holding.close()
             }
