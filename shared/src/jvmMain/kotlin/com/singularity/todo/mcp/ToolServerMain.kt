@@ -179,7 +179,7 @@ private suspend fun serve(
  *
  * @return the CLI's exit code.
  */
-internal fun runScreenInspectorCliHost(
+fun runScreenInspectorCliHost(
     args: Array<String>,
     koinStartup: ToolServerKoinStartup,
     inspectorHostCompiledIn: Boolean,

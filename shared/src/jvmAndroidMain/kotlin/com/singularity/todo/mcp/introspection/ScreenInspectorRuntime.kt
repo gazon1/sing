@@ -50,16 +50,22 @@ internal class ScreenInspectorRuntime(
                         },
                 )
         val session = ScreenRegistry.open(screenId, params, koin)
-        // The session is registered *after* the wait, and closed if the wait is cancelled.
+        // The session is registered *after* the wait, and closed if the wait does not finish.
         // `awaitSettled` suspends, which is a cancellation point; registering first would
         // leave a session nobody can name — still running its state collector — whenever a
         // caller cancels (the MCP host rethrows `CancellationException`). Registering after
         // also means `sessions()` never lists a screen that is not yet answerable.
+        //
+        // `settled` is the flag because the cleanup is the same whether the wait was
+        // cancelled or threw: either way the caller never receives this session, so it must
+        // not outlive the call. `finally` also keeps the `catch` free of statements before
+        // `throw`, which `NoSwallowedCancellation` requires of a cancellation branch.
+        var settled = false
         try {
             (settle ?: { awaitSettled(it) })(session)
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            runCatching { session.close() }
-            throw e
+            settled = true
+        } finally {
+            if (!settled) closeQuietly(session)
         }
         sessions[session.sessionId] = session
         currentSessionId.set(session.sessionId)
@@ -229,6 +235,22 @@ internal suspend fun awaitSettledStatus(
 
 /** How long `open` waits for the screen to leave `loading` before reporting it as it is. */
 private const val OPEN_SETTLE_TIMEOUT_MS = 5_000L
+
+/**
+ * Closes a session whose `open` was cancelled, without letting a close failure escape.
+ *
+ * A plain function, not an inline `try` in `open`: `close()` cannot suspend, so nothing here
+ * needs to re-throw `CancellationException` — and putting the `try` outside the suspend
+ * function is what keeps the cancellation catch in `open` the first one, which is the
+ * ordering `NoSwallowedCancellation` requires.
+ */
+private fun closeQuietly(session: ScreenSession) {
+    try {
+        session.close()
+    } catch (_: Exception) {
+        // The cancellation is the outcome that matters; a close failure is noise here.
+    }
+}
 
 /** How often that wait re-reads the snapshot. */
 private const val SETTLE_POLL_MS = 20L
