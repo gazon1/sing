@@ -34,8 +34,9 @@ a single Go binary that reads the same YAML without a JVM. The CLI starts a JVM
 per flow, so it pays that warm-up once for every flow in the suite.
 
 ```bash
-scripts/run-maestro-e2e.py --engine maestro-runner -f Maestro/flows/smoke
-MAESTRO_ENGINE=maestro-runner scripts/run-maestro-e2e.py -f Maestro/flows/smoke
+# --engine, or the MAESTRO_ENGINE variable the runner reads when the flag is absent
+python3 scripts/run-maestro-e2e.py --apk <apk> --suite smoke --shard 1 --shards 1 --engine maestro-runner
+MAESTRO_ENGINE=maestro-runner python3 scripts/run-maestro-e2e.py --apk <apk> --suite smoke --shard 1 --shards 1
 ```
 
 The CLI stays the default: the failure floor of this repository was calibrated
