@@ -159,7 +159,7 @@ class ProposalDispatch(
             }
 
             is ProposalPlan.WriteNote -> {
-                writeRow(plan.note.id) { notes.upsert(plan.note) }
+                writeNoteRow(plan)
             }
 
             is ProposalPlan.WriteProject -> {
@@ -239,6 +239,28 @@ class ProposalDispatch(
      * A plan type added later has to be handled there, and the compiler has to
      * say so — an `else` would move that from the build to a runtime error.
      */
+    /**
+     * The note row of an update, re-read at the moment of the write.
+     *
+     * The same rule the task's write follows: the guard a value carries is checked
+     * against the row this write is about to replace, not against the row the plan was
+     * built from. A note edited between the plan and the dispatch would otherwise be
+     * overwritten by a change that was written against the older one.
+     */
+    private suspend fun writeNoteRow(plan: ProposalPlan.WriteNote): List<ProposedRow> =
+        writeRow(plan.note.id) {
+            val current = notes.get(plan.note.id)
+            val toWrite =
+                if (current != null) {
+                    // The version guard the value carries is checked here, against the
+                    // row this write is about to replace.
+                    ProposalPlanner.withNoteValue(current, plan.value, clock)
+                } else {
+                    plan.note
+                }
+            notes.upsert(toWrite)
+        }
+
     private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> =
         writeRow(plan.task.id) {
             val current = tasks.get(plan.task.id)

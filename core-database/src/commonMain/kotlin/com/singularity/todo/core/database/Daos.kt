@@ -1002,6 +1002,10 @@ interface NoteDao {
     /**
      * Returns notes attached to the given taskId (notes.task_id = :taskId), for the current user.
      * Uses the indexed [task_id] column for O(log n) lookups.
+     *
+     * The order is `created_at DESC, id ASC`: the id breaks the tie, so two notes
+     * written in the same second cannot swap places between two reads — and a reader
+     * that picks "the newest" of them picks the same one every time.
      */
     @Query(
         """
@@ -1009,7 +1013,7 @@ interface NoteDao {
         WHERE task_id = :taskId
           AND user_id = :userId
           AND deleted_at IS NULL
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id ASC
         LIMIT 50
         """,
     )

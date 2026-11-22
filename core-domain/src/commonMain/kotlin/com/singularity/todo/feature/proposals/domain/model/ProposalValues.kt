@@ -321,9 +321,21 @@ sealed interface NoteValue : ProposalValue {
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<NoteValue>?
 
+    /**
+     * The note's title.
+     *
+     * @property expectedUpdatedAt the `updatedAt` the caller read the note at, when the
+     *   change is a refresh of an existing note. See [Body.expectedUpdatedAt] — the
+     *   guard belongs to every field of the note, not to the body alone: a title-only
+     *   change on a note the user edited in the meantime would clobber that edit just
+     *   as a body change would.
+     */
     @Serializable
     @SerialName("Title")
-    data class Title(val value: String) : NoteValue {
+    data class Title(
+        val value: String,
+        val expectedUpdatedAt: Long? = null,
+    ) : NoteValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the note title to «${value.asCardValue()}»"
         override val text: String = value

@@ -59,7 +59,7 @@ class ProposalPlanner(private val clock: Clock) {
                 // the one the user has to hear — not that the note is missing.
                 kind.value.readFailure?.let { reason -> error(reason) }
                 val n = note ?: error("Note ${item.targetId} not found")
-                ProposalPlan.WriteNote(withNoteValue(n, kind.value))
+                ProposalPlan.WriteNote(withNoteValue(n, kind.value, clock), kind.value)
             }
 
             is ProposalItemKind.DeleteNote -> {
@@ -227,6 +227,57 @@ class ProposalPlanner(private val clock: Clock) {
      * reachable from a unit test without a repository.
      */
     companion object {
+        /**
+         * Returns [note] with [value] applied, or throws if the value is not one the
+         * note can hold or was written against a version that is no longer there.
+         *
+         * A companion function taking [clock], like [withTaskValue], because the write
+         * path calls it too: [com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch]
+         * re-reads the row and applies the value again at the moment of the write, so
+         * the guard is checked against the row the write replaces rather than the row a
+         * plan was built from a moment earlier.
+         */
+        fun withNoteValue(
+            note: Note,
+            value: NoteValue,
+            clock: Clock,
+        ): Note {
+            when (value) {
+                is NoteValue.Title -> checkVersion(note, value.expectedUpdatedAt)
+                is NoteValue.Body -> checkVersion(note, value.expectedUpdatedAt)
+                is NoteValue.Summary,
+                is NoteValue.Unreadable,
+                -> Unit
+            }
+            // The write advances the version, so a second proposal built from the same
+            // read cannot land on top of this one.
+            val now = clock.now()
+            return when (value) {
+                is NoteValue.Title -> note.copy(title = value.value.trim(), updatedAt = now)
+
+                is NoteValue.Body -> note.copy(bodyHtml = value.value, updatedAt = now)
+
+                is NoteValue.Summary -> note.copy(bodyHtml = value.value, updatedAt = now)
+
+                // A value this build cannot read. The change stays on the card with the
+                // reason it cannot be applied, and the user can type a value that does
+                // read.
+                is NoteValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
+            }
+        }
+
+        /** Refuses a change proposed against a version of the note that is no longer there. */
+        private fun checkVersion(
+            note: Note,
+            expected: Long?,
+        ) {
+            if (expected == null) return
+            val actual = note.updatedAt.toEpochMilliseconds()
+            require(expected == actual) {
+                "The note changed since it was read (updatedAt $actual, expected $expected)"
+            }
+        }
+
         fun withTaskValue(
             task: Task,
             value: TaskValue,
@@ -289,52 +340,9 @@ class ProposalPlanner(private val clock: Clock) {
     }
 
     /**
-     * Returns [note] with [value] applied, or throws if the value is not something
-     * the note can hold.
-     *
-     * The note to write is built here, where the field is known: the dispatcher
-     * writes a note, it does not decide which field of it to write.
+     * The note a plan writes is built by [withNoteValue] in the companion — the same
+     * entry point the dispatcher calls when it re-reads the row.
      */
-    fun withNoteValue(
-        note: Note,
-        value: NoteValue,
-    ): Note =
-        when (value) {
-            is NoteValue.Title -> {
-                note.copy(title = value.value.trim())
-            }
-
-            is NoteValue.Body -> {
-                // The guard the tool stated when it proposed the change. Checking it
-                // here — not only in the tool — is what makes it survive until the
-                // change is applied: the tool read the note, the user edited it, and
-                // the proposal would otherwise write a summary of the older body over
-                // the edit. A value with no stated version is a value the user typed on
-                // the card, and a human accepting it is the decision itself.
-                value.expectedUpdatedAt?.let { expected ->
-                    val actual = note.updatedAt.toEpochMilliseconds()
-                    require(expected == actual) {
-                        "The note changed since it was read (updatedAt $actual, expected $expected)"
-                    }
-                }
-                // The write advances the version, so a second proposal built from the
-                // same read cannot land on top of this one. The task's write does the
-                // same through its own repository.
-                note.copy(bodyHtml = value.value, updatedAt = clock.now())
-            }
-
-            is NoteValue.Summary -> {
-                note.copy(bodyHtml = value.value, updatedAt = clock.now())
-            }
-
-            // A value this build cannot read. The change stays on the card with the
-            // reason it cannot be applied, and the user can type a value that does
-            // read.
-            is NoteValue.Unreadable -> {
-                error(value.readFailure ?: "This value cannot be read.")
-            }
-        }
-
     /**
      * Returns [project] with [value] applied, or throws if the value is not something
      * the project can hold.

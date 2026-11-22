@@ -117,7 +117,11 @@ class UpdateNoteTool(
 
         args.title?.let { value ->
             if (value.trim() != existing.title.trim()) {
-                kinds += ProposalItemKind.SetNoteField(NoteValue.Title(value))
+                // Same rule as the body below: the version travels with every field of
+                // the change, not with the body alone.
+                kinds += ProposalItemKind.SetNoteField(
+                    NoteValue.Title(value, expectedUpdatedAt = args.expectedUpdatedAt),
+                )
             }
         }
 

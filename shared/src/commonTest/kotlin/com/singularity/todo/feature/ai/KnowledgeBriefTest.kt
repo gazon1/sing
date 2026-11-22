@@ -383,6 +383,41 @@ class KnowledgeBriefTest {
         }
 
     @Test
+    fun `a title-only change is guarded like a body change`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                // No body at all: the guard must not belong to the body alone.
+                                title = "Refreshed brief",
+                                expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
+                            ),
+                        ),
+                )
+            assertTrue(output.proposalCreated, "the change was proposed: ${output.error}")
+
+            clock.advance(kotlin.time.Duration.parse("1m"))
+            notes.seed(brief.copy(title = "The user renamed it", updatedAt = clock.now()))
+
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+
+            assertTrue(result.isFailure, "the stale title change was refused")
+            assertEquals(
+                "The user renamed it",
+                notes.notes[brief.id.value]?.title,
+                "the user's title survived the confirmation",
+            )
+        }
+
+    @Test
     fun `applying a refresh advances the version, so the same read cannot land twice`() =
         runTest {
             val project = project("Kitchen")
