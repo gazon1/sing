@@ -77,6 +77,12 @@ class ScreenInspectorHostProvider : ContentProvider() {
                     }
 
                     override fun onActivityStopped(activity: Activity) {
+                        // A configuration change (rotation, dark-mode switch, font size)
+                        // stops and destroys the old activity before the replacement starts,
+                        // so the set legitimately empties mid-transition. Releasing there
+                        // would throw away an open session for a rotation — the agent would
+                        // then find `session_not_found` on a screen it never left.
+                        if (activity.isChangingConfigurations) return
                         if (started.remove(activity) && started.isEmpty()) {
                             ScreenInspectorDeviceHost.stop()
                         }
@@ -98,9 +104,13 @@ class ScreenInspectorHostProvider : ContentProvider() {
 
                     override fun onActivityDestroyed(activity: Activity) {
                         // Destroyed without a stop we saw — a finish in the same frame, or a
-                        // recreate — would otherwise pin the set non-empty and the host
-                        // would never be released.
-                        started.remove(activity)
+                        // recreate — would otherwise pin the set non-empty and the host would
+                        // never be released. The rule matches `onActivityStopped`: a
+                        // configuration change is a recreate, not a departure.
+                        if (activity.isChangingConfigurations) return
+                        if (started.remove(activity) && started.isEmpty()) {
+                            ScreenInspectorDeviceHost.stop()
+                        }
                     }
                 },
             )

@@ -294,6 +294,35 @@ class ScreenInspectorHostContractTest {
         app.close()
     }
 
+    @Test
+    fun `a closed host stays closed instead of building a new runtime`() {
+        // Teardown has to be terminal for the *object*, not just for the runtime it held. A
+        // request that obtained the host just before the process-wide reference was cleared
+        // would otherwise resume after the teardown and build a new runtime on a host nobody
+        // owns — sessions attached to an orphan, invisible to the next `sessions` call and to
+        // any later `stop()`.
+        val app = koinApplication { modules(emptyList()) }
+        val host = ScreenInspectorHost { app.koin }
+
+        host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
+        assertTrue(host.isStarted(), "the first request did not create a runtime")
+
+        host.close()
+        assertFalse(host.isStarted())
+
+        val envelope = host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
+        assertEquals("internal", errorCode(envelope), "a closed host served a request: $envelope")
+        assertTrue(
+            envelope.contains("has been closed"),
+            "the refusal did not come from the closed-host check: $envelope",
+        )
+        assertFalse(
+            host.isStarted(),
+            "a request on a closed host built a new runtime — the teardown was not terminal",
+        )
+        app.close()
+    }
+
     private fun errorCode(envelope: String): String? =
         json
             .parseToJsonElement(envelope)

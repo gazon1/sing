@@ -51,13 +51,25 @@ internal object ScreenInspectorDeviceHost {
         argument: String?,
     ): String = processHost().handle(method, argument)
 
-    /** Releases the runtime; idempotent, because the caller is a lifecycle hook. */
+    /**
+     * Releases the runtime.
+     *
+     * Called from a lifecycle callback, i.e. on the **main thread**. The close itself
+     * acquires the host's write lock, which a dispatching request may hold for the duration
+     * of a bounded wait (up to two minutes) — so closing inline would block the UI thread
+     * behind an agent's `wait` and risk an ANR. The reference is detached synchronously, so
+     * no new request can enter this host, and the teardown happens on another thread.
+     *
+     * Idempotent: the caller is a lifecycle hook, not a protocol step.
+     */
     fun stop() {
         val closed =
             synchronized(lock) {
                 host.also { host = null }
-            }
-        closed?.close()
+            } ?: return
+        // Never close on the caller's thread: see above. A plain thread is enough — this is
+        // one teardown of one runtime, not a workload.
+        Thread({ closed.close() }, "screen-inspector-stop").start()
     }
 
     /** True once a request has created the runtime; the provider's diagnostics read it. */

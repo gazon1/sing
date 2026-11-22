@@ -27,6 +27,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.koin.core.Koin
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 /**
  * The screen-inspector contract, reachable from a running application process by a
@@ -74,12 +75,32 @@ import org.koin.core.Koin
  * (`ScreenInspectorHostIsDebugOnlyTest`).
  */
 class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable {
-    private val lock = Any()
+    /**
+     * Readers are requests, the writer is the teardown.
+     *
+     * A plain monitor would have made every request wait for every other one, and a queue of
+     * requests each holding a binder thread is the exhaustion the wait cap exists to
+     * prevent — the cap would not have helped. Requests may therefore overlap; only
+     * [close] excludes them, which is the one thing that actually must not run concurrently
+     * with a dispatch.
+     */
+    private val gate = ReentrantReadWriteLock()
 
     private var runtime: ScreenInspectorRuntime? = null
 
     /** The container [runtime] was built from; a different one means a stale graph. */
     private var currentKoin: Koin? = null
+
+    /**
+     * Set once [close] has run. A closed host is dead, not recyclable.
+     *
+     * Without this, a request that obtained the host just before the process-wide reference
+     * was cleared would resume after the teardown and build a *new* runtime on a host nobody
+     * owns any more — sessions attached to an orphan, invisible to the next `sessions` call
+     * and to any later `stop()`. Teardown has to be terminal for the object, not just for
+     * the runtime it happened to hold.
+     */
+    private var closed = false
 
     private val requestJson =
         Json {
@@ -127,7 +148,7 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
     }
 
     /**
-     * Releases the runtime, holding the same lock [withRuntime] holds.
+     * Releases the runtime, holding the write side of the lock [withRuntime] reads.
      *
      * Closing *inside* the lock is the point, not an accident: a teardown that released the
      * lock first would leave a window where a request obtains the runtime and then finds its
@@ -135,15 +156,28 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
      * performed, which is the exact class of bug this host has already paid for once.
      */
     override fun close() {
-        synchronized(lock) {
+        val write = gate.writeLock()
+        write.lock()
+        try {
+            closed = true
             runCatching { runtime?.close() }
             runtime = null
             currentKoin = null
+        } finally {
+            write.unlock()
         }
     }
 
     /** True once a request has created the runtime; the host's diagnostics read it. */
-    fun isStarted(): Boolean = synchronized(lock) { runtime != null }
+    fun isStarted(): Boolean {
+        val read = gate.readLock()
+        read.lock()
+        return try {
+            runtime != null
+        } finally {
+            read.unlock()
+        }
+    }
 
     private fun encode(element: JsonElement): String =
         try {
@@ -316,12 +350,12 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
         }
 
     /**
-     * Runs [block] against the runtime, holding the host lock for its whole duration.
+     * Runs [block] against the runtime, holding the read lock for its whole duration.
      *
-     * Two properties come from that one lock, and they are the reason it is held across the
+     * Two properties come from that lock, and they are the reason it is held across the
      * call rather than only around the lookup:
      *
-     * - **A closed runtime is never in use.** [close] takes the same lock, so a request
+     * - **A closed runtime is never in use.** [close] holds the write lock, so a request
      *   cannot be mid-dispatch while its runtime is being torn down. Replacing the runtime
      *   under a live request was the defect an earlier revision of this host had: one
      *   request closed the runtime another was still using, and the second request reported
@@ -332,48 +366,147 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
      *   programming error, and the honest answer is `internal`, not a request silently
      *   dispatched against a graph nobody asked for.
      *
-     * The lock is coarse on purpose. This is a debug surface driven by one agent at a time,
-     * and the waits it accepts are bounded; a finer scheme would buy throughput nobody is
-     * asking for in exchange for exactly the kind of lifecycle race it is here to prevent.
+     * A *read* lock, so requests overlap. A plain monitor would have serialised every
+     * request behind every other, and a queue of requests each holding a binder thread is
+     * exactly the thread exhaustion the wait cap exists to prevent — the cap would not have
+     * helped. Only [close] takes the write lock, which is the one thing that must not run
+     * concurrently with a dispatch.
      *
      * **This is protected by construction, not by a test.** A test that races a close
      * against a request cannot fail here without a real container and a blocking op: the
      * runtime's `sessions` map is concurrent, so a torn teardown looks like an empty list
      * rather than an error, and an attempt at such a test passed with the close moved back
      * outside the lock. It was removed rather than kept as a green checkmark over nothing.
-     * The property it would have pinned is visible in this file instead: [withRuntime] and
-     * [close] take the same monitor, and every dispatch branch goes through [withRuntime].
+     * The property it would have pinned is visible in this file instead: every dispatch
+     * branch goes through [withRuntime] under the read lock, and [close] holds the write
+     * lock while it tears the runtime down.
      */
     private fun <T> withRuntime(
         koin: Koin,
         block: (ScreenInspectorRuntime) -> T,
-    ): T =
-        synchronized(lock) {
-            val current = runtime
-            val usable =
-                when {
-                    current == null -> {
-                        ScreenInspectorRuntime(koin).also {
-                            runtime = it
-                            currentKoin = koin
-                        }
-                    }
+    ): T {
+        val usable = acquireRuntime(koin)
+        try {
+            return block(usable)
+        } finally {
+            gate.readLock().unlock()
+        }
+    }
 
-                    currentKoin === koin -> {
-                        current
-                    }
+    /**
+     * Takes the read lock and returns the runtime to use, or throws.
+     *
+     * Split out so the "hold the read lock for the whole request" part reads as one line in
+     * [withRuntime], and so the create path can *drop* the read lock without the caller
+     * having to reason about which lock it currently holds — a read-to-write upgrade is not
+     * allowed on a `ReentrantReadWriteLock`, and attempting one deadlocks.
+     */
+    private fun acquireRuntime(koin: Koin): ScreenInspectorRuntime {
+        val read = gate.readLock()
+        read.lock()
+        // Read the state and decide *before* touching the lock again, so every branch below
+        // either keeps the read lock (and hands it to `withRuntime` to release) or releases
+        // it and returns/throws — never both.
+        val state = currentState(koin)
+        if (state is RuntimeState.Usable) return state.runtime
+        read.unlock()
+        // The read lock is gone from here on, so a throw cannot strand it.
+        when (state) {
+            is RuntimeState.Usable -> {
+                error("unreachable: handled above")
+            }
 
-                    else -> {
-                        throw InspectorException(
-                            InspectorErrorCode.INTERNAL,
-                            "The application container was replaced while the screen inspector " +
-                                "was running; the open sessions belong to the previous graph. " +
-                                "Restart the host before inspecting again.",
-                        )
+            RuntimeState.Absent -> {
+                return createRuntime(koin)
+            }
+
+            RuntimeState.Closed -> {
+                throw InspectorException(
+                    InspectorErrorCode.INTERNAL,
+                    "This screen-inspector host has been closed; the process created a new one.",
+                )
+            }
+
+            RuntimeState.Replaced -> {
+                throw InspectorException(
+                    InspectorErrorCode.INTERNAL,
+                    "The application container was replaced while the screen inspector was " +
+                        "running; the open sessions belong to the previous graph. Restart the " +
+                        "host before inspecting again.",
+                )
+            }
+        }
+    }
+
+    /** What the host currently holds, under the caller's read lock. */
+    private fun currentState(koin: Koin): RuntimeState {
+        // `closed` is tested FIRST. After a teardown both `runtime` is null and `closed` is
+        // set, and reading them the other way round reported `Absent` — which sent the caller
+        // down the create path on a dead host, and (before this ordering) tried to release a
+        // read lock it had already given up.
+        if (closed) return RuntimeState.Closed
+        val current = runtime
+        return when {
+            current == null -> RuntimeState.Absent
+            currentKoin === koin -> RuntimeState.Usable(current)
+            else -> RuntimeState.Replaced
+        }
+    }
+
+    private sealed interface RuntimeState {
+        class Usable(val runtime: ScreenInspectorRuntime) : RuntimeState
+
+        data object Absent : RuntimeState
+
+        data object Closed : RuntimeState
+
+        data object Replaced : RuntimeState
+    }
+
+    /**
+     * Creates the runtime under the write lock, or returns the one a racing request made.
+     *
+     * The re-check is the point: two requests arriving on an empty host both see `null`,
+     * both release their read lock, and one of them must not throw away the other's runtime.
+     */
+    private fun createRuntime(koin: Koin): ScreenInspectorRuntime {
+        val write = gate.writeLock()
+        write.lock()
+        try {
+            // Two requests can both observe `Absent` and both arrive here; the loser takes
+            // the winner's runtime instead of replacing it.
+            when (val state = currentState(koin)) {
+                is RuntimeState.Usable -> {
+                    return state.runtime
+                }
+
+                RuntimeState.Absent -> {
+                    return ScreenInspectorRuntime(koin).also {
+                        runtime = it
+                        currentKoin = koin
                     }
                 }
-            block(usable)
+
+                RuntimeState.Closed -> {
+                    throw InspectorException(
+                        InspectorErrorCode.INTERNAL,
+                        "This screen-inspector host has been closed; the process created a new one.",
+                    )
+                }
+
+                RuntimeState.Replaced -> {
+                    throw InspectorException(
+                        InspectorErrorCode.INTERNAL,
+                        "The application container was replaced while the screen inspector was " +
+                            "running; the open sessions belong to the previous graph. Restart " +
+                            "the host before inspecting again.",
+                    )
+                }
+            }
+        } finally {
+            write.unlock()
         }
+    }
 
     private fun JsonObject.string(key: String): String {
         val element =
