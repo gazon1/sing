@@ -13,10 +13,15 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -69,6 +74,15 @@ class ScreenInspectorRuntimeTest {
                 )
             val sessionId = opened["sessionId"]!!.jsonPrimitive.content
             assertEquals("tasks.task-detail", opened["screen"]!!.jsonPrimitive.content)
+
+            // `open` waits for the session to settle: the first observation is one an agent
+            // can act on, not a `loading` it has to guess its way past. Without the wait this
+            // read `loading` every time in the CLI, where nothing else occupies the process.
+            assertEquals(
+                "loaded",
+                opened["snapshot"]!!.jsonObject["status"]?.jsonPrimitive?.content,
+                "open must report a settled screen, got $opened",
+            )
 
             awaitLoaded(runtime, sessionId)
 
@@ -148,6 +162,45 @@ class ScreenInspectorRuntimeTest {
 
             runtime.close(sessionId)
         }
+
+    @Test
+    fun `the settle wait returns a still-loading screen at its deadline instead of failing`() {
+        // A screen that never settles is the branch `open` cannot exercise against the real
+        // task-detail screen (it always loads). Without this, the deadline could start
+        // throwing or reporting `loaded` and every other test here would still pass.
+        var clock = 0L
+        var sleeps = 0
+
+        kotlinx.coroutines.runBlocking {
+            awaitSettledStatus(
+                status = { "loading" },
+                timeoutMs = 100L,
+                pollMs = 20L,
+                now = { clock },
+                sleep = { step ->
+                    sleeps++
+                    clock += step
+                },
+            )
+        }
+
+        assertTrue(sleeps > 0, "the wait must poll while the screen reports loading")
+        assertTrue(clock >= 100L, "the wait must run until its deadline, clock=$clock")
+
+        // The other half: a screen that settles stops the wait early.
+        var polls = 0
+        var secondClock = 0L
+        kotlinx.coroutines.runBlocking {
+            awaitSettledStatus(
+                status = { if (++polls >= 3) "loaded" else "loading" },
+                timeoutMs = 100L,
+                pollMs = 20L,
+                now = { secondClock },
+                sleep = { secondClock += it },
+            )
+        }
+        assertEquals(3, polls, "the wait must stop as soon as the screen leaves loading")
+    }
 
     @Test
     fun `idempotent and destructive actions complete against real coordinator and repository`() =
@@ -275,6 +328,97 @@ class ScreenInspectorRuntimeTest {
             )
 
             runtime.close(sessionId)
+        }
+
+    @Test
+    fun `a cancelled open leaves no session behind`() =
+        withRuntime { runtime, koin ->
+            // The wait is held open by the injected settle, so the cancel lands while `open`
+            // is genuinely suspended. The real screen settles too fast to race reliably —
+            // that race is what made the first version of this test flaky.
+            //
+            // The settle also captures the session, so the cleanup is observable: an empty
+            // registry alone would still pass if `open` forgot to close the session, and the
+            // leak is the abandoned state collector, not the map entry.
+            var captured: ScreenSession? = null
+            val holding =
+                ScreenInspectorRuntime(koin) { session ->
+                    captured = session
+                    kotlinx.coroutines.awaitCancellation()
+                }
+            val taskRepo: TaskRepository = koin.get()
+            val created =
+                kotlinx.coroutines
+                    .runBlocking {
+                        taskRepo.create(
+                            Task(
+                                id = TaskId("task-cancelled"),
+                                title = "Cancelled",
+                                priority = TaskPriority.None,
+                                userId = taskRepo.currentUserId(),
+                                createdAt = Clock.System.now(),
+                                updatedAt = Clock.System.now(),
+                            ),
+                        )
+                    }.getOrThrow()
+
+            try {
+                kotlinx.coroutines.runBlocking {
+                    val job =
+                        CoroutineScope(Job()).launch(start = CoroutineStart.UNDISPATCHED) {
+                            holding.open(
+                                "tasks.task-detail",
+                                buildJsonObject { put("taskId", created.id.value) },
+                            )
+                        }
+                    job.cancel()
+                    job.join()
+                }
+
+                val listed = holding.sessions()
+                assertEquals(
+                    0,
+                    listed["sessions"]!!.jsonArray.size,
+                    "a cancelled open must not leave a session: $listed",
+                )
+                assertEquals(
+                    kotlinx.serialization.json.JsonNull,
+                    listed["currentSessionId"],
+                    "a cancelled open must not become the current session: $listed",
+                )
+
+                // A closed session's collector is dead, so a later repository write never
+                // reaches its snapshot. An unclosed one picks the new title up — that is the
+                // resource leak this test exists to catch, made observable. The write happens
+                // *after* the cancellation, so a `loaded` snapshot alone proves nothing.
+                val session = assertNotNull(captured, "the settle must have received the session")
+                kotlinx.coroutines.runBlocking {
+                    taskRepo.update(
+                        created.copy(
+                            title = "Changed after cancellation",
+                            updatedAt = Clock.System.now(),
+                        ),
+                    )
+                }
+                val deadline = System.currentTimeMillis() + 2_000
+                while (System.currentTimeMillis() < deadline) {
+                    val title =
+                        session
+                            .snapshot()["subject"]
+                            ?.jsonObject
+                            ?.get("title")
+                            ?.jsonPrimitive
+                            ?.contentOrNull
+                    assertTrue(
+                        title != "Changed after cancellation",
+                        "the cancelled session must be closed, but its collector still ran: $title",
+                    )
+                    Thread.sleep(25)
+                }
+            } finally {
+                holding.close()
+            }
+            runtime.sessions() // the outer runtime is untouched
         }
 
     @Test
@@ -476,7 +620,9 @@ class ScreenInspectorRuntimeTest {
             runtime.close()
         }
 
-    private fun withRuntime(block: (ScreenInspectorRuntime, Koin) -> Unit) {
+    // `open` is suspend (it waits for the screen to settle), so the harness body is too and
+    // the whole block runs under one `runBlocking` — the same bridge a CLI process uses.
+    private fun withRuntime(block: suspend (ScreenInspectorRuntime, Koin) -> Unit) {
         val tempHome =
             kotlin.io.path
                 .createTempDirectory("screen-inspector-test")
@@ -494,12 +640,14 @@ class ScreenInspectorRuntimeTest {
             }
         try {
             val koin = app.koin
-            kotlinx.coroutines.runBlocking { koin.get<ProfileBootstrapper>().run() }
-            val runtime = ScreenInspectorRuntime(koin)
-            try {
-                block(runtime, koin)
-            } finally {
-                runtime.close()
+            kotlinx.coroutines.runBlocking {
+                koin.get<ProfileBootstrapper>().run()
+                val runtime = ScreenInspectorRuntime(koin)
+                try {
+                    block(runtime, koin)
+                } finally {
+                    runtime.close()
+                }
             }
         } finally {
             runCatching { app.close() }
