@@ -262,9 +262,8 @@ class ProposalDispatch(
                     when (value) {
                         is NoteValue.Title -> value.expectedUpdatedAt
                         is NoteValue.Body -> value.expectedUpdatedAt
-                        is NoteValue.Summary,
-                        is NoteValue.Unreadable,
-                        -> null
+                        is NoteValue.Summary -> value.expectedUpdatedAt
+                        is NoteValue.Unreadable -> null
                     }
                 }
             if (current != null && expected != null) {

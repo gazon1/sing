@@ -519,4 +519,48 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
             assertFalse(output.found, "a folder is not a brief: ${output.noteId}")
         }
 
+
+    @Test
+    fun `a summary is guarded like a body change`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+
+            val kind =
+                com.singularity.todo.feature.proposals.domain.model.ProposalItemKind.SetNoteField(
+                    com.singularity.todo.feature.proposals.domain.model.NoteValue.Summary(
+                        "<p>a summary</p>",
+                        expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
+                    ),
+                )
+            val (built, _) =
+                com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
+                    .multiForTarget(
+                            items =
+                                listOf(
+                                    com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
+                                        .item(kind, brief.id.value),
+                                ),
+                            targetId = brief.id.value,
+                            userId = user,
+                            source =
+                                com.singularity.todo.feature.proposals.domain.model.ProposalSource.Agent,
+                        clock = clock,
+                    )
+            proposals.save(built).getOrThrow()
+
+            clock.advance(kotlin.time.Duration.parse("1m"))
+            notes.seed(brief.copy(bodyHtml = "<p>the user's own words</p>", updatedAt = clock.now()))
+
+            val result = apply.confirm(singleItemId(built.id.value), user)
+
+            assertTrue(result.isFailure, "a summary written from an older note is refused")
+            assertEquals(
+                "<p>the user's own words</p>",
+                notes.notes[brief.id.value]?.bodyHtml,
+                "the user's edit survived",
+            )
+        }
 }

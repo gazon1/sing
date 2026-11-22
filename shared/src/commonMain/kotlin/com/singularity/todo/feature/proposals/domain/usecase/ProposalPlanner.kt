@@ -266,9 +266,8 @@ class ProposalPlanner(private val clock: Clock) {
                 when (value) {
                     is NoteValue.Title -> checkVersion(note, value.expectedUpdatedAt)
                     is NoteValue.Body -> checkVersion(note, value.expectedUpdatedAt)
-                    is NoteValue.Summary,
-                    is NoteValue.Unreadable,
-                    -> Unit
+                    is NoteValue.Summary -> checkVersion(note, value.expectedUpdatedAt)
+                    is NoteValue.Unreadable -> Unit
                 }
             }
             // The write advances the version, so a second proposal built from the same

@@ -5,6 +5,7 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NoteKind
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -175,9 +176,15 @@ class UpdateNoteTool(
         return if (values.isEmpty()) emptyList() else listOf(ProposalItemKind.SetNoteFields(values))
     }
 
-    /** Whether this note is a brief — a plain note attached to a project or a task. */
+    /**
+     * Whether this note is a brief — a **plain** note attached to a project or a task.
+     *
+     * The same three conditions the read asks for. A daily note and a folder are both
+     * excluded, so a caller is never told to state a version for a note that is not a
+     * brief and is never allowed to skip one for a note that is.
+     */
     private fun Note.knowsWhatItIs(): Boolean =
-        !isFolder && (projectId != null || taskId != null)
+        !isFolder && kind == NoteKind.Plain && (projectId != null || taskId != null)
 
     private fun failure(
         noteId: String,

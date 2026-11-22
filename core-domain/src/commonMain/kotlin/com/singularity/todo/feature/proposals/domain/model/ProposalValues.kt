@@ -365,10 +365,19 @@ sealed interface NoteValue : ProposalValue {
         override fun editableValue(): EditableValue<NoteValue> = editableOf("Body", NoteValue::read)
     }
 
-    /** A summary of the note's content, written to the body as HTML. */
+    /**
+     * A summary of the note's content, written to the body as HTML.
+     *
+     * @property expectedUpdatedAt the `updatedAt` the caller read the note at. It carries
+     *   a version for the same reason [Body] does — it replaces the body, so a summary
+     *   written from an older note must not be applied over a newer one.
+     */
     @Serializable
     @SerialName("Summary")
-    data class Summary(val value: String) : NoteValue {
+    data class Summary(
+        val value: String,
+        val expectedUpdatedAt: Long? = null,
+    ) : NoteValue {
         override val fieldName: String = "Summary"
         override val summary: String = "Summarize the note to «${value.asCardValue()}»"
         override val text: String = value
