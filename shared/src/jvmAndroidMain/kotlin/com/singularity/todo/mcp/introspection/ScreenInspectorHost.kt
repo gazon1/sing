@@ -284,7 +284,9 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
             "open" -> {
                 val screen = request.string("screen")
                 val params = request.obj("params")
-                withRuntime(koin) { it.open(screen, params) }
+                // `open` waits for the screen to settle, so it is suspend like `invoke` and
+                // `wait` above: this synchronous host is the sync-to-async bridge.
+                withRuntime(koin) { runBlocking { it.open(screen, params) } }
             }
 
             "describe" -> {

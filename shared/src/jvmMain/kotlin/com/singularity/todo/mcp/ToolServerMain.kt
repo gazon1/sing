@@ -76,10 +76,17 @@ fun runToolServer(
     inspectorHostCompiledIn: Boolean,
 ) {
     if (isScreenInspectorCli(args)) {
+        // The CLI's standard output is its JSON result, and an agent parses every line
+        // there. The same two polluters the server branch guards against reach this one:
+        // the application's own log (Kermit's platform writer, which prints to standard
+        // output until something points it elsewhere) and a third-party banner. Both
+        // landed on stdout of `agent open`, in front of the JSON.
+        installStderrLogging()
+        val resultOut = ProtocolStdout.reserve()
         val cliArgs = stripScreenInspectorCliArgs(args)
         val code =
             com.singularity.todo.mcp.introspection.ScreenInspectorCli
-                .run(cliArgs, koinStartup, inspectorHostCompiledIn)
+                .run(cliArgs, koinStartup, inspectorHostCompiledIn, resultOut.asPrintStream())
         if (code != 0) exitProcess(code)
         return
     }

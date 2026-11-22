@@ -148,6 +148,10 @@ CI, ожидание прогона (`gh pr checks <pr> --watch --interval 60`),
 - **UI-верификация** — скиллы `singularity-todo-emulator-launch` (запуск и
   восстановление AVD), `singularity-todo-desktop-compose-ui-tests` (харнесс и
   компонентные тесты), `singularity-todo-android-cli` (CLI и разбор БД).
+- **Поведение экрана без рендера** — скилл
+  `singularity-todo-headless-screen-inspection` (inspect → invoke → verify через
+  opt-in local host); справочник — `docs/architecture/screen-inspector.md`. Это
+  поведенческое доказательство, не визуальное и не accessibility.
 
 ## 🤖 Coroutine test failures
 

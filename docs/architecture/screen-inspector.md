@@ -3,6 +3,10 @@
 > **Reference, not a procedure.** Describes the local headless screen inspector/driver
 > delivered for [#3041](https://github.com/gazon1/sing/issues/3041). Update this file in the
 > same commit as behavior changes.
+>
+> The procedure — the commands to run, and what a result does and does not prove — is the
+> skill `singularity-todo-headless-screen-inspection`
+> (`.agents/skills/singularity-todo-headless-screen-inspection/SKILL.md`).
 
 ## Scope
 
@@ -122,7 +126,12 @@ java -jar mcp-server/build/libs/mcp-server.jar agent <command> [args]
 
 `--profile-id=<id>` / `--profile=<name>` are honored for data isolation/bootstrap (same contract
 as MCP server). All commands print machine-readable JSON to stdout and exit 0 on success, 2 on
-structural/usage/operation failure reported as JSON, 1 on internal failure.
+structural/usage/operation failure reported as JSON, 1 on internal failure. Standard output carries
+the result line and nothing else: the CLI entry point points the application's log at standard
+error and moves every other print there (`ProtocolStdout.reserve()`), so a result can be piped to
+`jq` directly. That is the same arrangement the MCP server's protocol channel uses — a result mixed
+with log lines is a result an agent cannot parse, and it was the state before the CLI took the same
+guard.
 
 For the MCP-server host itself (the long-lived runtime an agent drives through the `screen_*` tools),
 build with the capability compiled in and pass the flag to the process:

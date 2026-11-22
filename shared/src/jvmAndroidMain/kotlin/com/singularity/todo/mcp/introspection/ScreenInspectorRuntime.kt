@@ -1,10 +1,13 @@
 package com.singularity.todo.mcp.introspection
 
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.koin.core.Koin
 import java.util.concurrent.ConcurrentHashMap
@@ -16,7 +19,7 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
 
     fun capabilities(): JsonObject = ScreenRegistry.list()
 
-    fun open(
+    suspend fun open(
         screenId: String,
         params: JsonObject,
     ): JsonObject {
@@ -39,6 +42,7 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
         val session = ScreenRegistry.open(screenId, params, koin)
         sessions[session.sessionId] = session
         currentSessionId.set(session.sessionId)
+        awaitSettled(session)
         return buildJsonObject {
             put("sessionId", session.sessionId)
             put("screen", session.screenId)
@@ -46,6 +50,27 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
             put("description", capability.description)
             put("snapshot", session.snapshot())
             put("actions", session.actions())
+        }
+    }
+
+    /**
+     * Waits for a freshly opened session to leave `loading`.
+     *
+     * The session is created and its state collector starts on another dispatcher, so an
+     * `open` that returned immediately reported `loading` — always, in the CLI, where the
+     * process has nothing else to occupy it. That made the documented
+     * inspect → invoke → verify sequence unusable: the caller had to guess how many
+     * redundant `snapshot` calls stood between `open` and a state it could act on. Waiting
+     * here is what makes the first observation mean something.
+     *
+     * A screen that never settles answers `loading` at the deadline rather than failing:
+     * the state is genuinely unknown then, and `error` is a different answer.
+     */
+    private suspend fun awaitSettled(session: ScreenSession) {
+        val deadline = System.currentTimeMillis() + OPEN_SETTLE_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            if (session.snapshot()["status"]?.jsonPrimitive?.contentOrNull != "loading") return
+            delay(SETTLE_POLL_MS)
         }
     }
 
@@ -157,3 +182,9 @@ internal class ScreenInspectorRuntime(private val koin: Koin) : AutoCloseable {
                 },
         )
 }
+
+/** How long `open` waits for the screen to leave `loading` before reporting it as it is. */
+private const val OPEN_SETTLE_TIMEOUT_MS = 5_000L
+
+/** How often that wait re-reads the snapshot. */
+private const val SETTLE_POLL_MS = 20L

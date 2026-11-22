@@ -54,6 +54,7 @@ import kotlinx.serialization.json.put
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.stopKoin
 import java.io.File
+import java.io.PrintStream
 
 private val cliJson =
     Json {
@@ -62,16 +63,35 @@ private val cliJson =
     }
 
 internal object ScreenInspectorCli {
+    /**
+     * Where a command's JSON result goes.
+     *
+     * Set once per process by [run]. The host reserves standard output for the result
+     * ([com.singularity.todo.mcp.ProtocolStdout]) and moves every stray print to standard
+     * error, so a result written to `System.out` after that reservation would land on the
+     * wrong stream. Overridable so a test can capture the result without a process.
+     */
+    @Volatile
+    private var resultStream: PrintStream? = null
+
     fun run(
         args: List<String>,
         defaultKoinStartup: ToolServerKoinStartup? = null,
         inspectorHostCompiledIn: Boolean,
-    ): Int =
-        if (inspectorHostCompiledIn) {
+        resultOut: PrintStream? = null,
+    ): Int {
+        resultStream = resultOut
+        return if (inspectorHostCompiledIn) {
             runCompiledIn(args, defaultKoinStartup)
         } else {
             refuseNotCompiledIn()
         }
+    }
+
+    /** Writes one JSON result line to the reserved stream, or to standard output when none was given. */
+    internal fun writeResult(line: String) {
+        (resultStream ?: System.out).println(line)
+    }
 
     // The CLI is a host too, and the build gate applies to it: a release build compiled the
     // inspector out, so no command may reach a dispatch path there. The refusal is checked before
@@ -826,7 +846,7 @@ private fun JsonObject.obj(key: String): JsonObject {
 }
 
 private fun printJson(element: JsonElement) {
-    println(cliJson.encodeToString(JsonElement.serializer(), element))
+    ScreenInspectorCli.writeResult(cliJson.encodeToString(JsonElement.serializer(), element))
 }
 
 private fun helpPayload(): JsonObject =

@@ -7,7 +7,7 @@
 > The SKILL.md <= 500 lines and `description` <= 1024 chars budgets were enforced by a
 > doc-sizes gate that was removed on 2026-10-19; nothing enforces them now.
 
-128 skills: 86 project-specific, 42 generic/meta.
+129 skills: 87 project-specific, 42 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -46,6 +46,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-emulator-launch` | 212 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 457 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-genui-catalog` | 195 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
+| `singularity-todo-headless-screen-inspection` | 349 | Drive a real app screen headlessly to inspect state, discover actions, invoke one, and verify the result — for implementation and for PR review. |
 | `singularity-todo-inline-edit-saved-feedback` | 243 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 105 | JvmInline value class patterns for Singularity Todo. |
 | `singularity-todo-kmp-reorderable` | 221 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
@@ -55,7 +56,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 249 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 457 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 370 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 375 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 284 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 276 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |

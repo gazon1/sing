@@ -70,6 +70,15 @@ class ScreenInspectorRuntimeTest {
             val sessionId = opened["sessionId"]!!.jsonPrimitive.content
             assertEquals("tasks.task-detail", opened["screen"]!!.jsonPrimitive.content)
 
+            // `open` waits for the session to settle: the first observation is one an agent
+            // can act on, not a `loading` it has to guess its way past. Without the wait this
+            // read `loading` every time in the CLI, where nothing else occupies the process.
+            assertEquals(
+                "loaded",
+                opened["snapshot"]!!.jsonObject["status"]?.jsonPrimitive?.content,
+                "open must report a settled screen, got $opened",
+            )
+
             awaitLoaded(runtime, sessionId)
 
             val described = runtime.describe(sessionId)
@@ -476,7 +485,9 @@ class ScreenInspectorRuntimeTest {
             runtime.close()
         }
 
-    private fun withRuntime(block: (ScreenInspectorRuntime, Koin) -> Unit) {
+    // `open` is suspend (it waits for the screen to settle), so the harness body is too and
+    // the whole block runs under one `runBlocking` — the same bridge a CLI process uses.
+    private fun withRuntime(block: suspend (ScreenInspectorRuntime, Koin) -> Unit) {
         val tempHome =
             kotlin.io.path
                 .createTempDirectory("screen-inspector-test")
@@ -494,12 +505,14 @@ class ScreenInspectorRuntimeTest {
             }
         try {
             val koin = app.koin
-            kotlinx.coroutines.runBlocking { koin.get<ProfileBootstrapper>().run() }
-            val runtime = ScreenInspectorRuntime(koin)
-            try {
-                block(runtime, koin)
-            } finally {
-                runtime.close()
+            kotlinx.coroutines.runBlocking {
+                koin.get<ProfileBootstrapper>().run()
+                val runtime = ScreenInspectorRuntime(koin)
+                try {
+                    block(runtime, koin)
+                } finally {
+                    runtime.close()
+                }
             }
         } finally {
             runCatching { app.close() }
