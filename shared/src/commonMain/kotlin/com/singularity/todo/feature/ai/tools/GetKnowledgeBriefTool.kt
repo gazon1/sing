@@ -166,8 +166,11 @@ class GetKnowledgeBriefTool(
      * the brief is empty when it is not, so the markdown is derived here.
      */
     private fun bodyOf(note: Note): String? =
-        note.bodyMarkdown?.takeIf { it.isNotBlank() }
-            ?: note.bodyHtml?.takeIf { it.isNotBlank() }?.let { NoteContentMapper.toMarkdown(it) }
+        // HTML first: it is the canonical form the editor writes, and the field a body
+        // update replaces. Markdown is the legacy projection, so a note that still
+        // carries both answers with the one that is current.
+        note.bodyHtml?.takeIf { it.isNotBlank() }?.let { NoteContentMapper.toMarkdown(it) }
+            ?: note.bodyMarkdown?.takeIf { it.isNotBlank() }
 
     private fun answer(
         owner: String? = null,

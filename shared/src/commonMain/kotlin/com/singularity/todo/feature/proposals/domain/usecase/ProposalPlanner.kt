@@ -289,9 +289,13 @@ class ProposalPlanner(private val clock: Clock) {
                     when (value) {
                         is NoteValue.Title -> acc.copy(title = value.value.trim())
 
-                        is NoteValue.Body -> acc.copy(bodyHtml = value.value)
+                        // The body is written as HTML, which is the canonical form, so the
+                        // legacy markdown projection is cleared rather than left behind: a
+                        // reader that prefers markdown would otherwise answer with the text
+                        // this change replaced.
+                        is NoteValue.Body -> acc.copy(bodyHtml = value.value, bodyMarkdown = null)
 
-                        is NoteValue.Summary -> acc.copy(bodyHtml = value.value)
+                        is NoteValue.Summary -> acc.copy(bodyHtml = value.value, bodyMarkdown = null)
 
                         // A value this build cannot read. The change stays on the card
                         // with the reason it cannot be applied, and the user can type a

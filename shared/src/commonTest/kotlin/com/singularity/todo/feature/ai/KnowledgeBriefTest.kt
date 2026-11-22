@@ -642,6 +642,45 @@ class KnowledgeBriefTest {
         }
 
     @Test
+    fun `a refresh replaces the body a reader gets, not just the HTML field`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+
+            // A note that still carries the legacy markdown projection next to the HTML.
+            val brief =
+                note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+                    .copy(bodyMarkdown = "approved")
+            notes.seed(brief)
+
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                bodyMarkdown = "refreshed",
+                                expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
+                            ),
+                        ),
+                )
+            assertTrue(apply.confirm(singleItemId(output.proposalId), user).isSuccess, "the refresh applied")
+
+            // The reader must answer with the refreshed text. Left behind, the old
+            // markdown would win and the confirmed refresh would be invisible.
+            val after = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = project.id.value)))
+            assertTrue(after.found, "the brief is still there: ${after.reason}")
+            assertTrue(
+                after.bodyMarkdown?.contains("refreshed") == true,
+                "the reader returns the refreshed body, not the previous one: ${after.bodyMarkdown}",
+            )
+            assertTrue(
+                after.bodyMarkdown?.contains("approved") != true,
+                "the replaced text is gone: ${after.bodyMarkdown}",
+            )
+        }
+
+    @Test
     fun `a failed extraction keeps the last approved brief`() =
         runTest {
             val project = project("Kitchen")
