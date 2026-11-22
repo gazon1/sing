@@ -1,5 +1,6 @@
 package com.singularity.todo
 
+import com.github.ajalt.clikt.core.parse
 import com.singularity.todo.core.version.appVersion
 import org.junit.jupiter.api.Tag
 import java.io.ByteArrayOutputStream
@@ -56,5 +57,38 @@ class DesktopVersionFlagTest {
         val out = captureStdout { main(arrayOf("/opt/singularity-todo/bin/singularity-todo", "--version")) }
         assertContains(out, "singularity-todo")
         assertTrue(out.isNotBlank())
+    }
+
+    @Test
+    fun `extra positional arguments beyond launcher arg are rejected`() {
+        val error =
+            kotlin.test.assertFailsWith<com.github.ajalt.clikt.core.UsageError> {
+                DesktopLaunchCli().parse(arrayOf("/opt/singularity-todo/bin/singularity-todo", "unexpected-command"))
+            }
+        val message =
+            listOfNotNull(error.message, error.localizedMessage, error.toString())
+                .joinToString(" | ")
+        kotlin.test.assertTrue(
+            message.contains("unexpected", ignoreCase = true) ||
+                message.contains("extra", ignoreCase = true) ||
+                message.contains("argument", ignoreCase = true),
+            "message=$message",
+        )
+    }
+
+    @Test
+    fun `single unexpected positional argument is rejected`() {
+        val error =
+            kotlin.test.assertFailsWith<com.github.ajalt.clikt.core.UsageError> {
+                DesktopLaunchCli().parse(arrayOf("unexpected-command"))
+            }
+        val message =
+            listOfNotNull(error.message, error.localizedMessage, error.toString())
+                .joinToString(" | ")
+        kotlin.test.assertTrue(
+            message.contains("unexpected", ignoreCase = true) ||
+                message.contains("argument", ignoreCase = true),
+            "message=$message",
+        )
     }
 }

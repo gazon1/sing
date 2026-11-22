@@ -9,6 +9,9 @@ import co.touchlab.kermit.Logger
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.context
 import com.github.ajalt.clikt.core.parse
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.clikt.parameters.arguments.validate
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.singularity.todo.core.coroutines.createBackgroundScope
@@ -233,7 +236,7 @@ fun main(args: Array<String>) {
     }
 }
 
-private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
+internal class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
     val version: Boolean by option("--version").flag(default = false)
     private val mcpServer: Boolean by option(McpServerCommandProvider.TOOL_SERVER_FLAG).flag(default = false)
     private val agentFlag: Boolean by option("--agent").flag(default = false)
@@ -245,6 +248,21 @@ private class DesktopLaunchCli : CliktCommand(name = "singularity-todo") {
     private val deeplink: String? by option("--deeplink")
     private val deeplinkMagicEmail: String? by option("--deeplink-magic-email")
     private val deeplinkMagicToken: String? by option("--deeplink-magic-token")
+
+    // jpackage and OS launchers may prepend the executable path as a positional arg.
+    // The version flag is recognized wherever it appears; consume that single
+    // launcher positional so it doesn't make --version (or other flags) fail parsing,
+    // while keeping other unexpected positionals rejected.
+    @Suppress("unused")
+    private val launcherArg: String? by argument().optional().validate { value ->
+        // Only accept values that look like an executable path passed by a launcher.
+        // Reject arbitrary single tokens (e.g. "unexpected-command") to preserve
+        // CLI validation for typos and unsupported invocations.
+        require(
+            value.contains('/') || value.contains('\\') ||
+                value.endsWith(".exe") || value.endsWith(".bat") || value.endsWith(".cmd"),
+        ) { "unexpected argument \"$value\"" }
+    }
 
     init {
         context {
