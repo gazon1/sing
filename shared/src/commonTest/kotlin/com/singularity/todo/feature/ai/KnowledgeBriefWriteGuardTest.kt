@@ -563,4 +563,31 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
                 "the user's edit survived",
             )
         }
+
+    @Test
+    fun `editing the value on the card keeps the version it was proposed against`() =
+        runTest {
+            val value =
+                com.singularity.todo.feature.proposals.domain.model.NoteValue.Body(
+                    "<p>refreshed</p>",
+                    expectedUpdatedAt = 1_763_800_000_000,
+                )
+
+            val edited =
+                com.singularity.todo.feature.proposals.domain.model.ProposalItemKind.SetNoteField(value)
+                    .editableProposal()
+                    ?.change
+                    ?.invoke("<p>the user retyped it</p>")
+
+            val editedKind =
+                (edited as? com.singularity.todo.feature.proposals.domain.model.ReadResult.Ok)?.value
+                    as? com.singularity.todo.feature.proposals.domain.model.ProposalItemKind.SetNoteField
+            val editedValue =
+                editedKind?.value as? com.singularity.todo.feature.proposals.domain.model.NoteValue.Body
+            assertEquals(
+                1_763_800_000_000,
+                editedValue?.expectedUpdatedAt,
+                "a value edited on the card is still written against the note it was proposed for",
+            )
+        }
 }

@@ -340,7 +340,16 @@ sealed interface NoteValue : ProposalValue {
         override val summary: String = "Set the note title to «${value.asCardValue()}»"
         override val text: String = value
 
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Title", NoteValue::read)
+        // Re-reading the text must keep the version the change was proposed against.
+        // A value the user retyped is still a value about *that* note: dropping the
+        // version here would turn a guarded proposal into an unguarded one at the moment
+        // somebody edited the card.
+        override fun editableValue(): EditableValue<NoteValue> =
+            EditableValue(text) { newText ->
+                NoteValue.read(fieldName, newText).map { read ->
+                    if (read is Title) read.copy(expectedUpdatedAt = expectedUpdatedAt) else read
+                }
+            }
     }
 
     /**
@@ -362,7 +371,12 @@ sealed interface NoteValue : ProposalValue {
         override val summary: String = "Set the note body to «${value.asCardValue()}»"
         override val text: String = value
 
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Body", NoteValue::read)
+        override fun editableValue(): EditableValue<NoteValue> =
+            EditableValue(text) { newText ->
+                NoteValue.read(fieldName, newText).map { read ->
+                    if (read is Body) read.copy(expectedUpdatedAt = expectedUpdatedAt) else read
+                }
+            }
     }
 
     /**
@@ -382,7 +396,12 @@ sealed interface NoteValue : ProposalValue {
         override val summary: String = "Summarize the note to «${value.asCardValue()}»"
         override val text: String = value
 
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Summary", NoteValue::read)
+        override fun editableValue(): EditableValue<NoteValue> =
+            EditableValue(text) { newText ->
+                NoteValue.read(fieldName, newText).map { read ->
+                    if (read is Summary) read.copy(expectedUpdatedAt = expectedUpdatedAt) else read
+                }
+            }
     }
 
     /**
