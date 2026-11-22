@@ -27,7 +27,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.koin.core.Koin
-import org.koin.core.context.GlobalContext
 
 /**
  * The screen-inspector contract, reachable from a running application process by a
@@ -74,7 +73,7 @@ import org.koin.core.context.GlobalContext
  * lives in `androidApp/src/debug` and is absent from a release build
  * (`ScreenInspectorHostIsDebugOnlyTest`).
  */
-internal class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable {
+class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable {
     private val lock = Any()
 
     private var runtime: ScreenInspectorRuntime? = null
@@ -246,8 +245,14 @@ internal class ScreenInspectorHost(private val koinProvider: () -> Koin?) : Auto
             "invoke" -> {
                 val sessionId = request.optString("sessionId")
                 val action = request.string("action")
-                val result = runBlocking { runtime.invoke(sessionId, action, request.obj("input")) }
+                // Every field is validated BEFORE the dispatch. `waitMs` is only an
+                // observation window, but reading it after `invoke` meant a request with a
+                // negative `waitMs` performed the domain action and then answered
+                // `invalid_arguments` — a real mutation reported as a refused request, and
+                // the client has no way to know the write happened.
+                val input = request.obj("input")
                 val waitMs = request.nonNegativeLongOrNull("waitMs")
+                val result = runBlocking { runtime.invoke(sessionId, action, input) }
                 val operationId = result["operationId"]?.jsonPrimitive?.contentOrNull
                 if (waitMs == null || operationId == null) {
                     result
@@ -357,52 +362,4 @@ internal class ScreenInspectorHost(private val koinProvider: () -> Koin?) : Auto
 
         private const val DEFAULT_WAIT_MS = 30_000L
     }
-}
-
-/**
- * The process-wide host, for a caller that has no container of its own to pass.
- *
- * The Android debug provider is that caller: it runs inside the application process, so
- * the application's `startKoin` container is the graph to drive. On a desktop process
- * `Main` starts Koin the same way before any tool-server work happens.
- *
- * Everything the host does is in [ScreenInspectorHost]; this object only decides *which*
- * container a transport-driven request gets, so the contract stays testable without a
- * global.
- */
-object ScreenInspectorDeviceHost {
-    /** @see ScreenInspectorHost.METHOD */
-    const val METHOD: String = ScreenInspectorHost.METHOD
-
-    @Volatile
-    private var host: ScreenInspectorHost? = null
-
-    /**
-     * Serves one request against the running process's container.
-     *
-     * The container is read per request rather than captured: `stopKoin()` in a test or a
-     * process teardown makes the next request fail closed instead of driving a closed
-     * container.
-     */
-    fun handle(
-        method: String,
-        argument: String?,
-    ): String = processHost().handle(method, argument)
-
-    /** Releases the runtime; idempotent, because the caller is a lifecycle hook. */
-    fun stop() {
-        val closed =
-            synchronized(this) {
-                host.also { host = null }
-            }
-        closed?.close()
-    }
-
-    /** True once a request has created the runtime. */
-    fun isStarted(): Boolean = synchronized(this) { host?.isStarted() == true }
-
-    private fun processHost(): ScreenInspectorHost =
-        synchronized(this) {
-            host ?: ScreenInspectorHost(GlobalContext::getOrNull).also { host = it }
-        }
 }

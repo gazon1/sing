@@ -53,10 +53,27 @@ class ScreenInspectorHostIsDebugOnlyTest {
         const val PROVIDER_CLASS = "ScreenInspectorHostProvider"
         const val PROVIDER_PACKAGE = "com/singularity/todo/debug"
         const val DEBUG_HOST_CLASS = "ScreenInspectorDeviceHost"
+        const val CONTRACT_CLASS = "ScreenInspectorHost"
         const val AUTHORITY_SUFFIX = "screen-inspector-host"
 
-        /** Source sets a release APK is assembled from. The host must not be in any. */
-        val RELEASE_SOURCE_SETS = listOf("shared/src/commonMain", "shared/src/jvmMain", "androidApp/src/main")
+        /**
+         * Every source set an Android release APK is compiled from.
+         *
+         * `shared/src/jvmAndroidMain` is on this list because `androidMain` depends on it —
+         * the first revision of this gate omitted it and asserted a boundary its own scan
+         * could not see, while the transport entry point sat in that very directory. Both
+         * reviewers found it. A hand-written list only stays honest if something checks
+         * that it covers the real compilation; `jvmAndroidMain` is named by
+         * `shared/build.gradle.kts` and by the assertion below.
+         */
+        val RELEASE_SOURCE_SETS =
+            listOf(
+                "shared/src/commonMain",
+                "shared/src/jvmAndroidMain",
+                "shared/src/androidMain",
+                "shared/src/jvmMain",
+                "androidApp/src/main",
+            )
 
         /** Where the host is allowed to be, and nowhere else. */
         const val DEBUG_SOURCE_SET = "androidApp/src/debug"
@@ -102,25 +119,64 @@ class ScreenInspectorHostIsDebugOnlyTest {
     }
 
     @Test
-    fun `the release source sets never name the host`() {
-        // A call from shared code is the way this boundary would actually be broken: the
-        // class would still live in `src/debug` and the release build would fail to
-        // compile only if it *required* it — which it would after somebody "fixed" the
-        // missing symbol by moving the class up.
+    fun `the transport entry point is absent from every release source set`() {
+        // The entry point — the object that hands a transport request to a container — is
+        // what makes the host reachable. It lives in `androidApp/src/debug`, which a
+        // release variant does not compile, so no release source set may name it.
+        //
+        // The *contract* (`ScreenInspectorHost`) IS in the release compilation, on purpose:
+        // it is shared with the JVM target, and nothing in a release build constructs it.
+        // The distinction matters and the first revision of this gate blurred it — it
+        // claimed "no host in release" while `ScreenInspectorDeviceHost` sat in the shared
+        // set with a public `handle()`. So the assertion names the entry point by file,
+        // not by substring: `ScreenInspectorDeviceHost` contains `ScreenInspectorHost`,
+        // and a substring check would report the contract as the entry point.
         val offenders =
             RELEASE_SOURCE_SETS
                 .flatMap { kotlinFiles(it) }
                 .filter { file ->
                     val text = code(file)
-                    text.contains(PROVIDER_CLASS) || text.contains(DEBUG_HOST_CLASS)
+                    text.contains(PROVIDER_CLASS) ||
+                        file.nameWithoutExtension == DEBUG_HOST_CLASS ||
+                        text.contains("$DEBUG_HOST_CLASS.")
                 }.map(::relative)
 
         assertTrue(
             offenders.isEmpty(),
-            "release source sets name the debug screen-inspector host: $offenders. " +
-                "The host is a development/test capability; code compiled into a release " +
-                "APK must not reference it, or the capability comes back with it.",
+            "release source sets name the screen-inspector transport entry point: $offenders. " +
+                "The host is a development/test capability; a release APK must not carry a " +
+                "callable entry point for it.",
         )
+    }
+
+    @Test
+    fun `the release source-set list covers the sets the build actually compiles`() {
+        // The anti-vacuity assertion for the list above, and the exact thing that was
+        // missing: a hand-written enumeration is only as good as its coverage. Every
+        // `src/*Main` source set that the build declares must either be scanned as a
+        // release set or be the debug-only one.
+        val sharedBuild = File(repoRoot, "shared/build.gradle.kts").readText()
+        val declared =
+            Regex("""src/([A-Za-z]+Main)/kotlin""")
+                .findAll(sharedBuild)
+                .map { it.groupValues[1] }
+                .toSet()
+
+        val scanned =
+            RELEASE_SOURCE_SETS
+                .mapNotNull {
+                    it.substringAfter("shared/src/", "").takeIf { s -> s.endsWith("Main") }
+                }.toSet()
+        val unscanned = declared - scanned
+
+        assertTrue(
+            unscanned.isEmpty(),
+            "shared/build.gradle.kts declares source sets this gate does not scan: $unscanned. " +
+                "A release-boundary assertion that skips a compiled source set proves nothing " +
+                "about it — which is how the first revision passed while the entry point " +
+                "shipped in $CONTRACT_CLASS's directory.",
+        )
+        assertTrue(declared.isNotEmpty(), "the source-set scan matched nothing — it reports green over an empty corpus")
     }
 
     @Test

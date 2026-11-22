@@ -146,17 +146,63 @@ class ScreenInspectorHostContractTest {
     }
 
     @Test
-    fun `a session opened in one request survives into the next`() {
-        // The whole reason the runtime outlives a request. A per-request runtime would make
-        // every session unusable one call after it was opened, which is why the CLI's
-        // per-process model is not copied here.
+    fun `the runtime outlives a request instead of being rebuilt for each one`() {
+        // The reason the host holds one runtime: `open` in one `content call` and `invoke`
+        // in the next is the whole workflow, so a per-request runtime would make every
+        // session unusable one call after it was opened.
+        //
+        // What this asserts is exactly that — the runtime is created once and reused, which
+        // is the property a per-request implementation would break. What it does NOT
+        // assert is that a *session* survives, because a session needs a real task and a
+        // real container; `ScreenInspectorRuntimeTest` owns that against a real database.
+        // The name says what is checked, so the gap is visible instead of implied.
         val app = koinApplication { modules(emptyList()) }
         val host = ScreenInspectorHost { app.koin }
 
         host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
-        host.handle(ScreenInspectorHost.METHOD, """{"op":"sessions"}""")
+        assertTrue(host.isStarted(), "the first request did not create a runtime")
 
-        assertTrue(host.isStarted(), "the runtime was created per request")
+        host.handle(ScreenInspectorHost.METHOD, """{"op":"sessions"}""")
+        assertTrue(host.isStarted(), "the runtime was rebuilt for the second request")
+
+        host.close()
+        assertFalse(host.isStarted(), "closing the host left the runtime alive")
+        app.close()
+    }
+
+    @Test
+    fun `an invalid waitMs is refused before the action is dispatched`() {
+        // The defect both reviewers found: `waitMs` was read AFTER `runtime.invoke`, so a
+        // request carrying a negative or non-numeric waitMs performed the domain action and
+        // then answered `invalid_arguments`. The client saw a refusal for a write that had
+        // already happened, with no way to tell.
+        //
+        // The container is real but holds no session, and that is what makes the assertion
+        // sharp: if the request is refused *before* dispatch the message names `waitMs`; if
+        // it were dispatched first, the failure would be the runtime's "no screen session is
+        // open" instead. The message, not just the error code, is what tells the two apart —
+        // both are `invalid_arguments`.
+        val app = koinApplication { modules(emptyList()) }
+        val host = ScreenInspectorHost { app.koin }
+
+        val badWaits = listOf("-1", "\"soon\"", "true", "{}", "[]")
+        badWaits.forEach { waitMs ->
+            val envelope =
+                host.handle(
+                    ScreenInspectorHost.METHOD,
+                    """{"op":"invoke","action":"set_priority","input":{"priority":"high"},"waitMs":$waitMs}""",
+                )
+            assertEquals(
+                "invalid_arguments",
+                errorCode(envelope),
+                "waitMs=$waitMs was not refused as invalid input: $envelope",
+            )
+            assertTrue(
+                envelope.contains("waitMs"),
+                "waitMs=$waitMs was rejected by the runtime rather than by the request " +
+                    "validation, which means the action had already been dispatched: $envelope",
+            )
+        }
         host.close()
         app.close()
     }

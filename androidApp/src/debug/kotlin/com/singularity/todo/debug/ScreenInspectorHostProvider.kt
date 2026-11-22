@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
 import android.os.Process
-import com.singularity.todo.mcp.introspection.ScreenInspectorDeviceHost
 
 /**
  * Debug-only host for the headless screen-inspector contract (#3074).

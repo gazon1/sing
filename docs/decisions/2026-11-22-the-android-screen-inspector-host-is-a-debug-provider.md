@@ -63,13 +63,29 @@ answers both.
    service, no background thread and no socket; work happens only while a request is being
    served.
 
-5. **Release safety is the source set, not a flag.** The provider and everything that
-   reaches it live in `androidApp/src/debug`; a release APK does not compile that directory
-   at all. There is no `BuildConfig.DEBUG` branch anywhere in the path — that shape is what
-   the parent ADR refuses, because a release artefact would still *carry* the capability.
+5. **Release safety is the source set, and the line is where the entry point is.** The
+   provider, its manifest entry, and the process host that hands a request to a container
+   (`ScreenInspectorDeviceHost`) all live in `androidApp/src/debug`; a release APK does not
+   compile that directory at all. There is no `BuildConfig.DEBUG` branch anywhere in the
+   path — that shape is what the parent ADR refuses, because a release artefact would still
+   *carry* the capability.
+
+   **One honest limitation, stated rather than glossed.** The contract itself
+   (`ScreenInspectorHost` — JSON in, JSON envelope out) is compiled into the Android release
+   variant, because it is shared with the JVM target and that is the point of the split. A
+   release APK therefore *contains* `ScreenInspectorHost`, `ScreenInspectorRuntime` and the
+   screen registry. What it does not contain is any way to reach them: no provider, no
+   manifest entry, no `ScreenInspectorDeviceHost`, so nothing in a release build ever
+   constructs a runtime and no external caller has an entry point. "Capability absent" is
+   the accurate claim; "no host classes in the APK" is not, and the first revision of this
+   record overstated it (both independent reviewers caught it — see the review notes below).
+
    `ScreenInspectorHostIsDebugOnlyTest` asserts the boundary: the provider exists exactly
-   once and only there, no `main`/`pro`/`shared` source names it, and the main manifest does
-   not declare it.
+   once and only in `src/debug`, the transport entry point is named by no release source
+   set, the main manifest does not declare the provider, and — the anti-vacuity check — the
+   gate's list of release source sets covers every `src/*Main` set the build declares. That
+   last assertion exists because the first revision's hand-written list silently omitted
+   `jvmAndroidMain`, which is exactly where the entry point lived.
 
 6. **Caller identity is checked by UID.** The provider is `exported="true"` because `adb
    shell` is a different UID and cannot reach a private provider; `call()` then refuses
@@ -80,7 +96,22 @@ answers both.
 7. **No new MCP server and no duplicate domain tools.** The Android host serves the same
    JSON envelope as the CLI (`{"op":…}` in, `{"ok":…,"result"|"error":…}` out) and dispatches
    through `ScreenInspectorRuntime`. It is not an MCP server; it is the same contract behind
-   a second transport.
+   a second transport. The `op` dispatch table is written out again in
+   `ScreenInspectorHost` rather than shared with `ScreenInspectorCli`, deliberately: the CLI's
+   table is bound to Clikt commands, its own process model and `ProgramResult` exit codes,
+   and the two would grow together only by accident. What is shared is everything below the
+   table — the runtime, the registry, the session and the envelope — which is where drift
+   would actually cost something. Duplicating a `when` over eleven string keys is the
+   cheaper side of that trade, and `ScreenInspectorHostContractTest` pins the host's side of
+   it.
+
+8. **Every field is validated before anything is dispatched.** A request is read whole and
+   rejected whole: an unknown `op`, a non-string `op`, a malformed body, a negative or
+   non-numeric `waitMs`/`timeoutMs` — each answers `invalid_arguments` **before** a runtime
+   is touched. This is stated as a decision because the first revision got it wrong for
+   `waitMs`: it validated *after* `runtime.invoke`, so a request with `"waitMs": -1` performed
+   a real domain action and then reported the request as refused. A client had no way to
+   learn the write happened.
 
 ## Rationale
 
@@ -155,6 +186,24 @@ is still only reachable from a debug build.
   tests run on the JVM against an injected container, and the device path is verified
   manually with `adb`. A Compose/instrumented test would be the next slice if the host grows
   behavior of its own.
+
+## Review notes
+
+An independent cross-model review of the first revision found two defects in it, both
+corrected here, and both are recorded because the *shape* of each is the kind that recurs:
+
+- **Validation ran after dispatch.** `waitMs` was read from the request *after*
+  `runtime.invoke(...)` had already reached the coordinator. A request with a negative or
+  non-numeric `waitMs` performed the action and then answered `invalid_arguments`. The rule
+  this record now states as decision 8 exists because of it, and
+  `ScreenInspectorHostContractTest` pins it with a container that throws if it is touched.
+- **The release gate asserted a boundary it could not see.** Its hand-written list of
+  release source sets omitted `shared/src/jvmAndroidMain`, and the transport entry point —
+  a public `object` with a public `handle()` — sat in that directory, so an Android release
+  build carried a callable host while the test reported the boundary as intact. The entry
+  point moved to `androidApp/src/debug`, and the gate gained an assertion that its own list
+  covers every `src/*Main` set the build declares. A hand-written enumeration needs a check
+  on its coverage, or it is a comment with a green checkmark.
 
 ## Links
 
