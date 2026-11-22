@@ -30,8 +30,9 @@ data class GetKnowledgeBriefInput(val projectId: String? = null, val taskId: Str
  * @property updatedAt when the note was last written, epoch millis. The caller passes
  *   it back as `expectedUpdatedAt` when it refreshes the brief, so an update written
  *   against a note nobody has touched since is the only one that lands.
- * @property attachedNotes how many notes are attached to the owner. More than one means
- *   [noteId] is the newest, not the only one.
+ * @property attachedNotesSeen how many attached notes the read looked at — a page, not
+ *   a total. The reads are bounded, so a project with more than the page reports the
+ *   page size; more than one means [noteId] is the newest of them, not the only one.
  */
 @Serializable
 data class GetKnowledgeBriefOutput(
@@ -40,7 +41,7 @@ data class GetKnowledgeBriefOutput(
     val title: String? = null,
     val bodyMarkdown: String? = null,
     val updatedAt: Long? = null,
-    val attachedNotes: Int = 0,
+    val attachedNotesSeen: Int = 0,
     /** The owner the brief was read for: `project` or `task`. */
     val owner: String? = null,
     /** Set when there is no brief, or when the call could not be answered at all. */
@@ -64,6 +65,16 @@ data class GetKnowledgeBriefOutput(
  * body. The owner is resolved first, so a hallucinated id is answered as "not found"
  * rather than as an empty brief: the model has to be able to tell "nobody wrote this
  * yet" from "there is no such project".
+ *
+ * ## One brief is a convention, not a constraint
+ *
+ * Nothing stops an owner from accumulating several attached notes, and this read does
+ * not pick one by the model's intent: it answers with the newest, and says how many it
+ * saw. Making "one brief per owner" a database rule would refuse the second note the
+ * user creates by hand, in a list that has no notion of a brief. So the convention is
+ * enforced where a brief is *written* — `create_note` attaches a note only when the
+ * agent asks for one, and the agent reads first — and a second attached note is a
+ * second note, newest first, not a corruption.
  */
 class GetKnowledgeBriefTool(
     private val notesRepository: NotesRepository,
@@ -123,10 +134,10 @@ class GetKnowledgeBriefTool(
         notes: List<Note>,
     ): GetKnowledgeBriefOutput {
         val newest =
-            notes.maxWithOrNull(NOTE_ORDER)
+            notes.sortedWith(NOTE_ORDER).firstOrNull()
                 ?: return answer(
                     owner = owner,
-                    attachedNotes = 0,
+                    attachedNotesSeen = 0,
                     reason = "No note is attached to this $owner yet, so there is no brief to read.",
                 )
         return GetKnowledgeBriefOutput(
@@ -135,7 +146,7 @@ class GetKnowledgeBriefTool(
             title = newest.title,
             bodyMarkdown = bodyOf(newest),
             updatedAt = newest.updatedAt.toEpochMilliseconds(),
-            attachedNotes = notes.size,
+            attachedNotesSeen = notes.size,
             owner = owner,
         )
     }
@@ -153,10 +164,15 @@ class GetKnowledgeBriefTool(
 
     private fun answer(
         owner: String? = null,
-        attachedNotes: Int = 0,
+        attachedNotesSeen: Int = 0,
         reason: String,
     ): GetKnowledgeBriefOutput =
-        GetKnowledgeBriefOutput(found = false, attachedNotes = attachedNotes, owner = owner, reason = reason)
+        GetKnowledgeBriefOutput(
+            found = false,
+            attachedNotesSeen = attachedNotesSeen,
+            owner = owner,
+            reason = reason,
+        )
 
     companion object {
         const val NAME = "get_knowledge_brief"
@@ -170,11 +186,15 @@ class GetKnowledgeBriefTool(
         private const val NOTE_LIMIT = 20
 
         /**
-         * Newest first, then by id — the id breaks a same-second tie the way the
-         * store's own order does.
+         * Newest first, then by ascending id — exactly the `ORDER BY created_at DESC,
+         * id ASC` both reads run.
+         *
+         * The direction of the tie-break is not cosmetic: a comparator that sorted the
+         * id the other way picked the opposite note on a same-second tie, so the tool
+         * answered with a note the store does not call first.
          */
         private val NOTE_ORDER: Comparator<Note> =
-            compareBy<Note> { it.createdAt }.thenBy { it.id.value }
+            compareByDescending<Note> { it.createdAt }.thenBy { it.id.value }
 
         /**
          * The description the model reads.

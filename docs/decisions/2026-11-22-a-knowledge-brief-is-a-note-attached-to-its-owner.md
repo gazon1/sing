@@ -77,11 +77,20 @@ names for the same two acts would be the split
 The read returns `updatedAt` so the next `update_note` can pass it back as
 `expectedUpdatedAt`.
 
-**Stale means refused, not merged.** `update_note` compares `expectedUpdatedAt` with the
-note it just read and refuses a mismatch, before anything is proposed. The proposal path
-already re-reads the row at confirm time and rebuilds a stale plan; that protects against
-a change between *propose* and *confirm*, and it cannot protect against a summary that was
-written from an older note to begin with. The caller has to state what it read.
+**Stale means refused, not merged — at both ends.** The version travels with the
+change: `update_note` compares `expectedUpdatedAt` with the note it just read and refuses a
+mismatch before anything is proposed, and `NoteValue.Body` carries the same value into the
+proposal so `ProposalPlanner.withNoteValue` refuses again at apply time. Both checks are
+needed and neither is redundant: the first stops a summary written from an old note from
+ever becoming a proposal, the second stops a proposal from landing on an edit the user
+made while the card was waiting. The value is optional — a `Body` built by the in-app
+editor carries none, because a human who pressed "improve" and then confirms the result is
+the decision itself.
+
+Applying a note write also advances `updatedAt`. The task path already did this through
+its repository, so the note path's silence was an inconsistency rather than a choice: a
+write that did not move the version meant two proposals built from one read could both
+land.
 
 **The provider is not in the domain.** Nothing in `commonMain` names NotebookLM,
 10x-chat, a notebook id or a source id. Provenance is Markdown the agent writes: the
@@ -109,7 +118,10 @@ is a promise somebody keeps.
 
 `expectedUpdatedAt` is the caller's statement rather than a version column because the
 note already has `updatedAt`, the sync path already maintains it, and a new column would
-need a migration to answer a question this one answers.
+need a migration to answer a question this one answers. Carrying it inside `NoteValue.Body`
+followed the same rule: the proposal row already stores the kind as JSON, so the version
+needed no schema change, and a proposal is not synced (`DocType` has no proposal entry), so
+the field cannot reach a device running a build that does not know it.
 
 ## Consequences
 
@@ -124,6 +136,13 @@ need a migration to answer a question this one answers.
   person to read `watchForProject` will otherwise assume it covers attachments.
 - `update_note` gained an optional field. A caller that omits it keeps the old behaviour;
   a caller that states it gets the refusal. The payload only grows, so no client breaks.
+- A note write now advances `updatedAt` when a proposal is applied, which it did not do
+  before. Any reader that treated a note's `updatedAt` as "the last time the editor
+  autosaved" now also sees agent-approved changes there — which is what the field already
+  meant on the task side.
+- "One brief per owner" is a convention, not a constraint: nothing prevents a second
+  attached note, and `get_knowledge_brief` answers with the newest and reports how many it
+  saw. A database rule would refuse a note the user attaches by hand.
 - Closing the `note.projectId` allowlist gap means a brief survives the trip between
   devices. It is a deployment step, and it is reported by the existing gate until applied.
 - No Android process launch, no Python, no NotebookLM client in Kotlin: the agent does the

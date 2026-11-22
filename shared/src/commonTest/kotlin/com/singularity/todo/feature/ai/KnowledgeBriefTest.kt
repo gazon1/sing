@@ -213,7 +213,7 @@ class KnowledgeBriefTest {
             assertTrue(output.found, "the brief was found: ${output.reason}")
             assertEquals("project", output.owner, "the owner is stated")
             assertEquals("Knowledge brief", output.title, "the note's title is the brief's title")
-            assertEquals(1, output.attachedNotes, "one note is attached")
+            assertEquals(1, output.attachedNotesSeen, "one attached note was read")
             assertNotNull(output.bodyMarkdown, "the body came back as markdown")
             assertTrue(
                 output.bodyMarkdown.contains("Summary"),
@@ -232,7 +232,7 @@ class KnowledgeBriefTest {
 
             assertFalse(output.found, "there is no brief")
             assertNull(output.noteId, "no note is named")
-            assertEquals(0, output.attachedNotes, "nothing is attached")
+            assertEquals(0, output.attachedNotesSeen, "nothing is attached")
             assertNotNull(output.reason, "the answer says why: absence is not an error")
         }
 
@@ -275,7 +275,7 @@ class KnowledgeBriefTest {
             val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = kitchen.id.value)))
 
             assertFalse(output.found, "the kitchen has no brief of its own")
-            assertEquals(0, output.attachedNotes, "the garden's note is not the kitchen's")
+            assertEquals(0, output.attachedNotesSeen, "the garden's note is not the kitchen's")
         }
 
     // ── Refresh: the candidate, and the refusal ────────────────────────────────
@@ -342,6 +342,116 @@ class KnowledgeBriefTest {
             assertTrue(
                 proposals.watchWaitingProposals().first().isEmpty(),
                 "nothing is waiting for a decision about a stale read",
+            )
+        }
+
+    @Test
+    fun `an edit between the proposal and the confirmation is not overwritten`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                bodyMarkdown = "refreshed",
+                                expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
+                            ),
+                        ),
+                )
+            assertTrue(output.proposalCreated, "the refresh was proposed: ${output.error}")
+
+            // The user edits the note after the model proposed and before they confirm.
+            clock.advance(kotlin.time.Duration.parse("1m"))
+            notes.seed(brief.copy(bodyHtml = "<p>the user's own words</p>", updatedAt = clock.now()))
+
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+
+            // The proposal re-reads the row and finds a version it was not written
+            // against: the change is refused, not applied over the edit.
+            assertTrue(result.isFailure, "the stale proposal was refused")
+            assertEquals(
+                "<p>the user's own words</p>",
+                notes.notes[brief.id.value]?.bodyHtml,
+                "the user's edit survived the confirmation",
+            )
+        }
+
+    @Test
+    fun `applying a refresh advances the version, so the same read cannot land twice`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+            val readAt = brief.updatedAt.toEpochMilliseconds()
+            // The write is later in wall-clock terms, as a real refresh is.
+            clock.advance(kotlin.time.Duration.parse("1m"))
+
+            val first =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                bodyMarkdown = "first refresh",
+                                expectedUpdatedAt = readAt,
+                            ),
+                        ),
+                )
+            assertTrue(apply.confirm(singleItemId(first.proposalId), user).isSuccess, "the first refresh applied")
+
+            val afterFirst = assertNotNull(notes.notes[brief.id.value], "the note is still there")
+
+            // A second proposal built from the same read. Without the version moving on
+            // write, this would land on top of the first refresh.
+            val second =
+                UpdateNoteTool(proposals, notes, currentUser, clock)
+                    .execute(
+                        UpdateNoteInput(
+                            noteId = brief.id.value,
+                            bodyMarkdown = "second refresh",
+                            expectedUpdatedAt = readAt,
+                        ),
+                    )
+
+            assertTrue(
+                decodeUpdate(second).error != null,
+                "a proposal from a superseded read is refused: ${decodeUpdate(second).error}",
+            )
+            assertEquals(
+                afterFirst.bodyHtml,
+                notes.notes[brief.id.value]?.bodyHtml,
+                "the first refresh is still the note",
+            )
+        }
+
+    @Test
+    fun `the brief is the note the store calls newest, not the one with the largest id`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+
+            // Same created_at: the tie the ordering has to break the same way the store
+            // does — `created_at DESC, id ASC`.
+            val tied = clock.now()
+            val lowId = note(title = "oldest id", html = "<p>a</p>", projectId = project.id).copy(id = NoteId("aaa"), createdAt = tied)
+            val highId = note(title = "largest id", html = "<p>b</p>", projectId = project.id).copy(id = NoteId("zzz"), createdAt = tied)
+            notes.seed(highId)
+            notes.seed(lowId)
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = project.id.value)))
+
+            assertTrue(output.found, "the brief was found: ${output.reason}")
+            assertEquals(
+                "oldest id",
+                output.title,
+                "the tie breaks on ascending id, so the store's first row is the brief",
             )
         }
 

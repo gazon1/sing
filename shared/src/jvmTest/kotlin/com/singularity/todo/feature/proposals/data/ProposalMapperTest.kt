@@ -337,7 +337,9 @@ private fun samples(): List<ProposalItemKind> =
         ProposalItemKind.SetTagField(TagValue.Unreadable("Colour", "blue")),
         // Every note field.
         ProposalItemKind.SetNoteField(NoteValue.Title("Agenda")),
-        ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>")),
+        // The version a refresh states travels with the change: a round trip that
+        // dropped it would turn a guarded proposal into an unguarded one.
+        ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>", expectedUpdatedAt = 1_763_800_000_000)),
         ProposalItemKind.SetNoteField(NoteValue.Summary("Milk")),
         // Every project field.
         ProposalItemKind.SetProjectField(ProjectValue.Name("Kitchen")),

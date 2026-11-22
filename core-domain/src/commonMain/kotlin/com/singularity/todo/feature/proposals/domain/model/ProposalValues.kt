@@ -331,10 +331,24 @@ sealed interface NoteValue : ProposalValue {
         override fun editableValue(): EditableValue<NoteValue> = editableOf("Title", NoteValue::read)
     }
 
-    /** The note's body, as canonical HTML — the form the notes are stored in. */
+    /**
+     * The note's body, as canonical HTML — the form the notes are stored in.
+     *
+     * @property expectedUpdatedAt the `updatedAt` the caller read the note at, when
+     *   the change is a refresh of an existing body. The proposal carries it so the
+     *   guard survives until the change is applied: a note the user edited between
+     *   the read and the confirmation is refused, not overwritten with a summary of
+     *   the older body. `null` means the caller states no version and the change
+     *   applies to whatever is there — the shape every proposal built before this
+     *   field existed, and the shape a value the user re-types on the card has,
+     *   because a human who typed the body is the one accepting it.
+     */
     @Serializable
     @SerialName("Body")
-    data class Body(val value: String) : NoteValue {
+    data class Body(
+        val value: String,
+        val expectedUpdatedAt: Long? = null,
+    ) : NoteValue {
         override val fieldName: String = "Body"
         override val summary: String = "Set the note body to «${value.asCardValue()}»"
         override val text: String = value

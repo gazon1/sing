@@ -302,9 +302,26 @@ class ProposalPlanner(private val clock: Clock) {
         when (value) {
             is NoteValue.Title -> note.copy(title = value.value.trim())
 
-            is NoteValue.Body -> note.copy(bodyHtml = value.value)
+            is NoteValue.Body -> {
+                // The guard the tool stated when it proposed the change. Checking it
+                // here — not only in the tool — is what makes it survive until the
+                // change is applied: the tool read the note, the user edited it, and
+                // the proposal would otherwise write a summary of the older body over
+                // the edit. A value with no stated version is a value the user typed on
+                // the card, and a human accepting it is the decision itself.
+                value.expectedUpdatedAt?.let { expected ->
+                    val actual = note.updatedAt.toEpochMilliseconds()
+                    require(expected == actual) {
+                        "The note changed since it was read (updatedAt $actual, expected $expected)"
+                    }
+                }
+                // The write advances the version, so a second proposal built from the
+                // same read cannot land on top of this one. The task's write does the
+                // same through its own repository.
+                note.copy(bodyHtml = value.value, updatedAt = clock.now())
+            }
 
-            is NoteValue.Summary -> note.copy(bodyHtml = value.value)
+            is NoteValue.Summary -> note.copy(bodyHtml = value.value, updatedAt = clock.now())
 
             // A value this build cannot read. The change stays on the card with the
             // reason it cannot be applied, and the user can type a value that does

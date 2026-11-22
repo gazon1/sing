@@ -102,7 +102,7 @@ task.
 A refresh that fails, is incomplete, or is not yet ready **produces no proposal**. The
 approved brief is untouched, because a proposal is the only way a brief changes.
 
-### Stale means refused
+### Stale means refused, at both ends
 
 `update_note` compares `expectedUpdatedAt` with the note it just read and refuses a
 mismatch:
@@ -112,9 +112,29 @@ The note changed since it was read (updatedAt 1763800000000, expected 1763799999
 Read it again and propose the change against what is there now.
 ```
 
-That is the guard for a summary written from an older note. The proposal path has its
-own: a note that changes between propose and confirm is re-read, and the plan is rebuilt
-from the row the claim read back.
+That is the first check: a summary written from an older note never becomes a proposal.
+The version then travels **inside** the proposal, and the apply path checks it again — so a
+note the user edits while the proposal is waiting on the card is refused rather than
+overwritten:
+
+```
+The note changed since it was read (updatedAt 1763800060000, expected 1763800000000)
+```
+
+Apply a refresh and the note's `updatedAt` moves, so a second proposal built from the same
+read cannot land on top of the first one.
+
+## One brief per owner is a convention
+
+Nothing in the database stops a project from accumulating several attached notes, and
+`get_knowledge_brief` does not pretend otherwise: it answers with the **newest** attached
+note and reports how many it read (`attachedNotesSeen`, a page size, not a total — the
+reads are bounded).
+
+The convention is kept where a brief is written: the agent reads before it writes, and
+`create_note` attaches a note only when asked for. A second attached note is a second note,
+newest first. Making it a constraint would refuse a note the user attached by hand, in a
+notes list that has no notion of a brief.
 
 ## What the app refuses to do
 
