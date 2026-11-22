@@ -80,7 +80,7 @@ Three copies went, each because the scenario had an owner that could assert it:
   code, and
 - the device tier's original **FAB** flow test was removed as a duplicate; a later device `CreateTaskFlowTest` currently exists and is tracked as `investigate` in the Android inventory below. It must not be removed until its remaining Android shell/editor/resource-id wiring assertions have explicit owners.
 
-The instrumented tier lost one class and three tests when that earlier FAB flow was removed; `TaskEditorDraftTest` later added one class and two tests for a scenario only a device can observe (a persisted draft being restored). `config/docs/instrumented-test-floor.txt` currently records the tier's floor as 17 classes and 53 tests. The android host tier's executed allowlisted baseline is currently 23 tests (`config/docs/test-runs-baseline.txt`: `shared:testAndroidHostTest 23 0`); the source set contains 9 test classes, with `AndroidFileSourceTest` present but not in the Gradle execution allowlist (see inventory).
+The instrumented tier lost one class and three tests when that earlier FAB flow was removed; `TaskEditorDraftTest` later added one class and two tests for a scenario only a device can observe (a persisted draft being restored). `config/docs/instrumented-test-floor.txt` currently records the tier's floor as 17 classes and 53 tests. The android host tier's executed baseline is currently 26 tests (`config/docs/test-runs-baseline.txt`: `shared:testAndroidHostTest 26 0`); the source set contains 9 test classes, all 9 of them in the Gradle execution allowlist since #3087 wired `AndroidFileSourceTest`.
 
 ## The four features that had no end-to-end flow
 
@@ -100,7 +100,7 @@ The instrumented tier lost one class and three tests when that earlier FAB flow 
 
 ## Android test inventory (#3086)
 
-Audit-only inventory for issue [#3086](https://github.com/gazon1/sing/issues/3086): no tests, production code, Gradle config, floors, or CI lanes changed. Detailed per-class notes, overlaps, and replacement seams are in [`docs/testing/android-test-inventory.md`](../testing/android-test-inventory.md). Reproducible scope: 22 Kotlin files / 17 test classes / 53 direct `@Test` in `androidApp/src/androidTest`; 9 Kotlin files / 9 test classes / 22 direct + 4 inherited `@Test` in `shared/src/androidHostTest` (allowlisted executed set: 23, baseline `shared:testAndroidHostTest 23 0`).
+Audit-only inventory for issue [#3086](https://github.com/gazon1/sing/issues/3086): no tests, production code, Gradle config, floors, or CI lanes changed. Detailed per-class notes, overlaps, and replacement seams are in [`docs/testing/android-test-inventory.md`](../testing/android-test-inventory.md). Reproducible scope: 22 Kotlin files / 17 test classes / 53 direct `@Test` in `androidApp/src/androidTest`; 9 Kotlin files / 9 test classes / 22 direct + 4 inherited `@Test` in `shared/src/androidHostTest` (executed set: 26, baseline `shared:testAndroidHostTest 26 0` after #3087 wired `AndroidFileSourceTest`).
 
 | Class | Tier | Disposition | Owner / rationale |
 |---|---|---|---|
@@ -123,7 +123,7 @@ Audit-only inventory for issue [#3086](https://github.com/gazon1/sing/issues/308
 | `androidApp/.../ui/TaskEditorDraftTest.kt` | device | keep | Device-persisted draft restoration across process; only device can observe. |
 | `shared/.../androidHostTest/core/backup/AndroidBackupCodecBudgetTest.kt` | androidHostTest | keep | Android backup codec implementation budget guard; JVM cannot reach androidMain codec. |
 | `shared/.../androidHostTest/core/di/AndroidGraphResolutionTest.kt` | androidHostTest | keep | Android Koin graph/platform bindings; distinct from JVM graph tests. |
-| `shared/.../androidHostTest/core/files/AndroidFileSourceTest.kt` | androidHostTest | investigate | Android content:// streaming behavior is platform-relevant, but class is not in `testAndroidHostTest` include allowlist; currently not executed by baseline. |
+| `shared/.../androidHostTest/core/files/AndroidFileSourceTest.kt` | androidHostTest | keep | Android `content://` streaming: the system picker hands back a URI that `AndroidFileSystem` cannot open, so this is the `ContentResolver` path and no JVM implementation has it. #3087 found the class compiled but absent from the `testAndroidHostTest` include allowlist (its 3 tests in no run at all) and wired it; the third test's premise was restaged with a real provider because Robolectric answers an unregistered authority with a throwing stream, not `null`. |
 | `shared/.../androidHostTest/core/files/AndroidFileSystemMoveTest.kt` | androidHostTest | keep | Android `ATOMIC_MOVE`/replace-target contract for backup writes. |
 | `shared/.../androidHostTest/core/notifications/AndroidNotifierTest.kt` | androidHostTest | keep | Android notification permission read-per-call and no-enqueue-on-denied port behavior; rule matrix owned by JVM `NotificationSupportTest`. |
 | `shared/.../androidHostTest/core/notifications/NotificationPermissionRequesterTest.kt` | androidHostTest | keep | Lifecycle observer contract; Compose wiring owned by device `NotificationPermissionRequesterComposeTest`. |

@@ -152,11 +152,24 @@
 # floor that is behind the suite stops asking its question, so the number is raised
 # in the same commit that adds the tests.
 #
+# **The android host line rose from 23 to 26, and the three tests were already in
+# the tree.** `AndroidFileSourceTest` was written, compiled, and in no run at all:
+# the task's own `include(...)` list did not name it, so `:shared:testAndroidHostTest`
+# reported "No tests found for given includes" for the class and passed. Measured on
+# 2026-11-22 by naming the class explicitly — the task then ran it, and one of its
+# three tests failed, because its premise (an unregistered `content://` authority makes
+# `ContentResolver.openInputStream` return null) is not what Robolectric 4.18 does: it
+# returns a stream whose `read()` throws, so the production `?: throw` branch is never
+# taken and the assertion failed for a reason the shadow invented. The test now stages
+# the branch with a real provider whose `openFile` answers null. It is a rise, not a
+# replacement: three tests were added to the executed population, none moved out
+# (#3087).
+#
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 251 0
 shared:archTest 255 0
 shared:jvmTest 4972 0
-shared:testAndroidHostTest 23 0
+shared:testAndroidHostTest 26 0
 core-domain:jvmTest 5 0
 mcp-server:test 0 0
 # GENERATED:END

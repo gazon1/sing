@@ -1301,6 +1301,17 @@ afterEvaluate {
             // the phone's own implementation had no test at all — and the move is
             // what makes the backup's writes atomic.
             "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
+            // The phone's file *source*. `AndroidFileSource` lives in androidMain too:
+            // the system picker hands back a `content://` URI, which `AndroidFileSystem`
+            // cannot open, so this class streams it through the ContentResolver instead
+            // (and closes the stream the caller cannot see).
+            //
+            // The class was written and compiled, and this list did not name it, so
+            // `:shared:testAndroidHostTest` reported "No tests found for given includes"
+            // for it and passed. The three tests were in the tree and in no run — the
+            // silent non-execution that `AndroidFileSourceTest`'s own row in
+            // `docs/testing/android-test-inventory.md` recorded as `investigate` (#3087).
+            "com/singularity/todo/core/files/AndroidFileSourceTest.class",
             // The E2E build starts after the spotlight tour (#2819). The module lives
             // in androidMain, so the JVM lane cannot reach it.
             "com/singularity/todo/test/stubs/TestOnboardingModuleTest.class",
