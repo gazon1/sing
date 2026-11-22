@@ -323,6 +323,33 @@ class ScreenInspectorHostContractTest {
         app.close()
     }
 
+    @Test
+    fun `the first request to a fresh host succeeds rather than unlocking a lock it let go`() {
+        // The device found this in one command; the suite did not, because no test asserted
+        // that the *first* request on an empty host returned a success envelope. The create
+        // path drops the read lock, and the caller then released it a second time — so the
+        // dispatch ran unlocked and the envelope came back `internal`, while the runtime was
+        // created correctly and every later request worked. That is exactly the shape that
+        // hides from a test which only checks `isStarted()`.
+        val app = koinApplication { modules(emptyList()) }
+        val host = ScreenInspectorHost { app.koin }
+
+        val envelope = host.handle(ScreenInspectorHost.METHOD, """{"op":"screens"}""")
+        val parsed = json.parseToJsonElement(envelope).jsonObject
+        assertEquals(
+            "true",
+            parsed["ok"]?.jsonPrimitive?.content,
+            "the first request on a fresh host did not succeed: $envelope",
+        )
+        assertTrue(
+            parsed["result"]?.jsonObject?.get("screens") != null,
+            "the first request was answered without the screen list: $envelope",
+        )
+
+        host.close()
+        app.close()
+    }
+
     private fun errorCode(envelope: String): String? =
         json
             .parseToJsonElement(envelope)

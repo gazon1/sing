@@ -385,42 +385,47 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
         koin: Koin,
         block: (ScreenInspectorRuntime) -> T,
     ): T {
-        val usable = acquireRuntime(koin)
+        // Ownership is explicit: [admit] says whether this frame holds the read lock, and
+        // only then is it released. The first version released it unconditionally in a
+        // `finally` while [acquireRuntime] had already dropped it on the create path — a
+        // double unlock, which threw `attempt to unlock read lock` on the very first request
+        // to a fresh host. It survived the unit tests because they never made two calls on an
+        // empty host in the same shape; the device found it immediately.
+        val admitted = admit(koin)
         try {
-            return block(usable)
+            return block(admitted.runtime)
         } finally {
-            gate.readLock().unlock()
+            if (admitted.holdsReadLock) gate.readLock().unlock()
         }
     }
 
+    private class Admission(val runtime: ScreenInspectorRuntime, val holdsReadLock: Boolean)
+
     /**
-     * Takes the read lock and returns the runtime to use, or throws.
+     * Admits one request, returning its runtime and whether the caller still holds the read
+     * lock afterwards.
      *
-     * Split out so the "hold the read lock for the whole request" part reads as one line in
-     * [withRuntime], and so the create path can *drop* the read lock without the caller
-     * having to reason about which lock it currently holds — a read-to-write upgrade is not
-     * allowed on a `ReentrantReadWriteLock`, and attempting one deadlocks.
+     * The create path cannot keep the read lock: a read-to-write upgrade is not possible on a
+     * `ReentrantReadWriteLock` and attempting one deadlocks. So it drops the read lock and
+     * takes the write lock in [createRuntime], and reports `holdsReadLock = false`.
      */
-    private fun acquireRuntime(koin: Koin): ScreenInspectorRuntime {
+    private fun admit(koin: Koin): Admission {
         val read = gate.readLock()
         read.lock()
-        // Read the state and decide *before* touching the lock again, so every branch below
-        // either keeps the read lock (and hands it to `withRuntime` to release) or releases
-        // it and returns/throws — never both.
-        val state = currentState(koin)
-        if (state is RuntimeState.Usable) return state.runtime
-        read.unlock()
-        // The read lock is gone from here on, so a throw cannot strand it.
-        when (state) {
+        // Decide while holding the read lock, then act. A throw from a refusal releases it
+        // here first, so the caller's frame never sees a lock it did not take.
+        when (val state = currentState(koin)) {
             is RuntimeState.Usable -> {
-                error("unreachable: handled above")
+                return Admission(state.runtime, holdsReadLock = true)
             }
 
             RuntimeState.Absent -> {
-                return createRuntime(koin)
+                read.unlock()
+                return Admission(createRuntime(koin), holdsReadLock = false)
             }
 
             RuntimeState.Closed -> {
+                read.unlock()
                 throw InspectorException(
                     InspectorErrorCode.INTERNAL,
                     "This screen-inspector host has been closed; the process created a new one.",
@@ -428,6 +433,7 @@ class ScreenInspectorHost(private val koinProvider: () -> Koin?) : AutoCloseable
             }
 
             RuntimeState.Replaced -> {
+                read.unlock()
                 throw InspectorException(
                     InspectorErrorCode.INTERNAL,
                     "The application container was replaced while the screen inspector was " +
