@@ -65,6 +65,19 @@ class UpdateNoteTool(
             notesRepository.get(NoteId(args.noteId))
                 ?: return failure(args.noteId, "There is no note with id \"${args.noteId}\".")
 
+        // A brief is refreshed from a read, so the read is what an update has to state.
+        // Without the version there is no guard at all — the proposal would be applied to
+        // whatever the note has become by the time the user confirms it, which is the
+        // failure this tool exists to avoid. Ordinary in-app editing does not come
+        // through here; it has its own path.
+        if (existing.knowsWhatItIs() && args.expectedUpdatedAt == null) {
+            return failure(
+                args.noteId,
+                "An update to a knowledge brief states the version it was read at: read it " +
+                    "with get_knowledge_brief and pass its updatedAt as expectedUpdatedAt.",
+            )
+        }
+
         // The note moved since the caller read it: what it wrote about is not what is
         // here any more. Refused before the proposal, so the user's edit is never
         // silently replaced by a summary of an older note.
@@ -144,6 +157,10 @@ class UpdateNoteTool(
 
         return if (values.isEmpty()) emptyList() else listOf(ProposalItemKind.SetNoteFields(values))
     }
+
+    /** Whether this note is a brief — a plain note attached to a project or a task. */
+    private fun Note.knowsWhatItIs(): Boolean =
+        !isFolder && (projectId != null || taskId != null)
 
     private fun failure(
         noteId: String,

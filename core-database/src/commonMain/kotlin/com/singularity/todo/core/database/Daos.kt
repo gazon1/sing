@@ -1072,6 +1072,7 @@ interface NoteDao {
           AND user_id = :userId
           AND deleted_at IS NULL
           AND kind = 'Plain'
+          AND is_folder = 0
         ORDER BY created_at DESC, id ASC
         LIMIT :limit
         """,
@@ -1160,6 +1161,7 @@ interface NoteDao {
           AND user_id = :userId
           AND deleted_at IS NULL
           AND kind = 'Plain'
+          AND is_folder = 0
         ORDER BY created_at DESC, id ASC
         LIMIT :limit
         """,

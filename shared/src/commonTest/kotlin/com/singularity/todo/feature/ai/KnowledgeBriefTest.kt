@@ -681,6 +681,58 @@ class KnowledgeBriefTest {
         }
 
     @Test
+    fun `an update to a brief must state the version it was read at`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+
+            // Without a version there is no guard at all: the proposal would be applied
+            // to whatever the note became while the card waited.
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(UpdateNoteInput(noteId = brief.id.value, bodyMarkdown = "refreshed")),
+                )
+
+            assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
+            assertNotNull(output.error, "the model is told what is missing")
+        }
+
+    @Test
+    fun `an ordinary note can still be updated without a version`() =
+        runTest {
+            // A note that is not a brief has no read to state — the in-app editor is the
+            // one that proposes these, and a human confirming it is the decision.
+            val plain = note(title = "Scratch", html = "<p>a</p>")
+            notes.seed(plain)
+
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(UpdateNoteInput(noteId = plain.id.value, bodyMarkdown = "b")),
+                )
+
+            assertTrue(output.proposalCreated, "the plain note was proposed: ${output.error}")
+        }
+
+    @Test
+    fun `a folder attached to a project is not its brief`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            notes.seed(
+                note(title = "Sources", html = "", projectId = project.id)
+                    .copy(isFolder = true),
+            )
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = project.id.value)))
+
+            assertFalse(output.found, "a folder is not a brief: ${output.noteId}")
+        }
+
+    @Test
     fun `a failed extraction keeps the last approved brief`() =
         runTest {
             val project = project("Kitchen")
