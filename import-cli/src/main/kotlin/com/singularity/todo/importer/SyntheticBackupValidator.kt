@@ -59,6 +59,13 @@ object SyntheticBackupValidator {
         }
     }
 
+    /**
+     * Refuses a dataset the decoder would refuse.
+     *
+     * The comparison is [ArchiveBudget.check], the same one both codecs call, so a
+     * change to the budget's accounting reaches the generator too; only the wording
+     * of the diagnostic is this command's own.
+     */
     fun ensureWithinArchiveBudget(
         payloadBytes: ByteArray,
         manifestBytes: ByteArray,
@@ -66,12 +73,15 @@ object SyntheticBackupValidator {
     ) {
         val entryCount = 2 + attachmentCount
         val totalBytes = payloadBytes.size.toLong() + manifestBytes.size.toLong()
-        if (entryCount > ArchiveBudget.MAX_ENTRIES || totalBytes > ArchiveBudget.MAX_TOTAL_BYTES) {
+        try {
+            ArchiveBudget.check(entryCount, totalBytes)
+        } catch (limit: IllegalStateException) {
             throw IllegalArgumentException(
                 "Generated dataset exceeds backup archive budget: " +
                     "entries=$entryCount (max=${ArchiveBudget.MAX_ENTRIES}), " +
                     "decompressedBytes=$totalBytes (max=${ArchiveBudget.MAX_TOTAL_BYTES}). " +
                     "Reduce profile/params; limits are not bypassed.",
+                limit,
             )
         }
     }

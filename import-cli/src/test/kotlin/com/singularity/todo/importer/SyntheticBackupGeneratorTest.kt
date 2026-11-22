@@ -193,6 +193,74 @@ class SyntheticBackupGeneratorTest {
         }
     }
 
+    /**
+     * The issue asks for the date, priority and status distributions to be
+     * parameterised, so a performance scenario can ask for a mostly-overdue, mostly
+     * high-priority or mostly-completed dataset without editing the generator.
+     */
+    @Test
+    fun `date and status distributions follow the requested shares`() {
+        val params =
+            GenerateParams(
+                seed = 11L,
+                profile = null,
+                tasks = 2_000,
+                projects = 10,
+                taskHierarchyDepth = 2,
+                subtaskShare = 0.0,
+                tags = 5,
+                dependencyDensity = 0.0,
+                notes = 0,
+                checklistItems = 0,
+                dueDateShare = 1.0,
+                dueDateWindowStartDays = -10,
+                dueDateWindowEndDays = -1,
+                completedShare = 0.5,
+                nextUpShare = 0.0,
+                inProgressShare = 0.0,
+            )
+        val tasks = SyntheticBackupGenerator.generate(params).payload.tasks
+
+        assertEquals(tasks.size, tasks.count { it.dueDate != null }, "dueDateShare=1.0 must date every task")
+        // Every window day is before the generator's fixed base epoch (2025-01-01),
+        // so no task can be due on or after it — which is what a "mostly overdue"
+        // scenario needs.
+        assertTrue(
+            tasks.all { it.dueDate!! < BASE_EPOCH_DATE },
+            "window -10..-1 from the base epoch must stay before it, got ${tasks.map { it.dueDate }.distinct()}",
+        )
+        val completed = tasks.count { it.completedAt != null }
+        assertTrue(completed in 800..1_200, "completedShare=0.5 should give ~1000 of 2000, got $completed")
+        assertTrue(tasks.all { it.completedAt == null || it.workflowState == "open" })
+        assertTrue(tasks.all { it.completedAt != null || it.workflowState == "open" })
+
+        // A disjoint request: nothing completed, all claimed as in_progress.
+        val allInProgress =
+            SyntheticBackupGenerator
+                .generate(params.copy(completedShare = 0.0, nextUpShare = 0.0, inProgressShare = 1.0))
+                .payload
+                .tasks
+        assertTrue(allInProgress.none { it.completedAt != null })
+        assertTrue(allInProgress.all { it.workflowState == "in_progress" }, "inProgressShare=1.0 must claim every task")
+
+        val noneDue = SyntheticBackupGenerator.generate(params.copy(dueDateShare = 0.0)).payload.tasks
+        assertTrue(noneDue.none { it.dueDate != null }, "dueDateShare=0.0 must date no task")
+    }
+
+    @Test
+    fun `incoherent status shares are rejected`() {
+        val base = SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 1L)
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(base.copy(nextUpShare = 0.8, inProgressShare = 0.8))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(base.copy(dueDateWindowStartDays = 10, dueDateWindowEndDays = 10))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SyntheticBackupGenerator.generate(base.copy(completedShare = 1.5))
+        }
+    }
+
     @Test
     fun `archive budget overflow is reported and not bypassed`() {
         val ex =
@@ -248,4 +316,9 @@ class SyntheticBackupGeneratorTest {
                 Files.deleteIfExists(tmp)
             }
         }
+
+    private companion object {
+        /** The generator's fixed base epoch, `2025-01-01T00:00:00Z`, as a date string. */
+        const val BASE_EPOCH_DATE = "2025-01-01"
+    }
 }

@@ -44,6 +44,18 @@ data class GenerateParams(
     val dependencyDensity: Double,
     val notes: Int,
     val checklistItems: Int,
+    /** Share of tasks that carry a due date, `0.0..1.0`. */
+    val dueDateShare: Double = 0.75,
+    /** First day of the due-date window, as an offset in days from the base epoch. */
+    val dueDateWindowStartDays: Int = -30,
+    /** Last day of the due-date window, as an offset in days from the base epoch. */
+    val dueDateWindowEndDays: Int = 120,
+    /** Share of tasks that are completed, `0.0..1.0`. */
+    val completedShare: Double = 0.20,
+    /** Share of the not-completed tasks claimed as `next_up`, `0.0..1.0`. */
+    val nextUpShare: Double = 0.19,
+    /** Share of the not-completed tasks claimed as `in_progress`, `0.0..1.0`. */
+    val inProgressShare: Double = 0.13,
 )
 
 @Serializable
@@ -119,8 +131,10 @@ object SyntheticBackupGenerator {
                     notes = 1_000,
                     checklistItems = 20_000,
                 ),
-            // 50k keeps the full per-task attachment density (2 checklist items and
-            // 100 notes per 1k tasks) that 10k has, only the tag count is trimmed.
+            // 50k spends 71% of the budget. Density drops against 10k: the checklist
+            // count is 0.5 per task rather than 2, and notes are 40 per 1k tasks rather
+            // than 100. That is the budget, not a preference — a 50k profile at 10k's
+            // density reached 69.5 MB and was refused by the archive limit.
             GenerateProfile.TASKS_50K to
                 ProfileComposition(
                     projects = 250,
@@ -131,11 +145,11 @@ object SyntheticBackupGenerator {
                     notes = 2_000,
                     checklistItems = 25_000,
                 ),
-            // 100k is the ceiling of the format, not of the profile list: the 100k
-            // task rows alone are ~61.7 MB of the 64 MB budget, so this profile
-            // carries no tags or notes and only a token dependency graph. Asking for
-            // a richer 100k composition fails the budget by design (the archive
-            // limit is a contract the app enforces on import).
+            // 100k is the largest provided profile and it spends 98% of the budget:
+            // its task rows alone are ~61.7 MB of the 64 MB limit, so it carries no
+            // tags, notes or checklist items and only a token dependency graph. The
+            // bound is serialized size, not the task count — a custom dataset above
+            // 100k is allowed and fails the budget check only if it is really too big.
             GenerateProfile.TASKS_100K to
                 ProfileComposition(
                     projects = 300,
@@ -226,6 +240,16 @@ object SyntheticBackupGenerator {
         require(params.dependencyDensity in 0.0..1.0) { "dependencyDensity must be in 0.0..1.0" }
         require(params.notes >= 0) { "notes must be >= 0" }
         require(params.checklistItems >= 0) { "checklistItems must be >= 0" }
+        require(params.dueDateShare in 0.0..1.0) { "dueDateShare must be in 0.0..1.0" }
+        require(params.dueDateWindowStartDays < params.dueDateWindowEndDays) {
+            "dueDateWindowStartDays must be below dueDateWindowEndDays"
+        }
+        require(params.completedShare in 0.0..1.0) { "completedShare must be in 0.0..1.0" }
+        require(params.nextUpShare in 0.0..1.0) { "nextUpShare must be in 0.0..1.0" }
+        require(params.inProgressShare in 0.0..1.0) { "inProgressShare must be in 0.0..1.0" }
+        require(params.nextUpShare + params.inProgressShare <= 1.0) {
+            "nextUpShare + inProgressShare must not exceed 1.0 — they split the not-completed tasks"
+        }
         val maxSubtasks = if (params.taskHierarchyDepth <= 1) 0 else params.tasks - 1
         val requestedSubtasks = (params.tasks * params.subtaskShare).roundToInt()
         require(requestedSubtasks <= maxSubtasks) {
@@ -384,20 +408,23 @@ object SyntheticBackupGenerator {
     ): TaskDto {
         val id = deterministicId("task", index, params.seed)
         val createdAt = BASE_EPOCH_MS + index * 60_000L
-        val dueOffsetDays = random.nextInt(-30, 120)
-        val hasDueDate = random.nextDouble() < 0.75
+        val dueOffsetDays = random.nextInt(params.dueDateWindowStartDays, params.dueDateWindowEndDays)
+        val hasDueDate = random.nextDouble() < params.dueDateShare
         val dueDate = if (hasDueDate) epochDayString(BASE_EPOCH_MS + dueOffsetDays * DAY_MS) else null
         val statusRoll = random.nextDouble()
         val completedAt =
             when {
-                statusRoll < 0.20 -> createdAt + 3_600_000L
+                statusRoll < params.completedShare -> createdAt + 3_600_000L
                 else -> null
             }
+        // The remaining share is split between the open states, so completed and
+        // next_up/in_progress can be dialled in independently of each other.
+        val openRoll = (statusRoll - params.completedShare) / (1.0 - params.completedShare).coerceAtLeast(1e-9)
         val workflowState =
             when {
                 completedAt != null -> "open"
-                statusRoll < 0.35 -> "next_up"
-                statusRoll < 0.45 -> "in_progress"
+                openRoll < params.nextUpShare -> "next_up"
+                openRoll < params.nextUpShare + params.inProgressShare -> "in_progress"
                 else -> "open"
             }
         val priority = PRIORITIES[random.nextInt(PRIORITIES.size)]

@@ -37,7 +37,7 @@ Profiles: `1k`, `10k`, `50k`, `100k`. A profile is a composition that fits the a
 | `50k` | 50 000 | 250 | 120 | 2 000 | 25 000 | 5 000 | 48.2 MB |
 | `100k` | 100 000 | 300 | 0 | 0 | 0 | 2 000 | 65.8 MB |
 
-`100k` is the ceiling the payload format allows, not a tuning choice: the 100k task rows alone are ~61.7 MB of the 64 MiB budget, so that profile carries no tags, notes or checklist items and only a token dependency graph. Ask for a richer 100k composition with the explicit parameters and the command fails the archive budget check, as designed — the limit is a contract the app enforces on import.
+`100k` is the largest profile provided and measured, and it is constrained by the archive budget rather than by a task-count limit: the 100k task rows alone are ~61.7 MB of the 64 MiB budget, so that profile carries no tags, notes or checklist items and only a token dependency graph. Nothing forbids a custom dataset above 100k tasks — feasibility is decided by the serialized size, so pass the explicit parameters and the command either produces a smaller-composition dataset or fails the archive budget check with diagnostics, as designed. The limit is a contract the app enforces on import.
 
 ```bash
 # Reproducible 10k profile
@@ -65,6 +65,20 @@ Parameters:
 | `--dependency-density` | Approx dependency edges relative to tasks, `0.0..1.0`; DAG by construction |
 | `--notes` | Note count |
 | `--checklist-items` | Checklist item count |
+| `--due-date-share` | Share of tasks with a due date, default `0.75` |
+| `--due-date-window-start-days` | First day of the due-date window, default `-30` (negative = before the base epoch, i.e. overdue) |
+| `--due-date-window-end-days` | Last day of the due-date window, default `120` |
+| `--completed-share` | Share of tasks that are completed, default `0.20` |
+| `--next-up-share` | Share of the *not-completed* tasks claimed as `next_up`, default `0.19` |
+| `--in-progress-share` | Share of the *not-completed* tasks claimed as `in_progress`, default `0.13`; together with `--next-up-share` it must not exceed `1.0` |
+
+The base epoch is fixed at `2025-01-01T00:00:00Z`, so the same seed and params always produce the same dates on any machine. Nothing reads the current time.
+
+A scenario that needs a mostly-overdue, mostly-completed dataset asks for it directly:
+
+```bash
+./gw :import-cli:run --args='generate --seed 7 --tasks 20000 --due-date-share 1.0 --due-date-window-start-days -60 --due-date-window-end-days -1 --completed-share 0.8 --output /tmp/synthetic-overdue.zip'
+```
 
 Output:
 

@@ -156,6 +156,27 @@ class GenerateCommand : CliktCommand(name = "generate") {
     ).double()
     val notes by option("--notes", help = "Number of notes").int()
     val checklistItems by option("--checklist-items", help = "Number of checklist items").int()
+    val dueDateShare by option(
+        "--due-date-share",
+        help = "Share of tasks with a due date (0.0..1.0)",
+    ).double()
+    val dueDateWindowStartDays by option(
+        "--due-date-window-start-days",
+        help = "First day of the due-date window, in days from the fixed base epoch (negative = overdue)",
+    ).int()
+    val dueDateWindowEndDays by option(
+        "--due-date-window-end-days",
+        help = "Last day of the due-date window, in days from the fixed base epoch",
+    ).int()
+    val completedShare by option("--completed-share", help = "Share of completed tasks (0.0..1.0)").double()
+    val nextUpShare by option(
+        "--next-up-share",
+        help = "Share of not-completed tasks claimed as next_up (0.0..1.0)",
+    ).double()
+    val inProgressShare by option(
+        "--in-progress-share",
+        help = "Share of not-completed tasks claimed as in_progress (0.0..1.0)",
+    ).double()
 
     override fun run() {
         val params = resolveParams()
@@ -191,6 +212,12 @@ class GenerateCommand : CliktCommand(name = "generate") {
             dependencyDensity = dependencyDensity ?: base.dependencyDensity,
             notes = notes ?: base.notes,
             checklistItems = checklistItems ?: base.checklistItems,
+            dueDateShare = dueDateShare ?: base.dueDateShare,
+            dueDateWindowStartDays = dueDateWindowStartDays ?: base.dueDateWindowStartDays,
+            dueDateWindowEndDays = dueDateWindowEndDays ?: base.dueDateWindowEndDays,
+            completedShare = completedShare ?: base.completedShare,
+            nextUpShare = nextUpShare ?: base.nextUpShare,
+            inProgressShare = inProgressShare ?: base.inProgressShare,
         )
     }
 
@@ -211,6 +238,12 @@ class GenerateCommand : CliktCommand(name = "generate") {
             dependencyDensity = dependencyDensity ?: 0.0,
             notes = notes ?: 0,
             checklistItems = checklistItems ?: 0,
+            dueDateShare = dueDateShare ?: 0.75,
+            dueDateWindowStartDays = dueDateWindowStartDays ?: -30,
+            dueDateWindowEndDays = dueDateWindowEndDays ?: 120,
+            completedShare = completedShare ?: 0.20,
+            nextUpShare = nextUpShare ?: 0.19,
+            inProgressShare = inProgressShare ?: 0.13,
         )
 
     private fun generateAndValidate(params: GenerateParams): GeneratedDataset {
