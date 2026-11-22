@@ -51,12 +51,63 @@ ADR `2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`.
 
 ### Android
 
-The logical contract is `commonMain` and the Task Detail adapter is shared, but the inspector
-runtime and its host start-up are `jvmMain`. Android debug/test does not expose a host yet: that
-slice needs its own lifecycle seam and a gate that cannot ship, and it is tracked separately in
-[#3074](https://github.com/gazon1/sing/issues/3074). Issue #3042 is not complete until it lands.
+The inspector runtime lives in `shared/src/jvmAndroidMain` — a source set compiled into the
+JVM and Android targets — so both platforms run **one** implementation of the contract. The
+logical contract and the Task Detail adapter are `commonMain` and shared, as before.
 
-CLI entry (same binaries/process model as MCP server). The CLI is a host too, so the build
+The Android host is a **debug-only `ContentProvider`**, delivered for
+[#3074](https://github.com/gazon1/sing/issues/3074) and recorded in ADR
+`2026-11-22-the-android-screen-inspector-host-is-a-debug-provider.md`. It runs inside the
+running application's own process, so unlike the desktop host it drives the graph the UI is
+actually using. There is no Application hook, no Koin binding, no service and no socket: the
+provider reads the container the application already started, and answers one request with
+one JSON envelope.
+
+The transport is the binder, so one shell command is one inspect or one action. Requests
+are passed in a file and expanded by the device-side shell. A request typed
+inline does **not** survive `adb shell` re-parsing the argument list — the inner quotes are
+lost before `content` sees them, and the host answers `invalid_arguments` with the mangled
+JSON it received. That is the fail-closed behavior working (nothing was dispatched), but it
+is not what you wanted, so every example below uses the file form:
+
+```bash
+# Discovery: the same JSON the CLI prints.
+printf '%s' '{"op":"screens"}' > /tmp/req.json
+adb push /tmp/req.json /data/local/tmp/req.json
+adb shell 'content call --uri content://com.singularity.todo.screen-inspector-host \
+  --method screen_inspector --arg "$(cat /data/local/tmp/req.json)"'
+
+printf '%s' '{"op":"open","screen":"tasks.task-detail","params":{"taskId":"<id>"}}' > /tmp/req.json
+adb push /tmp/req.json /data/local/tmp/req.json
+adb shell 'content call --uri content://com.singularity.todo.screen-inspector-host \
+  --method screen_inspector --arg "$(cat /data/local/tmp/req.json)"'
+
+printf '%s' '{"op":"invoke","action":"set_priority","input":{"priority":"urgent"},"waitMs":8000}' > /tmp/req.json
+adb push /tmp/req.json /data/local/tmp/req.json
+adb shell 'content call --uri content://com.singularity.todo.screen-inspector-host \
+  --method screen_inspector --arg "$(cat /data/local/tmp/req.json)"'
+```
+
+The request fields are the CLI's own (`op`, `screen`, `params`, `action`, `input`,
+`sessionId`, `operationId`, `waitMs`, `timeoutMs`), and the response is the CLI's envelope.
+Sessions outlive a request — that is the point of the host — and `{"op":"close"}` ends one.
+
+**Release boundary.** The provider and the manifest entry live only in
+`androidApp/src/debug`; a release APK does not compile that directory, so the host is absent
+rather than disabled. Nothing in `src/main`, `src/pro` or `:shared` references it.
+`ScreenInspectorHostIsDebugOnlyTest` (`:shared:archTest`) fails if that changes.
+
+**Caller check.** The provider is exported because `adb shell` is a different UID; `call()`
+then refuses every caller that is not the app, the adb shell (2000) or root. It is local
+only — a binder call, never a socket.
+
+Issue #3042's Android criterion is met by this host. The session-scope gap the desktop host
+has (`2026-11-21-the-host-inspects-a-real-graph-session-not-the-window.md`) does **not**
+apply here: the Android host is in the app's process, so it inspects the live graph.
+
+### CLI entry
+
+The CLI is a host too, so the build
 capability applies: a build compiled without `-Psingularity.inspector.host.enabled=true` answers
 `unsupported` and exits 2 instead of running a command. It needs no `--inspector` flag of its own —
 entering the command is the opt-in.

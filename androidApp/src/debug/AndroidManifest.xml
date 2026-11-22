@@ -18,6 +18,27 @@
             android:exported="false" />
 
         <!--
+          Debug-only host for the headless screen-inspector contract (#3074).
+
+          `exported="true"` because `adb shell content call` is a different UID and could
+          not reach a private provider; the guard inside the provider refuses every caller
+          that is not the app, the adb shell or root, so this is a same-device development
+          path and not a public surface. It is declared with no permission on purpose: a
+          permission would need `pm grant` on the device before the shell could call it,
+          which is a second setup step for no gain — the UID check is the gate that runs.
+
+          `authorities` carries `${applicationId}` so a debug build installed next to a
+          release build does not collide on the provider name.
+
+          Nothing here opens a socket and nothing runs in the background: one `content
+          call` is one request, answered on the caller's thread.
+        -->
+        <provider
+            android:name=".debug.ScreenInspectorHostProvider"
+            android:authorities="${applicationId}.screen-inspector-host"
+            android:exported="true" />
+
+        <!--
           `singleTask` — the seed link has to reach *this* activity, always.
 
           Measured on the device: a seed link whose data equals the app task's

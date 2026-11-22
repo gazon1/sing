@@ -86,6 +86,7 @@ PROVIDER_SERVICE = (
 SOURCE_ROOTS = [
     ROOT / "shared" / "src" / "commonMain" / "kotlin",
     ROOT / "shared" / "src" / "jvmMain" / "kotlin",
+    ROOT / "shared" / "src" / "jvmAndroidMain" / "kotlin",
     ROOT / "shared" / "src" / "androidMain" / "kotlin",
     ROOT / "androidApp" / "src" / "main" / "kotlin",
     ROOT / "desktopApp" / "src" / "jvmMain" / "kotlin",
