@@ -300,3 +300,46 @@ Validation/availability are enforced by the canonical adapter/contract before di
 - `shared/src/jvmTest/.../mcp/InspectorHostOptInTest.kt` pins the host opt-in: without the flag no
   host starts, with the flag the host may run. It also pins the registration seam: no `screen_*`
   tool is registered without the opt-in, and `screen_list` is registered with it.
+
+### UI wiring is not what the headless tests verify
+
+The screen-behavior tests above drive the adapter. None of them touches a Compose
+control, so a control whose `onClick` goes nowhere passes all of them: the adapter
+reaches `TaskDetailCoordinator.onIntent`, and the control is a different call site.
+(The host opt-in test is not one of these — it pins registration, not screen behavior.)
+
+`desktopApp/src/jvmTest/.../feature/flows/tasks/TaskDetailCompletionWiringTest.kt` is
+the missing half for the Task Detail's completion control — a tap on the real control,
+the write it must produce, and the state the screen renders from that write. Its own
+KDoc names the boundary; the parts worth knowing here:
+
+- **Verified:** `toggle_complete` through the hero's control, in both directions
+  (complete → reopen), asserted on the repository write *and* on the rendered
+  completion date. Removing the control's callback makes both tests fail, so they
+  measure the wiring and not the adapter's own behaviour.
+- **Covered by a flow already, not repeated:** the priority row → picker → relabel
+  (`SetPriorityFlowTest`) and the checklist inline add-row
+  (`TaskDetailEmptyChildSectionsTest`, `TaskItemListScenarioTest`). They assert rendered
+  state without reading the write back.
+- **Shared dispatch boundary, structurally only:** the tap builds
+  `TaskDetailIntent.Domain.ToggleComplete` and `describe()` publishes `toggle_complete`,
+  and `TaskDetailScreenIntrospection.intentFor` maps one to the other. That both paths
+  *end* at `TaskDetailCoordinator.onIntent` is a fact about the call sites; no test
+  compares the constructed values, because neither desktop harness hands out the
+  coordinator instance the composition owns and exposing it would be a test-only seam.
+  So the tests do not prove the write went through `onIntent` — a callback that wrote to
+  the repository directly, with the same resulting state, would pass them. That matters
+  for what the slots add on the way (a recurring task's close, the blocked-close
+  confirmation), which a direct write would skip.
+- **Not verified, by design:** that a control exists for every published action
+  (`restore_task` has no tap of its own — the undo lives in the snackbar, and
+  `TaskDetailOverflowActionsTest` asserts only that the offer *appears*: whether tapping
+  Undo restores the task is open defect #2723, so that test must not be read as covering
+  the restore); that no control offers an action in the `loading` and `error` states the
+  adapter refuses actions in; and any row or section the snapshot does not publish. The
+  snapshot is an allowlisted projection, not an inventory of the screen.
+
+So: passing the headless suite is not evidence that a control is wired or that anything
+is rendered. The screen-behavior tests in it are evidence about the adapter and the
+coordinator only; the host opt-in test separately pins registration, and neither kind
+says anything about a Compose control.
