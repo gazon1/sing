@@ -85,21 +85,33 @@ invisible to it. See ADR
 
 ## Where a task id comes from
 
-The screen needs a **real task id**, and a clean checkout has none. Use the MCP
-server you are already connected to:
+The screen needs a **real task id**, and a clean checkout has none. Take the id from
+the narrowest source available, in this order:
 
-```text
-list_tasks   →  one row's "id" is a taskId this screen can open
+```bash
+# Least disclosure: ids only — no titles, no account identifiers.
+sqlite3 ~/.singularity-todo/singularity-todo.db \
+  "select id from tasks where archived_at is null limit 5;"
 ```
 
-`list_tasks` already scopes to the right profile, so it is the only source you need.
-The inspector and the MCP server read the same database, so a task `list_tasks`
-returns is one the screen can open under the same profile.
+```text
+# If you are already driving the MCP server: list_tasks returns the ids.
+list_tasks   →  read the row's "id"; the rest of the row is private, see below
+```
 
-If the host answers `status: "error"`, `message: "Not found"` for an id `list_tasks`
-returned, the two calls ran under different profiles. Compare the profile flags
-rather than reading the database. Only when you must resolve a profile id itself is
-the active profile name needed, and it is one value:
+**`list_tasks` is content-bearing, not id-only.** Its rows carry the task `title`,
+along with priority, tags and dates. Nothing here asks you to read a title, and
+having received one does not make it publishable: take the `id`, leave the rest in
+the session, and never repeat a title in a PR, an issue, a commit or a report. The
+same applies to the snapshot. Ids and the field/value you asserted are the only
+things that travel out of the run.
+
+The inspector and the MCP server read the same profile-scoped database, so a task
+`list_tasks` returns is one the screen can open under the same profile. If the host
+answers `status: "error"`, `message: "Not found"` for an id that source returned, the
+two calls ran under different profiles. Compare the profile flags rather than reading
+more of the database. Only when you must resolve a profile id itself is the active
+profile needed, and it is one value:
 
 ```bash
 grep -ao '01[A-Z0-9]\{24\}' ~/.singularity-todo/profile_state.preferences_pb | head -1
@@ -108,9 +120,9 @@ grep -ao '01[A-Z0-9]\{24\}' ~/.singularity-todo/profile_state.preferences_pb | h
 That prints the active profile id — no task rows, no titles, no account identifiers.
 Pass it before the subcommand (`agent --profile-id=<id> open …`).
 
-Do not query `tasks` for ids or titles. The snapshot and `list_tasks` are allowlisted
-projections; the raw table is not, and a title is exactly the private text the safety
-rules keep out of your context.
+Do not `select *` or select titles and `user_id` to find an id. A whole row is not an
+allowlisted projection, and a title is exactly the private text the safety rules keep
+out of your context.
 
 A clean checkout's `~/.singularity-todo/` is created on the first run and holds no
 tasks. Create one in the Desktop app, or through the MCP tools, under the same
@@ -299,9 +311,11 @@ how you check the claim instead of reading it. Two rules:
 
 ## Safety
 
-- **Secrets and private data.** Snapshots are allowlisted projections, but a run
-  can still surface personal task text. Never paste a snapshot into a PR, an issue
-  or a commit; quote the field and value you asserted, nothing more.
+- **Secrets and private data.** Every route into this workflow can surface personal
+  task text: a snapshot is an allowlisted projection but still carries content, and
+  `list_tasks` rows carry titles. Take what you need — an `id`, a field and its value —
+  and stop there. Never paste a snapshot or a `list_tasks` row into a PR, an issue or
+  a commit; quote the field and value you asserted, nothing more.
 - **Never build a production endpoint.** The host is development/test only. Do not
   add a flag, a `-P` passthrough in a release path, or a network listener to make it
   reachable — the release guard exists so a package cannot carry the host.
