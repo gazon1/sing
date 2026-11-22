@@ -73,6 +73,12 @@ class ScreenInspectorHostIsDebugOnlyTest {
                 "shared/src/androidMain",
                 "shared/src/jvmMain",
                 "androidApp/src/main",
+                // `androidApp/build.gradle.kts` adds `src/pro/kotlin` to the **main** source
+                // set under `-PwithPro=true` (`getByName("main").kotlin.directories.add`), so a
+                // pro build compiles it into the release variant too. Leaving it out of this
+                // list left the assertion blind to the one directory a maintainer could move
+                // the entry point into without touching anything else.
+                "androidApp/src/pro",
             )
 
         /** Where the host is allowed to be, and nowhere else. */
@@ -80,6 +86,9 @@ class ScreenInspectorHostIsDebugOnlyTest {
 
         /** The literal the provider's guard must contain to let `content call` through. */
         const val SHELL_UID_MARKER = "2000"
+
+        /** The entry point's name, wherever it appears — import, call or type position. */
+        val ENTRY_POINT_REFERENCE = Regex("""\bScreenInspectorDeviceHost\b""")
     }
 
     private fun kotlinFiles(relative: String): List<File> {
@@ -136,9 +145,14 @@ class ScreenInspectorHostIsDebugOnlyTest {
                 .flatMap { kotlinFiles(it) }
                 .filter { file ->
                     val text = code(file)
+                    // A whole-word match, not `"$DEBUG_HOST_CLASS."` with a dot: naming the
+                    // entry point by *import* — `import …debug.ScreenInspectorDeviceHost` —
+                    // has no trailing dot and slipped past the first version of this
+                    // predicate. Measured 2026-11-22: a file under `androidApp/src/pro` that
+                    // did exactly that left the gate green.
                     text.contains(PROVIDER_CLASS) ||
                         file.nameWithoutExtension == DEBUG_HOST_CLASS ||
-                        text.contains("$DEBUG_HOST_CLASS.")
+                        ENTRY_POINT_REFERENCE.containsMatchIn(text)
                 }.map(::relative)
 
         assertTrue(

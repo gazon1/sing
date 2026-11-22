@@ -901,6 +901,16 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
                 rootProject.file("androidApp/src/debug/AndroidManifest.xml"),
             ).withPropertyName("androidManifests")
             .withPathSensitivity(PathSensitivity.RELATIVE)
+        // The Android app's source trees, for the same gate. Measured 2026-11-22: with a
+        // file added under `androidApp/src/pro` that names the debug host, the arch task
+        // reported UP-TO-DATE and exited 0 — `:shared` does not compile that tree, so
+        // nothing invalidated the task, and the gate re-reported a verdict about files it
+        // had never read. A whole directory rather than the three paths the test names
+        // today: the point is that a *new* file in any of them is noticed.
+        inputs
+            .dir(rootProject.layout.projectDirectory.dir("androidApp/src"))
+            .withPropertyName("androidAppSources")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
     }
     // MaestroFlowTagsTest walks up from commonMain.root to the worktree root and reads
     // Maestro/. That tree is not a compile input of :shared at all, so the gate went
