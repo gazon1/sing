@@ -59,7 +59,13 @@ class ProposalPlanner(private val clock: Clock) {
                 // the one the user has to hear — not that the note is missing.
                 kind.value.readFailure?.let { reason -> error(reason) }
                 val n = note ?: error("Note ${item.targetId} not found")
-                ProposalPlan.WriteNote(withNoteValue(n, kind.value, clock), kind.value)
+                ProposalPlan.WriteNote(withNoteValue(n, kind.value, clock), listOf(kind.value))
+            }
+
+            is ProposalItemKind.SetNoteFields -> {
+                kind.readFailure?.let { reason -> error(reason) }
+                val n = note ?: error("Note ${item.targetId} not found")
+                ProposalPlan.WriteNote(withNoteValues(n, kind.values, clock), kind.values)
             }
 
             is ProposalItemKind.DeleteNote -> {
@@ -241,13 +247,29 @@ class ProposalPlanner(private val clock: Clock) {
             note: Note,
             value: NoteValue,
             clock: Clock,
+        ): Note = withNoteValues(note, listOf(value), clock)
+
+        /**
+         * Returns [note] with every one of [values] applied, as **one** write.
+         *
+         * The fields of an update belong to one act, so the version is checked once,
+         * against the row the write replaces, and the note is stamped once. Checking per
+         * field would make the second field look stale the moment the first one landed —
+         * a change nobody divided, applied in part.
+         */
+        fun withNoteValues(
+            note: Note,
+            values: List<NoteValue>,
+            clock: Clock,
         ): Note {
-            when (value) {
-                is NoteValue.Title -> checkVersion(note, value.expectedUpdatedAt)
-                is NoteValue.Body -> checkVersion(note, value.expectedUpdatedAt)
-                is NoteValue.Summary,
-                is NoteValue.Unreadable,
-                -> Unit
+            values.forEach { value ->
+                when (value) {
+                    is NoteValue.Title -> checkVersion(note, value.expectedUpdatedAt)
+                    is NoteValue.Body -> checkVersion(note, value.expectedUpdatedAt)
+                    is NoteValue.Summary,
+                    is NoteValue.Unreadable,
+                    -> Unit
+                }
             }
             // The write advances the version, so a second proposal built from the same
             // read cannot land on top of this one. It has to advance *strictly*: a
@@ -262,18 +284,23 @@ class ProposalPlanner(private val clock: Clock) {
                 } else {
                     written
                 }
-            return when (value) {
-                is NoteValue.Title -> note.copy(title = value.value.trim(), updatedAt = now)
+            val applied =
+                values.fold(note) { acc, value ->
+                    when (value) {
+                        is NoteValue.Title -> acc.copy(title = value.value.trim())
 
-                is NoteValue.Body -> note.copy(bodyHtml = value.value, updatedAt = now)
+                        is NoteValue.Body -> acc.copy(bodyHtml = value.value)
 
-                is NoteValue.Summary -> note.copy(bodyHtml = value.value, updatedAt = now)
+                        is NoteValue.Summary -> acc.copy(bodyHtml = value.value)
 
-                // A value this build cannot read. The change stays on the card with the
-                // reason it cannot be applied, and the user can type a value that does
-                // read.
-                is NoteValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
-            }
+                        // A value this build cannot read. The change stays on the card
+                        // with the reason it cannot be applied, and the user can type a
+                        // value that does read.
+                        is NoteValue.Unreadable ->
+                            error(value.readFailure ?: "This value cannot be read.")
+                    }
+                }
+            return applied.copy(updatedAt = now)
         }
 
         /** Refuses a change proposed against a version of the note that is no longer there. */

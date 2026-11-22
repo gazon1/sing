@@ -51,7 +51,7 @@ sealed interface ProposalPlan {
      * inspected the value only at planning time would let an edit that landed in
      * between be overwritten.
      */
-    data class WriteNote(val note: Note, val value: NoteValue) : ProposalPlan {
+    data class WriteNote(val note: Note, val values: List<NoteValue>) : ProposalPlan {
         override val taskId: TaskId? get() = null
     }
 

@@ -3376,6 +3376,21 @@ open class FakeNotesRepository(
      * The notes attached directly to a project — `notes.project_id`, not the join
      * through the project's tasks that [watchForProject] runs.
      */
+    override fun watchPlainAttachedToTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter {
+                        it.taskId == taskId && it.userId == uid && it.deletedAt == null &&
+                            it.kind == com.singularity.todo.feature.notes.NoteKind.Plain
+                    }.sortedWith(noteOrder)
+                    .take(limit)
+            }
+        }
+
     override fun watchAttachedToProject(
         projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
         limit: Int,

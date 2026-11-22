@@ -1239,6 +1239,20 @@ private class FakeNoteDao(
             n.userId == userId && n.deletedAt == null && n.hangsOnTaskOf(projectId)
         }
 
+    override fun watchPlainAttachedToTaskForUser(
+        taskId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.taskId == taskId && n.userId == userId && n.deletedAt == null &&
+                        n.kind == com.singularity.todo.feature.notes.NoteKind.Plain
+                }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
+                .take(limit)
+        }
+
     /**
      * The notes attached directly to a project — `notes.project_id`, not the join
      * through the project's tasks that [watchByProjectForUser] runs.

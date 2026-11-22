@@ -340,6 +340,14 @@ private fun samples(): List<ProposalItemKind> =
         // The version a refresh states travels with the change: a round trip that
         // dropped it would turn a guarded proposal into an unguarded one.
         ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>", expectedUpdatedAt = 1_763_800_000_000)),
+        // Two fields, one change: the shape an update that renames a note and rewrites
+        // it has. A round trip that dropped the second value would apply half the edit.
+        ProposalItemKind.SetNoteFields(
+            listOf(
+                NoteValue.Title("Agenda", expectedUpdatedAt = 1_763_800_000_000),
+                NoteValue.Body("<p>Buy milk</p>", expectedUpdatedAt = 1_763_800_000_000),
+            ),
+        ),
         ProposalItemKind.SetNoteField(NoteValue.Summary("Milk")),
         // Every project field.
         ProposalItemKind.SetProjectField(ProjectValue.Name("Kitchen")),

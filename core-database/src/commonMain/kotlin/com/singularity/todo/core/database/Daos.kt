@@ -1023,6 +1023,32 @@ interface NoteDao {
     ): Flow<List<NoteEntity>>
 
     /**
+     * Returns the newest **plain** notes attached to [taskId], at most [limit] of them.
+     *
+     * [watchByTaskForUser] is the logbook's read and answers with every attached note of
+     * any kind. A brief is a plain note, and asking for one through the logbook's read
+     * would filter *after* its `LIMIT 50`: a task with fifty newer daily notes would
+     * then report that it has no brief at all. The kind is part of the question, so it
+     * belongs in the statement.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE task_id = :taskId
+          AND user_id = :userId
+          AND deleted_at IS NULL
+          AND kind = 'Plain'
+        ORDER BY created_at DESC, id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchPlainAttachedToTaskForUser(
+        taskId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>>
+
+    /**
      * Returns the notes attached to the tasks of one project, newest first, at most
      * [limit] of them.
      *

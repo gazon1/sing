@@ -254,7 +254,7 @@ class ProposalDispatch(
                 if (current != null) {
                     // The version guard the value carries is checked here, against the
                     // row this write is about to replace.
-                    ProposalPlanner.withNoteValue(current, plan.value, clock)
+                    ProposalPlanner.withNoteValues(current, plan.values, clock)
                 } else {
                     plan.note
                 }

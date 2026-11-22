@@ -569,6 +569,41 @@ class KnowledgeBriefTest {
         }
 
     @Test
+    fun `a title and body update applies as one change, not in part`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                title = "Refreshed brief",
+                                bodyMarkdown = "refreshed",
+                                expectedUpdatedAt = brief.updatedAt.toEpochMilliseconds(),
+                            ),
+                        ),
+                )
+            assertTrue(output.proposalCreated, "the change was proposed: ${output.error}")
+
+            // One change, so one decision: split per field, the first write would advance
+            // the version and the second would then look stale.
+            val stored = assertNotNull(proposals.watchProposal(ProposalId(output.proposalId)).first(), "the proposal")
+            assertEquals(1, stored.items.size, "a title and body edit is one change")
+
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the change applied: ${result.exceptionOrNull()?.message}")
+
+            val after = assertNotNull(notes.notes[brief.id.value], "the note is still there")
+            assertEquals("Refreshed brief", after.title, "the title applied")
+            assertNotNull(after.bodyHtml, "the body applied too, not half the change")
+        }
+
+    @Test
     fun `a failed extraction keeps the last approved brief`() =
         runTest {
             val project = project("Kitchen")

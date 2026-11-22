@@ -179,6 +179,19 @@ interface NotesRepository :
     fun watchForTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId): Flow<List<Note>>
 
     /**
+     * Watches the newest **plain** notes attached to [taskId], at most [limit].
+     *
+     * Distinct from [watchForTask] on purpose: that one is the logbook's read and answers
+     * with every attached note of any kind, bounded before anything can be filtered out.
+     * A caller that wants a plain note — a brief — has to ask for it in the statement,
+     * or a task with enough newer daily notes reports having none.
+     */
+    fun watchPlainAttachedToTask(
+        taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+        limit: Int,
+    ): Flow<List<Note>>
+
+    /**
      * Watches the notes attached to the tasks of one project, newest first.
      *
      * The membership is the project's own tasks, decided by the store: a caller

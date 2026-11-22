@@ -108,20 +108,27 @@ class UpdateNoteTool(
         )
     }
 
-    /** The changes the request asks for: one item per field that actually differs. */
+    /**
+     * The change the request asks for: one item carrying every field that really
+     * differs.
+     *
+     * One item, not one per field. An update that renames a note and rewrites its body
+     * is one act, and the user decides about it once — and split into items, the first
+     * field's write would advance the note's version and the second would then look
+     * stale, so the confirmed update would apply in part.
+     */
     private fun changes(
         args: UpdateNoteInput,
         existing: Note,
     ): List<ProposalItemKind> {
-        val kinds = mutableListOf<ProposalItemKind>()
+        val values = mutableListOf<NoteValue>()
 
         args.title?.let { value ->
             if (value.trim() != existing.title.trim()) {
-                // Same rule as the body below: the version travels with every field of
-                // the change, not with the body alone.
-                kinds += ProposalItemKind.SetNoteField(
-                    NoteValue.Title(value, expectedUpdatedAt = args.expectedUpdatedAt),
-                )
+                // The version travels with the change, so the check holds at the moment
+                // the user confirms it and not only at the moment the model asked. See
+                // `ProposalPlanner.withNoteValues`.
+                values += NoteValue.Title(value, expectedUpdatedAt = args.expectedUpdatedAt)
             }
         }
 
@@ -131,17 +138,11 @@ class UpdateNoteTool(
         val body = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) } ?: args.bodyHtml
         body?.let { value ->
             if (value != existing.bodyHtml) {
-                // The version travels with the change, so the check holds at the moment
-                // the user confirms it and not only at the moment the model asked. See
-                // `ProposalPlanner.withNoteValue`.
-                kinds +=
-                    ProposalItemKind.SetNoteField(
-                        NoteValue.Body(value, expectedUpdatedAt = args.expectedUpdatedAt),
-                    )
+                values += NoteValue.Body(value, expectedUpdatedAt = args.expectedUpdatedAt)
             }
         }
 
-        return kinds
+        return if (values.isEmpty()) emptyList() else listOf(ProposalItemKind.SetNoteFields(values))
     }
 
     private fun failure(

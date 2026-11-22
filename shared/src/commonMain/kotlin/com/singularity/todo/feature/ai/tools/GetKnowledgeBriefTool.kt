@@ -4,7 +4,6 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.notes.NoteKind
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -116,15 +115,14 @@ class GetKnowledgeBriefTool(
                     } else {
                         fromNotes(
                             owner = "task",
-                            // `watchForTask` is the logbook's read and answers with every
-                            // attached note, so the kind is asked for here rather than
-                            // inside it: a task can carry a `Daily` too, and a brief is a
-                            // plain note.
+                            // The kind is part of the query, not a filter over the logbook's
+                            // page: filtering after a bounded read loses a brief that sits
+                            // behind enough newer daily notes, and reports "none" for a
+                            // task that has one.
                             notes =
                                 notesRepository
-                                    .watchForTask(TaskId.fromString(taskId))
-                                    .first()
-                                    .filter { it.kind == NoteKind.Plain },
+                                    .watchPlainAttachedToTask(TaskId.fromString(taskId), NOTE_LIMIT)
+                                    .first(),
                         )
                     }
                 }

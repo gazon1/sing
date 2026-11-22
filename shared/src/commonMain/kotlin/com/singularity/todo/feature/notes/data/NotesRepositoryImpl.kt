@@ -580,6 +580,16 @@ class NotesRepositoryImpl(
                 .map { list -> list.map { it.toNote() } }
         }
 
+    override fun watchPlainAttachedToTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchPlainAttachedToTaskForUser(taskId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
+        }
+
     override fun watchForProject(
         projectId: ProjectId,
         limit: Int,
