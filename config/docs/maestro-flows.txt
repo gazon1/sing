@@ -7,9 +7,11 @@
 # the suite is not the suite we said it was, and a suite that changes shape
 # silently makes every green run before it incomparable to every green run after.
 #
-# The directory decides the suite, not this file: everything under `smoke/` runs
-# on every push, everything under `Maestro/flows/` runs in the nightly full
-# suite. The catalogue does not assign suites — it only says which flows exist.
+# The `smoke` tag decides the smoke suite, not this file and not the directory:
+# `scripts/src/emulator/maestro/_flow.py` selects by tag, so a flow joins the
+# suite by declaring `smoke` wherever it lives. The automated full suite is every
+# flow here except the ones tagged `manual` or `auth-live`. The catalogue does not
+# assign suites — it only says which flows exist.
 #
 # To add a flow: add the file, add the line here, in the same commit.
 # To remove a flow: remove the file, remove the line here, in the same commit,

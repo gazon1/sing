@@ -5,13 +5,17 @@ description: Author and run Maestro UI flows for the Android app. Covers seeding
 
 # Maestro UI Flows
 
-Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
-subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
+Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/`,
+grouped in subdirectories by feature. Helpers live in `Maestro/helpers/`.
 
-Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
-openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see the runbook in [`diagnosing-failures.md`](diagnosing-failures.md).
-All 4 Class E flows pass.
+There is no flow count here on purpose: the catalogue is
+`config/docs/maestro-flows.txt`, held to the tree by
+`scripts/check-maestro-flow-catalogue.py`. Read it when a number is needed.
+
+Which flows fail today is not here — a result recorded in this skill would be
+stale by the next run. The accepted causes and their owning issues are in
+`config/docs/maestro-debt.yaml`, and the reliability work is tracked in
+issue #2837.
 
 ## Prerequisites: emulator first
 
@@ -323,7 +327,7 @@ or misbehaves:
 - [Recon before writing a flow — the probe trick](diagnosing-failures.md#recon-before-writing-a-flow--the-probe-trick) —
   the probe flow that dumps the view hierarchy of the screen you are about to drive.
 - [Diagnosing a Maestro flow failure](diagnosing-failures.md) — the failure-class
-  table for the last CI run, the logcat/hierarchy triage steps, when a selector is
+  table from the audited run, the logcat/hierarchy triage steps, when a selector is
   unreachable because the element is laid out off-screen, the retry policy, and the
   CI-vs-local timeout multipliers.
 

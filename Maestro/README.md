@@ -31,11 +31,12 @@ Environment variables understood by `run-maestro`:
 
 The same flow files can be run by [maestro-runner](https://github.com/devicelab-dev/maestro-runner),
 a single Go binary that reads the same YAML without a JVM. The CLI starts a JVM
-per flow, and a suite of 127 flows pays that warm-up 127 times.
+per flow, so it pays that warm-up once for every flow in the suite.
 
 ```bash
-scripts/run-maestro-e2e.py --engine maestro-runner -f Maestro/flows/smoke
-MAESTRO_ENGINE=maestro-runner scripts/run-maestro-e2e.py -f Maestro/flows/smoke
+# --engine, or the MAESTRO_ENGINE variable the runner reads when the flag is absent
+python3 scripts/run-maestro-e2e.py --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk --suite smoke --shard 1 --shards 1 --engine maestro-runner
+MAESTRO_ENGINE=maestro-runner python3 scripts/run-maestro-e2e.py --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk --suite smoke --shard 1 --shards 1
 ```
 
 The CLI stays the default: the failure floor of this repository was calibrated
@@ -196,7 +197,7 @@ Maestro/
 │   ├── STORYBOARD.md           # why each screenshot is there, and the capture profile
 │   └── manifest.yaml           # the file names and the order
 └── flows/
-    ├── smoke/                  # 5 of the 27 must-pass flows; the tag `smoke` selects all 27
+    ├── smoke/                  # part of the smoke subset; the `smoke` tag, not this path, selects the suite
     ├── nav/                    # bottom-bar navigation
     ├── tasks/                  # task CRUD and the task editor attribute rows
     ├── agenda/                 # smart lists (Inbox buckets) + saved agenda views
