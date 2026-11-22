@@ -43,7 +43,7 @@ class AgendaScreenIntrospection(
     private val introspection = ScreenIntrospection(screenId = screenId, actions = listActions)
 
     /**
-     * Where the screen asked to go, or null when it asked for nothing.
+     * Where the screen asked to go, or null when this adapter has no destination to publish.
      *
      * Set by [onEvent] from the screen's own `NavigateToTask` event — the destination a row's
      * tap would hand the application's navigator. Published in the snapshot so a driver opens
@@ -51,11 +51,12 @@ class AgendaScreenIntrospection(
      * [clearNavigation] once the driver has acted on it.
      *
      * **Only task-opening is published.** The agenda also emits `NavigateToOverdue`,
-     * `CreateInSection` and `OpenCreateWithDates`; those are deliberately not mapped. Each
-     * names a destination this adapter has not been asked to describe, and inventing routes
-     * for them would be guessing at the application's navigation rather than reporting it.
-     * A driver sees `navigation: null` for those transitions and must treat that as "the
-     * screen moved somewhere this contract does not cover", not as "nothing happened".
+     * `CreateInSection` and `OpenCreateWithDates`; those are deliberately not mapped, and
+     * arriving at one clears the field so an older destination is never shown as the current
+     * one. What that leaves is a `null` that is honest but ambiguous: it means "no destination is
+     * published", which covers both "nothing happened" and "the screen went somewhere this
+     * contract does not describe". A driver cannot tell those apart from the snapshot and must
+     * not infer either one — the contract covers task-opening, and everything else is outside it.
      */
     @Volatile
     var navigation: JsonObject? = null
@@ -69,27 +70,39 @@ class AgendaScreenIntrospection(
 
     fun snapshot(): JsonObject = introspection.snapshot(stateOf(viewModel.stateFlow.value))
 
-    /**
-     * The screen's state as this adapter publishes it — the same value [describe] and
-     * [snapshot] build from, and the only thing [actions] availability is a function of.
-     *
-     * Exposed because a driver's question "can I act on this?" is answered about *this*, not
-     * about the ViewModel's internal state: the two can disagree in principle, and a test that
-     * asked the ViewModel could pass while the published availability was wrong.
-     */
-    fun publishedState(): ScreenState = stateOf(viewModel.stateFlow.value)
-
     fun snapshot(state: AgendaUiState): JsonObject = introspection.snapshot(stateOf(state))
 
-    /** Records what the screen decided to do next. Only navigation is published from events. */
+    /**
+     * Records what the screen decided to do next.
+     *
+     * Only `NavigateToTask` is mapped to a destination. Every other navigation event the agenda
+     * emits — `NavigateToOverdue`, `CreateInSection`, `OpenCreateWithDates` — **clears** the
+     * published destination instead of leaving the previous one in place, so an older
+     * destination is never presented as the current one. Events that are not navigation at all
+     * leave the field alone.
+     */
     fun onEvent(event: AgendaUiEvent) {
-        if (event is AgendaUiEvent.NavigateToTask) {
-            navigation =
-                buildJsonObject {
-                    put("screen", TASK_DETAIL_SCREEN_ID)
-                    put("params", buildJsonObject { put(ACTION_TASK_ID, event.taskId.value) })
+        navigation =
+            when (event) {
+                is AgendaUiEvent.NavigateToTask -> {
+                    buildJsonObject {
+                        put("screen", TASK_DETAIL_SCREEN_ID)
+                        put("params", buildJsonObject { put(ACTION_TASK_ID, event.taskId.value) })
+                    }
                 }
-        }
+
+                is AgendaUiEvent.NavigateToOverdue,
+                is AgendaUiEvent.CreateInSection,
+                is AgendaUiEvent.OpenCreateWithDates,
+                -> {
+                    null
+                }
+
+                // Not navigation: the status quo stands.
+                else -> {
+                    navigation
+                }
+            }
     }
 
     /** The driver took the pending navigation. Nothing is left on offer. */
