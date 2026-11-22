@@ -480,20 +480,28 @@ object SyntheticBackupGenerator {
      * One `nextDouble` sees a [0, total) interval cut into one band per priority, so
      * the draw consumes a single random value whatever the weights are — the payload
      * stays reproducible for a seed that way.
+     *
+     * The weights are scaled by their largest value first. Weights are relative, so
+     * the ratios are all that matter, and scaling keeps the running total bounded:
+     * summing raw values can overflow to infinity for weights `validate()` accepts,
+     * which turned the roll into NaN and pinned every task to the last weighted
+     * priority.
      */
     private fun pickPriority(
         weights: List<Double>,
         random: Random,
     ): String {
-        val total = weights.sum()
+        val largest = weights.max()
+        val scaled = weights.map { it / largest }
+        val total = scaled.sum()
         var roll = random.nextDouble() * total
         for (index in PRIORITIES.indices) {
-            roll -= weights[index]
+            roll -= scaled[index]
             if (roll < 0.0) return PRIORITIES[index]
         }
         // A roll landing exactly on the total (or a rounding residue) belongs to the
         // last priority that carries weight.
-        val lastWeighted = PRIORITIES.indices.last { weights[it] > 0.0 }
+        val lastWeighted = PRIORITIES.indices.last { scaled[it] > 0.0 }
         return PRIORITIES[lastWeighted]
     }
 

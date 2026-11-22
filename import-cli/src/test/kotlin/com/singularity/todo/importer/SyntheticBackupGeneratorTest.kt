@@ -312,6 +312,35 @@ class SyntheticBackupGeneratorTest {
         )
     }
 
+    /**
+     * Relative weights are allowed to be large, and summing them can overflow.
+     *
+     * With two weights of `Double.MAX_VALUE` the raw sum is infinity, the roll is
+     * infinity, every subtraction yields NaN and the fallback pinned all tasks to the
+     * last weighted priority — 400 of 400 went `low` where an even split was asked
+     * for. The draw scales the weights by their maximum, so the ratio survives and the
+     * total stays finite.
+     */
+    @Test
+    fun `huge priority weights still produce their relative distribution`() {
+        val params = SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 5L)
+        val tasks =
+            SyntheticBackupGenerator
+                .generate(
+                    params.copy(
+                        priorityWeights = listOf(Double.MAX_VALUE, Double.MAX_VALUE, 0.0, 0.0, 0.0),
+                    ),
+                ).payload
+                .tasks
+
+        assertEquals(1_000, tasks.size)
+        val none = tasks.count { it.priority == "none" }
+        val low = tasks.count { it.priority == "low" }
+        assertEquals(1_000, none + low, "zero-weight priorities must never be drawn")
+        assertTrue(none in 350..650, "an even split should give roughly half to each, got none=$none low=$low")
+        assertTrue(low in 350..650, "an even split should give roughly half to each, got none=$none low=$low")
+    }
+
     @Test
     fun `incoherent priority weights are rejected`() {
         val base = SyntheticBackupGenerator.defaultParams(GenerateProfile.TASKS_1K, seed = 1L)
