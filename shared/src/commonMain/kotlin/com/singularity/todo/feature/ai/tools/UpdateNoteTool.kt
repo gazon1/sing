@@ -65,6 +65,46 @@ class UpdateNoteTool(
             notesRepository.get(NoteId(args.noteId))
                 ?: return failure(args.noteId, "There is no note with id \"${args.noteId}\".")
 
+        val kinds = changes(args, existing)
+        refusal(args, existing, kinds)?.let { return it }
+
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(kinds, args.noteId),
+                targetId = args.noteId,
+            )
+
+        return ToolOutputJson.encodeToString(
+            UpdateNoteOutput.serializer(),
+            UpdateNoteOutput(
+                proposalCreated = result.isSuccess,
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
+                noteId = args.noteId,
+                error = result.exceptionOrNull()?.message,
+            ),
+        )
+    }
+
+    /**
+     * Why this request cannot become a proposal, or `null` when it can.
+     *
+     * The reasons are one function so that [execute] keeps a single refusal path: a tool
+     * that reads, checks and writes has several ways to say no, and each `return` in the
+     * body is another exit a reader has to hold.
+     */
+    private fun refusal(
+        args: UpdateNoteInput,
+        existing: Note,
+        kinds: List<ProposalItemKind>,
+    ): String? {
         // A brief is refreshed from a read, so the read is what an update has to state.
         // Without the version there is no guard at all — the proposal would be applied to
         // whatever the note has become by the time the user confirms it, which is the
@@ -91,34 +131,11 @@ class UpdateNoteTool(
             )
         }
 
-        val kinds = changes(args, existing)
-        if (kinds.isEmpty()) {
-            return failure(args.noteId, "The note already has these values — there is nothing to change.")
+        return if (kinds.isEmpty()) {
+            failure(args.noteId, "The note already has these values — there is nothing to change.")
+        } else {
+            null
         }
-
-        val result =
-            proposeChange(
-                proposals = proposals,
-                userId = currentUser.scopedUserId.value,
-                clock = clock,
-                items = proposalItems(kinds, args.noteId),
-                targetId = args.noteId,
-            )
-
-        return ToolOutputJson.encodeToString(
-            UpdateNoteOutput.serializer(),
-            UpdateNoteOutput(
-                proposalCreated = result.isSuccess,
-                proposalId =
-                    result
-                        .getOrNull()
-                        ?.id
-                        ?.value
-                        .orEmpty(),
-                noteId = args.noteId,
-                error = result.exceptionOrNull()?.message,
-            ),
-        )
     }
 
     /**
