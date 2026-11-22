@@ -167,6 +167,7 @@ MANUAL_MIGRATIONS: dict[tuple[int, int], str] = {
     (49, 50): "Migration49To50",
     (51, 52): "Migration51To52",
     (52, 53): "Migration52To53",
+    (54, 55): "Migration54To55",
 }
 
 # The list as it was declared, captured before any self-test plants a defect.

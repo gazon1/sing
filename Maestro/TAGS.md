@@ -583,6 +583,8 @@ use the expanded string directly).
 | `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
 | `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |
 | `subtaskItem("Child task one")` | `"Child task one"` | `subtask_item_child_task_one` | Subtask list rows |
+| `subtaskMoveDown("Child task")` | `"Child task"` | `subtask_move_down_child_task` | Subtask move-down halves |
+| `subtaskMoveUp("Child task")` | `"Child task"` | `subtask_move_up_child_task` | Subtask move-up halves |
 | `taskCheckbox("Buy milk")` | `"Buy milk"` | `task_checkbox_buy_milk` | Task checkboxes |
 | `taskItem("Buy milk")` | `"Buy milk"` | `task_item_buy_milk` | Task list rows |
 | `noteAction("edit")` | `"edit"` | `note_action_edit` | Note editor action buttons |
