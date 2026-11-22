@@ -86,6 +86,50 @@ class AndroidFileSourceTest {
         }
     }
 
+    /**
+     * `readBytes` is a second implementation of the same two branches, not a caller
+     * of `openRead`.
+     *
+     * Both branches are asserted here for that reason: a change that fixes streaming
+     * and breaks the one-shot read (or the reverse) is invisible to a suite that only
+     * exercises one of them.
+     */
+    @Test
+    fun readBytes_reads_a_local_file_and_a_content_uri() {
+        runTest {
+            val localBytes = "local-read-bytes".encodeToByteArray()
+            val localFile = File(context.filesDir, "local-read.bin").apply { writeBytes(localBytes) }
+            assertArrayEquals(
+                localBytes,
+                AndroidFileSource(context, localFile.absolutePath).readBytes(),
+            )
+
+            val uriBytes = "content-read-bytes".encodeToByteArray()
+            val uri = Uri.parse("content://readbytes.test/source")
+            val tracking = TrackingInputStream(uriBytes)
+            shadowOf(context.contentResolver).registerInputStream(uri, tracking)
+
+            assertArrayEquals(
+                uriBytes,
+                AndroidFileSource(context, uri.toString()).readBytes(),
+            )
+            assertTrue("readBytes must close the stream it opened", tracking.closed)
+        }
+    }
+
+    @Test
+    fun readBytes_throws_when_content_resolver_returns_null_stream() {
+        runTest {
+            Robolectric.setupContentProvider(NullStreamProvider::class.java, NULL_AUTHORITY)
+            val uri = Uri.parse("content://$NULL_AUTHORITY/missing")
+            val error =
+                assertFailsWith<FileNotFoundException> {
+                    AndroidFileSource(context, uri.toString()).readBytes()
+                }
+            assertEquals("Cannot open: $uri", error.message)
+        }
+    }
+
     private fun readAll(
         source: ByteSource,
         chunk: Int,

@@ -34,10 +34,13 @@
 # Notes. These are hand-written and are deliberately outside the generated block.
 # ---------------------------------------------------------------------------
 #
-# **The android host line is not from the same measurement as the others.** It
-# needs a device or emulator, so on a host without one it is carried over
-# unchanged rather than rewritten. A line written from a run that did not happen is
-# worse than a stale one.
+# **The android host line is measured like the others, on the JVM.** It was not
+# always described that way: the note here used to say the line needs a device or
+# emulator and is carried over unchanged, which stopped being true when
+# `androidHostTest` started running on Robolectric — those tests execute on this host,
+# in this job, and `--update-baseline` reads their JUnit XML exactly like `jvmTest`'s.
+# It is a *host* lane, not the instrumented one; the device tier's floor is
+# `config/docs/instrumented-test-floor.txt`, measured from an emulator run.
 #
 # **A floor recorded from a wider run is not a floor, and the warning does not stop
 # you.** `--update-baseline` prints `WARNING: these counts ROSE` and then writes the
@@ -152,7 +155,7 @@
 # floor that is behind the suite stops asking its question, so the number is raised
 # in the same commit that adds the tests.
 #
-# **The android host line rose from 23 to 26, and the three tests were already in
+# **The android host line rose from 23 to 28, and the three tests were already in
 # the tree.** `AndroidFileSourceTest` was written, compiled, and in no run at all:
 # the task's own `include(...)` list did not name it, so `:shared:testAndroidHostTest`
 # reported "No tests found for given includes" for the class and passed. Measured on
@@ -165,11 +168,16 @@
 # replacement: three tests were added to the executed population, none moved out
 # (#3087).
 #
+# The line then rose again, 26 → 28, in review: the first pass of #3087 asserted only
+# `openRead()`, and `readBytes()` is a second implementation of the same two branches
+# rather than a caller of it — so two tests now pin its local-file and `content://`
+# paths, including that it closes the stream it opened.
+#
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 251 0
 shared:archTest 255 0
 shared:jvmTest 4972 0
-shared:testAndroidHostTest 26 0
+shared:testAndroidHostTest 28 0
 core-domain:jvmTest 5 0
 mcp-server:test 0 0
 # GENERATED:END
