@@ -258,7 +258,11 @@ class ProposalDispatch(
                 } else {
                     plan.note
                 }
-            notes.upsert(toWrite)
+            // `update`, not `upsert`: upsert is the remote-apply path and does not
+            // enqueue the row, so a confirmed refresh would stay on this device and
+            // never reach another one. `update` is the user-write path, and it is what
+            // every other confirmed change goes through.
+            notes.update(toWrite).getOrThrow()
         }
 
     private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> =

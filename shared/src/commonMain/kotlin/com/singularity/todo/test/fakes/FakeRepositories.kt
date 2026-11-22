@@ -3383,7 +3383,10 @@ open class FakeNotesRepository(
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values
-                    .filter { it.userId == uid && it.deletedAt == null && it.projectId == projectId }
+                    .filter {
+                        it.userId == uid && it.deletedAt == null && it.projectId == projectId &&
+                            it.kind == com.singularity.todo.feature.notes.NoteKind.Plain
+                    }
                     .sortedWith(noteOrder)
                     .take(limit)
             }

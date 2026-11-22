@@ -124,11 +124,20 @@ The note changed since it was read (updatedAt 1763800060000, expected 1763800000
 Apply a refresh and the note's `updatedAt` moves, so a second proposal built from the same
 read cannot land on top of the first one.
 
+## A brief is a plain note
+
+The attachment alone does not make a note a brief. A project's daily note carries the
+same `project_id`, and a task can carry a `Daily` as well — those are journals, not
+research summaries. So the read asks for `kind = Plain` (in the query for projects, and
+in the reader for tasks, because `watchForTask` is the logbook's read and answers with
+every attached note). Without that filter the newest attached note could be somebody's
+journal, and an agent that writes the extraction over it would destroy it.
+
 ## One brief per owner is a convention
 
-Nothing in the database stops a project from accumulating several attached notes, and
-`get_knowledge_brief` does not pretend otherwise: it answers with the **newest** attached
-note and reports how many it read (`attachedNotesSeen`, a page size, not a total — the
+Nothing in the database stops a project from accumulating several plain attached notes,
+and `get_knowledge_brief` does not pretend otherwise: it answers with the **newest** of
+them and reports how many it read (`attachedNotesSeen`, a page size, not a total — the
 reads are bounded).
 
 The convention is kept where a brief is written: the agent reads before it writes, and

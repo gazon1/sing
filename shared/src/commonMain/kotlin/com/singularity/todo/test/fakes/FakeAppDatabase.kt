@@ -1250,7 +1250,10 @@ private class FakeNoteDao(
     ): Flow<List<NoteEntity>> =
         store.map { map ->
             map.values
-                .filter { n -> n.userId == userId && n.deletedAt == null && n.projectId == projectId }
+                .filter { n ->
+                    n.userId == userId && n.deletedAt == null && n.projectId == projectId &&
+                        n.kind == com.singularity.todo.feature.notes.NoteKind.Plain
+                }
                 .sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
                 .take(limit)
         }

@@ -61,6 +61,14 @@ than assumed: the tool refuses a call that names both, `buildNote` requires it, 
 foreign keys make an unknown id fail. A note that hung on both would answer "which
 project's brief is this?" with two rows.
 
+**A brief is a plain note, not merely an attached one.** The attachment is not the
+brief's alone: `getOrCreateDailyNote` has used `project_id` since it existed, so a
+project's daily note is an attached note too. The read therefore asks for `kind = Plain`
+— in the query for projects, and in the reader for tasks, because `watchForTask` is the
+logbook's read and must keep answering with every attached note. Without the filter the
+newest attached note could be a journal, and an extraction written over it would destroy
+it.
+
 **The candidate is the proposal.** A refresh already produces something the user has to
 approve — that is what `PROPOSAL_WRITE` means — and the proposal card is where a diff
 between the approved brief and the new extraction is decided item by item. No new

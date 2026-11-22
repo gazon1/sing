@@ -250,8 +250,18 @@ class ProposalPlanner(private val clock: Clock) {
                 -> Unit
             }
             // The write advances the version, so a second proposal built from the same
-            // read cannot land on top of this one.
-            val now = clock.now()
+            // read cannot land on top of this one. It has to advance *strictly*: a
+            // second write inside the same millisecond would otherwise stamp the same
+            // value, and the stored version would say "nothing changed" about a note
+            // that did — the guard then accepts a proposal written against the older
+            // text. So the stamp is never allowed to repeat the version it replaces.
+            val written = clock.now()
+            val now =
+                if (written <= note.updatedAt) {
+                    note.updatedAt + kotlin.time.Duration.parse("1ms")
+                } else {
+                    written
+                }
             return when (value) {
                 is NoteValue.Title -> note.copy(title = value.value.trim(), updatedAt = now)
 

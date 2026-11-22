@@ -15,6 +15,7 @@ import com.singularity.todo.feature.ai.tools.UpdateNoteOutput
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NoteKind
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -498,6 +499,73 @@ class KnowledgeBriefTest {
                 output.title,
                 "the tie breaks on ascending id, so the store's first row is the brief",
             )
+        }
+
+    @Test
+    fun `a confirmed refresh advances the note version even inside one millisecond`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            val brief = note(title = "Brief", html = "<p>approved</p>", projectId = project.id)
+            notes.seed(brief)
+            val readAt = brief.updatedAt.toEpochMilliseconds()
+
+            // No clock advance at all: the write lands in the same millisecond as the
+            // read. A version that did not move strictly would make the note look
+            // untouched, and the guard would accept a proposal aimed at the older text.
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(
+                            UpdateNoteInput(
+                                noteId = brief.id.value,
+                                bodyMarkdown = "refreshed",
+                                expectedUpdatedAt = readAt,
+                            ),
+                        ),
+                )
+            assertTrue(apply.confirm(singleItemId(output.proposalId), user).isSuccess, "the refresh applied")
+
+            val after = assertNotNull(notes.notes[brief.id.value], "the note is still there")
+            assertTrue(
+                after.updatedAt.toEpochMilliseconds() > readAt,
+                "the version moved strictly: ${after.updatedAt.toEpochMilliseconds()} vs $readAt",
+            )
+        }
+
+    @Test
+    fun `a project's daily note is not its brief`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+
+            // A daily note carries the same project_id as a brief does. It is a journal,
+            // not a research summary, and answering with it would put the extraction on
+            // top of the user's day.
+            val daily =
+                note(title = "2026-03-10", html = "<p>today</p>", projectId = project.id)
+                    .copy(kind = NoteKind.Daily)
+            notes.seed(daily)
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = project.id.value)))
+
+            assertFalse(output.found, "a daily note is not a brief: ${output.noteId}")
+            assertNotNull(output.reason, "the answer says there is no brief yet")
+        }
+
+    @Test
+    fun `a task's daily note is not its brief`() =
+        runTest {
+            val task = task("Draft the brief")
+            tasks.seed(task)
+            notes.seed(
+                note(title = "2026-03-10", html = "<p>today</p>", taskId = task.id)
+                    .copy(kind = NoteKind.Daily),
+            )
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(taskId = task.id.value)))
+
+            assertFalse(output.found, "a daily note is not a brief: ${output.noteId}")
         }
 
     @Test

@@ -1086,6 +1086,12 @@ interface NoteDao {
      * separate because a note that hangs on the project is not a note that hangs on
      * one of its tasks, and a read that merged them could not name which one it
      * returned.
+     *
+     * `kind = 'Plain'` because this attachment is not the brief's alone: a project's
+     * daily note carries the same `project_id` and is a `Daily`. A reader that took the
+     * newest attached note without asking its kind would hand a daily journal to
+     * whoever asked for the brief, and a caller that then writes the extraction over it
+     * loses the journal.
      */
     @Query(
         """
@@ -1093,6 +1099,7 @@ interface NoteDao {
         WHERE project_id = :projectId
           AND user_id = :userId
           AND deleted_at IS NULL
+          AND kind = 'Plain'
         ORDER BY created_at DESC, id ASC
         LIMIT :limit
         """,
