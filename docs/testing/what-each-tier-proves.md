@@ -11,7 +11,7 @@ happened to the other tier's copy.
 | Tier | What runs | Cost | What it can see |
 |---|---|---|---|
 | **device** | `:androidApp:connectedDebugAndroidTest` — one class (`AppStartupTest`) as an advisory smoke on every pull request, the whole instrumented suite nightly | ~10 minutes and an emulator | the real Android runtime |
-| **android host** | `:shared:testAndroidHostTest` — the Android source set's own tests, on the JVM under Robolectric | seconds | Android *framework* code, with no device attached: `ContentResolver`, `NotificationManager`, `LifecycleRegistry`, the Android Koin graph |
+| **android host** | `:shared:testAndroidHostTest` — the Android source set's own tests, on the JVM: under Robolectric where the Android framework is involved, on a plain JUnit 4 runner where it is not | seconds | Android *framework* code, with no device attached: `ContentResolver`, `NotificationManager`, `LifecycleRegistry`, the Android Koin graph |
 | **JVM** | `:shared:jvmTest` and `:desktopApp:test` — the shared suite and the Compose Multiplatform suite, on the JVM | seconds | the shared rules and the shared UI's semantics tree |
 
 The three kinds of evidence, one lane each:
@@ -20,7 +20,8 @@ The three kinds of evidence, one lane each:
   the shared UI produce the semantics tree it should? Nothing platform-specific is
   in the picture: the ports are faked.
 - **platform headless** — the android host lane. Does the *Android
-  implementation* of a port behave, under Robolectric, with no device?
+  implementation* of a port behave — under Robolectric where the framework is
+  involved, on a plain JUnit 4 runner where it is not — with no device?
 - **platform with a device** — the device lane. Does the app, as a user meets
   it, work: the real runtime, the real IME, the real pixels, the real resource
   ids?
