@@ -27,6 +27,11 @@ import kotlin.time.Instant
  * whatever day the suite runs. The scenario it carries is declared in
  * `scripts/src/traceability/scenarios/agenda/AGENDA-10.yaml`; the
  * `@DisplayName` above is the linkage.
+ *
+ * This class is the whole owner of the Upcoming timeline: it carries the claims
+ * of the retired `AGENDA-09` as well (each task appears once, the grouping
+ * control switches the feed and back without losing a task), because the
+ * Maestro flow that used to carry them is gone (#3120).
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -55,6 +60,12 @@ class UpcomingTimelineScenarioTest {
             assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
             assertTagDisplayed(TestTags.taskItem("Due in three days"))
             assertTagDisplayed(TestTags.taskItem("Due in six days"))
+
+            // Each task is listed once: a row that appeared under two dates
+            // would satisfy "the task is on screen" and still be a wrong feed.
+            assertDisplayedOnce(TestTags.taskItem("Due tomorrow"))
+            assertDisplayedOnce(TestTags.taskItem("Due in three days"))
+            assertDisplayedOnce(TestTags.taskItem("Due in six days"))
 
             // Today and the undated tasks belong to the other tabs, so the feed
             // does not repeat them.
@@ -91,11 +102,30 @@ class UpcomingTimelineScenarioTest {
             assertTagDisplayed(TestTags.agendaSection("14–20 Sep"))
             assertTagDisplayed(TestTags.agendaSection("21–27 Sep"))
             assertNotDisplayed(TestTags.agendaSection("Tomorrow"))
+
+            // The grouping changes the projection, not the set: the same three
+            // tasks are still in the feed, once each.
+            assertDisplayedOnce(TestTags.taskItem("Due tomorrow"))
+            assertDisplayedOnce(TestTags.taskItem("Due in three days"))
+            assertDisplayedOnce(TestTags.taskItem("Due in six days"))
+
+            // And back: the day headers return with the tasks under them.
+            onNode(hasTestTag(TestTags.AGENDA_GROUPING_DAY)).performClick()
+
+            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+            assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
+            assertDisplayedOnce(TestTags.taskItem("Due in six days"))
         }
 
     @OptIn(ExperimentalTestApi::class)
     private fun androidx.compose.ui.test.DesktopComposeUiTest.assertNotDisplayed(tag: String) {
         val nodes = onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
         assertTrue(nodes.isEmpty(), "the feed must not show '$tag'")
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    private fun androidx.compose.ui.test.DesktopComposeUiTest.assertDisplayedOnce(tag: String) {
+        val nodes = onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
+        assertTrue(nodes.size == 1, "the feed must show '$tag' exactly once, saw ${nodes.size}")
     }
 }

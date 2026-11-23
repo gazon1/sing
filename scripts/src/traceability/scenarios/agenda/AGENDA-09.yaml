@@ -1,15 +1,18 @@
 # Scenario AGENDA-09 — the Android carrier for the Upcoming feed.
 #
-# The order-of-headers and no-empty-day claims are AGENDA-10 on desktop:
-# Maestro can see that rows and their headers exist, but comparing their
-# vertical order is not what it does. Keeping this claim narrower is what makes
-# the Android cell in the coverage matrix honest.
+# Deprecated on purpose (2026-11-23): the Maestro flow that carried it
+# (`Maestro/flows/agenda/09-upcoming-timeline.yaml`) is retired (#3120), because
+# every claim it made is owned by the desktop carrier `AGENDA-10` — the feed's
+# rows, the day/week grouping switch, and the exclusions. The claims are kept
+# in the scenario layer rather than deleted because the screen shipped and
+# users could see it; deleting the file would leave "where did the guarantee
+# go?" unanswered. The surviving behaviour is carried by AGENDA-10.
 
 id: AGENDA-09
 title: "Upcoming groups future tasks under date headers and leaves Today out"
 area: feature.agenda
 priority: P1
-status: confirmed
+status: deprecated
 targets: [android]
 preconditions: >-
   Open tasks exist with due dates tomorrow, three days out and six days out. A
