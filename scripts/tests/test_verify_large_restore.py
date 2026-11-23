@@ -765,49 +765,115 @@ class InterruptedImportProblemsTest(unittest.TestCase):
     """An import that was cut short has to leave the profile whole or empty.
 
     "Part of the dataset" is not only about tasks: an import that wrote the
-    projects and the tags but no task yet is part of the dataset too.
+    projects and the tags but no task yet is part of the dataset too — and so
+    is an import that wrote every task and none of the other tables.
     """
 
+    EXPECTED = {
+        "tasks": 100,
+        "projects": 10,
+        "tags": 5,
+        "notes": 20,
+        "checklistItems": 200,
+        "taskDependencies": 30,
+        "taskTags": 300,
+    }
+
+    def _empty(self):
+        return {key: 0 for key in self.EXPECTED}
+
     def test_an_empty_profile_is_what_the_check_looks_for(self):
-        counts = {
-            "tasks": 0,
-            "projects": 0,
-            "tags": 0,
-            "notes": 0,
-            "checklistItems": 0,
-            "taskDependencies": 0,
-            "taskTags": 0,
-        }
-        self.assertEqual(driver.interrupted_import_problems(True, counts, 100), [])
+        self.assertEqual(driver.interrupted_import_problems(True, True, self._empty(), self.EXPECTED), [])
 
     def test_a_profile_with_entities_but_no_task_is_part_of_the_dataset(self):
-        counts = {
-            "tasks": 0,
-            "projects": 12,
-            "tags": 3,
-            "notes": 0,
-            "checklistItems": 0,
-            "taskDependencies": 0,
-            "taskTags": 0,
-        }
-        problems = driver.interrupted_import_problems(True, counts, 100)
+        counts = self._empty()
+        counts["projects"] = 12
+        counts["tags"] = 3
+        problems = driver.interrupted_import_problems(True, True, counts, self.EXPECTED)
         self.assertEqual(len(problems), 1)
         self.assertIn("part of the dataset", problems[0])
 
     def test_an_import_that_was_never_cut_short_is_not_tested(self):
-        problems = driver.interrupted_import_problems(False, {"tasks": 0}, 100)
+        problems = driver.interrupted_import_problems(False, True, self._empty(), self.EXPECTED)
         self.assertEqual(len(problems), 1)
         self.assertIn("not cut short", problems[0])
 
+    def test_an_import_that_never_started_is_not_tested(self):
+        """The tap is not evidence that the restore began."""
+        problems = driver.interrupted_import_problems(True, False, self._empty(), self.EXPECTED)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("never started", problems[0])
+
     def test_an_import_that_had_already_committed_is_a_problem(self):
-        problems = driver.interrupted_import_problems(True, {"tasks": 100}, 100)
+        counts = dict(self.EXPECTED)
+        problems = driver.interrupted_import_problems(True, True, counts, self.EXPECTED)
         self.assertEqual(len(problems), 1)
         self.assertIn("already committed", problems[0])
 
+    def test_every_task_with_none_of_the_other_tables_is_part_of_the_dataset(self):
+        """The tables are compared one by one, not the task count alone."""
+        counts = self._empty()
+        counts["tasks"] = self.EXPECTED["tasks"]
+        problems = driver.interrupted_import_problems(True, True, counts, self.EXPECTED)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("part of the dataset", problems[0])
+        self.assertIn("projects", problems[0])
+
+    def test_a_table_with_part_of_its_rows_is_part_of_the_dataset(self):
+        counts = self._empty()
+        counts["taskTags"] = 7
+        problems = driver.interrupted_import_problems(True, True, counts, self.EXPECTED)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("part of the dataset", problems[0])
+        self.assertIn("7 of 300", problems[0])
+
     def test_a_table_that_could_not_be_read_is_not_an_empty_table(self):
-        problems = driver.interrupted_import_problems(True, {"tasks": -1}, 100)
+        counts = self._empty()
+        counts["tasks"] = -1
+        problems = driver.interrupted_import_problems(True, True, counts, self.EXPECTED)
         self.assertEqual(len(problems), 1)
         self.assertIn("could not be read", problems[0])
+
+
+class RestoreStartedTest(unittest.TestCase):
+    """The interrupted import is only cut short when the app says it is working.
+
+    The app's own indicator is the evidence that the restore began: the tap on
+    the confirmation only says that Maestro dispatched a tap.
+    """
+
+    def _dump(self, *texts: str) -> str:
+        nodes = "".join(f'<node text="{text}" />' for text in texts)
+        return f"<?xml version='1.0' encoding='UTF-8'?><hierarchy>{nodes}</hierarchy>"
+
+    def test_the_working_indicator_means_the_restore_began(self):
+        with unittest.mock.patch.object(
+            driver, "ui_dump", lambda serial: self._dump("Create backup", "Working…")
+        ):
+            started, evidence = driver.restore_started("serial", timeout=0)
+        self.assertTrue(started)
+        self.assertIn("working indicator", evidence)
+
+    def test_the_indicator_is_not_confused_with_the_working_days_section(self):
+        with unittest.mock.patch.object(
+            driver, "ui_dump", lambda serial: self._dump("Working Days", "Mon", "Tue")
+        ):
+            started, _ = driver.restore_started("serial", timeout=0)
+        self.assertFalse(started)
+
+    def test_a_finished_restore_is_not_an_interrupted_one(self):
+        with unittest.mock.patch.object(
+            driver, "ui_dump", lambda serial: self._dump("Restore complete")
+        ):
+            started, evidence = driver.restore_started("serial", timeout=0)
+        self.assertFalse(started)
+        self.assertIn("finished", evidence)
+
+    def test_a_screen_that_says_nothing_means_the_restore_never_began(self):
+        with unittest.mock.patch.object(driver, "ui_dump", lambda serial: ""):
+            started, evidence = driver.restore_started("serial", timeout=0)
+        self.assertFalse(started)
+        self.assertIn("never showed", evidence)
 
 
 class VerdictProblemsTest(unittest.TestCase):
@@ -1118,8 +1184,10 @@ class LateFailureReportTest(unittest.TestCase):
             unittest.mock.patch.object(
                 driver,
                 "check_interrupted_import",
-                lambda serial, out, arc, apk=None, expected_tasks=0: {
+                lambda serial, out, arc, apk=None, expected_counts=None: {
                     "interrupted": True,
+                    "importStarted": True,
+                    "evidence": "the app's own working indicator was on the screen",
                     "counts": {"tasks": 0},
                     "problems": [],
                     "verdict": "empty",

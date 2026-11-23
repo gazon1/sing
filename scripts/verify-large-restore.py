@@ -106,6 +106,18 @@ CONFIRM_ID = "dialog_confirm"
 #: be read without disturbing the device.
 CONFIRM_TAP = "Tap on id: dialog_confirm"
 
+#: The words the backup screen shows while the app is working. The backup
+#: screen puts them there for as long as the app is busy, and the app is busy
+#: for as long as the restore runs: it is the app saying that it is restoring,
+#: and not the test guessing from a tap. The ellipsis is part of the words, so
+#: that the "Working Days" section of the settings cannot be mistaken for them.
+WORKING_MARKER = re.compile(r"Working(?:\u2026|\.\.\.)")
+
+#: The words the app's own snackbar carries when a restore is over. Seeing
+#: them means the import ran all the way through before it could be cut
+#: short — the case the interrupted-import check exists for was not tested.
+RESTORE_DONE_MARKER = "Restore complete"
+
 #: How the device is asked for the digest of the installed APK, in the order it
 #: is tried. Which one a device has depends on its Android version, and the
 #: name is part of the digest so that the two are never compared to each other.
@@ -267,13 +279,27 @@ def installed_apk_digest(serial: str) -> str:
     return ""
 
 
+#: The digests of the APK this run installed, by the file they were taken
+#: from. The APK does not change while a run lasts, and hashing it again
+#: before every flow would read the whole file again for nothing; the key
+#: holds its size and its time, so a file that did change is hashed again.
+_APK_DIGEST_CACHE: dict[tuple[str, int, int], dict[str, str]] = {}
+
+
 def local_apk_digests(apk: Path) -> dict[str, str]:
     """The digests of the APK this run installed."""
+    stat = apk.stat()
+    key = (str(apk), stat.st_size, stat.st_mtime_ns)
+    cached = _APK_DIGEST_CACHE.get(key)
+    if cached is not None:
+        return cached
     data = apk.read_bytes()
-    return {
+    digests = {
         "md5": hashlib.md5(data).hexdigest(),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+    _APK_DIGEST_CACHE[key] = digests
+    return digests
 
 
 def digest_matches(remote: str, local: dict[str, str]) -> bool:
@@ -686,6 +712,33 @@ def mentions_budget(message: str) -> bool:
     """
     lowered = message.lower()
     return any(marker in lowered for marker in BUDGET_REFUSAL_MARKERS)
+
+
+def restore_started(serial: str, timeout: int = 120) -> tuple[bool, str]:
+    """Whether the app says that it is restoring, and what it said.
+
+    The tap on the confirmation is not evidence that the restore began: it
+    only says that Maestro dispatched a tap, and on a busy device the app may
+    never get as far as the import. The app's own indicator is the evidence —
+    the backup screen shows "Working…" from the moment the restore starts
+    until it ends, so the words are on the screen exactly while the import
+    runs. A snackbar that says the restore is complete means the import was
+    too quick to be cut short, and the case was not tested at all.
+
+    The screen is only read after the flow has let go of the device: reading
+    it while Maestro drives takes the accessibility service away from
+    Maestro's driver.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        words = dialog_text(ui_dump(serial))
+        if WORKING_MARKER.search(words):
+            return True, "the app's own working indicator was on the screen"
+        if RESTORE_DONE_MARKER in words:
+            return False, "the restore finished before it could be cut short"
+        if time.monotonic() >= deadline:
+            return False, "the app never showed that it was working"
+        time.sleep(1.0)
 
 
 def import_duration(
@@ -1206,6 +1259,9 @@ def write_report(out_dir: Path, report: dict) -> None:
             f"* **{name}**: {phase.get('verdict', '—')}"
             for name, phase in report["negative"].items()
         ]
+        evidence = report["negative"].get("interrupted", {}).get("evidence")
+        if evidence:
+            lines.append(f"* how the interrupted import was caught: {evidence}")
     lines += ["", "## Verdict", ""]
     lines += [f"* {problem}" for problem in report.get("verdict", {}).get("problems", [])] or [
         "* nothing to report"
@@ -1282,7 +1338,7 @@ def over_budget_problems(outcome: dict, counts: dict[str, int]) -> list[str]:
 
 
 def interrupted_import_problems(
-    stopped: bool, counts: dict[str, int], expected_tasks: int
+    stopped: bool, started: bool, counts: dict[str, int], expected_counts: dict[str, int]
 ) -> list[str]:
     """What is wrong with the profile after an import was cut short.
 
@@ -1292,11 +1348,18 @@ def interrupted_import_problems(
     the tags but no task yet is part of the dataset too.
 
     Every table is looked at, and a table that could not be read is not an
-    empty table: it is an unknown one.
+    empty table: it is an unknown one. Every table is compared with the
+    manifest — a table that holds all of its rows while another holds none
+    is a half-restored dataset, and saying "the import had committed" about
+    it would hide that.
     """
     if not stopped:
         return [
             "the app was not stopped, so the import was not cut short — the case is untested"
+        ]
+    if not started:
+        return [
+            "the restore never started, so there was nothing to cut short — the case is untested"
         ]
     unreadable = sorted(key for key, value in counts.items() if value < 0)
     if unreadable:
@@ -1304,18 +1367,37 @@ def interrupted_import_problems(
             f"the tables {', '.join(unreadable)} could not be read, "
             "so what the interrupted import left behind is unknown"
         ]
-    left = {key: value for key, value in counts.items() if value > 0}
-    if not left:
-        return []
-    tasks = counts.get("tasks", 0)
-    if expected_tasks and tasks >= expected_tasks:
+    partial = {}
+    committed = []
+    empty = []
+    for key, actual in counts.items():
+        want = expected_counts.get(key)
+        if want is None:
+            partial[key] = ("the manifest does not say", actual)
+            continue
+        if actual == 0:
+            empty.append(key)
+            continue
+        if actual == want:
+            committed.append(key)
+        else:
+            partial[key] = (want, actual)
+    if partial:
+        left = ", ".join(f"{key}: {got} of {want}" for key, (want, got) in partial.items())
+        return [
+            f"the interrupted import left {left} behind — the profile holds part of the dataset"
+        ]
+    if committed and empty:
+        return [
+            f"the interrupted import committed {', '.join(committed)} and wrote none of "
+            f"{', '.join(empty)} — the profile holds part of the dataset"
+        ]
+    if committed:
         return [
             f"the import had already committed when the app was stopped "
-            f"({tasks} of {expected_tasks} tasks)"
+            f"({', '.join(f'{key}: {counts[key]}' for key in committed)})"
         ]
-    return [
-        f"the interrupted import left {left} behind — the profile holds part of the dataset"
-    ]
+    return []
 
 
 def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
@@ -1488,13 +1570,22 @@ def check_over_budget(
 
 
 def check_interrupted_import(
-    serial: str, out_dir: Path, archive: Path, apk: Path | None = None, expected_tasks: int = 0
+    serial: str,
+    out_dir: Path,
+    archive: Path,
+    apk: Path | None = None,
+    expected_counts: dict[str, int] | None = None,
 ) -> dict:
     """Cut an import short and check that the profile is not left half-written.
 
     The app is stopped while the import is running. What must not happen is a
     profile that holds part of the dataset: either the whole dataset or
     nothing.
+
+    The import is only cut short when the app says that it is working: the
+    tap on the confirmation is not proof that the restore began, and an
+    import that never began would leave the profile empty and the check
+    would pass without testing anything.
 
     The profile is expected to be empty (the caller wipes it): the check is
     "the interrupted import wrote nothing", which a non-empty profile could
@@ -1508,25 +1599,31 @@ def check_interrupted_import(
     prewarm_app(serial)
     if apk is not None:
         verify_apk_unchanged(serial, apk)
-    stopped = False
+    tapped = False
     with log.open("w", encoding="utf-8") as handle:
         process = subprocess.Popen(command, cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT)
-        started = time.monotonic()
+        flow_started = time.monotonic()
         try:
-            while time.monotonic() - started < 900:
+            while time.monotonic() - flow_started < 900:
                 text = log.read_text(encoding="utf-8", errors="replace")
                 if CONFIRM_TAP in text:
-                    # The confirmation was tapped: the import is running, and
-                    # this is the moment to cut it short. The screen is not
-                    # read for this — reading it takes the device's
-                    # accessibility service away from Maestro's driver.
-                    stopped = stop_app(serial)
+                    tapped = True
                     break
                 if process.poll() is not None:
                     # The flow is over and the confirmation never came: there
                     # is no import to interrupt.
                     break
                 time.sleep(0.2)
+            if tapped:
+                # The confirmation is the flow's last step, and Maestro writes
+                # the line about it before it does the tap: the flow has to be
+                # given the chance to finish it. Killing the flow on the line
+                # alone would kill it before the tap, and there would be no
+                # import to interrupt at all.
+                try:
+                    process.wait(timeout=120)
+                except subprocess.TimeoutExpired:
+                    pass
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -1534,8 +1631,17 @@ def check_interrupted_import(
                     process.wait(timeout=60)
                 except subprocess.TimeoutExpired:
                     process.kill()
+    # The flow has let go of the device, so the screen can be read now: the
+    # app's own indicator is what says that the restore is under way.
+    if tapped:
+        importing, evidence = restore_started(serial)
+    else:
+        importing, evidence = False, "the confirmation was never tapped"
+    stopped = stop_app(serial)
     counts, pull_problem = pull_counts(serial, out_dir / "interrupted-db")
-    problems = interrupted_import_problems(stopped, counts, expected_tasks)
+    problems = interrupted_import_problems(
+        stopped, importing, counts, dict(expected_counts or {})
+    )
     if pull_problem:
         problems.append(pull_problem)
     if problems:
@@ -1544,6 +1650,8 @@ def check_interrupted_import(
         verdict = "the interrupted import left the profile empty"
     return {
         "interrupted": stopped,
+        "importStarted": importing,
+        "evidence": evidence,
         "counts": counts,
         "problems": problems,
         "verdict": verdict,
@@ -1668,7 +1776,7 @@ def main(argv: list[str] | None = None) -> int:
                 out_dir,
                 archive,
                 apk,
-                expected_tasks=int(counts.get("tasks", 0)),
+                expected_counts=dict(counts),
             ),
         }
         report["negative"] = negative
