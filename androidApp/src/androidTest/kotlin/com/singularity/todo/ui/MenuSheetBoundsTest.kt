@@ -99,7 +99,10 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
         return device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS)
     }
 
-    private fun visibleBoundsOf(tag: String, what: String): android.graphics.Rect {
+    private fun visibleBoundsOf(
+        tag: String,
+        what: String,
+    ): android.graphics.Rect {
         repeat(3) {
             val obj = device.findObject(By.res(tag))
             if (obj != null) {
