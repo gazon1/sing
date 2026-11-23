@@ -59,12 +59,22 @@ driver = _load_driver()
 APP_MAX_TOTAL_BYTES = 64 * 1024 * 1024
 
 
+#: The schema of the app's own tables, reduced to the columns the driver
+#: reads. `user_id` carries the scope of the profile the row belongs to —
+#: the default value is the scope of the default profile, so a row that is
+#: inserted without a scope belongs to it.
 SCHEMA = """
-CREATE TABLE tasks (id TEXT PRIMARY KEY, title TEXT, project_id TEXT, parent_task_id TEXT);
-CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT, parent_id TEXT);
-CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT);
+CREATE TABLE tasks (
+    id TEXT PRIMARY KEY, title TEXT, project_id TEXT, parent_task_id TEXT,
+    user_id TEXT DEFAULT 'u1'
+);
+CREATE TABLE projects (
+    id TEXT PRIMARY KEY, name TEXT, parent_id TEXT, user_id TEXT DEFAULT 'u1'
+);
+CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT, user_id TEXT DEFAULT 'u1');
 CREATE TABLE notes (
-    id TEXT PRIMARY KEY, title TEXT, task_id TEXT, project_id TEXT, parent_note_id TEXT
+    id TEXT PRIMARY KEY, title TEXT, task_id TEXT, project_id TEXT, parent_note_id TEXT,
+    user_id TEXT DEFAULT 'u1'
 );
 CREATE TABLE checklist_items (id TEXT PRIMARY KEY, task_id TEXT);
 CREATE TABLE task_tags (task_id TEXT, tag_id TEXT);
@@ -148,6 +158,102 @@ class CountRowsTest(unittest.TestCase):
         self.assertEqual(counts["tags"], 1)
         self.assertEqual(counts["projects"], 0)
         self.assertEqual(counts["taskTags"], 0)
+
+
+class ProfileScopeTest(unittest.TestCase):
+    """The counts have to be the counts of the profile under test.
+
+    A device can hold more than one profile, and the rows of the other
+    profiles are not the restore's rows: counting the whole database reports
+    them as a difference between the manifest and a restore that was correct.
+    The scope is the `user_id` the app stamps on a profile's rows, and the
+    rows that hang off a task are counted through the task they belong to.
+    """
+
+    #: Two profiles' worth of rows: the default scope `u1` and the scope of
+    #: a second profile, `u2`.
+    TWO_PROFILES = [
+        "INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Task 1', 'u1')",
+        "INSERT INTO tasks (id, title, user_id) VALUES ('x1', 'Other task', 'u2')",
+        "INSERT INTO tags (id, name, user_id) VALUES ('g1', 'tag', 'u1')",
+        "INSERT INTO tags (id, name, user_id) VALUES ('gx', 'other', 'u2')",
+        "INSERT INTO task_tags (task_id, tag_id) VALUES ('t1', 'g1')",
+        "INSERT INTO task_tags (task_id, tag_id) VALUES ('x1', 'gx')",
+    ]
+
+    def test_the_count_is_the_scopes_own(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            counts = driver.count_rows(path, "u1")
+        self.assertEqual(counts["tasks"], 1)
+        self.assertEqual(counts["tags"], 1)
+        self.assertEqual(counts["taskTags"], 1)
+
+    def test_a_count_without_a_scope_is_the_whole_database(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            counts = driver.count_rows(path)
+        self.assertEqual(counts["tasks"], 2)
+        self.assertEqual(counts["taskTags"], 2)
+
+    def test_the_scope_of_the_rows_the_reset_removed(self):
+        """The reset deletes the active profile's rows and nothing else, so
+        the rows that are gone after it name the profile under test.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            before = _database(tmp, self.TWO_PROFILES)
+            after_dir = tmp / "after"
+            after_dir.mkdir()
+            after = _database(
+                after_dir,
+                [
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('x1', 'Other task', 'u2')",
+                    "INSERT INTO tags (id, name, user_id) VALUES ('gx', 'other', 'u2')",
+                    "INSERT INTO task_tags (task_id, tag_id) VALUES ('x1', 'gx')",
+                ],
+            )
+            self.assertEqual(driver.removed_scopes(before, after), {"u1"})
+
+    def test_a_reset_that_removed_nothing_names_no_scope(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            self.assertEqual(driver.removed_scopes(path, path), set())
+
+    def test_the_scope_of_the_restored_dataset(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            self.assertEqual(driver.dataset_scope(path, ["t1"]), "u1")
+
+    def test_a_dataset_that_is_in_two_scopes_names_none(self):
+        """A dataset that is spread over two profiles cannot be attributed
+        to one of them, so it names no scope at all.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            self.assertIsNone(driver.dataset_scope(path, ["t1", "x1"]))
+
+    def test_a_broken_link_of_another_profile_is_not_ours(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Task 1', 'u1')",
+                    "INSERT INTO tags (id, name, user_id) VALUES ('gx', 'other', 'u2')",
+                    "INSERT INTO task_tags (task_id, tag_id) VALUES ('missing', 'gx')",
+                ],
+            )
+            self.assertEqual(driver.relationship_problems(path, "u1"), [])
+            self.assertIn(
+                "task_tags without a task: 1", driver.relationship_problems(path, "u2")
+            )
+
+    def test_the_default_profile_carries_the_plain_user_id(self):
+        """The app's own mapping: the default profile's rows carry the user
+        id, every other profile's rows carry the profile id in front of it.
+        """
+        self.assertEqual(driver.scoped_user_id("default", "u1"), "u1")
+        self.assertEqual(driver.scoped_user_id("work", "u1"), "work/u1")
 
 
 class RelationshipProblemsTest(unittest.TestCase):
@@ -625,7 +731,7 @@ class TitleForTagTest(unittest.TestCase):
     """
 
     def _with_titles(self, titles):
-        return unittest.mock.patch.object(driver, "task_titles", lambda db: titles)
+        return unittest.mock.patch.object(driver, "task_titles", lambda db, scope=None: titles)
 
     def test_the_title_whose_slug_is_the_tag(self):
         with self._with_titles(["Task 2", "Buy milk"]):
@@ -775,9 +881,12 @@ class WipeWaitingTest(unittest.TestCase):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
                 with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": 0}):
                     with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                        counts, elapsed = driver.reset_content("device", Path("/tmp/wipe-test"))
+                        counts, elapsed, scope = driver.reset_content(
+                            "device", Path("/tmp/wipe-test")
+                        )
 
         self.assertEqual(counts, {"tasks": 0})
+        self.assertIsNone(scope)
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
         self.assertIn("todo-debug://seed?reset=content", " ".join(seen[1]))
 
@@ -1418,12 +1527,12 @@ class LateFailureReportTest(unittest.TestCase):
             ),
             unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
             unittest.mock.patch.object(
-                driver, "reset_content", lambda serial, out, attempts=4: ({}, 1.0)
+                driver, "reset_content", lambda serial, out, attempts=4, before_db=None: ({}, 1.0, "u1")
             ),
             unittest.mock.patch.object(
                 driver,
                 "check_over_budget",
-                lambda serial, out, arc, apk=None: {
+                lambda serial, out, arc, apk=None, scope=None: {
                     "counts": {},
                     "problems": [],
                     "verdict": "refused",
@@ -1432,7 +1541,7 @@ class LateFailureReportTest(unittest.TestCase):
             unittest.mock.patch.object(
                 driver,
                 "check_interrupted_import",
-                lambda serial, out, arc, apk=None, expected_counts=None: {
+                lambda serial, out, arc, apk=None, expected_counts=None, scope=None: {
                     "interrupted": True,
                     "importStarted": True,
                     "evidence": "the app's own working indicator was on the screen",
@@ -1868,11 +1977,11 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                 lambda profile, seed, out: (archive, tmp / "sidecar.json", manifest),
             ),
             unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
-            unittest.mock.patch.object(driver, "reset_content", lambda serial, out, attempts=4: ({}, 1.0)),
+            unittest.mock.patch.object(driver, "reset_content", lambda serial, out, attempts=4, before_db=None: ({}, 1.0, "u1")),
             unittest.mock.patch.object(
                 driver,
                 "check_over_budget",
-                lambda serial, out, arc, apk=None: {
+                lambda serial, out, arc, apk=None, scope=None: {
                     "counts": {},
                     "problems": over_budget_problems,
                     "verdict": "refused",
@@ -1881,7 +1990,7 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
             unittest.mock.patch.object(
                 driver,
                 "check_interrupted_import",
-                lambda serial, out, arc, apk=None, expected_counts=None: {
+                lambda serial, out, arc, apk=None, expected_counts=None, scope=None: {
                     "interrupted": True,
                     "importStarted": True,
                     "evidence": "the app's own working indicator was on the screen",
@@ -1907,12 +2016,12 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
             unittest.mock.patch.object(
                 driver, "wait_for_task_row", lambda serial, timeout=180: "task_item_task_1"
             ),
-            unittest.mock.patch.object(driver, "title_for_tag", lambda db_dir, tag: "Task 1"),
+            unittest.mock.patch.object(driver, "title_for_tag", lambda db_dir, tag, scope=None: "Task 1"),
             unittest.mock.patch.object(
-                driver, "related_task", lambda db_dir: ("t2", "Task 2")
+                driver, "related_task", lambda db_dir, scope=None: ("t2", "Task 2")
             ),
             unittest.mock.patch.object(
-                driver, "picker_candidate", lambda db_dir, current_id: ("t3", "Task 3")
+                driver, "picker_candidate", lambda db_dir, current_id, scope=None: ("t3", "Task 3")
             ),
         ]
 

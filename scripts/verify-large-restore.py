@@ -94,6 +94,20 @@ COUNT_TABLES = {
     "taskTags": "task_tags",
 }
 
+#: The tables whose rows belong to a profile and carry that profile's scope
+#: in a `user_id` column. The app writes every profile's rows under the
+#: profile's own scope, so the scope is what tells one profile's rows from
+#: another's.
+SCOPED_TABLES = ("tasks", "projects", "tags", "notes")
+
+#: The tables that hang off a task and therefore carry the task's scope.
+TASK_SCOPED_TABLES = ("checklist_items", "task_dependencies", "task_tags")
+
+#: The id of the profile the app starts in. The rows of that profile carry
+#: the plain user id; the rows of every other profile carry the profile's id
+#: in front of the user id.
+DEFAULT_PROFILE_ID = "default"
+
 #: The snackbar the restore path reports itself with. Its test tag is the
 #: evidence; the text is translated on the device, so it is not asserted on.
 SNACKBAR_ID = "snackbar_message"
@@ -492,7 +506,7 @@ def push_archive(serial: str, archive: Path) -> str:
     return name
 
 
-def wait_for_reset_marker(serial: str, timeout: float = 1800) -> float:
+def wait_for_reset_marker(serial: str, timeout: float = 3600) -> float:
     """Wait for the app's own line that says the wipe is finished.
 
     The debug activity logs `reset(content) reached N tables` when
@@ -507,8 +521,11 @@ def wait_for_reset_marker(serial: str, timeout: float = 1800) -> float:
     transaction open, the transaction is discarded, and the profile still
     holds every row the wipe had already deleted.
 
-    The wait is half an hour, because the wipe of the largest profile the
-    generator ships is a quarter of an hour of work on the device.
+    The wait is an hour, because the wipe of the largest profile the generator
+    ships is half an hour of work on the device: the wipe of 10 000 tasks took
+    457 s, and the wipe of 50 000 of them was still going after half an hour.
+    A timeout shorter than the wipe itself would call the wipe failed while it
+    was still deleting.
     """
     started = time.monotonic()
     while time.monotonic() - started < timeout:
@@ -558,8 +575,11 @@ def warm_up_app(serial: str, timeout: float = 240) -> None:
 
 
 def reset_content(
-    serial: str, out_dir: Path | None = None, attempts: int = 4
-) -> tuple[dict[str, int], float]:
+    serial: str,
+    out_dir: Path | None = None,
+    attempts: int = 4,
+    before_db: Path | None = None,
+) -> tuple[dict[str, int], float, str | None]:
     """Wipe the active profile's content through the debug seed link.
 
     The same link the Maestro runner uses before a flow. The import overwrites
@@ -574,9 +594,28 @@ def reset_content(
     reaches a cold process deletes nothing, because the profile's rows are not
     the current user's rows until the session has been read.
 
-    Returns the row counts of the wiped profile and how long the wipe took.
+    Returns the row counts of the wiped profile, how long the wipe took, and
+    the scope the counts are about.
+
+    ## The scope of the counts
+
+    The reset deletes the rows of the *active* profile and nothing else, so a
+    device that holds a second profile keeps that profile's rows — and the
+    counts of the profile under test are not the counts of the database. The
+    scope is therefore taken from the rows the reset removed: their
+    `user_id` is the scope of the profile the reset acted on, and the counts
+    after the reset are counted for that scope alone.
+
+    A reset that removed nothing leaves the scope unknown. That is the case of
+    a profile that held no rows to begin with — the counts of an empty
+    database are the profile's counts either way — and the case of a device
+    that holds another profile's rows, which cannot be told apart from a
+    reset that did not take effect. The second case is refused rather than
+    measured: the counts of a database that holds rows of two profiles
+    belong to neither of them.
     """
     counts: dict[str, int] = {}
+    scope: str | None = None
     for _ in range(attempts):
         warm_up_app(serial)
         # The log is cleared first: the marker of an earlier wipe would be
@@ -596,19 +635,44 @@ def reset_content(
             raise RunError(f"the profile's content could not be reset:\n{out.strip()}")
         elapsed = wait_for_reset_marker(serial)
         if out_dir is None:
-            return {}, elapsed
-        counts, pull_problem = pull_counts(serial, out_dir / "reset-db")
-        if pull_problem:
-            raise RunError(pull_problem)
-        unreadable = sorted(key for key, value in counts.items() if value < 0)
+            return {}, elapsed, scope
+        db_path = pull_database(serial, out_dir / "reset-db")
+        raw = count_rows(db_path)
+        unreadable = sorted(key for key, value in raw.items() if value < 0)
         if unreadable:
             raise RunError(
                 f"the tables {', '.join(unreadable)} could not be read, so the wipe "
                 "cannot be confirmed"
             )
-        if not any(value > 0 for value in counts.values()):
-            return counts, elapsed
+        removed = removed_scopes(before_db, db_path) if before_db is not None else set()
+        scope = removed.pop() if len(removed) == 1 else None
+        if scope is not None:
+            counts = count_rows(db_path, scope)
+            if not any(value > 0 for value in counts.values()):
+                return counts, elapsed, scope
+            # The profile still holds rows: the reset did not take effect.
+            continue
+        # The reset removed nothing, so no scope names the profile under test.
+        # The profile held nothing to begin with — the counts of an empty
+        # database are the profile's counts — or the device holds another
+        # profile's rows, which is not to be told apart from a reset that
+        # did not take effect. The second case is refused below.
+        if before_db is None or not content_row_total(before_db):
+            return raw, elapsed, None
+    if scope is None:
+        raise RunError(
+            "the profile's content was not wiped — the reset removed none of the rows "
+            "the device held, and nothing names the scope they belong to: either the "
+            "reset did not take effect, or they belong to another profile. In both "
+            "cases the counts cannot be attributed to the profile under test."
+        )
     raise RunError(f"the profile's content was not wiped — it still holds {counts}")
+
+
+def content_row_total(db_path: Path) -> int:
+    """How many rows the content tables hold, whatever scope they belong to."""
+    counts = count_rows(db_path)
+    return sum(value for value in counts.values() if value > 0)
 
 
 def wake_unlock(serial: str) -> None:
@@ -1055,6 +1119,16 @@ def stop_app(serial: str, timeout: int = 30) -> bool:
     return False
 
 
+def pulled_db_path(out_dir: Path) -> Path:
+    """Where `pull_database` puts the copy it pulled.
+
+    The copy lives in a directory of its own inside the run's output, so a
+    caller that needs the copy it pulled — the state of the database before a
+    wipe, say — looks it up here instead of guessing the layout.
+    """
+    return out_dir / "device-db" / "todo.db"
+
+
 def pull_database(serial: str, out_dir: Path, stop: bool = True) -> Path:
     """Copy the app's database (and its write-ahead log) off the device.
 
@@ -1105,14 +1179,111 @@ def database_bytes(db_dir: Path) -> int:
     return sum(p.stat().st_size for p in db_dir.glob("todo.db*"))
 
 
-def count_rows(db_path: Path) -> dict[str, int]:
-    """How many rows each of the manifest's tables holds."""
+def scoped_user_id(profile_id: str, owner_id: str) -> str:
+    """The scope the rows of a profile carry.
+
+    The app's own mapping — `ProfileAwareCurrentUser.scopedUserIdFor`: the
+    rows of the default profile carry the plain user id, and the rows of
+    every other profile carry the profile's id in front of the user id.
+    """
+    if profile_id == DEFAULT_PROFILE_ID:
+        return owner_id
+    return f"{profile_id}/{owner_id}"
+
+
+def rows_of(db_path: Path, table: str, columns: str) -> list[tuple]:
+    """The rows of a table, or nothing when the table cannot be read."""
+    connection = None
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        return connection.execute(f"SELECT {columns} FROM {table}").fetchall()
+    except sqlite3.Error:
+        return []
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def content_scopes(db_path: Path) -> set[str]:
+    """The scopes the content tables hold rows of."""
+    scopes: set[str] = set()
+    for table in SCOPED_TABLES:
+        for row in rows_of(db_path, table, "DISTINCT user_id"):
+            if row and row[0]:
+                scopes.add(str(row[0]))
+    return scopes
+
+
+def removed_scopes(before_db: Path, after_db: Path) -> set[str]:
+    """The scopes of the rows the profile reset removed.
+
+    The reset deletes the rows of the active profile and nothing else, so the
+    rows that are gone after it are the active profile's rows, and the scope
+    they carry is the scope the measurement has to count.
+    """
+    scopes: set[str] = set()
+    for table in SCOPED_TABLES:
+        before = {str(row[0]): str(row[1]) for row in rows_of(before_db, table, "id, user_id")}
+        after = {str(row[0]) for row in rows_of(after_db, table, "id")}
+        for row_id, scope in before.items():
+            if row_id not in after:
+                scopes.add(scope)
+    return scopes
+
+
+def dataset_scope(db_path: Path, task_ids: list[str]) -> str | None:
+    """The scope the dataset's own rows carry.
+
+    The archive names the id of every row it carries, and the app writes
+    those rows into the profile that is active while the restore runs. The
+    scope of the rows whose ids are the archive's is therefore the scope the
+    restore wrote into — the one thing the measurement is about.
+    """
+    if not task_ids:
+        return None
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    scopes: set[str] = set()
+    try:
+        for start in range(0, len(task_ids), 500):
+            chunk = task_ids[start : start + 500]
+            placeholders = ",".join("?" * len(chunk))
+            found = connection.execute(
+                f"SELECT DISTINCT user_id FROM tasks WHERE id IN ({placeholders})", chunk
+            ).fetchall()
+            scopes.update(str(row[0]) for row in found if row and row[0])
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+    return scopes.pop() if len(scopes) == 1 else None
+
+
+def count_rows(db_path: Path, scope: str | None = None) -> dict[str, int]:
+    """How many rows each of the manifest's tables holds.
+
+    The count is the count of the profile under test. A device can hold
+    more than one profile, and the rows of the other profiles are not the
+    restore's rows: counting the whole database would report them as a
+    difference between the manifest and the restore. So the count is taken
+    for one scope — the tables that carry it directly are filtered by their
+    `user_id`, and the tables that hang off a task are counted through the
+    task they belong to.
+
+    Without a scope the count is the whole database's, which is the
+    profile's count only when the database holds nothing else.
+    """
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        # A database that cannot be opened holds no known counts: every table
+        # comes back as "could not be read".
+        return {key: -1 for key in COUNT_TABLES}
     try:
         counts = {}
         for key, table in COUNT_TABLES.items():
+            query, params = count_query(table, scope)
             try:
-                row = connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+                row = connection.execute(query, params).fetchone()
             except sqlite3.Error:
                 counts[key] = -1
                 continue
@@ -1120,6 +1291,19 @@ def count_rows(db_path: Path) -> dict[str, int]:
         return counts
     finally:
         connection.close()
+
+
+def count_query(table: str, scope: str | None) -> tuple[str, list]:
+    """The query that counts one table, for one scope."""
+    if scope is None:
+        return f"SELECT COUNT(*) FROM {table}", []
+    if table in SCOPED_TABLES:
+        return f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", [scope]
+    return (
+        f"SELECT COUNT(*) FROM {table} c JOIN tasks t ON c.task_id = t.id "
+        "WHERE t.user_id = ?",
+        [scope],
+    )
 
 
 def compare_counts(expected: dict, actual: dict) -> list[str]:
@@ -1139,51 +1323,77 @@ def compare_counts(expected: dict, actual: dict) -> list[str]:
     return problems
 
 
-def relationship_problems(db_path: Path) -> list[str]:
+def relationship_problems(db_path: Path, scope: str | None = None) -> list[str]:
     """The rows that point at a row that is not there.
 
     A restore that wrote the rows but not the links between them leaves a
     database that answers "how many" correctly and "of what" wrongly, so the
     links are counted, not assumed.
+
+    The check belongs to the profile under test wherever the broken row can
+    be attributed to one: a row that hangs off a task belongs to the scope of
+    the task it hangs off, and a task belongs to its own scope. A row whose
+    task is gone hangs off nothing and cannot be attributed to any profile,
+    so it is reported whatever profile is under test.
     """
     checks = {
         "task_tags without a task": (
             "SELECT COUNT(*) FROM task_tags tt "
-            "LEFT JOIN tasks t ON tt.task_id = t.id WHERE t.id IS NULL"
+            "LEFT JOIN tasks t ON tt.task_id = t.id "
+            "LEFT JOIN tags g ON tt.tag_id = g.id "
+            "WHERE t.id IS NULL",
+            "g.user_id = ?",
         ),
         "task_tags without a tag": (
             "SELECT COUNT(*) FROM task_tags tt "
-            "LEFT JOIN tags g ON tt.tag_id = g.id WHERE g.id IS NULL"
+            "LEFT JOIN tags g ON tt.tag_id = g.id "
+            "LEFT JOIN tasks t ON tt.task_id = t.id "
+            "WHERE g.id IS NULL",
+            "t.user_id = ?",
         ),
         "task_dependencies without a task": (
             "SELECT COUNT(*) FROM task_dependencies d "
-            "LEFT JOIN tasks t ON d.task_id = t.id WHERE t.id IS NULL"
+            "LEFT JOIN tasks t ON d.task_id = t.id "
+            "JOIN tasks o ON d.depends_on_task_id = o.id "
+            "WHERE t.id IS NULL",
+            "o.user_id = ?",
         ),
         "task_dependencies without the depended-on task": (
             "SELECT COUNT(*) FROM task_dependencies d "
-            "LEFT JOIN tasks t ON d.depends_on_task_id = t.id WHERE t.id IS NULL"
+            "JOIN tasks t ON d.task_id = t.id "
+            "LEFT JOIN tasks o ON d.depends_on_task_id = o.id "
+            "WHERE o.id IS NULL",
+            "t.user_id = ?",
         ),
         "checklist_items without a task": (
             "SELECT COUNT(*) FROM checklist_items c "
-            "LEFT JOIN tasks t ON c.task_id = t.id WHERE t.id IS NULL"
+            "LEFT JOIN tasks t ON c.task_id = t.id "
+            "WHERE t.id IS NULL",
+            None,
         ),
         "tasks without a project": (
             "SELECT COUNT(*) FROM tasks t "
             "LEFT JOIN projects p ON t.project_id = p.id "
-            "WHERE t.project_id IS NOT NULL AND p.id IS NULL"
+            "WHERE t.project_id IS NOT NULL AND p.id IS NULL",
+            "t.user_id = ?",
         ),
         "subtasks without a parent task": (
             "SELECT COUNT(*) FROM tasks t "
             "LEFT JOIN tasks p ON t.parent_task_id = p.id "
-            "WHERE t.parent_task_id IS NOT NULL AND p.id IS NULL"
+            "WHERE t.parent_task_id IS NOT NULL AND p.id IS NULL",
+            "t.user_id = ?",
         ),
     }
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         problems = []
-        for what, query in checks.items():
+        for what, (query, scope_column) in checks.items():
+            params: list = []
+            if scope is not None and scope_column is not None:
+                query += f" AND {scope_column}"
+                params = [scope]
             try:
-                row = connection.execute(query).fetchone()
+                row = connection.execute(query, params).fetchone()
             except sqlite3.Error as exc:
                 problems.append(f"{what}: the check could not run ({exc})")
                 continue
@@ -1200,7 +1410,7 @@ def number_of(title: str) -> int:
     return int(digits) if digits else -1
 
 
-def related_task(db_path: Path) -> tuple[str, str] | None:
+def related_task(db_path: Path, scope: str | None = None) -> tuple[str, str] | None:
     """The task the app will show relations for: its id and its title.
 
     The related-tasks section of the task detail is folded away until the
@@ -1211,6 +1421,9 @@ def related_task(db_path: Path) -> tuple[str, str] | None:
 
     The title is the one of a task whose title is unique in the dataset, so a
     search for it finds that task and not a neighbour of it.
+
+    The search is over the profile's rows: another profile's task is not a
+    task of the dataset that was restored.
     """
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
@@ -1220,9 +1433,17 @@ def related_task(db_path: Path) -> tuple[str, str] | None:
                 SELECT id, title FROM tasks
                 WHERE id IN (SELECT task_id FROM task_dependencies)
                 """
+                + scope_filter(scope, "user_id = ?"),
+                scope_params(scope),
             ).fetchall()
         )
-        counts = dict(connection.execute("SELECT title, COUNT(*) FROM tasks GROUP BY title").fetchall())
+        counts = dict(
+            connection.execute(
+                "SELECT title, COUNT(*) FROM tasks GROUP BY title"
+                + scope_filter(scope, "user_id = ?"),
+                scope_params(scope),
+            ).fetchall()
+        )
     except sqlite3.Error:
         return None
     finally:
@@ -1235,13 +1456,13 @@ def related_task(db_path: Path) -> tuple[str, str] | None:
     return max(unique, key=lambda pair: (number_of(pair[1]), pair[1]))
 
 
-def related_task_title(db_path: Path) -> str | None:
+def related_task_title(db_path: Path, scope: str | None = None) -> str | None:
     """The title of a task that the app will show relations for."""
-    task = related_task(db_path)
+    task = related_task(db_path, scope)
     return task[1] if task is not None else None
 
 
-def picker_candidate(db_path: Path, current_id: str) -> tuple[str, str] | None:
+def picker_candidate(db_path: Path, current_id: str, scope: str | None = None) -> tuple[str, str] | None:
     """A task the related-tasks picker can offer, and the query that finds it.
 
     The picker refuses the task itself, the tasks it already holds relations
@@ -1255,6 +1476,9 @@ def picker_candidate(db_path: Path, current_id: str) -> tuple[str, str] | None:
     candidate's number is one that no other number of the dataset begins
     with — the largest number of the dataset decides that, not the count of
     the tasks.
+
+    The candidates are the profile's tasks: the picker searches the profile
+    that was restored, and a task of another profile is not in it.
     """
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
@@ -1266,11 +1490,21 @@ def picker_candidate(db_path: Path, current_id: str) -> tuple[str, str] | None:
               AND id NOT IN (
                     SELECT depends_on_task_id FROM task_dependencies WHERE task_id = ?
               )
-            """,
-            (current_id, current_id),
+            """
+            + scope_filter(scope, "user_id = ?"),
+            [current_id, current_id] + scope_params(scope),
         ).fetchall()
-        titles = connection.execute("SELECT title FROM tasks").fetchall()
-        counts = dict(connection.execute("SELECT title, COUNT(*) FROM tasks GROUP BY title").fetchall())
+        titles = connection.execute(
+            "SELECT title FROM tasks" + scope_filter(scope, "user_id = ?"),
+            scope_params(scope),
+        ).fetchall()
+        counts = dict(
+            connection.execute(
+                "SELECT title, COUNT(*) FROM tasks GROUP BY title"
+                + scope_filter(scope, "user_id = ?"),
+                scope_params(scope),
+            ).fetchall()
+        )
     except (sqlite3.Error, TypeError):
         return None
     finally:
@@ -1289,11 +1523,14 @@ def picker_candidate(db_path: Path, current_id: str) -> tuple[str, str] | None:
     return max(candidates, key=lambda pair: (number_of(pair[1]), pair[1]))
 
 
-def task_titles(db_path: Path) -> list[str]:
-    """Every task title in the pulled database."""
+def task_titles(db_path: Path, scope: str | None = None) -> list[str]:
+    """Every task title in the pulled database, for one scope."""
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        rows = connection.execute("SELECT title FROM tasks").fetchall()
+        rows = connection.execute(
+            "SELECT title FROM tasks" + scope_filter(scope, "user_id = ?"),
+            scope_params(scope),
+        ).fetchall()
     except sqlite3.Error:
         return []
     finally:
@@ -1345,7 +1582,7 @@ def first_task_row(serial: str) -> str | None:
     return None
 
 
-def title_for_tag(db_dir: Path, tag: str) -> str | None:
+def title_for_tag(db_dir: Path, tag: str, scope: str | None = None) -> str | None:
     """The title of the task whose row carries this test tag.
 
     The row's tag is the app's slug of the title, so the title is the one
@@ -1355,7 +1592,7 @@ def title_for_tag(db_dir: Path, tag: str) -> str | None:
     there.
     """
     wanted = tag.removeprefix("task_item_")
-    for title in task_titles(db_dir):
+    for title in task_titles(db_dir, scope):
         if slug(title) == wanted:
             return title
     return None
@@ -1449,6 +1686,12 @@ def write_report(out_dir: Path, report: dict) -> None:
         "* wipe of the profile before the run: "
         f"{report.get('wipe', {}).get('seconds', '—')} s"
     )
+    profile = report.get("profile", {})
+    if profile:
+        lines.append(
+            f"* profile scope: `{profile.get('scope') or 'unknown'}` "
+            f"({profile.get('source')})"
+        )
     if dataset.get("counts") and database.get("counts"):
         lines += [
             "",
@@ -1708,6 +1951,24 @@ def interrupted_import_problems(
     return []
 
 
+def archive_payload(archive: Path) -> dict:
+    """The dataset the archive carries."""
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        entry = "payload.json" if "payload.json" in names else "backup.json"
+        return json.loads(zf.read(entry))
+
+
+def archive_task_ids(archive: Path) -> list[str]:
+    """The ids of the dataset's tasks.
+
+    The archive names the id of every row it carries, so the ids are what
+    says which rows of the restored database are the dataset's rows.
+    """
+    payload = archive_payload(archive)
+    return [str(task["id"]) for task in payload.get("tasks", []) if task.get("id")]
+
+
 def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
     """The links the archive says the dataset has.
 
@@ -1721,10 +1982,7 @@ def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
     to a task, the notes that hang on a task or a project or on another
     note, and the projects that sit inside another project.
     """
-    with zipfile.ZipFile(archive) as zf:
-        names = zf.namelist()
-        entry = "payload.json" if "payload.json" in names else "backup.json"
-        payload = json.loads(zf.read(entry))
+    payload = archive_payload(archive)
     tasks = payload.get("tasks", [])
     notes = payload.get("notes", [])
     projects = payload.get("projects", [])
@@ -1744,39 +2002,81 @@ def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
     }
 
 
-def restored_links(db_path: Path) -> dict[str, set[tuple[str, str]]]:
-    """The links the restored database holds."""
+def restored_links(db_path: Path, scope: str | None = None) -> dict[str, set[tuple[str, str]]]:
+    """The links the restored database holds.
+
+    The links are the profile's links: the tables that carry a scope are
+    filtered by it, and the tables that hang off a task are read through the
+    task they belong to. The links of another profile are not the restore's
+    links, and a link that points from one profile's row into another
+    profile's row is not a link the dataset has — so it is left out here and
+    shows up as a link the archive does not have.
+    """
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         return {
             "parent": set(
                 connection.execute(
-                    "SELECT id, parent_task_id FROM tasks WHERE parent_task_id IS NOT NULL"
+                    "SELECT id, parent_task_id FROM tasks "
+                    "WHERE parent_task_id IS NOT NULL" + scope_filter(scope, "user_id = ?"),
+                    scope_params(scope),
                 )
             ),
             "project": set(
                 connection.execute(
-                    "SELECT id, project_id FROM tasks WHERE project_id IS NOT NULL"
+                    "SELECT id, project_id FROM tasks "
+                    "WHERE project_id IS NOT NULL" + scope_filter(scope, "user_id = ?"),
+                    scope_params(scope),
                 )
             ),
-            "tags": set(connection.execute("SELECT task_id, tag_id FROM task_tags")),
+            "tags": set(
+                connection.execute(
+                    "SELECT tt.task_id, tt.tag_id FROM task_tags tt "
+                    "JOIN tasks t ON tt.task_id = t.id" + scope_filter(scope, "t.user_id = ?"),
+                    scope_params(scope),
+                )
+            ),
             "dependencies": set(
-                connection.execute("SELECT task_id, depends_on_task_id FROM task_dependencies")
+                connection.execute(
+                    "SELECT d.task_id, d.depends_on_task_id FROM task_dependencies d "
+                    "JOIN tasks t ON d.task_id = t.id" + scope_filter(scope, "t.user_id = ?"),
+                    scope_params(scope),
+                )
             ),
             "checklist": set(
-                connection.execute("SELECT id, task_id FROM checklist_items WHERE task_id IS NOT NULL")
+                connection.execute(
+                    "SELECT c.id, c.task_id FROM checklist_items c "
+                    "JOIN tasks t ON c.task_id = t.id" + scope_filter(scope, "t.user_id = ?"),
+                    scope_params(scope),
+                )
             ),
             "noteTask": set(
-                connection.execute("SELECT id, task_id FROM notes WHERE task_id IS NOT NULL")
+                connection.execute(
+                    "SELECT id, task_id FROM notes "
+                    "WHERE task_id IS NOT NULL" + scope_filter(scope, "user_id = ?"),
+                    scope_params(scope),
+                )
             ),
             "noteProject": set(
-                connection.execute("SELECT id, project_id FROM notes WHERE project_id IS NOT NULL")
+                connection.execute(
+                    "SELECT id, project_id FROM notes "
+                    "WHERE project_id IS NOT NULL" + scope_filter(scope, "user_id = ?"),
+                    scope_params(scope),
+                )
             ),
             "noteParent": set(
-                connection.execute("SELECT id, parent_note_id FROM notes WHERE parent_note_id IS NOT NULL")
+                connection.execute(
+                    "SELECT id, parent_note_id FROM notes "
+                    "WHERE parent_note_id IS NOT NULL" + scope_filter(scope, "user_id = ?"),
+                    scope_params(scope),
+                )
             ),
             "projectParent": set(
-                connection.execute("SELECT id, parent_id FROM projects WHERE parent_id IS NOT NULL")
+                connection.execute(
+                    "SELECT id, parent_id FROM projects "
+                    "WHERE parent_id IS NOT NULL" + scope_filter(scope, "user_id = ?"),
+                    scope_params(scope),
+                )
             ),
         }
     except sqlite3.OperationalError as exc:
@@ -1786,6 +2086,16 @@ def restored_links(db_path: Path) -> dict[str, set[tuple[str, str]]]:
         ) from exc
     finally:
         connection.close()
+
+
+def scope_filter(scope: str | None, condition: str) -> str:
+    """The `AND` that limits a query to one scope, or nothing at all."""
+    return f" AND {condition}" if scope is not None else ""
+
+
+def scope_params(scope: str | None) -> list:
+    """The parameter a scope filter binds."""
+    return [scope] if scope is not None else []
 
 
 def link_identity_problems(
@@ -1867,7 +2177,9 @@ def verdict_problems(
     return problems
 
 
-def pull_counts(serial: str, out_dir: Path) -> tuple[dict[str, int], str]:
+def pull_counts(
+    serial: str, out_dir: Path, scope: str | None = None
+) -> tuple[dict[str, int], str]:
     """The counts of the profile on the device, or a note that they are unknown.
 
     The copy can fail: the app may refuse to stop, and then the database
@@ -1875,16 +2187,24 @@ def pull_counts(serial: str, out_dir: Path) -> tuple[dict[str, int], str]:
     check that asked for the counts has to report what it could not learn.
     Every table comes back as `-1`, which is what "could not be read" means
     everywhere else in this command.
+
+    The counts are the profile's counts: without a scope they are the whole
+    database's, which is the profile's counts only when the database holds
+    nothing else.
     """
     try:
         db_path = pull_database(serial, out_dir)
     except RunError as exc:
         return {key: -1 for key in COUNT_TABLES}, str(exc)
-    return count_rows(db_path), ""
+    return count_rows(db_path, scope), ""
 
 
 def check_over_budget(
-    serial: str, out_dir: Path, archive: Path, apk: Path | None = None
+    serial: str,
+    out_dir: Path,
+    archive: Path,
+    apk: Path | None = None,
+    scope: str | None = None,
 ) -> dict:
     """Restore an archive that is over the budget; the app has to refuse it.
 
@@ -1894,12 +2214,14 @@ def check_over_budget(
 
     The profile is expected to be empty (the caller wipes it): the check is
     "the refused archive wrote nothing", which is only a statement about the
-    archive when there was nothing else there to stay.
+    archive when there was nothing else there to stay. The counts are the
+    profile's counts, so the rows of another profile are not mistaken for
+    rows the refused archive wrote.
     """
     padded = padded_archive(archive, out_dir)
     name = push_archive(serial, padded)
     outcome = restore_and_watch(serial, name, out_dir / "over-budget-flow.log", apk=apk)
-    counts, pull_problem = pull_counts(serial, out_dir / "over-budget-db")
+    counts, pull_problem = pull_counts(serial, out_dir / "over-budget-db", scope)
     problems = over_budget_problems(outcome, counts)
     if pull_problem:
         problems.append(pull_problem)
@@ -1916,6 +2238,7 @@ def check_interrupted_import(
     archive: Path,
     apk: Path | None = None,
     expected_counts: dict[str, int] | None = None,
+    scope: str | None = None,
 ) -> dict:
     """Cut an import short and check that the profile is not left half-written.
 
@@ -1979,7 +2302,7 @@ def check_interrupted_import(
     else:
         importing, evidence = False, "the confirmation was never tapped"
     stopped = stop_app(serial)
-    counts, pull_problem = pull_counts(serial, out_dir / "interrupted-db")
+    counts, pull_problem = pull_counts(serial, out_dir / "interrupted-db", scope)
     problems = interrupted_import_problems(
         stopped, importing, counts, dict(expected_counts or {})
     )
@@ -2121,19 +2444,35 @@ def main(argv: list[str] | None = None) -> int:
         # One wipe before the negative phases, and both of them share it: a
         # refused archive writes nothing, so the profile is still empty for
         # the interrupted import that follows.
-        wipe_counts, wipe_seconds = reset_content(serial, out_dir)
+        #
+        # The database as the device holds it before the wipe is read first:
+        # the rows the reset removes are the active profile's rows, and the
+        # scope they carry is the scope every count of this run is about.
+        before_db = pull_database(serial, out_dir / "before-wipe-db")
+        wipe_counts, wipe_seconds, scope = reset_content(
+            serial, out_dir, before_db=before_db
+        )
         print(f"wipe: {wipe_seconds}s ({wipe_counts})")
         report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
+        report["profile"] = {
+            "scope": scope,
+            "source": (
+                "the rows the profile reset removed"
+                if scope is not None
+                else "unknown — the profile held no rows to begin with"
+            ),
+        }
         report["phases"].append("profile wiped")
 
         negative = {
-            "over-budget": check_over_budget(serial, out_dir, archive, apk),
+            "over-budget": check_over_budget(serial, out_dir, archive, apk, scope),
             "interrupted": check_interrupted_import(
                 serial,
                 out_dir,
                 archive,
                 apk,
                 expected_counts=dict(counts),
+                scope=scope,
             ),
         }
         report["negative"] = negative
@@ -2148,8 +2487,12 @@ def main(argv: list[str] | None = None) -> int:
         # unknown state, and it has to be wiped before it is measured.
         interrupted_counts = negative["interrupted"]["counts"]
         if any(value != 0 for value in interrupted_counts.values()):
-            _, second_wipe = reset_content(serial, out_dir)
+            _, second_wipe, second_scope = reset_content(
+                serial, out_dir, before_db=pulled_db_path(out_dir / "interrupted-db")
+            )
             wipe_seconds += second_wipe
+            if scope is None:
+                scope = second_scope
             report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
         print(f"import: {outcome['durationSeconds']}s ({outcome['measured']})")
@@ -2161,17 +2504,48 @@ def main(argv: list[str] | None = None) -> int:
 
         # The counts, and the links between the rows.
         db_dir = pull_database(serial, out_dir / "device-db")
-        db_counts = count_rows(db_dir)
-        count_problems = compare_counts(counts, db_counts)
-        link_problems = relationship_problems(db_dir)
+        # The scope the restore wrote into: the scope the dataset's own rows
+        # carry. The rows of another profile are not the restore's rows, and
+        # counting them would report a difference between the manifest and a
+        # restore that was correct.
+        restored_scope = dataset_scope(db_dir, archive_task_ids(archive))
+        scope_problems = []
+        if restored_scope is not None and scope is not None and restored_scope != scope:
+            scope_problems.append(
+                f"the restore wrote the dataset into the scope {restored_scope}, but the "
+                f"profile that was wiped is the scope {scope}"
+            )
+        if scope is None:
+            scope = restored_scope
+        if scope is None:
+            scopes = sorted(content_scopes(db_dir))
+            raise RunError(
+                "the scope of the profile under test could not be determined, so the "
+                "counts cannot be attributed to a profile: the rows the profile reset "
+                "removed did not name one, and the restored rows carry the scopes "
+                f"{scopes or 'none'}. The run is refused rather than measured against "
+                "a database that holds rows of several profiles."
+            )
+        report["profile"] = {
+            "scope": scope,
+            "source": (
+                "the rows the profile reset removed"
+                if restored_scope is None or restored_scope == scope
+                else "the rows the restore wrote"
+            ),
+        }
+        db_counts = count_rows(db_dir, scope)
+        count_problems = compare_counts(counts, db_counts) + scope_problems
+        link_problems = relationship_problems(db_dir, scope)
         # The links themselves, not only the rows they point at: the archive
         # says which task belongs to which project, carries which tag and
         # blocks which task, and the restored database has to say the same.
         expected_links = payload_links(archive)
-        actual_links = restored_links(db_dir)
+        actual_links = restored_links(db_dir, scope)
         identity_problems = link_identity_problems(expected_links, actual_links)
         report["database"] = {
             "bytes": database_bytes(db_dir.parent),
+            "scope": scope,
             "counts": db_counts,
             "countProblems": count_problems,
             "linkProblems": link_problems,
@@ -2193,12 +2567,12 @@ def main(argv: list[str] | None = None) -> int:
         if row is None:
             raise RunError("the Inbox shows no task row to open")
         task_id = row
-        task_title = title_for_tag(db_dir, task_id)
+        task_title = title_for_tag(db_dir, task_id, scope)
         if task_title is None:
             raise RunError(f"no task in the database carries the tag {task_id}")
         print(f"task row: {task_id} ({task_title})")
 
-        related = related_task(db_dir)
+        related = related_task(db_dir, scope)
         if related is None:
             raise RunError(
                 "the imported dataset holds no task with a relation, so the "
@@ -2210,7 +2584,7 @@ def main(argv: list[str] | None = None) -> int:
         # with a task the picker can offer — one that is not the task itself,
         # not one of its relations, and one whose addition cannot close a
         # cycle.
-        candidate = picker_candidate(db_dir, related_id)
+        candidate = picker_candidate(db_dir, related_id, scope)
         if candidate is None:
             raise RunError(
                 "the imported dataset holds no task the related-tasks picker "
