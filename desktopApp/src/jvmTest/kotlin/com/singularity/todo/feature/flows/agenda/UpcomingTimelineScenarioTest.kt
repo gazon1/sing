@@ -86,6 +86,13 @@ class UpcomingTimelineScenarioTest {
                 first < middle && middle < last,
                 "the sections are not in chronological order: $first, $middle, $last",
             )
+
+            // And each task sits under its own date: a task that drifted into
+            // the neighbouring section would still be on screen, and still be
+            // listed once.
+            assertTaskUnderSection("Due tomorrow", "Tomorrow", "Sat, 19 Sep")
+            assertTaskUnderSection("Due in three days", "Sat, 19 Sep", "Tue, 22 Sep")
+            assertTaskUnderSection("Due in six days", "Tue, 22 Sep")
         }
 
     @Test
@@ -118,6 +125,11 @@ class UpcomingTimelineScenarioTest {
             assertDisplayedOnce(TestTags.taskItem("Due in three days"))
             assertDisplayedOnce(TestTags.taskItem("Due in six days"))
 
+            // And each task sits under its own week.
+            assertTaskUnderSection("Due tomorrow", "14–20 Sep", "21–27 Sep")
+            assertTaskUnderSection("Due in three days", "14–20 Sep", "21–27 Sep")
+            assertTaskUnderSection("Due in six days", "21–27 Sep")
+
             // And the controls stay out of the feed under the other
             // projection too.
             assertNotDisplayed(TestTags.taskItem("Due today"))
@@ -135,6 +147,11 @@ class UpcomingTimelineScenarioTest {
             assertDisplayedOnce(TestTags.taskItem("Due in six days"))
             assertNotDisplayed(TestTags.taskItem("Due today"))
             assertNotDisplayed(TestTags.taskItem("Undated"))
+
+            // And the round trip kept the rows under their own dates.
+            assertTaskUnderSection("Due tomorrow", "Tomorrow", "Sat, 19 Sep")
+            assertTaskUnderSection("Due in three days", "Sat, 19 Sep", "Tue, 22 Sep")
+            assertTaskUnderSection("Due in six days", "Tue, 22 Sep")
         }
 
     @OptIn(ExperimentalTestApi::class)
@@ -147,5 +164,39 @@ class UpcomingTimelineScenarioTest {
     private fun androidx.compose.ui.test.DesktopComposeUiTest.assertDisplayedOnce(tag: String) {
         val nodes = onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
         assertTrue(nodes.size == 1, "the feed must show '$tag' exactly once, saw ${nodes.size}")
+    }
+
+    /**
+     * Asserts that the task [title] sits under the section [section].
+     *
+     * A task that drifted into the neighbouring section is still on screen and
+     * still listed once, so the row's own position is the only thing that
+     * says which date it belongs to: below the header of its own section and
+     * above the header of the next one.
+     *
+     * @param title the title of the task, which is the row's tag source.
+     * @param section the title of the section the task belongs under.
+     * @param nextSection the title of the section that follows it, when there
+     *   is one — the last section of the feed has no upper bound.
+     */
+    private fun androidx.compose.ui.test.DesktopComposeUiTest.assertTaskUnderSection(
+        title: String,
+        section: String,
+        nextSection: String? = null,
+    ) {
+        val taskTop = unclippedBoundsOfTag(TestTags.taskItem(title)).top
+        val sectionTop = unclippedBoundsOfTag(TestTags.agendaSection(section)).top
+        assertTrue(
+            taskTop > sectionTop,
+            "'$title' is not under '$section': the row is at $taskTop, the header at $sectionTop",
+        )
+        nextSection?.let { next ->
+            val nextTop = unclippedBoundsOfTag(TestTags.agendaSection(next)).top
+            assertTrue(
+                taskTop < nextTop,
+                "'$title' is not under '$section' but under '$next': " +
+                    "the row is at $taskTop, the next header at $nextTop",
+            )
+        }
     }
 }

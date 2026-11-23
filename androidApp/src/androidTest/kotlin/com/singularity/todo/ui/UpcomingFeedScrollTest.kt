@@ -12,12 +12,16 @@ import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiObject2
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.debug.DebugSeedActivity
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.testing.InstrumentedTestBase
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.core.context.GlobalContext
 
 /** How much of the feed one scroll gesture covers. */
 private const val SCROLL_PERCENT = 0.6f
@@ -33,6 +37,19 @@ private const val SEED_TIMEOUT_MS = 30_000L
 
 /** How often the seed's own screen is polled. */
 private const val SEED_POLL_MS = 250L
+
+/**
+ * The profile the fixture lives in.
+ *
+ * The test writes rows, and a row written into the profile a person uses is a
+ * row in their task list. So the fixture gets a profile of its own: the seed
+ * switches to it before it writes anything, and the reset that makes the
+ * fixture deterministic wipes *that* profile and nothing else. The profile
+ * stays on the device afterwards — the test leaves it rather than deleting a
+ * profile it did not create on this run — but the rows in it are the test's
+ * own, and the profile a person was using is untouched.
+ */
+private const val PROFILE_NAME = "UpcomingScrollTest"
 
 /**
  * The Upcoming feed scrolls far enough to reach a task that is weeks ahead.
@@ -84,35 +101,62 @@ class UpcomingFeedScrollTest : InstrumentedTestBase() {
      */
     @Test
     fun the_feed_scrolls_to_a_task_six_days_out() {
-        seed("reset=content")
-        seed("task=Upcoming%20filler&due=+1d&count=$fillers")
-        seed("task=Due%20in%20six%20days&due=+6d")
+        val profileInUse = activeProfileName()
+        try {
+            // The fixture lands in a profile of its own: the rows the test
+            // writes are the test's rows, and the reset that makes the
+            // fixture deterministic wipes that profile and not the one a
+            // person was using.
+            seed("profile=$PROFILE_NAME&reset=content")
+            seed("profile=$PROFILE_NAME&task=Upcoming%20filler&due=+1d&count=$fillers")
+            seed("profile=$PROFILE_NAME&task=Due%20in%20six%20days&due=+6d")
 
-        device.awaitShell()
-        device.tapTag(TestTags.navTab("Upcoming"))
+            device.awaitShell()
+            device.tapTag(TestTags.navTab("Upcoming"))
 
-        // The feed is up: the first filler row is on screen.
-        device.awaitTag(
-            TestTags.taskItem("Upcoming filler-1"),
-            "the first filler row",
-            TAB_TIMEOUT_MS,
-        )
+            // The feed is up: the first filler row is on screen.
+            device.awaitTag(
+                TestTags.taskItem("Upcoming filler-1"),
+                "the first filler row",
+                TAB_TIMEOUT_MS,
+            )
 
-        // The row that is six days out is below the fold: the feed holds more
-        // rows than a phone screen shows.
-        assertTrue(
-            "the row six days out is on screen before the feed was scrolled — " +
-                "the fixture does not put it below the fold: ${device.diagnostics()}",
-            device.findObject(By.res(farRow)) == null,
-        )
+            // The row that is six days out is below the fold: the feed holds
+            // more rows than a phone screen shows.
+            assertTrue(
+                "the row six days out is on screen before the feed was scrolled — " +
+                    "the fixture does not put it below the fold: ${device.diagnostics()}",
+                device.findObject(By.res(farRow)) == null,
+            )
 
-        // A drag on the feed brings it into view.
-        val row = scrollUntilVisible(farRow)
-        assertNotNull(
-            "the row six days out was not reachable by scrolling the feed: ${device.diagnostics()}",
-            row,
-        )
+            // A drag on the feed brings it into view.
+            val row = scrollUntilVisible(farRow)
+            assertNotNull(
+                "the row six days out was not reachable by scrolling the feed: ${device.diagnostics()}",
+                row,
+            )
+        } finally {
+            // The profile a person was using is the active one again.
+            seed("profile=${Uri.encode(profileInUse)}")
+        }
     }
+
+    /**
+     * The name of the profile the app is working as.
+     *
+     * Read before the fixture switches the profile, so that the profile can be
+     * switched back afterwards.
+     */
+    @Suppress("NoRunBlocking") // Instrumented test: the profile repository is a suspend API.
+    private fun activeProfileName(): String =
+        runBlocking {
+            GlobalContext
+                .get()
+                .get<ProfileRepository>()
+                .activeProfile()
+                .first()
+                .name
+        }
 
     /**
      * Drags the feed until the row with [tag] is in view.
