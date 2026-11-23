@@ -6,9 +6,14 @@ package com.singularity.todo.importer
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.parameters.types.double
+import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.long
+import com.singularity.todo.core.backup.ArchiveBudget
 import com.singularity.todo.core.backup.BackupDomain
 import com.singularity.todo.core.backup.BackupFormat
 import com.singularity.todo.core.backup.BackupManifest
@@ -23,7 +28,7 @@ import java.io.File
 
 class ImporterCommand : CliktCommand(name = "singularity-import") {
     init {
-        subcommands(ConvertCommand(), VerifyCommand())
+        subcommands(ConvertCommand(), VerifyCommand(), GenerateCommand())
     }
 
     override fun run() = Unit
@@ -127,5 +132,267 @@ class VerifyCommand : CliktCommand(name = "verify") {
                 "timeEntries=${payload.timeEntries.size} taskTags=${payload.taskTags.size} " +
                 "taskReminders=${payload.taskReminders.size}",
         )
+    }
+}
+
+class GenerateCommand : CliktCommand(name = "generate") {
+    override fun help(context: com.github.ajalt.clikt.core.Context): String =
+        "Generate a deterministic synthetic native backup dataset for performance testing."
+
+    val output by option("--output", help = "Output native backup ZIP path").required()
+    val seed by option("--seed", help = "Deterministic generation seed").long().default(1L)
+    val profileName by option(
+        "--profile",
+        help = "Named profile: 1k, 10k, 50k, 100k (sets defaults; explicit params override)",
+    )
+    val tasks by option("--tasks", help = "Number of tasks").int()
+    val projects by option("--projects", help = "Number of projects").int()
+    val taskHierarchyDepth by option("--task-hierarchy-depth", help = "Max task/project hierarchy depth").int()
+    val subtaskShare by option("--subtask-share", help = "Share of tasks that are subtasks (0.0..1.0)").double()
+    val tags by option("--tags", help = "Number of tags").int()
+    val dependencyDensity by option(
+        "--dependency-density",
+        help = "Approx dependency edges relative to tasks (0.0..1.0), DAG by construction",
+    ).double()
+    val notes by option("--notes", help = "Number of notes").int()
+    val checklistItems by option("--checklist-items", help = "Number of checklist items").int()
+    val dueDateShare by option(
+        "--due-date-share",
+        help = "Share of tasks with a due date (0.0..1.0)",
+    ).double()
+    val dueDateWindowStartDays by option(
+        "--due-date-window-start-days",
+        help =
+            "First day of the due-date window, inclusive, in days from the fixed base epoch " +
+                "(negative = overdue)",
+    ).int()
+    val dueDateWindowEndDays by option(
+        "--due-date-window-end-days",
+        help = "End of the due-date window, exclusive, in days from the fixed base epoch",
+    ).int()
+    val completedShare by option("--completed-share", help = "Share of completed tasks (0.0..1.0)").double()
+    val nextUpShare by option(
+        "--next-up-share",
+        help = "Share of not-completed tasks claimed as next_up (0.0..1.0)",
+    ).double()
+    val inProgressShare by option(
+        "--in-progress-share",
+        help = "Share of not-completed tasks claimed as in_progress (0.0..1.0)",
+    ).double()
+    val priorityWeights by option(
+        "--priority-weights",
+        help =
+            "Relative weight per priority, comma-separated in the order none,low,medium,high,urgent " +
+                "(default 1,1,1,1,1). E.g. 0,0,0,1,9 for mostly urgent tasks",
+    )
+
+    override fun run() {
+        val params = resolveParams()
+        val generated = generateAndValidate(params)
+        val payload = generated.payload
+        val payloadBytes = encodePayload(payload)
+        val manifest = buildManifest(payload, payloadBytes)
+        val manifestBytes = encodeManifest(manifest)
+        SyntheticBackupValidator.ensureWithinArchiveBudget(payloadBytes, manifestBytes)
+
+        File(output).parentFile?.mkdirs()
+        writeArchive(manifestBytes, payloadBytes)
+        val sidecarPath = writeSidecar(generated, manifest)
+        verifyArchive()
+
+        printSummary(payload, manifest, sidecarPath, generated, payloadBytes, manifestBytes)
+    }
+
+    private fun resolveParams(): GenerateParams {
+        val profile =
+            profileName?.let { requested ->
+                GenerateProfile.fromCliName(requested) ?: error(unsupportedProfileMessage(requested))
+            }
+        val base = profile?.let { SyntheticBackupGenerator.defaultParams(it, seed) } ?: customBaseParams()
+        return overlayExplicitParams(base).copy(profile = profile?.cliName ?: base.profile)
+    }
+
+    /**
+     * Overlays the flags the caller actually passed onto [base].
+     *
+     * The overlay is a separate function from the profile lookup so neither carries
+     * the whole set of nullable options in one branch — the profile is resolved once,
+     * and every other parameter is one "flag or default" pair.
+     */
+    private fun overlayExplicitParams(base: GenerateParams): GenerateParams =
+        base.copy(
+            seed = seed,
+            tasks = tasks ?: base.tasks,
+            projects = projects ?: base.projects,
+            taskHierarchyDepth = taskHierarchyDepth ?: base.taskHierarchyDepth,
+            subtaskShare = subtaskShare ?: base.subtaskShare,
+            tags = tags ?: base.tags,
+            dependencyDensity = dependencyDensity ?: base.dependencyDensity,
+            notes = notes ?: base.notes,
+            checklistItems = checklistItems ?: base.checklistItems,
+            dueDateShare = dueDateShare ?: base.dueDateShare,
+            dueDateWindowStartDays = dueDateWindowStartDays ?: base.dueDateWindowStartDays,
+            dueDateWindowEndDays = dueDateWindowEndDays ?: base.dueDateWindowEndDays,
+            completedShare = completedShare ?: base.completedShare,
+            nextUpShare = nextUpShare ?: base.nextUpShare,
+            inProgressShare = inProgressShare ?: base.inProgressShare,
+            priorityWeights = priorityWeights?.let(::parsePriorityWeights) ?: base.priorityWeights,
+        )
+
+    /** The weights arrive as free text, so a typo has to fail with the flag named. */
+    private fun parsePriorityWeights(raw: String): List<Double> {
+        val parts = raw.split(',').map { it.trim() }
+        val weights =
+            parts.map { part ->
+                part.toDoubleOrNull()
+                    ?: error("--priority-weights expects comma-separated numbers, got '$part' in '$raw'")
+            }
+        require(weights.size == PRIORITY_COUNT) {
+            "--priority-weights expects $PRIORITY_COUNT values (none,low,medium,high,urgent), " +
+                "got ${weights.size} in '$raw'"
+        }
+        return weights
+    }
+
+    private fun unsupportedProfileMessage(requested: String): String {
+        val supported = GenerateProfile.entries.joinToString(", ") { it.cliName }
+        return "Unknown profile '$requested'. Supported: $supported"
+    }
+
+    private fun customBaseParams(): GenerateParams =
+        GenerateParams(
+            seed = seed,
+            profile = null,
+            tasks = tasks ?: error("--tasks is required when --profile is not set"),
+            projects = projects ?: 0,
+            taskHierarchyDepth = taskHierarchyDepth ?: 1,
+            subtaskShare = subtaskShare ?: 0.0,
+            tags = tags ?: 0,
+            dependencyDensity = dependencyDensity ?: 0.0,
+            notes = notes ?: 0,
+            checklistItems = checklistItems ?: 0,
+            dueDateShare = dueDateShare ?: 0.75,
+            dueDateWindowStartDays = dueDateWindowStartDays ?: -30,
+            dueDateWindowEndDays = dueDateWindowEndDays ?: 120,
+            completedShare = completedShare ?: 0.20,
+            nextUpShare = nextUpShare ?: 0.19,
+            inProgressShare = inProgressShare ?: 0.13,
+        )
+
+    private fun generateAndValidate(params: GenerateParams): GeneratedDataset {
+        System.err.print("\r[1/5] Generating...")
+        System.err.flush()
+        val generated = SyntheticBackupGenerator.generate(params)
+        System.err.print("\r[2/5] Validating... ")
+        System.err.flush()
+        SyntheticBackupValidator.validate(generated.payload)
+        return generated
+    }
+
+    private fun encodePayload(payload: BackupPayload): ByteArray =
+        StableJson.encodeToString(BackupPayload.serializer(), payload).encodeToByteArray()
+
+    private fun encodeManifest(manifest: BackupManifest): ByteArray =
+        StableJson.encodeToString(BackupManifest.serializer(), manifest).encodeToByteArray()
+
+    private fun buildManifest(
+        payload: BackupPayload,
+        payloadBytes: ByteArray,
+    ): BackupManifest =
+        BackupDomain.buildManifest(
+            appVersion = appVersion().name,
+            nowEpochMillis = 0L,
+            userId = UserId.anonymous,
+            payloadBytes = payloadBytes,
+            counts = BackupDomain.countsOf(payload),
+        )
+
+    private fun writeArchive(
+        manifestBytes: ByteArray,
+        payloadBytes: ByteArray,
+    ) {
+        System.err.print("\r[3/5] Writing archive...")
+        System.err.flush()
+        runBlocking {
+            JvmBackupCodec().export(manifestBytes, payloadBytes, emptyList(), output, JvmFileSystem()).getOrThrow()
+        }
+    }
+
+    private fun writeSidecar(
+        generated: GeneratedDataset,
+        manifest: BackupManifest,
+    ): String {
+        System.err.print("\r[4/5] Writing sidecar...")
+        System.err.flush()
+        val payload = generated.payload
+        val sidecar =
+            generated.manifest.copy(
+                actualCounts =
+                    generated.manifest.actualCounts.copy(
+                        tasks = payload.tasks.size,
+                        projects = payload.projects.size,
+                        tags = payload.tags.size,
+                        notes = payload.notes.size,
+                        checklistItems = payload.checklistItems.size,
+                        taskDependencies = payload.taskDependencies.size,
+                        taskTags = payload.taskTags.size,
+                    ),
+                schemaVersion = manifest.schemaVersion,
+                payloadChecksum = manifest.payloadChecksum,
+            )
+        val sidecarPath = sidecarPathFor(output)
+        File(sidecarPath).writeText(StableJson.encodeToString(GenerateManifest.serializer(), sidecar))
+        return sidecarPath
+    }
+
+    private fun verifyArchive() {
+        System.err.print("\r[5/5] Verifying...      ")
+        System.err.flush()
+        val read = runBlocking { JvmBackupCodec().import(output, JvmFileSystem()).getOrThrow() }
+        val decodedPayload = StableJson.decodeFromString(BackupPayload.serializer(), read.payloadBytes.decodeToString())
+        BackupDomain
+            .validateManifest(
+                StableJson.decodeFromString(BackupManifest.serializer(), read.manifestBytes.decodeToString()),
+                read.payloadBytes,
+            ).getOrThrow()
+        SyntheticBackupValidator.validate(decodedPayload)
+    }
+
+    private fun printSummary(
+        payload: BackupPayload,
+        manifest: BackupManifest,
+        sidecarPath: String,
+        generated: GeneratedDataset,
+        payloadBytes: ByteArray,
+        manifestBytes: ByteArray,
+    ) {
+        System.err.println("\r[5/5] Done.                    ")
+        println("Generated: ${File(output).path}")
+        println("Sidecar: $sidecarPath")
+        println("Profile: ${generated.manifest.profile ?: "custom"} seed=${generated.manifest.seed}")
+        println(
+            "Counts: tasks=${payload.tasks.size} projects=${payload.projects.size} tags=${payload.tags.size} " +
+                "notes=${payload.notes.size} checklistItems=${payload.checklistItems.size} " +
+                "taskDependencies=${payload.taskDependencies.size} taskTags=${payload.taskTags.size}",
+        )
+        println(
+            "Manifest: schemaVersion=${manifest.schemaVersion} formatVersion=${manifest.formatVersion} payloadChecksum=${manifest.payloadChecksum}",
+        )
+        println(
+            "Archive: entries=2 decompressedBytes=${payloadBytes.size.toLong() + manifestBytes.size.toLong()} " +
+                "(budget entries=${ArchiveBudget.MAX_ENTRIES} bytes=${ArchiveBudget.MAX_TOTAL_BYTES})",
+        )
+    }
+
+    private fun sidecarPathFor(archivePath: String): String =
+        if (archivePath.endsWith(".zip")) {
+            archivePath.removeSuffix(".zip") + ".manifest.json"
+        } else {
+            "$archivePath.manifest.json"
+        }
+
+    private companion object {
+        /** Priorities the format knows: none, low, medium, high, urgent. */
+        const val PRIORITY_COUNT = 5
     }
 }
