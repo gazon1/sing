@@ -1667,6 +1667,48 @@ class LateFailureReportTest(unittest.TestCase):
             self.assertEqual(report["database"]["counts"]["tasks"], 2)
             self.assertIn("counts compared", report["phases"])
 
+    def test_the_archives_the_run_pushed_are_deleted_when_it_is_done(self):
+        """The device's storage is not the run's: the copies go when it is done.
+
+        The run pushes three archives into the device's Downloads — the
+        over-budget copy, the interrupted-import copy and the archive that is
+        really imported — and the over-budget copy is tens of megabytes. A
+        run that leaves them behind fills a shared device with copies of the
+        same dataset.
+        """
+        driver.PUSHED_ARCHIVES.clear()
+        calls: list[tuple[str, ...]] = []
+
+        def record_adb(*args, **kwargs):
+            calls.append(args)
+            return 0, ""
+
+        def push(serial, archive):
+            driver.PUSHED_ARCHIVES.append("synthetic.zip")
+            return "synthetic.zip"
+
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            apk = tmp / "the.apk"
+            apk.write_bytes(b"not really an APK")
+            argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with contextlib.ExitStack() as stack:
+                    for patch in self._patches(tmp):
+                        stack.enter_context(patch)
+                    stack.enter_context(unittest.mock.patch.object(driver, "adb", record_adb))
+                    stack.enter_context(unittest.mock.patch.object(driver, "push_archive", push))
+                    exit_code = driver.main(argv)
+
+        self.assertEqual(exit_code, driver.EXIT_FAILED)
+        # The run knows what it pushed, and it took it away again.
+        self.assertEqual(driver.PUSHED_ARCHIVES, [])
+        self.assertIn(("shell", "rm", "-f", "/sdcard/Download/synthetic.zip"), calls)
+
     def test_the_readable_report_names_the_measurements_too(self):
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)

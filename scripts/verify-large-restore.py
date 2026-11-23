@@ -82,6 +82,9 @@ APP_ID = "com.singularity.todo"
 #: can show it.
 DEVICE_DOWNLOAD_DIR = "/sdcard/Download"
 
+#: The archives the run pushed into the device's Downloads, so the run can
+#: delete them when it is done with them.
+PUSHED_ARCHIVES: list[str] = []
 
 #: The tables the manifest's counts are about, and the table each count is
 #: counted in. The names are the Room table names.
@@ -505,6 +508,7 @@ def push_archive(serial: str, archive: Path) -> str:
     code, out = adb("push", str(archive), remote, serial=serial, timeout=900)
     if code != 0:
         raise RunError(f"the archive could not be pushed to {remote}:\n{out.strip()}")
+    PUSHED_ARCHIVES.append(name)
     # The picker's "recent" list is fed by the media store, so the file has to
     # be scanned in. Without the scan the file is in Downloads but the picker
     # does not offer it.
@@ -520,6 +524,29 @@ def push_archive(serial: str, archive: Path) -> str:
     )
     return name
 
+
+def remove_pushed_archives(serial: str) -> list[str]:
+    """Delete the archives this run pushed into the device's Downloads.
+
+    The device is not the run's own: its storage belongs to whoever uses it,
+    and the archives are large — the padded one is tens of megabytes. The run
+    pushes three of them (the over-budget copy, the interrupted-import copy
+    and the archive that is really imported), and a run that leaves them
+    behind fills the device with copies of the same dataset.
+
+    The list is the run's own record of what it pushed, so a run that dies
+    half way through still cleans up what it managed to push.
+    """
+    removed: list[str] = []
+    for name in list(PUSHED_ARCHIVES):
+        remote = f"{DEVICE_DOWNLOAD_DIR}/{name}"
+        code, out = adb("shell", "rm", "-f", remote, serial=serial)
+        PUSHED_ARCHIVES.remove(name)
+        if code == 0:
+            removed.append(name)
+        else:
+            print(f"warning: {remote} could not be deleted:\n{out.strip()}")
+    return removed
 
 
 def wait_for_reset_marker(serial: str, timeout: float = 7200) -> float:
@@ -2706,6 +2733,11 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if lock is not None:
             lock.release()
+        if serial:
+            # The archives the run pushed into the device's Downloads are
+            # the device's storage, not the run's: they go when the run is
+            # done with them, whatever the run's outcome.
+            remove_pushed_archives(serial)
         # The report is written while the directory is still reserved: a run
         # that released the reservation first would let another run claim the
         # directory and start writing its own archive into it.
