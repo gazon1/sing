@@ -153,6 +153,11 @@ OVER_BUDGET_PADDING_BYTES = 70 * 1024 * 1024
 #: the screen says; the database is what settles whether it worked.
 SILENT_IMPORT_SECONDS = 600
 
+#: How long the watch waits for the Maestro flow to let go of the device after
+#: the confirmation tap. The screen is only read after that: a dump taken while
+#: the flow still holds the accessibility service starves Maestro's driver.
+FLOW_EXIT_WAIT_SECONDS = 120
+
 #: The screen dump is scanned, not parsed: the device may cut the tree off
 #: in the middle and glues the shell's own output onto the end.
 NODE_TAG = re.compile(r"<node\b[^>]*>")
@@ -763,6 +768,26 @@ def import_duration(
     return None, "none"
 
 
+def wait_for_flow_exit(process: subprocess.Popen, timeout: int) -> bool:
+    """Wait for the Maestro flow to let go of the device.
+
+    Maestro writes the line about the confirmation tap before it performs the
+    tap, so a flow that is still running may still be holding the device's
+    accessibility service. Dumping the screen in that moment takes the
+    service away from Maestro's driver, the driver fails to start, and the
+    watch reads a screen that the flow is in the middle of changing.
+
+    The wait is bounded: a flow that does not let go is a flow that is stuck,
+    and a stuck flow must not keep the watch from reporting what it saw.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            return True
+        time.sleep(0.25)
+    return process.poll() is not None
+
+
 def restore_and_watch(
     serial: str, archive_name: str, log: Path, timeout: int = 1800, apk: Path | None = None
 ) -> dict:
@@ -805,6 +830,7 @@ def _restore_and_watch_once(
     snackbar: float | None = None
     error_at: float | None = None
     error_text = ""
+    flow_overlapped = False
     with log.open("w", encoding="utf-8") as handle:
         process = subprocess.Popen(
             command,
@@ -820,6 +846,15 @@ def _restore_and_watch_once(
                     if CONFIRM_TAP in text:
                         # The confirmation was tapped: the import is running.
                         tapped = now
+                        # The flow writes that line before it performs the tap,
+                        # so the screen is only read once the flow has let go
+                        # of the device.
+                        if not wait_for_flow_exit(process, FLOW_EXIT_WAIT_SECONDS):
+                            flow_overlapped = True
+                            print(
+                                "the flow was still running when the watch started "
+                                "reading the screen"
+                            )
                     elif process.poll() is not None:
                         # The flow is over and it never got to the confirmation.
                         break
@@ -868,6 +903,7 @@ def _restore_and_watch_once(
         "measured": measured,
         "confirmedAt": round(tapped - started, 1) if tapped is not None else None,
         "reportedBySnackbar": snackbar is not None,
+        "flowOverlappedWithWatch": flow_overlapped,
         "errorDialog": error_at is not None,
         "errorDialogText": error_text,
         "log": str(log),
@@ -1294,9 +1330,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--out",
         default="",
-        help="where the archive, the logs and the report go, default build/large-restore",
+        help="where the archive, the logs and the report go; by default a new "
+        "directory under build/ that no earlier run has used",
     )
     return parser.parse_args(argv)
+
+
+#: The files a finished run leaves in its output directory. A directory that
+#: holds any of them holds the results of an earlier run.
+RESULT_FILES = ("report.json", "report.md")
+
+
+def default_output_dir_name() -> str:
+    """The output directory of a run that did not name one.
+
+    Every run gets a directory of its own: a run that reuses a directory
+    replaces the archive, the reports and the database copies of the run
+    before it, and those are the measurements the run exists to produce.
+    """
+    return "large-restore-" + time.strftime("%Y%m%d-%H%M%S")
+
+
+def output_dir_holds_results(out_dir: Path) -> bool:
+    """Whether the output directory already holds the results of an earlier run.
+
+    A run overwrites its archive, its reports and its database copies, so a
+    directory that already holds them is the only copy of another run's
+    measurements. The run refuses that directory rather than replacing it.
+    """
+    if not out_dir.is_dir():
+        return False
+    if any((out_dir / name).exists() for name in RESULT_FILES):
+        return True
+    return any(out_dir.glob("*.zip")) or any(out_dir.glob("*.manifest.json"))
 
 
 def over_budget_problems(outcome: dict, counts: dict[str, int]) -> list[str]:
@@ -1407,12 +1473,20 @@ def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
     point at which. Two datasets with the same counts can have different
     links — a restore that shuffles them keeps every count and loses every
     relation, so the links are read from the dataset itself.
+
+    Every relation the dataset carries is read: the task's project, its
+    parent, its tags and its dependencies, the checklist items that belong
+    to a task, the notes that hang on a task or a project or on another
+    note, and the projects that sit inside another project.
     """
     with zipfile.ZipFile(archive) as zf:
         names = zf.namelist()
         entry = "payload.json" if "payload.json" in names else "backup.json"
         payload = json.loads(zf.read(entry))
     tasks = payload.get("tasks", [])
+    notes = payload.get("notes", [])
+    projects = payload.get("projects", [])
+    checklist = payload.get("checklistItems", [])
     return {
         "parent": {(t["id"], t["parentTaskId"]) for t in tasks if t.get("parentTaskId")},
         "project": {(t["id"], t["projectId"]) for t in tasks if t.get("projectId")},
@@ -1420,6 +1494,11 @@ def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
         "dependencies": {
             (r["taskId"], r["dependsOnTaskId"]) for r in payload.get("taskDependencies", [])
         },
+        "checklist": {(c["id"], c["taskId"]) for c in checklist if c.get("taskId")},
+        "noteTask": {(n["id"], n["taskId"]) for n in notes if n.get("taskId")},
+        "noteProject": {(n["id"], n["projectId"]) for n in notes if n.get("projectId")},
+        "noteParent": {(n["id"], n["parentNoteId"]) for n in notes if n.get("parentNoteId")},
+        "projectParent": {(p["id"], p["parentId"]) for p in projects if p.get("parentId")},
     }
 
 
@@ -1442,7 +1521,27 @@ def restored_links(db_path: Path) -> dict[str, set[tuple[str, str]]]:
             "dependencies": set(
                 connection.execute("SELECT task_id, depends_on_task_id FROM task_dependencies")
             ),
+            "checklist": set(
+                connection.execute("SELECT id, task_id FROM checklist_items WHERE task_id IS NOT NULL")
+            ),
+            "noteTask": set(
+                connection.execute("SELECT id, task_id FROM notes WHERE task_id IS NOT NULL")
+            ),
+            "noteProject": set(
+                connection.execute("SELECT id, project_id FROM notes WHERE project_id IS NOT NULL")
+            ),
+            "noteParent": set(
+                connection.execute("SELECT id, parent_note_id FROM notes WHERE parent_note_id IS NOT NULL")
+            ),
+            "projectParent": set(
+                connection.execute("SELECT id, parent_id FROM projects WHERE parent_id IS NOT NULL")
+            ),
         }
+    except sqlite3.OperationalError as exc:
+        raise RunError(
+            f"the restored database does not have the tables the links are read "
+            f"from: {exc}"
+        ) from exc
     finally:
         connection.close()
 
@@ -1666,8 +1765,16 @@ def main(argv: list[str] | None = None) -> int:
         pass
     args = parse_args(argv)
 
-    out_dir = Path(args.out) if args.out else ROOT / "build" / "large-restore"
+    out_dir = Path(args.out) if args.out else ROOT / "build" / default_output_dir_name()
     out_dir = out_dir.resolve()
+    if output_dir_holds_results(out_dir):
+        print(
+            f"error: the output directory {out_dir} already holds the results of an "
+            "earlier run: its archive, its reports and its database copies would be "
+            "replaced. Give this run a directory of its own (--out).",
+            file=sys.stderr,
+        )
+        return EXIT_SETUP
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # The report is written whatever happens to the run. A run that dies half

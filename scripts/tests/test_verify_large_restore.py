@@ -58,9 +58,11 @@ APP_MAX_TOTAL_BYTES = 64 * 1024 * 1024
 
 SCHEMA = """
 CREATE TABLE tasks (id TEXT PRIMARY KEY, title TEXT, project_id TEXT, parent_task_id TEXT);
-CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT);
+CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT, parent_id TEXT);
 CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT);
-CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT);
+CREATE TABLE notes (
+    id TEXT PRIMARY KEY, title TEXT, task_id TEXT, project_id TEXT, parent_note_id TEXT
+);
 CREATE TABLE checklist_items (id TEXT PRIMARY KEY, task_id TEXT);
 CREATE TABLE task_tags (task_id TEXT, tag_id TEXT);
 CREATE TABLE task_dependencies (task_id TEXT, depends_on_task_id TEXT);
@@ -1254,6 +1256,354 @@ class LateFailureReportTest(unittest.TestCase):
             text = (out / "report.md").read_text(encoding="utf-8")
             self.assertIn("12.5 s", text)
             self.assertIn("| tasks | 2 | 2 |", text)
+
+
+class FlowExitBeforeScreenTest(unittest.TestCase):
+    """The screen is read only after the flow has let go of the device.
+
+    Maestro writes the line about the confirmation tap before it performs the
+    tap. A watcher that reads the screen right after that line takes the
+    device's accessibility service away from Maestro's driver, the driver
+    fails to start, and the watch reads a screen the flow is in the middle of
+    changing.
+    """
+
+    def _watch(self, tmp: Path, flow_lets_go: bool):
+        """Run the watch against a fake flow; return what happened, in order."""
+        order: list[str] = []
+        log = tmp / "restore-flow.log"
+        log.write_text("", encoding="utf-8")
+
+        class FakeProcess:
+            def __init__(self):
+                self.exited = False
+
+            def poll(self):
+                return 0 if self.exited else None
+
+            def terminate(self):
+                self.exited = True
+
+            def wait(self, timeout=None):
+                self.exited = True
+                return 0
+
+            def kill(self):
+                self.exited = True
+
+        process = FakeProcess()
+
+        def fake_popen(command, **kwargs):
+            # The flow writes the confirmation line and then keeps running.
+            log.write_text(driver.CONFIRM_TAP + "\n", encoding="utf-8")
+            return process
+
+        def fake_wait(_process, timeout):
+            order.append("waited for the flow")
+            if flow_lets_go:
+                process.exited = True
+            return flow_lets_go
+
+        def fake_dump(serial):
+            order.append("read the screen")
+            return f'<node text="{driver.SNACKBAR_ID}" />'
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                unittest.mock.patch.object(driver, "flow_command", lambda *a, **k: ["maestro"])
+            )
+            stack.enter_context(unittest.mock.patch.object(driver, "wake_unlock", lambda serial: None))
+            stack.enter_context(unittest.mock.patch.object(driver.subprocess, "Popen", fake_popen))
+            stack.enter_context(unittest.mock.patch.object(driver, "wait_for_flow_exit", fake_wait))
+            stack.enter_context(unittest.mock.patch.object(driver, "ui_dump", fake_dump))
+            stack.enter_context(unittest.mock.patch.object(driver.time, "sleep", lambda seconds: None))
+            outcome = driver._restore_and_watch_once("device", "archive.zip", log, timeout=30)
+        return order, outcome
+
+    def test_the_screen_is_read_after_the_flow_has_let_go(self):
+        with tempfile.TemporaryDirectory() as raw:
+            order, outcome = self._watch(Path(raw), flow_lets_go=True)
+            self.assertEqual(order, ["waited for the flow", "read the screen"])
+            self.assertFalse(outcome["flowOverlappedWithWatch"])
+
+    def test_a_flow_that_does_not_let_go_is_recorded(self):
+        with tempfile.TemporaryDirectory() as raw:
+            _order, outcome = self._watch(Path(raw), flow_lets_go=False)
+            self.assertTrue(outcome["flowOverlappedWithWatch"])
+
+
+class OutputDirectoryTest(unittest.TestCase):
+    """A run does not replace the measurements of an earlier run."""
+
+    def test_an_empty_directory_holds_no_results(self):
+        with tempfile.TemporaryDirectory() as raw:
+            self.assertFalse(driver.output_dir_holds_results(Path(raw)))
+
+    def test_a_directory_with_a_report_holds_results(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            (out / "report.json").write_text("{}", encoding="utf-8")
+            self.assertTrue(driver.output_dir_holds_results(out))
+
+    def test_a_directory_with_an_archive_holds_results(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            (out / "synthetic-1k.zip").write_bytes(b"")
+            self.assertTrue(driver.output_dir_holds_results(out))
+
+    def test_a_run_refuses_a_directory_that_already_holds_results(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            report = out / "report.json"
+            report.write_text('{"status": "complete"}', encoding="utf-8")
+            exit_code = driver.main(["--out", str(out)])
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            # The earlier run's report is still there, untouched.
+            self.assertEqual(report.read_text(encoding="utf-8"), '{"status": "complete"}')
+
+
+#: A dataset that carries the relations of the checklist items, the notes and
+#: the projects — not only the ones of the tasks.
+def _payload_with_more_links() -> dict:
+    payload = _payload()
+    payload["projects"] = [
+        {"id": "p1", "name": "Project 1", "parentId": None},
+        {"id": "p2", "name": "Project 2", "parentId": "p1"},
+    ]
+    payload["notes"] = [
+        {"id": "n1", "title": "Note 1", "taskId": "t1", "projectId": None, "parentNoteId": None},
+        {"id": "n2", "title": "Note 2", "taskId": None, "projectId": "p1", "parentNoteId": "n1"},
+    ]
+    payload["checklistItems"] = [
+        {"id": "c1", "taskId": "t1"},
+        {"id": "c2", "taskId": "t2"},
+    ]
+    return payload
+
+
+#: The same dataset, as it comes back from a restore.
+def _restored_statements_with_more_links() -> list[str]:
+    return _restored_statements() + [
+        "INSERT INTO projects (id, name, parent_id) VALUES ('p2', 'Project 2', 'p1')",
+        "INSERT INTO notes (id, title, task_id, project_id, parent_note_id) "
+        "VALUES ('n1', 'Note 1', 't1', NULL, NULL)",
+        "INSERT INTO notes (id, title, task_id, project_id, parent_note_id) "
+        "VALUES ('n2', 'Note 2', NULL, 'p1', 'n1')",
+        "INSERT INTO checklist_items (id, task_id) VALUES ('c1', 't1')",
+        "INSERT INTO checklist_items (id, task_id) VALUES ('c2', 't2')",
+    ]
+
+
+class MoreLinkIdentityTest(unittest.TestCase):
+    """Every relation of the dataset is compared, not only the task's.
+
+    A restore that moves a checklist item to another task, or a note to
+    another project, keeps every count — only the relations tell. The
+    comparison has to cover them, or the report claims the links survived
+    while they did not.
+    """
+
+    def _links(self, tmp: Path, statements: list[str] | None = None):
+        archive = _archive_with(tmp, _payload_with_more_links())
+        db = _database(tmp, statements or _restored_statements_with_more_links())
+        return driver.payload_links(archive), driver.restored_links(db)
+
+    def test_the_links_of_the_checklist_the_notes_and_the_projects_are_read(self):
+        with tempfile.TemporaryDirectory() as raw:
+            links, _actual = self._links(Path(raw))
+            self.assertEqual(links["checklist"], {("c1", "t1"), ("c2", "t2")})
+            self.assertEqual(links["noteTask"], {("n1", "t1")})
+            self.assertEqual(links["noteProject"], {("n2", "p1")})
+            self.assertEqual(links["noteParent"], {("n2", "n1")})
+            self.assertEqual(links["projectParent"], {("p2", "p1")})
+
+    def test_a_restored_dataset_has_the_same_links(self):
+        with tempfile.TemporaryDirectory() as raw:
+            expected, actual = self._links(Path(raw))
+            self.assertEqual(driver.link_identity_problems(expected, actual), [])
+
+    def test_a_checklist_item_on_another_task_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            statements = [
+                statement.replace("VALUES ('c2', 't2')", "VALUES ('c2', 't1')")
+                for statement in _restored_statements_with_more_links()
+            ]
+            expected, actual = self._links(tmp, statements)
+            problems = driver.link_identity_problems(expected, actual)
+            # The relation is missing and a relation that is not in the
+            # dataset is there instead: both are the same wrong link.
+            self.assertEqual(len(problems), 2)
+            self.assertTrue(any("checklist link" in problem for problem in problems))
+            self.assertTrue(any("are missing" in problem for problem in problems))
+
+    def test_a_note_on_another_project_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            statements = [
+                statement.replace("VALUES ('n2', 'Note 2', NULL, 'p1', 'n1')",
+                                  "VALUES ('n2', 'Note 2', NULL, 'p2', 'n1')")
+                for statement in _restored_statements_with_more_links()
+            ]
+            expected, actual = self._links(tmp, statements)
+            problems = driver.link_identity_problems(expected, actual)
+            self.assertEqual(len(problems), 2)
+            self.assertTrue(any("noteProject link" in problem for problem in problems))
+            self.assertTrue(any("are missing" in problem for problem in problems))
+
+    def test_a_project_outside_another_project_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            statements = [
+                statement.replace("VALUES ('p2', 'Project 2', 'p1')",
+                                  "VALUES ('p2', 'Project 2', NULL)")
+                for statement in _restored_statements_with_more_links()
+            ]
+            expected, actual = self._links(tmp, statements)
+            problems = driver.link_identity_problems(expected, actual)
+            self.assertEqual(len(problems), 1)
+            self.assertIn("projectParent link", problems[0])
+
+
+class NegativePhaseExitCodeTest(unittest.TestCase):
+    """A negative phase that finds something has to fail the run.
+
+    The decision functions are tested on their own, and that is not enough:
+    what matters is that the problem they return reaches the verdict and the
+    exit code. A run that loses the problem on the way there would report a
+    successful restore of a dataset the app refused or half wrote.
+    """
+
+    def _patches(self, tmp: Path, over_budget_problems: list[str],
+                 interrupted_problems: list[str]):
+        """Every collaborator of the run, faked to a device that works."""
+        archive = _archive_with(tmp, _payload())
+        db = _database(tmp, _restored_statements())
+        manifest = {
+            "actualCounts": {
+                "tasks": 2,
+                "projects": 1,
+                "tags": 1,
+                "notes": 0,
+                "checklistItems": 0,
+                "taskDependencies": 1,
+                "taskTags": 1,
+            }
+        }
+        return [
+            unittest.mock.patch.object(
+                driver.capture, "resolve_device", lambda serial, devices: "test-device"
+            ),
+            unittest.mock.patch.object(driver.capture, "attached_devices", lambda: []),
+            unittest.mock.patch.object(
+                driver, "device_facts", lambda serial: {"model": "test device"}
+            ),
+            unittest.mock.patch.object(driver.capture, "install_apk", lambda serial, apk: None),
+            unittest.mock.patch.object(
+                driver.capture, "verify_identity", lambda serial, apk, built: ("pkg", "1.0")
+            ),
+            unittest.mock.patch.object(
+                driver, "verify_installed_apk", lambda serial, apk: "md5:" + "0" * 32
+            ),
+            unittest.mock.patch.object(
+                driver, "installed_app_is_debuggable", lambda serial: True
+            ),
+            unittest.mock.patch.object(driver, "database_version", lambda serial: None),
+            unittest.mock.patch.object(
+                driver,
+                "generate_archive",
+                lambda profile, seed, out: (archive, tmp / "sidecar.json", manifest),
+            ),
+            unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
+            unittest.mock.patch.object(driver, "reset_content", lambda serial, out, attempts=4: ({}, 1.0)),
+            unittest.mock.patch.object(
+                driver,
+                "check_over_budget",
+                lambda serial, out, arc, apk=None: {
+                    "counts": {},
+                    "problems": over_budget_problems,
+                    "verdict": "refused",
+                },
+            ),
+            unittest.mock.patch.object(
+                driver,
+                "check_interrupted_import",
+                lambda serial, out, arc, apk=None, expected_counts=None: {
+                    "interrupted": True,
+                    "importStarted": True,
+                    "evidence": "the app's own working indicator was on the screen",
+                    "counts": {"tasks": 0},
+                    "problems": interrupted_problems,
+                    "verdict": "empty",
+                },
+            ),
+            unittest.mock.patch.object(driver, "push_archive", lambda serial, arc: "synthetic.zip"),
+            unittest.mock.patch.object(
+                driver,
+                "restore_and_watch",
+                lambda serial, name, log, timeout=1800, apk=None: {
+                    "durationSeconds": 12.5,
+                    "measured": "confirm-to-snackbar",
+                    "reportedBySnackbar": True,
+                },
+            ),
+            unittest.mock.patch.object(driver, "app_memory", lambda serial: "TOTAL PSS: 1"),
+            unittest.mock.patch.object(driver, "pull_database", lambda serial, out: db),
+            unittest.mock.patch.object(driver, "adb", lambda *a, **k: (0, "")),
+            unittest.mock.patch.object(driver, "run_flow", lambda *a, **k: True),
+            unittest.mock.patch.object(
+                driver, "wait_for_task_row", lambda serial, timeout=180: "task_item_task_1"
+            ),
+            unittest.mock.patch.object(driver, "title_for_tag", lambda db_dir, tag: "Task 1"),
+            unittest.mock.patch.object(driver, "related_task_title", lambda db_dir: "Task 2"),
+        ]
+
+    def _run(self, tmp: Path, out: Path, over_budget_problems: list[str],
+             interrupted_problems: list[str]) -> int:
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(
+            os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+        ):
+            with contextlib.ExitStack() as stack:
+                for patch in self._patches(tmp, over_budget_problems, interrupted_problems):
+                    stack.enter_context(patch)
+                return driver.main(argv)
+
+    def test_a_run_without_a_problem_passes(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(tmp, out, [], [])
+            self.assertEqual(exit_code, driver.EXIT_OK)
+
+    def test_an_over_budget_problem_fails_the_run(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(tmp, out, ["the archive was accepted"], [])
+            self.assertEqual(exit_code, driver.EXIT_FAILED)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertIn(
+                "over-budget: the archive was accepted",
+                report["verdict"]["problems"],
+            )
+
+    def test_an_interrupted_import_problem_fails_the_run(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(tmp, out, [], ["the import was already committed"])
+            self.assertEqual(exit_code, driver.EXIT_FAILED)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertIn(
+                "interrupted: the import was already committed",
+                report["verdict"]["problems"],
+            )
 
 
 if __name__ == "__main__":
