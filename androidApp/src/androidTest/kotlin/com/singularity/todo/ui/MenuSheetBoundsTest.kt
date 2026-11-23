@@ -104,19 +104,26 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
         what: String,
     ): android.graphics.Rect {
         val deadline = SystemClock.uptimeMillis() + TAB_TIMEOUT_MS
+        var lastObserved = "not found"
         while (SystemClock.uptimeMillis() < deadline) {
             val obj = device.findObject(By.res(tag))
             if (obj != null) {
                 try {
                     val bounds = obj.visibleBounds
                     if (!bounds.isEmpty) return bounds
+                    lastObserved = "empty bounds"
                 } catch (_: androidx.test.uiautomator.StaleObjectException) {
-                    // Hierarchy changed during animation/recomposition; retry with fresh lookup.
+                    lastObserved = "stale node"
                 }
+            } else {
+                lastObserved = "not found"
             }
             SystemClock.sleep(250)
         }
-        return device.awaitTag(tag, what, TAB_TIMEOUT_MS).visibleBounds
+        throw AssertionError(
+            "Expected $what ($tag) to have non-empty visible bounds within ${TAB_TIMEOUT_MS}ms, " +
+                "lastObserved=$lastObserved. ${device.diagnostics()}",
+        )
     }
 
     private fun assertMenuContentReachable(sheet: UiObject2) {
