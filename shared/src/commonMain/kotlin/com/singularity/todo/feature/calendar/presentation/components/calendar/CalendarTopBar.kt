@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LocalScreenActions
+import com.singularity.todo.core.ui.components.PublishScreenBackControl
 import com.singularity.todo.core.ui.components.ShellOverride
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
@@ -66,6 +67,10 @@ private val SingleLineMinWidth = 480.dp
  * @param headerLabelOverride Optional override for the displayed label. When
  *   non-null, replaces [CalendarUiState.Loaded]'s `headerLabel` (used by
  *   [CalendarContent] to render the live pager header without VM round-trips).
+ * @param onBack The action that returns to the calendar's root, or `null` at the
+ *   root itself. On Android the arrow is published to the shell's bar; on the
+ *   desktop, which has no shell bar for the calendar to publish to, the bar
+ *   draws it itself.
  */
 @Suppress("LongMethod")
 @Composable
@@ -79,6 +84,11 @@ fun CalendarTopBar(
 ) {
     val palette = LocalCalendarPalette.current
     val displayedLabel = headerLabelOverride ?: state.headerLabel
+
+    // A screen that draws a leading control of its own owns the back control,
+    // and the Desktop shell stands down while it does — one control, drawn by
+    // whoever is on top.
+    val mayDrawBack = PublishScreenBackControl(ownsControl = onBack != null)
 
     val holder = LocalScreenActions.current
     if (holder != null) {
@@ -117,63 +127,75 @@ fun CalendarTopBar(
         return
     }
 
-    BoxWithConstraints(
+    // No shell bar to publish to: the calendar draws its own. The Back arrow
+    // belongs to the calendar's own stack — a day is pushed on the calendar's
+    // stack, and the shell's arrow pops the shell's — so the calendar draws it
+    // here rather than leaving it to a shell that would pop the wrong stack.
+    Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .background(palette.background)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (maxWidth < SingleLineMinWidth) {
-            // Two lines. Stacking is what keeps both readable: the period name is
-            // not cut down to the few characters a squeezed share of one line
-            // would leave, and the controls are not handed the name's leavings.
-            Column(modifier = Modifier.fillMaxWidth()) {
-                CalendarBarTitle(
-                    text = displayedLabel,
-                    palette = palette,
-                    // The full width of its own line is this title's maximum, so
-                    // the ellipsis below is what a too-long name meets — not a
-                    // zero-width slot, and not a wrap onto a second line.
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        if (onBack != null && mayDrawBack) {
+            IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.TOP_BAR_BACK_BUTTON)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        }
+        BoxWithConstraints(modifier = Modifier.weight(1f)) {
+            if (maxWidth < SingleLineMinWidth) {
+                // Two lines. Stacking is what keeps both readable: the period name is
+                // not cut down to the few characters a squeezed share of one line
+                // would leave, and the controls are not handed the name's leavings.
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    CalendarBarTitle(
+                        text = displayedLabel,
+                        palette = palette,
+                        // The full width of its own line is this title's maximum, so
+                        // the ellipsis below is what a too-long name meets — not a
+                        // zero-width slot, and not a wrap onto a second line.
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CalendarControls(palette = palette, viewMode = state.viewMode, onIntent = onIntent)
+                    }
+                }
+            } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = palette.textSecondary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    CalendarBarTitle(
+                        text = displayedLabel,
+                        palette = palette,
+                        // The title is the only child that can give in this row: the
+                        // icon, the spacers and the controls are measured at their own
+                        // size first, and the title takes what is left. A long period
+                        // name therefore costs the title its own text and never costs
+                        // the bar its pager.
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(12.dp))
                     CalendarControls(palette = palette, viewMode = state.viewMode, onIntent = onIntent)
                 }
             }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Default.CalendarMonth,
-                    contentDescription = null,
-                    tint = palette.textSecondary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                CalendarBarTitle(
-                    text = displayedLabel,
-                    palette = palette,
-                    // The title is the only child that can give in this row: the
-                    // icon, the spacers and the controls are measured at their own
-                    // size first, and the title takes what is left. A long period
-                    // name therefore costs the title its own text and never costs
-                    // the bar its pager.
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(12.dp))
-                CalendarControls(palette = palette, viewMode = state.viewMode, onIntent = onIntent)
-            }
+            // The "More" affordance that used to sit in this bar was removed: it
+            // opened nothing and there is no overflow menu behind it. See ADR
+            // 2026-09-30-dead-affordances-removed.
         }
-        // The "More" affordance that used to sit in this bar was removed: it
-        // opened nothing and there is no overflow menu behind it. See ADR
-        // 2026-09-30-dead-affordances-removed.
     }
 }
 
