@@ -22,6 +22,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
+import kotlin.random.Random
 
 /** How much of the feed one scroll gesture covers. */
 private const val SCROLL_PERCENT = 0.6f
@@ -39,17 +40,20 @@ private const val SEED_TIMEOUT_MS = 30_000L
 private const val SEED_POLL_MS = 250L
 
 /**
- * The profile the fixture lives in.
+ * The prefix of the profile the fixture lives in.
  *
- * The test writes rows, and a row written into the profile a person uses is a
- * row in their task list. So the fixture gets a profile of its own: the seed
- * switches to it before it writes anything, and the reset that makes the
- * fixture deterministic wipes *that* profile and nothing else. The profile
- * stays on the device afterwards — the test leaves it rather than deleting a
- * profile it did not create on this run — but the rows in it are the test's
- * own, and the profile a person was using is untouched.
+ * The name carries a run id, so the profile is the test's own: a name a
+ * person could have chosen does not exist, and the fixture wipes nothing at
+ * all. It creates a profile that is empty, writes its rows into it, and
+ * removes the profile afterwards — the device is left as the test found it.
  */
-private const val PROFILE_NAME = "UpcomingScrollTest"
+private const val PROFILE_PREFIX = "UpcomingScrollTest"
+
+/** The id that makes the fixture's profile name unique to this run. */
+private val runId = Random.nextInt(100_000, 999_999).toString()
+
+/** The name of the profile the fixture lives in. */
+private val profileName = "$PROFILE_PREFIX $runId"
 
 /**
  * The Upcoming feed scrolls far enough to reach a task that is weeks ahead.
@@ -104,12 +108,13 @@ class UpcomingFeedScrollTest : InstrumentedTestBase() {
         val profileInUse = activeProfileName()
         try {
             // The fixture lands in a profile of its own: the rows the test
-            // writes are the test's rows, and the reset that makes the
-            // fixture deterministic wipes that profile and not the one a
-            // person was using.
-            seed("profile=$PROFILE_NAME&reset=content")
-            seed("profile=$PROFILE_NAME&task=Upcoming%20filler&due=+1d&count=$fillers")
-            seed("profile=$PROFILE_NAME&task=Due%20in%20six%20days&due=+6d")
+            // writes are the test's rows, and the profile it writes them into
+            // is empty when the run starts — the seed creates it — so the
+            // fixture wipes nothing at all. The name carries the run id, so
+            // the profile cannot be one that already existed.
+            seed("profile=${Uri.encode(profileName)}")
+            seed("profile=${Uri.encode(profileName)}&task=Upcoming%20filler&due=+1d&count=$fillers")
+            seed("profile=${Uri.encode(profileName)}&task=Due%20in%20six%20days&due=+6d")
 
             device.awaitShell()
             device.tapTag(TestTags.navTab("Upcoming"))
@@ -138,6 +143,10 @@ class UpcomingFeedScrollTest : InstrumentedTestBase() {
         } finally {
             // The profile a person was using is the active one again.
             seed("profile=${Uri.encode(profileInUse)}")
+            // And the fixture's profile goes with it: the rows and the
+            // profile alike are gone, so the device is left as the test found
+            // it and the next run starts from nothing.
+            removeProfile(profileName)
         }
     }
 
@@ -157,6 +166,31 @@ class UpcomingFeedScrollTest : InstrumentedTestBase() {
                 .first()
                 .name
         }
+
+    /**
+     * Removes the profile the fixture lived in.
+     *
+     * The profile holds the test's own rows, and the test created it, so
+     * removing it takes the fixture with it and leaves the device as the run
+     * found it. A failure here is logged rather than thrown: the cleanup runs
+     * in a `finally`, and a throw there would hide the failure that brought
+     * the test here.
+     *
+     * @param name the name of the profile to remove.
+     */
+    @Suppress("NoRunBlocking") // Instrumented test: the profile repository is a suspend API.
+    private fun removeProfile(name: String) {
+        runBlocking {
+            val repository = GlobalContext.get().get<ProfileRepository>()
+            val profile = repository.findByName(name) ?: return@runBlocking
+            repository.delete(profile.id).onFailure {
+                android.util.Log.w(
+                    "UpcomingFeedScrollTest",
+                    "the fixture profile '$name' was left behind: $it",
+                )
+            }
+        }
+    }
 
     /**
      * Drags the feed until the row with [tag] is in view.
