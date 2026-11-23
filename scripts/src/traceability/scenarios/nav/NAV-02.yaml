@@ -4,6 +4,17 @@
 # drawer on Desktop — and they are the same menu to the user. A feature added
 # to one of them and not the other is a feature half the users do not have.
 #
+# The parity itself is owned by the shared model, not by a screen: `AppMenu`
+# and `DestinationKind.menuEntries` are one list, and
+# `desktopApp/src/jvmTest/.../flows/menu/MenuParityFlowTest.kt` asserts that
+# the two agree and that the drawer renders every entry of the list. That
+# check fails if an entry is added to one menu and not the other, which is the
+# whole claim of this scenario — so the Maestro flow that used to walk the
+# Android sheet for the same three ids was redundant and was retired on
+# 2026-11-23 (#3119). The Android residue lives elsewhere: the sheet's
+# per-row reachability is `MenuSheetBoundsTest` (device tier), the "all
+# projects" entry is MENU-06 and the project roots are MENU-08.
+#
 # The entries are the same on both. The *projects* are the same too, but the
 # two surfaces draw as much of the hierarchy as they can carry: the Desktop
 # drawer unfolds a project's children in place, the Android sheet lists the
@@ -24,7 +35,8 @@ steps:
   - "Compare the entries of the two."
   - "Compare the root projects of the two."
 expected: >-
-  Both surfaces offer the same entries — including Calendar and the Projects
-  section — and the same root projects in the same order. The Desktop drawer
-  unfolds a project's children in place; the Android sheet lists the roots
-  only, and a child is reached from its parent's own screen.
+  Both surfaces offer the same entries — the Projects section among them, and
+  not the Calendar, which is a tab and not a menu entry — and the same root
+  projects in the same order. The Desktop drawer unfolds a project's children
+  in place; the Android sheet lists the roots only, and a child is reached
+  from its parent's own screen.

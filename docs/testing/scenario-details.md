@@ -796,7 +796,7 @@ Steps:
 2. Compare the entries of the two.
 3. Compare the root projects of the two.
 
-**Expected:** Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the same order. The Desktop drawer unfolds a project's children in place; the Android sheet lists the roots only, and a child is reached from its parent's own screen.
+**Expected:** Both surfaces offer the same entries — the Projects section among them, and not the Calendar, which is a tab and not a menu entry — and the same root projects in the same order. The Desktop drawer unfolds a project's children in place; the Android sheet lists the roots only, and a child is reached from its parent's own screen.
 
 ### feature.negative
 

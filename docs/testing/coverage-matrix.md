@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 91/162 claimed cells automated · 71 holes**
+**141 scenarios · 90/162 claimed cells automated · 72 holes**
 
 ## feature.agenda
 
@@ -119,7 +119,7 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `NAV-01` | The bottom navigation bar no longer holds a Calendar button | ● | ● | There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly… |
-| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ● | ● | Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the… |
+| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ○ | ● | Both surfaces offer the same entries — the Projects section among them, and not the Calendar, which is a tab and not a… |
 
 ## feature.negative
 
@@ -289,6 +289,7 @@ Claimed but not automated:
 - `CALENDAR-03` / android
 - `LIFECYCLE-01` / android
 - `LIFECYCLE-02` / android
+- `NAV-02` / android
 - `NOTES-01` / android
 - `NOTES-02` / android
 - `NOTES-03` / android
