@@ -1,6 +1,6 @@
 # What each tier proves
 
-Two UI tiers run in this repository, and they answer different questions. This
+Three lanes run in this repository, and they answer different questions. This
 page says which is which, so the split is written down rather than inferred from
 which suite a test happens to live in.
 
@@ -11,10 +11,65 @@ happened to the other tier's copy.
 | Tier | What runs | Cost | What it can see |
 |---|---|---|---|
 | **device** | `:androidApp:connectedDebugAndroidTest` — one class (`AppStartupTest`) as an advisory smoke on every pull request, the whole instrumented suite nightly | ~10 minutes and an emulator | the real Android runtime |
-| **JVM** | `:desktopApp:test` — the Compose Multiplatform suite on the JVM | seconds | the shared UI and the semantics tree it produces |
+| **android host** | `:shared:testAndroidHostTest` — the Android source set's own tests, on the JVM under Robolectric | seconds | Android *framework* code, with no device attached: `ContentResolver`, `NotificationManager`, `LifecycleRegistry`, the Android Koin graph |
+| **JVM** | `:shared:jvmTest` and `:desktopApp:test` — the shared suite and the Compose Multiplatform suite, on the JVM | seconds | the shared rules and the shared UI's semantics tree |
+
+The three kinds of evidence, one lane each:
+
+- **behavioural headless** — the JVM lane. Does the shared rule hold, and does
+  the shared UI produce the semantics tree it should? Nothing platform-specific is
+  in the picture: the ports are faked.
+- **platform headless** — the android host lane. Does the *Android
+  implementation* of a port behave, under Robolectric, with no device?
+- **platform with a device** — the device lane. Does the app, as a user meets
+  it, work: the real runtime, the real IME, the real pixels, the real resource
+  ids?
+
+The host lane is the easiest to confuse with the JVM lane, because it also runs
+on the JVM in seconds. What it asserts is Android's own code, not a fake of it.
 
 The device tier's own runbook is [android-instrumentation-runbook.md](./android-instrumentation-runbook.md);
 the Maestro side of the Android story is [android-tier-runbook.md](./android-tier-runbook.md).
+
+## What the android host lane proves
+
+Most of `androidMain` is not UI — it is ports. The phone's file *source* streams a
+`content://` URI through the `ContentResolver`; the phone's notifier asks `Context`
+for the `POST_NOTIFICATIONS` grant on every call; the phone's permission requester
+is a `LifecycleEventObserver`; the phone's archive codec and its `FileSystem.move`
+are the implementations the backup path writes through; the phone's Koin graph is
+a different list of bindings from the desktop's.
+
+The host lane runs those on the JVM, in seconds — Robolectric where the Android
+framework is needed, a plain JUnit 4 runner where it is not — and the assertions
+are about Android's own implementation rather than a fake of it. That is the whole
+point of the lane: the alternative to a device is not "no test", it is "a test of
+the fake".
+
+Its classes carry their guarantees in
+[the ownership table](../architecture/test-tier-ownership.md#android-test-inventory-3086).
+
+### What the host lane does not prove
+
+- **No rendering, no window, no insets, no IME.** Those belong to the device
+  tier, and the device tier is the only one that can be asked.
+- **No resource-id layer.** `testTagsAsResourceId` is an Android semantics
+  property, and the host lane never produces one.
+- **No real Keystore.** `AndroidSecureStorageRecoveryTest` is on the device
+  because Robolectric's `EncryptedSharedPreferences` is not the Android
+  Keystore.
+- **No delivered notification.** `AndroidNotifierTest` asserts that the grant is
+  read per call and that nothing is enqueued when it is denied — not that a
+  notification appeared.
+- **No production Compose wiring.**
+  `NotificationPermissionRequesterComposeTest` mounts the composable and watches
+  the observer move; the host test drives a `LifecycleRegistry` directly and
+  mounts nothing.
+
+One class in this lane is a deliberate second binding rather than Android-only
+coverage: `ArchiveCryptoGoldenAndroidTest` runs the same
+`ArchiveCryptoGoldenContract` cases as the JVM lane, because the archive format
+has to open on both platforms.
 
 ## The three questions of the device smoke
 
@@ -94,7 +149,8 @@ request's `-Ptest.population=fast` selection:
   guards;
 - the Android secure storage (`EncryptedSharedPreferences` over the Android
   Keystore) — the desktop actual is a different implementation
-  (`shared/src/jvmMain/.../JvmSecureStorage.kt`), so the two tiers never exercise
+  (`shared/src/jvmMain/.../JvmSecureStorage.kt`) and the host lane's
+  `EncryptedSharedPreferences` is a Robolectric shadow, so no two tiers exercise
   the same code;
 - notifications: the Android notification manager and the runtime permission
   requester. The desktop actual shells out to `notify-send(1)`, and the test
