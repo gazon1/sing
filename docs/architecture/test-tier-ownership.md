@@ -97,6 +97,7 @@ The instrumented tier lost one class and three tests when that earlier FAB flow 
 
 - `docs/architecture/tests.md` — where a test lives, and the rules that decide it.
 - `docs/testing/what-each-tier-proves.md` — what each tier can and cannot see.
+- `docs/testing/maestro-guarantees-inventory.md` — what the Maestro suite guarantees, and what it costs (#3105).
 - `config/docs/test-runs-baseline.txt` and `config/docs/instrumented-test-floor.txt` —
   the floors that hold the tiers to what they used to deliver.
 
@@ -138,3 +139,28 @@ Audit-only inventory for issue [#3086](https://github.com/gazon1/sing/issues/308
 | `shared/.../androidHostTest/test/stubs/TestOnboardingModuleTest.kt` | androidHostTest | keep | AndroidMain E2E onboarding stub contract; JVM wiring covered separately by `E2eOnboardingWiringTest`. |
 
 Support files with no `@Test` (keep as infra): `androidApp/.../testing/InstrumentedTestBase.kt`, `androidApp/.../ui/FailureBundle.kt`, `androidApp/.../ui/ShellProbe.kt`, `androidApp/.../ui/StepRecorder.kt`, `androidApp/.../ui/UiActions.kt`.
+
+## Maestro guarantees inventory (#3105)
+
+Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/3105): no flow moved or deleted, no production code, Gradle config, shard count, suite selection, CI trigger or floor changed. The full inventory — every one of the 135 catalogue flows, its measured cost, its disposition and its named owner — is in [`docs/testing/maestro-guarantees-inventory.md`](../testing/maestro-guarantees-inventory.md).
+
+**Scope.** Suite membership was read from the runner itself (`scripts/src/emulator/maestro/_flow.py`), not from the catalogue: 135 flows in `config/docs/maestro-flows.txt`, 30 in `smoke`, 127 in `full`, 8 excluded (`manual` / `auth-live`). Cost was measured from real CI JUnit artifacts of four `full` runs and one `smoke` run — the median of the **passing** samples per flow. The 23 flows that fail in every sampled run carry no number at all; their duration is a time-to-failure, not a cost.
+
+**What the measurement says.** Measured flow time is 78.6 min across the 127 automated flows; the per-shard overhead on top of it is 9–14 min (full) and 5–7 min (smoke) — AVD restore, emulator boot, install and the per-flow device reset. The floor is a count of failures, not a duration, so the two numbers are not comparable; see the audit's [measurement gap](../testing/maestro-guarantees-inventory.md#the-measurement-gap).
+
+**Where the guarantees already live.** Classified per row (129 rows for 135 flows — the eight excluded flows share two rows): 24 `keep` (a platform-only guarantee no faster tier owns), 68 `split` (the behaviour half could move to a headless tier), 29 `replace-candidate` (every guarantee is already owned by a named headless test), 8 `investigate`. The top of the ranked candidate set, in the audit's order:
+
+| Flow | Cost | Owner that already holds the guarantee |
+|---|---:|---|
+| `nav/02-menu-parity.yaml` | 35 s | `desktopApp/src/jvmTest/.../feature/flows/menu/MenuParityFlowTest.kt` — model-level parity, stronger than the flow |
+| `agenda/09-upcoming-timeline.yaml` | 84 s | `desktopApp/src/jvmTest/.../feature/flows/agenda/UpcomingTimelineScenarioTest.kt` |
+| `agenda/04-saved-view-results.yaml` | 68 s | `desktopApp/src/jvmTest/.../OpenSavedViewShowsMatchingTasksFlowTest.kt` |
+| `archive/02-bulk-archive-confirm.yaml` | 81 s | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — reads the write, not the observation |
+| `sync/01-change-sync-interval.yaml` | 80 s | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` |
+| `profile/01-create-profile.yaml` | 61 s | `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` |
+| `menu/06-tree-live.yaml` | 64 s | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` — holds the **creation** half only; the rename half has no owner yet |
+| `system/menu-sheet.yaml` | 18 s | `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` — the derived tag set, asserted by resource id |
+
+Every row is a proposal for a follow-up change issue. Acting on one means naming the owner, dropping the flow and updating the catalogue and the scenario link in the same commit — otherwise the scenario id loses its carrier.
+
+**Findings that are not about cost.** Four are worth the next reader's attention, because they are inconsistencies in the tree rather than in the suite: `agenda/01-smart-lists.yaml` contradicts its own spec `AGENDA-01.yaml` on what the Inbox preset means (the code and `AgendaTabDisjointnessTest` say "undated only", the spec says a dated task stays in Inbox); `calendar_sync/02-system-calendar-unavailable.yaml` asserts a state the Android platform cannot reach; the anonymous gate behind `menu_attach_account` has no Kotlin owner at all; and `tasks/13-create-full-task.yaml` names a test class that does not exist. Separately, all four sampled `full` runs and the sampled `smoke` run **failed** the repo's own results gate (`scripts/ci/check-maestro-results.py`), and the registry prose in `config/docs/maestro-debt.yaml` still says the shards are skipped in CI, which is no longer true.
