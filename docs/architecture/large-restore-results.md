@@ -195,4 +195,4 @@ Counts сверяются **в пределах профиля**, а не все
   OOM приходится на деталь.
 
 Полный разбор с этими же числами — в комментарии к issue #3091:
-<https://github.com/gazon1/sing/issues/3091#issuecomment-7093699395>.
+<https://github.com/gazon1/sing/issues/3091#issuecomment-7110770311>.
