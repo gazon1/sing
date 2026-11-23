@@ -84,7 +84,9 @@ The Maestro flow would have kept passing, because the entry it spot-checks
 
 The scenario keeps both targets. `NAV-02`'s android cell is now an honest
 hole, and the hole floor in `config/docs/traceability-ratchet.json` was
-raised 71 → 72 with the reason next to the number.
+raised 71 → 72 with the reason next to the number — and lowered back to 71
+when main closed the hole `PROFILE-01` was carrying in the same window (see
+Consequences).
 
 ## Rationale
 
@@ -119,7 +121,13 @@ raised 71 → 72 with the reason next to the number.
 - The Maestro suite loses one `full`-suite flow (35 s of measured flow
   time) and one android carrier of `NAV-02`.
 - The scenario matrix shows `NAV-02` as `○` on android and `●` on desktop;
-  the hole count is 72, recorded in the ratchet floor with the reason.
+  the hole is recorded in the ratchet floor with the reason. The floor was
+  raised 71 → 72 when the flow was retired, and lowered back to 71 when
+  main's `PROFILE-01` change dropped that scenario's android claim in the
+  same window: the hole `PROFILE-01` was carrying closed as this one opened,
+  so the total is back at 71 and this retirement spends no hole budget. The
+  composition moved — `NAV-02`'s android cell is the hole now — the budget
+  did not.
 - The menu's parity is now enforced in one place, in common code, on the
   host, in seconds — and the Android sheet's own reachability stays on the
   device where it belongs, in `MenuSheetBoundsTest`.
