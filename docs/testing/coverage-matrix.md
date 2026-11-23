@@ -24,7 +24,7 @@ the table carries the one-line version so a row is readable in a diff.
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `AGENDA-01` | A dated task moves between Inbox date buckets | ○ | — | The task leaves the No Date bucket, whose header count drops, and appears under the section for its date — it stays in… |
+| `AGENDA-01` | A dated task leaves the Inbox | ○ | — | The task leaves the Inbox: the "No Date" section no longer holds it, and the task is not on the Inbox screen at all.… |
 | `AGENDA-02` | The saved-views list shows its empty state | ○ | — | The list says that there are no saved views yet, rather than rendering as a blank screen or an error. A user who has… |
 | `AGENDA-03` | Saving the current agenda as a named view, then deleting it | ○ | — | Saving returns to the agenda — not to the list — so the view is created without stranding the user. The list then… |
 | `AGENDA-04` | Opening a saved view lists the tasks matching its definition | ○ | — | A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than… |

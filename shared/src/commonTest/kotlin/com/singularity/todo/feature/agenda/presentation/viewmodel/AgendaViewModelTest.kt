@@ -49,6 +49,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import org.junit.jupiter.api.Tag
@@ -255,6 +256,43 @@ class AgendaViewModelTest {
                     section.tasks.any { it.task.id == undated.id }
                 },
                 "Undated task seeded before VM construction must reach the agenda's No Date section",
+            )
+        }
+
+    /**
+     * The Inbox rule, end to end: the tab holds the tasks that are not scheduled
+     * yet, so dating a task takes it out of it.
+     *
+     * The domain half of this contract is pinned by `AgendaTabDisjointnessTest`
+     * and `AgendaInboxTabMeaningTest`. This is the coordinator half — the agenda
+     * re-evaluates its tasks, so a task that gets a date leaves the tab while
+     * the user stays on it. The Maestro flow `agenda/01-smart-lists` asserts the
+     * same thing on a device.
+     */
+    @Test
+    fun `dating a task takes it out of the Inbox`() =
+        runTest {
+            val undated = task(id = "inbox-1", title = "Inbox me") // dueDate = null
+            fakeRepo.seed(undated)
+
+            val vm = createVm() // AgendaPresets.Inbox
+            runCurrent()
+
+            assertTrue(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.any { section ->
+                    section.tasks.any { it.task.id == undated.id }
+                },
+                "an undated task belongs to the Inbox",
+            )
+
+            fakeRepo.add(undated.copy(dueDate = FakeClock(now).today(TimeZone.UTC)))
+            runCurrent()
+
+            assertFalse(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.any { section ->
+                    section.tasks.any { it.task.id == undated.id }
+                },
+                "a dated task must leave the Inbox — the tab holds what is not scheduled yet",
             )
         }
 
