@@ -3,8 +3,8 @@
 # preconditions: Settings → Calendar tab open, system calendar selected.
 # steps:
 #   1. The system enable switch is visible.
-#   2. Toggle it on — the status shows the sync is enabled.
-#   3. Toggle it off — status returns to disabled.
+#   2. Toggle it on — the panel's enabled-only block appears.
+#   3. Toggle it off — the block is gone again.
 #
 # On Android (the only platform Maestro runs against) the system calendar IS
 # available. The message that says the platform cannot do it
@@ -21,6 +21,15 @@ tags:
   - scenario:CAL-SYNC-SYSTEM-02
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+
+# The system-calendar panel renders the enable switch only when READ/WRITE_CALENDAR
+# are granted — without them it renders the permission gate, which is a different
+# state and a different scenario. A runtime grant does not survive a reinstall, and
+# the qualification runner reinstalls the APK before every attempt, so the flow
+# asks for the permission itself instead of trusting the device's history.
+- setPermissions:
+    permissions:
+      calendar: allow
 
 # Open the hamburger menu and scroll to Settings.
 - runFlow: ../../helpers/open-app-menu.yaml
@@ -55,21 +64,44 @@ tags:
       id: calendar_sync_system_enable_switch
     timeout: 8000
 
-# Toggle system calendar sync on.
+# The switch carries no readable state: the row is a clickable button and the
+# switch inside it has no change callback, so neither exposes a checked state.
+# What does expose it is the block the panel renders only while the sync is
+# enabled — the calendar-app picker, the target-calendar list, the status with
+# its "Sync Now" button. The picker is the first of them and the only one on
+# screen without scrolling, so it carries the assertion.
+#
+# The enable flag lives in the app's DataStore and survives a reinstall, so the
+# switch can start in either state. Bring it to OFF first: the block on screen
+# means the sync is on, and one tap turns it off.
+- runFlow:
+    when:
+      visible:
+        id: calendar_sync_system_calendar_app_section
+    commands:
+      - tapOn:
+          id: calendar_sync_system_enable_switch
+      - extendedWaitUntil:
+          notVisible:
+            id: calendar_sync_system_calendar_app_section
+          timeout: 8000
+
+# OFF → ON: the block the panel only renders while the sync is enabled appears,
+# so the switch really turned the sync on.
 - tapOn:
     id: calendar_sync_system_enable_switch
-
-# The status should change from Disabled to Idle/Syncing after enabling.
-# Assert the switch stayed on (it is a toggle, not a one-shot).
 - extendedWaitUntil:
     visible:
-      id: calendar_sync_system_enable_switch
+      id: calendar_sync_system_calendar_app_section
     timeout: 8000
 
-# Toggle off.
+# ON → OFF: the block is gone again, so the state followed the switch back.
+# Both assertions are made from the same scroll position, where the block is on
+# screen while the sync is on — an assertion about an element that is merely
+# below the fold would pass without proving anything.
 - tapOn:
     id: calendar_sync_system_enable_switch
 - extendedWaitUntil:
-    visible:
-      id: calendar_sync_system_enable_switch
+    notVisible:
+      id: calendar_sync_system_calendar_app_section
     timeout: 8000

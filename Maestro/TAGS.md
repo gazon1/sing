@@ -475,6 +475,7 @@ non-alphanumeric characters with `_`.
 | `CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR` | `calendar_sync_google_sync_needs_calendar` | |
 | `CalendarSync.GOOGLE_SYNC_NOW_BUTTON` | `calendar_sync_google_sync_now_button` | |
 | `CalendarSync.GOOGLE_SYNC_OUTCOME` | `calendar_sync_google_sync_outcome` | |
+| `CalendarSync.SYSTEM_CALENDAR_APP_SECTION` | `calendar_sync_system_calendar_app_section` | |
 | `CalendarSync.SYSTEM_ENABLE_SWITCH` | `calendar_sync_system_enable_switch` | |
 | `CalendarSync.SYSTEM_SYNC_NOW_BUTTON` | `calendar_sync_system_sync_now_button` | |
 | `CalendarSync.SYSTEM_UNAVAILABLE` | `calendar_sync_system_unavailable` | |

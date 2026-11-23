@@ -47,8 +47,9 @@ bare tag never resolved.
   test tag, Maestro permission control, a new scenario spec, and a device run — and
   the one thing this issue is about is an assertion that no device can satisfy. An
   unverified replacement flow would reproduce the failure mode.
-- Fix flow 03's tag so the scenario it verifies has a carrier, and keep the flow body
-  byte-identical so the flow cannot start failing because of a metadata change.
+- Fix flow 03's tag so the scenario it verifies has a carrier, and make the flow body
+  assert what the scenario claims. The body cannot stay byte-identical: a carrier that
+  does not assert the scenario's claim is a decoration.
 - Withdraw the Android claim from `CAL-SYNC-SYSTEM-01` instead of keeping it as an
   `unreachable` cell: a state no platform can reach is not a guarantee to be covered.
 
@@ -59,11 +60,25 @@ bare tag never resolved.
   pinned digests in `scripts/check-maestro-flow-qualification.py` lose it in the same
   change.
 - `Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml` carries
-  `scenario:CAL-SYNC-SYSTEM-02`; its steps, selectors and assertions are unchanged,
-  so it is admitted by a qualification record in
-  `config/docs/maestro-flow-qualification.yaml`: three consecutive passes on a real
-  device (realme RMX3938, API 35, serial 0O65321F32204DD5, Maestro 2.10.0), run
-  against the APK built from this checkout.
+  `scenario:CAL-SYNC-SYSTEM-02` and asserts the state transition the scenario claims:
+  the block the panel renders only while the sync is enabled appears when the switch
+  is turned on and is gone again when it is turned off. It is admitted by a
+  qualification record in `config/docs/maestro-flow-qualification.yaml`: three
+  consecutive passes on a real device (realme RMX3938, API 35, serial
+  0O65321F32204DD5, Maestro 2.10.0), run against the APK built from this checkout.
+- The switch itself carries no state a test can read, so the panel's calendar-app
+  picker gets a test tag of its own (`calendar_sync_system_calendar_app_section`,
+  `TestTags.CalendarSync.SYSTEM_CALENDAR_APP_SECTION`). It is the first block below
+  the switch that the panel renders only while the sync is enabled, and the only one
+  of them that is on screen without scrolling.
+- The flow grants `calendar` itself (`setPermissions`). A runtime grant does not
+  survive the reinstall the qualification runner does before every attempt, and
+  without the grant the panel renders the permission gate instead of the controls.
+  The grant stays in flow 03 rather than in the shared `launch-clean.yaml`, so a
+  future carrier of the permission-gate state is not left without a way to reach it.
+- The flow normalizes the switch to OFF before it starts. The enable flag lives in
+  the app's DataStore and survives a reinstall, so the switch can begin in either
+  state; the flow brings it to OFF, then proves the transition in both directions.
 - `CAL-SYNC-SYSTEM-01` claims `desktop` only. Its spec comment now says why the
   Android branch cannot be reached, and names the permission gate as the reachable
   Android state this scenario does not cover and that no carrier owns yet.
@@ -92,7 +107,30 @@ would represent a platform state that does not exist as a required product behav
 **The broken link was the more expensive half of the defect.** Flow 03 had been
 passing and was verifying a real Android guarantee; it was invisible to the matrix
 because its tag lacked the `scenario:` prefix. Fixing it moves a dark scenario to a
-carrier without touching the flow's behaviour.
+carrier.
+
+**A carrier that does not assert the scenario's claim is a decoration.** Linking
+flow 03 to `CAL-SYNC-SYSTEM-02` made the matrix print `●` for a cell whose scenario
+requires the status to follow the switch in both directions — but the flow only
+waited for the switch to stay visible, so a build whose toggle did nothing would
+still have passed. The link is now backed by an assertion of the transition itself:
+the panel renders the calendar-app picker, the target-calendar list and the status
+block only while `state.isEnabled` is true, so their appearance and disappearance is
+the user-visible outcome of the toggle.
+
+**The switch cannot report its own state, so something else has to.** The enable row
+is a clickable button and the `Switch` inside it is handed a null change callback
+(the row owns the click), so the accessibility tree exposes no checked state for it:
+Maestro's `checked` selector stays false on that row whatever the switch says. That
+was measured on the device, not assumed — a flow that asserted `checked: true` on
+the enable row would have passed by asserting nothing. The block below the switch
+is the observable instead, and it needs a tag of its own to be addressable.
+
+**The absence assertion has to be made from where the element would be.** Maestro's
+`notVisible` is satisfied by an element that is merely below the fold, so an
+assertion made after scrolling away from the block would pass whether the toggle
+worked or not. The flow therefore asserts both directions from the same scroll
+position, where the block is on screen while the sync is on.
 
 ## Consequences
 
@@ -103,12 +141,17 @@ carrier without touching the flow's behaviour.
   `config/docs/maestro-flow-qualification.yaml` (2026-11-23). The record pins the
   fingerprint of the file in the tree, so the next edit to that flow's body needs a
   new qualification.
-- An earlier run of the same three attempts on the same device died once: the
-  Maestro server on the phone crashed before the flow started (`DeviceServerDiedException`
-  at `deviceInfo`, 1 s into the attempt), because the phone's screen had gone to sleep
-  during the install. The device was woken and held awake for the run that produced
-  the record. It is a device-side failure, not a product failure, and it is kept in
-  the run log rather than erased.
+- The flow needs a product test tag (`calendar_sync_system_calendar_app_section`) and
+  the shared `Maestro/TAGS.md` catalogue grows a row for it. The tag names a block
+  that already existed; it adds no behaviour.
+- The qualification runner reinstalls the APK before every attempt, so the flow
+  grants the calendar permission itself. The grant is local to flow 03 on purpose.
+- Earlier runs of the same three attempts on the same device failed for reasons that
+  were not the flow's: the Maestro server on the phone died before the flow started
+  (`DeviceServerDiedException` at `deviceInfo`) once because the screen had gone to
+  sleep during the install, and once because the phone's low-memory killer took the
+  server down under memory pressure. Both are device-side failures, and they are
+  kept in the run log rather than erased.
 - The Android permission gate (READ/WRITE_CALENDAR not granted) is a reachable state
   with no test tag and no carrier. It is named in the `CAL-SYNC-SYSTEM-01` spec; it
   is not covered here.
