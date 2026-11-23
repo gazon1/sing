@@ -54,8 +54,19 @@ internal object SeedWaitTree {
 
         for (seed in seeds) {
             val seeded = seededEntity(parseQuery(seed.query))
+            // A container covers an entity only while the container is the
+            // section that the seed brings in. A section the flow already
+            // named before the seed was there before the seed, and a wait for
+            // it returns at once — it cannot be the evidence that the seeded
+            // row arrived.
+            val containers = seeded.containers.filter { it !in namedBefore(seed.position, waits, asserts) }
             for (entity in seeded.entities) {
-                val handles = (entity.rows + entity.names + seeded.containers).toSet()
+                // The ids of the entity: what the helper's own wait names, and
+                // what a wait for the row or the container names. The names are
+                // what a wait by text names — the helper's wait is always by
+                // id, so the names are not among its targets.
+                val ids = (entity.rows + containers).toSet()
+                val handles = (ids + entity.names).toSet()
                 for (assert in asserts) {
                     if (!assertsEntity(assert, entity)) continue
                     checked++
@@ -72,7 +83,7 @@ internal object SeedWaitTree {
                         } ||
                             seeds.any {
                                 it.waitFor != null &&
-                                    it.waitFor in handles &&
+                                    it.waitFor in ids &&
                                     compareOrder(it.position, seed.position) >= 0 &&
                                     compareOrder(it.position, assert.position) <= 0
                             }
@@ -81,12 +92,35 @@ internal object SeedWaitTree {
                             "$label: asserts ${subjectOf(assert)} without waiting for it — " +
                             "wait for the row (${entity.rows.joinToString()}), for the " +
                             "name it is called (${entity.names.joinToString()}) or for " +
-                            "the container it is in (${seeded.containers.joinToString()})"
+                            "the container it is in (${containers.joinToString()})"
                     }
                 }
             }
         }
         return RuleResult(violations, checked)
+    }
+
+    /**
+     * The elements the flow named before the given position.
+     *
+     * This is what tells a section the seed brings in from a section that was
+     * already there: the first is named only after the seed, the second is
+     * named before it, and a wait for the second says nothing about the row
+     * the seed wrote.
+     */
+    private fun namedBefore(
+        position: List<Int>,
+        waits: List<Event.Wait>,
+        asserts: List<Event.Assert>,
+    ): Set<String> {
+        val named = mutableSetOf<String>()
+        for (wait in waits) {
+            if (compareOrder(wait.position, position) < 0) named += wait.handles
+        }
+        for (assert in asserts) {
+            if (compareOrder(assert.position, position) < 0) assert.id?.let { named += it }
+        }
+        return named
     }
 
     /**

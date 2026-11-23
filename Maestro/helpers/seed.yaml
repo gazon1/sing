@@ -70,6 +70,16 @@
 # the arrival of the seeded entity is absorbed here, once, instead of in every
 # flow that seeds one. A flow that names no entity gets the shell wait alone.
 #
+# WAIT_FOR names an element *id*: the wait below is `visible: {id: …}`. The
+# name an entity is called is not an id the app renders, and a WAIT_FOR that
+# carries one times out on the device.
+#
+# The order of the commands below is the contract: the link opens the seed,
+# the shell wait lets the app come up, and the entity wait absorbs the
+# arrival. A wait that ran *before* the link would be satisfied by whatever
+# was on screen already — the row the seed is about to rewrite — and the flow
+# would go on to assert on a row that has not been written yet.
+#
 # How the entity is named:
 #
 #   * A title-named entity — a task, a note — is named by the element its
@@ -131,7 +141,10 @@
 # A seed that writes N rows writes N entities, one row each, and one wait
 # covers one entity: a wait for one row of a many-row seed does not cover the
 # assertions on the other rows. The container is the one handle that covers a
-# whole seed, because the section that holds the rows holds every entity of it.
+# whole seed, because the section that holds the rows holds every entity of it
+# — and only while the seed brought the container in. A section the flow named
+# before the seed was there before the seed: a wait for it returns at once,
+# and the row the seed wrote is still on its way.
 #
 # A seed that writes more rows than a wait can outlast is written in chunks:
 # writing a row costs the seeder about 30 ms, so a thousand rows take longer

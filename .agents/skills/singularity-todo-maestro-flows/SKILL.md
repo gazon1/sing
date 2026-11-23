@@ -328,12 +328,16 @@ A flow waits for the entity it seeded before it asserts on it, and a bare
         WAIT_FOR: "task_item_buy_milk"
   ```
 
-  `WAIT_FOR` is the element id the flow will assert on: a title-named entity
-  by the element its title produces (`TestTags.slug`), an id-named entity by
-  that id. The helper's wait does not scroll, so it covers an entity that is
-  on the screen the seed leaves the app on — the shell wait alone says
-  nothing about the seed, because the app was already up before the link
-  arrived.
+  `WAIT_FOR` is the element id the flow will assert on — an id, not the name
+  the entity is called: the helper waits with `visible: {id: …}`. A
+  title-named entity is named by the element its title produces
+  (`TestTags.slug`), an id-named entity by that id. The helper's wait does not
+  scroll, so it covers an entity that is on the screen the seed leaves the app
+  on — the shell wait alone says nothing about the seed, because the app was
+  already up before the link arrived. The helper waits in this order: the
+  link, the shell wait, the entity wait. The wait after the link is the one
+  that absorbs the arrival; a wait before it would be satisfied by the row
+  the seed is about to rewrite.
 
 - **In the flow.** An entity that is elsewhere — a note, a project, a row
   below the fold, a task in another tab — is waited for by the flow after it
@@ -364,6 +368,13 @@ Two more rules about what a wait covers:
   others — each row is an entity with an assertion of its own, and each needs
   a wait that names it. The container is the one handle that covers a whole
   seed, because the section that holds the rows holds every entity of it.
+- **A container covers an entity only while the seed brought the container
+  in.** The container rule asks for a section that renders *only* because the
+  entity is in it. A section the flow named before the seed was there before
+  the seed, and a wait for it returns at once — the row the seed wrote is
+  still on its way. The gate holds such a flow to the row rule. The state the
+  app was in before the flow ran is invisible to the gate, so a flow that
+  waits for a section it did not bring in owns that.
 - **A seed that outlasts every wait is written in chunks.** Writing a row
   costs the seeder about 30 ms, so a thousand rows take longer than the shell
   wait (30 s) — the largest budget there is — and a seed that outlasts the

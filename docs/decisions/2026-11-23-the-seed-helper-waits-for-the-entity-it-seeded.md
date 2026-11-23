@@ -52,7 +52,16 @@ an id-named entity — a project seeded with `id=` — by that id
 budget, and the wait is guarded: no `WAIT_FOR`, no wait. The input is optional
 by construction — the helper reads it through a `typeof` guard and turns an
 undefined one into an empty target, rather than into Maestro's missing-variable
-error.
+error. `WAIT_FOR` names an element *id*: the helper waits with
+`visible: {id: "${WAIT_TARGET}"}`, so a name the entity is called is not a
+value it can resolve — the gate holds callers to ids.
+
+**The order the helper waits in.** The link opens the seed, the shell wait
+lets the app come up, and the entity wait absorbs the arrival of the row. The
+order is part of the contract: a wait that runs *before* the link waits for
+whatever was on screen already — the row the seed is about to rewrite
+satisfies it, and the flow goes on to assert on a row that has not been
+written yet. The gate holds the helper to that order.
 
 **What the helper's wait does not do.** It does not scroll. A wait that
 scrolls moves the viewport a flow is about to assert on, and the flow's own
@@ -86,6 +95,16 @@ value as the node's text — so a wait may address the entity by the id of the
 field it is in *and* by the title it holds:
 `visible: {id: task_editor_title_input, text: "Buy milk"}` is one wait for one
 entity, and not a wait for whichever entity the screen happens to show.
+
+**When a container covers an entity.** The container rule asks for a section
+that renders *only* because the entity is in it. A section that was already
+there before the seed cannot be that section: the wait for it returns at
+once, and the row the seed wrote is still on its way. The gate reads the
+flow for the tell it can see — a section the flow named before the seed was
+there before the seed — and holds the flow to the row rule in that case. What
+the gate cannot see is the state of the app before the flow ran: a section a
+previous run left behind is invisible to it, and a flow that waits for a
+section it did not bring in owns that.
 
 **What counts as an assertion on the entity.** An assertion by the id of the
 row the app renders the entity under, and an assertion whose text is exactly

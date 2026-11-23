@@ -279,6 +279,21 @@ class SeededEntityWaitTest {
         )
     }
 
+    @Test
+    fun `a container that was already there before the seed covers nothing`() {
+        // The section was named before the seed, so it was already on screen
+        // when the seed ran: a wait for it returns at once and cannot be the
+        // evidence that the seeded row arrived.
+        val events = SeedWaitTree.fixture("flow.yaml" to CONTAINER_ALREADY_THERE)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a wait for a section the flow had already named " +
+                "before the seed. That section was there before the seed, so " +
+                "the wait says nothing about the row the seed wrote.",
+        )
+    }
+
     private companion object {
         /**
          * A flow that seeds the same row twice and waits only for the first seed.
@@ -523,6 +538,36 @@ class SeededEntityWaitTest {
             appId: com.singularity.todo
             name: fixture
             ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&count=2&due=today"
+            - extendedWaitUntil:
+                visible:
+                  id: agenda_section_today
+                timeout: 8000
+            - assertVisible:
+                id: task_item_fixture_1
+            - assertVisible:
+                id: task_item_fixture_2
+            """.trimIndent()
+
+        /**
+         * The same flow, but the section was named before the seed.
+         *
+         * The section was already on screen when the seed ran, so the wait for
+         * it returns at once — it is not the evidence that the seeded row
+         * arrived.
+         */
+        val CONTAINER_ALREADY_THERE =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - extendedWaitUntil:
+                visible:
+                  id: agenda_section_today
+                timeout: 8000
             - runFlow:
                 file: seed.yaml
                 env:

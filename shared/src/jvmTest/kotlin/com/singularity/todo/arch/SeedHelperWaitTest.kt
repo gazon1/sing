@@ -182,12 +182,7 @@ class SeedHelperWaitTest {
                     if (seeded.entities.isEmpty()) {
                         null
                     } else {
-                        val targets =
-                            (
-                                seeded.entities.flatMap { entity -> entity.rows + entity.names } +
-                                    seeded.containers
-                            ).toSet()
-                        Triple(seed, waitFor, targets)
+                        Triple(seed, waitFor, waitForTargets(seeded))
                     }
                 }
             for ((seed, waitFor, targets) in named) {
@@ -213,6 +208,100 @@ class SeedHelperWaitTest {
                 "that title (TestTags.taskItem, TestTags.noteItemByTitle), an " +
                 "id-named one by that id (TestTags.menuProjectNode).",
         )
+    }
+
+    @Test
+    fun `a WAIT_FOR names an element, not a display name`() {
+        // The helper waits for an *id*: `visible: {id: "${WAIT_TARGET}"}`. A
+        // WAIT_FOR that carries the display name of an entity is an id the app
+        // never renders, and the wait times out on the device.
+        val seeded =
+            SeedWaitTree.seededEntity(
+                SeedWaitTree.parseQuery("task=Buy%20milk&due=today"),
+            )
+        val targets = waitForTargets(seeded)
+
+        assertTrue(
+            targets.contains("task_item_buy_milk"),
+            "the row the app renders for the title is not among the targets: ${targets.joinToString()}",
+        )
+        assertTrue(
+            "Buy milk" !in targets,
+            "the display name is among the targets a WAIT_FOR may name: ${targets.joinToString()}",
+        )
+    }
+
+    /**
+     * The elements a `WAIT_FOR` may name for a seed.
+     *
+     * The helper waits for an id — `visible: {id: "${WAIT_TARGET}"}` — so the
+     * display names of the entities are not among them: a `WAIT_FOR` that
+     * carries a name is an id the app never renders.
+     */
+    private fun waitForTargets(seeded: SeedWaitTree.Seeded): Set<String> =
+        (seeded.entities.flatMap { entity -> entity.rows } + seeded.containers).toSet()
+
+    @Test
+    fun `the helper waits for the entity after the seed it waits for`() {
+        val helper = maestroRoot.resolve("helpers/seed.yaml").readText()
+
+        val problem = helperOrderProblem(helper)
+        assertTrue(
+            problem == null,
+            "The seed helper's commands are not in the order the contract says: " +
+                "$problem\n\nThe order is the contract: the link opens the seed, the " +
+                "shell wait lets the app come up, and the entity wait absorbs the " +
+                "arrival of the row the seed wrote. A wait that runs *before* the " +
+                "link is a wait for whatever was on screen already — the row the " +
+                "seed is about to rewrite satisfies it, and the flow goes on to " +
+                "assert on a row that has not been written yet.",
+        )
+
+        // The same check, on a helper whose entity wait runs before the link:
+        // the check has to be able to fail, or the check above proves nothing.
+        val early =
+            """
+            env:
+              $OPTIONAL_INPUT
+            ---
+            - runFlow:
+                when:
+                  $GUARD
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        $WAIT_TARGET_ID
+                      timeout: 8000
+            - openLink: "todo-debug://seed?${'$'}{QUERY}"
+            """.trimIndent()
+        assertTrue(
+            helperOrderProblem(early) != null,
+            "The check does not notice a helper whose entity wait runs before the " +
+                "seed link. A check that cannot fail holds nothing.",
+        )
+    }
+
+    /**
+     * What is wrong with the order of the helper's commands, if anything.
+     *
+     * The link has to come first: the entity wait is the wait for the row the
+     * link writes, and a wait that runs before the link waits for a row that is
+     * not there yet — or for the old row the link is about to replace.
+     */
+    private fun helperOrderProblem(text: String): String? {
+        val lines = text.lines()
+        val linkIndex = lines.indexOfFirst { it.trim().startsWith("- openLink:") }
+        val waitIndex =
+            lines.indices.firstOrNull { index ->
+                lines[index].trim() == "- extendedWaitUntil:" &&
+                    lines.getOrNull(index + 2)?.trim() == WAIT_TARGET_ID
+            }
+        return when {
+            linkIndex < 0 -> "the helper has no seed link"
+            waitIndex == null -> "the helper has no entity wait"
+            waitIndex < linkIndex -> "the entity wait runs before the seed link"
+            else -> null
+        }
     }
 
     /**
