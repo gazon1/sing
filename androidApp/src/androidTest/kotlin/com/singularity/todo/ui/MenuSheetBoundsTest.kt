@@ -39,9 +39,9 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
             val scenario = ActivityScenario.launch<MainActivity>(intent)
             try {
                 device.awaitShell()
-                val sheet = openMenuSheet()
+                openMenuSheet()
 
-                val bounds = sheet.visibleBounds
+                val bounds = visibleBoundsOf(TestTags.MENU_SHEET, "the app menu sheet")
                 val widthDp = pxToDp(bounds.width())
                 val screenDp = screenWidthDp()
                 assertTrue(
@@ -53,7 +53,7 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
                     bounds.left <= dpToPx(COMPACT_EDGE_TOLERANCE_DP),
                 )
 
-                assertMenuContentReachable(sheet)
+                assertMenuContentReachable(device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS))
             } finally {
                 scenario.close()
             }
@@ -67,15 +67,14 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
             val scenario = ActivityScenario.launch<MainActivity>(intent)
             try {
                 device.awaitShell()
-                val railItem =
-                    device.awaitTag(
+                val railBounds =
+                    visibleBoundsOf(
                         TestTags.navTab("Today"),
                         "a navigation rail item on expanded width",
-                        TAB_TIMEOUT_MS,
                     )
 
-                val sheet = openMenuSheet()
-                val bounds = sheet.visibleBounds
+                openMenuSheet()
+                val bounds = visibleBoundsOf(TestTags.MENU_SHEET, "the app menu sheet")
                 val widthDp = pxToDp(bounds.width())
 
                 assertTrue(
@@ -84,11 +83,11 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
                 )
                 assertTrue(
                     "expanded menu sheet must not obscure the navigation rail " +
-                        "(sheetLeft=${bounds.left}, railRight=${railItem.visibleBounds.right}): ${device.diagnostics()}",
-                    bounds.left >= railItem.visibleBounds.right - dpToPx(RAIL_CLEARANCE_TOLERANCE_DP),
+                        "(sheetLeft=${bounds.left}, railRight=${railBounds.right}): ${device.diagnostics()}",
+                    bounds.left >= railBounds.right - dpToPx(RAIL_CLEARANCE_TOLERANCE_DP),
                 )
 
-                assertMenuContentReachable(sheet)
+                assertMenuContentReachable(device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS))
             } finally {
                 scenario.close()
             }
@@ -100,21 +99,41 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
         return device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS)
     }
 
+    private fun visibleBoundsOf(tag: String, what: String): android.graphics.Rect {
+        repeat(3) {
+            val obj = device.findObject(By.res(tag))
+            if (obj != null) {
+                try {
+                    val bounds = obj.visibleBounds
+                    if (!bounds.isEmpty) return bounds
+                } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                    // Hierarchy changed during animation/recomposition; retry with fresh lookup.
+                }
+            }
+            SystemClock.sleep(250)
+        }
+        return device.awaitTag(tag, what, TAB_TIMEOUT_MS).visibleBounds
+    }
+
     private fun assertMenuContentReachable(sheet: UiObject2) {
         val required = requiredMenuTags()
-        scrollToTop(sheet)
+        scrollToTop()
         val found = linkedSetOf<String>()
         collectVisibleMenuTags(required, found)
         repeat(MENU_SCROLL_PASSES) {
             if (required.all { it in found }) return
-            sheet.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
+            runCatching {
+                device.findObject(By.res(TestTags.MENU_SHEET))?.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
+            }
             collectVisibleMenuTags(required, found)
         }
-        scrollToTop(sheet)
+        scrollToTop()
         collectVisibleMenuTags(required, found)
         repeat(MENU_SCROLL_PASSES) {
             if (required.all { it in found }) return
-            sheet.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
+            runCatching {
+                device.findObject(By.res(TestTags.MENU_SHEET))?.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
+            }
             collectVisibleMenuTags(required, found)
         }
         val missing = required.filterNot { it in found }
@@ -161,8 +180,12 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
 
     private fun isTagVisible(tag: String): Boolean = device.findObject(By.res(tag))?.visibleBounds?.isEmpty == false
 
-    private fun scrollToTop(sheet: UiObject2) {
-        repeat(MENU_SCROLL_PASSES) { sheet.scroll(Direction.UP, MENU_SCROLL_PERCENT) }
+    private fun scrollToTop() {
+        repeat(MENU_SCROLL_PASSES) {
+            runCatching {
+                device.findObject(By.res(TestTags.MENU_SHEET))?.scroll(Direction.UP, MENU_SCROLL_PERCENT)
+            }
+        }
     }
 
     private fun withWidthDp(
