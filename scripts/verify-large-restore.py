@@ -144,6 +144,11 @@ BUDGET_REFUSAL_MARKERS = ("exceeds limits", "byte budget")
 #: deletes are committed.
 RESET_MARKER = "reset(content) reached"
 
+#: A tag the app's agenda always carries. The agenda is the app's own proof
+#: that it has resolved its identity: the rows it lists are the current user's
+#: rows, so the app cannot show the agenda before the session is there.
+AGENDA_READY_TAG = 'resource-id="nav_tab_inbox"'
+
 #: How many bytes the padded archive adds to push the archive over the
 #: budget the app enforces (64 MiB of unpacked bytes).
 OVER_BUDGET_PADDING_BYTES = 70 * 1024 * 1024
@@ -487,7 +492,7 @@ def push_archive(serial: str, archive: Path) -> str:
     return name
 
 
-def wait_for_reset_marker(serial: str, timeout: float = 900) -> float:
+def wait_for_reset_marker(serial: str, timeout: float = 1800) -> float:
     """Wait for the app's own line that says the wipe is finished.
 
     The debug activity logs `reset(content) reached N tables` when
@@ -501,6 +506,9 @@ def wait_for_reset_marker(serial: str, timeout: float = 900) -> float:
     middle of the wipe rolls the wipe back: the app is killed with the
     transaction open, the transaction is discarded, and the profile still
     holds every row the wipe had already deleted.
+
+    The wait is half an hour, because the wipe of the largest profile the
+    generator ships is a quarter of an hour of work on the device.
     """
     started = time.monotonic()
     while time.monotonic() - started < timeout:
@@ -509,6 +517,44 @@ def wait_for_reset_marker(serial: str, timeout: float = 900) -> float:
             return time.monotonic() - started
         time.sleep(5)
     raise RunError(f"the profile's content was not wiped within {int(timeout)}s")
+
+
+def agenda_is_up(dump: str) -> bool:
+    """Whether the screen shows the app's agenda.
+
+    The agenda is the first screen of the app and it lists the current user's
+    rows, so it can only be there once the app knows who the current user is.
+    """
+    return AGENDA_READY_TAG in dump
+
+
+def warm_up_app(serial: str, timeout: float = 240) -> None:
+    """Start the app and wait until it shows its agenda.
+
+    A wipe that runs before the app has resolved its identity wipes nothing.
+    The session is read from the encrypted store on a cold start, and that read
+    takes seconds — the reset asked for in the meantime is answered by the
+    unresolved scope, which has no rows to delete: the app logs that the reset
+    reached every table in a second and the profile keeps every row it had.
+    The run then reads a profile that was never wiped and blames the restore.
+
+    So the app is brought up first and waited for until its agenda is on the
+    screen. The agenda is the proof that the identity is resolved — it is the
+    current user's rows the app is showing — and the wipe link that follows
+    arrives at a running process, where the identity is already there.
+    """
+    wake_unlock(serial)
+    adb("shell", "am", "start", "-n", f"{APP_ID}/.MainActivity", serial=serial, timeout=60)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if agenda_is_up(ui_dump(serial)):
+            return
+        time.sleep(2)
+    raise RunError(
+        f"the app did not come up with its agenda within {int(timeout)}s, so the "
+        "profile's rows cannot be wiped: the wipe would run against an identity "
+        "the app has not resolved yet"
+    )
 
 
 def reset_content(
@@ -524,10 +570,15 @@ def reset_content(
     [wait_for_reset_marker]) and the check is made on a database that is read
     with the app stopped. A wipe that did not take effect is asked for again.
 
+    The app is warmed up before every attempt (see [warm_up_app]): a wipe that
+    reaches a cold process deletes nothing, because the profile's rows are not
+    the current user's rows until the session has been read.
+
     Returns the row counts of the wiped profile and how long the wipe took.
     """
     counts: dict[str, int] = {}
     for _ in range(attempts):
+        warm_up_app(serial)
         # The log is cleared first: the marker of an earlier wipe would be
         # read as this one's.
         adb("logcat", "-c", serial=serial)
@@ -639,11 +690,31 @@ def find_maestro() -> str:
     raise RunError("maestro was not found on PATH nor in ~/.maestro/bin")
 
 
+def host_version(command: list[str]) -> str:
+    """The first line a tool prints about itself, or "unknown".
+
+    The tools that answer on stderr (`java -version`) and the ones that answer
+    on stdout are both read, and a tool that is not installed is not a reason
+    to stop the run.
+    """
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    lines = (result.stdout or "").strip().splitlines() or (
+        result.stderr or ""
+    ).strip().splitlines()
+    return lines[0].strip() if lines else "unknown"
+
+
 def tool_versions(serial: str) -> dict[str, str]:
     """The versions of the tools the run used.
 
     A measurement without the version of the tool that produced it cannot be
-    compared with the next one, so the report carries them.
+    compared with the next one, so the report carries them. The commit the run
+    was made from belongs there too: the same profile restored from another
+    commit is another measurement, and a report that does not say which commit
+    it came from cannot be reproduced.
     """
     versions = {}
     try:
@@ -659,7 +730,28 @@ def tool_versions(serial: str) -> dict[str, str]:
         versions["maestro"] = "unknown"
     code, out = adb("shell", "getprop", "ro.build.version.release", serial=serial)
     versions["android"] = out.strip() if code == 0 and out.strip() else "unknown"
+    versions["adb"] = host_version(["adb", "version"])
+    versions["jdk"] = host_version(["java", "-version"])
+    versions["commit"] = host_version(["git", "rev-parse", "HEAD"])
+    versions["dirty"] = repo_is_dirty()
     return versions
+
+
+def repo_is_dirty() -> str:
+    """Whether the tree the run was made from had changes in it.
+
+    A run made from a tree with changes in it is not the same measurement as
+    one made from the commit it names, and the report has to say so.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True, timeout=60
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if result.returncode != 0:
+        return "unknown"
+    return "yes" if result.stdout.strip() else "no"
 
 
 def flow_command(serial: str, flow: str, env: dict[str, str]) -> list[str]:

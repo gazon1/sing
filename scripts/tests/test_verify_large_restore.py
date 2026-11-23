@@ -772,9 +772,10 @@ class WipeWaitingTest(unittest.TestCase):
             return path
 
         with unittest.mock.patch.object(driver, "adb", fake_adb):
-            with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": 0}):
-                with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                    counts, elapsed = driver.reset_content("device", Path("/tmp/wipe-test"))
+            with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
+                with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": 0}):
+                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                        counts, elapsed = driver.reset_content("device", Path("/tmp/wipe-test"))
 
         self.assertEqual(counts, {"tasks": 0})
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
@@ -797,12 +798,93 @@ class WipeWaitingTest(unittest.TestCase):
             return path
 
         with unittest.mock.patch.object(driver, "adb", fake_adb):
-            with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": -1}):
-                with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                    with self.assertRaises(driver.RunError) as caught:
-                        driver.reset_content("device", Path("/tmp/wipe-test"))
+            with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
+                with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": -1}):
+                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                        with self.assertRaises(driver.RunError) as caught:
+                            driver.reset_content("device", Path("/tmp/wipe-test"))
 
         self.assertIn("could not be read", str(caught.exception))
+
+
+class WarmUpTest(unittest.TestCase):
+    """A wipe that reaches a cold process deletes nothing.
+
+    The app reads its session from the encrypted store when it starts, and that
+    read takes seconds. Until it is done the profile's rows are not the current
+    user's rows, and a reset asked for in that window answers "there is nothing
+    to wipe" — in a second, with a log line that says every table was reached.
+    The run then reads a profile that still holds every row and blames the
+    restore for it.
+    """
+
+    AGENDA_DUMP = (
+        '<?xml version="1.0"?><hierarchy><node resource-id="nav_tab_inbox" /></hierarchy>'
+    )
+    LOCK_DUMP = '<?xml version="1.0"?><hierarchy><node resource-id="keyguard_root" /></hierarchy>'
+
+    def test_the_agenda_is_the_proof_that_the_identity_is_there(self):
+        self.assertTrue(driver.agenda_is_up(self.AGENDA_DUMP))
+        self.assertFalse(driver.agenda_is_up(self.LOCK_DUMP))
+        self.assertFalse(driver.agenda_is_up(""))
+
+    def test_the_app_is_started_before_the_agenda_is_waited_for(self):
+        seen = []
+
+        def fake_adb(*args, serial="", timeout=0):
+            seen.append(args)
+            return 0, ""
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            with unittest.mock.patch.object(driver, "wake_unlock", lambda serial: None):
+                with unittest.mock.patch.object(
+                    driver, "ui_dump", lambda serial: self.AGENDA_DUMP
+                ):
+                    driver.warm_up_app("device")
+
+        self.assertIn(("shell", "am", "start", "-n", f"{driver.APP_ID}/.MainActivity"), seen)
+
+    def test_an_app_that_never_comes_up_is_refused(self):
+        """A wipe that cannot be trusted must not be asked for."""
+
+        def fake_adb(*args, serial="", timeout=0):
+            return 0, ""
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            with unittest.mock.patch.object(driver, "wake_unlock", lambda serial: None):
+                with unittest.mock.patch.object(driver, "ui_dump", lambda serial: self.LOCK_DUMP):
+                    with unittest.mock.patch.object(driver.time, "sleep", lambda seconds: None):
+                        with self.assertRaises(driver.RunError) as caught:
+                            driver.warm_up_app("device", timeout=0)
+
+        self.assertIn("agenda", str(caught.exception))
+
+    def test_the_wipe_asks_for_the_app_to_be_up_first(self):
+        """The warm-up comes before the link, not after it."""
+
+        def fake_adb(*args, serial="", timeout=0):
+            if args[:2] == ("logcat", "-d"):
+                return 0, f"I/DebugSeedActivity: {driver.RESET_MARKER} 25 tables"
+            return 0, "Starting: Intent"
+
+        def fake_pull(serial, out_dir, stop=True):
+            path = out_dir / "todo.db"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"")
+            return path
+
+        order = []
+
+        def fake_warm_up(serial):
+            order.append("warm up")
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            with unittest.mock.patch.object(driver, "warm_up_app", fake_warm_up):
+                with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": 0}):
+                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                        driver.reset_content("device", Path("/tmp/wipe-test"))
+
+        self.assertEqual(order, ["warm up"])
 
 
 class OverBudgetProblemsTest(unittest.TestCase):
