@@ -506,7 +506,7 @@ def push_archive(serial: str, archive: Path) -> str:
     return name
 
 
-def wait_for_reset_marker(serial: str, timeout: float = 3600) -> float:
+def wait_for_reset_marker(serial: str, timeout: float = 7200) -> float:
     """Wait for the app's own line that says the wipe is finished.
 
     The debug activity logs `reset(content) reached N tables` when
@@ -521,11 +521,13 @@ def wait_for_reset_marker(serial: str, timeout: float = 3600) -> float:
     transaction open, the transaction is discarded, and the profile still
     holds every row the wipe had already deleted.
 
-    The wait is an hour, because the wipe of the largest profile the generator
-    ships is half an hour of work on the device: the wipe of 10 000 tasks took
-    457 s, and the wipe of 50 000 of them was still going after half an hour.
-    A timeout shorter than the wipe itself would call the wipe failed while it
-    was still deleting.
+    The wait is two hours, because a wipe of a big profile is a long piece of
+    work on the device: the wipe of 10 000 tasks took 457 s on the realme
+    RMX3938, and the wipe of 50 000 of them took 4743 s there (measured
+    2026-11-23, 19:05:25 → 20:24:28). A timeout shorter than the wipe itself
+    would call the wipe failed while it was still deleting, and a run that
+    gave up on the wipe of a profile the device can prepare would report a
+    limit of the run where the limit is the device's.
     """
     started = time.monotonic()
     while time.monotonic() - started < timeout:
