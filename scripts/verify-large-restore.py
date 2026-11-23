@@ -2763,13 +2763,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         exit_code = EXIT_SETUP
     finally:
+        # The archives are deleted while the run still holds the device: the
+        # names are predictable (synthetic-10k.zip), and a run that let go of
+        # the device first could delete the archive a later run had already
+        # pushed under the same name.
+        if serial:
+            remove_pushed_archives(serial)
         if lock is not None:
             lock.release()
-        if serial:
-            # The archives the run pushed into the device's Downloads are
-            # the device's storage, not the run's: they go when the run is
-            # done with them, whatever the run's outcome.
-            remove_pushed_archives(serial)
         # The report is written while the directory is still reserved: a run
         # that released the reservation first would let another run claim the
         # directory and start writing its own archive into it.

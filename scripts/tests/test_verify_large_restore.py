@@ -1678,9 +1678,30 @@ class LateFailureReportTest(unittest.TestCase):
         """
         driver.PUSHED_ARCHIVES.clear()
         calls: list[tuple[str, ...]] = []
+        order: list[str] = []
+
+        class FakeLock:
+            """The device lock, and whether it is still held."""
+
+            held = True
+
+            def acquire(self):
+                return None
+
+            def release(self):
+                FakeLock.held = False
+                order.append("released the device")
+
+        lock = FakeLock()
 
         def record_adb(*args, **kwargs):
             calls.append(args)
+            if args[:3] == ("shell", "rm", "-f"):
+                order.append(
+                    "cleaned up while the device was held"
+                    if lock.held
+                    else "cleaned up after the device was let go"
+                )
             return 0, ""
 
         def push(serial, archive):
@@ -1702,12 +1723,22 @@ class LateFailureReportTest(unittest.TestCase):
                         stack.enter_context(patch)
                     stack.enter_context(unittest.mock.patch.object(driver, "adb", record_adb))
                     stack.enter_context(unittest.mock.patch.object(driver, "push_archive", push))
+                    stack.enter_context(
+                        unittest.mock.patch.object(driver, "DeviceLock", lambda serial: lock)
+                    )
                     exit_code = driver.main(argv)
 
         self.assertEqual(exit_code, driver.EXIT_FAILED)
         # The run knows what it pushed, and it took it away again.
         self.assertEqual(driver.PUSHED_ARCHIVES, [])
         self.assertIn(("shell", "rm", "-f", "/sdcard/Download/synthetic.zip"), calls)
+        # The archive names are predictable, so the cleanup has to happen while
+        # the run still holds the device: a later run that pushed the same
+        # name would lose its archive to this run's removal.
+        self.assertEqual(
+            order,
+            ["cleaned up while the device was held", "released the device"],
+        )
 
     def test_the_readable_report_names_the_measurements_too(self):
         with tempfile.TemporaryDirectory() as raw:
