@@ -172,6 +172,7 @@ search_filter_apply_button button
 search_filter_has_description_switch button
 search_filter_pinned_switch button
 search_input field
+search_save_dialog_name field
 settings_content_sync item
 settings_notifications_enabled_switch button
 settings_tab_account tab
@@ -230,6 +231,7 @@ task_item_backuproundtriptask item
 task_item_bigoverdue_1 item
 task_item_book_the_electrician item
 task_item_buy_milk item
+task_item_buy_milk_edited item
 task_item_clearsearchtask2026 item
 task_item_deleteattachtask2026 item
 task_item_due_in_six_days item
@@ -251,7 +253,7 @@ task_item_rendertesttask2026 item
 task_item_return_to_inbox item
 task_item_return_to_today item
 task_item_review_the_launch_checklist item
-task_item_savedalpha2026 item
+task_item_saved_search_2026_alpha item
 task_item_sdnodate item
 task_item_seed_task item
 task_item_send_the_deposit_invoice item
@@ -264,7 +266,9 @@ task_item_worktask item
 task_item_write_spec item
 task_item_write_the_launch_post item
 task_item_купить_молоко item
+task_item_покупки item
 task_reminder_sheet dialog
+task_scheduling_confirm button
 task_scheduling_sheet dialog
 tasks_fab button
 time_tracking_start button

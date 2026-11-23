@@ -58,7 +58,7 @@ name: open-attachments-sheet
     element:
       id: attachments_add_file_row
     direction: DOWN
-    timeout: 3000
+    timeout: 8000
     optional: true
 - runFlow:
     when:

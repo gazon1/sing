@@ -28,7 +28,7 @@ name: reveal-attachments-section
 - extendedWaitUntil:
     notVisible:
       id: attachments_url_input
-    timeout: 8000
+    timeout: 5000
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row

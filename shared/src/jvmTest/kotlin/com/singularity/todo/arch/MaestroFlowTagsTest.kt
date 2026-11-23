@@ -367,7 +367,29 @@ class MaestroFlowTagsTest {
      */
     private data class FlowTexts(val typed: List<String>, val seeded: List<String>, val helpers: List<String>) {
         /** Every text the flow can put into the app. */
-        val all: List<String> get() = typed + seeded + helpers
+        val all: List<String> get() = typed + seeded + helpers + appended
+
+        /**
+         * The titles a flow builds by *appending* to one already in a field.
+         *
+         * `inputText` appends to whatever the field holds, so a flow that opens
+         * a task titled "Buy milk" and types `" edited"` leaves a title of
+         * "Buy milk edited" — an id no single literal in the file produces. The
+         * tell is the leading space: a value that starts with whitespace is a
+         * continuation of the text before it, not a text of its own.
+         *
+         * The base is any text the flow can already have in a field — typed,
+         * seeded, or supplied by a helper. Chaining two continuations is not
+         * modelled: no flow in the tree does it, and a guess that got it wrong
+         * would weaken the check it is meant to sharpen.
+         */
+        private val appended: List<String>
+            get() {
+                val continuations = typed.filter { it.startsWith(" ") || it.startsWith("\t") }
+                if (continuations.isEmpty()) return emptyList()
+                val bases = typed.filterNot { it.startsWith(" ") || it.startsWith("\t") } + seeded + helpers
+                return bases.flatMap { base -> continuations.map { base + it } }
+            }
     }
 
     /**

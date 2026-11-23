@@ -5,15 +5,15 @@ schema: 1
 required_attempts: 3
 qualifications:
   Maestro/flows/attachments/02-delete.yaml:
-    fingerprint: sha256:c2e09890a6bd183c44a7bfe5119a87516efe44f829082ca8e93a6b1668ca2bb2
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:a29866156a65bebbe1a8ed3485b4602f8fa342e3d4398900fa62b7cb7dbc6207
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -26,8 +26,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -40,8 +40,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -54,20 +54,20 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/attachments/04-persistence.yaml:
-    fingerprint: sha256:6dc00abe4c9052e6765a84d4c2131ba79341bfe607dba7ea76ebd52681c821fb
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:a5b820245de38cd6be4fcbf86243b4ad88d66edf92c5285fb34e57e60078421a
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -80,8 +80,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -94,8 +94,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -108,20 +108,20 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/attachments/01-add-url.yaml:
-    fingerprint: sha256:938ef2ee49187a4fcaee141dc447364c4e5df80d82d6f6457fc415a784037655
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:7728252ba94b86819ad28bab7c6cf655da90db0b7fc70251bdb7202ff55d16dd
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -134,8 +134,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -148,8 +148,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -162,20 +162,20 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/attachments/05-renders-correctly.yaml:
-    fingerprint: sha256:e34808a0c0e97a135fcaf3d6abd8babe4109595936b362f5f108916360ca3eb6
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:fc2fcd504d4ad2a0c025f18b898d7b575bb16e7b757d98b39d3cd4c1ce474e9d
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -188,8 +188,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -202,8 +202,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -216,20 +216,20 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/attachments/03-empty-url-rejected.yaml:
-    fingerprint: sha256:2b609894f83d6b3e3392723b9ecb6e731aab02e67e62498744e876172c78640f
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:b0c812201cd2400b79d9a4c6fce29056d158e3ab168d42256455c42b4da55a88
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -242,8 +242,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -256,8 +256,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -270,8 +270,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/agenda/01-smart-lists.yaml:
@@ -545,15 +545,15 @@ qualifications:
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/search/07-saved-search.yaml:
-    fingerprint: sha256:48f1f7cd4a714a95a9d0d34e4d6686e2d0ec2bbcd84ee7cfadaa2146c329dd8f
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:0cea19d446ed86afec426f0cdc5f40ea6a1c73473d0c9fee9926ec56e33cc235
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -566,8 +566,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -580,8 +580,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -594,20 +594,20 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/auth/05-session-invalidation.yaml:
-    fingerprint: sha256:7e9da4c72efc9ee0f88a3b5feebafbe38e6901c004b9c555a23239c7b8daf5c3
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:1449713c9b893068f95d124a02363333ae0b6fdb329f07e7bf13322e3db809c4
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -620,8 +620,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -634,8 +634,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -648,20 +648,20 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/search/13-suggestion-dismissal.yaml:
-    fingerprint: sha256:31521a7e9dbc643e93091377890108315d8596f762c7ea123b60a844023121f9
-    qualified_at: '2026-11-22'
+    fingerprint: sha256:74ab4a2f3b2443995518735d269a984362e74274b3c5ba603664f296a7bac2dd
+    qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
+    commit: 344998aeaf23
+    apk_commit_sha: 344998aeaf23
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -674,8 +674,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -688,8 +688,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -702,8 +702,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
+      commit: 344998aeaf23
+      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
 exceptions: {}

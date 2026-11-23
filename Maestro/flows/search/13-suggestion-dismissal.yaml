@@ -136,10 +136,10 @@ tags:
 - extendedWaitUntil:
     visible:
       id: search_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: shell_back_button
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000

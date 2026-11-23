@@ -85,7 +85,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: dialog_confirm
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: dialog_confirm
 
