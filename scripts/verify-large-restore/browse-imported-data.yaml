@@ -19,9 +19,10 @@
 appId: com.singularity.todo
 name: large-restore-browse-imported-data
 ---
-- launchApp:
-    appId: com.singularity.todo
-    clearState: false
+# The shared launch helper, the way the certified suite starts the app: the
+# notification permission is granted, the airplane mode is switched off
+# afterwards, and the first-run tour is dismissed.
+- runFlow: ../../Maestro/helpers/launch-clean.yaml
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
