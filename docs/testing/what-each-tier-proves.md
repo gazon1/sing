@@ -43,8 +43,9 @@ a different list of bindings from the desktop's.
 The host lane runs those on the JVM, in seconds — Robolectric where the Android
 framework is needed, a plain JUnit 4 runner where it is not — and the assertions
 are about Android's own implementation rather than a fake of it. That is the whole
-point of the lane: the alternative to a device is not "no test", it is "a test of
-the fake".
+point of the lane: without it, the only coverage of these ports would be the JVM
+lane's, which tests a *fake* of them — that proves the common contract, but never
+that Android's own code answers it.
 
 Its classes carry their guarantees in
 [the ownership table](../architecture/test-tier-ownership.md#android-test-inventory-3086).
