@@ -20,7 +20,10 @@ turn a broken restore into a green report:
 * `verdict_problems` is what decides the run's exit code, so a check whose
   problem is missing from it does not fail the run;
 * `padded_archive` builds an archive the app has to refuse for the budget's
-  reason.
+  reason;
+* `archive_paths` keeps a profile that carries a path away from the
+  filesystem, and `reserve_output_dir` keeps two runs out of one output
+  directory.
 
 The file name has a dash in it, so the script is loaded by path — the way the
 repository's own tests load it.
@@ -1360,6 +1363,63 @@ class OutputDirectoryTest(unittest.TestCase):
             self.assertEqual(exit_code, driver.EXIT_SETUP)
             # The earlier run's report is still there, untouched.
             self.assertEqual(report.read_text(encoding="utf-8"), '{"status": "complete"}')
+
+
+class ProfileNameTest(unittest.TestCase):
+    """A profile that carries a path never reaches the filesystem."""
+
+    def test_the_archive_stays_inside_the_output_directory(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            archive, sidecar = driver.archive_paths("10k", out)
+            self.assertEqual(archive.parent, out.resolve())
+            self.assertEqual(sidecar.parent, out.resolve())
+
+    def test_a_traversing_profile_is_refused(self):
+        with tempfile.TemporaryDirectory() as raw:
+            with self.assertRaises(driver.RunError):
+                driver.archive_paths("x/../../../victim", Path(raw))
+
+    def test_a_refused_profile_leaves_the_file_it_would_have_deleted_alone(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out = root / "out"
+            out.mkdir()
+            # The name the run would have written to, had the profile been
+            # allowed to carry a path.
+            victim = root / "synthetic-victim.zip"
+            victim.write_text("somebody else's archive", encoding="utf-8")
+            with self.assertRaises(driver.RunError):
+                driver.generate_archive("x/../../../synthetic-victim", 42, out)
+            self.assertEqual(
+                victim.read_text(encoding="utf-8"), "somebody else's archive"
+            )
+
+
+class OutputDirectoryReservationTest(unittest.TestCase):
+    """One output directory belongs to one run at a time."""
+
+    def test_a_second_run_cannot_claim_the_same_directory(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            self.assertTrue(driver.reserve_output_dir(out))
+            self.assertFalse(driver.reserve_output_dir(out))
+            driver.release_output_dir(out)
+            self.assertTrue(driver.reserve_output_dir(out))
+
+    def test_a_reservation_of_a_dead_run_is_taken_over(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            (out / driver.RESERVATION_FILE).write_text("424242", encoding="utf-8")
+            with unittest.mock.patch("os.kill", side_effect=ProcessLookupError):
+                self.assertTrue(driver.reserve_output_dir(out))
+
+    def test_a_run_refuses_a_directory_another_run_holds(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            (out / driver.RESERVATION_FILE).write_text(str(os.getpid()), encoding="utf-8")
+            exit_code = driver.main(["--out", str(out)])
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
 
 
 #: A dataset that carries the relations of the checklist items, the notes and

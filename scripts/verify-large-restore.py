@@ -384,13 +384,44 @@ def verify_apk_unchanged(serial: str, apk: Path) -> None:
 
 # ── the archive ──────────────────────────────────────────────────────────────
 
+#: The generator's profiles are plain names ("1k", "10k", "50k", "100k"). The
+#: profile ends up in a file name, so a name that is not a plain token is
+#: refused before it can reach the filesystem.
+PROFILE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
+
+
+def archive_paths(profile: str, out_dir: Path) -> tuple[Path, Path]:
+    """Where the archive and its sidecar live — and a refusal if they could
+    land anywhere but inside the output directory.
+
+    The profile is a name the operator typed, and it becomes part of a path.
+    A profile that carries a separator could otherwise name a file outside
+    the output directory — and the run deletes the file it is about to write.
+    The refusal comes before any file is touched.
+    """
+    if not PROFILE_PATTERN.fullmatch(profile):
+        raise RunError(
+            f"the profile {profile!r} is not a plain name, so it cannot be used as a "
+            "file name. The run refuses it before touching any file."
+        )
+    base = out_dir.resolve()
+    archive = (base / f"synthetic-{profile}.zip").resolve()
+    sidecar = archive.with_suffix(".manifest.json")
+    for path in (archive, sidecar):
+        if path.parent != base:
+            raise RunError(
+                f"the archive would land on {path}, outside the output directory {base}. "
+                "The run refuses it before touching any file."
+            )
+    return archive, sidecar
+
+
 def generate_archive(profile: str, seed: int, out_dir: Path) -> tuple[Path, Path, dict]:
     """Generate the synthetic archive and read its sidecar manifest.
 
     Returns the archive, the sidecar and the manifest.
     """
-    archive = (out_dir / f"synthetic-{profile}.zip").resolve()
-    sidecar = archive.with_suffix(".manifest.json")
+    archive, sidecar = archive_paths(profile, out_dir)
     for path in (archive, sidecar):
         if path.exists():
             path.unlink()
@@ -1325,7 +1356,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="an APK to install instead of building this checkout's debug build",
     )
-    parser.add_argument("--profile", default="10k", help="the generator profile, default 10k")
+    parser.add_argument(
+        "--profile",
+        default="10k",
+        help="the generator profile (1k, 10k, 50k, 100k), default 10k; the name is "
+        "used as a file name, so it has to be a plain word",
+    )
     parser.add_argument("--seed", type=int, default=42, help="the generator seed, default 42")
     parser.add_argument(
         "--out",
@@ -1339,6 +1375,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 #: The files a finished run leaves in its output directory. A directory that
 #: holds any of them holds the results of an earlier run.
 RESULT_FILES = ("report.json", "report.md")
+
+#: The file that claims an output directory for one run. It is created
+#: exclusively, so two runs cannot claim the same directory.
+RESERVATION_FILE = ".run-reservation"
 
 
 def default_output_dir_name() -> str:
@@ -1363,6 +1403,62 @@ def output_dir_holds_results(out_dir: Path) -> bool:
     if any((out_dir / name).exists() for name in RESULT_FILES):
         return True
     return any(out_dir.glob("*.zip")) or any(out_dir.glob("*.manifest.json"))
+
+
+def reservation_is_stale(reservation: Path) -> bool:
+    """Whether the reservation belongs to a run that is gone.
+
+    A run that was killed leaves its reservation behind, and the directory
+    would be unusable forever otherwise. The reservation names the process
+    that made it, and a process that no longer exists holds nothing.
+    """
+    try:
+        pid = int(reservation.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return False
+
+
+def reserve_output_dir(out_dir: Path) -> bool:
+    """Claim the output directory for this run.
+
+    The device lock keeps two runs off one device; this keeps two runs off
+    one directory. Two runs against different devices would otherwise
+    overwrite each other's archive and reports, and the measurements of a run
+    are the point of the run.
+
+    Returns False when another live run holds the directory.
+    """
+    reservation = out_dir / RESERVATION_FILE
+    for attempt in range(2):
+        try:
+            handle = os.open(reservation, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            if attempt or not reservation_is_stale(reservation):
+                return False
+            try:
+                reservation.unlink()
+            except OSError:
+                return False
+            continue
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(str(os.getpid()))
+        return True
+    return False
+
+
+def release_output_dir(out_dir: Path) -> None:
+    """Give the output directory back, so a later run can claim it."""
+    try:
+        (out_dir / RESERVATION_FILE).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def over_budget_problems(outcome: dict, counts: dict[str, int]) -> list[str]:
@@ -1776,6 +1872,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return EXIT_SETUP
     out_dir.mkdir(parents=True, exist_ok=True)
+    if not reserve_output_dir(out_dir):
+        print(
+            f"error: another run holds the output directory {out_dir}; its archive, "
+            "its reports and its database copies would be replaced. Give this run a "
+            "directory of its own (--out).",
+            file=sys.stderr,
+        )
+        return EXIT_SETUP
 
     # The report is written whatever happens to the run. A run that dies half
     # way has measured things worth keeping — the archive, the import time,
@@ -2014,6 +2118,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if lock is not None:
             lock.release()
+        release_output_dir(out_dir)
         write_report(out_dir, report)
     return exit_code
 
