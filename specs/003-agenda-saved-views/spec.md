@@ -24,7 +24,7 @@
 
 ### User Story 1 - The Inbox holds what is not scheduled yet (Priority: P2)
 
-A user opens Inbox to see what is unprocessed. The tab holds the tasks that are not scheduled yet — the undated ones — so the list answers "what is late" without filtering. A task that gets a date leaves the Inbox: it appears in Today when it is overdue or due today, and in Upcoming when it is due later.
+A user opens Inbox to see what is unprocessed. The tab holds the tasks that are not scheduled yet — the undated ones — so the list answers "what is not scheduled yet" without filtering. A task that gets a date leaves the Inbox: it appears in Today when it is overdue or due today, and in Upcoming when it is due later.
 
 **Why this priority**: The bucketing is what makes Inbox usable at volume, but a user with fewer than a handful of tasks reads the flat list fine.
 
