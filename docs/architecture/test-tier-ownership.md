@@ -142,20 +142,20 @@ Support files with no `@Test` (keep as infra): `androidApp/.../testing/Instrumen
 
 ## Maestro guarantees inventory (#3105)
 
-Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/3105): no flow moved or deleted, no production code, Gradle config, shard count, suite selection, CI trigger or floor changed. The full inventory — every one of the 135 catalogue flows, its measured cost, its disposition and its named owner — is in [`docs/testing/maestro-guarantees-inventory.md`](../testing/maestro-guarantees-inventory.md).
+Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/3105): no flow moved or deleted, no production code, Gradle config, shard count, suite selection, CI trigger or floor changed. The full inventory — all 135 catalogue flows, each with its suite and shard assignment, its measured cost where one exists, its disposition and its named owner — is in [`docs/testing/maestro-guarantees-inventory.md`](../testing/maestro-guarantees-inventory.md). The 127 automated flows are classified row by row; the eight excluded flows (`manual` / `auth-live`) are listed separately, with no measured cost and no automated owner, because by design no shard runs them.
 
 **Scope.** Suite membership was read from the runner itself (`scripts/src/emulator/maestro/_flow.py`), not from the catalogue: 135 flows in `config/docs/maestro-flows.txt`, 30 in `smoke`, 127 in `full`, 8 excluded (`manual` / `auth-live`). Cost was measured from real CI JUnit artifacts of four `full` runs and one `smoke` run — the median of the **passing** samples per flow. The 23 flows that fail in every sampled run carry no number at all; their duration is a time-to-failure, not a cost.
 
-**What the measurement says.** Measured flow time is 78.6 min across the 127 automated flows; the per-shard overhead on top of it is 9–14 min (full) and 5–7 min (smoke) — AVD restore, emulator boot, install and the per-flow device reset. The floor is a count of failures, not a duration, so the two numbers are not comparable; see the audit's [measurement gap](../testing/maestro-guarantees-inventory.md#the-measurement-gap).
+**What the measurement says.** Measured flow time is 78.7 min across the 104 automated flows that have a passing sample; the other 23 fail in every sampled run and therefore carry no measured cost at all. The per-shard overhead on top of it is 9–14 min (full) and 5–7 min (smoke) — AVD restore, emulator boot, install and the per-flow device reset. The floor is a count of failures, not a duration, so the two numbers are not comparable; see the audit's [measurement gap](../testing/maestro-guarantees-inventory.md#the-measurement-gap).
 
-**Where the guarantees already live.** Classified per row (129 rows for 135 flows — the eight excluded flows share two rows): 24 `keep` (a platform-only guarantee no faster tier owns), 68 `split` (the behaviour half could move to a headless tier), 29 `replace-candidate` (every guarantee is already owned by a named headless test), 8 `investigate`. The top of the ranked candidate set, in the audit's order:
+**Where the guarantees already live.** Classified per row (129 rows for 135 flows — the eight excluded flows share two rows): 24 `keep` (a platform-only guarantee no faster tier owns), 69 `split` (the behaviour half could move to a headless tier), 28 `replace-candidate` (every guarantee is already owned by a named headless test), 8 `investigate`. The top of the ranked candidate set, in the audit's order:
 
 | Flow | Cost | Owner that already holds the guarantee |
 |---|---:|---|
 | `nav/02-menu-parity.yaml` | 35 s | `desktopApp/src/jvmTest/.../feature/flows/menu/MenuParityFlowTest.kt` — model-level parity, stronger than the flow |
 | `agenda/09-upcoming-timeline.yaml` | 84 s | `desktopApp/src/jvmTest/.../feature/flows/agenda/UpcomingTimelineScenarioTest.kt` |
 | `agenda/04-saved-view-results.yaml` | 68 s | `desktopApp/src/jvmTest/.../OpenSavedViewShowsMatchingTasksFlowTest.kt` |
-| `archive/02-bulk-archive-confirm.yaml` | 81 s | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — reads the write, not the observation |
+| `archive/02-bulk-archive-confirm.yaml` | 81 s | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — reads the write, not the observation; the flow itself is a `split`, because its device residue (long-press sheet, overflow resource ids, the result dialog's modal window) has no owner today |
 | `sync/01-change-sync-interval.yaml` | 80 s | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` |
 | `profile/01-create-profile.yaml` | 61 s | `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` |
 | `menu/06-tree-live.yaml` | 64 s | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` — holds the **creation** half only; the rename half has no owner yet |
