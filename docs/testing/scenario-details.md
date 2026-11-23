@@ -8,19 +8,19 @@ Full preconditions, steps and expected result for every scenario, with stable an
 
 ### feature.agenda
 
-#### `AGENDA-01` — A dated task moves between Inbox date buckets
+#### `AGENDA-01` — A dated task leaves the Inbox
 
 **confirmed** · P2 · `#AGENDA`
 
-**Given:** One task exists in Inbox with no date, so the No Date bucket has content to move.
+**Given:** One task exists in Inbox with no date, so the No Date section has content to move.
 
 Steps:
 
-1. Open Inbox and note which bucket the task is under.
+1. Open Inbox and note the task under the "No Date" section.
 2. Give the task a date.
-3. Open Inbox again and look at the bucket headers.
+3. Open Inbox again and look at the sections.
 
-**Expected:** The task leaves the No Date bucket, whose header count drops, and appears under the section for its date — it stays in Inbox rather than disappearing from the screen. Section headers carry their own count, so the move stays visible even without scrolling to the row.
+**Expected:** The task leaves the Inbox: the "No Date" section no longer holds it, and the task is not on the Inbox screen at all. It is not lost — a task dated today is in the Today tab, and one dated further out is in the Upcoming tab. The assertion is on the task's absence from Inbox, because that is the claim the Inbox makes; the section headers carry counts of their own, so a section that still holds other tasks stays on screen.
 
 #### `AGENDA-02` — The saved-views list shows its empty state
 
