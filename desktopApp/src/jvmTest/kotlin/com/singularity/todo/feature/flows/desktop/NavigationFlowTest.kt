@@ -10,12 +10,14 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertContentDescriptionReachable
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickScreenBack
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -105,6 +107,39 @@ class NavigationFlowTest {
             tapTab("Inbox")
 
             assertCurrentTab("Inbox")
+        }
+
+    /**
+     * #2527 — every menu destination can be left again through the shell's own arrow.
+     *
+     * The drawer is the only way into these destinations on desktop, and a menu
+     * destination draws its own screen bar with no navigation icon of its own — the AI
+     * chat's is titled "AI Assistant" and carries none. So the shell's arrow
+     * (`TestTags.SHELL_BACK_BUTTON`) is the only control a flow can leave one by, and it
+     * has to be there on **all** of them, not just the one a single destination test
+     * happens to cover.
+     *
+     * The proof of departure is the shell's FAB: it is drawn on the agenda tabs and
+     * nowhere else, so its return says the flow is back on the tab it came from rather
+     * than that the destination merely stopped drawing.
+     */
+    @Test
+    fun every_menu_destination_can_be_left_again_through_the_shell_back_arrow() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            DesktopShell.MENU_ENTRIES.forEach { label ->
+                tapTab(label)
+
+                // The arrow exists on the destination. `awaitTag` because the top bar
+                // and the destination's own content are composed in the same frame and
+                // the order between them is not guaranteed.
+                awaitTag(TestTags.SHELL_BACK_BUTTON)
+
+                clickTag(TestTags.SHELL_BACK_BUTTON)
+
+                // Back on the tab the flow came from — the FAB only exists there.
+                assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
+                assertCurrentTab("Today")
+            }
         }
 
     /**
