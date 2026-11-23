@@ -80,6 +80,14 @@ The runner retries a flow on a **device-level failure** (`maestro._runner`, `--m
 
 The catalogue holds 135 flows. The shard count comes from `config/docs/e2e-shards.txt` (`full 4`, `smoke 4`).
 
+**The shard file's own comment is stale.** `config/docs/e2e-shards.txt` still explains the
+smoke suite as "the same 27 flows between them in shares of 7, 7, 7 and 6". The runner's
+selection today gives **30** flows in shares of **8 / 8 / 7 / 7** — the comment predates the
+flows that carry the `smoke` tag. The file's *configuration* is right (both suites are still
+split four ways), and its own rule — "only the count belongs here" — is what this audit
+followed; the stale part is the prose around it. Correcting that comment is a separate
+documentation-only change and is **not** done here: this audit changes no configuration file.
+
 **Reading the Shard column.** Each inventory row carries the shard the flow actually runs in:
 `S1`–`S4` is a shard of the `smoke` suite, `F1`–`F4` a shard of the `full` suite, `S2/F4` a flow that
 runs in **both** suites and lands in a different shard in each, and `—` an excluded flow that no shard
@@ -122,13 +130,13 @@ The per-flow **existing coverage** column names only test classes that were read
 [the excluded eight](#the-suite-as-the-runner-sees-it); the 127 automated ones are in the
 area tables:
 
-| Disposition | Rows | Measured flow time they carry |
-|---|---:|---:|
-| `keep` | 24 | 769 s (12.8 min) |
-| `split` | 70 | 2930 s (48.8 min) |
-| `replace-candidate` | 27 | 966 s (16.1 min) |
-| `investigate` | 8 | 55 s (0.9 min) |
-| **total** | **129** | **4720 s (78.7 min)** |
+| Disposition | Rows | of which automated flows | Measured flow time they carry |
+|---|---:|---:|---:|
+| `keep` | 24 | 22 | 769 s (12.8 min) |
+| `split` | 70 | 70 | 2930 s (48.8 min) |
+| `replace-candidate` | 27 | 27 | 966 s (16.1 min) |
+| `investigate` | 8 | 8 | 55 s (0.9 min) |
+| **total** | **129** | **127** | **4720 s (78.7 min)** |
 
 The times are the medians of the passing samples, so they are what the flows cost on a
 green run; the 23 flows that never passed carry no number at all and are counted in
@@ -139,6 +147,11 @@ add up exactly and the rounded minutes do not: the four rows sum to 78.6 min, th
 There are **129 rows, not 129 flows**: the 127 automated flows have a row each, and the eight
 excluded flows share two rows (the six `capture` flows, and the two `auth-live` flows). That is
 why the row count and the catalogue count differ by six.
+
+The `keep` row therefore counts **22 automated flows plus the two aggregated excluded rows**.
+Those two rows are `keep` in the sense of "no shard runs them and no automated tier owns
+them" — they are not a classification of an automated flow, and they carry no time. Every
+other disposition covers automated flows only.
 
 ### Agenda and empty states
 
