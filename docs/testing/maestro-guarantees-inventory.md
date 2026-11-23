@@ -422,6 +422,15 @@ already owns their guarantee today?** It is an **editorial** order, not a strict
    audit, and the class and the test method are named;
 4. **implementation effort** — what a follow-up has to do before the flow can go.
 
+**How this maps onto the issue's three ranking criteria.** The issue asks for a ranking by
+*expected CI time saved*, *confidence in equivalence* and *implementation effort*. Criterion 2
+above is the time, criterion 3 is the confidence and criterion 4 is the effort; criterion 1 is
+the **precondition** the other three are weighed inside: a flow whose guarantee nobody owns
+cannot be dropped, so its cost and effort are not savings and work — they are a bill for a new
+test. That is why ownership completeness comes first, and it is also why the order is editorial
+rather than a numeric sort — the three criteria are not commensurable (a `split` row's saving is
+unknown, as shown below).
+
 **Effort** is not a guess about calendar time; it is read off what the follow-up needs:
 
 | Effort | What the follow-up must do first |
@@ -456,7 +465,7 @@ saving of a `split` row is **unknown**, and its cost column is an upper bound, n
 
 Together these eight carry **491 s** of measured flow time (8.2 min) across the two suites. That
 is the *flow* time, not the wall clock: removing a flow from a shard also removes its share of the
-per-flow device reset, and the shard's fixed overhead stays. Six of the eight are `low` effort;
+per-flow device reset, and the shard's fixed overhead stays. Five of the eight are `low` effort;
 `archive/02` is `high` because its residue has no owner at all, and two are `medium` because the
 headless owner has a gap to close first.
 
@@ -473,8 +482,8 @@ is read by the same rule as in the top eight.
 | `search/09-contains-mode.yaml` | 44 s | full | low | `SearchContainsModeTest` + `SearchViewModelTest` own both modes; the residue is the toggle's tag `search_mode_contains` on device. Note: the file name and the scenario id disagree (`search/09` carries `SEARCH-10`) |
 | `tasks/03-due-date-cancel.yaml` | 43 s | full | low | `TaskSchedulingSheetTest.cancelling writes nothing at all` owns the rule; the residue is the sheet's window and the editor row's placeholder |
 | `nav/bottom-nav-tabs.yaml` | 42 s | **smoke + full** | low | the FAB-per-tab contract is owned by `FabActionResolverTest` (common) and by `NavigationSmokeTest` on the device; the residue is the Android tab resource ids, which `nav/01` already covers. A **smoke** flow — its cost is paid on every PR path, not only nightly |
-| `settings/01-theme-toggle.yaml` | 36 s | full | high | `InterfaceSettingsScreenPreviewTest` owns the settings surface; the residue is the **system-wide** theme application on Android, which no JVM tier can see — a device owner would have to be written |
 | `menu/03-open-project.yaml` | 37 s | full | low | the desktop carrier of MENU-02 asserts the same journey; the residue is the sheet's id-addressed row and the scroll to the fold |
+| `settings/01-theme-toggle.yaml` | 36 s | full | high | `InterfaceSettingsScreenPreviewTest` owns the settings surface; the residue is the **system-wide** theme application on Android, which no JVM tier can see — a device owner would have to be written |
 | `menu/04-all-projects.yaml` | 34 s | full | low | the desktop carrier of MENU-06 asserts the same rule; the residue is again the fold |
 | `menu/10-large-projects.yaml` | 34 s | full | low | the desktop carrier of MENU-07 asserts the fold contract on the drawer; the residue is the toggle's two different ids (`menu_projects_expand` / `menu_projects_collapse`) |
 | `negative/04-empty-archive.yaml` | 28 s | full | medium | both assertions are desktop-owned (`ArchiveBulkActionFlowTest`); the residue is the Android menu path — and Archive is a **menu destination on Android, a tab on desktop**, so the residue is structural |
@@ -1527,12 +1536,12 @@ Each candidate names: the behaviour-only assertions of the flow, the production 
 - **The accepted debt entry for `attachments_add_file_row` does not explain today's attachments failures.** `config/docs/maestro-debt.yaml` registers `No visible element found: id: attachments_add_file_row` (issue 818, 5 flows) as an accepted cause, but all four failing attachments flows fail *earlier*, on the attachment's own title/URL text, not on the add-file row.
 - **`attachments/05`'s last assertion contradicts its own comment.** The comment says "the attachment card in the section has link icon (not image/file icon)" while the assertion checks that the *add-file row* is visible — two different claims, and the file-picker row is platform material rather than a link-icon guarantee.
 - **`archive/01`'s restore half may be blocked by an open defect.** The device overflow test's header states that restoring the task is issue #2723's and is deliberately not asserted there. If #2723 is a live product defect, a new headless owner would fail on it — which is the correct outcome for a test, but it means the carve-up needs a decision about whether the flow stays red on purpose.
-- **The measured costs are medians over passing samples only.** Five flows have no passing sample at all (`attachments/01`, `02`, `04`; `auth/05`; `backup/02`), `attachments/05` has exactly one and `backup/01` has three, so the savings figures for the splits above are estimates on the passing half only.
+- **The measured costs are medians over passing samples only.** Five flows have no passing sample at all (`attachments/01`, `02`, `04`; `auth/05`; `backup/02`), `attachments/05` has exactly one and `backup/01` has three. The flows without a passing sample carry **no** cost figure at all, and for the `split` rows the saving is **unknown** on top of that — the per-flow times cannot say how much of a flow's seconds belong to its behaviour half.
 
 ### Notes, search, projects
 
 - **The failing flows' root causes are unverified.** `projects/04-pick-emoji.yaml`, `projects/05-custom-emoji.yaml`, `search/02-cyrillic.yaml`, `search/07-saved-search.yaml`, `search/12-no-results-recovery.yaml` and `search/13-suggestion-dismissal.yaml` failed in **both** full runs and have no passing sample; `notes/01-edit-body.yaml` failed the three most recent runs (it passes in the two older ones) and the smoke run. No emulator was run, so the failing step of each is unknown. Seven red flows in one area is more consistent with a common cause (a build, a seed helper, or the app-menu path) than with seven independent defects, but I could not verify that from the tree.
-- **Cost figures for those flows are unknown.** The fact sheet's durations come from passing samples only, so the cost of a never-passing flow is a lower bound (time-to-failure), not its runtime.
+- **Cost figures for those flows are unknown.** The fact sheet's durations come from passing samples only, so a never-passing flow has **no** cost figure at all: its recorded duration is the time *to the failure*, which is not a runtime measurement — a flow that dies on a timeout can burn more wall clock than a green run. Its real cost stays unknown until a passing execution is measured.
 - **No flow in this area carries a notes or projects scenario id.** `scripts/src/traceability/scenarios/notes/NOTES-0{1,2,3}.yaml` and `scripts/src/traceability/scenarios/projects/PROJECTS-0{1,2}.yaml` each state that they are "carried by Maestro flow … (`scenario:NOTES-XX` / `scenario:PROJECTS-XX`)", but none of the four notes flows and none of the five projects flows carries a `scenario:` tag — only `search`, `smoke`, `regression`, `notes`, `projects` and `i18n`. This is the same mismatch area A found for the agenda flows, and it is why every flow in the fact sheet reports "kotlin carriers for the same scenario id: (none)". I could not determine whether the traceability tooling derives the claim from the tag or from the spec's prose.
 - **Scenario ids that no flow in this area claims**: `SEARCH-01` is carried by `Maestro/flows/system/search-finds-task.yaml` (outside this area); `SEARCH-09` (target: desktop) and `SEARCH-11` (target: desktop) have no carrier flow here — their owners appear to be the desktop highlight and pending-state tests. `search/09-contains-mode.yaml` carries `scenario:SEARCH-10`, so the file name and the scenario id disagree.
 - **Two flows claim the same search empty-state behaviour**: `search/06-no-results.yaml` and `negative/05-empty-search.yaml` (area A) both assert the idle prompt vs the no-results state. Only one of them should keep the device slot; the headless owner `SearchContentTest` is shared.
