@@ -3,8 +3,11 @@ package com.singularity.todo.feature.flows.desktop
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -59,6 +62,46 @@ class DesktopSingleBackControlTest {
                 backControlCount(),
                 "the screen on top draws the one back control",
             )
+        }
+    }
+
+    /**
+     * The other direction of the handoff: the screen that owns the control leaves.
+     *
+     * Entering is the easy half — the shell keeps its control until the screen on
+     * top takes it. Leaving is the half where a control can go missing: the screen
+     * is gone, and the shell's control comes back only after the release has
+     * reached it. So this test counts the controls in every frame of the way back
+     * as well.
+     */
+    @Test
+    fun the_control_is_there_in_every_frame_while_the_owning_screen_leaves() {
+        runDesktopAppTest(clock = CLOCK) {
+            mainClock.autoAdvance = false
+            mainClock.advanceTimeBy(500)
+
+            // The FAB pushes the task editor, which draws a back arrow of its own.
+            onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
+            repeat(4) { mainClock.advanceTimeByFrame() }
+
+            // The editor owns the control: its arrow is the one on screen, and the
+            // shell's is not.
+            assertEquals(1, backControlCount(), "the editor draws the one back control")
+
+            // The editor's own arrow is what leaves the screen.
+            onAllNodes(
+                hasContentDescription(DesktopShell.BACK) and hasTestTag(TestTags.SHELL_BACK_BUTTON).not(),
+            ).onFirst().performClick()
+
+            repeat(8) { frame ->
+                mainClock.advanceTimeByFrame()
+                val controls = backControlCount()
+                assertEquals(
+                    1,
+                    controls,
+                    "frame $frame of the way back drew $controls back controls: there is one control, and it is one",
+                )
+            }
         }
     }
 

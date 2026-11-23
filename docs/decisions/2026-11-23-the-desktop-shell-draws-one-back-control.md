@@ -120,6 +120,12 @@ owns a back arrow publishes that arrow to the shell itself
   matching the order of the screens: the screen that came up last has to be the
   last one composed. That is the same convention `ScreenActionsHolder` already
   relies on for the action row.
+- The handoff holds in both directions, and both are proved frame by frame
+  (`DesktopSingleBackControlTest`): entering a screen that owns the control, and
+  leaving one. Leaving is the half where a control could go missing — the screen
+  is gone, and the shell's control is back only after the release reached it —
+  so the test counts the controls in every frame of the way back as well. There
+  is exactly one in every frame of both handoffs.
 - The holder counts "a leading control", not "a back arrow": a screen in
   selection mode publishes its "Exit selection" icon, and the shell's control
   stands down while such a bar is on top. That is what the Android shell does
