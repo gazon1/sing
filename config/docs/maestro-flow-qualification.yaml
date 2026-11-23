@@ -437,15 +437,15 @@ qualifications:
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/search/02-cyrillic.yaml:
-    fingerprint: sha256:f241523bd4e7b946ee506d875e10285ba092deb7b22d95e577ec3e5c756a6b8d
+    fingerprint: sha256:7dd90779a1dc69313684a174f36f1c51d525e4ea087fc5738a7861836430a8e1
     qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: c07ae3aca2e8
-    apk_commit_sha: c07ae3aca2e8
+    commit: 0d1d9f14073f
+    apk_commit_sha: 0d1d9f14073f
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -458,8 +458,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: c07ae3aca2e8
-      apk_commit_sha: c07ae3aca2e8
+      commit: 0d1d9f14073f
+      apk_commit_sha: 0d1d9f14073f
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -472,8 +472,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: c07ae3aca2e8
-      apk_commit_sha: c07ae3aca2e8
+      commit: 0d1d9f14073f
+      apk_commit_sha: 0d1d9f14073f
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -486,8 +486,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: c07ae3aca2e8
-      apk_commit_sha: c07ae3aca2e8
+      commit: 0d1d9f14073f
+      apk_commit_sha: 0d1d9f14073f
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/tasks/open-task-detail.yaml:

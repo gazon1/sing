@@ -19,10 +19,13 @@
 # transliteration and assert the transliterated id — a pair that agreed with
 # each other and with neither the app's tokenizer nor its slug rule.
 #
-# `inputText` types Cyrillic on this build. That was measured, not assumed:
-# a probe typed "Покупки" into this field on the RMX3938 and the seeded row
-# came back. An earlier version of this flow carried the opposite claim, and
-# the flow's coverage was weakened to fit it.
+# `inputText` types Cyrillic on this build, and not because of the keyboard:
+# Maestro injects the text, so the flow does not depend on which IME is
+# installed or which language it is in. That was measured on the RMX3938 with
+# two different keyboards — the phone's own and the Gboard the CI emulator
+# runs — and the seeded row came back under both. An earlier version of this
+# flow carried the opposite claim, and the flow's coverage was weakened to fit
+# it.
 appId: com.singularity.todo
 name: search-cyrillic
 tags:
