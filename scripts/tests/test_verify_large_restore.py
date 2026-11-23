@@ -12,6 +12,10 @@ turn a broken restore into a green report:
   empty table — otherwise a restore that wrote nothing at all passes;
 * `relationship_problems` counts the links that point at nothing, on a
   database built to contain exactly one broken link of each kind;
+* `owner_id` / `scoped_user_id` / `untouched_profile_problems` are the
+  profile arithmetic: the scope of the profile under test is known before the
+  wipe, and the rows of the profile the device was left in have to be the
+  same before and after the run;
 * `over_budget_problems` tells a refusal for the archive's size apart from a
   refusal for anything else — the dialog is the same in both cases;
 * `interrupted_import_problems` holds an import that was cut short to
@@ -79,14 +83,23 @@ CREATE TABLE notes (
 CREATE TABLE checklist_items (id TEXT PRIMARY KEY, task_id TEXT);
 CREATE TABLE task_tags (task_id TEXT, tag_id TEXT);
 CREATE TABLE task_dependencies (task_id TEXT, depends_on_task_id TEXT);
+CREATE TABLE profiles (id TEXT PRIMARY KEY, name TEXT, is_default INTEGER DEFAULT 0);
+CREATE TABLE sync_state (owner_id TEXT, profile_id TEXT);
 """
 
 
-def _database(tmp: Path, statements: list[str]) -> Path:
+def _database(tmp: Path, statements: list[str], scope: str = "u1") -> Path:
+    """A database of the app's own tables, holding the given rows.
+
+    `scope` is the scope the rows belong to — the plain user id of the default
+    profile, or `"{profile}/{user}"` for every other profile. The rows that
+    do not name a scope of their own take the default of the schema, which is
+    this scope.
+    """
     path = tmp / "todo.db"
     connection = sqlite3.connect(path)
     try:
-        connection.executescript(SCHEMA)
+        connection.executescript(SCHEMA.replace("DEFAULT 'u1'", f"DEFAULT '{scope}'"))
         for statement in statements:
             connection.execute(statement)
         connection.commit()
@@ -196,29 +209,136 @@ class ProfileScopeTest(unittest.TestCase):
         self.assertEqual(counts["tasks"], 2)
         self.assertEqual(counts["taskTags"], 2)
 
-    def test_the_scope_of_the_rows_the_reset_removed(self):
-        """The reset deletes the active profile's rows and nothing else, so
-        the rows that are gone after it name the profile under test.
+    def test_the_scope_is_known_before_the_wipe(self):
+        """The scope comes from the profile the run works in, not from the
+        rows the wipe happened to remove: a profile that is empty before the
+        wipe says nothing about the scope of the rows that follow it.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            self.assertEqual(driver.scoped_user_id("default", "u1"), "u1")
+            self.assertEqual(driver.scoped_user_id("P2", "u1"), "P2/u1")
+
+    def test_the_owner_of_a_profile_is_read_from_its_own_rows(self):
+        """The rows of the profile under test name the account themselves:
+        `{profile}/{owner}`.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('x1', 'Task', 'P2/u1')",
+                ],
+            )
+            self.assertEqual(driver.owner_id(path, "P2"), "u1")
+
+    def test_the_owner_of_the_default_profile_is_the_plain_user_id(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Task', 'u1')"],
+            )
+            self.assertEqual(driver.owner_id(path, "default"), "u1")
+
+    def test_the_owner_is_read_from_the_sync_state_when_no_row_names_it(self):
+        """A profile that holds no rows of its own still has an account: the
+        sync state says which one.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO sync_state (owner_id, profile_id) "
+                    "VALUES ('00000000-0000-0000-0000-000000000001', 'default')",
+                ],
+            )
+            self.assertEqual(driver.owner_id(path, "P2"), "00000000-0000-0000-0000-000000000001")
+
+    def test_two_accounts_name_no_owner(self):
+        """A device that holds the rows of two accounts has no single answer
+        here, and the run is refused rather than measured against a scope that
+        names neither.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Task 1', 'u1')",
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('t2', 'Task 2', 'u2')",
+                ],
+            )
+            self.assertIsNone(driver.owner_id(path))
+
+    def test_the_profile_of_a_name_is_read_from_the_profiles_table(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO profiles (id, name) VALUES ('default', 'Personal')",
+                    "INSERT INTO profiles (id, name) VALUES ('P2', 'Work')",
+                ],
+            )
+            self.assertEqual(driver.profile_id_for_name(path, "Work"), "P2")
+            self.assertEqual(driver.profile_name_for_id(path, "P2"), "Work")
+            self.assertIsNone(driver.profile_id_for_name(path, "Nothing"))
+            self.assertIsNone(driver.profile_name_for_id(path, "P3"))
+
+    def test_the_rows_of_the_profile_the_device_was_left_in_are_untouched(self):
+        """The run works in a profile of its own, so the rows of the profile
+        the device was left in have to be the same before and after it.
         """
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
-            before = _database(tmp, self.TWO_PROFILES)
+            before = _database(
+                tmp,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')"],
+            )
             after_dir = tmp / "after"
             after_dir.mkdir()
             after = _database(
                 after_dir,
                 [
-                    "INSERT INTO tasks (id, title, user_id) VALUES ('x1', 'Other task', 'u2')",
-                    "INSERT INTO tags (id, name, user_id) VALUES ('gx', 'other', 'u2')",
-                    "INSERT INTO task_tags (task_id, tag_id) VALUES ('x1', 'gx')",
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')",
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('x1', 'Other', 'P2/u1')",
                 ],
             )
-            self.assertEqual(driver.removed_scopes(before, after), {"u1"})
+            problems, rows = driver.untouched_profile_problems(before, after, "u1")
+            self.assertEqual(problems, [])
+            self.assertEqual(rows["before"]["tasks"], 1)
+            self.assertEqual(rows["after"]["tasks"], 1)
 
-    def test_a_reset_that_removed_nothing_names_no_scope(self):
+    def test_a_row_written_in_the_profile_the_device_was_left_in_is_a_problem(self):
         with tempfile.TemporaryDirectory() as raw:
-            path = _database(Path(raw), self.TWO_PROFILES)
-            self.assertEqual(driver.removed_scopes(path, path), set())
+            tmp = Path(raw)
+            before = _database(
+                tmp,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')"],
+            )
+            after_dir = tmp / "after"
+            after_dir.mkdir()
+            after = _database(
+                after_dir,
+                [
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')",
+                    "INSERT INTO tasks (id, title, user_id) VALUES ('t2', 'New', 'u1')",
+                ],
+            )
+            problems, _ = driver.untouched_profile_problems(before, after, "u1")
+            self.assertEqual(len(problems), 1)
+            self.assertIn("tasks 1 -> 2", problems[0])
+
+    def test_a_device_that_was_already_in_the_profile_under_test_is_not_compared(self):
+        """There is no other profile to compare, so there is nothing to say."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            before = _database(tmp, [])
+            after_dir = tmp / "after"
+            after_dir.mkdir()
+            after = _database(after_dir, ["INSERT INTO tasks (id, title) VALUES ('t1', 'T')"])
+            problems, _ = driver.untouched_profile_problems(
+                before, after, "u1", same_profile=True
+            )
+            self.assertEqual(problems, [])
 
     def test_the_scope_of_the_restored_dataset(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -951,16 +1071,22 @@ class WipeWaitingTest(unittest.TestCase):
 
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
-                with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": 0}):
+                with unittest.mock.patch.object(
+                    driver, "count_rows", lambda db, scope=None: {"tasks": 0}
+                ):
                     with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                        counts, elapsed, scope = driver.reset_content(
+                        counts, elapsed = driver.reset_content(
                             "device", Path("/tmp/wipe-test")
                         )
 
         self.assertEqual(counts, {"tasks": 0})
-        self.assertIsNone(scope)
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
-        self.assertIn("todo-debug://seed?reset=content", " ".join(seen[1]))
+        # The link names the profile of the run: the app switches to it before
+        # it deletes, so the wipe reaches that profile and nothing else.
+        self.assertIn(
+            f"todo-debug://seed?profile={driver.TEST_PROFILE_NAME}&reset=content",
+            " ".join(seen[1]),
+        )
 
     def test_a_wipe_that_cannot_be_confirmed_is_refused(self):
         """A table that could not be read is an unknown table, not an empty
@@ -980,7 +1106,9 @@ class WipeWaitingTest(unittest.TestCase):
 
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
-                with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": -1}):
+                with unittest.mock.patch.object(
+                    driver, "count_rows", lambda db, scope=None: {"tasks": -1}
+                ):
                     with unittest.mock.patch.object(driver, "pull_database", fake_pull):
                         with self.assertRaises(driver.RunError) as caught:
                             driver.reset_content("device", Path("/tmp/wipe-test"))
@@ -1061,7 +1189,9 @@ class WarmUpTest(unittest.TestCase):
 
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", fake_warm_up):
-                with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": 0}):
+                with unittest.mock.patch.object(
+                    driver, "count_rows", lambda db, scope=None: {"tasks": 0}
+                ):
                     with unittest.mock.patch.object(driver, "pull_database", fake_pull):
                         driver.reset_content("device", Path("/tmp/wipe-test"))
 
@@ -1322,6 +1452,41 @@ def _restored_statements() -> list[str]:
     ]
 
 
+#: The id of the profile the run works in, as the app generates it: a ULID.
+TEST_PROFILE_ID = "01JQ8ZP0Q9K7H5V3N2M4R6T8X0"
+
+
+def _device_database(tmp: Path) -> Path:
+    """The database a device holds once the dataset is restored.
+
+    The dataset's rows are in the scope of the profile the run works in, and
+    the rows of the profile the device was left in are in the default
+    profile's scope — the two are what the run has to tell apart.
+    """
+    return _database(
+        tmp,
+        [
+            "INSERT INTO profiles (id, name, is_default) "
+            "VALUES ('default', 'Personal', 1)",
+            "INSERT INTO tasks (id, title, user_id) VALUES ('home', 'Home task', 'u1')",
+        ]
+        + _restored_statements(),
+        scope=f"{TEST_PROFILE_ID}/u1",
+    )
+
+
+def _profile_patches() -> list:
+    """The profile the run works in, and the one the device was left in."""
+    return [
+        unittest.mock.patch.object(driver, "current_profile_id", lambda serial: "default"),
+        unittest.mock.patch.object(
+            driver,
+            "switch_profile",
+            lambda serial, profile_name, expected_id, previous_id: TEST_PROFILE_ID,
+        ),
+    ]
+
+
 class LinkIdentityTest(unittest.TestCase):
     """The links have to be the dataset's links, not just as many of them.
 
@@ -1542,6 +1707,172 @@ class DeviceClaimTest(unittest.TestCase):
             self.assertIn("already in use", report["error"])
 
 
+def _device_patches(tmp: Path, db: Path | None = None):
+    """Every collaborator the run talks to, faked to a device that works.
+
+    The device holds a database of its own: the dataset's rows in the
+    profile the run works in, and the rows of the profile the device was
+    left in. The flow of the last step does not open, which is what a
+    crash on the task list looks like from the host.
+    """
+    archive = _archive_with(tmp, _payload())
+    db = _device_database(tmp) if db is None else db
+    manifest = {
+        "actualCounts": {
+            "tasks": 2,
+            "projects": 1,
+            "tags": 1,
+            "notes": 0,
+            "checklistItems": 0,
+            "taskDependencies": 1,
+            "taskTags": 1,
+        }
+    }
+    return _profile_patches() + [
+        unittest.mock.patch.object(
+            driver.capture, "resolve_device", lambda serial, devices: "test-device"
+        ),
+        unittest.mock.patch.object(driver.capture, "attached_devices", lambda: []),
+        unittest.mock.patch.object(
+            driver, "device_facts", lambda serial: {"model": "test device"}
+        ),
+        unittest.mock.patch.object(driver.capture, "install_apk", lambda serial, apk: None),
+        unittest.mock.patch.object(
+            driver.capture, "verify_identity", lambda serial, apk, built: ("pkg", "1.0")
+        ),
+        unittest.mock.patch.object(
+            driver, "verify_installed_apk", lambda serial, apk: "md5:" + "0" * 32
+        ),
+        unittest.mock.patch.object(
+            driver, "installed_app_is_debuggable", lambda serial: True
+        ),
+        unittest.mock.patch.object(driver, "database_version", lambda serial: None),
+        unittest.mock.patch.object(
+            driver,
+            "generate_archive",
+            lambda profile, seed, out: (archive, tmp / "sidecar.json", manifest),
+        ),
+        unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
+        unittest.mock.patch.object(
+            driver,
+            "reset_content",
+            lambda serial, out=None, scope="", attempts=4: ({}, 1.0),
+        ),
+        unittest.mock.patch.object(
+            driver,
+            "check_over_budget",
+            lambda serial, out, arc, apk=None, scope=None: {
+                "counts": {},
+                "problems": [],
+                "verdict": "refused",
+            },
+        ),
+        unittest.mock.patch.object(
+            driver,
+            "check_interrupted_import",
+            lambda serial, out, arc, apk=None, expected_counts=None, scope=None: {
+                "interrupted": True,
+                "importStarted": True,
+                "evidence": "the app's own working indicator was on the screen",
+                "counts": {"tasks": 0},
+                "problems": [],
+                "verdict": "empty",
+            },
+        ),
+        unittest.mock.patch.object(driver, "push_archive", lambda serial, arc: "synthetic.zip"),
+        unittest.mock.patch.object(
+            driver,
+            "restore_and_watch",
+            lambda serial, name, log, timeout=1800, apk=None: {
+                "durationSeconds": 12.5,
+                "measured": "confirm-to-snackbar",
+                "reportedBySnackbar": True,
+            },
+        ),
+        unittest.mock.patch.object(driver, "app_memory", lambda serial: "TOTAL PSS: 1"),
+        unittest.mock.patch.object(driver, "pull_database", lambda serial, out: db),
+        unittest.mock.patch.object(driver, "adb", lambda *a, **k: (0, "")),
+        unittest.mock.patch.object(driver, "run_flow", lambda *a, **k: False),
+    ]
+
+
+class DisposableProfileTest(unittest.TestCase):
+    """The run works in a profile of its own, and puts the app back.
+
+    A phone can hold a person's own tasks, projects, notes and tags. A
+    measurement that wipes the profile the app is working in destroys them,
+    and a run that dies half way through destroys them for nothing. So the
+    run switches the app into a profile of its own, wipes that one, restores
+    into it and puts the app back into the profile it found — and the rows of
+    the profile the device was left in are counted before and after the run
+    to show that the run did not touch them.
+    """
+
+    def _run(self, tmp: Path, out: Path, db: Path | None = None):
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
+            with contextlib.ExitStack() as stack:
+                for patch in _device_patches(tmp, db):
+                    stack.enter_context(patch)
+                return driver.main(argv)
+
+    def test_the_run_switches_the_app_into_a_profile_of_its_own(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            self._run(tmp, out)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["profile"]["testProfile"]["name"], driver.TEST_PROFILE_NAME)
+            self.assertEqual(report["profile"]["scope"], f"{TEST_PROFILE_ID}/u1")
+            # The profile the device was left in is named in the report too.
+            self.assertEqual(report["profile"]["homeProfile"]["id"], "default")
+            self.assertEqual(report["profile"]["homeProfile"]["name"], "Personal")
+
+    def test_the_app_is_put_back_into_the_profile_it_was_found_in(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            self._run(tmp, out)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertTrue(report["profileLeftBehind"]["restored"])
+            self.assertEqual(report["profileLeftBehind"]["profile"], "Personal")
+
+    def test_the_rows_of_the_profile_the_device_was_left_in_are_counted(self):
+        """The counts before and after the run are the proof that the run
+        touched nothing outside its own profile.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            self._run(tmp, out)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            rows = report["profile"]["homeProfileRows"]
+            self.assertEqual(rows["before"]["tasks"], 1)
+            self.assertEqual(rows["after"]["tasks"], 1)
+
+    def test_a_run_that_cannot_come_back_is_refused(self):
+        """A profile whose name cannot be read is a profile the run cannot
+        put the app back into, so the run stops before it touches anything.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            db = _database(tmp, ["INSERT INTO tasks (id, title) VALUES ('t1', 'Task')"])
+            exit_code = self._run(tmp, out, db)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            self.assertEqual(report["failure"], "setup")
+            self.assertIn("could not be read", report["error"])
+            # Nothing was wiped: the run stopped before the wipe.
+            self.assertNotIn("profile wiped", report["phases"])
+
+
 class LateFailureReportTest(unittest.TestCase):
     """A run that dies after it has measured things still keeps the measurements.
 
@@ -1554,89 +1885,9 @@ class LateFailureReportTest(unittest.TestCase):
     """
 
     def _patches(self, tmp: Path):
-        """Every collaborator the run talks to, faked to a device that works.
+        """Every collaborator the run talks to, faked to a device that works."""
+        return _device_patches(tmp)
 
-        The run is driven to the last step — the Inbox — and there it fails:
-        the flow does not open, which is what a crash on the task list looks
-        like from the host.
-        """
-        archive = _archive_with(tmp, _payload())
-        db = _database(tmp, _restored_statements())
-        manifest = {
-            "actualCounts": {
-                "tasks": 2,
-                "projects": 1,
-                "tags": 1,
-                "notes": 0,
-                "checklistItems": 0,
-                "taskDependencies": 1,
-                "taskTags": 1,
-            }
-        }
-        return [
-            unittest.mock.patch.object(
-                driver.capture, "resolve_device", lambda serial, devices: "test-device"
-            ),
-            unittest.mock.patch.object(driver.capture, "attached_devices", lambda: []),
-            unittest.mock.patch.object(
-                driver, "device_facts", lambda serial: {"model": "test device"}
-            ),
-            unittest.mock.patch.object(driver.capture, "install_apk", lambda serial, apk: None),
-            unittest.mock.patch.object(
-                driver.capture, "verify_identity", lambda serial, apk, built: ("pkg", "1.0")
-            ),
-            unittest.mock.patch.object(
-                driver, "verify_installed_apk", lambda serial, apk: "md5:" + "0" * 32
-            ),
-            unittest.mock.patch.object(
-                driver, "installed_app_is_debuggable", lambda serial: True
-            ),
-            unittest.mock.patch.object(driver, "database_version", lambda serial: None),
-            unittest.mock.patch.object(
-                driver,
-                "generate_archive",
-                lambda profile, seed, out: (archive, tmp / "sidecar.json", manifest),
-            ),
-            unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
-            unittest.mock.patch.object(
-                driver, "reset_content", lambda serial, out, attempts=4, before_db=None: ({}, 1.0, "u1")
-            ),
-            unittest.mock.patch.object(
-                driver,
-                "check_over_budget",
-                lambda serial, out, arc, apk=None, scope=None: {
-                    "counts": {},
-                    "problems": [],
-                    "verdict": "refused",
-                },
-            ),
-            unittest.mock.patch.object(
-                driver,
-                "check_interrupted_import",
-                lambda serial, out, arc, apk=None, expected_counts=None, scope=None: {
-                    "interrupted": True,
-                    "importStarted": True,
-                    "evidence": "the app's own working indicator was on the screen",
-                    "counts": {"tasks": 0},
-                    "problems": [],
-                    "verdict": "empty",
-                },
-            ),
-            unittest.mock.patch.object(driver, "push_archive", lambda serial, arc: "synthetic.zip"),
-            unittest.mock.patch.object(
-                driver,
-                "restore_and_watch",
-                lambda serial, name, log, timeout=1800, apk=None: {
-                    "durationSeconds": 12.5,
-                    "measured": "confirm-to-snackbar",
-                    "reportedBySnackbar": True,
-                },
-            ),
-            unittest.mock.patch.object(driver, "app_memory", lambda serial: "TOTAL PSS: 1"),
-            unittest.mock.patch.object(driver, "pull_database", lambda serial, out: db),
-            unittest.mock.patch.object(driver, "adb", lambda *a, **k: (0, "")),
-            unittest.mock.patch.object(driver, "run_flow", lambda *a, **k: False),
-        ]
 
     def test_the_measurements_survive_a_failure_late_in_the_run(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -2158,7 +2409,7 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                  interrupted_problems: list[str]):
         """Every collaborator of the run, faked to a device that works."""
         archive = _archive_with(tmp, _payload())
-        db = _database(tmp, _restored_statements())
+        db = _device_database(tmp)
         manifest = {
             "actualCounts": {
                 "tasks": 2,
@@ -2170,7 +2421,7 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                 "taskTags": 1,
             }
         }
-        return [
+        return _profile_patches() + [
             unittest.mock.patch.object(
                 driver.capture, "resolve_device", lambda serial, devices: "test-device"
             ),
@@ -2195,7 +2446,11 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                 lambda profile, seed, out: (archive, tmp / "sidecar.json", manifest),
             ),
             unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
-            unittest.mock.patch.object(driver, "reset_content", lambda serial, out, attempts=4, before_db=None: ({}, 1.0, "u1")),
+            unittest.mock.patch.object(
+                driver,
+                "reset_content",
+                lambda serial, out=None, scope="", attempts=4: ({}, 1.0),
+            ),
             unittest.mock.patch.object(
                 driver,
                 "check_over_budget",

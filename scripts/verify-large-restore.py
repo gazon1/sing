@@ -31,6 +31,12 @@ WHAT IT DELIBERATELY DOES NOT DO
     It does not uninstall the app. A signature clash is reported, not resolved
     by throwing away the data on the device.
 
+    It does not wipe the profile the device's owner uses. The run works in a
+    profile of its own — `verify-large-restore` — which it creates, wipes and
+    restores into, and it puts the app back into the profile it found when it
+    is done. The rows of the profile the device was left in are counted before
+    and after the run, and a difference is a finding.
+
 WHY THE DEVICE POLICY LIVES IN `store-capture.py`
 
     The rules above — name the device, refuse to guess, refuse to throw the
@@ -54,6 +60,7 @@ import sys
 import time
 import zipfile
 from pathlib import Path
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -111,6 +118,22 @@ TASK_SCOPED_TABLES = ("checklist_items", "task_dependencies", "task_tags")
 #: the plain user id; the rows of every other profile carry the profile's id
 #: in front of the user id.
 DEFAULT_PROFILE_ID = "default"
+
+#: The profile the run works in — one of its own, so that the rows a person
+#: keeps on the device are never wiped by a measurement. The run creates it,
+#: wipes it, restores into it and leaves it behind for the next run; the name
+#: is what the report and the docs call it by, so that what a run leaves on
+#: the device is recognisable.
+TEST_PROFILE_NAME = "verify-large-restore"
+
+#: The key the app keeps the active profile under. The app stores the active
+#: profile in a file of its own — a DataStore preferences file — and the bytes
+#: of that file carry the key and the profile's id as plain strings.
+ACTIVE_PROFILE_KEY = b"active_profile_id"
+
+#: The shape of a profile id that the app generates: a ULID, which is
+#: Crockford base32 without the letters I, L, O and U.
+PROFILE_ID_PATTERN = re.compile(rb"[0-9A-HJKMNP-TV-Z]{26}")
 
 #: The snackbar the restore path reports itself with. Its test tag is the
 #: evidence; the text is translated on the device, so it is not asserted on.
@@ -626,14 +649,19 @@ def warm_up_app(serial: str, timeout: float = 240) -> None:
 def reset_content(
     serial: str,
     out_dir: Path | None = None,
+    scope: str = "",
     attempts: int = 4,
-    before_db: Path | None = None,
-) -> tuple[dict[str, int], float, str | None]:
-    """Wipe the active profile's content through the debug seed link.
+) -> tuple[dict[str, int], float]:
+    """Wipe the profile the run works in through the debug seed link.
 
-    The same link the Maestro runner uses before a flow. The import overwrites
-    the profile's rows, but the counts afterwards are only the dataset's counts
-    if there was nothing else in the profile to begin with.
+    The link names the profile and asks for a reset, and the app wipes that
+    profile and nothing else: the profile a person uses keeps its rows,
+    because the run never resets it. The link is the same one the Maestro
+    runner uses before a flow — the difference is the name it carries.
+
+    The import overwrites the profile's rows, but the counts afterwards are
+    only the dataset's counts if there was nothing else in the profile to
+    begin with.
 
     The wipe is waited for with the app's own marker (see
     [wait_for_reset_marker]) and the check is made on a database that is read
@@ -643,85 +671,40 @@ def reset_content(
     reaches a cold process deletes nothing, because the profile's rows are not
     the current user's rows until the session has been read.
 
-    Returns the row counts of the wiped profile, how long the wipe took, and
-    the scope the counts are about.
+    Returns the row counts of the wiped profile and how long the wipe took.
 
     ## The scope of the counts
 
-    The reset deletes the rows of the *active* profile and nothing else, so a
-    device that holds a second profile keeps that profile's rows — and the
-    counts of the profile under test are not the counts of the database. The
-    scope is therefore taken from the rows the reset removed: their
-    `user_id` is the scope of the profile the reset acted on, and the counts
-    after the reset are counted for that scope alone.
-
-    A reset that removed nothing leaves the scope unknown. That is the case of
-    a profile that held no rows to begin with — the counts of an empty
-    database are the profile's counts either way — and the case of a device
-    that holds another profile's rows, which cannot be told apart from a
-    reset that did not take effect. The second case is refused rather than
-    measured: the counts of a database that holds rows of two profiles
-    belong to neither of them.
+    The counts are the counts of one scope — the profile under test — and not
+    the counts of the database: a device that holds the rows of a person who
+    uses the app keeps those rows, and counting them would report a
+    difference between the manifest and a restore that was correct. The scope
+    is known before the wipe (see [owner_id]): it is the profile's id in front
+    of the id of the account the app works as.
     """
     counts: dict[str, int] = {}
-    scope: str | None = None
     for _ in range(attempts):
         warm_up_app(serial)
         # The log is cleared first: the marker of an earlier wipe would be
         # read as this one's.
         adb("logcat", "-c", serial=serial)
-        code, out = adb(
-            "shell",
-            "am",
-            "start",
-            "-a",
-            "android.intent.action.VIEW",
-            "-d",
-            "todo-debug://seed?reset=content",
-            serial=serial,
-        )
-        if code != 0:
-            raise RunError(f"the profile's content could not be reset:\n{out.strip()}")
+        send_debug_link(serial, f"profile={quote(TEST_PROFILE_NAME)}&reset=content")
         elapsed = wait_for_reset_marker(serial)
         if out_dir is None:
-            return {}, elapsed, scope
+            return {}, elapsed
         db_path = pull_database(serial, out_dir / "reset-db")
-        raw = count_rows(db_path)
+        raw = count_rows(db_path, scope or None)
         unreadable = sorted(key for key, value in raw.items() if value < 0)
         if unreadable:
             raise RunError(
                 f"the tables {', '.join(unreadable)} could not be read, so the wipe "
                 "cannot be confirmed"
             )
-        removed = removed_scopes(before_db, db_path) if before_db is not None else set()
-        scope = removed.pop() if len(removed) == 1 else None
-        if scope is not None:
-            counts = count_rows(db_path, scope)
-            if not any(value > 0 for value in counts.values()):
-                return counts, elapsed, scope
-            # The profile still holds rows: the reset did not take effect.
-            continue
-        # The reset removed nothing, so no scope names the profile under test.
-        # The profile held nothing to begin with — the counts of an empty
-        # database are the profile's counts — or the device holds another
-        # profile's rows, which is not to be told apart from a reset that
-        # did not take effect. The second case is refused below.
-        if before_db is None or not content_row_total(before_db):
-            return raw, elapsed, None
-    if scope is None:
-        raise RunError(
-            "the profile's content was not wiped — the reset removed none of the rows "
-            "the device held, and nothing names the scope they belong to: either the "
-            "reset did not take effect, or they belong to another profile. In both "
-            "cases the counts cannot be attributed to the profile under test."
-        )
+        counts = raw
+        if not any(value > 0 for value in raw.values()):
+            return counts, elapsed
+        # The profile still holds rows: the reset did not take effect.
     raise RunError(f"the profile's content was not wiped — it still holds {counts}")
-
-
-def content_row_total(db_path: Path) -> int:
-    """How many rows the content tables hold, whatever scope they belong to."""
-    counts = count_rows(db_path)
-    return sum(value for value in counts.values() if value > 0)
 
 
 def wake_unlock(serial: str) -> None:
@@ -1192,16 +1175,6 @@ def stop_app(serial: str, timeout: int = 30) -> bool:
     return False
 
 
-def pulled_db_path(out_dir: Path) -> Path:
-    """Where `pull_database` puts the copy it pulled.
-
-    The copy lives in a directory of its own inside the run's output, so a
-    caller that needs the copy it pulled — the state of the database before a
-    wipe, say — looks it up here instead of guessing the layout.
-    """
-    return out_dir / "device-db" / "todo.db"
-
-
 def pull_database(serial: str, out_dir: Path, stop: bool = True) -> Path:
     """Copy the app's database (and its write-ahead log) off the device.
 
@@ -1264,6 +1237,139 @@ def scoped_user_id(profile_id: str, owner_id: str) -> str:
     return f"{profile_id}/{owner_id}"
 
 
+def profile_id_for_name(db_path: Path, name: str) -> str | None:
+    """The id of the profile of that name, or nothing when there is none."""
+    for row in rows_of(db_path, "profiles", "id, name"):
+        if row and str(row[1]) == name:
+            return str(row[0])
+    return None
+
+
+def profile_name_for_id(db_path: Path, profile_id: str) -> str | None:
+    """The name of the profile of that id, or nothing when there is none."""
+    for row in rows_of(db_path, "profiles", "id, name"):
+        if row and str(row[0]) == profile_id:
+            return str(row[1])
+    return None
+
+
+def owner_id(db_path: Path, profile_id: str | None = None) -> str | None:
+    """The plain user id the app's rows belong to.
+
+    The rows of the default profile carry that id as it is; the rows of every
+    other profile carry the profile's id in front of it. The rows of the
+    profile under test name the id themselves — `{profile}/{owner}` — so they
+    are the first place to look; the rows of the default profile and the sync
+    state are the places after that.
+
+    An id that cannot be told apart from another one is not an id: a device
+    that holds the rows of two accounts has no single answer here, and the
+    run is refused rather than measured against a scope that names neither.
+    """
+    if profile_id:
+        prefix = f"{profile_id}/"
+        scoped = {
+            str(row[0])
+            for row in rows_of(db_path, "tasks", "DISTINCT user_id")
+            if row and row[0] and str(row[0]).startswith(prefix)
+        }
+        if len(scoped) == 1:
+            return scoped.pop()[len(prefix) :]
+    plain = {
+        str(row[0])
+        for row in rows_of(db_path, "tasks", "DISTINCT user_id")
+        if row and row[0] and "/" not in str(row[0])
+    }
+    if len(plain) == 1:
+        return plain.pop()
+    owners = {
+        str(row[0])
+        for row in rows_of(db_path, "sync_state", "DISTINCT owner_id")
+        if row and row[0]
+    }
+    if len(owners) == 1:
+        return owners.pop()
+    return None
+
+
+def active_profile_id(serial: str) -> str | None:
+    """The profile the app is working in, as the app itself records it.
+
+    The app keeps the active profile in a file of its own
+    (`files/profile_state.preferences_pb`): a DataStore preferences file,
+    whose bytes carry the key and the profile's id as plain strings. A file
+    that is not there — or that carries no key — means the default profile:
+    that is what the app falls back to.
+    """
+    code, out = adb_bytes(
+        "exec-out",
+        "run-as",
+        APP_ID,
+        "cat",
+        "files/profile_state.preferences_pb",
+        serial=serial,
+        timeout=60,
+    )
+    if code != 0:
+        return None
+    marker = out.find(ACTIVE_PROFILE_KEY)
+    tail = out[marker + len(ACTIVE_PROFILE_KEY) :] if marker >= 0 else out
+    match = PROFILE_ID_PATTERN.search(tail) or re.search(rb"default", tail)
+    return match.group().decode() if match else None
+
+
+def current_profile_id(serial: str) -> str:
+    """The profile the app is working in; the default one when it says nothing."""
+    return active_profile_id(serial) or DEFAULT_PROFILE_ID
+
+
+def send_debug_link(serial: str, query: str) -> None:
+    """Send a debug seed link to the app."""
+    code, out = adb(
+        "shell",
+        "am",
+        "start",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        f"todo-debug://seed?{query}",
+        serial=serial,
+    )
+    if code != 0:
+        raise RunError(f"the app did not take the link {query}:\n{out.strip()}")
+
+
+def switch_profile(
+    serial: str, profile_name: str, expected_id: str | None, previous_id: str
+) -> str:
+    """Make a profile the one the app works in; returns its id.
+
+    The link creates the profile when it is not there and switches to it
+    either way — the switch happens before anything is written or deleted, so
+    a link that names a profile and wipes it wipes that profile and nothing
+    else. That is what keeps the rows of the profile a person uses out of a
+    measurement.
+
+    The switch is waited for: the app writes the active profile into a file
+    of its own, and that file is what says the switch happened. A link that
+    was delivered and not acted upon leaves the file as it was.
+    """
+    send_debug_link(serial, f"profile={quote(profile_name)}")
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        current = current_profile_id(serial)
+        if expected_id is not None:
+            if current == expected_id:
+                return current
+        elif current != previous_id:
+            return current
+        time.sleep(1)
+    raise RunError(
+        f"the app did not switch to the profile {profile_name}: it still works in "
+        f"the profile {current_profile_id(serial)}"
+    )
+
+
 def rows_of(db_path: Path, table: str, columns: str) -> list[tuple]:
     """The rows of a table, or nothing when the table cannot be read."""
     connection = None
@@ -1275,33 +1381,6 @@ def rows_of(db_path: Path, table: str, columns: str) -> list[tuple]:
     finally:
         if connection is not None:
             connection.close()
-
-
-def content_scopes(db_path: Path) -> set[str]:
-    """The scopes the content tables hold rows of."""
-    scopes: set[str] = set()
-    for table in SCOPED_TABLES:
-        for row in rows_of(db_path, table, "DISTINCT user_id"):
-            if row and row[0]:
-                scopes.add(str(row[0]))
-    return scopes
-
-
-def removed_scopes(before_db: Path, after_db: Path) -> set[str]:
-    """The scopes of the rows the profile reset removed.
-
-    The reset deletes the rows of the active profile and nothing else, so the
-    rows that are gone after it are the active profile's rows, and the scope
-    they carry is the scope the measurement has to count.
-    """
-    scopes: set[str] = set()
-    for table in SCOPED_TABLES:
-        before = {str(row[0]): str(row[1]) for row in rows_of(before_db, table, "id, user_id")}
-        after = {str(row[0]) for row in rows_of(after_db, table, "id")}
-        for row_id, scope in before.items():
-            if row_id not in after:
-                scopes.add(scope)
-    return scopes
 
 
 def dataset_scope(db_path: Path, task_ids: list[str]) -> str | None:
@@ -1394,6 +1473,39 @@ def compare_counts(expected: dict, actual: dict) -> list[str]:
         if got != want:
             problems.append(f"{key}: the manifest says {want}, the database holds {got}")
     return problems
+
+
+def untouched_profile_problems(
+    before_db: Path, after_db: Path, scope: str, same_profile: bool = False
+) -> tuple[list[str], dict]:
+    """Whether the rows of a profile the run did not work in are the same.
+
+    The run works in a profile of its own, so the rows of the profile the
+    device was left in have to be the same before and after the run. A
+    difference is a row the run wrote or removed in a profile it had no
+    business touching — the one thing the run must not do to a phone.
+
+    The counts that could not be read are not a difference: a table that
+    could not be read says nothing about what is in it.
+
+    A device that was already in the profile under test has no other profile
+    to compare, and the comparison is skipped (`same_profile`).
+    """
+    before = count_rows(before_db, scope)
+    after = count_rows(after_db, scope)
+    rows = {"before": before, "after": after}
+    if same_profile:
+        return [], rows
+    if any(value < 0 for value in before.values()) or any(value < 0 for value in after.values()):
+        return [], rows
+    if before == after:
+        return [], rows
+    changed = sorted(key for key in before if before[key] != after.get(key))
+    detail = ", ".join(f"{key} {before[key]} -> {after.get(key)}" for key in changed)
+    return [
+        "the rows of the profile the device was left in changed while the run was "
+        f"going: {detail}"
+    ], rows
 
 
 def relationship_problems(db_path: Path, scope: str | None = None) -> list[str]:
@@ -1773,9 +1885,32 @@ def write_report(out_dir: Path, report: dict) -> None:
     )
     profile = report.get("profile", {})
     if profile:
+        test_profile = profile.get("testProfile") or {}
+        home_profile = profile.get("homeProfile") or {}
         lines.append(
-            f"* profile scope: `{profile.get('scope') or 'unknown'}` "
-            f"({profile.get('source')})"
+            f"* profile under test: `{test_profile.get('name') or '—'}` "
+            f"(`{test_profile.get('id') or '—'}`), scope `{profile.get('scope') or 'unknown'}`"
+        )
+        lines.append(
+            f"* the device was in: `{home_profile.get('name') or home_profile.get('id') or '—'}` "
+            "— the run does not wipe it"
+        )
+        home_rows = profile.get("homeProfileRows") or {}
+        before = home_rows.get("before") or {}
+        after = home_rows.get("after") or {}
+        if before and after:
+            lines.append(
+                "* the rows of that profile: "
+                f"{sum(max(0, value) for value in before.values())} before the run, "
+                f"{sum(max(0, value) for value in after.values())} after"
+            )
+    left = report.get("profileLeftBehind")
+    if left:
+        lines.append(
+            "* the app was put back into the profile it was found in"
+            if left.get("restored")
+            else f"* the app was left in the profile `{left.get('profile')}`: "
+            f"{left.get('problem', 'the profile could not be restored')}"
         )
     if dataset.get("counts") and database.get("counts"):
         lines += [
@@ -2456,6 +2591,12 @@ def main(argv: list[str] | None = None) -> int:
     exit_code = EXIT_SETUP
     lock: DeviceLock | None = None
     serial = ""
+    # The profile the app was working in, and the one the run works in. Both
+    # are needed whatever happens: the app is put back into the profile it
+    # was found in, even when the run fails half way through.
+    home_profile_id = ""
+    home_profile_name: str | None = None
+    test_profile_id = ""
     try:
         try:
             serial = capture.resolve_device(args.serial, capture.attached_devices())
@@ -2538,26 +2679,64 @@ def main(argv: list[str] | None = None) -> int:
         report["tools"] = tool_versions(serial)
         report["phases"].append("archive generated")
 
+        # The profile the run works in: one of its own.
+        #
+        # The device may be a phone with a person's own tasks, projects, notes
+        # and tags on it. A measurement that wipes the active profile would
+        # destroy them — and a run that dies half way through would destroy
+        # them for nothing. So the run switches to a profile of its own,
+        # wipes that one, restores into it and puts the app back into the
+        # profile it found at the end.
+        #
+        # The profile the app is working in is remembered first, and the
+        # database as the device holds it is read: the rows of the profile
+        # under test are counted for the scope of that profile alone, and the
+        # rows of the profile the device is left in are counted before and
+        # after the run, to show that the run did not touch them.
+        home_profile_id = current_profile_id(serial)
+        before_db = pull_database(serial, out_dir / "before-wipe-db")
+        home_profile_name = profile_name_for_id(before_db, home_profile_id)
+        if home_profile_name is None:
+            # The link that switches the app back names the profile by its
+            # name, so a profile whose name cannot be read is a profile the
+            # run cannot come back from. The run is refused before it touches
+            # anything, rather than leaving the phone in a profile of its own.
+            raise RunError(
+                f"the name of the profile the device is in ({home_profile_id}) could "
+                "not be read, so the app could not be put back where it was found: "
+                "the run is refused rather than leaving the device in a profile of "
+                "its own."
+            )
+        test_profile_id = switch_profile(
+            serial,
+            TEST_PROFILE_NAME,
+            profile_id_for_name(before_db, TEST_PROFILE_NAME),
+            home_profile_id,
+        )
+        owner = owner_id(before_db, test_profile_id)
+        if owner is None:
+            raise RunError(
+                "the account the app's rows belong to could not be read, so the "
+                "scope of the profile under test is unknown: the counts could not "
+                "be attributed to a profile, and the run is refused rather than "
+                "measured against a database that holds the rows of more than one "
+                "account."
+            )
+        scope = scoped_user_id(test_profile_id, owner)
+        home_scope = scoped_user_id(home_profile_id, owner)
+        print(f"profile: {TEST_PROFILE_NAME} ({test_profile_id}) — the device was in {home_profile_id}")
+
         # One wipe before the negative phases, and both of them share it: a
         # refused archive writes nothing, so the profile is still empty for
         # the interrupted import that follows.
-        #
-        # The database as the device holds it before the wipe is read first:
-        # the rows the reset removes are the active profile's rows, and the
-        # scope they carry is the scope every count of this run is about.
-        before_db = pull_database(serial, out_dir / "before-wipe-db")
-        wipe_counts, wipe_seconds, scope = reset_content(
-            serial, out_dir, before_db=before_db
-        )
+        wipe_counts, wipe_seconds = reset_content(serial, out_dir, scope=scope)
         print(f"wipe: {wipe_seconds}s ({wipe_counts})")
         report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
         report["profile"] = {
             "scope": scope,
-            "source": (
-                "the rows the profile reset removed"
-                if scope is not None
-                else "unknown — the profile held no rows to begin with"
-            ),
+            "source": "the profile the run works in",
+            "testProfile": {"id": test_profile_id, "name": TEST_PROFILE_NAME},
+            "homeProfile": {"id": home_profile_id, "name": home_profile_name},
         }
         report["phases"].append("profile wiped")
 
@@ -2584,12 +2763,8 @@ def main(argv: list[str] | None = None) -> int:
         # unknown state, and it has to be wiped before it is measured.
         interrupted_counts = negative["interrupted"]["counts"]
         if any(value != 0 for value in interrupted_counts.values()):
-            _, second_wipe, second_scope = reset_content(
-                serial, out_dir, before_db=pulled_db_path(out_dir / "interrupted-db")
-            )
+            _, second_wipe = reset_content(serial, out_dir, scope=scope)
             wipe_seconds += second_wipe
-            if scope is None:
-                scope = second_scope
             report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
         print(f"import: {outcome['durationSeconds']}s ({outcome['measured']})")
@@ -2607,30 +2782,11 @@ def main(argv: list[str] | None = None) -> int:
         # restore that was correct.
         restored_scope = dataset_scope(db_dir, archive_task_ids(archive))
         scope_problems = []
-        if restored_scope is not None and scope is not None and restored_scope != scope:
+        if restored_scope is not None and restored_scope != scope:
             scope_problems.append(
                 f"the restore wrote the dataset into the scope {restored_scope}, but the "
-                f"profile that was wiped is the scope {scope}"
+                f"profile under test is the scope {scope}"
             )
-        if scope is None:
-            scope = restored_scope
-        if scope is None:
-            scopes = sorted(content_scopes(db_dir))
-            raise RunError(
-                "the scope of the profile under test could not be determined, so the "
-                "counts cannot be attributed to a profile: the rows the profile reset "
-                "removed did not name one, and the restored rows carry the scopes "
-                f"{scopes or 'none'}. The run is refused rather than measured against "
-                "a database that holds rows of several profiles."
-            )
-        report["profile"] = {
-            "scope": scope,
-            "source": (
-                "the rows the profile reset removed"
-                if restored_scope is None or restored_scope == scope
-                else "the rows the restore wrote"
-            ),
-        }
         db_counts = count_rows(db_dir, scope)
         count_problems = compare_counts(counts, db_counts) + scope_problems
         link_problems = relationship_problems(db_dir, scope)
@@ -2640,6 +2796,13 @@ def main(argv: list[str] | None = None) -> int:
         expected_links = payload_links(archive)
         actual_links = restored_links(db_dir, scope)
         identity_problems = link_identity_problems(expected_links, actual_links)
+        # The rows of the profile the device was left in: they have to be the
+        # same before and after the run. The run works in a profile of its
+        # own, and this is the check that says so.
+        home_problems, home_rows = untouched_profile_problems(
+            before_db, db_dir, home_scope, home_profile_id == test_profile_id
+        )
+        report["profile"]["homeProfileRows"] = home_rows
         report["database"] = {
             "bytes": database_bytes(db_dir.parent),
             "scope": scope,
@@ -2729,6 +2892,7 @@ def main(argv: list[str] | None = None) -> int:
                 browse_ok,
                 bool(outcome["reportedBySnackbar"]),
             )
+            + home_problems
         }
         report["status"] = "complete"
         exit_code = EXIT_OK if not report["verdict"]["problems"] else EXIT_FAILED
@@ -2763,6 +2927,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         exit_code = EXIT_SETUP
     finally:
+        # The app is put back into the profile the device was found in, while
+        # the run still holds the device: the run switched the app into a
+        # profile of its own, and the person who owns the phone should find
+        # their app where they left it.
+        if serial and test_profile_id and home_profile_name:
+            try:
+                switch_profile(serial, home_profile_name, home_profile_id, test_profile_id)
+                report["profileLeftBehind"] = {
+                    "profile": home_profile_name,
+                    "restored": True,
+                }
+                print(f"profile: back to {home_profile_name}")
+            except RunError as exc:
+                report["profileLeftBehind"] = {
+                    "profile": TEST_PROFILE_NAME,
+                    "restored": False,
+                    "problem": str(exc),
+                }
+                print(
+                    f"warning: the app was left in the profile {TEST_PROFILE_NAME}: {exc}",
+                    file=sys.stderr,
+                )
         # The archives are deleted while the run still holds the device: the
         # names are predictable (synthetic-10k.zip), and a run that let go of
         # the device first could delete the archive a later run had already
