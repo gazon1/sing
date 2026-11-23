@@ -90,7 +90,9 @@ APP_ID = "com.singularity.todo"
 DEVICE_DOWNLOAD_DIR = "/sdcard/Download"
 
 #: The archives the run pushed into the device's Downloads, so the run can
-#: delete them when it is done with them.
+#: delete them when it is done with them. The paths are the ones on the
+#: device — the run deletes the file it pushed, not a file that happens to
+#: carry the same name.
 PUSHED_ARCHIVES: list[str] = []
 
 #: The tables the manifest's counts are about, and the table each count is
@@ -125,6 +127,14 @@ DEFAULT_PROFILE_ID = "default"
 #: is what the report and the docs call it by, so that what a run leaves on
 #: the device is recognisable.
 TEST_PROFILE_NAME = "verify-large-restore"
+
+#: The file in the app's own storage that says which profile belongs to this
+#: procedure. The app's storage is private to the app, so the file can only
+#: have been written by a run of this procedure — and a profile the file does
+#: not name is a profile that belongs to somebody else. The file survives the
+#: runs: the app never touches it, and the run rewrites it only when it
+#: creates a profile of its own.
+PROFILE_OWNER_FILE = "files/verify-large-restore.owner"
 
 #: The key the app keeps the active profile under. The app stores the active
 #: profile in a file of its own — a DataStore preferences file — and the bytes
@@ -528,14 +538,43 @@ def padded_archive(archive: Path, out_dir: Path) -> Path:
     return padded
 
 
+def device_file_exists(serial: str, remote: str) -> bool:
+    """Whether the device already holds a file under that path."""
+    code, _ = adb("shell", "ls", "-l", remote, serial=serial)
+    return code == 0
+
+
+def free_download_name(serial: str, name: str) -> str:
+    """A name in the device's Downloads that nothing occupies.
+
+    The archive's name is predictable ("synthetic-10k.zip") and the Downloads
+    folder belongs to whoever uses the phone: pushing under a name that is
+    taken would overwrite their file, and the run's own cleanup would delete
+    the replacement. So a name that is taken is not used — the archive goes in
+    under a name of the run's own, and only that file is deleted afterwards.
+    """
+    if not device_file_exists(serial, f"{DEVICE_DOWNLOAD_DIR}/{name}"):
+        return name
+    stem = Path(name).stem
+    suffix = Path(name).suffix
+    for number in range(2, 100):
+        candidate = f"{stem}-{number}{suffix}"
+        if not device_file_exists(serial, f"{DEVICE_DOWNLOAD_DIR}/{candidate}"):
+            return candidate
+    raise RunError(
+        f"no free name was found in {DEVICE_DOWNLOAD_DIR} for the archive {name}: "
+        "the run refuses to overwrite a file that belongs to the device's owner"
+    )
+
+
 def push_archive(serial: str, archive: Path) -> str:
     """Put the archive into the device's Downloads; return its name there."""
-    name = archive.name
+    name = free_download_name(serial, archive.name)
     remote = f"{DEVICE_DOWNLOAD_DIR}/{name}"
     code, out = adb("push", str(archive), remote, serial=serial, timeout=900)
     if code != 0:
         raise RunError(f"the archive could not be pushed to {remote}:\n{out.strip()}")
-    PUSHED_ARCHIVES.append(name)
+    PUSHED_ARCHIVES.append(remote)
     # The picker's "recent" list is fed by the media store, so the file has to
     # be scanned in. Without the scan the file is in Downloads but the picker
     # does not offer it.
@@ -557,20 +596,21 @@ def remove_pushed_archives(serial: str) -> list[str]:
 
     The device is not the run's own: its storage belongs to whoever uses it,
     and the archives are large — the padded one is tens of megabytes. The run
-    pushes three of them (the over-budget copy, the interrupted-import copy
-    and the archive that is really imported), and a run that leaves them
-    behind fills the device with copies of the same dataset.
+    pushes two of them (the over-budget copy and the archive that is really
+    imported), and a run that leaves them behind fills the device with copies
+    of the same dataset.
 
     The list is the run's own record of what it pushed, so a run that dies
-    half way through still cleans up what it managed to push.
+    half way through still cleans up what it managed to push. The paths are
+    the ones on the device, so the run deletes the file it pushed and not a
+    file that happens to carry the same name.
     """
     removed: list[str] = []
-    for name in list(PUSHED_ARCHIVES):
-        remote = f"{DEVICE_DOWNLOAD_DIR}/{name}"
+    for remote in list(PUSHED_ARCHIVES):
         code, out = adb("shell", "rm", "-f", remote, serial=serial)
-        PUSHED_ARCHIVES.remove(name)
+        PUSHED_ARCHIVES.remove(remote)
         if code == 0:
-            removed.append(name)
+            removed.append(remote)
         else:
             print(f"warning: {remote} could not be deleted:\n{out.strip()}")
     return removed
@@ -1371,6 +1411,76 @@ def switch_profile(
     raise RunError(
         f"the app did not switch to the profile {profile_name}: it still works in "
         f"the profile {current_profile_id(serial)}"
+    )
+
+
+def profile_owner_id(serial: str) -> str | None:
+    """The id of the profile this procedure owns, as the device's marker says.
+
+    The marker is a file in the app's own storage. Nothing but this
+    procedure writes it, so a profile it names is the profile this procedure
+    created — and a profile it does not name belongs to somebody else.
+    """
+    code, out = adb_bytes(
+        "exec-out",
+        "run-as",
+        APP_ID,
+        "cat",
+        PROFILE_OWNER_FILE,
+        serial=serial,
+        timeout=60,
+    )
+    if code != 0:
+        return None
+    return out.decode("utf-8", errors="replace").strip() or None
+
+
+def claim_profile(serial: str, profile_id: str) -> None:
+    """Say in the app's own storage that this profile belongs to the run.
+
+    The marker is written before anything is wiped: a run that dies before
+    this point leaves a profile nobody claims, and the next run refuses to
+    wipe it rather than destroying rows that are not its own.
+    """
+    if not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{26}", profile_id):
+        raise RunError(
+            f"the id of the profile the run works in ({profile_id!r}) is not the shape "
+            "of a profile id, so the run cannot claim it and refuses to wipe it"
+        )
+    # The command is quoted for the device's own shell: the redirect belongs
+    # to the `sh` that runs as the app, not to the shell that runs the command.
+    code, out = adb(
+        "shell",
+        "run-as",
+        APP_ID,
+        "sh",
+        "-c",
+        f"'printf %s {profile_id} > {PROFILE_OWNER_FILE}'",
+        serial=serial,
+    )
+    if code != 0:
+        raise RunError(
+            f"the ownership marker {PROFILE_OWNER_FILE} could not be written:\n"
+            f"{out.strip()}"
+        )
+
+
+def profile_ownership_problem(existing_id: str | None, marker_id: str | None) -> str | None:
+    """Why the profile under test may not be wiped — or nothing when it may.
+
+    A profile of the name the run works in that the run cannot claim is a
+    profile of somebody else's: wiping it would destroy the rows of the
+    person who owns the phone. The run refuses before it touches anything.
+    """
+    if existing_id is None:
+        return None
+    if marker_id == existing_id:
+        return None
+    return (
+        f"the device already holds a profile named {TEST_PROFILE_NAME} ({existing_id}) "
+        "that this procedure did not create: the run refuses to wipe it rather than "
+        "destroy the rows of the profile the device's owner keeps there. Delete that "
+        "profile on the device, or give it another name, and run the command again."
     )
 
 
@@ -2470,6 +2580,7 @@ def check_interrupted_import(
     apk: Path | None = None,
     expected_counts: dict[str, int] | None = None,
     scope: str | None = None,
+    file_name: str | None = None,
 ) -> dict:
     """Cut an import short and check that the profile is not left half-written.
 
@@ -2485,8 +2596,12 @@ def check_interrupted_import(
     The profile is expected to be empty (the caller wipes it): the check is
     "the interrupted import wrote nothing", which a non-empty profile could
     not answer.
+
+    The file in the device's Downloads is the one the caller pushed: the
+    interrupted import and the import that has to work are the same archive,
+    and two copies of it would only make the picker's list ambiguous.
     """
-    name = push_archive(serial, archive)
+    name = file_name or push_archive(serial, archive)
     command = flow_command(serial, "restore-archive.yaml", {"ARCHIVE_NAME": name})
     log = out_dir / "interrupted-flow.log"
     print("flow: restore-archive.yaml (interrupted)")
@@ -2711,12 +2826,28 @@ def main(argv: list[str] | None = None) -> int:
                 "the run is refused rather than leaving the device in a profile of "
                 "its own."
             )
+        # The profile the run works in has to be a profile of the run's own.
+        # A profile of that name that the run cannot claim belongs to the
+        # person who owns the phone, and wiping it would destroy their rows:
+        # the run is refused here, before anything is touched.
+        existing_test_id = profile_id_for_name(before_db, TEST_PROFILE_NAME)
+        ownership = profile_ownership_problem(
+            existing_test_id,
+            profile_owner_id(serial) if existing_test_id is not None else None,
+        )
+        if ownership:
+            raise RunError(ownership)
         test_profile_id = switch_profile(
             serial,
             TEST_PROFILE_NAME,
-            profile_id_for_name(before_db, TEST_PROFILE_NAME),
+            existing_test_id,
             home_profile_id,
         )
+        if existing_test_id is None:
+            # The profile did not exist, so the run has just created it: the
+            # marker is written before the wipe, so that a run that dies
+            # half way through leaves a profile the next run can claim.
+            claim_profile(serial, test_profile_id)
         owner = owner_id(before_db, test_profile_id)
         if owner is None:
             raise RunError(
@@ -2739,10 +2870,22 @@ def main(argv: list[str] | None = None) -> int:
         report["profile"] = {
             "scope": scope,
             "source": "the profile the run works in",
-            "testProfile": {"id": test_profile_id, "name": TEST_PROFILE_NAME},
+            "testProfile": {
+                "id": test_profile_id,
+                "name": TEST_PROFILE_NAME,
+                # Where the run keeps the proof that the profile is its own.
+                "claimedBy": PROFILE_OWNER_FILE,
+            },
             "homeProfile": {"id": home_profile_id, "name": home_profile_name},
         }
         report["phases"].append("profile wiped")
+
+        # The archive goes into the device's Downloads once. The interrupted
+        # import and the import that has to work are the same file: a second
+        # copy under another name would only put two files with the same
+        # content into the picker's list, and the flow picks the file by its
+        # name.
+        file_name = push_archive(serial, archive)
 
         negative = {
             "over-budget": check_over_budget(serial, out_dir, archive, apk, scope),
@@ -2753,13 +2896,13 @@ def main(argv: list[str] | None = None) -> int:
                 apk,
                 expected_counts=dict(counts),
                 scope=scope,
+                file_name=file_name,
             ),
         }
         report["negative"] = negative
         report["phases"].append("the two ways it can go wrong checked")
 
         # The import that has to work.
-        file_name = push_archive(serial, archive)
         # The interrupted import may have left rows behind; the import below
         # has to start from a clean profile, or the counts afterwards are the
         # counts of the interrupted import plus this one. Counts that could
@@ -2954,7 +3097,7 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
         # The archives are deleted while the run still holds the device: the
-        # names are predictable (synthetic-10k.zip), and a run that let go of
+        # names are the ones the run pushed under, and a run that let go of
         # the device first could delete the archive a later run had already
         # pushed under the same name.
         if serial:

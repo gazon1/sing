@@ -1805,7 +1805,8 @@ def _device_patches(tmp: Path, db: Path | None = None):
         unittest.mock.patch.object(
             driver,
             "check_interrupted_import",
-            lambda serial, out, arc, apk=None, expected_counts=None, scope=None: {
+            lambda serial, out, arc, apk=None, expected_counts=None, scope=None,
+            file_name=None: {
                 "interrupted": True,
                 "importStarted": True,
                 "evidence": "the app's own working indicator was on the screen",
@@ -1827,6 +1828,7 @@ def _device_patches(tmp: Path, db: Path | None = None):
         unittest.mock.patch.object(driver, "app_memory", lambda serial: "TOTAL PSS: 1"),
         unittest.mock.patch.object(driver, "pull_database", lambda serial, out: db),
         unittest.mock.patch.object(driver, "adb", lambda *a, **k: (0, "")),
+        unittest.mock.patch.object(driver, "adb_bytes", lambda *a, **k: (0, b"")),
         unittest.mock.patch.object(driver, "run_flow", lambda *a, **k: False),
     ]
 
@@ -1991,7 +1993,7 @@ class LateFailureReportTest(unittest.TestCase):
             return 0, ""
 
         def push(serial, archive):
-            driver.PUSHED_ARCHIVES.append("synthetic.zip")
+            driver.PUSHED_ARCHIVES.append(f"{driver.DEVICE_DOWNLOAD_DIR}/synthetic.zip")
             return "synthetic.zip"
 
         with tempfile.TemporaryDirectory() as raw:
@@ -2498,7 +2500,8 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
             unittest.mock.patch.object(
                 driver,
                 "check_interrupted_import",
-                lambda serial, out, arc, apk=None, expected_counts=None, scope=None: {
+                lambda serial, out, arc, apk=None, expected_counts=None, scope=None,
+                file_name=None: {
                     "interrupted": True,
                     "importStarted": True,
                     "evidence": "the app's own working indicator was on the screen",
@@ -2579,6 +2582,206 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                 "interrupted: the import was already committed",
                 report["verdict"]["problems"],
             )
+
+
+class ProfileOwnershipTest(unittest.TestCase):
+    """The profile the run wipes has to be a profile of the run's own.
+
+    A phone can hold a profile of any name — including the name this
+    procedure uses. A profile the run cannot claim belongs to the person who
+    owns the phone, and wiping it would destroy their rows: the run has to
+    refuse before it touches anything, and it has to claim the profiles it
+    creates so that the next run can tell them apart from somebody else's.
+    """
+
+    def _db_with_a_profile_of_that_name(self, tmp: Path, profile_id: str) -> Path:
+        return _database(
+            tmp,
+            [
+                "INSERT INTO profiles (id, name, is_default) "
+                "VALUES ('default', 'Personal', 1)",
+                "INSERT INTO profiles (id, name, is_default) "
+                f"VALUES ('{profile_id}', '{driver.TEST_PROFILE_NAME}', 0)",
+                "INSERT INTO tasks (id, title, user_id) VALUES ('home', 'Home task', 'u1')",
+            ],
+        )
+
+    def _run(self, tmp: Path, out: Path, db: Path | None = None, owner: str | None = None):
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
+            with contextlib.ExitStack() as stack:
+                for patch in _device_patches(tmp, db):
+                    stack.enter_context(patch)
+                stack.enter_context(
+                    unittest.mock.patch.object(
+                        driver, "profile_owner_id", lambda serial: owner
+                    )
+                )
+                return driver.main(argv)
+
+    def test_a_profile_the_run_cannot_claim_is_not_wiped(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            db = self._db_with_a_profile_of_that_name(tmp, TEST_PROFILE_ID)
+            exit_code = self._run(tmp, out, db, owner=None)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            self.assertIn("refuses to wipe", report["error"])
+            # Nothing was wiped: the run stopped before the wipe.
+            self.assertNotIn("profile wiped", report["phases"])
+
+    def test_a_profile_the_run_claimed_is_wiped(self):
+        """The marker in the app's own storage is what tells the two apart."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            db = self._db_with_a_profile_of_that_name(tmp, TEST_PROFILE_ID)
+            exit_code = self._run(tmp, out, db, owner=TEST_PROFILE_ID)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertNotEqual(report.get("failure"), "setup")
+            self.assertIn("profile wiped", report["phases"])
+
+    def test_a_profile_the_run_creates_is_claimed(self):
+        """A profile the run creates is claimed before the wipe, so that the
+        next run can tell it apart from somebody else's.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            claimed: list[str] = []
+            apk = tmp / "the.apk"
+            apk.write_bytes(b"not really an APK")
+            argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with contextlib.ExitStack() as stack:
+                    for patch in _device_patches(tmp):
+                        stack.enter_context(patch)
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver, "profile_owner_id", lambda serial: None
+                        )
+                    )
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver, "claim_profile", lambda serial, pid: claimed.append(pid)
+                        )
+                    )
+                    driver.main(argv)
+            self.assertEqual(claimed, [TEST_PROFILE_ID])
+
+    def test_the_marker_says_which_profile_is_ours(self):
+        self.assertIsNone(
+            driver.profile_ownership_problem(None, None),
+        )
+        self.assertIsNone(
+            driver.profile_ownership_problem(TEST_PROFILE_ID, TEST_PROFILE_ID),
+        )
+        self.assertIsNotNone(
+            driver.profile_ownership_problem(TEST_PROFILE_ID, "01OTHERPROFILE000000000000"),
+        )
+        self.assertIsNotNone(
+            driver.profile_ownership_problem(TEST_PROFILE_ID, None),
+        )
+
+
+class ArchiveNameTest(unittest.TestCase):
+    """The device's Downloads belongs to its owner: nothing of theirs is overwritten.
+
+    The archive's name is predictable, and the phone is shared: a name that
+    is already taken holds a file of the person who owns it. The archive
+    goes in under a name of the run's own, and only that file is deleted
+    afterwards.
+    """
+
+    def setUp(self):
+        driver.PUSHED_ARCHIVES.clear()
+        self.addCleanup(driver.PUSHED_ARCHIVES.clear)
+
+    def _fake_adb(self, taken: str, calls: list):
+        def fake_adb(*args, **kwargs):
+            calls.append(args)
+            if args[:3] == ("shell", "ls", "-l"):
+                return (0, "") if args[3] == taken else (1, "")
+            return (0, "")
+
+        return fake_adb
+
+    def test_a_free_name_is_used_as_it_is(self):
+        with tempfile.TemporaryDirectory() as raw:
+            archive = Path(raw) / "synthetic-10k.zip"
+            archive.write_bytes(b"zip")
+            calls: list = []
+            with unittest.mock.patch.object(
+                driver, "adb", self._fake_adb("/sdcard/Download/other.zip", calls)
+            ):
+                name = driver.push_archive("serial", archive)
+            self.assertEqual(name, "synthetic-10k.zip")
+            self.assertIn(("push", str(archive), "/sdcard/Download/synthetic-10k.zip"), calls)
+
+    def test_a_name_that_is_taken_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as raw:
+            archive = Path(raw) / "synthetic-10k.zip"
+            archive.write_bytes(b"zip")
+            taken = "/sdcard/Download/synthetic-10k.zip"
+            calls: list = []
+            with unittest.mock.patch.object(driver, "adb", self._fake_adb(taken, calls)):
+                name = driver.push_archive("serial", archive)
+            self.assertEqual(name, "synthetic-10k-2.zip")
+            # The owner's file is neither overwritten nor deleted.
+            self.assertNotIn(("push", str(archive), taken), calls)
+            self.assertNotIn(("shell", "rm", "-f", taken), calls)
+            self.assertIn(f"/sdcard/Download/{name}", driver.PUSHED_ARCHIVES)
+
+    def test_only_the_file_the_run_pushed_is_deleted(self):
+        with tempfile.TemporaryDirectory() as raw:
+            archive = Path(raw) / "synthetic-10k.zip"
+            archive.write_bytes(b"zip")
+            taken = "/sdcard/Download/synthetic-10k.zip"
+            calls: list = []
+            with unittest.mock.patch.object(driver, "adb", self._fake_adb(taken, calls)):
+                driver.push_archive("serial", archive)
+                driver.remove_pushed_archives("serial")
+            self.assertNotIn(("shell", "rm", "-f", taken), calls)
+            self.assertEqual(driver.PUSHED_ARCHIVES, [])
+
+    def test_the_archive_goes_into_the_device_once(self):
+        """The interrupted import and the import that has to work are one file.
+
+        Two copies of the same archive in the Downloads would put two files
+        with the same content into the picker's list, and the flow picks the
+        file by its name.
+        """
+        pushed: list[str] = []
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            apk = tmp / "the.apk"
+            apk.write_bytes(b"not really an APK")
+            argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with contextlib.ExitStack() as stack:
+                    for patch in _device_patches(tmp):
+                        stack.enter_context(patch)
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver,
+                            "push_archive",
+                            lambda serial, arc: pushed.append(arc.name) or "synthetic.zip",
+                        )
+                    )
+                    driver.main(argv)
+            self.assertEqual(len(pushed), 1)
 
 
 if __name__ == "__main__":
