@@ -103,7 +103,7 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
         tag: String,
         what: String,
     ): android.graphics.Rect {
-        repeat(3) {
+        repeat(5) {
             val obj = device.findObject(By.res(tag))
             if (obj != null) {
                 try {
@@ -115,7 +115,12 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
             }
             SystemClock.sleep(250)
         }
-        return device.awaitTag(tag, what, TAB_TIMEOUT_MS).visibleBounds
+        val obj = device.awaitTag(tag, what, TAB_TIMEOUT_MS)
+        return try {
+            obj.visibleBounds
+        } catch (_: androidx.test.uiautomator.StaleObjectException) {
+            visibleBoundsOf(tag, what)
+        }
     }
 
     private fun assertMenuContentReachable(sheet: UiObject2) {
