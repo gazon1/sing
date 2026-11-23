@@ -143,7 +143,9 @@ position, where the block is on screen while the sync is on.
 
 ## Consequences
 
-- The `full` Maestro suite has one flow fewer (126 automated flows).
+- The `full` Maestro suite has one flow fewer — `calendar_sync/02-system-calendar-unavailable.yaml` is
+  gone. The merged tree holds 124 automated flows; two further flows were retired on `main` after the
+  audit (`profile/01-create-profile.yaml`, #3122, and `agenda/04-saved-view-results.yaml`, #3121).
 - `CAL-SYNC-SYSTEM-02/android` is automated for the first time; the matrix prints `●`
   for a flow that has been passing all along.
 - Flow 03 is qualified by three consecutive device passes, recorded in
