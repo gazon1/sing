@@ -15,6 +15,14 @@
 # per-row reachability is `MenuSheetBoundsTest` (device tier), the "all
 # projects" entry is MENU-06 and the project roots are MENU-08.
 #
+# The projects are the other half of the menu, and they are owned the same
+# way: both surfaces draw the same section from the same state, and the one
+# switch between the two drawings is the expander — the sheet passes `null`
+# and draws the roots, the drawer passes a toggle and draws the tree. The
+# roots the two surfaces offer are therefore the roots of one state, and the
+# same test class asserts it: the two drawings offer the same root projects
+# in the same order.
+#
 # The entries are the same on both. The *projects* are the same too, but the
 # two surfaces draw as much of the hierarchy as they can carry: the Desktop
 # drawer unfolds a project's children in place, the Android sheet lists the

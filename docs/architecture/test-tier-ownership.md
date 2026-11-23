@@ -152,7 +152,7 @@ Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/310
 
 | Flow | Cost | Owner that already holds the guarantee |
 |---|---:|---|
-| `nav/02-menu-parity.yaml` | 35 s | `desktopApp/src/jvmTest/.../feature/flows/menu/MenuParityFlowTest.kt` — model-level parity, stronger than the flow — **retired 2026-11-23** ([#3119](https://github.com/gazon1/sing/issues/3119)); the flow is gone, the owner stayed |
+| `nav/02-menu-parity.yaml` | 35 s | `desktopApp/src/jvmTest/.../feature/flows/menu/MenuParityFlowTest.kt` — model-level parity of the entries and of the project roots, stronger than the flow — **retired 2026-11-23** ([#3119](https://github.com/gazon1/sing/issues/3119)); the flow is gone, the owner stayed |
 | `agenda/09-upcoming-timeline.yaml` | 84 s | `desktopApp/src/jvmTest/.../feature/flows/agenda/UpcomingTimelineScenarioTest.kt` |
 | `agenda/04-saved-view-results.yaml` | 68 s | `desktopApp/src/jvmTest/.../OpenSavedViewShowsMatchingTasksFlowTest.kt` |
 | `archive/02-bulk-archive-confirm.yaml` | 81 s | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — reads the write, not the observation; the flow itself is a `split`, because its device residue (long-press sheet, overflow resource ids, the result dialog's modal window) has no owner today |

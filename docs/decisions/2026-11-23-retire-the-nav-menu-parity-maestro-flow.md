@@ -53,6 +53,14 @@ set — with a list derived from the model, so it cannot drift the way a
 hand-written flow list can. The project row itself is covered on the device
 by MENU-08's own flow, which lists the roots.
 
+The scenario has a second half — the project tree — and it is owned by the
+same class. Both surfaces draw the same section from the same state, and the
+one switch between the two drawings is the expander: the sheet passes `null`
+and draws the roots, the drawer passes a toggle and draws the tree (ADR
+`2026-11-12-android-menu-roots-only.md`). The roots the two surfaces offer
+are therefore the roots of one state, and `MenuParityFlowTest` asserts that
+the two drawings offer the same root projects in the same order.
+
 ### The owner was shown to fail when parity regresses
 
 The claim "the headless owner catches what the flow caught" was checked, not
@@ -119,6 +127,31 @@ raised 71 → 72 with the reason next to the number.
   and `...-baseline.yaml`) are untouched: the frozen set is the historical
   record of the flows that existed when the rule was introduced, and the
   gate stays green.
+
+## Review round 1
+
+The independent review (ChatGPT, correctness role) returned one MAJOR
+finding, and it was right:
+
+> The surviving parity test does not verify the project-tree parity still
+> claimed by NAV-02. Its model assertion compares menu destinations, and its
+> UI assertion checks destination entries in the Desktop drawer. Neither
+> assertion compares root projects or their ordering between Android and
+> Desktop.
+
+The claim was in the scenario's `expected` all along — "the same root
+projects in the same order" — but no test asserted it: the desktop carrier
+covered the entries and nothing else, so the matrix said `●` for a cell
+whose guarantee was half-covered. The flow that was retired did not close
+the gap either: it asserted that one seeded root was visible, never the
+order and never the cross-platform equality.
+
+The fix is in the owner rather than in the scenario: `MenuParityFlowTest`
+now renders the two drawings of the shared section over one state — the
+sheet's (`onToggleExpanded = null`, the roots) and the drawer's (the tree) —
+and asserts that they offer the same root projects in the same order, and
+that the sheet holds no child. The claim in `NAV-02.yaml` is unchanged; what
+changed is that it now has a carrier that says it.
 
 ## Links
 
