@@ -261,7 +261,8 @@ class AgendaViewModelTest {
 
     /**
      * The Inbox rule, end to end: the tab holds the tasks that are not scheduled
-     * yet, so dating a task takes it out of it.
+     * yet, so dating a task takes it out of it — and clearing the date brings it
+     * back.
      *
      * The domain half of this contract is pinned by `AgendaTabDisjointnessTest`
      * and `AgendaInboxTabMeaningTest`. This is the coordinator half — the agenda
@@ -293,6 +294,16 @@ class AgendaViewModelTest {
                     section.tasks.any { it.task.id == undated.id }
                 },
                 "a dated task must leave the Inbox — the tab holds what is not scheduled yet",
+            )
+
+            fakeRepo.add(undated) // the date is cleared again
+            runCurrent()
+
+            assertTrue(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.any { section ->
+                    section.tasks.any { it.task.id == undated.id }
+                },
+                "an undated task belongs back into the Inbox — the date is what keeps it out",
             )
         }
 
