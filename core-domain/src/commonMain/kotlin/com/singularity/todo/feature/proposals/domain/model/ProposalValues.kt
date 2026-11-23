@@ -332,10 +332,7 @@ sealed interface NoteValue : ProposalValue {
      */
     @Serializable
     @SerialName("Title")
-    data class Title(
-        val value: String,
-        val expectedUpdatedAt: Long? = null,
-    ) : NoteValue {
+    data class Title(val value: String, val expectedUpdatedAt: Long? = null) : NoteValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the note title to «${value.asCardValue()}»"
         override val text: String = value
@@ -388,10 +385,7 @@ sealed interface NoteValue : ProposalValue {
      */
     @Serializable
     @SerialName("Summary")
-    data class Summary(
-        val value: String,
-        val expectedUpdatedAt: Long? = null,
-    ) : NoteValue {
+    data class Summary(val value: String, val expectedUpdatedAt: Long? = null) : NoteValue {
         override val fieldName: String = "Summary"
         override val summary: String = "Summarize the note to «${value.asCardValue()}»"
         override val text: String = value

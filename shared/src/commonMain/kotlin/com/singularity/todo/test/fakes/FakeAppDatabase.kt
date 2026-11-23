@@ -1254,14 +1254,15 @@ private class FakeNoteDao(
         if (existing.updatedAt != expectedUpdatedAt) return 0
         store.update {
             it + (
-                id to existing.copy(
-                    title = title,
-                    bodyMarkdown = markdown,
-                    bodyHtml = html,
-                    wordCount = wordCount,
-                    charCount = charCount,
-                    updatedAt = updatedAt,
-                )
+                id to
+                    existing.copy(
+                        title = title,
+                        bodyMarkdown = markdown,
+                        bodyHtml = html,
+                        wordCount = wordCount,
+                        charCount = charCount,
+                        updatedAt = updatedAt,
+                    )
             )
         }
         return 1
@@ -1297,8 +1298,7 @@ private class FakeNoteDao(
                     n.userId == userId && n.deletedAt == null && n.archivedAt == null &&
                         n.projectId == projectId &&
                         n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder
-                }
-                .sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
+                }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
                 .take(limit)
         }
 

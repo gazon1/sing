@@ -10,10 +10,10 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.core.repository.CrossUserWriteException
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser

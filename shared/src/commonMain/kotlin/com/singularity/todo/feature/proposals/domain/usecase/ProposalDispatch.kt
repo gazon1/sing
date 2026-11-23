@@ -10,8 +10,8 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -229,18 +229,6 @@ class ProposalDispatch(
         }
 
     /**
-     * The row of a task update.
-     *
-     * The one branch of [rowsOf] that decides something: it re-reads the task
-     * in the dispatch and applies only the changed field, so a concurrent edit
-     * (another device, or the user) is not reverted by writing a stale snapshot
-     * back.
-     *
-     * It is a helper of its own so that [rowsOf]'s `when` can stay exhaustive.
-     * A plan type added later has to be handled there, and the compiler has to
-     * say so — an `else` would move that from the build to a runtime error.
-     */
-    /**
      * The note row of an update, re-read at the moment of the write.
      *
      * The same rule the task's write follows: the guard a value carries is checked
@@ -299,9 +287,13 @@ class ProposalDispatch(
     /**
      * The task row of an update, re-read at the moment of the write.
      *
-     * It is a helper of its own so that [rowsOf]'s `when` can stay exhaustive.
-     * A plan type added later has to be handled there, and the compiler has to
-     * say so — an `else` would move that from the build to a runtime error.
+     * The one branch of [rowsOf] that decides something: it re-reads the task in the
+     * dispatch and applies only the changed field, so a concurrent edit — another
+     * device, or the user — is not reverted by writing a stale snapshot back.
+     *
+     * It is a helper of its own so that [rowsOf]'s `when` can stay exhaustive. A plan
+     * type added later has to be handled there, and the compiler has to say so — an
+     * `else` would move that from the build to a runtime error.
      */
     private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> =
         writeRow(plan.task.id) {

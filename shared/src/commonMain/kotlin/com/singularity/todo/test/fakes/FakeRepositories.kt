@@ -3100,8 +3100,9 @@ open class FakeNotesRepository(
     ): Result<Int> =
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
-            val existing = store.state.value[id.value]?.takeIf { it.userId == uid }
-                ?: return@runCatchingCancellable 0
+            val existing =
+                store.state.value[id.value]?.takeIf { it.userId == uid }
+                    ?: return@runCatchingCancellable 0
             // The production statement matches on the version; the fake does the same
             // comparison the SQL does, so a stale write is visible here too.
             if (existing.updatedAt.toEpochMilliseconds() != expectedUpdatedAt) {
@@ -3114,9 +3115,10 @@ open class FakeNotesRepository(
                     title = title,
                     bodyMarkdown = bodyMarkdown,
                     bodyHtml = bodyHtml,
-                    updatedAt = kotlin.time.Instant.fromEpochMilliseconds(
-                        maxOf(now, expectedUpdatedAt + 1),
-                    ),
+                    updatedAt =
+                        kotlin.time.Instant.fromEpochMilliseconds(
+                            maxOf(now, expectedUpdatedAt + 1),
+                        ),
                 ),
             )
             1
@@ -3439,8 +3441,7 @@ open class FakeNotesRepository(
                         it.userId == uid && it.deletedAt == null && it.archivedAt == null &&
                             it.projectId == projectId &&
                             it.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !it.isFolder
-                    }
-                    .sortedWith(noteOrder)
+                    }.sortedWith(noteOrder)
                     .take(limit)
             }
         }

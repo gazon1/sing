@@ -3,48 +3,19 @@
 package com.singularity.todo.feature.ai
 
 import com.singularity.todo.core.ids.ProposalId
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.ai.tools.CreateNoteInput
-import com.singularity.todo.feature.ai.tools.CreateNoteOutput
-import com.singularity.todo.feature.ai.tools.CreateNoteTool
 import com.singularity.todo.feature.ai.tools.GetKnowledgeBriefInput
-import com.singularity.todo.feature.ai.tools.GetKnowledgeBriefOutput
-import com.singularity.todo.feature.ai.tools.GetKnowledgeBriefTool
 import com.singularity.todo.feature.ai.tools.UpdateNoteInput
-import com.singularity.todo.feature.ai.tools.UpdateNoteOutput
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
-import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteKind
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
-import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
-import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.test.fakes.FakeChecklistRepository
-import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.test.fakes.FakeProjectsRepository
-import com.singularity.todo.test.fakes.FakeProposalRepository
-import com.singularity.todo.test.fakes.FakeTagsRepository
-import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
-import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 /**
  * A knowledge brief is a note attached to a project or a task, written through the
@@ -67,7 +38,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
-
     @Test
     fun `refreshing a brief proposes a candidate and leaves the approved note alone`() =
         runTest {
@@ -526,7 +496,6 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
             assertFalse(output.found, "a folder is not a brief: ${output.noteId}")
         }
 
-
     @Test
     fun `a summary is guarded like a body change`() =
         runTest {
@@ -545,15 +514,15 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
             val (built, _) =
                 com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
                     .multiForTarget(
-                            items =
-                                listOf(
-                                    com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
-                                        .item(kind, brief.id.value),
-                                ),
-                            targetId = brief.id.value,
-                            userId = user,
-                            source =
-                                com.singularity.todo.feature.proposals.domain.model.ProposalSource.Agent,
+                        items =
+                            listOf(
+                                com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
+                                    .item(kind, brief.id.value),
+                            ),
+                        targetId = brief.id.value,
+                        userId = user,
+                        source =
+                            com.singularity.todo.feature.proposals.domain.model.ProposalSource.Agent,
                         clock = clock,
                     )
             proposals.save(built).getOrThrow()
@@ -581,7 +550,8 @@ class KnowledgeBriefWriteGuardTest : KnowledgeBriefTestBase() {
                 )
 
             val edited =
-                com.singularity.todo.feature.proposals.domain.model.ProposalItemKind.SetNoteField(value)
+                com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+                    .SetNoteField(value)
                     .editableProposal()
                     ?.change
                     ?.invoke("<p>the user retyped it</p>")

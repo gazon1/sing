@@ -210,12 +210,6 @@ class GetKnowledgeBriefTool(
         /**
          * How many attached notes a read looks through.
          *
-         * A brief is one note; the bound is what keeps a project that accumulated
-         * dozens of attached notes from making every read un bounded.
-         */
-        /**
-         * How many attached notes a read looks through.
-         *
          * The page is applied by the statement, *before* the brief marker is checked —
          * the marker lives in the body, and no index answers it. So the page is wider
          * than one brief needs: a project whose twenty newest attached notes are all

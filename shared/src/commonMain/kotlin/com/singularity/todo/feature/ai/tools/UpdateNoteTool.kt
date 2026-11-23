@@ -5,7 +5,6 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.NoteKind
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser

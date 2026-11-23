@@ -4,18 +4,12 @@ package com.singularity.todo.feature.ai
 
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.ai.tools.CreateNoteInput
 import com.singularity.todo.feature.ai.tools.CreateNoteOutput
-import com.singularity.todo.feature.ai.tools.CreateNoteTool
-import com.singularity.todo.feature.ai.tools.GetKnowledgeBriefInput
 import com.singularity.todo.feature.ai.tools.GetKnowledgeBriefOutput
 import com.singularity.todo.feature.ai.tools.GetKnowledgeBriefTool
-import com.singularity.todo.feature.ai.tools.UpdateNoteInput
 import com.singularity.todo.feature.ai.tools.UpdateNoteOutput
-import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.NoteKind
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -35,14 +29,8 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -167,9 +155,11 @@ abstract class KnowledgeBriefTestBase {
                 ?.singleOrNull(),
         ).id
 
-    protected fun decodeCreate(raw: String): CreateNoteOutput = Json.decodeFromString(CreateNoteOutput.serializer(), raw)
+    protected fun decodeCreate(raw: String): CreateNoteOutput =
+        Json.decodeFromString(CreateNoteOutput.serializer(), raw)
 
-    protected fun decodeUpdate(raw: String): UpdateNoteOutput = Json.decodeFromString(UpdateNoteOutput.serializer(), raw)
+    protected fun decodeUpdate(raw: String): UpdateNoteOutput =
+        Json.decodeFromString(UpdateNoteOutput.serializer(), raw)
 
     protected fun decodeBrief(raw: String): GetKnowledgeBriefOutput =
         Json.decodeFromString(GetKnowledgeBriefOutput.serializer(), raw)

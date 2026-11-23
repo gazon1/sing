@@ -286,21 +286,28 @@ class ProposalPlanner(private val clock: Clock) {
             val applied =
                 values.fold(note) { acc, value ->
                     when (value) {
-                        is NoteValue.Title -> acc.copy(title = value.value.trim())
+                        is NoteValue.Title -> {
+                            acc.copy(title = value.value.trim())
+                        }
 
                         // The body is written as HTML, which is the canonical form, so the
                         // legacy markdown projection is cleared rather than left behind: a
                         // reader that prefers markdown would otherwise answer with the text
                         // this change replaced.
-                        is NoteValue.Body -> acc.copy(bodyHtml = value.value, bodyMarkdown = null)
+                        is NoteValue.Body -> {
+                            acc.copy(bodyHtml = value.value, bodyMarkdown = null)
+                        }
 
-                        is NoteValue.Summary -> acc.copy(bodyHtml = value.value, bodyMarkdown = null)
+                        is NoteValue.Summary -> {
+                            acc.copy(bodyHtml = value.value, bodyMarkdown = null)
+                        }
 
                         // A value this build cannot read. The change stays on the card
                         // with the reason it cannot be applied, and the user can type a
                         // value that does read.
-                        is NoteValue.Unreadable ->
+                        is NoteValue.Unreadable -> {
                             error(value.readFailure ?: "This value cannot be read.")
+                        }
                     }
                 }
             return applied.copy(updatedAt = now)
@@ -379,10 +386,6 @@ class ProposalPlanner(private val clock: Clock) {
             }
     }
 
-    /**
-     * The note a plan writes is built by [withNoteValue] in the companion — the same
-     * entry point the dispatcher calls when it re-reads the row.
-     */
     /**
      * Returns [project] with [value] applied, or throws if the value is not something
      * the project can hold.
