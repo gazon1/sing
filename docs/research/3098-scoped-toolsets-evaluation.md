@@ -12,8 +12,9 @@ toolbox? A valid answer is "no".
 ## The current tool-selection path
 
 1. **Registration.** `shared/src/{jvmMain,androidMain}/.../core/di/AiToolsModule.*.kt` bind 45 tool instances and
-   collect them into `single<List<Tool<*, *>>>`. The list is maintained by hand; `ToolSurfaceWiringTest`
-   (androidHostTest) compares it with `McpToolCatalog`, so a tool in one list and missing from the other fails the build.
+   collect them into `single<List<Tool<*, *>>>`. The list is maintained by hand; `ToolSurfaceWiringTest` compares it with
+   `McpToolCatalog` on both platforms (`shared/src/androidHostTest/…` and `desktopApp/src/jvmTest/…`), so a tool in one
+   list and missing from the other fails the build.
 2. **Filtering — the only filter there is.** `KoogAgentService` reads `RemoteConfigSnapshot.mcpToolFlags` **once at
    construction** and applies `filterTools` (`shared/src/commonMain/kotlin/com/singularity/todo/core/ai/AiToolFilters.kt`):
    a flag of `false` for a tool's descriptor name removes the tool, a missing flag keeps it. The flag key is the tool's
@@ -107,6 +108,9 @@ What the numbers say:
   real model pick better is the question the issue asks, and it is exactly the question this harness does not answer.
 - **Cost.** Token cost and latency of 45 tool schemas versus a scoped set are not measured here.
 - **Whether the real model behaves like the scripted one at all.** The harness measures the surface, not the model.
+- **The `generate()` entry point.** The harness drives `ToolCallLoop` — the path the chat screen uses. It does not build
+  the Koog `AIAgent` that `generate()` runs, so it says nothing about that entry point's tool registry; the registry is
+  assembled from the same list either way.
 
 ## Recommendation
 
