@@ -75,7 +75,6 @@ initial_flows:
 - Maestro/flows/pomodoro/03-pause-resume.yaml
 - Maestro/flows/pomodoro/04-skip-to-break.yaml
 - Maestro/flows/pomodoro/05-stop-resets.yaml
-- Maestro/flows/profile/01-create-profile.yaml
 - Maestro/flows/profile/02-isolation.yaml
 - Maestro/flows/projects/01-open-detail.yaml
 - Maestro/flows/projects/02-add-task.yaml
