@@ -2282,8 +2282,13 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if lock is not None:
             lock.release()
-        release_output_dir(out_dir)
-        write_report(out_dir, report)
+        # The report is written while the directory is still reserved: a run
+        # that released the reservation first would let another run claim the
+        # directory and start writing its own archive into it.
+        try:
+            write_report(out_dir, report)
+        finally:
+            release_output_dir(out_dir)
     return exit_code
 
 

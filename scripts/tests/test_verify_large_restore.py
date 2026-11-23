@@ -1198,6 +1198,55 @@ class LinkIdentityTest(unittest.TestCase):
             self.assertEqual(len(problems), 1)
             self.assertIn("not in the dataset", problems[0])
 
+    def test_a_task_without_its_project_is_a_lost_relation(self):
+        """A task that lost its project keeps every count of the dataset."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            db = _database(tmp, [
+                statement.replace("VALUES ('t1', 'Task 1', 'p1', NULL)",
+                                  "VALUES ('t1', 'Task 1', NULL, NULL)")
+                for statement in _restored_statements()
+            ])
+            problems = driver.link_identity_problems(
+                driver.payload_links(_archive_with(tmp, _payload())),
+                driver.restored_links(db),
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("project link", problems[0])
+            self.assertIn("are missing", problems[0])
+
+    def test_a_task_without_its_tag_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            db = _database(tmp, [
+                statement
+                for statement in _restored_statements()
+                if "INSERT INTO task_tags" not in statement
+            ])
+            problems = driver.link_identity_problems(
+                driver.payload_links(_archive_with(tmp, _payload())),
+                driver.restored_links(db),
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("tags link", problems[0])
+            self.assertIn("are missing", problems[0])
+
+    def test_a_task_without_its_dependency_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            db = _database(tmp, [
+                statement
+                for statement in _restored_statements()
+                if "INSERT INTO task_dependencies" not in statement
+            ])
+            problems = driver.link_identity_problems(
+                driver.payload_links(_archive_with(tmp, _payload())),
+                driver.restored_links(db),
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("dependencies link", problems[0])
+            self.assertIn("are missing", problems[0])
+
 
 class DebugBuildTest(unittest.TestCase):
     """The procedure restores into the debug build, and says so in the report.
@@ -1615,6 +1664,28 @@ class OutputDirectoryReservationTest(unittest.TestCase):
             exit_code = driver.main(["--out", str(out)])
             self.assertEqual(exit_code, driver.EXIT_SETUP)
 
+    def test_the_report_is_written_while_the_directory_is_still_reserved(self):
+        """The directory is given back only after the report is on disk.
+
+        A run that released the reservation first would let another run claim
+        the directory and start writing its archive into it while this run is
+        still writing its report.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            held: list[bool] = []
+            original = driver.write_report
+
+            def spy(out_dir: Path, report: dict) -> None:
+                held.append((out_dir / driver.RESERVATION_FILE).exists())
+                original(out_dir, report)
+
+            with unittest.mock.patch.object(driver, "write_report", spy):
+                driver.main(["--out", str(out)])
+            self.assertEqual(held, [True])
+            # And the directory is free again once the run is over.
+            self.assertFalse((out / driver.RESERVATION_FILE).exists())
+
 
 #: A dataset that carries the relations of the checklist items, the notes and
 #: the projects — not only the ones of the tasks.
@@ -1717,6 +1788,34 @@ class MoreLinkIdentityTest(unittest.TestCase):
             problems = driver.link_identity_problems(expected, actual)
             self.assertEqual(len(problems), 1)
             self.assertIn("projectParent link", problems[0])
+
+    def test_a_note_without_its_task_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            statements = [
+                statement.replace("VALUES ('n1', 'Note 1', 't1', NULL, NULL)",
+                                  "VALUES ('n1', 'Note 1', NULL, NULL, NULL)")
+                for statement in _restored_statements_with_more_links()
+            ]
+            expected, actual = self._links(tmp, statements)
+            problems = driver.link_identity_problems(expected, actual)
+            self.assertEqual(len(problems), 1)
+            self.assertIn("noteTask link", problems[0])
+            self.assertIn("are missing", problems[0])
+
+    def test_a_note_without_its_parent_note_is_a_lost_relation(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            statements = [
+                statement.replace("VALUES ('n2', 'Note 2', NULL, 'p1', 'n1')",
+                                  "VALUES ('n2', 'Note 2', NULL, 'p1', NULL)")
+                for statement in _restored_statements_with_more_links()
+            ]
+            expected, actual = self._links(tmp, statements)
+            problems = driver.link_identity_problems(expected, actual)
+            self.assertEqual(len(problems), 1)
+            self.assertIn("noteParent link", problems[0])
+            self.assertIn("are missing", problems[0])
 
 
 class NegativePhaseExitCodeTest(unittest.TestCase):
