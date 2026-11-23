@@ -1314,7 +1314,11 @@ def active_profile_id(serial: str) -> str | None:
         return None
     marker = out.find(ACTIVE_PROFILE_KEY)
     tail = out[marker + len(ACTIVE_PROFILE_KEY) :] if marker >= 0 else out
-    match = PROFILE_ID_PATTERN.search(tail) or re.search(rb"default", tail)
+    # The value follows the key in the file, and the whole file is the
+    # fallback: a file that keeps them in another order still holds the id.
+    match = PROFILE_ID_PATTERN.search(tail) or PROFILE_ID_PATTERN.search(out)
+    if match is None:
+        match = re.search(rb"default", tail) or re.search(rb"default", out)
     return match.group().decode() if match else None
 
 

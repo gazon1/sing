@@ -376,6 +376,41 @@ class ProfileScopeTest(unittest.TestCase):
         self.assertEqual(driver.scoped_user_id("work", "u1"), "work/u1")
 
 
+class ActiveProfileTest(unittest.TestCase):
+    """The profile the app works in is read from the file the app keeps it in.
+
+    The app stores the active profile in a DataStore preferences file of its
+    own, and the file is the only thing on the device that says which profile
+    the app is in. A device that has never switched a profile has no such
+    file — and that is the default profile, which is what the app falls back
+    to.
+    """
+
+    #: The id of a profile the app generated: a ULID.
+    ULID = "01JQ8ZP0Q9K7H5V3N2M4R6T8X0"
+
+    def _read(self, payload: bytes, code: int = 0):
+        with unittest.mock.patch.object(
+            driver, "adb_bytes", lambda *a, **k: (code, payload)
+        ):
+            return driver.active_profile_id("device")
+
+    def test_the_id_is_read_from_the_file(self):
+        payload = (
+            b"\x0a\x11active_profile_id\x12\x1a" + self.ULID.encode("ascii")
+        )
+        self.assertEqual(self._read(payload), self.ULID)
+
+    def test_a_file_that_is_not_there_means_the_default_profile(self):
+        self.assertIsNone(self._read(b"", code=1))
+        with unittest.mock.patch.object(driver, "adb_bytes", lambda *a, **k: (1, b"")):
+            self.assertEqual(driver.current_profile_id("device"), "default")
+
+    def test_a_file_that_names_the_default_profile_says_so(self):
+        payload = b"\x0a\x11active_profile_id\x12\x07default"
+        self.assertEqual(self._read(payload), "default")
+
+
 class ScopedLookupTest(unittest.TestCase):
     """The lookups the run drives the app with are scoped too.
 
