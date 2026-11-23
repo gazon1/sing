@@ -1439,13 +1439,14 @@ def related_task(db_path: Path, scope: str | None = None) -> tuple[str, str] | N
         )
         counts = dict(
             connection.execute(
-                "SELECT title, COUNT(*) FROM tasks GROUP BY title"
-                + scope_filter(scope, "user_id = ?"),
+                "SELECT title, COUNT(*) FROM tasks"
+                + scope_filter(scope, "user_id = ?", " WHERE ")
+                + " GROUP BY title",
                 scope_params(scope),
             ).fetchall()
         )
-    except sqlite3.Error:
-        return None
+    except sqlite3.Error as exc:
+        raise RunError(f"the restored database cannot be read: {exc}") from exc
     finally:
         connection.close()
     unique = [(task_id, title) for task_id, title in tasks.items() if counts.get(title) == 1]
@@ -1495,18 +1496,19 @@ def picker_candidate(db_path: Path, current_id: str, scope: str | None = None) -
             [current_id, current_id] + scope_params(scope),
         ).fetchall()
         titles = connection.execute(
-            "SELECT title FROM tasks" + scope_filter(scope, "user_id = ?"),
+            "SELECT title FROM tasks" + scope_filter(scope, "user_id = ?", " WHERE "),
             scope_params(scope),
         ).fetchall()
         counts = dict(
             connection.execute(
-                "SELECT title, COUNT(*) FROM tasks GROUP BY title"
-                + scope_filter(scope, "user_id = ?"),
+                "SELECT title, COUNT(*) FROM tasks"
+                + scope_filter(scope, "user_id = ?", " WHERE ")
+                + " GROUP BY title",
                 scope_params(scope),
             ).fetchall()
         )
-    except (sqlite3.Error, TypeError):
-        return None
+    except sqlite3.Error as exc:
+        raise RunError(f"the restored database cannot be read: {exc}") from exc
     finally:
         connection.close()
     numbers = [number_of(title) for (title,) in titles]
@@ -1528,11 +1530,11 @@ def task_titles(db_path: Path, scope: str | None = None) -> list[str]:
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         rows = connection.execute(
-            "SELECT title FROM tasks" + scope_filter(scope, "user_id = ?"),
+            "SELECT title FROM tasks" + scope_filter(scope, "user_id = ?", " WHERE "),
             scope_params(scope),
         ).fetchall()
-    except sqlite3.Error:
-        return []
+    except sqlite3.Error as exc:
+        raise RunError(f"the restored database cannot be read: {exc}") from exc
     finally:
         connection.close()
     return [title for (title,) in rows if title]
@@ -2088,9 +2090,16 @@ def restored_links(db_path: Path, scope: str | None = None) -> dict[str, set[tup
         connection.close()
 
 
-def scope_filter(scope: str | None, condition: str) -> str:
-    """The `AND` that limits a query to one scope, or nothing at all."""
-    return f" AND {condition}" if scope is not None else ""
+def scope_filter(scope: str | None, condition: str, prefix: str = " AND ") -> str:
+    """The clause that limits a query to one scope, or nothing at all.
+
+    `prefix` is what the clause is joined with: " AND " for a query that
+    already has a WHERE, " WHERE " for one that has none. A query that has
+    neither is a syntax error, and SQLite answers one with an error the
+    caller may read as "there is nothing there" — so the prefix has to
+    match the query.
+    """
+    return f"{prefix}{condition}" if scope is not None else ""
 
 
 def scope_params(scope: str | None) -> list:

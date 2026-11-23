@@ -256,6 +256,78 @@ class ProfileScopeTest(unittest.TestCase):
         self.assertEqual(driver.scoped_user_id("work", "u1"), "work/u1")
 
 
+class ScopedLookupTest(unittest.TestCase):
+    """The lookups the run drives the app with are scoped too.
+
+    The related task, the picker's candidate and the title of a row are read
+    from the database, and the run has to address a task of the profile it
+    restored: a task of another profile is not a task of the dataset. The
+    lookups run against the real database here, because a scoped query that
+    does not parse is answered by SQLite with an error the caller may read as
+    "there is nothing there" — and a run that finds nothing fails in the
+    app, far away from the query that is wrong.
+    """
+
+    #: Two profiles, each with a task that holds a relation and a task that
+    #: holds none.
+    TWO_PROFILES = [
+        "INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Task 1', 'u1')",
+        "INSERT INTO tasks (id, title, user_id) VALUES ('t2', 'Task 2', 'u1')",
+        "INSERT INTO tasks (id, title, user_id) VALUES ('t3', 'Task 3', 'u1')",
+        "INSERT INTO tasks (id, title, user_id) VALUES ('x1', 'Other 1', 'u2')",
+        "INSERT INTO tasks (id, title, user_id) VALUES ('x2', 'Other 2', 'u2')",
+        "INSERT INTO tasks (id, title, user_id) VALUES ('x3', 'Other 3', 'u2')",
+        "INSERT INTO task_dependencies (task_id, depends_on_task_id) VALUES ('t2', 't1')",
+        "INSERT INTO task_dependencies (task_id, depends_on_task_id) VALUES ('x2', 'x1')",
+    ]
+
+    def _database_with_two_profiles(self, tmp: Path) -> Path:
+        return _database(tmp, self.TWO_PROFILES)
+
+    def test_the_titles_are_the_scopes_own(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._database_with_two_profiles(Path(raw))
+            self.assertEqual(sorted(driver.task_titles(path, "u1")), ["Task 1", "Task 2", "Task 3"])
+            self.assertEqual(sorted(driver.task_titles(path, "u2")), ["Other 1", "Other 2", "Other 3"])
+
+    def test_the_titles_without_a_scope_are_the_whole_database(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._database_with_two_profiles(Path(raw))
+            self.assertEqual(len(driver.task_titles(path)), 6)
+
+    def test_the_related_task_is_the_scopes_own(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._database_with_two_profiles(Path(raw))
+            self.assertEqual(driver.related_task(path, "u1"), ("t2", "Task 2"))
+            self.assertEqual(driver.related_task(path, "u2"), ("x2", "Other 2"))
+
+    def test_the_pickers_candidate_is_the_scopes_own(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._database_with_two_profiles(Path(raw))
+            self.assertEqual(driver.picker_candidate(path, "t2", "u1"), ("t3", "Task 3"))
+            self.assertEqual(driver.picker_candidate(path, "x2", "u2"), ("x3", "Other 3"))
+
+    def test_the_title_of_a_row_is_the_scopes_own(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._database_with_two_profiles(Path(raw))
+            self.assertEqual(driver.title_for_tag(path, "task_item_task_2", "u1"), "Task 2")
+            self.assertEqual(driver.title_for_tag(path, "task_item_task_2", "u2"), None)
+
+    def test_a_database_that_cannot_be_read_is_not_an_empty_one(self):
+        """A table that is missing is an error, not an empty table: a lookup
+        that cannot run must not be read as "there is nothing there".
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            path = tmp / "todo.db"
+            connection = sqlite3.connect(path)
+            connection.execute("CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT)")
+            connection.commit()
+            connection.close()
+            with self.assertRaises(driver.RunError):
+                driver.task_titles(path, "u1")
+
+
 class RelationshipProblemsTest(unittest.TestCase):
     """A restore that writes rows but not links answers "how many" correctly.
 
