@@ -1,29 +1,40 @@
 # Scenario specification for AGENDA-01.
 #
-# Claimed on `android`, carried by Maestro flow
-# `Maestro/flows/agenda/01-smart-lists.yaml` (`scenario:AGENDA-01`).
+# Claimed on `android`, carried by the Maestro flow
+# `Maestro/flows/agenda/01-smart-lists.yaml` — the flow is the carrier in fact;
+# it carries no `scenario:AGENDA-01` tag yet, which is the wider gap the audit
+# lists for the agenda flows (Appendix B of
+# `docs/testing/maestro-guarantees-inventory.md`).
 #
-# The assertion is on the section header, not on the row leaving the screen, and
-# the flow's header says why: Inbox is a full agenda (Today, Yesterday, …, No
-# Date), so a dated task stays in Inbox and only changes section. A scenario
-# written the other way round would assert a product decision that was never
-# made, and would start failing the day Inbox grows another section.
+# THE RULE, in one line: the Inbox tab holds the tasks that are not scheduled
+# yet — the undated ones, and nothing else. The three bottom-bar tabs are a
+# partition of the tasks (ADR `2026-10-31-the-agenda-tabs-are-disjoint`), so
+# dating a task takes it out of the Inbox: a task due today is in the Today
+# tab, one due later in the Upcoming tab.
+#
+# This spec used to say the opposite — that a dated task stays in the Inbox
+# and only changes section. The implementation (`AgendaPresets.Inbox`),
+# `AgendaTabDisjointnessTest`, `AgendaInboxTabMeaningTest` and the flow itself
+# all said the Inbox is undated-only; the spec was the only thing that said
+# otherwise, so it is what was wrong. Reconciled in #3114.
 
 id: AGENDA-01
-title: "A dated task moves between Inbox date buckets"
+title: "A dated task leaves the Inbox"
 area: feature.agenda
 priority: P2
 status: confirmed
 targets: [android]
 preconditions: >-
-  One task exists in Inbox with no date, so the No Date bucket has content to
+  One task exists in Inbox with no date, so the No Date section has content to
   move.
 steps:
-  - Open Inbox and note which bucket the task is under.
+  - Open Inbox and note the task under the "No Date" section.
   - Give the task a date.
-  - Open Inbox again and look at the bucket headers.
+  - Open Inbox again and look at the sections.
 expected: >-
-  The task leaves the No Date bucket, whose header count drops, and appears
-  under the section for its date — it stays in Inbox rather than disappearing
-  from the screen. Section headers carry their own count, so the move stays
-  visible even without scrolling to the row.
+  The task leaves the Inbox: the "No Date" section no longer holds it, and the
+  task is not on the Inbox screen at all. It is not lost — a task dated today
+  is in the Today tab, and one dated further out is in the Upcoming tab. The
+  assertion is on the task's absence from Inbox, because that is the claim the
+  Inbox makes; the section headers carry counts of their own, so a section that
+  still holds other tasks stays on screen.

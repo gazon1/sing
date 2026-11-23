@@ -1,7 +1,11 @@
 # Scenario specification for PROFILE-01.
 #
-# Claimed on `android`, carried by Maestro flow
-# `Maestro/flows/profile/01-create-profile.yaml` (`scenario:PROFILE-01`).
+# The Maestro flow `Maestro/flows/profile/01-create-profile.yaml` that carried
+# this on Android was retired (#3122): the desktop carrier below asserts the
+# same behavior (create a profile from the drawer, confirm, see it listed). The
+# Android-only residue — real IME input and the menu sheet's `menu_profiles`
+# row reachability — is not this guarantee; `MenuSheetBoundsTest` owns the
+# sheet reachability.
 #
 # The dialog pre-fills an emoji, so only the name has to be supplied. The
 # scenario deliberately does not assert the emoji: a default nobody relies on
@@ -12,11 +16,11 @@ title: "A second profile is created and listed"
 area: feature.profile
 priority: P1
 status: confirmed
-targets: [android]
+targets: [desktop]
 preconditions: >-
-  The Menu sheet is open and only the default profile exists.
+  The Profile screen is open and only the default profile exists.
 steps:
-  - Choose to create a profile from the Menu sheet.
+  - Choose to create a profile.
   - Supply a name and confirm.
 expected: >-
   The new profile is listed alongside the default, so a user can reach the

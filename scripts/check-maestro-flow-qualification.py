@@ -116,7 +116,7 @@ DEFAULT_EVIDENCE = ROOT / "config" / "docs" / "maestro-flow-qualification.yaml"
 #: it is reviewed as one, and it says in the diff that flows were admitted
 #: without being qualified. Print the current digest with
 #: ``--print-initial-digest``.
-FROZEN_SET_DIGEST = "sha256:9b7797e0faa5981077509b32c8d95b8e9d7d05bc681587c4eaa40a63c88a122c"
+FROZEN_SET_DIGEST = "sha256:1fae657bfd565f514564192cf45aef77147d8172f6ccd4af68c4a6d18f8e2125"
 
 #: The pinned digest of the baseline map (flow -> fingerprint).
 #:
@@ -129,7 +129,7 @@ FROZEN_SET_DIGEST = "sha256:9b7797e0faa5981077509b32c8d95b8e9d7d05bc681587c4eaa4
 #: changed — a source change, reviewed as one, that says in the diff that
 #: flows are admitted without being qualified. Print the current digest with
 #: ``--print-baseline-digest``.
-BASELINE_DIGEST = "sha256:5beec8064bb20ca705b40b09fcf5d5a98e544c6fef073bf3842fde7968a7a741"
+BASELINE_DIGEST = "sha256:5a03b4ec044d78c74e4d327c1c04779f05f7260f0ef7c2000133479515c99a0f"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run

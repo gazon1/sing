@@ -74,7 +74,6 @@ flows:
   Maestro/flows/pomodoro/03-pause-resume.yaml: sha256:ea267dcc2e0f6332231e1027c2315b6bb1fef3f76065f7bc8839ebebaf5dcd30
   Maestro/flows/pomodoro/04-skip-to-break.yaml: sha256:cf6537354e7869db0fb7a23f906e75e2454b291ae7d497c7b3ac603a87b07e5e
   Maestro/flows/pomodoro/05-stop-resets.yaml: sha256:6cec022c173ddadfa21a9c57c450531411c371fb27bd183c8b8522c9c2aa311c
-  Maestro/flows/profile/01-create-profile.yaml: sha256:cb6acd91f9070c1213bb136995bb0f6fa3354ad001c5dd4f7b8ae551d4810639
   Maestro/flows/profile/02-isolation.yaml: sha256:90a26b488f04b8dd186cbac7a8f07c215335581867d27be600f3051924aedf0b
   Maestro/flows/projects/01-open-detail.yaml: sha256:adf2d192b874a3373db0697ef845aafd012ec362a7709a9468edad0188008fc6
   Maestro/flows/projects/02-add-task.yaml: sha256:d7dbfb78e3f022c21ce3b28f2460c220052a243fd2f6c883c01a194c01a48e1c
