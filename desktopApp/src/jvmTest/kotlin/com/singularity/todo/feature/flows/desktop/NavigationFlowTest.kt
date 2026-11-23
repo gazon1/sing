@@ -3,6 +3,7 @@ package com.singularity.todo.feature.flows.desktop
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
@@ -10,12 +11,14 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertContentDescriptionReachable
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickScreenBack
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -104,6 +107,77 @@ class NavigationFlowTest {
 
             tapTab("Inbox")
 
+            assertCurrentTab("Inbox")
+        }
+
+    /**
+     * #2527 — every menu destination can be left again through the shell's own arrow.
+     *
+     * The drawer is the only way into these destinations on desktop, and a menu
+     * destination draws its own screen bar with no navigation icon of its own — the AI
+     * chat's is titled "AI Assistant" and carries none. So the shell's arrow
+     * (`TestTags.SHELL_BACK_BUTTON`) is the only control a flow can leave one by, and it
+     * has to be there on **all** of them, not just the one a single destination test
+     * happens to cover.
+     *
+     * The list comes from [DestinationKind.menuEntries] and not from
+     * `DesktopShell.MENU_ENTRIES`: the helper is a hand-written copy of the drawer's
+     * labels and it drifted (it still names the Calendar, which is a tab, and never
+     * names Proposals, Pomodoro or AI Usage). A loop over a stale copy silently skips
+     * destinations — exactly the gap this test exists to close — so it reads the list
+     * the drawer itself draws.
+     *
+     * Arrival is asserted by the shell's own selection, not by the arrow alone: an arrow
+     * only says the navigation state permits a pop, and would still appear on a
+     * destination that pushed its route and rendered nothing.
+     */
+    @Test
+    fun every_menu_destination_can_be_left_again_through_the_shell_back_arrow() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            DestinationKind.menuEntries.forEach { destination ->
+                val label = destination.title
+                tapTab(label)
+
+                assertCurrentTab(label)
+
+                // The arrow exists on the destination. `awaitTag` because the top bar
+                // and the destination's own content are composed in the same frame and
+                // the order between them is not guaranteed.
+                awaitTag(TestTags.SHELL_BACK_BUTTON)
+
+                clickTag(TestTags.SHELL_BACK_BUTTON)
+
+                // Back on the tab the flow came from — the FAB only exists there.
+                assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
+                assertCurrentTab("Today")
+            }
+        }
+
+    /**
+     * #2527 — leaving a destination returns to the tab it was opened from, not to Today.
+     *
+     * The loop above enters every destination from Today, so it cannot tell "back
+     * restores the origin" from "back always goes to Today" — a regression that
+     * hardcoded Today would pass it. This test starts on another tab, and the difference
+     * between the two answers is the whole claim the issue makes about restoring the
+     * origin.
+     *
+     * One destination is enough here: what is under test is the origin, and the loop
+     * above already covers which destinations exist and that each one can be left.
+     */
+    @Test
+    fun leaving_a_menu_destination_returns_to_the_tab_it_was_opened_from() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
+
+            tapTab("Statistics")
+            assertCurrentTab("Statistics")
+
+            clickTag(TestTags.SHELL_BACK_BUTTON)
+
+            // Inbox, not Today: the flow came from Inbox, and Today is where a
+            // hardcoded back would land.
             assertCurrentTab("Inbox")
         }
 
