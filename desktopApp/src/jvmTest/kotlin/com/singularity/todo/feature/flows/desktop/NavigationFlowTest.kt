@@ -138,11 +138,11 @@ class NavigationFlowTest {
             awaitTag(TestTags.projectCard("Roadmap")).performClick()
             awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
-            // Leave the project (the shell's back leaves the graph the menu
-            // opened) and come back through the menu: the project is still there.
-            // The shell's own back arrow: the project's own arrow would only go
-            // from the project back to the list, still inside the graph.
-            awaitTag(TestTags.SHELL_BACK_BUTTON).performClick()
+            // Leave the project and come back through the menu: the project is
+            // still there. The project detail draws a back arrow of its own, so
+            // that arrow is the one that leaves it — the shell's control stands
+            // down while a screen owns one, so the two never stack.
+            clickScreenBack()
             openAllProjects()
             awaitTag(TestTags.projectCard("Roadmap")).performClick()
 

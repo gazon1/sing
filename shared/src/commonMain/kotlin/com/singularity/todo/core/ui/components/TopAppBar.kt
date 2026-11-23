@@ -42,6 +42,19 @@ fun TopAppBar(
     // One token per composed bar: the holder uses it to tell the title of the
     // screen on screen from the title of a screen that is leaving.
     val barPublisher = remember { Any() }
+    // Does this bar draw a leading control of its own? The Desktop shell draws a
+    // back control of its own, and it stands down while a screen owns one: a
+    // screen that draws a back arrow already owns the gesture, and a second
+    // arrow on top of it would be two controls for one meaning.
+    val backControlHolder = LocalScreenBackControlHolder.current
+    val backControlPublisher = remember { Any() }
+    if (backControlHolder != null) {
+        val ownsControl = navigationIcon != null
+        SideEffect { backControlHolder.publish(backControlPublisher, ownsControl) }
+        DisposableEffect(backControlHolder, backControlPublisher) {
+            onDispose { backControlHolder.release(backControlPublisher) }
+        }
+    }
     if (holder != null) {
         SideEffect {
             holder?.publishActions(barPublisher, actions)

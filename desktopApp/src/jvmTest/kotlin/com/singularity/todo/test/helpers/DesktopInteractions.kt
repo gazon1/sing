@@ -33,11 +33,12 @@ fun DesktopComposeUiTest.clickContentDescription(desc: String) {
 /**
  * Clicks the back arrow the **screen** draws, not the shell's own.
  *
- * The shell draws a back arrow of its own — `TestTags.SHELL_BACK_BUTTON` — as soon as
- * there is something to pop, and a screen that can be left draws an arrow of its own.
- * Both carry the content description "Back", so the description alone matches two
- * nodes and [clickContentDescription] refuses to choose between them. The tag tells
- * them apart: the shell's carries one, the screens' do not.
+ * The shell draws a back arrow of its own — `TestTags.SHELL_BACK_BUTTON` — and it
+ * stands down while the screen on top draws an arrow of its own, so at any moment
+ * at most one of them is on screen. Both carry the content description "Back", so
+ * the description alone matches two nodes and [clickContentDescription] refuses to
+ * choose between them. The tag tells them apart: the shell's carries one, the
+ * screens' do not.
  *
  * The screen's arrow is the one a flow means by "leave this screen". The shell's pops
  * the stack of the top-level route, and for a nested destination — the notes editor

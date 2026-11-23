@@ -50,6 +50,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.FabFootprint
 import com.singularity.todo.core.ui.components.LocalFabBottomSpace
+import com.singularity.todo.core.ui.components.LocalScreenBackControlHolder
+import com.singularity.todo.core.ui.components.ScreenBackControlHolder
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
@@ -133,8 +135,11 @@ fun DesktopShellNav3Root(
     val fabFootprint = remember { FabFootprint() }
     val fabBottomSpace = if (fabAction != null) fabFootprint.bottomSpace() else 0.dp
 
-    // Whether the shell's leading control is a back arrow or the drawer's button.
-    val canGoBack: Boolean = navigator.canGoBack()
+    // Who draws the back control on the screen that is on top. The shell draws
+    // a back control of its own, and it stands down while a screen owns one: a
+    // screen that draws a back arrow already owns the gesture, and a second
+    // arrow stacked on top of it would be two controls for one meaning.
+    val backControlHolder = remember { ScreenBackControlHolder() }
 
     // A back that has nothing left to pop leaves the app, as it does on Android, where the
     // same `goBack()` result finishes the activity. The window is the host's, so the shell
@@ -406,12 +411,28 @@ fun DesktopShellNav3Root(
                         ) {
                             Icon(Icons.Default.Menu, contentDescription = MENU_BUTTON_TITLE)
                         }
-                        // The shell's own back arrow. It appears when there is
-                        // something to pop, so a pushed screen can be left without
-                        // reaching for the screen's own arrow.
-                        if (canGoBack) {
+                        // The shell's one back control. Its meaning follows the
+                        // navigation state:
+                        //
+                        // - with somewhere to go back to it pops: a nested screen,
+                        //   or the tab that was active before;
+                        // - at the ultimate root of the start tab it takes the
+                        //   window's own close path.
+                        //
+                        // That is the Desktop half of the pairing the Android shell
+                        // bar makes between `goBack()`'s result and
+                        // `activity.finish()`. The decision lives in [desktopBack],
+                        // so this control, the `NavDisplay` back and every screen's
+                        // own arrow cannot drift apart — and one press cannot both
+                        // pop and close.
+                        //
+                        // It stands down while the screen on top draws a back arrow
+                        // of its own: that screen already owns the gesture, and a
+                        // second arrow stacked on top of it would be two controls
+                        // for one meaning.
+                        if (!backControlHolder.ownsControl) {
                             IconButton(
-                                onClick = { scope.launch { navigator.goBack() } },
+                                onClick = { desktopBack(navigator, onCloseRequest) },
                                 modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
                             ) {
                                 Icon(
@@ -428,6 +449,7 @@ fun DesktopShellNav3Root(
                     LocalNav3State provides state,
                     LocalFabBottomSpace provides fabBottomSpace,
                     LocalAgendaRouteHolder provides agendaRouteHolder,
+                    LocalScreenBackControlHolder provides backControlHolder,
                 ) {
                     NavDisplay(
                         entries = navDisplayEntries,
