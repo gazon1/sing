@@ -89,6 +89,9 @@ both shells honour it.**
 
 - The Inbox, Today and Calendar roots show no Back arrow, on Android and on
   Desktop, and the state that produced the arrow is untouched.
+- The policy is proved on both shells: the desktop suite renders the desktop
+  shell, and the instrumented suite drives the Android shell on a device, where
+  the same policy decides the leading control of the shell bar.
 - Agenda subroutes (saved views, project and tag views) keep their Back, and so
   does every destination that is not one of the three roots — including the
   Upcoming tab, which the issue does not name.
@@ -121,6 +124,7 @@ both shells honour it.**
 - `shared/src/commonTest/kotlin/com/singularity/todo/shell/PrimaryTabRootTest.kt`
 - `shared/src/commonTest/kotlin/com/singularity/todo/feature/calendar/presentation/nav/CalendarNavigatorTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/desktop/PrimaryTabRootBackTest.kt`
+- `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/PrimaryTabRootBackTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/calendar/presentation/screen/CalendarScreenBackTest.kt`
 - `docs/decisions/2026-11-12-the-shells-button-follows-the-route-inside-the-agenda-graph.md`
 - `docs/decisions/2026-11-23-the-desktop-shell-draws-one-back-control.md`
