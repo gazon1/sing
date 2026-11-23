@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -14,35 +17,30 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
 /**
- * Desktop mirror of `Maestro/flows/agenda/04-saved-view-results.yaml`.
+ * Desktop carrier for `AGENDA-04` — a saved view is a stored filter, not a
+ * stored label.
  *
- * Verifies that tapping a saved view card in the Saved Views list navigates to
- * the results screen showing tasks that match the view's definition.
+ * The retired Maestro flow `Maestro/flows/agenda/04-saved-view-results.yaml`
+ * (#3121) drove the same behaviour through the Android shell (overflow
+ * save-current, real IME, popup resource ids). Those device steps are already
+ * covered by `03-saved-views-crud`; the behaviour below is what the flow
+ * existed to prove.
  *
- * ## What this tests (MR-11新增)
- *
- * - `SavedAgendaScreen` renders `AgendaScreen(definition)` when in View mode
- * - `AgendaNavigator.openSavedAgendaResults` pushes `SavedAgendaResults` route
- * - `onViewSelected` in `SavedAgendaListScreen` opens results, not edit
- *
- * ## Platform-specific notes
- *
- * The Maestro flow (`04-saved-view-results.yaml`) tests the full end-to-end:
- * create task → save agenda → open saved views → tap card → see results.
- * On Desktop this test seeds both the task and the saved view through the
- * repositories (the create-editor flow has its own dedicated test in
- * `SavedAgendaCreateFlowTest`), keeping this test focused on the card →
- * results navigation that MR-11 added.
+ * The view is seeded through the repository rather than the editor, so the test
+ * stays focused on the card → results navigation. Save-current has its own owner
+ * in `SavedAgendaCreateFlowTest`.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 @Tag("slow:compose")
 class OpenSavedViewShowsMatchingTasksFlowTest {
     @Test
+    @DisplayName("AGENDA-04 opening a saved view lists the tasks matching its definition")
     fun tapping_a_saved_view_card_opens_the_results_screen() =
         runDesktopAppTest(checkA11y = true) { koin ->
             // ── 1. Seed an active task (no due date) via repository ───────────────
@@ -71,9 +69,14 @@ class OpenSavedViewShowsMatchingTasksFlowTest {
             // ("Saved Views" is the title text, not a testTag, so it is not awaited).
             assertTagDisplayed(TestTags.savedAgendaCard("My Active Tasks"))
 
-            // ── 4. Tap the card → SavedAgendaResults screen (MR-11 new behaviour) ──
-            // Inbox's "No Date" section matches the seeded "Buy milk" task.
+            // ── 4. Tap the card → SavedAgendaResults screen ──────────────────────
+            // Inbox's "No Date" section matches the seeded "Buy milk" task. The
+            // view name and the matching content together prove this is a stored
+            // filter rendered as results, not a stored label over an unfiltered list.
             awaitTag(TestTags.savedAgendaCard("My Active Tasks")).performClick()
+            // The view name appears in the shell bar and in the results heading; the
+            // assertion only needs proof the name is visible on the results screen.
+            onAllNodes(hasText("My Active Tasks")).onFirst().assertIsDisplayed()
             assertTagDisplayed(TestTags.agendaSection("No Date"))
             assertTagDisplayed(TestTags.taskItem("Buy milk"))
         }

@@ -10,7 +10,6 @@ flows:
   Maestro/flows/agenda/01-smart-lists.yaml: sha256:8fa0af5ce9fe641199fb489e98d4a8f768c54a81d276fac1872871b6eaf7778c
   Maestro/flows/agenda/02-saved-views-open.yaml: sha256:58b74ed579cc20c949afd1918245cbf8f93808bfa8daf7d7581467d0aed99d0e
   Maestro/flows/agenda/03-saved-views-crud.yaml: sha256:51e3f14a54cfe933c1b6103edb6cacb98ee4abf66bc13e5360b59935b5b76f9b
-  Maestro/flows/agenda/04-saved-view-results.yaml: sha256:0abcdcfe53be95e7a9ed784c1e2431c9922b2cbc800ef8b76bb782d82dee3034
   Maestro/flows/agenda/05-reachability.yaml: sha256:ed4d074a08b25aab490e2dccdf2e59be0434f288c60c2cc6b6b63fab96ffc18b
   Maestro/flows/agenda/06-full-lifecycle.yaml: sha256:1497add7367337e9d2c121aad73be7a813d43f4aa52e9fb55eb773dba88255c2
   Maestro/flows/agenda/07-copy-to-profile.yaml: sha256:20a3dca84435a8434d8b2a7153fbecf11fd6256799ea95e6806328456a7e17fc
