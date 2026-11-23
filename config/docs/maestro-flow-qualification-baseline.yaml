@@ -56,7 +56,6 @@ flows:
   Maestro/flows/menu/09-attach-account-entry.yaml: sha256:1673b9f7fe281b6c14367af94a5ffc9ef8fa0ac92fef2b5a613c0fba15ee4397
   Maestro/flows/menu/10-large-projects.yaml: sha256:b1c70ad8f265ccb81eb8555c0305772aa4bffdd1296592bc4aeabcdfd8a99fa5
   Maestro/flows/nav/01-no-calendar-tab.yaml: sha256:22c77e4c3a94d1f9f82a04aed3ea68a36e6e7a73c733c1e509fd32dfb719ad3d
-  Maestro/flows/nav/02-menu-parity.yaml: sha256:3dc5caf5ced79999a87be3af34cdbac474dbd63974da7461401ca1a7cd0f6192
   Maestro/flows/nav/bottom-nav-tabs.yaml: sha256:26d7e374af8e3c354d5230b21e40a7c5a7b59849230a993e85b5c67718aaccb1
   Maestro/flows/nav/deep-link-task.yaml: sha256:713a02f964ee99ff7f39c59f0feb901b6937ae73f81b55c2f3185139831d14bc
   Maestro/flows/negative/01-empty-inbox.yaml: sha256:bcfe2120936b566f35319dae7885e6a82870a9fa11ea96f4770d7c1c230f8ea5
