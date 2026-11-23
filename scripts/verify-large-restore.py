@@ -446,7 +446,15 @@ def reset_content(
         elapsed = wait_for_reset_marker(serial)
         if out_dir is None:
             return {}, elapsed
-        counts = count_rows(pull_database(serial, out_dir / "reset-db"))
+        counts, pull_problem = pull_counts(serial, out_dir / "reset-db")
+        if pull_problem:
+            raise RunError(pull_problem)
+        unreadable = sorted(key for key, value in counts.items() if value < 0)
+        if unreadable:
+            raise RunError(
+                f"the tables {', '.join(unreadable)} could not be read, so the wipe "
+                "cannot be confirmed"
+            )
         if not any(value > 0 for value in counts.values()):
             return counts, elapsed
     raise RunError(f"the profile's content was not wiped — it still holds {counts}")
@@ -529,6 +537,29 @@ def find_maestro() -> str:
     if candidate.is_file():
         return str(candidate)
     raise RunError("maestro was not found on PATH nor in ~/.maestro/bin")
+
+
+def tool_versions(serial: str) -> dict[str, str]:
+    """The versions of the tools the run used.
+
+    A measurement without the version of the tool that produced it cannot be
+    compared with the next one, so the report carries them.
+    """
+    versions = {}
+    try:
+        result = subprocess.run(
+            [find_maestro(), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        lines = (result.stdout or "").strip().splitlines()
+        versions["maestro"] = lines[0].strip() if result.returncode == 0 and lines else "unknown"
+    except (OSError, subprocess.SubprocessError):
+        versions["maestro"] = "unknown"
+    code, out = adb("shell", "getprop", "ro.build.version.release", serial=serial)
+    versions["android"] = out.strip() if code == 0 and out.strip() else "unknown"
+    return versions
 
 
 def flow_command(serial: str, flow: str, env: dict[str, str]) -> list[str]:
@@ -782,10 +813,15 @@ def pull_database(serial: str, out_dir: Path, stop: bool = True) -> Path:
     the rows the import wrote.
 
     The app is stopped first, so that the three files are one moment of the
-    database and not three.
+    database and not three. If the app refuses to stop, there is no such
+    moment, and the copy is refused too: a torn database read as a whole one
+    is worse than no database at all.
     """
-    if stop:
-        stop_app(serial)
+    if stop and not stop_app(serial):
+        raise RunError(
+            "the app did not stop within the timeout, so the database cannot be "
+            "copied as one moment: the copy would be a torn one"
+        )
     target = out_dir / "device-db"
     target.mkdir(parents=True, exist_ok=True)
     # The old copy goes first. A write-ahead log that is left over from an
@@ -912,26 +948,6 @@ def number_of(title: str) -> int:
     """The number in a generated title, or -1 when it carries none."""
     digits = "".join(char for char in title if char.isdigit())
     return int(digits) if digits else -1
-
-
-def unique_task_title(db_path: Path) -> str | None:
-    """The title of the task with the highest number in it.
-
-    The generated titles are "Task 1", "Task 2", …, so the highest number
-    belongs to exactly one task: no other title carries it as a substring.
-    The search that finds it therefore finds one row, and not a neighbour.
-    """
-    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    try:
-        rows = connection.execute("SELECT title FROM tasks").fetchall()
-    except sqlite3.Error:
-        return None
-    finally:
-        connection.close()
-    numbered = [(number_of(title), title) for (title,) in rows]
-    if not numbered:
-        return None
-    return max(numbered)[1]
 
 
 def related_task_title(db_path: Path) -> str | None:
@@ -1083,7 +1099,9 @@ def write_report(out_dir: Path, report: dict) -> None:
         "",
         f"* device: `{report['device']['serial']}` — {report['device']['model']}, "
         f"Android {report['device']['androidRelease']} (SDK {report['device']['sdk']})",
-        f"* build: `{report['apk']['version']}` — {report['apk']['path']}",
+        f"* build: `{report['apk']['version']}` ({report['apk']['variant']}) — "
+        f"{report['apk']['path']}",
+        f"* tools: Maestro {report.get('tools', {}).get('maestro', '—')}",
         f"* dataset: profile `{report['dataset']['profile']}`, seed `{report['dataset']['seed']}`",
         f"* archive: {report['dataset']['archiveBytes']} bytes on disk, "
         f"{report['dataset']['decompressedBytes']} bytes decompressed",
@@ -1150,6 +1168,9 @@ def over_budget_problems(outcome: dict, counts: dict[str, int]) -> list[str]:
 
     The check that the refusal is about the size is the point of this
     function: without it any failure at all reads as a working budget.
+
+    A table that could not be read is not an empty table: without it the
+    check cannot say that the refused archive wrote nothing.
     """
     problems = []
     message = outcome.get("errorDialogText", "")
@@ -1163,6 +1184,13 @@ def over_budget_problems(outcome: dict, counts: dict[str, int]) -> list[str]:
         problems.append("the app reported the import as done instead of refusing the archive")
     else:
         problems.append("the import failed without saying so")
+    unreadable = sorted(key for key, value in counts.items() if value < 0)
+    if unreadable:
+        problems.append(
+            f"the tables {', '.join(unreadable)} could not be read, "
+            "so what the refused archive wrote is unknown"
+        )
+        return problems
     left = {key: value for key, value in counts.items() if value > 0}
     if left:
         problems.append(f"the refused archive left rows behind: {left}")
@@ -1206,6 +1234,54 @@ def interrupted_import_problems(
     ]
 
 
+def apk_variant(built_here: bool) -> str:
+    """The build variant of the APK the run measured.
+
+    Only this checkout's own build is known to be a debug one. An APK handed
+    in with `--apk` says nothing about its build type, and the identity check
+    does not establish one: so the report says `unknown` rather than claim a
+    variant it does not know.
+    """
+    return "debug" if built_here else "unknown"
+
+
+def verdict_problems(
+    count_problems: list[str],
+    link_problems: list[str],
+    negative_problems: list[str],
+    browse_ok: bool,
+    reported_by_snackbar: bool,
+) -> list[str]:
+    """Everything that makes the run unsuccessful, in one list.
+
+    The exit code of the run is this list, so it is written once, here, and
+    not assembled in the middle of the run: a check whose problem is not
+    added to this list does not fail the run.
+    """
+    problems = list(count_problems) + list(link_problems) + list(negative_problems)
+    if not browse_ok:
+        problems.append("the imported data did not open in the app")
+    if not reported_by_snackbar:
+        problems.append("the restore never reported itself")
+    return problems
+
+
+def pull_counts(serial: str, out_dir: Path) -> tuple[dict[str, int], str]:
+    """The counts of the profile on the device, or a note that they are unknown.
+
+    The copy can fail: the app may refuse to stop, and then the database
+    cannot be read as one moment. That is not a reason to end the run — the
+    check that asked for the counts has to report what it could not learn.
+    Every table comes back as `-1`, which is what "could not be read" means
+    everywhere else in this command.
+    """
+    try:
+        db_path = pull_database(serial, out_dir)
+    except RunError as exc:
+        return {key: -1 for key in COUNT_TABLES}, str(exc)
+    return count_rows(db_path), ""
+
+
 def check_over_budget(
     serial: str, out_dir: Path, archive: Path, apk: Path | None = None
 ) -> dict:
@@ -1222,9 +1298,10 @@ def check_over_budget(
     padded = padded_archive(archive, out_dir)
     name = push_archive(serial, padded)
     outcome = restore_and_watch(serial, name, out_dir / "over-budget-flow.log", apk=apk)
-    db_path = pull_database(serial, out_dir / "over-budget-db")
-    counts = count_rows(db_path)
+    counts, pull_problem = pull_counts(serial, out_dir / "over-budget-db")
     problems = over_budget_problems(outcome, counts)
+    if pull_problem:
+        problems.append(pull_problem)
     if problems:
         verdict = "; ".join(problems)
     else:
@@ -1279,9 +1356,10 @@ def check_interrupted_import(
                     process.wait(timeout=60)
                 except subprocess.TimeoutExpired:
                     process.kill()
-    db_path = pull_database(serial, out_dir / "interrupted-db")
-    counts = count_rows(db_path)
+    counts, pull_problem = pull_counts(serial, out_dir / "interrupted-db")
     problems = interrupted_import_problems(stopped, counts, expected_tasks)
+    if pull_problem:
+        problems.append(pull_problem)
     if problems:
         verdict = "; ".join(problems)
     else:
@@ -1376,8 +1454,11 @@ def main(argv: list[str] | None = None) -> int:
         file_name = push_archive(serial, archive)
         # The interrupted import may have left rows behind; the import below
         # has to start from a clean profile, or the counts afterwards are the
-        # counts of the interrupted import plus this one.
-        if any(value > 0 for value in negative["interrupted"]["counts"].values()):
+        # counts of the interrupted import plus this one. Counts that could
+        # not be read count as rows behind too: the profile is then in an
+        # unknown state, and it has to be wiped before it is measured.
+        interrupted_counts = negative["interrupted"]["counts"]
+        if any(value != 0 for value in interrupted_counts.values()):
             _, second_wipe = reset_content(serial, out_dir)
             wipe_seconds += second_wipe
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
@@ -1407,9 +1488,6 @@ def main(argv: list[str] | None = None) -> int:
             raise RunError(f"no task in the database carries the tag {task_id}")
         print(f"task row: {task_id} ({task_title})")
 
-        search_title = unique_task_title(db_dir)
-        if search_title is None:
-            raise RunError("the imported dataset holds no task to search for")
         related_title = related_task_title(db_dir)
         if related_title is None:
             raise RunError(
@@ -1424,8 +1502,6 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "TASK_ID": task_id,
                 "TASK_TITLE": task_title,
-                "SEARCH_TITLE": search_title,
-                "SEARCH_ID": task_item_id(search_title),
                 "RELATED_TITLE": related_title,
                 "RELATED_ID": task_item_id(related_title),
             },
@@ -1441,7 +1517,13 @@ def main(argv: list[str] | None = None) -> int:
 
         report = {
             "device": {"serial": serial, **device_facts(serial)},
-            "apk": {"path": str(apk), "package": package, "version": version, "variant": "debug"},
+            "tools": tool_versions(serial),
+            "apk": {
+                "path": str(apk),
+                "package": package,
+                "version": version,
+                "variant": apk_variant(built_here),
+            },
             "dataset": {
                 "profile": args.profile,
                 "seed": args.seed,
@@ -1463,16 +1545,16 @@ def main(argv: list[str] | None = None) -> int:
             "uiPaths": {
                 "browse": "passed" if browse_ok else "failed",
                 "openedTask": task_title,
-                "searchedTask": search_title,
+                "searchedTask": related_title,
                 "log": str(browse_log),
             },
             "verdict": {
-                "problems": (
-                    count_problems
-                    + link_problems
-                    + negative_problems
-                    + ([] if browse_ok else ["the imported data did not open in the app"])
-                    + ([] if outcome["reportedBySnackbar"] else ["the restore never reported itself"])
+                "problems": verdict_problems(
+                    count_problems,
+                    link_problems,
+                    negative_problems,
+                    browse_ok,
+                    bool(outcome["reportedBySnackbar"]),
                 )
             },
         }

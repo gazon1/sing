@@ -16,8 +16,9 @@ turn a broken restore into a green report:
   refusal for anything else — the dialog is the same in both cases;
 * `interrupted_import_problems` holds an import that was cut short to
   leaving the profile whole or empty, over every table and not only tasks;
-* `unique_task_title` picks the title that matches exactly one row;
 * `related_task_title` picks the task the app actually shows relations for;
+* `verdict_problems` is what decides the run's exit code, so a check whose
+  problem is missing from it does not fail the run;
 * `padded_archive` builds an archive the app has to refuse for the budget's
   reason.
 
@@ -248,25 +249,6 @@ class RelationshipProblemsTest(unittest.TestCase):
             )
             problems = driver.relationship_problems(path)
         self.assertIn("tasks without a project: 1", problems)
-
-
-class UniqueTaskTitleTest(unittest.TestCase):
-    def test_the_title_with_the_highest_number_is_chosen(self):
-        with tempfile.TemporaryDirectory() as raw:
-            path = _database(
-                Path(raw),
-                [
-                    "INSERT INTO tasks (id, title) VALUES ('t1', 'Task 1')",
-                    "INSERT INTO tasks (id, title) VALUES ('t2', 'Task 10000')",
-                    "INSERT INTO tasks (id, title) VALUES ('t3', 'Task 9999')",
-                ],
-            )
-            self.assertEqual(driver.unique_task_title(path), "Task 10000")
-
-    def test_an_empty_database_has_no_title(self):
-        with tempfile.TemporaryDirectory() as raw:
-            path = _database(Path(raw), [])
-            self.assertIsNone(driver.unique_task_title(path))
 
 
 class RelatedTaskTitleTest(unittest.TestCase):
@@ -561,6 +543,36 @@ class PullDatabaseTest(unittest.TestCase):
             self.assertTrue(pulled.exists())
             self.assertFalse(stale.exists())
 
+    def test_an_app_that_will_not_stop_is_not_copied(self):
+        """A copy of a database that is still being written is a torn one:
+        the main file and the write-ahead log are read at different moments.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+
+            def fake_bytes(*args, serial="", timeout=0):
+                return 0, b"the database"
+
+            with unittest.mock.patch.object(driver, "adb_bytes", fake_bytes):
+                with unittest.mock.patch.object(driver, "stop_app", lambda serial: False):
+                    with self.assertRaises(driver.RunError) as caught:
+                        driver.pull_database("device", tmp)
+
+            self.assertIn("torn", str(caught.exception))
+            self.assertFalse((tmp / "device-db" / "todo.db").exists())
+
+    def test_a_copy_that_could_not_be_made_leaves_the_counts_unknown(self):
+        """A check that asked for the counts has to say it could not get
+        them — every table comes back as "could not be read".
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            with unittest.mock.patch.object(driver, "pull_database", side_effect=driver.RunError("no")):
+                counts, problem = driver.pull_counts("device", Path(raw))
+
+            self.assertTrue(problem)
+            self.assertTrue(all(value == -1 for value in counts.values()))
+            self.assertIn("tasks", counts)
+
 
 class WipeWaitingTest(unittest.TestCase):
     """The wipe is waited for with the app's own marker, not with a guess.
@@ -623,6 +635,30 @@ class WipeWaitingTest(unittest.TestCase):
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
         self.assertIn("todo-debug://seed?reset=content", " ".join(seen[1]))
 
+    def test_a_wipe_that_cannot_be_confirmed_is_refused(self):
+        """A table that could not be read is an unknown table, not an empty
+        one: without it the wipe cannot be said to have happened.
+        """
+
+        def fake_adb(*args, serial="", timeout=0):
+            if args[:2] == ("logcat", "-d"):
+                return 0, f"I/DebugSeedActivity: {driver.RESET_MARKER} 25 tables"
+            return 0, "Starting: Intent"
+
+        def fake_pull(serial, out_dir, stop=True):
+            path = out_dir / "todo.db"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"")
+            return path
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            with unittest.mock.patch.object(driver, "count_rows", lambda db: {"tasks": -1}):
+                with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                    with self.assertRaises(driver.RunError) as caught:
+                        driver.reset_content("device", Path("/tmp/wipe-test"))
+
+        self.assertIn("could not be read", str(caught.exception))
+
 
 class OverBudgetProblemsTest(unittest.TestCase):
     """The app has to refuse an over-budget archive *for its size*.
@@ -683,6 +719,19 @@ class OverBudgetProblemsTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("left rows behind", problems[0])
 
+    def test_a_table_that_could_not_be_read_is_not_an_empty_table(self):
+        """Without the counts of every table the check cannot say that the
+        refused archive wrote nothing: an unreadable table is an unknown one.
+        """
+        outcome = {
+            "errorDialog": True,
+            "reportedBySnackbar": False,
+            "errorDialogText": self.BUDGET_MESSAGE,
+        }
+        problems = driver.over_budget_problems(outcome, {"tasks": 0, "projects": -1})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("could not be read", problems[0])
+
 
 class InterruptedImportProblemsTest(unittest.TestCase):
     """An import that was cut short has to leave the profile whole or empty.
@@ -731,6 +780,52 @@ class InterruptedImportProblemsTest(unittest.TestCase):
         problems = driver.interrupted_import_problems(True, {"tasks": -1}, 100)
         self.assertEqual(len(problems), 1)
         self.assertIn("could not be read", problems[0])
+
+
+class ApkVariantTest(unittest.TestCase):
+    """The report must not claim a build variant it does not know.
+
+    An APK handed in with `--apk` says nothing about its build type, and the
+    identity check establishes the package and the version, not the variant.
+    """
+
+    def test_a_build_of_this_checkout_is_a_debug_one(self):
+        self.assertEqual(driver.apk_variant(True), "debug")
+
+    def test_an_apk_from_the_outside_has_no_known_variant(self):
+        self.assertEqual(driver.apk_variant(False), "unknown")
+
+
+class VerdictProblemsTest(unittest.TestCase):
+    """The exit code of the run is this list, so it is built in one place.
+
+    A check whose problem never reaches this list does not fail the run — that
+    is the failure mode this function exists to make impossible.
+    """
+
+    def test_a_clean_run_has_no_problems(self):
+        problems = driver.verdict_problems([], [], [], True, True)
+        self.assertEqual(problems, [])
+
+    def test_a_failed_browse_flow_is_a_problem(self):
+        problems = driver.verdict_problems([], [], [], False, True)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("did not open in the app", problems[0])
+
+    def test_a_restore_that_never_reported_itself_is_a_problem(self):
+        problems = driver.verdict_problems([], [], [], True, False)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("never reported itself", problems[0])
+
+    def test_the_problems_of_every_check_end_up_in_one_list(self):
+        problems = driver.verdict_problems(
+            ["the counts differ"],
+            ["a link points at nothing"],
+            ["over-budget: the archive was not refused"],
+            False,
+            False,
+        )
+        self.assertEqual(len(problems), 5)
 
 
 class DialogTextTest(unittest.TestCase):
