@@ -570,10 +570,10 @@ Steps:
 Steps:
 
 1. Look at the system-calendar panel.
-2. Switch system calendar sync on and read the status.
-3. Switch it off and read the status again.
+2. Switch system calendar sync on and look at the controls that appear.
+3. Switch it off and look at them again.
 
-**Expected:** When a provider exists the panel offers a working enable switch rather than the unavailable message, and the status follows the switch in both directions — so turning sync on actually turns it on. The Google half stays usable throughout; the two providers are alternatives, and neither may hide the other.
+**Expected:** When a provider exists the panel offers a working enable switch rather than the unavailable message, and the enabled-only controls follow the switch in both directions — so turning sync on really turns it on. The Google half stays usable throughout; the two providers are alternatives, and neither may hide the other.
 
 #### `CALENDAR-01` — The Month view renders the current month with weekday columns
 

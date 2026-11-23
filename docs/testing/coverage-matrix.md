@@ -88,7 +88,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `CAL-SYNC-RENEW-01` | A grant that cannot renew says so before sync silently stops | ○ | ● | The screen warns that the connection cannot be renewed in the background and that sync will stop when the current… |
 | `CAL-SYNC-SYNCNOW-01` | A manual Google pass reports what it actually did | ○ | ● | The control is disabled and reads as in progress while the pass runs, and afterwards the panel reports the outcome of… |
 | `CAL-SYNC-SYSTEM-01` | The system-calendar projection says so when the platform cannot do it | — | ● | The panel states that system calendar sync needs Android and that the user's tasks are unaffected, rather than… |
-| `CAL-SYNC-SYSTEM-02` | System calendar sync can be switched on where a provider exists | ● | — | When a provider exists the panel offers a working enable switch rather than the unavailable message, and the status… |
+| `CAL-SYNC-SYSTEM-02` | System calendar sync can be switched on where a provider exists | ● | — | When a provider exists the panel offers a working enable switch rather than the unavailable message, and the… |
 | `CALENDAR-01` | The Month view renders the current month with weekday columns | ○ | — | The current month renders as weekday columns of numbered days, from the first of the month to the last — so the grid… |
 | `CALENDAR-02` | The view-mode control switches modes and reports the selection | ○ | — | The view changes and the control reports the mode now selected, so a user can tell where they are without counting the… |
 | `CALENDAR-03` | Tapping a day in Month view opens that day's view | ○ | — | That day's view opens and the date header names the day that was tapped, so the user lands on the day they chose. The… |

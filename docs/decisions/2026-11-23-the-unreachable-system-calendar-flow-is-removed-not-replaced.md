@@ -111,12 +111,16 @@ carrier.
 
 **A carrier that does not assert the scenario's claim is a decoration.** Linking
 flow 03 to `CAL-SYNC-SYSTEM-02` made the matrix print `●` for a cell whose scenario
-requires the status to follow the switch in both directions — but the flow only
+required the status to follow the switch in both directions — but the flow only
 waited for the switch to stay visible, so a build whose toggle did nothing would
 still have passed. The link is now backed by an assertion of the transition itself:
 the panel renders the calendar-app picker, the target-calendar list and the status
 block only while `state.isEnabled` is true, so their appearance and disappearance is
-the user-visible outcome of the toggle.
+the user-visible outcome of the toggle. The scenario's wording was narrowed to
+match what the carrier actually proves — the enabled-only controls follow the
+switch — rather than leaving a stronger claim in the matrix than the flow backs.
+The status *text* is not what the flow reads; it is the enabled state that the
+picker stands for.
 
 **The switch cannot report its own state, so something else has to.** The enable row
 is a clickable button and the `Switch` inside it is handed a null change callback
