@@ -49,7 +49,10 @@
 #
 # This helper does NOT run launch-clean — the caller decides.
 #
-# Leaves the app on the Today tab with the seeded entity visible.
+# The app comes up on the Today tab. An entity the caller names is waited for
+# there when it is on that screen; an entity that is elsewhere — a note, a
+# project, a task in another tab — is the flow's to wait for, after it
+# navigates.
 #
 # The contract: a flow waits for what it seeded before it asserts on it.
 #
@@ -101,6 +104,13 @@
 # and not a proxy that might arrive without it. The container has to be the one
 # the entity belongs to — a wait on another day's section says nothing about
 # this task.
+#
+# The wait has to stand after the seed: a wait that precedes the seed says
+# nothing about the entity, because the row could have been on screen before
+# the seed wrote it. And a seed that rewrote the row needs a wait of its own —
+# the row is the same row, but what the flow asserts on is what the last seed
+# wrote. A renamed entity is waited for by its new name: a wait for the row
+# cannot tell a rename from the row it renamed.
 #
 # The container rule is also the cheap one: it does not scroll, so a step that
 # waits for the same container afterwards still finds it on screen. A row wait

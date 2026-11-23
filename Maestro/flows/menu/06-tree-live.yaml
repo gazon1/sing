@@ -58,6 +58,15 @@ tags:
 - assertVisible:
     id: menu_project_node_latecomer
 # And the rename is too: the row is the same row, under another name.
+#
+# The wait is on the name the rename gave it, and not on the row: the row was
+# already there under the old name, so a wait on the row says nothing about
+# the rename having landed. The name is the only thing on screen that tells
+# the rename from the row it renamed.
+- extendedWaitUntil:
+    visible:
+      text: "Renamed"
+    timeout: 8000
 - assertVisible:
     id: menu_project_node_roadmap
 - assertVisible:

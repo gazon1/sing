@@ -341,6 +341,16 @@ A flow waits for the entity it seeded before it asserts on it, and a bare
   view. A seed that writes no entity (`session=anonymous`, `cleanup=`,
   `reset=`) names no entity, and the helper waits for the shell alone.
 
+Two rules make such a wait mean something:
+
+- **After the seed.** A wait that precedes the seed says nothing about the
+  entity: the row could have been on screen before the seed wrote it. A seed
+  that *rewrote* the row needs a wait of its own — the row is the same row,
+  but what the flow asserts on is what the last seed wrote.
+- **By the name, when the entity was renamed.** A wait for the row cannot
+  tell a rename from the row it renamed — the row was already there under the
+  old name. The name can.
+
 The contract itself lives in one place — the header of `helpers/seed.yaml` —
 and `Maestro/CONVENTIONS.md` repeats it.
 

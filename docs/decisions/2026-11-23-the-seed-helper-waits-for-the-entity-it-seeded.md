@@ -67,6 +67,28 @@ seeded task is in it).
 helper's screen holds it. A flow that seeds a row elsewhere still waits for
 that row itself.
 
+**When the wait has to sit.** A wait covers an assertion only when it stands
+between the seed that wrote the entity and the assertion. A wait that precedes
+the seed says nothing about the entity — the row could have been on screen
+before the seed wrote it — and a seed that *rewrote* the row needs a wait of
+its own: the row is the same row, but what the flow asserts on is what the
+last seed wrote. A rename is the sharp case: `menu/06-tree-live` seeds a
+project, renames it, and asserts on the renamed row, so the wait that covered
+the first seed does not cover the second.
+
+**How an entity is waited for.** By the row the app renders it under, by the
+container that renders only because the entity is in it, or by the name the
+entity is called. The name is the handle a rename needs: the row was already
+there under the old name, so only the new name tells the rename from the row
+it renamed. The flow waits for the name; the row's id stays the assertion's
+subject.
+
+**What the rule is held against.** `SeedHelperWaitTest` holds the rule to
+fixtures as well as to the tree: flows written to break it — a wait that
+precedes the seed, two seeds of one row with a wait that covers only the first
+— and a helper whose entity wait sits outside the guarded block. A gate that
+cannot fail holds nothing.
+
 ## Rationale
 
 The 2026-11-05 entry's real point was that a helper must not guess. Guessing
@@ -103,6 +125,25 @@ profile therefore behaves exactly as it did before.
   holds to the budget of its kind.
 - The helper does not parse `QUERY`, and never will: the query language
   belongs to the seeder.
+- `agenda/07-large-overdue` waits for the section the thousand seeded tasks are
+  in, right after the seed that wrote them: a link that arrives while that
+  seed is still writing finds the app on the seed's own screen, and the flow
+  has to wait for the rows before it sends the next one.
+- `menu/06-tree-live` waits for the name the rename gave the project, and
+  asserts on the row's id: the row was already there under the old name, so
+  the row's id cannot tell the rename from the row it renamed.
+
+## Verified on device
+
+`realme RMX3938 (0O65321F32204DD5)`, the E2E build:
+
+- `tasks/08-date-buckets` — the flow that names the entity it wants waited
+  for. The trace shows the helper's wait running (`Assert that id:
+  ${WAIT_TARGET} is visible... COMPLETED`) and the flow's own assertion on
+  the same row passing right after it.
+- `menu/06-tree-live` — the rename wait, on the menu's sheet.
+- `agenda/07-large-overdue` — the section wait after the big seed, and the
+  thousand-row count the flow asserts on.
 
 ## Links
 
@@ -116,6 +157,8 @@ profile therefore behaves exactly as it did before.
   wants waited for.
 - `Maestro/flows/agenda/07-large-overdue.yaml` — a flow that waits for the
   section the seeded task is in.
+- `Maestro/flows/menu/06-tree-live.yaml` — a flow that waits for a renamed
+  entity by the name it was given.
 - `docs/decisions/2026-11-05-the-seed-waits-for-the-shell-not-the-row.md` — the
   entry this one supersedes.
 - `docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md` — the

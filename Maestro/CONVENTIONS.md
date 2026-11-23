@@ -145,6 +145,17 @@ Which of those waits live in the helper and which stay in the flow:
   (`session=anonymous`, `cleanup=`, `reset=`) names no entity, and the helper
   waits for the shell alone.
 
+Two rules make such a wait mean something:
+
+- **After the seed.** A wait that precedes the seed says nothing about the
+  entity: the row could have been on screen before the seed wrote it. And a
+  seed that *rewrote* the row needs a wait of its own — the row is the same
+  row, but what the flow asserts on is what the last seed wrote.
+- **By the name, when the entity was renamed.** A wait for the row cannot tell
+  a rename from the row it renamed: the row was already there under the old
+  name. The name can. `menu/06-tree-live` waits for the text "Renamed" and
+  then asserts on the row's id.
+
 ### Sessions
 
 A flow does not inherit a session from the flow before it, and it does not
