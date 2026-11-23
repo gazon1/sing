@@ -16,20 +16,24 @@
 - Q: Desktop? → A: **Заявляется там, где есть носитель.** Часть потоков имеет desktop-аналог (`AgendaReachabilityFlowTest`, `SavedViewsFlowTest`, `SavedAgendaEditFlowTest`), но это отдельный Kotlin-тест со своим `@DisplayName`, а не тот же поток. Заявка desktop ставится вместе с этим тегом, а не по факту существования аналога.
 - Q: Что считать сценарием — поток или поведение? → A: **Поведение.** Один поток может закрывать несколько утверждений; `06-full-lifecycle` проходит путь create → results → edit → rename → delete и заявлен одним сценарием, потому что пользователь не воспринимает его как пять отдельных задач.
 
+### Session 2026-11-23
+
+- Q: Inbox как «список без даты»? → A: **Да — вопрос переоткрыт.** Ответ сессии 2026-10-12 описывал Inbox как полную agenda, но с тех пор три нижние вкладки agenda стали непересекающимся разбиением задач (ADR `docs/decisions/2026-10-31-the-agenda-tabs-are-disjoint.md`): Inbox — только недатированные задачи, Today — просроченные и сегодняшние, Upcoming — всё будущее. Датированная задача уходит из Inbox в Today или Upcoming. Ответ ниже и требования FR-001/FR-002 приведены к этому правилу; правка — [#3114](https://github.com/gazon1/sing/issues/3114).
+
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Date buckets in Inbox (Priority: P2)
+### User Story 1 - The Inbox holds what is not scheduled yet (Priority: P2)
 
-A user opens Inbox to see what is unprocessed. Undated and overdue work is separated from today's, so the list answers "what is late" without filtering. Dated tasks stay in Inbox and move into their date's section rather than disappearing from the screen.
+A user opens Inbox to see what is unprocessed. The tab holds the tasks that are not scheduled yet — the undated ones — so the list answers "what is late" without filtering. A task that gets a date leaves the Inbox: it appears in Today when it is overdue or due today, and in Upcoming when it is due later.
 
 **Why this priority**: The bucketing is what makes Inbox usable at volume, but a user with fewer than a handful of tasks reads the flat list fine.
 
-**Independent Test**: Can be validated by creating one dated and one undated task and confirming the undated one moves between sections when a date is set and removed.
+**Independent Test**: Can be validated by creating one dated and one undated task and confirming the undated one leaves the Inbox when a date is set and returns to it when the date is removed.
 
 **Acceptance Scenarios**:
 
-1. **Given** one undated task in Inbox, **When** the user gives it a date, **Then** it leaves the No Date section and appears under its date's section, still within Inbox.
-2. **Given** an empty Inbox, **When** the user opens it, **Then** the date sections are shown with their counts rather than the screen being blank.
+1. **Given** one undated task in Inbox, **When** the user gives it a date, **Then** it leaves the Inbox and appears in the Today tab, or in the Upcoming tab when the date lies further out.
+2. **Given** an empty Inbox, **When** the user opens it, **Then** the No Date section is shown with its count rather than the screen being blank.
 
 ---
 
@@ -77,7 +81,7 @@ Saved views outlive their usefulness. A user needs to rename one, delete one, an
 ```yaml
 scenarios:
   - id: AGENDA-01
-    title: A dated task moves between Inbox date buckets
+    title: A dated task leaves the Inbox
     area: feature.agenda
     priority: P2
     status: confirmed
@@ -130,8 +134,8 @@ scenarios:
 
 ### Functional Requirements
 
-- **FR-001**: Inbox MUST group tasks into date buckets, including a No Date bucket, and MUST show a count per bucket.
-- **FR-002**: Setting or clearing a task's date MUST move the task between buckets without removing it from Inbox.
+- **FR-001**: Inbox MUST hold the tasks that are not scheduled yet — the undated ones — and MUST show a count for its No Date bucket.
+- **FR-002**: Setting a task's date MUST take it out of Inbox into the Today or Upcoming tab; clearing the date MUST bring it back.
 - **FR-003**: The saved-views list MUST show an explicit empty state when no view is saved.
 - **FR-004**: Saving the current agenda MUST create a named view and return to the agenda.
 - **FR-005**: Opening a saved view MUST list the tasks matching that view's definition.
