@@ -3,6 +3,7 @@ package com.singularity.todo.feature.flows.desktop
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
@@ -119,15 +120,25 @@ class NavigationFlowTest {
      * has to be there on **all** of them, not just the one a single destination test
      * happens to cover.
      *
-     * The proof of departure is the shell's FAB: it is drawn on the agenda tabs and
-     * nowhere else, so its return says the flow is back on the tab it came from rather
-     * than that the destination merely stopped drawing.
+     * The list comes from [DestinationKind.menuEntries] and not from
+     * `DesktopShell.MENU_ENTRIES`: the helper is a hand-written copy of the drawer's
+     * labels and it drifted (it still names the Calendar, which is a tab, and never
+     * names Proposals, Pomodoro or AI Usage). A loop over a stale copy silently skips
+     * destinations — exactly the gap this test exists to close — so it reads the list
+     * the drawer itself draws.
+     *
+     * Arrival is asserted by the shell's own selection, not by the arrow alone: an arrow
+     * only says the navigation state permits a pop, and would still appear on a
+     * destination that pushed its route and rendered nothing.
      */
     @Test
     fun every_menu_destination_can_be_left_again_through_the_shell_back_arrow() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-            DesktopShell.MENU_ENTRIES.forEach { label ->
+            DestinationKind.menuEntries.forEach { destination ->
+                val label = destination.title
                 tapTab(label)
+
+                assertCurrentTab(label)
 
                 // The arrow exists on the destination. `awaitTag` because the top bar
                 // and the destination's own content are composed in the same frame and
