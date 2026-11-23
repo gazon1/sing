@@ -108,7 +108,8 @@ their logic.
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
 | `calendar-day-cell-task-count.yaml` | Flows asserting how many tasks a calendar day holds (`DAY_CELL`, `TASK_COUNT`) — the count, because a month cell clips the dots it cannot fit |
-| `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet from the "+ Add file" row |
+| `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet. A task with no attachment is reached through the `+ Ещё` sheet; a task that already has one draws the section, and the sheet does not offer what is already on the screen |
+| `reveal-attachments-section.yaml` | Scrolls an already-open attachments section's rows into view, so a flow can assert on a tile rather than on the header |
 | `open-more-parameter.yaml` | Opens the task detail's `+ Ещё` sheet and picks one property from it (`PROPERTY`: `attachments`, `logbook`, `relatedtasks`, `timetracking`, `workflowstate`) — the way to reach a section that is not on the screen |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
 
