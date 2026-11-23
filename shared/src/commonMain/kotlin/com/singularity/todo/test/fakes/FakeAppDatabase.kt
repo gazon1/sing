@@ -1306,6 +1306,69 @@ private class FakeNoteDao(
             n.userId == userId && n.deletedAt == null && n.hangsOnTaskOf(projectId)
         }
 
+    override suspend fun updateContentIfVersion(
+        id: String,
+        title: String,
+        markdown: String?,
+        html: String?,
+        wordCount: Int,
+        charCount: Int,
+        updatedAt: Long,
+        expectedUpdatedAt: Long,
+        userId: String,
+    ): Int {
+        val existing = store.value[id]?.takeIf { it.userId == userId } ?: return 0
+        if (existing.updatedAt != expectedUpdatedAt) return 0
+        store.update {
+            it + (
+                id to
+                    existing.copy(
+                        title = title,
+                        bodyMarkdown = markdown,
+                        bodyHtml = html,
+                        wordCount = wordCount,
+                        charCount = charCount,
+                        updatedAt = updatedAt,
+                    )
+            )
+        }
+        return 1
+    }
+
+    override fun watchPlainAttachedToTaskForUser(
+        taskId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.taskId == taskId && n.userId == userId && n.deletedAt == null &&
+                        n.archivedAt == null &&
+                        n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder
+                }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
+                .take(limit)
+        }
+
+    /**
+     * The notes attached directly to a project — `notes.project_id`, not the join
+     * through the project's tasks that [watchByProjectForUser] runs.
+     */
+    override fun watchAttachedToProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.userId == userId && n.deletedAt == null && n.archivedAt == null &&
+                        n.projectId == projectId &&
+                        n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder
+                }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
+                .take(limit)
+        }
+
     /**
      * Whether the note hangs on a task of [projectId] — the fake's stand-in for the
      * join the real query runs over `notes.task_id → tasks.project_id`.

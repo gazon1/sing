@@ -58,6 +58,7 @@ class NotesRepositoryImpl(
 
     override suspend fun create(item: Note): Result<Note> =
         runCatchingCancellable {
+            requireSingleAttachment(item)
             unitOfWork.write {
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 noteDao.upsert(item.toEntity())
@@ -67,6 +68,7 @@ class NotesRepositoryImpl(
 
     override suspend fun update(item: Note): Result<Note> =
         runCatchingCancellable {
+            requireSingleAttachment(item)
             unitOfWork.write {
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 // Read-before-write guard: reject updates to non-existent entities.
@@ -82,6 +84,20 @@ class NotesRepositoryImpl(
                 toUpdate.also { syncRepository.enqueue(it).getOrThrow() }
             }
         }
+
+    /**
+     * A note hangs on a project or on a task, never on both.
+     *
+     * The tool and the planner both refuse the pair, but a note also arrives from
+     * elsewhere — a remote document, a caller of the repository. Stating the rule where
+     * every write passes says the invariant holds for the table, not only for the two
+     * callers someone remembered to check.
+     */
+    private fun requireSingleAttachment(note: Note) {
+        require(note.projectId == null || note.taskId == null) {
+            "Note ${note.id.value} attaches to a project or to a task, not to both"
+        }
+    }
 
     private suspend fun enqueueFresh(id: NoteId) {
         val row = noteDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
@@ -305,6 +321,45 @@ class NotesRepositoryImpl(
                 )
                 enqueueFresh(id)
                 id
+            }
+        }
+
+    override suspend fun updateContentIfVersion(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        expectedUpdatedAt: Long,
+    ): Result<Int> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                // The counts describe the body that was written. A body-only update
+                // clears the markdown projection and leaves HTML, so counting the
+                // markdown alone would report an empty note — one word count for the
+                // note and another for what the reader sees.
+                val markdown = bodyMarkdown.orEmpty().ifBlank { bodyHtml.orEmpty() }
+                // The new version advances *strictly* past the one being replaced. A
+                // write inside the same millisecond would otherwise stamp the version it
+                // just matched, and the next change written against that version would
+                // pass a guard that should have refused it.
+                val now = clock.now().toEpochMilliseconds()
+                val rows =
+                    noteDao.updateContentIfVersion(
+                        id = id.value,
+                        title = title,
+                        markdown = bodyMarkdown,
+                        html = bodyHtml,
+                        wordCount = markdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                        charCount = markdown.length,
+                        updatedAt = maxOf(now, expectedUpdatedAt + 1),
+                        expectedUpdatedAt = expectedUpdatedAt,
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                // A row that did not match the version is a note somebody else moved. The
+                // caller decides what that means; this returns the count rather than
+                // throwing, so "stale" and "storage failure" stay separate answers.
+                if (rows > 0) enqueueFresh(id)
+                rows
             }
         }
 
@@ -580,6 +635,20 @@ class NotesRepositoryImpl(
                 .map { list -> list.map { it.toNote() } }
         }
 
+    override fun watchPlainAttachedToTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<Note>> {
+        // SQLite reads a negative LIMIT as "no limit". A bound that silently disappears
+        // is the opposite of a bound, so the caller is told instead.
+        require(limit > 0) { "A bounded read needs a positive limit, got $limit" }
+        return currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchPlainAttachedToTaskForUser(taskId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
+        }
+    }
+
     override fun watchForProject(
         projectId: ProjectId,
         limit: Int,
@@ -593,6 +662,19 @@ class NotesRepositoryImpl(
     override suspend fun countForProject(projectId: ProjectId): Int {
         val uid = currentUser.scopedUserId.value
         return noteDao.countByProjectForUser(projectId.value, uid.value)
+    }
+
+    override fun watchAttachedToProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>> {
+        // Same rule as the task read: a negative LIMIT means "unbounded" to SQLite.
+        require(limit > 0) { "A bounded read needs a positive limit, got $limit" }
+        return currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchAttachedToProjectForUser(projectId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
+        }
     }
 
     override suspend fun createForTask(

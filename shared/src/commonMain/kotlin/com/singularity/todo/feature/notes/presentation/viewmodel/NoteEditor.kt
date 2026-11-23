@@ -320,12 +320,20 @@ internal class NoteEditor(
             val userId = currentUser.scopedUserId.value
             val now = clock.now()
 
+            // The version the proposal is written against: the note this editor has open
+            // may have moved since it was loaded, and a summary that replaces the body is
+            // no different from any other body write in what it must not clobber.
+            val readAt = repo.get(NoteId.fromString(noteId))?.updatedAt?.toEpochMilliseconds()
+
             val result = ai.run(action, current.title.value, current.html.value).getOrNull()
             val (kind, summary) =
                 when (action) {
                     NoteAiAction.Summarize -> {
                         val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
-                        val kind = ProposalItemKind.SetNoteField(NoteValue.Summary(summary))
+                        val kind =
+                            ProposalItemKind.SetNoteField(
+                                NoteValue.Summary(summary, expectedUpdatedAt = readAt),
+                            )
                         kind to "Summarize: $summary"
                     }
 

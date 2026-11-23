@@ -11,6 +11,7 @@ import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -159,7 +160,7 @@ class ProposalDispatch(
             }
 
             is ProposalPlan.WriteNote -> {
-                writeRow(plan.note.id) { notes.upsert(plan.note) }
+                writeNoteRow(plan)
             }
 
             is ProposalPlan.WriteProject -> {
@@ -228,16 +229,71 @@ class ProposalDispatch(
         }
 
     /**
-     * The row of a task update.
+     * The note row of an update, re-read at the moment of the write.
      *
-     * The one branch of [rowsOf] that decides something: it re-reads the task
-     * in the dispatch and applies only the changed field, so a concurrent edit
-     * (another device, or the user) is not reverted by writing a stale snapshot
-     * back.
+     * The same rule the task's write follows: the guard a value carries is checked
+     * against the row this write is about to replace, not against the row the plan was
+     * built from. A note edited between the plan and the dispatch would otherwise be
+     * overwritten by a change that was written against the older one.
+     */
+    private suspend fun writeNoteRow(plan: ProposalPlan.WriteNote): List<ProposedRow> =
+        writeRow(plan.note.id) {
+            val current = notes.get(plan.note.id)
+
+            // A change that states the version it was written against goes through a
+            // *conditional* write: the predicate is in the statement, so an edit that
+            // commits between this read and the write makes the write match no row
+            // instead of replacing text nobody saw. Checking here alone would leave that
+            // window open.
+            val expected =
+                plan.values.firstNotNullOfOrNull { value ->
+                    when (value) {
+                        is NoteValue.Title -> value.expectedUpdatedAt
+                        is NoteValue.Body -> value.expectedUpdatedAt
+                        is NoteValue.Summary -> value.expectedUpdatedAt
+                        is NoteValue.Unreadable -> null
+                    }
+                }
+            if (current != null && expected != null) {
+                val toWrite = ProposalPlanner.withNoteValues(current, plan.values, clock)
+                val rows =
+                    notes
+                        .updateContentIfVersion(
+                            id = toWrite.id,
+                            title = toWrite.title,
+                            bodyMarkdown = toWrite.bodyMarkdown,
+                            bodyHtml = toWrite.bodyHtml,
+                            expectedUpdatedAt = expected,
+                        ).getOrThrow()
+                check(rows > 0) {
+                    "The note changed since it was read (updatedAt ${current.updatedAt.toEpochMilliseconds()}, " +
+                        "expected $expected)"
+                }
+                return@writeRow
+            }
+
+            val toWrite =
+                if (current != null) {
+                    ProposalPlanner.withNoteValues(current, plan.values, clock)
+                } else {
+                    plan.note
+                }
+            // `update`, not `upsert`: upsert is the remote-apply path and does not
+            // enqueue the row, so a confirmed refresh would stay on this device and
+            // never reach another one.
+            notes.update(toWrite).getOrThrow()
+        }
+
+    /**
+     * The task row of an update, re-read at the moment of the write.
      *
-     * It is a helper of its own so that [rowsOf]'s `when` can stay exhaustive.
-     * A plan type added later has to be handled there, and the compiler has to
-     * say so — an `else` would move that from the build to a runtime error.
+     * The one branch of [rowsOf] that decides something: it re-reads the task in the
+     * dispatch and applies only the changed field, so a concurrent edit — another
+     * device, or the user — is not reverted by writing a stale snapshot back.
+     *
+     * It is a helper of its own so that [rowsOf]'s `when` can stay exhaustive. A plan
+     * type added later has to be handled there, and the compiler has to say so — an
+     * `else` would move that from the build to a runtime error.
      */
     private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> =
         writeRow(plan.task.id) {

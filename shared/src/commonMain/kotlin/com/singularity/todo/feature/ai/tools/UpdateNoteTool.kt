@@ -20,6 +20,16 @@ data class UpdateNoteInput(
     val title: String? = null,
     val bodyMarkdown: String? = null,
     val bodyHtml: String? = null,
+    /**
+     * The `updatedAt` (epoch millis) the caller read the note at, when the change is a
+     * refresh of an existing brief.
+     *
+     * A refresh re-reads a source and proposes what changed. If the user edited the
+     * note in between, the model's summary was written against a note that no longer
+     * exists, and applying it would overwrite the edit. So the caller states what it
+     * read, and a note that has moved since is refused before anything is proposed.
+     */
+    val expectedUpdatedAt: Long? = null,
 )
 
 /**
@@ -56,9 +66,7 @@ class UpdateNoteTool(
                 ?: return failure(args.noteId, "There is no note with id \"${args.noteId}\".")
 
         val kinds = changes(args, existing)
-        if (kinds.isEmpty()) {
-            return failure(args.noteId, "The note already has these values — there is nothing to change.")
-        }
+        refusal(args, existing, kinds)?.let { return it }
 
         val result =
             proposeChange(
@@ -85,16 +93,72 @@ class UpdateNoteTool(
         )
     }
 
-    /** The changes the request asks for: one item per field that actually differs. */
+    /**
+     * Why this request cannot become a proposal, or `null` when it can.
+     *
+     * The reasons are one function so that [execute] keeps a single refusal path: a tool
+     * that reads, checks and writes has several ways to say no, and each `return` in the
+     * body is another exit a reader has to hold.
+     */
+    private fun refusal(
+        args: UpdateNoteInput,
+        existing: Note,
+        kinds: List<ProposalItemKind>,
+    ): String? {
+        // A brief is refreshed from a read, so the read is what an update has to state.
+        // Without the version there is no guard at all — the proposal would be applied to
+        // whatever the note has become by the time the user confirms it, which is the
+        // failure this tool exists to avoid. Ordinary in-app editing does not come
+        // through here; it has its own path.
+        if (KnowledgeBriefShape.isBrief(existing) && args.expectedUpdatedAt == null) {
+            return failure(
+                args.noteId,
+                "An update to a knowledge brief states the version it was read at: read it " +
+                    "with get_knowledge_brief and pass its updatedAt as expectedUpdatedAt.",
+            )
+        }
+
+        // The note moved since the caller read it: what it wrote about is not what is
+        // here any more. Refused before the proposal, so the user's edit is never
+        // silently replaced by a summary of an older note.
+        val expected = args.expectedUpdatedAt
+        val actual = existing.updatedAt.toEpochMilliseconds()
+        if (expected != null && expected != actual) {
+            return failure(
+                args.noteId,
+                "The note changed since it was read (updatedAt $actual, expected $expected). " +
+                    "Read it again and propose the change against what is there now.",
+            )
+        }
+
+        return if (kinds.isEmpty()) {
+            failure(args.noteId, "The note already has these values — there is nothing to change.")
+        } else {
+            null
+        }
+    }
+
+    /**
+     * The change the request asks for: one item carrying every field that really
+     * differs.
+     *
+     * One item, not one per field. An update that renames a note and rewrites its body
+     * is one act, and the user decides about it once — and split into items, the first
+     * field's write would advance the note's version and the second would then look
+     * stale, so the confirmed update would apply in part.
+     */
     private fun changes(
         args: UpdateNoteInput,
         existing: Note,
     ): List<ProposalItemKind> {
-        val kinds = mutableListOf<ProposalItemKind>()
+        val values = mutableListOf<NoteValue>()
 
         args.title?.let { value ->
             if (value.trim() != existing.title.trim()) {
-                kinds += ProposalItemKind.SetNoteField(NoteValue.Title(value))
+                // The version travels with the change, so the check holds at the moment
+                // the user confirms it and not only at the moment the model asked. See
+                // `ProposalPlanner.withNoteValues`.
+                values += NoteValue.Title(value, expectedUpdatedAt = args.expectedUpdatedAt)
             }
         }
 
@@ -104,11 +168,11 @@ class UpdateNoteTool(
         val body = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) } ?: args.bodyHtml
         body?.let { value ->
             if (value != existing.bodyHtml) {
-                kinds += ProposalItemKind.SetNoteField(NoteValue.Body(value))
+                values += NoteValue.Body(value, expectedUpdatedAt = args.expectedUpdatedAt)
             }
         }
 
-        return kinds
+        return if (values.isEmpty()) emptyList() else listOf(ProposalItemKind.SetNoteFields(values))
     }
 
     private fun failure(
@@ -133,6 +197,8 @@ class UpdateNoteTool(
             "Proposes a change to a note's title and/or body. The change is not applied yet — the " +
                 "user sees it and decides. Say that it has been proposed, not that it has been done. " +
                 "Pass only what to change; a field left out is not touched. " +
-                "The body is markdown unless bodyHtml is given."
+                "The body is markdown unless bodyHtml is given. " +
+                "When refreshing a note you read earlier, pass expectedUpdatedAt from that read: " +
+                "a note that changed since then is refused instead of overwritten."
     }
 }

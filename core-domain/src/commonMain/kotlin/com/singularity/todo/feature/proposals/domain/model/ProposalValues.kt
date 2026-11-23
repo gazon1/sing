@@ -321,36 +321,81 @@ sealed interface NoteValue : ProposalValue {
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<NoteValue>?
 
+    /**
+     * The note's title.
+     *
+     * @property expectedUpdatedAt the `updatedAt` the caller read the note at, when the
+     *   change is a refresh of an existing note. See [Body.expectedUpdatedAt] — the
+     *   guard belongs to every field of the note, not to the body alone: a title-only
+     *   change on a note the user edited in the meantime would clobber that edit just
+     *   as a body change would.
+     */
     @Serializable
     @SerialName("Title")
-    data class Title(val value: String) : NoteValue {
+    data class Title(val value: String, val expectedUpdatedAt: Long? = null) : NoteValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the note title to «${value.asCardValue()}»"
         override val text: String = value
 
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Title", NoteValue::read)
+        // Re-reading the text must keep the version the change was proposed against.
+        // A value the user retyped is still a value about *that* note: dropping the
+        // version here would turn a guarded proposal into an unguarded one at the moment
+        // somebody edited the card.
+        override fun editableValue(): EditableValue<NoteValue> =
+            EditableValue(text) { newText ->
+                NoteValue.read(fieldName, newText).map { read ->
+                    if (read is Title) read.copy(expectedUpdatedAt = expectedUpdatedAt) else read
+                }
+            }
     }
 
-    /** The note's body, as canonical HTML — the form the notes are stored in. */
+    /**
+     * The note's body, as canonical HTML — the form the notes are stored in.
+     *
+     * @property expectedUpdatedAt the `updatedAt` the caller read the note at, when
+     *   the change is a refresh of an existing body. The proposal carries it so the
+     *   guard survives until the change is applied: a note the user edited between
+     *   the read and the confirmation is refused, not overwritten with a summary of
+     *   the older body. `null` means the caller states no version and the change
+     *   applies to whatever is there — the shape every proposal built before this
+     *   field existed, and the shape a value the user re-types on the card has,
+     *   because a human who typed the body is the one accepting it.
+     */
     @Serializable
     @SerialName("Body")
-    data class Body(val value: String) : NoteValue {
+    data class Body(val value: String, val expectedUpdatedAt: Long? = null) : NoteValue {
         override val fieldName: String = "Body"
         override val summary: String = "Set the note body to «${value.asCardValue()}»"
         override val text: String = value
 
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Body", NoteValue::read)
+        override fun editableValue(): EditableValue<NoteValue> =
+            EditableValue(text) { newText ->
+                NoteValue.read(fieldName, newText).map { read ->
+                    if (read is Body) read.copy(expectedUpdatedAt = expectedUpdatedAt) else read
+                }
+            }
     }
 
-    /** A summary of the note's content, written to the body as HTML. */
+    /**
+     * A summary of the note's content, written to the body as HTML.
+     *
+     * @property expectedUpdatedAt the `updatedAt` the caller read the note at. It carries
+     *   a version for the same reason [Body] does — it replaces the body, so a summary
+     *   written from an older note must not be applied over a newer one.
+     */
     @Serializable
     @SerialName("Summary")
-    data class Summary(val value: String) : NoteValue {
+    data class Summary(val value: String, val expectedUpdatedAt: Long? = null) : NoteValue {
         override val fieldName: String = "Summary"
         override val summary: String = "Summarize the note to «${value.asCardValue()}»"
         override val text: String = value
 
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Summary", NoteValue::read)
+        override fun editableValue(): EditableValue<NoteValue> =
+            EditableValue(text) { newText ->
+                NoteValue.read(fieldName, newText).map { read ->
+                    if (read is Summary) read.copy(expectedUpdatedAt = expectedUpdatedAt) else read
+                }
+            }
     }
 
     /**
@@ -648,6 +693,11 @@ data class ProposedProject(
  * The note a [ProposalItemKind.CreateNote] item proposes to bring into being.
  *
  * @property bodyHtml The body as canonical HTML — the form the notes are stored in.
+ * @property projectId the project the note is attached to, if it is attached to one.
+ *   The attachment is structural (`notes.project_id`), not a link in the body: it is
+ *   what makes a note findable as *the* brief of a project instead of one note among
+ *   many that mentions it. At most one of [projectId] and [taskId] is set.
+ * @property taskId the task the note is attached to, if it is attached to one.
  */
 @Serializable
 data class ProposedNote(
@@ -655,6 +705,8 @@ data class ProposedNote(
     val bodyHtml: String? = null,
     val isFolder: Boolean = false,
     val parentNoteId: String? = null,
+    val projectId: String? = null,
+    val taskId: String? = null,
 )
 
 /** The names a task's priority can be written with, as the model writes them. */

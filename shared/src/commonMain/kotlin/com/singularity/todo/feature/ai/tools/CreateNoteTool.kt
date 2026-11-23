@@ -19,6 +19,13 @@ data class CreateNoteInput(
     val bodyMarkdown: String? = null,
     val isFolder: Boolean = false,
     val parentNoteId: String? = null,
+    /**
+     * Attach the note to this project — the shape a project knowledge brief has.
+     * At most one of [projectId] and [taskId] is set.
+     */
+    val projectId: String? = null,
+    /** Attach the note to this task — the shape a task-specific brief has. */
+    val taskId: String? = null,
 )
 
 /**
@@ -53,6 +60,20 @@ class CreateNoteTool(
     override suspend fun execute(args: CreateNoteInput): String {
         val title = args.title.trim()
 
+        val projectId = args.projectId?.trim()?.takeIf { it.isNotEmpty() }
+        val taskId = args.taskId?.trim()?.takeIf { it.isNotEmpty() }
+        // A note hangs on a project or on a task, never on both — see ProposedNote.
+        // Reported here, where the model can fix the call.
+        if (projectId != null && taskId != null) {
+            return failure(title, "A note attaches to a project or to a task, not to both.")
+        }
+
+        // A folder is not a brief: the reads look for a plain note, so an attached folder
+        // would be a proposal that cannot be found afterwards by the call that made it.
+        if (args.isFolder && (projectId != null || taskId != null)) {
+            return failure(title, "A folder is not attached to a project or a task. Attach a note.")
+        }
+
         // The id the note will have if the user says yes.
         val noteId = NoteId.generate()
         val kind =
@@ -62,6 +83,8 @@ class CreateNoteTool(
                     bodyHtml = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) },
                     isFolder = args.isFolder,
                     parentNoteId = args.parentNoteId,
+                    projectId = projectId,
+                    taskId = taskId,
                 ),
             )
 
@@ -90,6 +113,15 @@ class CreateNoteTool(
         )
     }
 
+    private fun failure(
+        title: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            CreateNoteOutput.serializer(),
+            CreateNoteOutput(proposalCreated = false, proposalId = "", title = title, error = message),
+        )
+
     companion object {
         const val NAME = "create_note"
 
@@ -102,6 +134,10 @@ class CreateNoteTool(
         const val DESCRIPTION =
             "Proposes a new note or folder. The note is not created yet — the user sees it and " +
                 "decides. Say that it has been proposed, not that it has been created. " +
-                "The body is markdown."
+                "The body is markdown. " +
+                "Pass projectId or taskId to attach the note to a project or a task; at most one " +
+                "of the two. An attached note is a knowledge brief only when its body carries a " +
+                "\"## Sources\" heading — that section is what marks provenance, and what " +
+                "get_knowledge_brief looks for."
     }
 }

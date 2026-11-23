@@ -337,7 +337,17 @@ private fun samples(): List<ProposalItemKind> =
         ProposalItemKind.SetTagField(TagValue.Unreadable("Colour", "blue")),
         // Every note field.
         ProposalItemKind.SetNoteField(NoteValue.Title("Agenda")),
-        ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>")),
+        // The version a refresh states travels with the change: a round trip that
+        // dropped it would turn a guarded proposal into an unguarded one.
+        ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>", expectedUpdatedAt = 1_763_800_000_000)),
+        // Two fields, one change: the shape an update that renames a note and rewrites
+        // it has. A round trip that dropped the second value would apply half the edit.
+        ProposalItemKind.SetNoteFields(
+            listOf(
+                NoteValue.Title("Agenda", expectedUpdatedAt = 1_763_800_000_000),
+                NoteValue.Body("<p>Buy milk</p>", expectedUpdatedAt = 1_763_800_000_000),
+            ),
+        ),
         ProposalItemKind.SetNoteField(NoteValue.Summary("Milk")),
         // Every project field.
         ProposalItemKind.SetProjectField(ProjectValue.Name("Kitchen")),
@@ -381,8 +391,17 @@ private fun samples(): List<ProposalItemKind> =
                 icon = Emoji("🍳"),
             ),
         ),
+        // The attachment is part of the change: a brief is a note hanging on a project
+        // or a task, and a round trip that dropped it would turn a brief into an
+        // ordinary note on the way to the card.
         ProposalItemKind.CreateNote(
-            ProposedNote(title = "Agenda", bodyHtml = "<p>Buy milk</p>", isFolder = false, parentNoteId = "note-0"),
+            ProposedNote(
+                title = "Agenda",
+                bodyHtml = "<p>Buy milk</p>",
+                isFolder = false,
+                parentNoteId = "note-0",
+                projectId = "project-1",
+            ),
         ),
         ProposalItemKind.CreateTag(ProposedTag(name = "chore", color = 0xFF9E9E9E.toInt())),
         ProposalItemKind.ExtractActions(listOf("Buy milk", "Call the vet")),

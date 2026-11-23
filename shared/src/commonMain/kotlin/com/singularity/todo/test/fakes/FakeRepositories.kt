@@ -2966,6 +2966,11 @@ open class FakeNotesRepository(
     ): Result<com.singularity.todo.feature.notes.Note> {
         createOverride?.let { return it }
         return runCatchingCancellable {
+            // The same invariant the production write states: a note hangs on a project
+            // or on a task, never on both.
+            require(item.projectId == null || item.taskId == null) {
+                "A note attaches to a project or to a task, not to both"
+            }
             store.upsert(item)
             item
         }
@@ -3144,6 +3149,39 @@ open class FakeNotesRepository(
             id
         }
     }
+
+    override suspend fun updateContentIfVersion(
+        id: com.singularity.todo.feature.notes.NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        expectedUpdatedAt: Long,
+    ): Result<Int> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing =
+                store.state.value[id.value]?.takeIf { it.userId == uid }
+                    ?: return@runCatchingCancellable 0
+            // The production statement matches on the version; the fake does the same
+            // comparison the SQL does, so a stale write is visible here too.
+            if (existing.updatedAt.toEpochMilliseconds() != expectedUpdatedAt) {
+                return@runCatchingCancellable 0
+            }
+            // Strictly newer, the same rule the production write follows.
+            val now = clock.now().toEpochMilliseconds()
+            store.upsert(
+                existing.copy(
+                    title = title,
+                    bodyMarkdown = bodyMarkdown,
+                    bodyHtml = bodyHtml,
+                    updatedAt =
+                        kotlin.time.Instant.fromEpochMilliseconds(
+                            maxOf(now, expectedUpdatedAt + 1),
+                        ),
+                ),
+            )
+            1
+        }
 
     override suspend fun updateContent(
         id: com.singularity.todo.feature.notes.NoteId,
@@ -3430,6 +3468,42 @@ open class FakeNotesRepository(
         return store.state.value.values
             .count { it.userId == uid && it.deletedAt == null && it.belongsTo(projectId) }
     }
+
+    /**
+     * The notes attached directly to a project — `notes.project_id`, not the join
+     * through the project's tasks that [watchForProject] runs.
+     */
+    override fun watchPlainAttachedToTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter {
+                        it.taskId == taskId && it.userId == uid && it.deletedAt == null &&
+                            it.archivedAt == null &&
+                            it.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !it.isFolder
+                    }.sortedWith(noteOrder)
+                    .take(limit)
+            }
+        }
+
+    override fun watchAttachedToProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter {
+                        it.userId == uid && it.deletedAt == null && it.archivedAt == null &&
+                            it.projectId == projectId &&
+                            it.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !it.isFolder
+                    }.sortedWith(noteOrder)
+                    .take(limit)
+            }
+        }
 
     /**
      * The order the notes come back in — newest first, then by id.

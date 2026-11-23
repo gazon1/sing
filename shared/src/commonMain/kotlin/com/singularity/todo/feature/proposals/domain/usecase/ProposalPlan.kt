@@ -4,6 +4,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tags.Tag
@@ -43,12 +44,14 @@ sealed interface ProposalPlan {
     /**
      * A fully-resolved note write.
      *
-     * The note is the note to write, already built: the planner knows the field the
-     * change sets and the note that field belongs to, and the dispatcher writes it.
-     * The dispatcher never inspects the value to decide what to write — a value it
-     * does not understand would be a write it cannot make.
+     * The note is the row as it stood when the plan was built, and the value is the
+     * change — the same pair [WriteTask] carries, for the same reason: the guard the
+     * value states has to be checked against the row the write is about to replace,
+     * not against the row a plan was built from a moment earlier. A write that
+     * inspected the value only at planning time would let an edit that landed in
+     * between be overwritten.
      */
-    data class WriteNote(val note: Note) : ProposalPlan {
+    data class WriteNote(val note: Note, val values: List<NoteValue>) : ProposalPlan {
         override val taskId: TaskId? get() = null
     }
 

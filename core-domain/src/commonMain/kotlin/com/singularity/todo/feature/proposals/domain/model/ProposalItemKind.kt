@@ -357,6 +357,38 @@ sealed interface ProposalItemKind {
             }
     }
 
+    /**
+     * Set several fields of the owning note in one change.
+     *
+     * One change and not one item per field, because the fields of an update belong to
+     * one act: a caller that renames a note and rewrites its body has made one edit, and
+     * the user decides about it once. Split into items, the first field's write advances
+     * the note's version and the second field then looks stale — a partial application
+     * of a change nobody divided.
+     *
+     * The version travels once, so the guard is checked once, against the row the write
+     * replaces.
+     */
+    @Serializable
+    @SerialName("SetNoteFields")
+    data class SetNoteFields(val values: List<NoteValue>) :
+        ProposalItemKind,
+        NoteBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnNote(this)
+        override val humanSummary: String = values.joinToString("; ") { it.summary }
+        override val fingerprintTarget: String = values.joinToString("+") { it.fieldName }
+        override val readFailure: String?
+            get() = values.firstNotNullOfOrNull { it.readFailure }
+
+        /**
+         * No inline edit: the card edits one value, and this change holds several. A
+         * field the user wants to change is turned down and re-proposed, which is the
+         * shape a multi-field change already had.
+         */
+        override fun editableProposal(): EditableProposal? = null
+    }
+
     /** Set a field on the owning project. */
     @Serializable
     @SerialName("SetProjectField")

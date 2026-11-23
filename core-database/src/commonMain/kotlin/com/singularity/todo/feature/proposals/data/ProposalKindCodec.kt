@@ -188,6 +188,11 @@ private fun decodeEntityKind(obj: JsonObject): ProposalItemKind? =
             ProposalItemKind.SetNoteField(readValue(obj, NoteValue::read, NoteValue::Unreadable))
         }
 
+        // Only the sealed format writes this kind, so a flat blob carrying the name is a
+        // blob no build wrote. Reading it as null leaves it Unknown, which is the change
+        // that stays on the card with its reason — the right answer for a shape that was
+        // never a shape.
+
         "SetProjectField" -> {
             ProposalItemKind.SetProjectField(
                 readValue(obj, ProjectValue::read, ProjectValue::Unreadable),
@@ -310,6 +315,8 @@ private fun decodeProposedNote(obj: JsonObject): ProposedNote =
         bodyHtml = obj.stringOrNull("bodyHtml"),
         isFolder = obj.stringOrNull("isFolder") == "true",
         parentNoteId = obj.stringOrNull("parentNoteId"),
+        projectId = obj.stringOrNull("projectId"),
+        taskId = obj.stringOrNull("taskId"),
     )
 
 /**

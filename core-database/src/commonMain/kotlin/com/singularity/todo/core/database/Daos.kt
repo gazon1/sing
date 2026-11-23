@@ -953,6 +953,40 @@ interface NoteDao {
         userId: String,
     ): Int
 
+    /**
+     * Writes a note's content **only if** the stored version is the one expected.
+     *
+     * The version predicate is in the statement, not in a read before it: a
+     * read-then-write leaves a window in which another writer commits, and the write
+     * then replaces an edit it never saw. Returns `0` rows when the note moved, which
+     * the caller reports as a stale change rather than treating as success.
+     */
+    @Query(
+        """
+        UPDATE notes
+        SET title = :title,
+            body_markdown = :markdown,
+            body_html = :html,
+            word_count = :wordCount,
+            char_count = :charCount,
+            updated_at = :updatedAt
+        WHERE id = :id
+          AND user_id = :userId
+          AND updated_at = :expectedUpdatedAt
+        """,
+    )
+    suspend fun updateContentIfVersion(
+        id: String,
+        title: String,
+        markdown: String?,
+        html: String?,
+        wordCount: Int,
+        charCount: Int,
+        updatedAt: Long,
+        expectedUpdatedAt: Long,
+        userId: String,
+    ): Int
+
     @Query(
         "UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id AND user_id = :userId",
     )
@@ -1081,6 +1115,10 @@ interface NoteDao {
     /**
      * Returns notes attached to the given taskId (notes.task_id = :taskId), for the current user.
      * Uses the indexed [task_id] column for O(log n) lookups.
+     *
+     * The order is `created_at DESC, id ASC`: the id breaks the tie, so two notes
+     * written in the same second cannot swap places between two reads — and a reader
+     * that picks "the newest" of them picks the same one every time.
      */
     @Query(
         """
@@ -1088,13 +1126,41 @@ interface NoteDao {
         WHERE task_id = :taskId
           AND user_id = :userId
           AND deleted_at IS NULL
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id ASC
         LIMIT 50
         """,
     )
     fun watchByTaskForUser(
         taskId: String,
         userId: String,
+    ): Flow<List<NoteEntity>>
+
+    /**
+     * Returns the newest **plain** notes attached to [taskId], at most [limit] of them.
+     *
+     * [watchByTaskForUser] is the logbook's read and answers with every attached note of
+     * any kind. A brief is a plain note, and asking for one through the logbook's read
+     * would filter *after* its `LIMIT 50`: a task with fifty newer daily notes would
+     * then report that it has no brief at all. The kind is part of the question, so it
+     * belongs in the statement.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE task_id = :taskId
+          AND user_id = :userId
+          AND deleted_at IS NULL
+          AND archived_at IS NULL
+          AND kind = 'Plain'
+          AND is_folder = 0
+        ORDER BY created_at DESC, id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchPlainAttachedToTaskForUser(
+        taskId: String,
+        userId: String,
+        limit: Int,
     ): Flow<List<NoteEntity>>
 
     /**
@@ -1150,6 +1216,42 @@ interface NoteDao {
         projectId: String,
         userId: String,
     ): Int
+
+    /**
+     * Returns the notes attached **directly** to a project, newest first, at most
+     * [limit] of them.
+     *
+     * [watchByProjectForUser] answers a different question: the notes of the
+     * project's *tasks*. This one reads `notes.project_id`, the attachment that
+     * belongs to the project itself — the shape a project brief has. The two are
+     * separate because a note that hangs on the project is not a note that hangs on
+     * one of its tasks, and a read that merged them could not name which one it
+     * returned.
+     *
+     * `kind = 'Plain'` because this attachment is not the brief's alone: a project's
+     * daily note carries the same `project_id` and is a `Daily`. A reader that took the
+     * newest attached note without asking its kind would hand a daily journal to
+     * whoever asked for the brief, and a caller that then writes the extraction over it
+     * loses the journal.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE project_id = :projectId
+          AND user_id = :userId
+          AND deleted_at IS NULL
+          AND archived_at IS NULL
+          AND kind = 'Plain'
+          AND is_folder = 0
+        ORDER BY created_at DESC, id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchAttachedToProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>>
 
     /**
      * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.

@@ -84,6 +84,24 @@ interface NotesRepository :
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
     suspend fun createNoteWithTitle(title: String): Result<NoteId>
 
+    /**
+     * Writes a note's content only if the stored version is still [expectedUpdatedAt].
+     *
+     * The predicate lives in the write, not in a read before it: a caller that reads
+     * the version, checks it and then writes leaves a window in which another writer
+     * commits — and the write then replaces an edit it never saw. A write that finds a
+     * different version fails instead, which the caller reports as a stale change.
+     *
+     * @return [Result] holding the rows written; `0` means the note moved.
+     */
+    suspend fun updateContentIfVersion(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        expectedUpdatedAt: Long,
+    ): Result<Int>
+
     /** Updates title and body content (autosave path). */
     suspend fun updateContent(
         id: NoteId,
@@ -179,6 +197,19 @@ interface NotesRepository :
     fun watchForTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId): Flow<List<Note>>
 
     /**
+     * Watches the newest **plain** notes attached to [taskId], at most [limit].
+     *
+     * Distinct from [watchForTask] on purpose: that one is the logbook's read and answers
+     * with every attached note of any kind, bounded before anything can be filtered out.
+     * A caller that wants a plain note — a brief — has to ask for it in the statement,
+     * or a task with enough newer daily notes reports having none.
+     */
+    fun watchPlainAttachedToTask(
+        taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+        limit: Int,
+    ): Flow<List<Note>>
+
+    /**
      * Watches the notes attached to the tasks of one project, newest first.
      *
      * The membership is the project's own tasks, decided by the store: a caller
@@ -201,6 +232,21 @@ interface NotesRepository :
      * caller say that the page is cut instead of implying that it is everything.
      */
     suspend fun countForProject(projectId: ProjectId): Int
+
+    /**
+     * Watches the notes attached **directly** to [projectId], newest first.
+     *
+     * The attachment is the `project_id` column, written once when the note is
+     * created — the same structural rule [watchForTask] follows for tasks. It is
+     * *not* [watchForProject], which answers a different question: the notes of the
+     * project's tasks.
+     *
+     * @param limit how many notes the page carries at most.
+     */
+    fun watchAttachedToProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>>
 
     /**
      * Creates a new note attached to [taskId] and returns its id.

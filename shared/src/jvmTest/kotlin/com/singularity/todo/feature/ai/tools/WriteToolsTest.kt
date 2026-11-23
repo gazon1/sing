@@ -444,6 +444,8 @@ class WriteToolsTest {
                     .items
                     .single()
                     .kind
-            assertEquals(ProposalItemKind.SetNoteField(NoteValue.Title("New title")), kind)
+            // One change carrying the fields that differ, not one change per field: an
+            // update is one act, and the note's version moves once when it is applied.
+            assertEquals(ProposalItemKind.SetNoteFields(listOf(NoteValue.Title("New title"))), kind)
         }
 }
