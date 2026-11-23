@@ -4,7 +4,8 @@
 #
 #   * the task list — the Inbox, which is where the undated tasks are;
 #   * the task detail — the editor the row opens;
-#   * the related-tasks picker — opened from the detail;
+#   * the related-tasks picker — opened from the detail, searched, and used
+#     to add a relation to the imported dataset;
 #   * the search — a query that only one task answers.
 #
 # TASK_ID and TASK_TITLE are the row the command read off the Inbox, so the
@@ -12,7 +13,9 @@
 # the title of a task that has a relation in the imported dataset — the
 # related-tasks section is folded away until the task has one — and its title
 # is unique, so the search that finds it finds that task and not a neighbour
-# of it.
+# of it. PICKER_CANDIDATE_TITLE is the title of a task the related-tasks
+# picker can offer, and PICKER_CANDIDATE_SLUG is that task's id in the app's
+# own test tag — the picker addresses its candidates by id, not by title.
 appId: com.singularity.todo
 name: large-restore-browse-imported-data
 ---
@@ -97,6 +100,33 @@ name: large-restore-browse-imported-data
 - extendedWaitUntil:
     visible:
       id: related_task_picker_search
+    timeout: 30000
+# The picker is a search over the imported dataset, so it is searched: the
+# query goes into its field, the candidate it finds is shown, one of them is
+# chosen, and the choice is confirmed. A picker that opened and showed a
+# search field would prove nothing about whether it works.
+- tapOn:
+    id: related_task_picker_search
+- inputText: "${PICKER_CANDIDATE_TITLE}"
+- extendedWaitUntil:
+    visible:
+      id: "related_task_candidate_${PICKER_CANDIDATE_SLUG}"
+    timeout: 60000
+- tapOn:
+    id: "related_task_candidate_${PICKER_CANDIDATE_SLUG}"
+- tapOn:
+    id: related_task_picker_add
+- extendedWaitUntil:
+    notVisible:
+      id: related_task_picker_add
+    timeout: 30000
+# The relation the picker added is the one the section behind the sheet now
+# carries — and the candidate was not a relation before, so its row is the
+# proof that the picker searched, found and added.
+- scrollUntilVisible:
+    element:
+      id: "related_task_item_${PICKER_CANDIDATE_SLUG}"
+    direction: DOWN
     timeout: 30000
 - back
 - back

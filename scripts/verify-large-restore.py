@@ -1108,8 +1108,8 @@ def number_of(title: str) -> int:
     return int(digits) if digits else -1
 
 
-def related_task_title(db_path: Path) -> str | None:
-    """The title of a task that the app will show relations for.
+def related_task(db_path: Path) -> tuple[str, str] | None:
+    """The task the app will show relations for: its id and its title.
 
     The related-tasks section of the task detail is folded away until the
     task has relations, so the picker can only be reached through a task that
@@ -1122,7 +1122,7 @@ def related_task_title(db_path: Path) -> str | None:
     """
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        titles = dict(
+        tasks = dict(
             connection.execute(
                 """
                 SELECT id, title FROM tasks
@@ -1135,12 +1135,66 @@ def related_task_title(db_path: Path) -> str | None:
         return None
     finally:
         connection.close()
-    unique = [title for title in titles.values() if counts.get(title) == 1]
+    unique = [(task_id, title) for task_id, title in tasks.items() if counts.get(title) == 1]
     if not unique:
         return None
     # The title with the highest number in it: a search for it finds one row,
     # where a search for a low number finds its neighbours as well.
-    return max(unique, key=lambda title: (number_of(title), title))
+    return max(unique, key=lambda pair: (number_of(pair[1]), pair[1]))
+
+
+def related_task_title(db_path: Path) -> str | None:
+    """The title of a task that the app will show relations for."""
+    task = related_task(db_path)
+    return task[1] if task is not None else None
+
+
+def picker_candidate(db_path: Path, current_id: str) -> tuple[str, str] | None:
+    """A task the related-tasks picker can offer, and the query that finds it.
+
+    The picker refuses the task itself, the tasks it already holds relations
+    to, and every candidate whose addition would close a cycle. A task that
+    holds no relations of its own can never close a cycle, so the candidate
+    is taken from the tasks that hold none.
+
+    The title is the query, and the query is a phrase: the picker looks for
+    the words of the title next to each other, the last of them unfinished. A
+    number that begins another number's would find that neighbour too, so the
+    candidate's number is one that no other number of the dataset begins
+    with — the largest number of the dataset decides that, not the count of
+    the tasks.
+    """
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = connection.execute(
+            """
+            SELECT id, title FROM tasks
+            WHERE id != ?
+              AND id NOT IN (SELECT task_id FROM task_dependencies)
+              AND id NOT IN (
+                    SELECT depends_on_task_id FROM task_dependencies WHERE task_id = ?
+              )
+            """,
+            (current_id, current_id),
+        ).fetchall()
+        titles = connection.execute("SELECT title FROM tasks").fetchall()
+        counts = dict(connection.execute("SELECT title, COUNT(*) FROM tasks GROUP BY title").fetchall())
+    except (sqlite3.Error, TypeError):
+        return None
+    finally:
+        connection.close()
+    numbers = [number_of(title) for (title,) in titles]
+    largest = max(numbers) if numbers else 0
+    candidates = [
+        (task_id, title)
+        for task_id, title in rows
+        if counts.get(title) == 1
+        and (number := number_of(title)) > 0
+        and 10 * number > largest
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda pair: (number_of(pair[1]), pair[1]))
 
 
 def task_titles(db_path: Path) -> list[str]:
@@ -2052,13 +2106,26 @@ def main(argv: list[str] | None = None) -> int:
             raise RunError(f"no task in the database carries the tag {task_id}")
         print(f"task row: {task_id} ({task_title})")
 
-        related_title = related_task_title(db_dir)
-        if related_title is None:
+        related = related_task(db_dir)
+        if related is None:
             raise RunError(
                 "the imported dataset holds no task with a relation, so the "
                 "related-tasks picker cannot be reached"
             )
+        related_id, related_title = related
         print(f"related task: {related_title}")
+        # The picker is a search over the restored dataset, so it is exercised
+        # with a task the picker can offer — one that is not the task itself,
+        # not one of its relations, and one whose addition cannot close a
+        # cycle.
+        candidate = picker_candidate(db_dir, related_id)
+        if candidate is None:
+            raise RunError(
+                "the imported dataset holds no task the related-tasks picker "
+                "could offer, so the picker cannot be exercised"
+            )
+        candidate_id, candidate_title = candidate
+        print(f"picker candidate: {candidate_title}")
         browse_log = out_dir / "browse-flow.log"
         browse_ok = run_flow(
             serial,
@@ -2068,6 +2135,8 @@ def main(argv: list[str] | None = None) -> int:
                 "TASK_TITLE": task_title,
                 "RELATED_TITLE": related_title,
                 "RELATED_ID": task_item_id(related_title),
+                "PICKER_CANDIDATE_TITLE": candidate_title,
+                "PICKER_CANDIDATE_SLUG": slug(candidate_id),
             },
             browse_log,
             apk=apk,
@@ -2076,6 +2145,9 @@ def main(argv: list[str] | None = None) -> int:
             "browse": "passed" if browse_ok else "failed",
             "openedTask": task_title,
             "searchedTask": related_title,
+            # The picker added this relation to the profile — the only write
+            # the run makes, and it happens after the counts were compared.
+            "pickerAddedRelation": candidate_title,
             "log": str(browse_log),
         }
         report["phases"].append("ui paths opened")

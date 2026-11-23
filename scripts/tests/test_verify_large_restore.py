@@ -349,6 +349,118 @@ class RelatedTaskTitleTest(unittest.TestCase):
             self.assertIsNone(driver.related_task_title(path))
 
 
+class RelatedTaskTest(unittest.TestCase):
+    """The run needs the related task's id as well as its title: the picker
+    addresses its candidates by id."""
+
+    def test_the_id_comes_with_the_title(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title) VALUES ('t1', 'Task 1')",
+                    "INSERT INTO tasks (id, title) VALUES ('t2', 'Task 2')",
+                    "INSERT INTO task_dependencies (task_id, depends_on_task_id) "
+                    "VALUES ('t2', 't1')",
+                ],
+            )
+            self.assertEqual(driver.related_task(path), ("t2", "Task 2"))
+
+    def test_a_database_without_relations_has_no_task(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                ["INSERT INTO tasks (id, title) VALUES ('t1', 'Task 1')"],
+            )
+            self.assertIsNone(driver.related_task(path))
+
+
+class PickerCandidateTest(unittest.TestCase):
+    """The picker is a search over the dataset, so the run searches for a task
+    the picker can offer and a query that finds that task and not a neighbour.
+
+    The picker refuses the task itself, the tasks it already relates to, and
+    every candidate whose addition would close a cycle; the search is a phrase
+    whose last word is unfinished, so the number of the candidate must not
+    begin the number of another task.
+    """
+
+    def _dataset(self, tmp: Path, tasks: int, relations: list[tuple[str, str]]) -> Path:
+        statements = [
+            f"INSERT INTO tasks (id, title) VALUES ('t{n}', 'Task {n}')"
+            for n in range(1, tasks + 1)
+        ]
+        statements += [
+            f"INSERT INTO task_dependencies (task_id, depends_on_task_id) VALUES ('{a}', '{b}')"
+            for a, b in relations
+        ]
+        return _database(tmp, statements)
+
+    def test_the_candidate_is_not_the_task_itself(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._dataset(Path(raw), 12, [("t12", "t11")])
+            candidate = driver.picker_candidate(path, "t12")
+            self.assertIsNotNone(candidate)
+            self.assertNotEqual(candidate[0], "t12")
+
+    def test_the_candidate_is_not_a_task_the_task_already_relates_to(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._dataset(Path(raw), 12, [("t12", "t11")])
+            candidate = driver.picker_candidate(path, "t12")
+            self.assertNotEqual(candidate[0], "t11")
+
+    def test_a_candidate_that_holds_a_relation_of_its_own_is_not_offered(self):
+        # Such a candidate could close a cycle, and the picker refuses those.
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._dataset(Path(raw), 12, [("t12", "t11"), ("t3", "t4")])
+            candidate = driver.picker_candidate(path, "t12")
+            self.assertNotEqual(candidate[0], "t3")
+
+    def test_a_title_that_several_tasks_carry_is_not_offered(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title) VALUES ('t1', 'Task 1')",
+                    "INSERT INTO tasks (id, title) VALUES ('t2', 'Task 1')",
+                    "INSERT INTO tasks (id, title) VALUES ('t3', 'Task 3')",
+                    "INSERT INTO tasks (id, title) VALUES ('t4', 'Task 4')",
+                    "INSERT INTO task_dependencies (task_id, depends_on_task_id) "
+                    "VALUES ('t3', 't2')",
+                ],
+            )
+            candidate = driver.picker_candidate(path, "t3")
+            self.assertEqual(candidate[0], "t4")
+
+    def test_the_number_of_the_candidate_begins_no_other_number(self):
+        # 'Task 1' would also find 'Task 10', 'Task 100' and 'Task 1000',
+        # because the search leaves the last word unfinished.
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._dataset(Path(raw), 1000, [("t1000", "t999")])
+            candidate = driver.picker_candidate(path, "t1000")
+            self.assertEqual(candidate, ("t998", "Task 998"))
+
+    def test_the_largest_number_is_chosen(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._dataset(Path(raw), 12, [("t12", "t11")])
+            candidate = driver.picker_candidate(path, "t12")
+            self.assertEqual(candidate, ("t10", "Task 10"))
+
+    def test_a_task_that_relates_to_everything_offers_nothing(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self._dataset(
+                Path(raw),
+                4,
+                [("t4", "t1"), ("t4", "t2"), ("t4", "t3")],
+            )
+            self.assertIsNone(driver.picker_candidate(path, "t4"))
+
+    def test_a_database_without_tasks_offers_nothing(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), [])
+            self.assertIsNone(driver.picker_candidate(path, "t1"))
+
+
 class PaddedArchiveTest(unittest.TestCase):
     """The archive the app has to refuse has to be over the budget for the
     budget's reason — so it keeps the real entries and adds the padding."""
@@ -1615,7 +1727,12 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                 driver, "wait_for_task_row", lambda serial, timeout=180: "task_item_task_1"
             ),
             unittest.mock.patch.object(driver, "title_for_tag", lambda db_dir, tag: "Task 1"),
-            unittest.mock.patch.object(driver, "related_task_title", lambda db_dir: "Task 2"),
+            unittest.mock.patch.object(
+                driver, "related_task", lambda db_dir: ("t2", "Task 2")
+            ),
+            unittest.mock.patch.object(
+                driver, "picker_candidate", lambda db_dir, current_id: ("t3", "Task 3")
+            ),
         ]
 
     def _run(self, tmp: Path, out: Path, over_budget_problems: list[str],
