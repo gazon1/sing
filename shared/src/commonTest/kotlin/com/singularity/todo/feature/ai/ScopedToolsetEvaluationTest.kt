@@ -48,18 +48,11 @@ private const val CROSS_CUTTING_DOMAIN = "ai"
  *
  * The real tools need repositories; the questions this evaluation asks are about the
  * *surface*, not about what a tool does with its arguments. So a stand-in answers, and
- * remembers that it ran — which is how "the call was honoured" is told apart from
- * "the call was refused".
+ * the loop's events tell "the call was honoured" apart from "the call was refused".
  */
 private class StubTool(private val toolName: String) :
     SimpleTool<StubArgs>(TypeToken.of(StubArgs::class.java), toolName, "A stand-in for the $toolName tool.") {
-    var runs: Int = 0
-        private set
-
-    override suspend fun execute(args: StubArgs): String {
-        runs++
-        return """{"tool":"$toolName"}"""
-    }
+    override suspend fun execute(args: StubArgs): String = """{"tool":"$toolName"}"""
 }
 
 /**
