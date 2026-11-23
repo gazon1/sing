@@ -119,10 +119,14 @@ SNACKBAR_ID = "snackbar_message"
 #: The button of the dialog that asks before it overwrites the profile's data.
 CONFIRM_ID = "dialog_confirm"
 
-#: What Maestro writes when it taps that button. The line in the flow's output
-#: is the moment the import starts — a moment that is on the host, where it can
-#: be read without disturbing the device.
+#: What Maestro writes when it starts the step that taps that button.
 CONFIRM_TAP = "Tap on id: dialog_confirm"
+
+#: What Maestro writes when that step is done. The step's line is written
+#: before the tap is dispatched, so this is the moment the confirmation was
+#: really tapped — and the import cannot start before it. The import's
+#: duration is measured from here, not from the moment the step began.
+CONFIRM_TAP_DONE = "Tap on id: dialog_confirm... COMPLETED"
 
 #: The words the backup screen shows while the app is working. The backup
 #: screen puts them there for as long as the app is busy, and the app is busy
@@ -1059,6 +1063,9 @@ def _restore_and_watch_once(
         verify_apk_unchanged(serial, apk)
     started = time.monotonic()
     tapped: float | None = None
+    tap_started = False
+    screen_phase = False
+    screen_started = started
     snackbar: float | None = None
     error_at: float | None = None
     error_text = ""
@@ -1073,24 +1080,45 @@ def _restore_and_watch_once(
         try:
             while True:
                 now = time.monotonic()
-                if tapped is None:
+                if not screen_phase:
                     text = log.read_text(encoding="utf-8", errors="replace")
-                    if CONFIRM_TAP in text:
-                        # The confirmation was tapped: the import is running.
+                    if tapped is None and CONFIRM_TAP_DONE in text:
+                        # The tap was dispatched: Maestro writes the line about
+                        # the step when the step is done. The import cannot
+                        # have started before this moment, so the duration is
+                        # measured from here and never overstates it.
                         tapped = now
-                        # The flow writes that line before it performs the tap,
-                        # so the screen is only read once the flow has let go
-                        # of the device.
+                    if CONFIRM_TAP in text and not tap_started:
+                        # The step that taps the confirmation has started. The
+                        # screen is only read once the flow has let go of the
+                        # device: a dump taken while the flow still holds the
+                        # accessibility service starves Maestro's driver.
+                        tap_started = True
                         if not wait_for_flow_exit(process, FLOW_EXIT_WAIT_SECONDS):
                             flow_overlapped = True
                             print(
                                 "the flow was still running when the watch started "
                                 "reading the screen"
                             )
+                        screen_phase = True
+                        screen_started = time.monotonic()
+                        text = log.read_text(encoding="utf-8", errors="replace")
+                        if tapped is None and CONFIRM_TAP_DONE in text:
+                            # The step is done, so the confirmation was
+                            # dispatched. The moment is read after the flow
+                            # has let go of the device, which is a little
+                            # later than the tap itself: the duration is then
+                            # a little shorter than the import really took,
+                            # and never longer.
+                            tapped = time.monotonic()
                     elif process.poll() is not None:
                         # The flow is over and it never got to the confirmation.
                         break
                 else:
+                    # The import can only have started after the confirmation
+                    # was tapped; when the tap's moment is not known, the
+                    # moment the screen started being read stands in for it.
+                    import_started = tapped if tapped is not None else screen_started
                     dump = ui_dump(serial)
                     if screen_is_locked(dump):
                         # The phone locked itself while the import was
@@ -1112,7 +1140,7 @@ def _restore_and_watch_once(
                     if SNACKBAR_ID in dump:
                         snackbar = stamp
                         break
-                    if tapped is not None and stamp - tapped > SILENT_IMPORT_SECONDS:
+                    if stamp - import_started > SILENT_IMPORT_SECONDS:
                         # The import is over but the app has not said so —
                         # the snackbar was missed, or there was none. The
                         # counts in the database are what settles it.
@@ -2334,12 +2362,16 @@ def check_interrupted_import(
         try:
             while time.monotonic() - flow_started < 900:
                 text = log.read_text(encoding="utf-8", errors="replace")
-                if CONFIRM_TAP in text:
+                if CONFIRM_TAP_DONE in text:
+                    # The tap was dispatched: the import is under way.
                     tapped = True
                     break
                 if process.poll() is not None:
-                    # The flow is over and the confirmation never came: there
-                    # is no import to interrupt.
+                    # The flow is over. The confirmation was dispatched if the
+                    # step's line is there, even when the step never completed;
+                    # if it is not there, the flow never got to the
+                    # confirmation, and there is no import to interrupt.
+                    tapped = CONFIRM_TAP in text
                     break
                 time.sleep(0.2)
             if tapped:

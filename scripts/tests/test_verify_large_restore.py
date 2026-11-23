@@ -1740,7 +1740,7 @@ class FlowExitBeforeScreenTest(unittest.TestCase):
     changing.
     """
 
-    def _watch(self, tmp: Path, flow_lets_go: bool):
+    def _watch(self, tmp: Path, flow_lets_go: bool, tap_line: str | None = None):
         """Run the watch against a fake flow; return what happened, in order."""
         order: list[str] = []
         log = tmp / "restore-flow.log"
@@ -1767,7 +1767,7 @@ class FlowExitBeforeScreenTest(unittest.TestCase):
 
         def fake_popen(command, **kwargs):
             # The flow writes the confirmation line and then keeps running.
-            log.write_text(driver.CONFIRM_TAP + "\n", encoding="utf-8")
+            log.write_text((tap_line or driver.CONFIRM_TAP) + "\n", encoding="utf-8")
             return process
 
         def fake_wait(_process, timeout):
@@ -1802,6 +1802,76 @@ class FlowExitBeforeScreenTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             _order, outcome = self._watch(Path(raw), flow_lets_go=False)
             self.assertTrue(outcome["flowOverlappedWithWatch"])
+
+
+class ConfirmationMomentTest(unittest.TestCase):
+    """The import is measured from the moment the confirmation was tapped.
+
+    Maestro writes the line about the step that taps the confirmation before
+    it performs the tap, and the line that says the step is done after it.
+    The import cannot start before the tap, so the duration is measured from
+    the second line — and when that line never comes, the measurement says so
+    instead of pretending the step's start was the tap.
+    """
+
+    def _watch(self, tmp: Path, tap_line: str | None):
+        log = tmp / "restore-flow.log"
+        log.write_text("", encoding="utf-8")
+
+        class FakeProcess:
+            def __init__(self):
+                self.exited = False
+
+            def poll(self):
+                return 0 if self.exited else None
+
+            def terminate(self):
+                self.exited = True
+
+            def wait(self, timeout=None):
+                self.exited = True
+                return 0
+
+            def kill(self):
+                self.exited = True
+
+        process = FakeProcess()
+
+        def fake_popen(command, **kwargs):
+            log.write_text((tap_line or "") + "\n", encoding="utf-8")
+            return process
+
+        def fake_wait(_process, timeout):
+            process.exited = True
+            return True
+
+        def fake_dump(serial):
+            return f'<node text="{driver.SNACKBAR_ID}" />'
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                unittest.mock.patch.object(driver, "flow_command", lambda *a, **k: ["maestro"])
+            )
+            stack.enter_context(unittest.mock.patch.object(driver, "wake_unlock", lambda serial: None))
+            stack.enter_context(unittest.mock.patch.object(driver.subprocess, "Popen", fake_popen))
+            stack.enter_context(unittest.mock.patch.object(driver, "wait_for_flow_exit", fake_wait))
+            stack.enter_context(unittest.mock.patch.object(driver, "ui_dump", fake_dump))
+            stack.enter_context(unittest.mock.patch.object(driver.time, "sleep", lambda seconds: None))
+            return driver._restore_and_watch_once("device", "archive.zip", log, timeout=30)
+
+    def test_the_completed_step_is_the_moment_the_import_started(self):
+        with tempfile.TemporaryDirectory() as raw:
+            outcome = self._watch(Path(raw), driver.CONFIRM_TAP_DONE)
+            self.assertEqual(outcome["measured"], "confirm-to-snackbar")
+            self.assertIsNotNone(outcome["confirmedAt"])
+
+    def test_a_step_that_never_completed_is_not_mistaken_for_the_tap(self):
+        with tempfile.TemporaryDirectory() as raw:
+            outcome = self._watch(Path(raw), driver.CONFIRM_TAP)
+            # The tap's moment is unknown, so the duration is the whole flow
+            # — an upper bound, and named as such.
+            self.assertEqual(outcome["measured"], "flow-to-snackbar")
+            self.assertIsNone(outcome["confirmedAt"])
 
 
 class OutputDirectoryTest(unittest.TestCase):
