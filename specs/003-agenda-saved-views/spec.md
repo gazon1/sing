@@ -33,7 +33,7 @@ A user opens Inbox to see what is unprocessed. The tab holds the tasks that are 
 **Acceptance Scenarios**:
 
 1. **Given** one undated task in Inbox, **When** the user gives it a date, **Then** it leaves the Inbox and appears in the Today tab, or in the Upcoming tab when the date lies further out.
-2. **Given** an empty Inbox, **When** the user opens it, **Then** the No Date section is shown with its count rather than the screen being blank.
+2. **Given** an empty Inbox, **When** the user opens it, **Then** the empty state is shown rather than the screen being blank. The Inbox has no sections to show while it holds no undated task.
 
 ---
 
