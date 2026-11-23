@@ -11,7 +11,6 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -26,7 +25,8 @@ import kotlin.time.Instant
  * arrow settles with exactly one arrow on screen, but it gets there through a
  * handoff, and the handoff is where a second arrow used to show up for a frame.
  * So this test steps the clock frame by frame and counts the back controls in
- * every frame of the handoff.
+ * every frame of the handoff — exactly one, not "at most one": a frame with no
+ * back control at all is as wrong as a frame with two.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -47,9 +47,10 @@ class DesktopSingleBackControlTest {
             repeat(8) { frame ->
                 mainClock.advanceTimeByFrame()
                 val controls = backControlCount()
-                assertTrue(
-                    controls <= 1,
-                    "frame $frame drew $controls back controls: the shell's and the screen's never stack",
+                assertEquals(
+                    1,
+                    controls,
+                    "frame $frame drew $controls back controls: there is one control, and it is one",
                 )
             }
 

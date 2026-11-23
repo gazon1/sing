@@ -122,7 +122,11 @@ owns a back arrow publishes that arrow to the shell itself
   relies on for the action row.
 - The holder counts "a leading control", not "a back arrow": a screen in
   selection mode publishes its "Exit selection" icon, and the shell's control
-  stands down while such a bar is on top.
+  stands down while such a bar is on top. That is what the Android shell does
+  with the same slot: in selection mode its leading icon is "Exit selection"
+  instead of the back arrow (`ShellNavigationIcon` in `AndroidShellNav3.kt`).
+  The leading slot of a bar holds one control, and the screen that is on top
+  decides what it is — the same answer the Desktop shell gives.
   shortcut: the holder counts any leading control, so a screen whose leading
   control is not a back arrow takes the shell's control down with it; upgrade to
   a publication per control kind when a screen shows a leading control that is
