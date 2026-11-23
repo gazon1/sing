@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 91/162 claimed cells automated · 71 holes**
+**141 scenarios · 92/162 claimed cells automated · 70 holes**
 
 ## feature.agenda
 
@@ -27,7 +27,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `AGENDA-01` | A dated task leaves the Inbox | ○ | — | The task leaves the Inbox: the "No Date" section no longer holds it, and the task is not on the Inbox screen at all.… |
 | `AGENDA-02` | The saved-views list shows its empty state | ○ | — | The list says that there are no saved views yet, rather than rendering as a blank screen or an error. A user who has… |
 | `AGENDA-03` | Saving the current agenda as a named view, then deleting it | ○ | — | Saving returns to the agenda — not to the list — so the view is created without stranding the user. The list then… |
-| `AGENDA-04` | Opening a saved view lists the tasks matching its definition | ○ | — | A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than… |
+| `AGENDA-04` | Opening a saved view lists the tasks matching its definition | — | ● | A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than… |
 | `AGENDA-05` | Saved views are reachable from every agenda bottom tab | ○ | — | The agenda and its saved-views entry are reachable from all three agenda-carrying tabs, so the feature does not depend… |
 | `AGENDA-06` | A saved view survives create, rename, reopen and delete | ○ | — | The list ends where it started — empty — with every intermediate step observable along the way: the rename is what the… |
 | `AGENDA-07` | A saved view can be copied to another profile | ○ | — | The copy appears in the destination profile's saved-views list as a distinct entry from the source, so a view can be… |
@@ -263,7 +263,6 @@ Claimed but not automated:
 - `AGENDA-01` / android
 - `AGENDA-02` / android
 - `AGENDA-03` / android
-- `AGENDA-04` / android
 - `AGENDA-05` / android
 - `AGENDA-06` / android
 - `AGENDA-07` / android

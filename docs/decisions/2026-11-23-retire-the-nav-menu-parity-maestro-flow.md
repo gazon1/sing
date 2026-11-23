@@ -85,8 +85,9 @@ The Maestro flow would have kept passing, because the entry it spot-checks
 The scenario keeps both targets. `NAV-02`'s android cell is now an honest
 hole, and the hole floor in `config/docs/traceability-ratchet.json` was
 raised 71 → 72 with the reason next to the number — and lowered back to 71
-when main closed the hole `PROFILE-01` was carrying in the same window (see
-Consequences).
+when main closed the hole `PROFILE-01` was carrying in the same window, and
+to 70 when main's later retirement of `agenda/04-saved-view-results` closed
+another one (see Consequences).
 
 ## Rationale
 
@@ -125,16 +126,24 @@ Consequences).
   raised 71 → 72 when the flow was retired, and lowered back to 71 when
   main's `PROFILE-01` change dropped that scenario's android claim in the
   same window: the hole `PROFILE-01` was carrying closed as this one opened,
-  so the total is back at 71 and this retirement spends no hole budget. The
+  so the total was back at 71 and this retirement spent no hole budget. The
   composition moved — `NAV-02`'s android cell is the hole now — the budget
-  did not.
+  did not. Since then main moved again: its retirement of
+  `agenda/04-saved-view-results` gave `AGENDA-04` a desktop carrier and
+  closed that scenario's android cell, so `main` measures 69 holes where this
+  branch measures 70. The floor is 70 — the level the merged tree measures —
+  and this retirement spends one hole against `main`, the cell it opens and
+  names.
 - The menu's parity is now enforced in one place, in common code, on the
   host, in seconds — and the Android sheet's own reachability stays on the
   device where it belongs, in `MenuSheetBoundsTest`.
 - The qualification artifacts (`config/docs/maestro-flow-qualification-initial.yaml`
-  and `...-baseline.yaml`) are untouched: the frozen set is the historical
-  record of the flows that existed when the rule was introduced, and the
-  gate stays green.
+  and `...-baseline.yaml`) name the flows that existed when the rule was
+  introduced, and a flow that no longer exists cannot be one of them: the
+  retired `nav/02-menu-parity.yaml` left the frozen set and the baseline map,
+  and the pinned digests were refreshed to match — the same thing main's
+  #3121 retirement did for `agenda/04-saved-view-results`. The change removes
+  a name; it admits no flow without qualification.
 
 ## Review round 1
 

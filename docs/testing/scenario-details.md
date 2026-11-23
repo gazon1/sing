@@ -61,7 +61,7 @@ Steps:
 1. Create a saved view over active tasks, named "My Active Tasks".
 2. From the saved-views list, open that view.
 
-**Expected:** A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than a stored label — the seeded active task is present in the results.
+**Expected:** A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than a stored label — the seeded active task is present in the results. The view name is visible on the results screen.
 
 #### `AGENDA-05` — Saved views are reachable from every agenda bottom tab
 

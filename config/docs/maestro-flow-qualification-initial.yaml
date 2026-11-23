@@ -12,7 +12,6 @@ initial_flows:
 - Maestro/flows/agenda/01-smart-lists.yaml
 - Maestro/flows/agenda/02-saved-views-open.yaml
 - Maestro/flows/agenda/03-saved-views-crud.yaml
-- Maestro/flows/agenda/04-saved-view-results.yaml
 - Maestro/flows/agenda/05-reachability.yaml
 - Maestro/flows/agenda/06-full-lifecycle.yaml
 - Maestro/flows/agenda/07-copy-to-profile.yaml
