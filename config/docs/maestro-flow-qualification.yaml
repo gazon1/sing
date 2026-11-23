@@ -707,15 +707,15 @@ qualifications:
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml:
-    fingerprint: sha256:24b0d421acd920e76ad0076b13d01160369b47a2198a36e2a922b8e653a8786b
+    fingerprint: sha256:8bb608b28a450b1a275d936fcd0a0ebd004a6d72433a664a551fbeebca16f99c
     qualified_at: '2026-11-23'
     environment:
       kind: device
       api: 35
       device: RMX3938
       serial: 0O65321F32204DD5
-    commit: 1f32bdd0e562
-    apk_commit_sha: 1f32bdd0e562
+    commit: e74c7bb9fa17
+    apk_commit_sha: e74c7bb9fa17
     maestro_version: 2.10.0
     attempts:
     - attempt: 1
@@ -728,8 +728,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 1f32bdd0e562
-      apk_commit_sha: 1f32bdd0e562
+      commit: e74c7bb9fa17
+      apk_commit_sha: e74c7bb9fa17
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 2
@@ -742,8 +742,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 1f32bdd0e562
-      apk_commit_sha: 1f32bdd0e562
+      commit: e74c7bb9fa17
+      apk_commit_sha: e74c7bb9fa17
       maestro_version: 2.10.0
       return_code: 0
     - attempt: 3
@@ -756,8 +756,8 @@ qualifications:
         api: 35
         device: RMX3938
         serial: 0O65321F32204DD5
-      commit: 1f32bdd0e562
-      apk_commit_sha: 1f32bdd0e562
+      commit: e74c7bb9fa17
+      apk_commit_sha: e74c7bb9fa17
       maestro_version: 2.10.0
       return_code: 0
 exceptions: {}
