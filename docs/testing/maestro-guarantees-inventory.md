@@ -33,7 +33,24 @@ gh run download 45006143720 --repo gazon1/sing --name maestro-junit-full-1-45006
 | [44060226115](https://github.com/gazon1/sing/actions/runs/44060226115) | full | 2026-11-17 | 4 | 127 | 95.0 min | 39.9 min (shard 2) |
 | [45145653332](https://github.com/gazon1/sing/actions/runs/45145653332) | smoke | 2026-11-23 | 4 | 30 | 24.3 min | 13.7 min (shard 1) |
 
-**Per-flow cost = the median of the samples in which that flow passed.** A flow that failed in every sampled run has no cost in this document: its recorded time is the time *to the failure*, which is a lower bound, not the flow's cost. Those flows are listed under [the measurement gap](#the-measurement-gap) instead of being given an invented number.
+**Total wall-clock duration per shard and per run.** The four shards of a run execute in
+parallel, so a run's elapsed time is its **slowest** shard plus queueing — not the sum. The
+per-shard job wall clock is the number that bounds the saving of a dropped flow, and it is
+what the overhead table below is measured against:
+
+| Run | Suite | Job wall clock per shard (min, shard 1 → 4) | Sum over the four shards | Slowest shard (bounds the run) |
+|---|---|---|---:|---:|
+| 45006143720 | full | 46.4 / 44.7 / 42.1 / 35.1 | 168.3 min | 46.4 min |
+| 44887475720 | full | 29.3 / 35.7 / 35.7 / 34.6 | 135.3 min | 35.7 min |
+| 44498782855 | full | 35.0 / 31.9 / 31.7 / 31.9 | 130.5 min | 35.0 min |
+| 44060226115 | full | 35.5 / 39.9 / 32.9 / 32.1 | 140.4 min | 39.9 min |
+| 45145653332 | smoke | 13.7 / 12.4 / 10.6 / 9.8 | 46.5 min | 13.7 min |
+
+Each cell is the per-shard job's own wall clock; the sum over the four shards is the
+**aggregate** device time a run consumes, not its elapsed time. The per-shard values are
+rounded to 0.1 min, so a sum can differ from the total by a tenth of a minute.
+
+**Per-flow cost = the median of the samples in which that flow passed.** A flow that failed in every sampled run has no cost in this document: its recorded time is the time *to the failure*, which is **not** a cost measurement at all — a flow that dies on a timeout can burn more wall clock than a green run, so the recorded time may be shorter or longer than the flow's real cost. Those flows are listed under [the measurement gap](#the-measurement-gap) instead of being given an invented number.
 
 The historical floor in `config/docs/maestro-flow-timings.txt` is **not** used as a runtime: it is a per-flow minimum ever measured, it holds no per-flow entry at all today, and a floor that only ever falls is a lower bound by construction.
 
@@ -49,9 +66,9 @@ The job wall clock is larger than the sum of the flow times, and the difference 
 | 44060226115 | full | 11.0 / 13.0 / 11.0 / 10.3 min |
 | 45145653332 | smoke | 5.1 / 5.6 / 6.5 / 5.1 min |
 
-That overhead is the AVD restore, the emulator boot, the APK and Maestro installs, and the device reset the runner performs between flows. It is **not** in the flow times below, so a flow that is dropped saves its own seconds and none of the overhead.
+That overhead is the AVD restore, the emulator boot, the APK and Maestro installs, and the device reset the runner performs between flows. It is **not** in the flow times below, so the cost column of a row is the flow's own time and nothing else. Dropping a flow therefore removes its seconds **and** its share of the per-flow device reset, but not the shard's fixed overhead (restore, boot, installs) — the shard still has to start.
 
-The runner retries a flow only when the **device** was lost (`maestro._runner`, `--maestro-max-retries`, default 2); an assertion failure is not retried. A reported duration is therefore one attempt.
+The runner retries a flow on a **device-level failure** (`maestro._runner`, `--maestro-max-retries`, default 2): either the device died mid-flow, or the failure carried a device-level signature while `probe_device_health()` still answered `alive` — in which case the host was busy rather than the device, and the retry leaves the adb server alone. An assertion failure on a healthy device is **not** retried. A reported duration is therefore one attempt of a flow that was not retried; a retried flow reports only its last attempt.
 
 ## The suite, as the runner sees it
 
@@ -108,8 +125,8 @@ area tables:
 | Disposition | Rows | Measured flow time they carry |
 |---|---:|---:|
 | `keep` | 24 | 769 s (12.8 min) |
-| `split` | 69 | 2930 s (48.8 min) |
-| `replace-candidate` | 28 | 966 s (16.1 min) |
+| `split` | 70 | 2930 s (48.8 min) |
+| `replace-candidate` | 27 | 966 s (16.1 min) |
 | `investigate` | 8 | 55 s (0.9 min) |
 | **total** | **129** | **4720 s (78.7 min)** |
 
@@ -320,7 +337,7 @@ single passing sample, 32 s, from the 2026-11-17 run.)
 | `calendar/01-month-view.yaml` | S3/F1 | smoke+full; `smoke`,`calendar` | 24 s (n=3) | tap `nav_tab_calendar` → today's cell exists → `calendar_month_title` visible → `calendar_weekday_mon` + `calendar_weekday_sun` visible → first and last day of the month have cells → the view-mode dropdown opens and shows `calendar_view_mode_month` | the Calendar is an **Android bottom-nav tab** (`nav_tab_calendar` lives only in `shared/src/androidMain/.../AndroidShellNav3.kt`); the month is a pager that composes the neighbouring months, so the same day number is on screen more than once and only the tag says which day it is; the weekday column and month-title **tags** reaching UIAutomator | `CalendarFlowTest.month_view_renders_the_current_month`, `every_day_of_the_month_has_an_addressable_cell` (`desktopApp/src/jvmTest/.../feature/flows/calendar/`, `@Tag("slow:compose")`); `CalendarViewModelTest` (`shared/src/jvmTest/.../feature/calendar/`) — `GoToday resets anchor to today`, `ViewModeChanged changes mode` | split | the desktop twin asserts the same facts, but as **text** ("Mon", "Sun", "September 2026"), not as the tags the flow reads; the day-cell addressability is owned by `every_day_of_the_month_has_an_addressable_cell`. What no faster tier has is the Android tab and the pager's duplicate-cell behaviour |
 | `calendar/02-view-mode.yaml` | F2 | full; `regression`,`calendar` | 28 s (n=4) | tap `calendar_view_mode_trigger` → the dropdown shows **four** modes (`calendar_view_mode_month`/`_week`/`_day`/`_four_days`) → tap week → the dropdown closes | the mode dropdown is a **popup window of its own**; its items exist in the hierarchy only while it is expanded, so the selected mode can only be read from the trigger's tag — the trigger is where the mode lives | `CalendarFlowTest.view_mode_switches_from_month_to_week` (desktop) — asserts the *labels* "Month"/"Week" and that the month title is replaced by a range; `CalendarViewModelTest.ViewModeChanged changes mode` (JVM) — the mode change as a state transition | split | the mode change is owned twice (desktop UI + JVM state). What is not owned: the **four-way list** with four distinct tags, and "selecting a mode closes the dropdown". Both are popup-window facts, which no headless tier renders |
 | `calendar/03-tap-day.yaml` | F1 | full; `regression`,`calendar` | 25 s (n=1) | tap the 15th → the month grid is gone (`calendar_weekday_mon` not visible) → the day view shows the same date → `calendar_view_mode_selected_day` is visible | the pager's duplicate day numbers (only the date-carrying tag identifies the day); the mode control following the navigation into the single-day view | `CalendarViewModelTest.DayClicked in MONTH mode switches to DAY on clicked date` (JVM); `CalendarFlowTest.every_day_of_the_month_has_an_addressable_cell` (desktop) | split | the navigation is headless-owned; the transition **out of the month grid** and the mode control following it are device-only |
-| `calendar_sync/01-provider-toggle.yaml` | F3 | full; `regression`,`calendar_sync`,`scenario:CAL-SYNC-PROVIDER-01` | — (fails in every sampled run) | Settings → Calendar tab → the system-calendar controls are visible → switch to Google → the system controls are gone and `calendar_sync_google_connect_button` is visible → switch back → the system controls return | the provider segment is a `SegmentedButton` whose tags are derived from the **label text** (`calendar_sync_provider_google_calendar`); on Android the Google provider needs a real grant before the connect button appears | `CalendarSyncProviderScenarioTest.switching_provider_swaps_the_panel` (`desktopApp/src/jvmTest/.../feature/flows/calendar/`) — asserts the same swap, including that the system panel disappears and the Google connect button appears; the traceability index already links `CAL-SYNC-PROVIDER-01` to this carrier | replace-candidate | the guarantee has a named owner and the traceability link already exists. The flow additionally exercises the Android **grant** path, which the desktop twin cannot — and the flow fails in every sampled run with `calendar_sync_google_connect_button is visible`, i.e. the failure is in the Google-grant half, not in the swap |
+| `calendar_sync/01-provider-toggle.yaml` | F3 | full; `regression`,`calendar_sync`,`scenario:CAL-SYNC-PROVIDER-01` | — (fails in every sampled run) | Settings → Calendar tab → the system-calendar controls are visible → switch to Google → the system controls are gone and `calendar_sync_google_connect_button` is visible → switch back → the system controls return | the provider segment is a `SegmentedButton` whose tags are derived from the **label text** (`calendar_sync_provider_google_calendar`); on Android the Google provider needs a real grant before the connect button appears | `CalendarSyncProviderScenarioTest.switching_provider_swaps_the_panel` (`desktopApp/src/jvmTest/.../feature/flows/calendar/`) — asserts the same swap, including that the system panel disappears and the Google connect button appears; the traceability index already links `CAL-SYNC-PROVIDER-01` to this carrier | split | the **swap** half is headless-owned: the desktop twin asserts the same swap and the traceability link already exists. The residue is the flow's `id:`-addressed surface — `calendar_sync_system_enable_switch`, `calendar_sync_provider_google_calendar`, `calendar_sync_google_connect_button` are resource ids no headless tier renders — and the Android **grant** path behind the connect button. That residue has **no owner today**: the desktop tier deliberately asserts the *absence* of the system switch (`CalendarSyncSystemScenarioTest` → `assertTagNotExists(SYSTEM_ENABLE_SWITCH)`), because desktop has no system calendar. So the flow cannot be dropped whole — it is a `split`, not a `replace-candidate`. It also fails in every sampled run with `calendar_sync_google_connect_button is visible`, i.e. the failure is in the Google-grant half, not in the swap |
 | `calendar_sync/02-system-calendar-unavailable.yaml` | F1 | full; `regression`,`calendar_sync`,`CAL-SYNC-SYSTEM-01` | — (fails in every sampled run) | Settings → Calendar → system provider → `calendar_sync_system_unavailable` must be visible | **none that an Android device can satisfy**: `calendar_sync/03-system-calendar-toggle.yaml` says in its own header that "the system calendar IS available" on Android and that the unavailable message "is desktop-only and unreachable from Maestro" | `CalendarSyncSystemScenarioTest.the_system_panel_says_why_it_cannot_work` (desktop) — asserts the message, its exact wording, and that no enable switch is drawn over a provider that was never queried; `CalendarSyncPlatformHonestyTest` (`shared/src/jvmTest/.../feature/calendarSync/`) — "the desktop's calendar ports say they cannot work" | investigate | the flow asserts a state the target platform cannot reach, and it fails in every sampled run. The registered cause is `Assertion is false: id: calendar_sync_system_unavailable is visible` (issue #835, `owner: unclassified`, `status: accepted`). The guarantee it names is owned by the desktop twin; the flow is a *desktop* scenario wearing an Android costume |
 | `calendar_sync/03-system-calendar-toggle.yaml` | F4 | full; `regression`,`calendar_sync`,`CAL-SYNC-SYSTEM-01` | 34 s (n=4) | Settings → Calendar → system provider → the enable switch is visible → toggle it on → toggle it off | the Android **system calendar provider** and its permission grant — the switch only exists where a system calendar can exist | `CalendarSyncViewModelCapabilityTest` (`shared/src/commonTest/.../feature/calendarSync/presentation/`) — "the panel's gate is the conjunction of the four seams", "a working provider leaves the calendars on the state"; the desktop twin asserts the **opposite** (`assertTagNotExists(TestTags.CalendarSync.SYSTEM_ENABLE_SWITCH)`) because desktop has no system calendar | keep | the capability is Android-only by construction: the desktop tier asserts the switch's *absence*, so no headless test can own the switch's presence or its toggle. The VM tier owns the enable/disable *state transition*; only a device owns the switch |
 | `lifecycle/01-kill-restart-persist.yaml` | F3 | full; `regression`,`lifecycle` | 42 s (n=4) | seed a task → `stopApp` + `launchApp` (the process is gone) → the seeded row is on the Inbox tab | a **real process kill** and a real relaunch of the Android app; the Room file on device storage; the app-menu shell coming back | `DesktopRestartSmokeTest` (`shared/src/jvmTest/.../core/database/`, `@Tag("slow:data")`) — "notes created in one session survive a process restart", and "schema is identical across restarts — same exportSchema hash"; `TaskRepositoryContractTest` (JVM) | split | "the row was persisted, not held in memory" is headless-owned (real Room, real reopen). The device-only half is the *process* being killed and the app coming back — no headless tier kills a process |
@@ -348,8 +365,8 @@ cost column reads "—":
 `tasks/21-planning-reminder`, `tasks/create-task`, `tasks/open-task-detail`.
 
 What the JUnit report holds for such a flow is the time **to the failure**, not the flow's
-cost. The runner retries only when the *device* was lost, so a reported duration is one
-attempt and the attempt stopped early. Giving these flows a number would be inventing it.
+cost. The runner retries only on a device-level failure, so a reported duration is one
+non-retried attempt and the attempt stopped early. Giving these flows a number would be inventing it.
 
 ### The floor passes and the gate still fails
 
@@ -402,63 +419,84 @@ already owns their guarantee today?** It is an **editorial** order, not a strict
    in the row);
 2. how much measured device time the flow carries;
 3. confidence in the ownership claim — every owner below was **read in the tree** during this
-   audit, and the class and the test method are named.
+   audit, and the class and the test method are named;
+4. **implementation effort** — what a follow-up has to do before the flow can go.
+
+**Effort** is not a guess about calendar time; it is read off what the follow-up needs:
+
+| Effort | What the follow-up must do first |
+|---|---|
+| **low** | the headless owner exists and is strictly stronger — delete the flow, update the catalogue and the scenario link |
+| **medium** | a headless owner exists but a **gap in it** must be closed first (a missing half of an existing test class, or a fake that must be extended) |
+| **high** | the guarantee has **no owner at all** — a new headless test (or a new device owner for the residue) must be written before the flow can shrink |
 
 **Cost is flow time, not shard time.** The numbers are the medians of the passing samples; the
 per-shard overhead (AVD restore, emulator boot, install, per-flow device reset — 9–14 min per full
 shard, 5–7 min per smoke shard) is not in them, so a dropped flow saves less wall clock than its
 row suggests, and a dropped flow in a `smoke` flow saves it in **both** suites.
 
+**Cost is the flow's whole time, not the part that a follow-up would save.** For a
+`replace-candidate` row the whole flow time is removable. For a `split` row only the behaviour
+half's share of it is, and that share is **not measured** — the per-flow times cannot tell how
+much of a flow's seconds belong to its behaviour half and how much to its device residue — so the
+saving of a `split` row is **unknown**, and its cost column is an upper bound, never a forecast.
+
 ### The top eight
 
-| # | Flow | Cost | Suite | The guarantee | Owned today by | A follow-up would remove | Confidence |
-|---:|---|---:|---|---|---|---|---|
-| 1 | `nav/02-menu-parity.yaml` | 35 s | full | the menu offers the same destinations as the model, Calendar excluded, Pomodoro included | `desktopApp/src/jvmTest/.../feature/flows/menu/MenuParityFlowTest.kt` — asserts `DestinationKind.menuEntries.toSet() == AppMenu.allDestinations` | the whole flow: the desktop check is **model-level and drift-proof**, the flow only re-reads two entries on one surface | high |
-| 2 | `agenda/09-upcoming-timeline.yaml` | 84 s | full | the Upcoming tab shows tomorrow + the three later rows, groups by day/week, and excludes today | `desktopApp/src/jvmTest/.../feature/flows/agenda/UpcomingTimelineScenarioTest.kt` — the day/week switch, the three rows, today and undated absent, and the header order (the `AGENDA-10` half) | the whole flow; the scenario split `AGENDA-09` android / `AGENDA-10` desktop is stale — the desktop class owns both | high |
-| 3 | `agenda/04-saved-view-results.yaml` | 68 s | full | a saved view lists the matching task, and tapping its card opens the results (not the editor) | `desktopApp/src/jvmTest/.../OpenSavedViewShowsMatchingTasksFlowTest.kt` — the file's own header calls it the "desktop mirror of `04-saved-view-results.yaml`" | the whole flow; the flow's own two extra steps (overflow → Save current, IME naming) are what `03-saved-views-crud` covers | high |
-| 4 | `archive/02-bulk-archive-confirm.yaml` | 81 s | smoke + full | bulk archive asks first; **Cancel writes nothing**; confirming archives and reports "Moved 1 task to archive" | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — `the_bulk_archive_confirms_before_writing` reads `archivedAt` off the repository after Cancel; plus `ArchiveViewModelTest` for the count and the singular message | the **behaviour half only** — the owner is **strictly stronger** (it checks the write, not the observation). What stays on-device, and has **no owner today**: the long-press context sheet, the overflow's resource ids, the result dialog's modal window. The flow itself stays until a device owner exists for that residue | high |
-| 5 | `sync/01-change-sync-interval.yaml` | 80 s | full | the sync interval row is reachable and the interval can be changed | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` — `change_interval_cycles_value` reads the row's trailing text before and after the tap and asserts it **changed** | the flow's visible-only assertion. The scenario spec's "takes effect without a restart and survives one" is claimed by **nobody** — that is an open item, not a reason to keep this flow | high for the ownership, medium for the residue (the narrow Settings sheet has no headless owner at all — see Appendix B) |
-| 6 | `profile/01-create-profile.yaml` | 61 s | full | creating a profile from the drawer yields a profile with that name | `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` — `create_profile_from_drawer` drives the identical journey and asserts the identical outcome | the whole flow; the residue is the *input mechanism* (real IME vs. `typeIntoTag`), not a guarantee | high |
-| 7 | `menu/06-tree-live.yaml` | 64 s | full | the menu's project section reflects a project **created** elsewhere — and a project **renamed** elsewhere | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` (MENU-03) — asserts the section updating **while the drawer is open**, but for **creation only**; the rename half is owned by nobody | the flow, **after** the rename half is added to the desktop class. The device residue is the sheet's dismiss-on-change and reopen — a surface property of the modal sheet | medium — one of the two halves has no owner yet |
-| 8 | `system/menu-sheet.yaml` | 18 s | smoke + full | every menu entry is reachable as a **resource id** in the sheet's own window | `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` — `requiredMenuTags()` is **derived** from `AppMenu` and asserted by `By.res`, a superset of the flow's hand-written list; `shared/src/commonTest/.../shell/AppMenuTest.kt` owns the model | the whole flow, from **both** suites; the flow's screenshot is its only unique residue | high |
+| # | Flow | Cost | Suite | The guarantee | Owned today by | A follow-up would remove | Effort | Confidence |
+|---:|---|---:|---|---|---|---|---|---|
+| 1 | `nav/02-menu-parity.yaml` | 35 s | full | the menu offers the same destinations as the model, Calendar excluded, Pomodoro included | `desktopApp/src/jvmTest/.../feature/flows/menu/MenuParityFlowTest.kt` — asserts `DestinationKind.menuEntries.toSet() == AppMenu.allDestinations` | the whole flow: the desktop check is **model-level and drift-proof**, the flow only re-reads two entries on one surface | low | high |
+| 2 | `agenda/09-upcoming-timeline.yaml` | 84 s | full | the Upcoming tab shows tomorrow + the three later rows, groups by day/week, and excludes today | `desktopApp/src/jvmTest/.../feature/flows/agenda/UpcomingTimelineScenarioTest.kt` — the day/week switch, the three rows, today and undated absent, and the header order (the `AGENDA-10` half) | the whole flow; the scenario split `AGENDA-09` android / `AGENDA-10` desktop is stale — the desktop class owns both | low | high |
+| 3 | `agenda/04-saved-view-results.yaml` | 68 s | full | a saved view lists the matching task, and tapping its card opens the results (not the editor) | `desktopApp/src/jvmTest/.../OpenSavedViewShowsMatchingTasksFlowTest.kt` — the file's own header calls it the "desktop mirror of `04-saved-view-results.yaml`" | the whole flow; the flow's own two extra steps (overflow → Save current, IME naming) are what `03-saved-views-crud` covers | low | high |
+| 4 | `archive/02-bulk-archive-confirm.yaml` | 81 s | smoke + full | bulk archive asks first; **Cancel writes nothing**; confirming archives and reports "Moved 1 task to archive" | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — `the_bulk_archive_confirms_before_writing` reads `archivedAt` off the repository after Cancel; plus `ArchiveViewModelTest` for the count and the singular message | the **behaviour half only** — the owner is **strictly stronger** (it checks the write, not the observation). What stays on-device, and has **no owner today**: the long-press context sheet, the overflow's resource ids, the result dialog's modal window. The flow itself stays until a device owner exists for that residue | high — the residue has no owner, so a **device** owner must be written first | high |
+| 5 | `sync/01-change-sync-interval.yaml` | 80 s | full | the sync interval row is reachable and the interval can be changed | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` — `change_interval_cycles_value` reads the row's trailing text before and after the tap and asserts it **changed** | the flow's visible-only assertion. The scenario spec's "takes effect without a restart and survives one" is claimed by **nobody** — that is an open item, not a reason to keep this flow | medium — the narrow Settings sheet has no headless owner at all (see Appendix B), so the residue needs one before the flow can go | high for the ownership, medium for the residue |
+| 6 | `profile/01-create-profile.yaml` | 61 s | full | creating a profile from the drawer yields a profile with that name | `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` — `create_profile_from_drawer` drives the identical journey and asserts the identical outcome | the whole flow; the residue is the *input mechanism* (real IME vs. `typeIntoTag`), not a guarantee | low | high |
+| 7 | `menu/06-tree-live.yaml` | 64 s | full | the menu's project section reflects a project **created** elsewhere — and a project **renamed** elsewhere | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` (MENU-03) — asserts the section updating **while the drawer is open**, but for **creation only**; the rename half is owned by nobody | the flow, **after** the rename half is added to the desktop class. The device residue is the sheet's dismiss-on-change and reopen — a surface property of the modal sheet | medium — the rename half must be added to the desktop class first | medium — one of the two halves has no owner yet |
+| 8 | `system/menu-sheet.yaml` | 18 s | smoke + full | every menu entry is reachable as a **resource id** in the sheet's own window | `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` — `requiredMenuTags()` is **derived** from `AppMenu` and asserted by `By.res`, a superset of the flow's hand-written list; `shared/src/commonTest/.../shell/AppMenuTest.kt` owns the model | the whole flow, from **both** suites; the flow's screenshot is its only unique residue | low | high |
 
 Together these eight carry **491 s** of measured flow time (8.2 min) across the two suites. That
 is the *flow* time, not the wall clock: removing a flow from a shard also removes its share of the
-per-flow device reset, and the shard's fixed overhead stays.
+per-flow device reset, and the shard's fixed overhead stays. Six of the eight are `low` effort;
+`archive/02` is `high` because its residue has no owner at all, and two are `medium` because the
+headless owner has a gap to close first.
 
 ### The next tier
 
-Same kind of candidate, smaller prize or a larger residue. Ranked by cost.
+Same kind of candidate, smaller prize or a larger residue. Ranked by cost. The **Effort** column
+is read by the same rule as in the top eight.
 
-| Flow | Cost | Suite | Why it is not in the top eight |
-|---|---:|---|---|
-| `search/08-word-prefix.yaml` | 59 s | full | the behaviour is owned (`SearchContainsModeTest` in `shared/src/commonTest`), but the flow asserts a *negative* against the device's real FTS index; the residue is the platform keyboard |
-| `tasks/19-prefill-from-upcoming.yaml` | 45 s | full | the rule is owned by `FabActionResolverTest` + `CreateTaskFlowTest`; the residue is the Android FAB's resource id and the IME |
-| `pomodoro/03-pause-resume.yaml` | 44 s | full | `PomodoroFlowTest.play_and_pause_swap_the_single_control` asserts the same icon swap; the residue is the icon swap of one control on one screen |
-| `search/09-contains-mode.yaml` | 44 s | full | `SearchContainsModeTest` + `SearchViewModelTest` own both modes; the residue is the toggle's tag `search_mode_contains` on device. Note: the file name and the scenario id disagree (`search/09` carries `SEARCH-10`) |
-| `tasks/03-due-date-cancel.yaml` | 43 s | full | `TaskSchedulingSheetTest.cancelling writes nothing at all` owns the rule; the residue is the sheet's window and the editor row's placeholder |
-| `nav/bottom-nav-tabs.yaml` | 42 s | **smoke + full** | the FAB-per-tab contract is owned by `FabActionResolverTest` (common) and by `NavigationSmokeTest` on the device; the residue is the Android tab resource ids, which `nav/01` already covers. A **smoke** flow — its cost is paid on every PR path, not only nightly |
-| `settings/01-theme-toggle.yaml` | 36 s | full | `InterfaceSettingsScreenPreviewTest` owns the settings surface; the residue is the **system-wide** theme application on Android, which no JVM tier can see |
-| `menu/03-open-project.yaml` | 37 s | full | the desktop carrier of MENU-02 asserts the same journey; the residue is the sheet's id-addressed row and the scroll to the fold |
-| `menu/04-all-projects.yaml` | 34 s | full | the desktop carrier of MENU-06 asserts the same rule; the residue is again the fold |
-| `menu/10-large-projects.yaml` | 34 s | full | the desktop carrier of MENU-07 asserts the fold contract on the drawer; the residue is the toggle's two different ids (`menu_projects_expand` / `menu_projects_collapse`) |
-| `negative/04-empty-archive.yaml` | 28 s | full | both assertions are desktop-owned (`ArchiveBulkActionFlowTest`); the residue is the Android menu path — and Archive is a **menu destination on Android, a tab on desktop**, so the residue is structural |
-| `negative/03-empty-projects.yaml` | 23 s | full | the single assertion is a desktop copy; the residue is the menu navigation and its scroll |
-| `negative/02-empty-notes.yaml` | 20 s | full | both assertions are desktop-owned (`NotesFlowTest`); the residue is the same menu navigation |
+| Flow | Cost | Suite | Effort | Why it is not in the top eight |
+|---|---:|---|---|---|
+| `search/08-word-prefix.yaml` | 59 s | full | medium | the behaviour is owned (`SearchContainsModeTest` in `shared/src/commonTest`), but the flow asserts a *negative* against the device's real FTS index; the residue is the platform keyboard |
+| `tasks/19-prefill-from-upcoming.yaml` | 45 s | full | medium | the rule is owned by `FabActionResolverTest` + `CreateTaskFlowTest`; the residue is the Android FAB's resource id and the IME |
+| `pomodoro/03-pause-resume.yaml` | 44 s | full | low | `PomodoroFlowTest.play_and_pause_swap_the_single_control` asserts the same icon swap; the residue is the icon swap of one control on one screen |
+| `search/09-contains-mode.yaml` | 44 s | full | low | `SearchContainsModeTest` + `SearchViewModelTest` own both modes; the residue is the toggle's tag `search_mode_contains` on device. Note: the file name and the scenario id disagree (`search/09` carries `SEARCH-10`) |
+| `tasks/03-due-date-cancel.yaml` | 43 s | full | low | `TaskSchedulingSheetTest.cancelling writes nothing at all` owns the rule; the residue is the sheet's window and the editor row's placeholder |
+| `nav/bottom-nav-tabs.yaml` | 42 s | **smoke + full** | low | the FAB-per-tab contract is owned by `FabActionResolverTest` (common) and by `NavigationSmokeTest` on the device; the residue is the Android tab resource ids, which `nav/01` already covers. A **smoke** flow — its cost is paid on every PR path, not only nightly |
+| `settings/01-theme-toggle.yaml` | 36 s | full | high | `InterfaceSettingsScreenPreviewTest` owns the settings surface; the residue is the **system-wide** theme application on Android, which no JVM tier can see — a device owner would have to be written |
+| `menu/03-open-project.yaml` | 37 s | full | low | the desktop carrier of MENU-02 asserts the same journey; the residue is the sheet's id-addressed row and the scroll to the fold |
+| `menu/04-all-projects.yaml` | 34 s | full | low | the desktop carrier of MENU-06 asserts the same rule; the residue is again the fold |
+| `menu/10-large-projects.yaml` | 34 s | full | low | the desktop carrier of MENU-07 asserts the fold contract on the drawer; the residue is the toggle's two different ids (`menu_projects_expand` / `menu_projects_collapse`) |
+| `negative/04-empty-archive.yaml` | 28 s | full | medium | both assertions are desktop-owned (`ArchiveBulkActionFlowTest`); the residue is the Android menu path — and Archive is a **menu destination on Android, a tab on desktop**, so the residue is structural |
+| `negative/03-empty-projects.yaml` | 23 s | full | low | the single assertion is a desktop copy; the residue is the menu navigation and its scroll |
+| `negative/02-empty-notes.yaml` | 20 s | full | low | both assertions are desktop-owned (`NotesFlowTest`); the residue is the same menu navigation |
 
 ### The largest `split` payoffs
 
 These flows must **stay** — each owns a platform-only half. The payoff is in moving the
 behaviour-only half out, and the saving is the part of the flow that the headless tier can take
-over, not the whole flow.
+over, not the whole flow. **How much of a flow's time that part is, is unknown** — the per-flow
+measurements cannot split a flow's seconds between its behaviour half and its device residue — so
+the cost column is the flow's **whole** time and the saving of each row is **unknown**, never
+smaller than zero and never the cost column.
 
-| Flow | Cost | What the headless tier could take | What must stay on-device |
-|---|---:|---|---|
-| `agenda/06-full-lifecycle.yaml` | 99 s | the **composition** (empty → create → card → results → edit → rename → delete → empty); each step is already owned, the composition is not | the overflow popup's resource ids and the real IME |
-| `tasks/logbook/TASK-LOG-01.yaml` | 80 s | the "+" → the attached note appears in the task's logbook (the `task_id`-loss bug is owned three times over, once on real SQLite); the two tags `LOGBOOK_ADD_NOTE_BUTTON` and `logbookNoteByTitle(...)` are asserted by **no** test in the tree | the cross-graph exit (`TasksNavigator.openCreateNote` leaves the tasks graph) and the IME |
-| `auth/04-signin-with-seeded-data.yaml` | 77 s | the seeded-data half of sign-in | the live sign-in path itself |
-| `auth/10-attach-account-validation-error.yaml` | 75 s | the validation rule | the attach-account entry surface |
-| `auth/07-account-attach.yaml` | 70 s | the attach flow's outcome | the account surface |
+| Flow | Cost (whole flow) | Effort | What the headless tier could take | What must stay on-device |
+|---|---:|---|---|---|
+| `agenda/06-full-lifecycle.yaml` | 99 s | high — no owner exists for the composition itself | the **composition** (empty → create → card → results → edit → rename → delete → empty); each step is already owned, the composition is not | the overflow popup's resource ids and the real IME |
+| `tasks/logbook/TASK-LOG-01.yaml` | 80 s | high — the two tags are asserted by no test in the tree | the "+" → the attached note appears in the task's logbook (the `task_id`-loss bug is owned three times over, once on real SQLite); the two tags `LOGBOOK_ADD_NOTE_BUTTON` and `logbookNoteByTitle(...)` are asserted by **no** test in the tree | the cross-graph exit (`TasksNavigator.openCreateNote` leaves the tasks graph) and the IME |
+| `auth/04-signin-with-seeded-data.yaml` | 77 s | medium | the seeded-data half of sign-in | the live sign-in path itself |
+| `auth/10-attach-account-validation-error.yaml` | 75 s | medium | the validation rule | the attach-account entry surface |
+| `auth/07-account-attach.yaml` | 70 s | medium | the attach flow's outcome | the account surface |
 
 ### How to act on this list
 
@@ -471,6 +509,11 @@ The `split` rows are different in kind: they ask for a **new** headless test for
 that has no owner today (the logbook's "+" button, the search empty-state tags, the tags empty
 state). Those are additions to the headless tier, not deletions from the device tier, and they
 buy nothing on the nightly's wall clock until the flow's behaviour-only half is dropped from it.
+
+The **Effort** column says which kind of change a row needs. Start with the `low` rows: the owner
+exists and is strictly stronger, so the follow-up is a deletion plus a catalogue and scenario-link
+update. The `medium` rows need a gap closed in an existing owner first; the `high` rows need a
+guarantee written from scratch, and they buy **no** wall clock at all until that work lands.
 
 ## What this audit does not claim
 
@@ -1367,14 +1410,14 @@ Each candidate names: the behaviour-only assertions of the flow, the production 
 
 ### Calendar, calendar sync, lifecycle, capture (manual)
 
-### `calendar_sync/01-provider-toggle.yaml` — replace-candidate
+### `calendar_sync/01-provider-toggle.yaml` — split
 
 - **Behaviour-only assertions**: the provider segment swaps the panel; the system controls disappear when Google is selected and return when the system is selected again.
 - **Production boundary**: `CalendarSyncViewModel` (`shared/src/commonMain/.../feature/calendarSync/presentation/`) and the provider gate (the "conjunction of the four seams" that `CalendarSyncViewModelCapabilityTest` asserts).
 - **Replacement fixture/tier**: `CalendarSyncProviderScenarioTest.switching_provider_swaps_the_panel` (`desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/calendar/CalendarSyncProviderScenarioTest.kt`) already asserts the same swap, and the traceability index already links `CAL-SYNC-PROVIDER-01` to that file.
-- **Must stay on-device**: the Android **grant** path — the Google connect button only appears on a device where a Google account can be authorised. That half is what currently fails.
+- **Must stay on-device**: the flow addresses the panel by **resource id** (`calendar_sync_system_enable_switch`, `calendar_sync_provider_google_calendar`, `calendar_sync_google_connect_button`) — a tag surface no headless tier renders; and the Android **grant** path — the Google connect button only appears on a device where a Google account can be authorised. That half is what currently fails.
 - **Why a headless test catches the regression**: the swap is a ViewModel state transition with a UI projection; a regression that leaves the system panel on screen while Google is selected is exactly what the desktop twin already guards, in seconds instead of a device run.
-- **Confidence**: high that the *swap* is headless-owned; the flow should be re-scoped to the grant path rather than dropped, and that is a follow-up change.
+- **Why this is a `split` and not a `replace-candidate`**: the residue (the id-addressed switch and the grant path) has **no owner today**. The desktop tier asserts the **absence** of the system switch (`CalendarSyncSystemScenarioTest` → `assertTagNotExists(TestTags.CalendarSync.SYSTEM_ENABLE_SWITCH)`), because desktop has no system calendar to switch. So the flow cannot be dropped whole; only its swap half is headless-owned. A follow-up should re-scope the flow to the id-addressed surface and the grant path rather than drop it.
 
 ### `calendar_sync/02-system-calendar-unavailable.yaml` — investigate
 
