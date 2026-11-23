@@ -40,6 +40,9 @@ import kotlin.test.assertTrue
 @Serializable
 private data class StubArgs(val value: String = "")
 
+/** The catalogue domain every scope carries, because its tools act on other domains' data. */
+private const val CROSS_CUTTING_DOMAIN = "ai"
+
 /**
  * A stand-in for a catalogue tool.
  *
@@ -78,10 +81,13 @@ private class ScriptedModel(private val rounds: List<List<StreamFrame>>) {
 /**
  * One evaluation scenario.
  *
- * @param domains the catalogue domains the scoped candidate is built from.
+ * @param domains the catalogue domains the scoped candidate is built from; the
+ *   cross-cutting `ai` domain is added to every scope.
  * @param expectedTool the tool the scenario is about.
  * @param confusableTool a tool from another domain that the model reaches for by
  *   mistake — the call that the full toolbox honours and a scoped toolbox refuses.
+ * @param expectedScopedSize how many tools the scoped condition offers — the number the
+ *   decision note publishes, so the two cannot drift apart unnoticed.
  */
 private data class Scenario(
     val title: String,
@@ -90,6 +96,7 @@ private data class Scenario(
     val expectedTool: String,
     val expectedArgs: String,
     val confusableTool: String,
+    val expectedScopedSize: Int,
 )
 
 /** What one turn did. */
@@ -130,6 +137,7 @@ class ScopedToolsetEvaluationTest {
                 expectedTool = "list_tasks",
                 expectedArgs = "{}",
                 confusableTool = "list_projects",
+                expectedScopedSize = 25,
             ),
             Scenario(
                 title = "note read",
@@ -138,6 +146,7 @@ class ScopedToolsetEvaluationTest {
                 expectedTool = "get_note",
                 expectedArgs = """{"noteId":"n-1"}""",
                 confusableTool = "get_task",
+                expectedScopedSize = 21,
             ),
             Scenario(
                 title = "project listing",
@@ -146,6 +155,7 @@ class ScopedToolsetEvaluationTest {
                 expectedTool = "list_projects",
                 expectedArgs = "{}",
                 confusableTool = "list_tasks",
+                expectedScopedSize = 20,
             ),
             Scenario(
                 title = "planning",
@@ -154,21 +164,28 @@ class ScopedToolsetEvaluationTest {
                 expectedTool = "decompose_task",
                 expectedArgs = """{"taskId":"t-1"}""",
                 confusableTool = "delete_note",
+                expectedScopedSize = 25,
             ),
         )
 
     /**
      * The toolbox of one condition.
      *
-     * `scope == null` is the full toolbox. The scope and the kill switch compose into an
-     * intersection, so a scope can never bring a disabled tool back.
+     * `scope == null` is the full toolbox. A scope always carries the cross-cutting `ai`
+     * domain as well: the catalogue groups tools by *kind of tool*, so the `ai` tools are
+     * the ones that act on another domain's data (`summarize_note`, `rewrite_note` …) —
+     * a scope without them is not the scope the research describes.
+     *
+     * The scope and the kill switch compose into an intersection, so a scope can never
+     * bring a disabled tool back.
      */
     private fun toolbox(
         scope: Set<String>?,
         flags: Map<String, Boolean> = emptyMap(),
         real: Map<String, Tool<*, *>> = emptyMap(),
     ): List<Tool<*, *>> {
-        val entries = McpToolCatalog.catalog.filter { scope == null || it.domain in scope }
+        val effective = scope?.plus(CROSS_CUTTING_DOMAIN)
+        val entries = McpToolCatalog.catalog.filter { effective == null || it.domain in effective }
         val tools = entries.map { entry -> real[entry.name] ?: StubTool(entry.name) }
         return filterTools(tools, flags)
     }
@@ -286,6 +303,28 @@ class ScopedToolsetEvaluationTest {
                     "${scenario.title}: ${scoped.size} tools is not narrower than ${full.size}",
                 )
 
+                // The number the decision note publishes, asserted so the two cannot
+                // drift apart unnoticed.
+                assertEquals(
+                    scenario.expectedScopedSize,
+                    scoped.size,
+                    "${scenario.title}: the scoped toolbox offers ${scoped.size} tools, " +
+                        "the decision note says ${scenario.expectedScopedSize}",
+                )
+
+                // The cross-cutting domain is part of every scope: the note's claim that a
+                // scope stays wide because of it is only true if it is really there.
+                val crossCutting =
+                    McpToolCatalog.catalog
+                        .filter { it.domain == CROSS_CUTTING_DOMAIN }
+                        .map { it.name }
+                val scopedNames = scoped.map { it.descriptor.name }
+                assertTrue(
+                    crossCutting.all { it in scopedNames },
+                    "${scenario.title}: a scope must carry the $CROSS_CUTTING_DOMAIN domain, " +
+                        "it is missing ${crossCutting - scopedNames.toSet()}",
+                )
+
                 val writeBehavior = McpToolCatalog.catalog.associate { it.name to it.writeBehavior }
                 val scopedWrites =
                     scoped
@@ -378,6 +417,7 @@ private class WriteWorld {
             expectedTool = "update_task",
             expectedArgs = """{"taskId":"${task.id.value}","title":"Buy milk"}""",
             confusableTool = "delete_note",
+            expectedScopedSize = 25,
         )
 
     suspend fun storedTitle(): String? = tasks.observe(TaskId(task.id.value)).first()?.title

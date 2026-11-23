@@ -50,7 +50,13 @@ changes **which tools are reachable**, never **what a tool does when reached**.
 `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/ScopedToolsetEvaluationTest.kt`
 
 - **Same scenario, same scripted model, same turn** in both conditions.
-- **Full** condition: all 45 catalogue tools. **Scoped** condition: the catalogue tools of the scenario's domain(s).
+- **Full** condition: all 45 catalogue tools. **Scoped** condition: the catalogue tools of the scenario's domain(s)
+  **plus the cross-cutting `ai` domain**.
+- **Why `ai` is in every scope — an explicit decision of this evaluation.** The catalogue's `domain` groups tools by
+  *kind of tool*, not by what they act on, so the `ai` tools are exactly the ones that operate on another domain's
+  data (`summarize_note`, `rewrite_note`, `extract_actions`, `decompose_task` …). A scope that dropped them would
+  remove the tools a real request needs, so the candidate scope is *domain(s) ∪ {`ai`}* — and the price of that
+  choice is measured below, not assumed.
 - The scope is **intersected** with the switched-on set in both conditions, so a scope can never resurrect a disabled
   tool — the two filters compose into an intersection, not into an override.
 - The model is scripted: it calls the tool the scenario expects, then one plausible wrong tool from another domain,
@@ -67,11 +73,11 @@ Measured by `ScopedToolsetEvaluationTest` (5 tests, green).
 
 | Scenario | Scope | Tools offered (full → scoped) | Write tools reachable (full → scoped) | Expected tool honoured (full / scoped) | Cross-domain call (full / scoped) |
 |---|---|---|---|---|---|
-| task lookup | `tasks` | 45 → 10 | 15 → 5 | yes / yes | honoured / refused |
-| note read | `notes` | 45 → 6 | 15 → 3 | yes / yes | honoured / refused |
-| project listing | `projects` | 45 → 5 | 15 → 3 | yes / yes | honoured / refused |
+| task lookup | `tasks`+`ai` | 45 → 25 | 15 → 5 | yes / yes | honoured / refused |
+| note read | `notes`+`ai` | 45 → 21 | 15 → 3 | yes / yes | honoured / refused |
+| project listing | `projects`+`ai` | 45 → 20 | 15 → 3 | yes / yes | honoured / refused |
 | planning | `tasks`+`ai` | 45 → 25 | 15 → 5 | yes / yes | honoured / refused |
-| task update — real `UpdateTaskTool` | `tasks` | 45 → 10 | 15 → 5 | yes / yes — proposal created, task unchanged | honoured / refused |
+| task update — real `UpdateTaskTool` | `tasks`+`ai` | 45 → 25 | 15 → 5 | yes / yes — proposal created, task unchanged | honoured / refused |
 
 What the numbers say:
 
@@ -89,9 +95,11 @@ What the numbers say:
    weaken it either.
 5. **The kill switch still wins.** A tool switched off by a flag is off in a scoped toolbox too: the scope and the
    switch compose into an intersection, and neither can re-enable what the other removed.
-6. **The narrowing is weaker than it looks.** A notes scenario needs the 6 `notes` tools *and* the 15 cross-cutting
-   `ai` tools (`summarize_note`, `rewrite_note`, `extract_actions` …), because the catalogue's `domain` groups tools by
-   *kind of tool*, not by *what they act on*. The planning scope is 25 of 45 — a 44 % reduction, not a small toolbox.
+6. **The narrowing is weaker than it looks.** The `ai` domain is cross-cutting, so every scope carries it: a notes
+   scenario needs the 6 `notes` tools *and* the 15 `ai` tools (`summarize_note`, `rewrite_note`, `extract_actions` …),
+   because the catalogue's `domain` groups tools by *kind of tool*, not by *what they act on*. The narrowest scope
+   measured here — `projects`+`ai` — is 20 of 45 tools, a 56 % reduction; the notes scope is 21 of 45. A scope small
+   enough to sharpen a model's attention does not follow from the metadata that exists today.
 
 ## What this evidence does not show
 
@@ -109,8 +117,8 @@ benefit the issue was after.
 
 The narrowing is also weaker than it looks: a scenario about notes needs the 15 cross-cutting `ai` tools as well
 (`summarize_note`, `rewrite_note`, `extract_actions` …), because the catalogue groups tools by *kind of tool*, not by
-*what they act on*. The planning scope is 25 of 45 tools — a 44 % reduction, not a small toolbox. A scope that is
-small enough to sharpen a model's attention does not follow from the metadata that exists today.
+*what they act on*. The narrowest scope measured here is 20 of 45 tools — a 56 % reduction, not a small toolbox. A
+scope that is small enough to sharpen a model's attention does not follow from the metadata that exists today.
 
 ### Smallest next step
 
@@ -139,7 +147,7 @@ small enough to sharpen a model's attention does not follow from the metadata th
 | Model / provider | the app's configured provider (e.g. OpenAI-compatible `gpt-4o-mini`, the project's fallback) |
 | System prompt | `Prompts.chatSystem` (`feature/ai/prompts/Prompts.kt`) — unchanged in both conditions |
 | Condition A (full) | `mcpToolFlags` empty |
-| Condition B (scoped) | `mcpToolFlags` = `false` for every catalogue tool whose `domain` is outside the scenario's scope |
+| Condition B (scoped) | `mcpToolFlags` = `false` for every catalogue tool whose `domain` is outside the scenario's scope ∪ {`ai`} |
 | Scenarios | the five in `ScopedToolsetEvaluationTest`, plus the same prompt asked twice per condition for variance |
 | Recorded per run | tools offered, tools called (name + args), tool order, outcome, number of rounds, wrong-tool calls, retries |
 | Limitation | one model, one provider, one prompt; no statistical claim; results are anecdotal and must be read as such |
