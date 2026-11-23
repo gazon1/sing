@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasAnyAncestor
@@ -103,6 +105,12 @@ class MenuParityFlowTest {
      * `2026-11-12-android-menu-roots-only.md`). The roots the two surfaces
      * offer are therefore the roots of one state — and the assertion is that
      * they are the same roots, in the same order.
+     *
+     * The assertion is on the whole set of rows of each drawing, not on the
+     * rows the test happens to expect: a drawing that offered a project
+     * nobody asked about would pass an assertion that only looks for the
+     * expected ones. The two drawings differ in exactly one row — the child,
+     * which the sheet keeps to its parent's screen and the drawer unfolds.
      */
     @Test
     @DisplayName("the two drawings offer the same root projects in the same order")
@@ -131,47 +139,37 @@ class MenuParityFlowTest {
                 }
             }
 
-            val roots = listOf("p-parent", "p-sibling")
+            // The sheet holds the roots of the state and nothing else: a child
+            // is reached from its parent's own screen.
             assertEquals(
-                roots.map { TestTags.menuProjectNode(it) },
-                rootsIn(ANDROID_DRAWING, roots),
-                "the sheet's drawing does not offer the root projects of the state, in their order",
+                listOf("p-parent", "p-sibling").map { TestTags.menuProjectNode(it) },
+                projectRowsIn(ANDROID_DRAWING),
+                "the sheet's drawing does not offer the root projects of the state, and nothing else, in their order",
             )
+            // The drawer offers the same roots, with the child unfolded between
+            // them — the tree, in the order the state lists it.
             assertEquals(
-                roots.map { TestTags.menuProjectNode(it) },
-                rootsIn(DESKTOP_DRAWING, roots),
-                "the drawer's drawing does not offer the same root projects, in the same order",
-            )
-            // The sheet holds the roots and nothing below them: a child is
-            // reached from its parent's own screen.
-            assertTrue(
-                onAllNodes(
-                    hasAnyAncestor(hasTestTag(ANDROID_DRAWING)) and
-                        hasTestTag(TestTags.menuProjectNode("p-child")),
-                ).fetchSemanticsNodes().isEmpty(),
-                "the sheet's drawing offers a child project, which belongs to its parent's own screen",
+                listOf("p-parent", "p-child", "p-sibling").map { TestTags.menuProjectNode(it) },
+                projectRowsIn(DESKTOP_DRAWING),
+                "the drawer's drawing does not offer the tree of the state, in their order",
             )
         }
 
     /**
-     * The rows of one drawing that stand for a root project, in the order they
-     * are drawn: the section draws a flat list of rows, so the order of the
-     * roots is the order of the rows.
+     * The project rows one drawing shows, in the order it draws them: the
+     * section draws a flat list of rows, so the order of the rows is the order
+     * of the tree.
+     *
+     * The rows are found by their tag rather than by the ids the test expects,
+     * so that a row nobody expected is a row the assertion sees.
      */
-    private fun DesktopComposeUiTest.rootsIn(
-        drawing: String,
-        rootIds: List<String>,
-    ): List<String> =
-        rootIds
-            .map { id ->
-                val tag = TestTags.menuProjectNode(id)
-                val rows =
-                    onAllNodes(hasAnyAncestor(hasTestTag(drawing)) and hasTestTag(tag))
-                        .fetchSemanticsNodes()
-                assertEquals(1, rows.size, "the drawing '$drawing' does not hold exactly one row for '$id'")
-                tag to rows.single().boundsInRoot.top
-            }.sortedBy { (_, top) -> top }
-            .map { (tag, _) -> tag }
+    private fun DesktopComposeUiTest.projectRowsIn(drawing: String): List<String> =
+        onAllNodes(hasAnyAncestor(hasTestTag(drawing)))
+            .fetchSemanticsNodes()
+            .mapNotNull { node -> node.config.getOrNull(SemanticsProperties.TestTag)?.let { node to it } }
+            .filter { (_, tag) -> tag.startsWith(PROJECT_ROW_TAG) }
+            .sortedBy { (node, _) -> node.boundsInRoot.top }
+            .map { (_, tag) -> tag }
 
     private fun node(
         project: Project,
@@ -205,6 +203,9 @@ class MenuParityFlowTest {
 
         /** The Desktop drawer's drawing of the project section. */
         const val DESKTOP_DRAWING = "nav02_desktop_drawing"
+
+        /** The prefix every project row of the menu carries. */
+        const val PROJECT_ROW_TAG = "menu_project_node_"
 
         val NOW: Instant = Instant.parse("2026-11-23T12:00:00Z")
     }
