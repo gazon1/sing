@@ -573,7 +573,7 @@ Steps:
 2. Switch system calendar sync on and look at the controls that appear.
 3. Switch it off and look at them again.
 
-**Expected:** When a provider exists the panel offers a working enable switch rather than the unavailable message, and the enabled-only controls follow the switch in both directions — so turning sync on really turns it on. The Google half stays usable throughout; the two providers are alternatives, and neither may hide the other.
+**Expected:** When a provider exists the panel offers a working enable switch rather than the unavailable message, and the enabled-only controls follow the switch in both directions — so turning sync on really turns it on. The flow observes the calendar-app picker as the representative one of those controls; the guarantee that the Google half stays usable, and that neither provider hides the other, is owned by CAL-SYNC-PROVIDER-01.
 
 #### `CALENDAR-01` — The Month view renders the current month with weekday columns
 

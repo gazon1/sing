@@ -116,11 +116,16 @@ waited for the switch to stay visible, so a build whose toggle did nothing would
 still have passed. The link is now backed by an assertion of the transition itself:
 the panel renders the calendar-app picker, the target-calendar list and the status
 block only while `state.isEnabled` is true, so their appearance and disappearance is
-the user-visible outcome of the toggle. The scenario's wording was narrowed to
+the user-visible outcome of the toggle. The flow observes the picker as the
+representative one of those three blocks — it is the first and the only one on
+screen without scrolling — so the other two are covered by the same product rule
+but not asserted individually. The scenario's wording was narrowed to
 match what the carrier actually proves — the enabled-only controls follow the
 switch — rather than leaving a stronger claim in the matrix than the flow backs.
 The status *text* is not what the flow reads; it is the enabled state that the
-picker stands for.
+picker stands for. The guarantee that the Google half stays usable and that
+neither provider hides the other belongs to `CAL-SYNC-PROVIDER-01`, which flow 03
+does not exercise.
 
 **The switch cannot report its own state, so something else has to.** The enable row
 is a clickable button and the `Switch` inside it is handed a null change callback
