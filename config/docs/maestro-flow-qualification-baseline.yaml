@@ -41,7 +41,6 @@ flows:
   Maestro/flows/calendar/02-view-mode.yaml: sha256:ccc8d1e2a850efc6902537218efe9eed58ec254202623e8c1b32094bd3656669
   Maestro/flows/calendar/03-tap-day.yaml: sha256:22a48e39e74f89a11c5cd38aff94999e4153466ad212aef0f43c3ba2bee53bf4
   Maestro/flows/calendar_sync/01-provider-toggle.yaml: sha256:21b9fad0e28b64a601c2ccf2942070dd5eacc0ef2fb97f8478814582c799e0a1
-  Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml: sha256:6e71f278306af129667e08611c3c526d3cf15ef36612ad154dce3e61aad6ed08
   Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml: sha256:5387639722bba9a8a0a9f2d2b7b9468bb02013d636258ba27598c78504ec838b
   Maestro/flows/lifecycle/01-kill-restart-persist.yaml: sha256:14be22083077be3697f6e9a0b516eadb3094fef51217100bab80b88165bac064
   Maestro/flows/lifecycle/03-rotate-in-editor.yaml: sha256:a60b97d14ffbe3d40951226cff71433c3bd9179344ebc18ac2976d549a1b80c1
