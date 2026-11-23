@@ -8,7 +8,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.io.TempDir
@@ -42,7 +41,9 @@ class ProfileRepositoryPersistenceTest {
     }
 
     @Test
-    fun `created profile survives database reopen`(@TempDir dir: File) = runTest {
+    fun `created profile survives database reopen`(
+        @TempDir dir: File,
+    ) = runTest {
         val clock = MutableClock()
         val profileStateFile = File(dir, "profile_state.preferences_pb")
 
@@ -50,25 +51,28 @@ class ProfileRepositoryPersistenceTest {
         val sessionA = fixture.database()
         val scopeA = CoroutineScope(SupervisorJob() + testScheduler)
         try {
-            val repoA = ProfileRepositoryImpl(
-                profileDao = sessionA.profileDao(),
-                profileStateStore = PreferenceDataStoreFactory.create(scope = scopeA) {
-                    profileStateFile
-                },
-                clock = clock,
-                scope = backgroundScope,
-            )
-            repoA.create(
-                Profile(
-                    id = createdId,
-                    name = "Work",
-                    emoji = "💼",
-                    colorIdx = 1,
-                    isDefault = false,
-                    createdAt = clock.now(),
-                    updatedAt = clock.now(),
-                ),
-            ).getOrThrow()
+            val repoA =
+                ProfileRepositoryImpl(
+                    profileDao = sessionA.profileDao(),
+                    profileStateStore =
+                        PreferenceDataStoreFactory.create(scope = scopeA) {
+                            profileStateFile
+                        },
+                    clock = clock,
+                    scope = backgroundScope,
+                )
+            repoA
+                .create(
+                    Profile(
+                        id = createdId,
+                        name = "Work",
+                        emoji = "💼",
+                        colorIdx = 1,
+                        isDefault = false,
+                        createdAt = clock.now(),
+                        updatedAt = clock.now(),
+                    ),
+                ).getOrThrow()
         } finally {
             sessionA.close()
             scopeA.cancel()
@@ -78,14 +82,16 @@ class ProfileRepositoryPersistenceTest {
         val sessionB = fixture.reopen()
         val scopeB = CoroutineScope(SupervisorJob() + testScheduler)
         try {
-            val repoB = ProfileRepositoryImpl(
-                profileDao = sessionB.profileDao(),
-                profileStateStore = PreferenceDataStoreFactory.create(scope = scopeB) {
-                    profileStateFile
-                },
-                clock = clock,
-                scope = backgroundScope,
-            )
+            val repoB =
+                ProfileRepositoryImpl(
+                    profileDao = sessionB.profileDao(),
+                    profileStateStore =
+                        PreferenceDataStoreFactory.create(scope = scopeB) {
+                            profileStateFile
+                        },
+                    clock = clock,
+                    scope = backgroundScope,
+                )
             val restored = repoB.get(createdId)
             assertNotNull(restored, "created profile must survive database reopen")
             assertEquals("Work", restored.name)
