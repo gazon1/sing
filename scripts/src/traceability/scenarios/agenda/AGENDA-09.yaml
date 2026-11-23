@@ -12,7 +12,7 @@
 # tab lands on the Upcoming feed — is owned by `NavigationSmokeTest`
 # (`androidApp/src/androidTest/.../ui/`), which waits for the destination's
 # grouping control after the tap. The second Android-only claim — that the
-# feed really scrolls down to a task that is weeks out — is owned by
+# feed really scrolls down to a task that is six days out — is owned by
 # `UpcomingFeedScrollTest` (`androidApp/src/androidTest/.../ui/`), which opens
 # the feed on a phone, checks that the row six days out is not on screen, and
 # drags the feed until it is.
