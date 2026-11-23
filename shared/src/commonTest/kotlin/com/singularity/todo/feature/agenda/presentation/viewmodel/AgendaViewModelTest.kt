@@ -274,37 +274,38 @@ class AgendaViewModelTest {
     fun `dating a task takes it out of the Inbox`() =
         runTest {
             val undated = task(id = "inbox-1", title = "Inbox me") // dueDate = null
-            fakeRepo.seed(undated)
+            val control = task(id = "inbox-2", title = "Stays put") // dueDate = null
+            fakeRepo.seed(undated, control)
 
             val vm = createVm() // AgendaPresets.Inbox
             runCurrent()
 
-            assertTrue(
+            fun inInbox(id: TaskId): Boolean =
                 assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.any { section ->
-                    section.tasks.any { it.task.id == undated.id }
-                },
-                "an undated task belongs to the Inbox",
-            )
+                    section.tasks.any { it.task.id == id }
+                }
+
+            assertTrue(inInbox(undated.id), "an undated task belongs to the Inbox")
+            assertTrue(inInbox(control.id), "an undated task belongs to the Inbox")
 
             fakeRepo.add(undated.copy(dueDate = FakeClock(now).today(TimeZone.UTC)))
             runCurrent()
 
             assertFalse(
-                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.any { section ->
-                    section.tasks.any { it.task.id == undated.id }
-                },
+                inInbox(undated.id),
                 "a dated task must leave the Inbox — the tab holds what is not scheduled yet",
             )
+            // The other undated task stays: dating one task must not empty the tab.
+            assertTrue(inInbox(control.id), "the other undated task stays in the Inbox")
 
             fakeRepo.add(undated) // the date is cleared again
             runCurrent()
 
             assertTrue(
-                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).sections.any { section ->
-                    section.tasks.any { it.task.id == undated.id }
-                },
+                inInbox(undated.id),
                 "an undated task belongs back into the Inbox — the date is what keeps it out",
             )
+            assertTrue(inInbox(control.id), "the other undated task stays in the Inbox")
         }
 
     /**
