@@ -148,8 +148,9 @@ scope that is small enough to sharpen a model's attention does not follow from t
 | System prompt | `Prompts.chatSystem` (`feature/ai/prompts/Prompts.kt`) — unchanged in both conditions |
 | Condition A (full) | `mcpToolFlags` empty |
 | Condition B (scoped) | `mcpToolFlags` = `false` for every catalogue tool whose `domain` is outside the scenario's scope ∪ {`ai`} |
+| Service lifecycle | the flags are read **once**, when `KoogAgentService` is constructed — apply the flags and let the service be rebuilt before the run, otherwise the previous condition's toolbox is still in place |
 | Scenarios | the five in `ScopedToolsetEvaluationTest`, plus the same prompt asked twice per condition for variance |
-| Recorded per run | tools offered, tools called (name + args), tool order, outcome, number of rounds, wrong-tool calls, retries |
+| Recorded per run | tools offered **by name**, tools called (name + args), tool order, outcome, number of rounds, wrong-tool calls, retries |
 | Limitation | one model, one provider, one prompt; no statistical claim; results are anecdotal and must be read as such |
 
 ## Reproducing
