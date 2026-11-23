@@ -28,6 +28,7 @@ repository's own tests load it.
 
 import hashlib
 import importlib.util
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -382,7 +383,7 @@ class ApkIdentityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             apk = self._apk(tmp, b"the build this run installed")
-            digest = hashlib.md5(apk.read_bytes()).hexdigest()
+            digest = "md5:" + hashlib.md5(apk.read_bytes()).hexdigest()
             with self._with_digest(digest):
                 driver.verify_apk_unchanged("device", apk)
 
@@ -390,17 +391,42 @@ class ApkIdentityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             apk = self._apk(tmp, b"the build this run installed")
-            with self._with_digest("0" * 32):
+            with self._with_digest("md5:" + "0" * 32):
                 with self.assertRaises(driver.RunError) as caught:
                     driver.verify_apk_unchanged("device", apk)
             self.assertIn("Another session installed another build", str(caught.exception))
 
-    def test_a_device_that_reports_no_checksum_is_not_refused(self):
+    def test_a_device_that_reports_no_checksum_is_refused(self):
+        """A build that cannot be told apart from another one is not a pass.
+
+        The device said nothing about which build it carries, so the run
+        cannot claim to have measured the one it installed.
+        """
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             apk = self._apk(tmp, b"the build this run installed")
             with self._with_digest(""):
-                driver.verify_apk_unchanged("device", apk)
+                with self.assertRaises(driver.RunError) as caught:
+                    driver.verify_apk_unchanged("device", apk)
+            self.assertIn("checksum", str(caught.exception))
+
+    def test_the_digest_the_device_reports_is_the_one_that_was_verified(self):
+        """The report names the exact build the measurements belong to."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            apk = self._apk(tmp, b"the build this run installed")
+            digest = "sha256:" + hashlib.sha256(apk.read_bytes()).hexdigest()
+            with self._with_digest(digest):
+                self.assertEqual(driver.verify_installed_apk("device", apk), digest)
+
+    def test_a_device_that_reports_no_checksum_is_not_an_identity(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            apk = self._apk(tmp, b"the build this run installed")
+            with self._with_digest(""):
+                with self.assertRaises(driver.RunError) as caught:
+                    driver.verify_installed_apk("device", apk)
+            self.assertIn("does not report a checksum", str(caught.exception))
 
 
 class ImportDurationTest(unittest.TestCase):
@@ -842,6 +868,84 @@ class DialogTextTest(unittest.TestCase):
 
     def test_a_message_about_anything_else_is_not_the_budget(self):
         self.assertFalse(driver.mentions_budget("That file is not a Singularity backup"))
+
+
+class DeviceClaimTest(unittest.TestCase):
+    """One run per device — and a report that survives a run that never got far.
+
+    The command drives the device on its own, so two runs on one device have to
+    exclude each other: they kill each other's device server, and the run that
+    loses says nothing true about the restore.
+
+    And a run that dies early has still measured things — the archive, the
+    import, the counts. A report that exists only for a run that got all the
+    way through throws those measurements away exactly when they matter most:
+    the 50k profile restores, and then the app crashes on the task list.
+    """
+
+    def _run(self, out_dir: Path, lock_dir: Path) -> int:
+        """A run that cannot start: the APK it was told to install is not there."""
+        argv = [
+            "--serial",
+            "test-device",
+            "--apk",
+            str(out_dir / "missing.apk"),
+            "--out",
+            str(out_dir),
+        ]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(lock_dir)}):
+            with unittest.mock.patch.object(
+                driver.capture, "resolve_device", lambda serial, devices: "test-device"
+            ), unittest.mock.patch.object(
+                driver.capture, "attached_devices", lambda: []
+            ), unittest.mock.patch.object(
+                driver, "device_facts", lambda serial: {"model": "test device"}
+            ):
+                return driver.main(argv)
+
+    def _report(self, out_dir: Path) -> dict:
+        import json
+
+        return json.loads((out_dir / "report.json").read_text(encoding="utf-8"))
+
+    def test_a_run_that_fails_early_still_writes_its_report(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(out, tmp / "locks")
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            report = self._report(out)
+            self.assertEqual(report["status"], "failed")
+            self.assertIn("does not exist", report["error"])
+            self.assertEqual(report["phases"], ["device claimed"])
+
+    def test_the_device_is_released_when_the_run_is_over(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            locks = tmp / "locks"
+            self._run(out, locks)
+            lock = locks / "singularity-maestro-test-device.lock"
+            self.assertFalse(lock.exists())
+
+    def test_a_device_held_by_another_run_is_refused(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            locks = tmp / "locks"
+            locks.mkdir()
+            # A live owner: this process, which is alive by definition.
+            (locks / "singularity-maestro-test-device.lock").write_text(
+                f"{os.getpid()}\n", encoding="utf-8"
+            )
+            exit_code = self._run(out, locks)
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            report = self._report(out)
+            self.assertEqual(report["status"], "failed")
+            self.assertIn("already in use", report["error"])
 
 
 if __name__ == "__main__":

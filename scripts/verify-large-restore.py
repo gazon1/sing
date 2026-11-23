@@ -57,6 +57,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# The repository's own device lock. This command drives the device on its own
+# — it starts Maestro directly, not through the certified suite — so it has to
+# claim the device the way the suite does: one run per device, and the *same*
+# lock file, so the two exclude each other instead of fighting over the
+# device's server.
+_SCRIPTS_SRC = str(ROOT / "scripts" / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
+
+from emulator.maestro._lock import DeviceLock, DeviceLocked  # noqa: E402
+
 #: The flows this command drives. They live next to the command and not in
 #: `Maestro/flows/`: they are a local performance scenario, not part of the
 #: certified suite — no CI runs them, so they carry no catalogue entry and no
@@ -94,6 +105,11 @@ CONFIRM_ID = "dialog_confirm"
 #: is the moment the import starts — a moment that is on the host, where it can
 #: be read without disturbing the device.
 CONFIRM_TAP = "Tap on id: dialog_confirm"
+
+#: How the device is asked for the digest of the installed APK, in the order it
+#: is tried. Which one a device has depends on its Android version, and the
+#: name is part of the digest so that the two are never compared to each other.
+APK_DIGEST_COMMANDS = (("md5", "md5sum"), ("sha256", "sha256sum"))
 
 #: The shared dialog the failure of an import is reported in.
 ERROR_DIALOG_ID = "result_dialog"
@@ -206,28 +222,6 @@ def device_facts(serial: str) -> dict:
     return facts
 
 
-def device_is_held(serial: str) -> int | None:
-    """The PID of the run that holds the device, if one does.
-
-    The repository's own runner takes a lock on the serial it drives, and two
-    runs on one device kill each other's device server: the second one's
-    driver never starts. A phone on a desk is shared with the other sessions
-    of the same machine, so the run checks before it starts rather than
-    discovering it one flow at a time.
-    """
-    lock_dir = Path(os.environ.get("MAESTRO_LOCK_DIR", "/tmp"))
-    lock = lock_dir / f"singularity-maestro-{serial}.lock"
-    try:
-        pid = int(lock.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
-        return None
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return None  # a lock whose owner is gone does not hold anything
-    return pid
-
-
 def database_version(serial: str) -> int | None:
     """The schema version of the database on the device, or None.
 
@@ -250,7 +244,12 @@ def app_schema_version() -> int:
 
 
 def installed_apk_digest(serial: str) -> str:
-    """The checksum of the APK that is installed on the device."""
+    """The digest the device reports for the installed APK, e.g. `md5:abc…`.
+
+    Empty when the device cannot say. A device that does not report a
+    checksum does not prove that the build on it is the build this run
+    installed, so the callers treat that as a failure and not as a pass.
+    """
     code, out = adb("shell", "pm", "path", APP_ID, serial=serial)
     if code != 0:
         return ""
@@ -261,13 +260,29 @@ def installed_apk_digest(serial: str) -> str:
             break
     if not remote:
         return ""
-    code, out = adb("shell", f"md5sum {remote}", serial=serial, timeout=300)
-    if code != 0:
-        return ""
-    return out.split()[0] if out.split() else ""
+    for algorithm, command in APK_DIGEST_COMMANDS:
+        code, out = adb("shell", f"{command} {remote}", serial=serial, timeout=300)
+        if code == 0 and out.split():
+            return f"{algorithm}:{out.split()[0]}"
+    return ""
 
 
-def verify_installed_apk(serial: str, apk: Path) -> None:
+def local_apk_digests(apk: Path) -> dict[str, str]:
+    """The digests of the APK this run installed."""
+    data = apk.read_bytes()
+    return {
+        "md5": hashlib.md5(data).hexdigest(),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+
+def digest_matches(remote: str, local: dict[str, str]) -> bool:
+    """Whether the device's digest is the digest of the given APK."""
+    algorithm, _, value = remote.partition(":")
+    return bool(value) and value == local.get(algorithm)
+
+
+def verify_installed_apk(serial: str, apk: Path) -> str:
     """Check that the device carries the very APK this run installed.
 
     The version name is not enough. Two builds of the same project can carry
@@ -276,18 +291,31 @@ def verify_installed_apk(serial: str, apk: Path) -> None:
     That is not a theoretical worry: a foreign build with an older database
     version makes the app refuse to open the database at all, and the flow
     then fails on a screen the restore never touched.
+
+    A device that reports no checksum at all is refused as well: the identity
+    of the build on it cannot be established, and a run that cannot tell the
+    builds apart cannot claim to have measured this one.
+
+    Returns the digest the device reported, so the report can name the exact
+    build the measurements belong to.
     """
-    local = hashlib.md5(apk.read_bytes()).hexdigest()
+    local = local_apk_digests(apk)
     remote = installed_apk_digest(serial)
     if not remote:
-        print("note: the device does not report a checksum of the installed APK")
-        return
-    if remote != local:
         raise RunError(
-            f"the device carries an APK with the checksum {remote}, but the one this "
-            f"run installed has {local}. Another session installed another build on "
-            "this device; the run is refused rather than measured against it."
+            f"the device does not report a checksum of the installed APK, so the build "
+            f"on {serial} cannot be told apart from the one this run installed. The "
+            "run is refused rather than measured against an unknown build."
         )
+    if not digest_matches(remote, local):
+        algorithm, _, value = remote.partition(":")
+        raise RunError(
+            f"the device carries an APK with the {algorithm} checksum {value}, but the "
+            f"one this run installed has {local.get(algorithm)}. Another session "
+            "installed another build on this device; the run is refused rather than "
+            "measured against it."
+        )
+    return remote
 
 
 def verify_apk_unchanged(serial: str, apk: Path) -> None:
@@ -300,16 +328,26 @@ def verify_apk_unchanged(serial: str, apk: Path) -> None:
     failure that has nothing to do with the restore and that reads like one.
 
     So the check is made again before every flow, where a foreign build is
-    still somebody else's problem to notice.
+    still somebody else's problem to notice. A device that stops reporting a
+    checksum is refused here too: the identity of the build is exactly what
+    this check is for.
     """
-    local = hashlib.md5(apk.read_bytes()).hexdigest()
+    local = local_apk_digests(apk)
     remote = installed_apk_digest(serial)
-    if remote and remote != local:
+    if not remote:
+        raise RunError(
+            f"the device stopped reporting a checksum of the installed APK, so the "
+            f"build on {serial} can no longer be told apart from the one this run "
+            "installed. The run stops here rather than measuring a restore against "
+            "somebody else's app."
+        )
+    if not digest_matches(remote, local):
+        algorithm, _, value = remote.partition(":")
         raise RunError(
             f"the APK on {serial} changed while this run was going: it carries "
-            f"{remote}, this run installed {local}. Another session installed another "
-            "build on this device; the run stops here rather than measuring a "
-            "restore against somebody else's app."
+            f"{value}, this run installed {local.get(algorithm)}. Another session "
+            "installed another build on this device; the run stops here rather than "
+            "measuring a restore against somebody else's app."
         )
 
 
@@ -1090,42 +1128,82 @@ def app_memory(serial: str) -> str:
 
 
 def write_report(out_dir: Path, report: dict) -> None:
-    """Write the measurements as JSON and as a page a person can read."""
+    """Write the measurements as JSON and as a page a person can read.
+
+    A report can be partial: the run may have died in the middle of it. What
+    was measured is written, and what was not says so — a run that dies after
+    the import has still measured the archive, the import and the counts, and
+    those are the measurements the report is for.
+    """
     (out_dir / "report.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
+    device = report.get("device", {})
+    apk = report.get("apk", {})
+    dataset = report.get("dataset", {})
+    database = report.get("database", {})
+    imported = report.get("import", {})
     lines = [
         "# Restoring a synthetic dataset into the Android app",
         "",
-        f"* device: `{report['device']['serial']}` — {report['device']['model']}, "
-        f"Android {report['device']['androidRelease']} (SDK {report['device']['sdk']})",
-        f"* build: `{report['apk']['version']}` ({report['apk']['variant']}) — "
-        f"{report['apk']['path']}",
-        f"* tools: Maestro {report.get('tools', {}).get('maestro', '—')}",
-        f"* dataset: profile `{report['dataset']['profile']}`, seed `{report['dataset']['seed']}`",
-        f"* archive: {report['dataset']['archiveBytes']} bytes on disk, "
-        f"{report['dataset']['decompressedBytes']} bytes decompressed",
-        f"* import: {report['import'].get('durationSeconds') or '—'} s "
-        f"({report['import'].get('measured')})",
-        f"* database: {report['database']['bytes']} bytes",
-        f"* memory: {report['import'].get('memory') or '—'}",
-        f"* wipe of the profile before the run: "
-        f"{report.get('wipe', {}).get('seconds', '—')} s",
-        "",
-        "## Counts",
-        "",
-        "| entity | manifest | database |",
-        "|---|---|---|",
+        f"* status: {report.get('status', 'incomplete')}"
+        + (f" — {report['error']}" if report.get("error") else ""),
+        f"* phases: {', '.join(report.get('phases', [])) or 'none'}",
     ]
-    for key, want in report["dataset"]["counts"].items():
-        got = report["database"]["counts"].get(key)
-        lines.append(f"| {key} | {want} | {got} |")
-    lines += ["", "## The ways it can go wrong", ""]
-    lines += [
-        f"* **{name}**: {phase.get('verdict', '—')}" for name, phase in report["negative"].items()
-    ]
+    if device:
+        lines.append(
+            f"* device: `{device.get('serial')}` — {device.get('model')}, "
+            f"Android {device.get('androidRelease')} (SDK {device.get('sdk')})"
+        )
+    if apk:
+        lines.append(
+            f"* build: `{apk.get('version')}` ({apk.get('variant')}) — {apk.get('path')}"
+        )
+        if apk.get("digest"):
+            lines.append(f"* apk digest: `{apk['digest']}`")
+    if report.get("tools"):
+        lines.append(f"* tools: Maestro {report['tools'].get('maestro', '—')}")
+    if dataset:
+        lines.append(
+            f"* dataset: profile `{dataset.get('profile')}`, seed `{dataset.get('seed')}`"
+        )
+        lines.append(
+            f"* archive: {dataset.get('archiveBytes')} bytes on disk, "
+            f"{dataset.get('decompressedBytes')} bytes decompressed"
+        )
+    if imported:
+        lines.append(
+            f"* import: {imported.get('durationSeconds') or '—'} s "
+            f"({imported.get('measured')})"
+        )
+        lines.append(f"* memory: {imported.get('memory') or '—'}")
+    if database:
+        lines.append(f"* database: {database.get('bytes')} bytes")
+    lines.append(
+        "* wipe of the profile before the run: "
+        f"{report.get('wipe', {}).get('seconds', '—')} s"
+    )
+    if dataset.get("counts") and database.get("counts"):
+        lines += [
+            "",
+            "## Counts",
+            "",
+            "| entity | manifest | database |",
+            "|---|---|---|",
+        ]
+        for key, want in dataset["counts"].items():
+            got = database["counts"].get(key)
+            lines.append(f"| {key} | {want} | {got} |")
+    if report.get("negative"):
+        lines += ["", "## The ways it can go wrong", ""]
+        lines += [
+            f"* **{name}**: {phase.get('verdict', '—')}"
+            for name, phase in report["negative"].items()
+        ]
     lines += ["", "## Verdict", ""]
-    lines += [f"* {problem}" for problem in report["verdict"]["problems"]] or ["* nothing to report"]
+    lines += [f"* {problem}" for problem in report.get("verdict", {}).get("problems", [])] or [
+        "* nothing to report"
+    ]
     lines.append("")
     (out_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
 
@@ -1384,24 +1462,34 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # The report is written whatever happens to the run. A run that dies half
+    # way has measured things worth keeping — the archive, the import time,
+    # the counts — and a report that exists only for a run that got all the
+    # way through throws those measurements away exactly when they matter
+    # most: the 50k profile restores, and then the app crashes on the task
+    # list. The phases say how far the run got.
+    report: dict = {"status": "incomplete", "phases": []}
+    exit_code = EXIT_SETUP
+    lock: DeviceLock | None = None
     try:
-        serial = capture.resolve_device(args.serial, capture.attached_devices())
-    except capture.CaptureError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return EXIT_SETUP
-    print(f"device: {serial}")
+        try:
+            serial = capture.resolve_device(args.serial, capture.attached_devices())
+        except capture.CaptureError as exc:
+            raise RunError(str(exc)) from exc
+        print(f"device: {serial}")
+        report["device"] = {"serial": serial, **device_facts(serial)}
 
-    holder = device_is_held(serial)
-    if holder is not None:
-        print(
-            f"error: {serial} is held by another run (pid {holder}). Two runs on one "
-            "device kill each other's driver, so the run is refused rather than "
-            "measured against a broken one.",
-            file=sys.stderr,
-        )
-        return EXIT_SETUP
+        # One run per device. The lock is the repository's own, and the
+        # certified suite takes the same file: two runs on one device kill
+        # each other's device server, so the second one is refused rather than
+        # measured against a broken one.
+        lock = DeviceLock(serial)
+        try:
+            lock.acquire()
+        except DeviceLocked as exc:
+            raise RunError(str(exc)) from exc
+        report["phases"].append("device claimed")
 
-    try:
         # The APK: built here unless one is named, installed, and checked
         # against the build on the device.
         if args.apk:
@@ -1414,8 +1502,16 @@ def main(argv: list[str] | None = None) -> int:
             built_here = True
         capture.install_apk(serial, apk)
         package, version = capture.verify_identity(serial, apk, built_here)
-        verify_installed_apk(serial, apk)
+        digest = verify_installed_apk(serial, apk)
         print(f"build: {package} {version}")
+        report["apk"] = {
+            "path": str(apk),
+            "package": package,
+            "version": version,
+            "variant": apk_variant(built_here),
+            "digest": digest,
+        }
+        report["phases"].append("apk installed")
 
         # A database left behind by a newer build cannot be opened by this
         # one, and the app then shows a migration error instead of its own
@@ -1432,12 +1528,25 @@ def main(argv: list[str] | None = None) -> int:
         archive, sidecar, manifest = generate_archive(args.profile, args.seed, out_dir)
         decompressed = read_decompressed_size(archive)
         counts = manifest.get("actualCounts", {})
+        report["dataset"] = {
+            "profile": args.profile,
+            "seed": args.seed,
+            "archive": str(archive),
+            "sidecar": str(sidecar),
+            "archiveBytes": archive.stat().st_size,
+            "decompressedBytes": decompressed,
+            "counts": counts,
+        }
+        report["tools"] = tool_versions(serial)
+        report["phases"].append("archive generated")
 
         # One wipe before the negative phases, and both of them share it: a
         # refused archive writes nothing, so the profile is still empty for
         # the interrupted import that follows.
         wipe_counts, wipe_seconds = reset_content(serial, out_dir)
         print(f"wipe: {wipe_seconds}s ({wipe_counts})")
+        report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
+        report["phases"].append("profile wiped")
 
         negative = {
             "over-budget": check_over_budget(serial, out_dir, archive, apk),
@@ -1449,6 +1558,8 @@ def main(argv: list[str] | None = None) -> int:
                 expected_tasks=int(counts.get("tasks", 0)),
             ),
         }
+        report["negative"] = negative
+        report["phases"].append("the two ways it can go wrong checked")
 
         # The import that has to work.
         file_name = push_archive(serial, archive)
@@ -1461,17 +1572,27 @@ def main(argv: list[str] | None = None) -> int:
         if any(value != 0 for value in interrupted_counts.values()):
             _, second_wipe = reset_content(serial, out_dir)
             wipe_seconds += second_wipe
+            report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
         print(f"import: {outcome['durationSeconds']}s ({outcome['measured']})")
 
         # What the app is holding in memory, read while it is still running.
         memory = app_memory(serial)
+        report["import"] = {**outcome, "memory": memory}
+        report["phases"].append("dataset restored")
 
         # The counts, and the links between the rows.
         db_dir = pull_database(serial, out_dir / "device-db")
         db_counts = count_rows(db_dir)
         count_problems = compare_counts(counts, db_counts)
         link_problems = relationship_problems(db_dir)
+        report["database"] = {
+            "bytes": database_bytes(db_dir.parent),
+            "counts": db_counts,
+            "countProblems": count_problems,
+            "linkProblems": link_problems,
+        }
+        report["phases"].append("counts compared")
 
         # The data has to survive a restart, and the paths have to open.
         adb("shell", "am", "force-stop", APP_ID, serial=serial)
@@ -1508,6 +1629,13 @@ def main(argv: list[str] | None = None) -> int:
             browse_log,
             apk=apk,
         )
+        report["uiPaths"] = {
+            "browse": "passed" if browse_ok else "failed",
+            "openedTask": task_title,
+            "searchedTask": related_title,
+            "log": str(browse_log),
+        }
+        report["phases"].append("ui paths opened")
 
         negative_problems = [
             f"{name}: {problem}"
@@ -1515,50 +1643,17 @@ def main(argv: list[str] | None = None) -> int:
             for problem in phase.get("problems", [])
         ]
 
-        report = {
-            "device": {"serial": serial, **device_facts(serial)},
-            "tools": tool_versions(serial),
-            "apk": {
-                "path": str(apk),
-                "package": package,
-                "version": version,
-                "variant": apk_variant(built_here),
-            },
-            "dataset": {
-                "profile": args.profile,
-                "seed": args.seed,
-                "archive": str(archive),
-                "sidecar": str(sidecar),
-                "archiveBytes": archive.stat().st_size,
-                "decompressedBytes": decompressed,
-                "counts": counts,
-            },
-            "import": {**outcome, "memory": memory},
-            "wipe": {"seconds": round(wipe_seconds, 1), "counts": wipe_counts},
-            "database": {
-                "bytes": database_bytes(db_dir.parent),
-                "counts": db_counts,
-                "countProblems": count_problems,
-                "linkProblems": link_problems,
-            },
-            "negative": negative,
-            "uiPaths": {
-                "browse": "passed" if browse_ok else "failed",
-                "openedTask": task_title,
-                "searchedTask": related_title,
-                "log": str(browse_log),
-            },
-            "verdict": {
-                "problems": verdict_problems(
-                    count_problems,
-                    link_problems,
-                    negative_problems,
-                    browse_ok,
-                    bool(outcome["reportedBySnackbar"]),
-                )
-            },
+        report["verdict"] = {
+            "problems": verdict_problems(
+                count_problems,
+                link_problems,
+                negative_problems,
+                browse_ok,
+                bool(outcome["reportedBySnackbar"]),
+            )
         }
-        write_report(out_dir, report)
+        report["status"] = "complete"
+        exit_code = EXIT_OK if not report["verdict"]["problems"] else EXIT_FAILED
         print("\n=== verdict ===")
         for problem in report["verdict"]["problems"]:
             print(f"  {problem}")
@@ -1567,13 +1662,21 @@ def main(argv: list[str] | None = None) -> int:
         for name, phase in negative.items():
             print(f"  {name}: {phase['verdict']}")
         print(f"report: {out_dir / 'report.md'}")
-        return EXIT_OK if not report["verdict"]["problems"] else EXIT_FAILED
     except RunError as exc:
+        report["status"] = "failed"
+        report["error"] = str(exc)
         print(f"error: {exc}", file=sys.stderr)
-        return EXIT_SETUP
+        exit_code = EXIT_SETUP
     except capture.CaptureError as exc:
+        report["status"] = "failed"
+        report["error"] = str(exc)
         print(f"error: {exc}", file=sys.stderr)
-        return EXIT_SETUP
+        exit_code = EXIT_SETUP
+    finally:
+        if lock is not None:
+            lock.release()
+        write_report(out_dir, report)
+    return exit_code
 
 
 def read_decompressed_size(archive: Path) -> int:
