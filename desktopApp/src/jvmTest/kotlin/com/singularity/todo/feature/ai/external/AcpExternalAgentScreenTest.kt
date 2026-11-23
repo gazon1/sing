@@ -1,11 +1,14 @@
 package com.singularity.todo.feature.ai.external
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.mcp.ToolServerEnvironment
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.LocalScreenBackControlHolder
+import com.singularity.todo.core.ui.components.ScreenBackControlHolder
 import com.singularity.todo.feature.ai.acp.AcpAgentInfo
 import com.singularity.todo.feature.ai.acp.AcpAgentLaunch
 import com.singularity.todo.feature.ai.acp.AcpAgentLauncher
@@ -185,6 +188,32 @@ class AcpExternalAgentScreenTest {
 
             assertTagDisplayed(TestTags.ACP_CONNECTION_ERROR)
             assertTagExists(TestTags.ACP_CONNECT_BUTTON)
+        }
+
+    /**
+     * The screen draws its back arrow outside the shared app bar, so it has to say
+     * that it owns the back control itself.
+     *
+     * Without that, the Desktop shell draws its own arrow next to this screen's
+     * arrow: two controls for one meaning, and the reader does not know which
+     * one goes back.
+     */
+    @Test
+    fun `the screen owns the back control while it is on top`() =
+        runIsolatedComposeTest {
+            val holder = ScreenBackControlHolder()
+
+            setContent {
+                CompositionLocalProvider(LocalScreenBackControlHolder provides holder) {
+                    AcpExternalAgentScreenContent(vm = viewModel())
+                }
+            }
+
+            assertTrue(
+                holder.owner != null,
+                "a screen that draws its own back arrow owns the control, so the shell stands down",
+            )
+            assertTagExists(TestTags.ACP_BACK_BUTTON)
         }
 
     // ── Fixtures ───────────────────────────────────────────────────────────────

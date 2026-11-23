@@ -42,6 +42,22 @@ fun TopAppBar(
     // One token per composed bar: the holder uses it to tell the title of the
     // screen on screen from the title of a screen that is leaving.
     val barPublisher = remember { Any() }
+    // Does this bar draw a leading control of its own? The Desktop shell draws a
+    // back control of its own, and it stands down while a screen owns one: a
+    // screen that draws a back arrow already owns the gesture, and a second
+    // arrow on top of it would be two controls for one meaning.
+    //
+    // The bar draws that leading control only while it owns it, and the shell
+    // draws its control only while nobody owns one. Both read the same fact, so
+    // the frame in which the screen on top is still publishing cannot show both
+    // of them: one control, one meaning, at every moment.
+    val drawsLeadingControl = PublishScreenBackControl(navigationIcon != null)
+    val leadingControl: @Composable () -> Unit = {
+        val icon = navigationIcon
+        if (drawsLeadingControl && icon != null) {
+            icon()
+        }
+    }
     if (holder != null) {
         SideEffect {
             holder?.publishActions(barPublisher, actions)
@@ -76,7 +92,7 @@ fun TopAppBar(
     androidx.compose.material3.TopAppBar(
         title = title,
         modifier = modifier,
-        navigationIcon = navigationIcon ?: {},
+        navigationIcon = leadingControl,
         actions = actions,
         windowInsets = windowInsets,
         colors = resolvedColors,

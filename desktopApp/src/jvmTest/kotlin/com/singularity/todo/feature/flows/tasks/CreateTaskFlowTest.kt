@@ -24,9 +24,11 @@ import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickScreenBack
 import com.singularity.todo.test.helpers.clickSheetClose
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -162,16 +164,20 @@ class CreateTaskFlowTest {
         }
 
     @Test
-    fun the_editor_can_be_left_with_the_shell_back_arrow() =
+    fun the_editor_can_be_left_with_its_own_back_arrow() =
         runDesktopAppTest(checkA11y = true) {
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
             typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
-            // The shell draws a back arrow of its own next to the drawer's button
-            // as soon as there is something to pop, and the editor draws one of
-            // its own — the tag is what tells the two apart.
-            assertTagDisplayed(TestTags.SHELL_BACK_BUTTON)
-            clickTag(TestTags.SHELL_BACK_BUTTON)
+            // The editor draws a back arrow of its own, so the shell's control
+            // stands down: one back control, drawn by the screen that is on top.
+            awaitTagGone(TestTags.SHELL_BACK_BUTTON)
+            clickScreenBack()
+
+            // The editor's own arrow is the guarded one: the typed title is
+            // unsaved, so leaving asks before it throws the title away.
+            awaitText("Discard changes?")
+            clickText("Discard")
 
             // The pop is asynchronous: the editor stays composed until the shell has
             // navigated back, so a one-shot "does not exist" right after the click

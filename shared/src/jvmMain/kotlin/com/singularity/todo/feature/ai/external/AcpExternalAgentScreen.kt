@@ -35,6 +35,7 @@ import com.singularity.todo.core.ui.components.ChatInputBar
 import com.singularity.todo.core.ui.components.MessageBubble
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.PublishScreenBackControl
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
@@ -88,6 +89,12 @@ fun AcpExternalAgentScreenContent(
 ) {
     val state by vm.stateFlow.collectAsStateWithLifecycle()
 
+    // This screen draws its own back arrow, beside its title, outside the shared
+    // app bar. It publishes that ownership the same way a bar does, so the
+    // Desktop shell stands down while this screen is on top: one back control,
+    // not two.
+    val drawsBackControl = PublishScreenBackControl()
+
     val inputState =
         rememberBridgedTextFieldState(
             source = state.inputSource,
@@ -106,6 +113,7 @@ fun AcpExternalAgentScreenContent(
             onConnect = { vm.onIntent(AcpExternalAgentViewModel.Intent.Connect) },
             onDisconnect = { vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect) },
             onBack = onBack,
+            drawsBackControl = drawsBackControl,
         )
 
         when (val access = state.toolAccess) {
@@ -256,6 +264,7 @@ private fun AgentHeader(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onBack: () -> Unit,
+    drawsBackControl: Boolean,
 ) {
     Column(
         modifier =
@@ -269,14 +278,16 @@ private fun AgentHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.testTag(TestTags.ACP_BACK_BUTTON),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                )
+            if (drawsBackControl) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag(TestTags.ACP_BACK_BUTTON),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                    )
+                }
             }
             Text(
                 text = "External agent",
