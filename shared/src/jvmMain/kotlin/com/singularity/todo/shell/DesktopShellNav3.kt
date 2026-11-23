@@ -430,7 +430,12 @@ fun DesktopShellNav3Root(
                         // of its own: that screen already owns the gesture, and a
                         // second arrow stacked on top of it would be two controls
                         // for one meaning.
-                        if (!backControlHolder.ownsControl) {
+                        //
+                        // Both this control and the screen's own arrow read the same
+                        // fact — who owns the back control — so they cannot both be
+                        // on screen, not even in the frame in which the screen on
+                        // top is still publishing.
+                        if (backControlHolder.owner == null) {
                             IconButton(
                                 onClick = { desktopBack(navigator, onCloseRequest) },
                                 modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),

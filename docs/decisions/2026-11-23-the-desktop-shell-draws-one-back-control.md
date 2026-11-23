@@ -58,11 +58,19 @@ The policy itself was already written and already tested
 **The screen on top owns the gesture, and the shell's control stands down.**
 
 - `ScreenBackControlHolder` (in `core/ui/components`) holds one entry per
-  composed bar, in publication order; the last entry wins. The screen that
-  published last is the one on top, and its answer is the one that counts.
+  composed bar, in the order the bars were composed; the last entry wins. The
+  screen that came up last is the one on top, and its answer is the one that
+  counts.
+- The holder publishes the *identity* of the owning bar, not a flag. The shell
+  draws its control only while the owner is null, and a bar draws its own
+  leading control only while it is the owner. Both read the same fact, so the
+  two controls cannot be on screen at the same time — not even in the frame in
+  which the screen on top is still publishing.
 - The shared `TopAppBar` wrapper publishes whether it draws a leading control
   of its own. It is the single funnel every screen bar goes through, so one
-  publication covers the whole app.
+  publication covers the whole app. A screen that draws its arrow outside that
+  funnel — the external agent screen draws its arrow beside its title — calls
+  `PublishScreenBackControl()` itself.
 - The Desktop shell provides the holder and reads it. While the screen on top
   owns a control, the shell draws none: the screen's arrow already is the back
   affordance, and a second arrow stacked on top of it would be two controls for
@@ -98,9 +106,20 @@ owns a back arrow publishes that arrow to the shell itself
   *graph-level* back (the shell's arrow popping the whole top-level stack) is
   no longer reachable from such a screen. Two desktop flows were adapted to
   press the screen's own arrow instead of the shell's.
-- The control's state is published in a `SideEffect`, so the shell's chrome
-  reacts one composition after the screen on top publishes. A screen that
-  appears with an arrow leaves a brief moment where both controls are drawn.
+- The control's state is published in a `SideEffect`, so the ownership changes one
+  composition after the screen on top publishes. The screen's own arrow therefore
+  appears one frame after the shell's arrow has gone: the arrow moves from the
+  shell's chrome into the screen's bar. The two are never on screen together —
+  the holder publishes an owner, and both controls read it — but the arrow is
+  briefly drawn in the shell's place.
+  shortcut: the ownership is published in a `SideEffect`, as `ScreenActionsHolder`
+  publishes its row; a screen's arrow could appear in the same frame by
+  publishing during composition instead, at the price of writing state during
+  composition.
+- The correctness of the ownership rests on the order in which bars are composed
+  matching the order of the screens: the screen that came up last has to be the
+  last one composed. That is the same convention `ScreenActionsHolder` already
+  relies on for the action row.
 - The holder counts "a leading control", not "a back arrow": a screen in
   selection mode publishes its "Exit selection" icon, and the shell's control
   stands down while such a bar is on top.
@@ -114,7 +133,10 @@ owns a back arrow publishes that arrow to the shell itself
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/ScreenBackControlHolder.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TopAppBar.kt`
 - `shared/src/jvmMain/kotlin/com/singularity/todo/shell/DesktopShellNav3.kt`
+- `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentScreen.kt`
+- `shared/src/commonTest/kotlin/com/singularity/todo/core/ui/components/ScreenBackControlHolderTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/shell/DesktopBackTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/desktop/DesktopBackClosesWindowTest.kt`
+- `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/desktop/DesktopSingleBackControlTest.kt`
 - `docs/decisions/2026-11-12-the-shells-button-follows-the-route-inside-the-agenda-graph.md`
 - `docs/decisions/2026-11-10-a-published-shell-title-is-read-where-it-is-drawn.md`
