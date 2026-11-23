@@ -11,7 +11,11 @@
 # The one Android-only claim the retired flow made — that tapping the Upcoming
 # tab lands on the Upcoming feed — is owned by `NavigationSmokeTest`
 # (`androidApp/src/androidTest/.../ui/`), which waits for the destination's
-# grouping control after the tap.
+# grouping control after the tap. The second Android-only claim — that the
+# feed really scrolls down to a task that is weeks out — is owned by
+# `UpcomingFeedScrollTest` (`androidApp/src/androidTest/.../ui/`), which opens
+# the feed on a phone, checks that the row six days out is not on screen, and
+# drags the feed until it is.
 
 id: AGENDA-09
 title: "Upcoming groups future tasks under date headers and leaves Today out"

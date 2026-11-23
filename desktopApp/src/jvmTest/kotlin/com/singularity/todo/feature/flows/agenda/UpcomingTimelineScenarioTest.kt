@@ -75,12 +75,16 @@ class UpcomingTimelineScenarioTest {
             // The six days between two plans are a gap, not six empty headers.
             assertNotDisplayed(TestTags.agendaSection("Sun, 20 Sep"))
 
-            // The headers are in date order: the later day sits lower.
+            // The headers are in date order: every header sits below the one
+            // before it. Comparing only the first and the last would let the
+            // middle one out of order — Tomorrow, Tue 22 Sep, Sat 19 Sep —
+            // and still pass.
             val first = unclippedBoundsOfTag(TestTags.agendaSection("Tomorrow")).top
+            val middle = unclippedBoundsOfTag(TestTags.agendaSection("Sat, 19 Sep")).top
             val last = unclippedBoundsOfTag(TestTags.agendaSection("Tue, 22 Sep")).top
             assertTrue(
-                first < last,
-                "the sections are not in chronological order: $first is not above $last",
+                first < middle && middle < last,
+                "the sections are not in chronological order: $first, $middle, $last",
             )
         }
 
@@ -91,6 +95,11 @@ class UpcomingTimelineScenarioTest {
                 .given(due = today.plus(1, DateTimeUnit.DAY), title = "Due tomorrow")
                 .given(due = today.plus(3, DateTimeUnit.DAY), title = "Due in three days")
                 .given(due = today.plus(6, DateTimeUnit.DAY), title = "Due in six days")
+                // The controls belong to the other tabs: a grouping change
+                // that let them in would not be seen without them in the
+                // fixture.
+                .given(due = today, title = "Due today")
+                .givenUndated(title = "Undated")
 
             tapTab("Upcoming")
             assertTagDisplayed(TestTags.AGENDA_GROUPING_DAY)
@@ -109,6 +118,11 @@ class UpcomingTimelineScenarioTest {
             assertDisplayedOnce(TestTags.taskItem("Due in three days"))
             assertDisplayedOnce(TestTags.taskItem("Due in six days"))
 
+            // And the controls stay out of the feed under the other
+            // projection too.
+            assertNotDisplayed(TestTags.taskItem("Due today"))
+            assertNotDisplayed(TestTags.taskItem("Undated"))
+
             // And back: the day headers return with the tasks under them. The
             // middle task is asserted too — a round trip that loses the task
             // in the middle of the feed loses a task and still shows the first
@@ -119,6 +133,8 @@ class UpcomingTimelineScenarioTest {
             assertDisplayedOnce(TestTags.taskItem("Due tomorrow"))
             assertDisplayedOnce(TestTags.taskItem("Due in three days"))
             assertDisplayedOnce(TestTags.taskItem("Due in six days"))
+            assertNotDisplayed(TestTags.taskItem("Due today"))
+            assertNotDisplayed(TestTags.taskItem("Undated"))
         }
 
     @OptIn(ExperimentalTestApi::class)
