@@ -342,6 +342,44 @@ class SeedHelperWaitTest {
         )
     }
 
+    @Test
+    fun `a wait that runs before the seed inside a helper covers nothing`() {
+        // The wait is in the helper, above the seed the helper runs. It can
+        // return before the seed wrote the row, so it says nothing about the
+        // entity — and the rule has to see that, not mistake the helper's
+        // position for the position of the wait.
+        val events = fixture("flow.yaml" to NESTED_WAIT_BEFORE_SEED, "wrapper.yaml" to NESTED_WAIT_BEFORE_SEED_HELPER)
+
+        assertTrue(
+            waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a wait that runs before the seed inside a helper. " +
+                "The wait can return before the seed writes the row, so it says " +
+                "nothing about the entity.",
+        )
+    }
+
+    @Test
+    fun `a wait that runs after the assertion inside a helper covers nothing`() {
+        val events = fixture("flow.yaml" to NESTED_WAIT_AFTER_ASSERT, "wrapper.yaml" to NESTED_WAIT_AFTER_ASSERT_HELPER)
+
+        assertTrue(
+            waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a wait that runs after the assertion inside a " +
+                "helper. A wait that comes after the assertion cannot cover it.",
+        )
+    }
+
+    @Test
+    fun `a wait that runs after the seed inside a helper covers the entity`() {
+        val events = fixture("flow.yaml" to NESTED_WAIT_AFTER_SEED, "wrapper.yaml" to NESTED_WAIT_AFTER_SEED_HELPER)
+
+        assertTrue(
+            waitViolations("fixture", events).violations.isEmpty(),
+            "The rule rejects a wait that runs after the seed inside a helper: " +
+                "${waitViolations("fixture", events).violations}",
+        )
+    }
+
     // ── The rule ─────────────────────────────────────────────────────────────
 
     /**
@@ -381,14 +419,14 @@ class SeedHelperWaitTest {
                 val waited =
                     waits.any {
                         it.handles.any { handle -> handle in handles } &&
-                            it.position >= seed.position &&
-                            it.position <= assert.position
+                            compareOrder(it.position, seed.position) >= 0 &&
+                            compareOrder(it.position, assert.position) <= 0
                     } ||
                         seeds.any {
                             it.waitFor != null &&
                                 it.waitFor in handles &&
-                                it.position >= seed.position &&
-                                it.position <= assert.position
+                                compareOrder(it.position, seed.position) >= 0 &&
+                                compareOrder(it.position, assert.position) <= 0
                         }
                 if (!waited) {
                     violations +=
@@ -410,22 +448,48 @@ class SeedHelperWaitTest {
     /**
      * One thing a flow does, and where it does it.
      *
-     * The position is the index of the top-level command, so a wait that comes
-     * after an assertion cannot cover it. A helper's own commands take the
-     * position of the `runFlow` that pulled the helper in: the helper runs
-     * there, so its waits are available from there.
+     * The position is the path of the command: the index of the command in its
+     * own file, prefixed by the path of the `runFlow` that pulled that file in.
+     * So the first command of the helper invoked at index 2 sits at `[2, 0]`,
+     * behind the `runFlow` at `[2]` that invoked it and ahead of the command
+     * at `[3]`.
+     *
+     * The path is what keeps the order honest inside a helper. A flat index
+     * would give every command of a helper the index of the `runFlow` that
+     * pulled it in, and a wait that ran *before* the seed inside that helper
+     * would then look like it ran after it.
+     *
+     * A helper's own seed takes the position of the `runFlow` that pulled it
+     * in: the helper runs there, so its wait is available from there.
      */
     private sealed interface Event {
-        val position: Int
+        val position: List<Int>
 
         /** A seed: the query it seeds and the entity the caller wants waited for. */
-        data class Seed(override val position: Int, val query: String, val waitFor: String?) : Event
+        data class Seed(override val position: List<Int>, val query: String, val waitFor: String?) : Event
 
         /** A wait for an element — by its id, or by the text it shows. */
-        data class Wait(override val position: Int, val handles: Set<String>) : Event
+        data class Wait(override val position: List<Int>, val handles: Set<String>) : Event
 
         /** An assertion that an element is there. */
-        data class Assert(override val position: Int, val id: String) : Event
+        data class Assert(override val position: List<Int>, val id: String) : Event
+    }
+
+    /**
+     * The order of two command paths.
+     *
+     * A path that is a prefix of another comes first: the `runFlow` at `[2]`
+     * runs before the first command of the helper it invokes at `[2, 0]`.
+     */
+    private fun compareOrder(
+        a: List<Int>,
+        b: List<Int>,
+    ): Int {
+        for (index in 0 until minOf(a.size, b.size)) {
+            val difference = a[index].compareTo(b[index])
+            if (difference != 0) return difference
+        }
+        return a.size.compareTo(b.size)
     }
 
     /** One top-level command of a Maestro file. */
@@ -449,7 +513,7 @@ class SeedHelperWaitTest {
     /** The events a file makes, helpers and all. */
     private fun eventsOf(file: Path): List<Event> {
         val events = mutableListOf<Event>()
-        collect(file, emptyMap(), null, events, setOf(file.normalize()))
+        collect(file, emptyMap(), emptyList(), events, setOf(file.normalize()))
         return events
     }
 
@@ -473,16 +537,19 @@ class SeedHelperWaitTest {
 
     /**
      * Reads the commands of a file and the commands of the helpers it runs.
+     *
+     * The prefix is the path of the `runFlow` that pulled this file in, or an
+     * empty path for the flow itself.
      */
     private fun collect(
         file: Path,
         env: Map<String, String>,
-        position: Int?,
+        prefix: List<Int>,
         events: MutableList<Event>,
         seen: Set<Path>,
     ) {
         for ((index, command) in commands(file.readText()).withIndex()) {
-            val at = position ?: index
+            val at = prefix + index
             val target = command.file?.let { file.parent.resolve(it).normalize() }
             if (command.name == "runFlow" && target != null) {
                 collectRunFlow(target, command, env, at, events, seen)
@@ -509,7 +576,7 @@ class SeedHelperWaitTest {
         target: Path,
         command: Command,
         env: Map<String, String>,
-        at: Int,
+        at: List<Int>,
         events: MutableList<Event>,
         seen: Set<Path>,
     ) {
@@ -800,6 +867,88 @@ class SeedHelperWaitTest {
                 timeout: 8000
             - assertVisible:
                 id: menu_project_node_roadmap
+            """.trimIndent()
+
+        /**
+         * A flow whose helper waits for the entity *before* it seeds it.
+         *
+         * The wait runs first, so it can return before the row is written.
+         */
+        val NESTED_WAIT_BEFORE_SEED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: wrapper.yaml
+            - assertVisible:
+                id: task_item_fixture
+            """.trimIndent()
+
+        /** The helper that waits before it seeds. */
+        val NESTED_WAIT_BEFORE_SEED_HELPER =
+            """
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture
+                timeout: 8000
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            """.trimIndent()
+
+        /**
+         * A flow that asserts on the entity before the helper that seeds and
+         * waits for it.
+         */
+        val NESTED_WAIT_AFTER_ASSERT =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - assertVisible:
+                id: task_item_fixture
+            - runFlow:
+                file: wrapper.yaml
+            """.trimIndent()
+
+        /** The helper that seeds and then waits — after the assertion. */
+        val NESTED_WAIT_AFTER_ASSERT_HELPER =
+            """
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture
+                timeout: 8000
+            """.trimIndent()
+
+        /** A flow whose helper seeds the entity and then waits for it. */
+        val NESTED_WAIT_AFTER_SEED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: wrapper.yaml
+            - assertVisible:
+                id: task_item_fixture
+            """.trimIndent()
+
+        /** The helper that seeds the entity and then waits for it. */
+        val NESTED_WAIT_AFTER_SEED_HELPER =
+            """
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture
+                timeout: 8000
             """.trimIndent()
 
         /** The helper's derivation of the caller's optional input. */

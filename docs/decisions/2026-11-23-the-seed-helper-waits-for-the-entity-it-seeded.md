@@ -89,6 +89,13 @@ precedes the seed, two seeds of one row with a wait that covers only the first
 — and a helper whose entity wait sits outside the guarded block. A gate that
 cannot fail holds nothing.
 
+**How the order is read.** The gate reads the tree's commands the way they
+run: every command carries the path of its own place in the flow — its index
+in its file, behind the `runFlow` that pulled that file in. A wait that runs
+*before* the seed inside a helper is therefore before the seed, not beside it.
+A flat index would give every command of a helper the index of the `runFlow`
+that pulled it in, and the wait would look like it ran after the seed.
+
 ## Rationale
 
 The 2026-11-05 entry's real point was that a helper must not guess. Guessing
