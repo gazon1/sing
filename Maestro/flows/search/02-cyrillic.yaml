@@ -1,17 +1,28 @@
-# Search: Cyrillic text in a task title is matched and rendered correctly.
+# Search: Cyrillic text in the query matches and renders a Cyrillic title.
 #
-# Maestro's `inputText` drives the IME key by key and cannot type non-ASCII on
-# Android, and this Maestro build has no `pasteText` in its flow schema — so the
-# query cannot be Cyrillic on the device. What the flow can still say is that a
-# Cyrillic record reaches the results list and renders as Cyrillic: it seeds the
-# Cyrillic task, searches by a term that record carries, and asserts the row —
-# addressed by the id the Cyrillic title slugs to — and its text.
+# The query is Cyrillic, and so is the seeded title — that is the thing the
+# scenario asks for: a person typing "Покупки" gets the task called "Покупки",
+# with its characters rendered as Cyrillic rather than as replacement
+# characters or mojibake.
 #
-# The searched term is `due:today`, which every seeded task carries, so the flow
-# does not depend on transliteration that neither the tokenizer nor the index
-# produces. A query of Latin letters would match nothing here: the word rule is
-# a prefix rule over tokens, so "Pokupki" is not a prefix of "Покупки", and the
-# previous version of this flow asserted exactly that mismatch.
+# ## What the flow asserts, and why each part is needed
+#
+# 1. The row `task_item_покупки` appears. The id is the slug of the seeded
+#    title, and the slug keeps the letters it was given — so a row with this id
+#    can only come from a task whose title is the Cyrillic word.
+# 2. The row's text is asserted as written. An id proves the title reached the
+#    app; the text proves it is drawn as Cyrillic on the screen.
+#
+# A query of Latin letters would match nothing here, and that is the point of
+# the old version's failure: the word rule is a prefix rule over tokens, so
+# "Pokupki" is not a prefix of "Покупки". The flow used to search by
+# transliteration and assert the transliterated id — a pair that agreed with
+# each other and with neither the app's tokenizer nor its slug rule.
+#
+# `inputText` types Cyrillic on this build. That was measured, not assumed:
+# a probe typed "Покупки" into this field on the RMX3938 and the seeded row
+# came back. An earlier version of this flow carried the opposite claim, and
+# the flow's coverage was weakened to fit it.
 appId: com.singularity.todo
 name: search-cyrillic
 tags:
@@ -41,16 +52,23 @@ tags:
       id: search_input
     timeout: 5000
 
-# Ask for the records that are due today — the seeded task is one of them.
+# Type the Cyrillic word into the query field.
 - tapOn:
     id: search_input
-- inputText: "due:today"
+- inputText: "Покупки"
 
-# The Cyrillic record reaches the results, and its title renders as Cyrillic:
-# the row's id is the slug of the title (the slug keeps the letters it was
-# given), and the title text is asserted as it is written.
+# The Cyrillic record reaches the results, and its title renders as Cyrillic.
 - extendedWaitUntil:
     visible:
       id: task_item_покупки
     timeout: 8000
 - assertVisible: "Покупки"
+
+# Leave the search screen: it is full screen, and the next flow's `launch-clean`
+# waits for a tab this screen does not draw.
+- tapOn:
+    id: shell_back_button
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
