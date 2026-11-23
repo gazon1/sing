@@ -154,6 +154,34 @@ class NavigationFlowTest {
         }
 
     /**
+     * #2527 — leaving a destination returns to the tab it was opened from, not to Today.
+     *
+     * The loop above enters every destination from Today, so it cannot tell "back
+     * restores the origin" from "back always goes to Today" — a regression that
+     * hardcoded Today would pass it. This test starts on another tab, and the difference
+     * between the two answers is the whole claim the issue makes about restoring the
+     * origin.
+     *
+     * One destination is enough here: what is under test is the origin, and the loop
+     * above already covers which destinations exist and that each one can be left.
+     */
+    @Test
+    fun leaving_a_menu_destination_returns_to_the_tab_it_was_opened_from() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
+
+            tapTab("Statistics")
+            assertCurrentTab("Statistics")
+
+            clickTag(TestTags.SHELL_BACK_BUTTON)
+
+            // Inbox, not Today: the flow came from Inbox, and Today is where a
+            // hardcoded back would land.
+            assertCurrentTab("Inbox")
+        }
+
+    /**
      * The project list is no longer a tab: it is a screen the menu opens. The
      * round trip it used to make — a tab holding the list, a tab switch, and
      * back — is now a round trip through the menu.
