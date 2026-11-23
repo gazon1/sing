@@ -26,8 +26,10 @@ The file name has a dash in it, so the script is loaded by path — the way the
 repository's own tests load it.
 """
 
+import contextlib
 import hashlib
 import importlib.util
+import json
 import os
 import sqlite3
 import tempfile
@@ -808,20 +810,6 @@ class InterruptedImportProblemsTest(unittest.TestCase):
         self.assertIn("could not be read", problems[0])
 
 
-class ApkVariantTest(unittest.TestCase):
-    """The report must not claim a build variant it does not know.
-
-    An APK handed in with `--apk` says nothing about its build type, and the
-    identity check establishes the package and the version, not the variant.
-    """
-
-    def test_a_build_of_this_checkout_is_a_debug_one(self):
-        self.assertEqual(driver.apk_variant(True), "debug")
-
-    def test_an_apk_from_the_outside_has_no_known_variant(self):
-        self.assertEqual(driver.apk_variant(False), "unknown")
-
-
 class VerdictProblemsTest(unittest.TestCase):
     """The exit code of the run is this list, so it is built in one place.
 
@@ -852,6 +840,117 @@ class VerdictProblemsTest(unittest.TestCase):
             False,
         )
         self.assertEqual(len(problems), 5)
+
+
+def _archive_with(tmp: Path, payload: dict) -> Path:
+    """An archive with the given payload, as the generator writes it."""
+    path = tmp / "synthetic.zip"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("payload.json", json.dumps(payload))
+    return path
+
+
+#: A dataset with two tasks, one of them a subtask, one tag and one link.
+def _payload() -> dict:
+    return {
+        "tasks": [
+            {"id": "t1", "projectId": "p1", "parentTaskId": None},
+            {"id": "t2", "projectId": "p1", "parentTaskId": "t1"},
+        ],
+        "taskTags": [{"taskId": "t1", "tagId": "g1"}],
+        "taskDependencies": [{"taskId": "t2", "dependsOnTaskId": "t1"}],
+    }
+
+
+#: The same dataset, as it comes back from a restore.
+def _restored_statements() -> list[str]:
+    return [
+        "INSERT INTO tasks (id, title, project_id, parent_task_id) "
+        "VALUES ('t1', 'Task 1', 'p1', NULL)",
+        "INSERT INTO tasks (id, title, project_id, parent_task_id) "
+        "VALUES ('t2', 'Task 2', 'p1', 't1')",
+        "INSERT INTO projects (id, name) VALUES ('p1', 'Project 1')",
+        "INSERT INTO tags (id, name) VALUES ('g1', 'tag-1')",
+        "INSERT INTO task_tags (task_id, tag_id) VALUES ('t1', 'g1')",
+        "INSERT INTO task_dependencies (task_id, depends_on_task_id) VALUES ('t2', 't1')",
+    ]
+
+
+class LinkIdentityTest(unittest.TestCase):
+    """The links have to be the dataset's links, not just as many of them.
+
+    Counts cannot see a restore that shuffles the relations: the rows are the
+    same rows, only they point at each other differently. The archive says
+    which task belongs to which project, carries which tag and blocks which
+    task — and the restored database has to say the same.
+    """
+
+    def test_the_links_of_the_archive_are_read(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            links = driver.payload_links(_archive_with(tmp, _payload()))
+            self.assertEqual(links["parent"], {("t2", "t1")})
+            self.assertEqual(links["project"], {("t1", "p1"), ("t2", "p1")})
+            self.assertEqual(links["tags"], {("t1", "g1")})
+            self.assertEqual(links["dependencies"], {("t2", "t1")})
+
+    def test_a_restored_dataset_has_the_same_links(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            db = _database(tmp, _restored_statements())
+            self.assertEqual(driver.link_identity_problems(
+                driver.payload_links(_archive_with(tmp, _payload())),
+                driver.restored_links(db),
+            ), [])
+
+    def test_a_lost_parent_is_a_lost_relation(self):
+        """A subtask whose parent was dropped keeps every count."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            # The subtask is still there — it is only its parent that was
+            # dropped, so every count of the dataset still holds.
+            db = _database(tmp, [
+                statement.replace("'p1', 't1')", "'p1', NULL)")
+                for statement in _restored_statements()
+            ])
+            problems = driver.link_identity_problems(
+                driver.payload_links(_archive_with(tmp, _payload())),
+                driver.restored_links(db),
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("parent link", problems[0])
+
+    def test_a_link_that_is_not_in_the_dataset_is_a_problem(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            db = _database(tmp, _restored_statements() + [
+                "INSERT INTO task_tags (task_id, tag_id) VALUES ('t2', 'g1')"
+            ])
+            problems = driver.link_identity_problems(
+                driver.payload_links(_archive_with(tmp, _payload())),
+                driver.restored_links(db),
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("not in the dataset", problems[0])
+
+
+class DebugBuildTest(unittest.TestCase):
+    """The procedure restores into the debug build, and says so in the report.
+
+    The wipe it needs is a debug-only path, and the issue asks about the
+    debug APK. An APK that is not a debug build — or a device that will not
+    say which build it carries — is refused rather than measured.
+    """
+
+    def test_a_build_of_this_checkout_is_a_debug_one(self):
+        self.assertEqual(driver.apk_variant(True), "debug")
+
+    def test_an_apk_from_the_outside_has_no_known_variant(self):
+        self.assertEqual(driver.apk_variant(False), "unknown")
+
+    def test_a_device_that_says_is_believed(self):
+        self.assertEqual(driver.apk_variant(False, True), "debug")
+        self.assertEqual(driver.apk_variant(True, False), "release")
 
 
 class DialogTextTest(unittest.TestCase):
@@ -946,6 +1045,147 @@ class DeviceClaimTest(unittest.TestCase):
             report = self._report(out)
             self.assertEqual(report["status"], "failed")
             self.assertIn("already in use", report["error"])
+
+
+class LateFailureReportTest(unittest.TestCase):
+    """A run that dies after it has measured things still keeps the measurements.
+
+    The early-failure test above covers a run that never started. This one
+    covers the run that matters more: the 50k profile restores, the counts
+    are read, and then the app crashes on the task list. The archive size, the
+    import time and the counts are the measurements the report exists for —
+    a run that throws them away at that moment has failed at exactly the
+    point where its numbers are worth something.
+    """
+
+    def _patches(self, tmp: Path):
+        """Every collaborator the run talks to, faked to a device that works.
+
+        The run is driven to the last step — the Inbox — and there it fails:
+        the flow does not open, which is what a crash on the task list looks
+        like from the host.
+        """
+        archive = _archive_with(tmp, _payload())
+        db = _database(tmp, _restored_statements())
+        manifest = {
+            "actualCounts": {
+                "tasks": 2,
+                "projects": 1,
+                "tags": 1,
+                "notes": 0,
+                "checklistItems": 0,
+                "taskDependencies": 1,
+                "taskTags": 1,
+            }
+        }
+        return [
+            unittest.mock.patch.object(
+                driver.capture, "resolve_device", lambda serial, devices: "test-device"
+            ),
+            unittest.mock.patch.object(driver.capture, "attached_devices", lambda: []),
+            unittest.mock.patch.object(
+                driver, "device_facts", lambda serial: {"model": "test device"}
+            ),
+            unittest.mock.patch.object(driver.capture, "install_apk", lambda serial, apk: None),
+            unittest.mock.patch.object(
+                driver.capture, "verify_identity", lambda serial, apk, built: ("pkg", "1.0")
+            ),
+            unittest.mock.patch.object(
+                driver, "verify_installed_apk", lambda serial, apk: "md5:" + "0" * 32
+            ),
+            unittest.mock.patch.object(
+                driver, "installed_app_is_debuggable", lambda serial: True
+            ),
+            unittest.mock.patch.object(driver, "database_version", lambda serial: None),
+            unittest.mock.patch.object(
+                driver,
+                "generate_archive",
+                lambda profile, seed, out: (archive, tmp / "sidecar.json", manifest),
+            ),
+            unittest.mock.patch.object(driver, "tool_versions", lambda serial: {}),
+            unittest.mock.patch.object(
+                driver, "reset_content", lambda serial, out, attempts=4: ({}, 1.0)
+            ),
+            unittest.mock.patch.object(
+                driver,
+                "check_over_budget",
+                lambda serial, out, arc, apk=None: {
+                    "counts": {},
+                    "problems": [],
+                    "verdict": "refused",
+                },
+            ),
+            unittest.mock.patch.object(
+                driver,
+                "check_interrupted_import",
+                lambda serial, out, arc, apk=None, expected_tasks=0: {
+                    "interrupted": True,
+                    "counts": {"tasks": 0},
+                    "problems": [],
+                    "verdict": "empty",
+                },
+            ),
+            unittest.mock.patch.object(driver, "push_archive", lambda serial, arc: "synthetic.zip"),
+            unittest.mock.patch.object(
+                driver,
+                "restore_and_watch",
+                lambda serial, name, log, timeout=1800, apk=None: {
+                    "durationSeconds": 12.5,
+                    "measured": "confirm-to-snackbar",
+                    "reportedBySnackbar": True,
+                },
+            ),
+            unittest.mock.patch.object(driver, "app_memory", lambda serial: "TOTAL PSS: 1"),
+            unittest.mock.patch.object(driver, "pull_database", lambda serial, out: db),
+            unittest.mock.patch.object(driver, "adb", lambda *a, **k: (0, "")),
+            unittest.mock.patch.object(driver, "run_flow", lambda *a, **k: False),
+        ]
+
+    def test_the_measurements_survive_a_failure_late_in_the_run(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            apk = tmp / "the.apk"
+            apk.write_bytes(b"not really an APK")
+            argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with contextlib.ExitStack() as stack:
+                    for patch in self._patches(tmp):
+                        stack.enter_context(patch)
+                    exit_code = driver.main(argv)
+
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "failed")
+            self.assertIn("Inbox", report["error"])
+            # The measurements the run had already taken are still in the report.
+            self.assertEqual(report["import"]["durationSeconds"], 12.5)
+            self.assertEqual(report["dataset"]["counts"]["tasks"], 2)
+            self.assertEqual(report["database"]["counts"]["tasks"], 2)
+            self.assertIn("counts compared", report["phases"])
+
+    def test_the_readable_report_names_the_measurements_too(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            apk = tmp / "the.apk"
+            apk.write_bytes(b"not really an APK")
+            argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with contextlib.ExitStack() as stack:
+                    for patch in self._patches(tmp):
+                        stack.enter_context(patch)
+                    driver.main(argv)
+
+            text = (out / "report.md").read_text(encoding="utf-8")
+            self.assertIn("12.5 s", text)
+            self.assertIn("| tasks | 2 | 2 |", text)
 
 
 if __name__ == "__main__":

@@ -1194,6 +1194,12 @@ def write_report(out_dir: Path, report: dict) -> None:
         for key, want in dataset["counts"].items():
             got = database["counts"].get(key)
             lines.append(f"| {key} | {want} | {got} |")
+        subtasks = database.get("subtasks")
+        if subtasks:
+            lines.append(f"| subtasks | {subtasks.get('expected')} | {subtasks.get('actual')} |")
+    if database.get("linkIdentityProblems"):
+        lines += ["", "## The links that did not survive the restore", ""]
+        lines += [f"* {problem}" for problem in database["linkIdentityProblems"]]
     if report.get("negative"):
         lines += ["", "## The ways it can go wrong", ""]
         lines += [
@@ -1312,15 +1318,109 @@ def interrupted_import_problems(
     ]
 
 
-def apk_variant(built_here: bool) -> str:
+def payload_links(archive: Path) -> dict[str, set[tuple[str, str]]]:
+    """The links the archive says the dataset has.
+
+    The manifest says how many rows there are; the archive says which rows
+    point at which. Two datasets with the same counts can have different
+    links — a restore that shuffles them keeps every count and loses every
+    relation, so the links are read from the dataset itself.
+    """
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        entry = "payload.json" if "payload.json" in names else "backup.json"
+        payload = json.loads(zf.read(entry))
+    tasks = payload.get("tasks", [])
+    return {
+        "parent": {(t["id"], t["parentTaskId"]) for t in tasks if t.get("parentTaskId")},
+        "project": {(t["id"], t["projectId"]) for t in tasks if t.get("projectId")},
+        "tags": {(r["taskId"], r["tagId"]) for r in payload.get("taskTags", [])},
+        "dependencies": {
+            (r["taskId"], r["dependsOnTaskId"]) for r in payload.get("taskDependencies", [])
+        },
+    }
+
+
+def restored_links(db_path: Path) -> dict[str, set[tuple[str, str]]]:
+    """The links the restored database holds."""
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        return {
+            "parent": set(
+                connection.execute(
+                    "SELECT id, parent_task_id FROM tasks WHERE parent_task_id IS NOT NULL"
+                )
+            ),
+            "project": set(
+                connection.execute(
+                    "SELECT id, project_id FROM tasks WHERE project_id IS NOT NULL"
+                )
+            ),
+            "tags": set(connection.execute("SELECT task_id, tag_id FROM task_tags")),
+            "dependencies": set(
+                connection.execute("SELECT task_id, depends_on_task_id FROM task_dependencies")
+            ),
+        }
+    finally:
+        connection.close()
+
+
+def link_identity_problems(
+    expected: dict[str, set[tuple[str, str]]], actual: dict[str, set[tuple[str, str]]]
+) -> list[str]:
+    """The links the restore got wrong.
+
+    A link that is missing is a relation the dataset lost; a link that is not
+    in the dataset is one the restore invented. Counts cannot see either: a
+    dataset whose links were shuffled has exactly the same counts. A subtask
+    whose parent was dropped is a missing `parent` link, and it is counted
+    here as what it is — a lost relation, not a missing row.
+    """
+    problems = []
+    for kind in sorted(expected):
+        want = expected[kind]
+        got = actual.get(kind, set())
+        missing = want - got
+        extra = got - want
+        if missing:
+            problems.append(
+                f"{len(missing)} {kind} link(s) of the dataset are missing after the "
+                f"restore (e.g. {sorted(missing)[:2]})"
+            )
+        if extra:
+            problems.append(
+                f"{len(extra)} {kind} link(s) after the restore are not in the dataset "
+                f"(e.g. {sorted(extra)[:2]})"
+            )
+    return problems
+
+
+def apk_variant(built_here: bool, debuggable: bool | None = None) -> str:
     """The build variant of the APK the run measured.
 
-    Only this checkout's own build is known to be a debug one. An APK handed
-    in with `--apk` says nothing about its build type, and the identity check
-    does not establish one: so the report says `unknown` rather than claim a
-    variant it does not know.
+    A build of this checkout is a debug one by construction. An APK handed in
+    with `--apk` says nothing about its build type until the device says: the
+    package manager's flags say whether the installed app is debuggable.
     """
-    return "debug" if built_here else "unknown"
+    if debuggable is None:
+        return "debug" if built_here else "unknown"
+    return "debug" if debuggable else "release"
+
+
+def installed_app_is_debuggable(serial: str) -> bool | None:
+    """Whether the installed app is a debug build; None when it cannot be told.
+
+    The package manager keeps the flags of every installed package, and a
+    debug build is debuggable. `None` is "the device did not say", which is
+    not the same as "no": the run refuses an app it cannot place.
+    """
+    code, out = adb("shell", "dumpsys", "package", APP_ID, serial=serial, timeout=120)
+    if code != 0:
+        return None
+    for line in out.splitlines():
+        if "flags=[" in line:
+            return "DEBUGGABLE" in line
+    return None
 
 
 def verdict_problems(
@@ -1503,12 +1603,25 @@ def main(argv: list[str] | None = None) -> int:
         capture.install_apk(serial, apk)
         package, version = capture.verify_identity(serial, apk, built_here)
         digest = verify_installed_apk(serial, apk)
+        # The procedure restores into the debug build: the wipe it needs is a
+        # debug-only path, and the issue asks about the debug APK. An app that
+        # is not debuggable — or a device that will not say — is refused
+        # rather than measured and reported as the debug build.
+        debuggable = installed_app_is_debuggable(serial)
+        if debuggable is not True:
+            raise RunError(
+                f"the app installed on {serial} is not a debug build"
+                + ("" if debuggable is None else " (it is a release build)")
+                + ": this procedure restores into the debug APK, whose debug-only "
+                "seed link it uses to wipe the profile. The run is refused rather "
+                "than measured against another build."
+            )
         print(f"build: {package} {version}")
         report["apk"] = {
             "path": str(apk),
             "package": package,
             "version": version,
-            "variant": apk_variant(built_here),
+            "variant": apk_variant(built_here, debuggable),
             "digest": digest,
         }
         report["phases"].append("apk installed")
@@ -1586,11 +1699,22 @@ def main(argv: list[str] | None = None) -> int:
         db_counts = count_rows(db_dir)
         count_problems = compare_counts(counts, db_counts)
         link_problems = relationship_problems(db_dir)
+        # The links themselves, not only the rows they point at: the archive
+        # says which task belongs to which project, carries which tag and
+        # blocks which task, and the restored database has to say the same.
+        expected_links = payload_links(archive)
+        actual_links = restored_links(db_dir)
+        identity_problems = link_identity_problems(expected_links, actual_links)
         report["database"] = {
             "bytes": database_bytes(db_dir.parent),
             "counts": db_counts,
             "countProblems": count_problems,
             "linkProblems": link_problems,
+            "linkIdentityProblems": identity_problems,
+            "subtasks": {
+                "expected": len(expected_links["parent"]),
+                "actual": len(actual_links["parent"]),
+            },
         }
         report["phases"].append("counts compared")
 
@@ -1646,7 +1770,7 @@ def main(argv: list[str] | None = None) -> int:
         report["verdict"] = {
             "problems": verdict_problems(
                 count_problems,
-                link_problems,
+                link_problems + identity_problems,
                 negative_problems,
                 browse_ok,
                 bool(outcome["reportedBySnackbar"]),
