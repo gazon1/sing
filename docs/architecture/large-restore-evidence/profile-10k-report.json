@@ -1,0 +1,113 @@
+{
+  "device": {
+    "serial": "0O65321F32204DD5",
+    "model": "RMX3938",
+    "androidRelease": "15",
+    "sdk": "35",
+    "abi": "arm64-v8a"
+  },
+  "apk": {
+    "path": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+    "package": "com.singularity.todo",
+    "version": "0.1.0+g134c6c0da071",
+    "variant": "debug"
+  },
+  "dataset": {
+    "profile": "10k",
+    "seed": 42,
+    "archive": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-realme-attempt4b/synthetic-10k.zip",
+    "sidecar": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-realme-attempt4b/synthetic-10k.manifest.json",
+    "archiveBytes": 2158228,
+    "decompressedBytes": 13871747,
+    "counts": {
+      "tasks": 10000,
+      "projects": 100,
+      "tags": 100,
+      "notes": 1000,
+      "checklistItems": 20000,
+      "taskDependencies": 1500,
+      "taskTags": 14814
+    }
+  },
+  "import": {
+    "flowSeconds": 95.2,
+    "durationSeconds": 31.6,
+    "measured": "confirm-to-snackbar",
+    "confirmedAt": 63.6,
+    "reportedBySnackbar": true,
+    "errorDialog": false,
+    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-realme-attempt4b/restore-flow.log",
+    "memory": "TOTAL PSS:   295699            TOTAL RSS:   292772       TOTAL SWAP PSS:    82257"
+  },
+  "wipe": {
+    "seconds": 463.8,
+    "counts": {
+      "tasks": 0,
+      "projects": 0,
+      "tags": 0,
+      "notes": 0,
+      "checklistItems": 0,
+      "taskDependencies": 0,
+      "taskTags": 0
+    }
+  },
+  "database": {
+    "bytes": 69774560,
+    "counts": {
+      "tasks": 10000,
+      "projects": 100,
+      "tags": 100,
+      "notes": 1000,
+      "checklistItems": 20000,
+      "taskDependencies": 1500,
+      "taskTags": 14814
+    },
+    "countProblems": [],
+    "linkProblems": []
+  },
+  "negative": {
+    "over-budget": {
+      "outcome": {
+        "flowSeconds": 83.4,
+        "durationSeconds": 20.3,
+        "measured": "confirm-to-error-dialog",
+        "confirmedAt": 63.1,
+        "reportedBySnackbar": false,
+        "errorDialog": true,
+        "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-realme-attempt4b/over-budget-flow.log"
+      },
+      "counts": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      },
+      "verdict": "the archive was refused with a diagnostic and nothing was written"
+    },
+    "interrupted": {
+      "interrupted": true,
+      "counts": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      },
+      "verdict": "the interrupted import left the profile empty"
+    }
+  },
+  "uiPaths": {
+    "browse": "passed",
+    "openedTask": "Task 2",
+    "searchedTask": "Task 10000",
+    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-realme-attempt4b/browse-flow.log"
+  },
+  "verdict": {
+    "problems": []
+  }
+}

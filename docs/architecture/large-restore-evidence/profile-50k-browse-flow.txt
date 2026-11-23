@@ -1,0 +1,35 @@
+Running on 0O65321F32204DD5
+ > Flow large-restore-browse-imported-data
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/home/max/.maestro/lib/protobuf-java-3.21.9.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+Launch app "com.singularity.todo"... COMPLETED
+Assert that id: nav_tab_today is visible... COMPLETED
+Tap on id: nav_tab_inbox... COMPLETED
+Assert that id: ${TASK_ID} is visible... COMPLETED
+Tap on id: ${TASK_ID}... COMPLETED
+Assert that id: task_editor_title_input is visible... COMPLETED
+Assert that "${TASK_TITLE}" is visible... COMPLETED
+Press back... COMPLETED
+Assert that id: nav_tab_inbox is visible... COMPLETED
+Tap on id: nav_menu_button... COMPLETED
+Assert that id: menu_quick_search is visible... COMPLETED
+Tap on id: menu_quick_search... COMPLETED
+Assert that id: search_input is visible... COMPLETED
+Tap on id: search_input... COMPLETED
+Input text ${RELATED_TITLE}... COMPLETED
+Assert that id: ${RELATED_ID} is visible... FAILED
+
+Assertion is false: id: task_item_task_49995 is visible
+
+Assertion 'id: task_item_task_49995 is visible' failed. Check the UI hierarchy in debug artifacts to verify the element state and properties.
+
+Possible causes:
+- Element selector may be incorrect - check if there are similar elements with slightly different names/properties.
+- Element may be temporarily unavailable due to loading state
+- This could be a real regression that needs to be addressed
+
+==== Debug output (logs & screenshots) ====
+
+/home/max/.maestro/tests/2026-11-23_093210
