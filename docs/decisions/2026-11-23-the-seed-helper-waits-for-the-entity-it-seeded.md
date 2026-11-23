@@ -97,12 +97,26 @@ therefore an assertion on the entity, and something has to wait for it.
 `notVisible`, `absent` — says the opposite of what an assertion needs, and
 covers nothing.
 
-**A seed that writes more rows than a wait can outlast.** The thousand
-overdue rows of `agenda/07` take longer to write than the item budget (8 s),
-so that seed names no entity to wait for: a wait for the section would time
-out before the rows are written. The helper's wait for the shell is the one
-that has to absorb the write, and the flow waits for the section that holds
-the rows once both seeds are in.
+**How many entities a seed writes.** A seed that writes N rows writes N
+entities: every row is an entity of its own, with its own name and its own row
+in the tree. A wait therefore covers one entity — the entity whose row it
+names, whose name it names, or whose container it names — and not the seed as
+a whole. A wait for the first row of a two-row seed says nothing about the
+second row: it is another entity, with an assertion of its own to wait for.
+The container is the one handle that covers a whole seed, because the section
+that holds the rows holds every entity of the seed.
+
+**A seed that writes more rows than a wait can outlast.** Writing a row costs
+the seeder about 30 ms, so a seed of a thousand rows takes about half a minute
+— longer than the shell wait the helper is given (30 s), which is the largest
+budget the Maestro layer has. A seed that outlasts the budget cannot be waited
+for at all: the wait times out before the rows are written. Such a seed is
+therefore written in chunks: each chunk is a seed of its own, each chunk fits
+inside the wait, and the flow waits for the section that holds the rows once
+the last chunk is in. The chunks need base titles of their own, because a seed
+titles its rows after the query it was given, and two chunks with the same
+base title would write the same rows twice. The cost of a row is the seeder's
+business and is tracked separately (issue #3135).
 
 **What the rule is held against.** `SeedHelperWaitTest` holds the rule to
 fixtures as well as to the tree: flows written to break it — a wait that
@@ -153,12 +167,15 @@ profile therefore behaves exactly as it did before.
   holds to the budget of its kind.
 - The helper does not parse `QUERY`, and never will: the query language
   belongs to the seeder.
-- `agenda/07-large-overdue` seeds a thousand rows in one go, and that write
-  outlasts every item budget: the seed names no entity to wait for, and the
-  flow waits for the section that holds the rows once both seeds are in. The
-  flow fails on this device before and after the change alike — the write
-  takes longer than the helper's shell wait (30 s) — so the exception is a
-  property of the seeder's cost, not of this entry.
+- `agenda/07-large-overdue` seeds a thousand rows in five chunks of ~200, each
+  chunk a seed of its own with a base title of its own, so that every chunk
+  fits inside the shell wait (30 s). The chunks name no entity to wait for —
+  the wait for the section that holds the rows comes after the last chunk, and
+  that section is the container of every chunk's rows.
+- A wait covers one entity. A seed that writes N rows writes N entities, and
+  the assertions on the rows of such a seed are covered by the wait that
+  names the row, the name, or the container — not by a wait that named one
+  other row of the same seed.
 - `nav/deep-link-task` and `notes/03-internal-link-navigation` assert the
   title of the task they opened, and wait for the editor by the id of its
   title field *and* by that title: the wait names the entity, not whichever
@@ -176,13 +193,14 @@ profile therefore behaves exactly as it did before.
   ${WAIT_TARGET} is visible... COMPLETED`) and the flow's own assertion on
   the same row passing right after it.
 - `menu/06-tree-live` — the rename wait, on the menu's sheet.
-- `agenda/07-large-overdue` — **not green on this device**, before and after
-  this entry alike: writing a thousand rows takes ~30–40 s, which is longer
-  than the helper's shell wait (30 s), so the flow fails on that wait with
-  the tree's own bulk fixture. The seeder writes a row at a time and waits
-  for the write to be observed (`SeedWriter`), so the cost is quadratic in
-  the number of rows; that is the seeder's business, not the helper's, and
-  it is why the seed names no entity to wait for.
+- `agenda/07-large-overdue` — **green on this device** (2026-11-23), after the
+  bulk seed was split into five chunks: every chunk seed completes, the
+  overdue section shows the full count (`1001`), the Today section and
+  `task_item_todayreachable` are reachable, and the expanded list shows
+  `task_item_bigoverdue_1`. Before the split the flow failed on this device
+  — writing a thousand rows takes ~30 s, which is longer than the helper's
+  shell wait (30 s). The row cost itself (~30 ms a row) is the seeder's
+  business and is tracked in issue #3135.
 
 ## Links
 
@@ -192,6 +210,13 @@ profile therefore behaves exactly as it did before.
   the seeding walkthrough.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedHelperWaitTest.kt` —
   the gate that holds the helper and its callers to this entry.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeededEntityWaitTest.kt` —
+  the gate that holds the flows to the rule that one wait covers one entity.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedWaitTree.kt` —
+  the tree the two gates read; the model of a seeded entity lives here.
+- Issue #3135 — the bulk seed writes ~30 ms a row, so a thousand-row seed
+  outlasts every Maestro wait. Tracked separately; the seed's write path is
+  not changed by this entry.
 - `Maestro/flows/tasks/08-date-buckets.yaml` — a flow that names the entity it
   wants waited for.
 - `Maestro/flows/agenda/07-large-overdue.yaml` — a flow that waits for the

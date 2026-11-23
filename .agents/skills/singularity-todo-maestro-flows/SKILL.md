@@ -357,10 +357,21 @@ entity's name (`assertVisible: {text: "Buy milk"}`) is an assertion on that
 entity — the wait that covers it may address the node by the id of the field
 it is in *and* by the title it holds.
 
-A seed that writes more rows than a wait can outlast names no entity to wait
-for: the thousand overdue rows of `agenda/07` take longer to write than the
-item budget, so that seed names none and the flow waits for the section that
-holds them.
+Two more rules about what a wait covers:
+
+- **One wait covers one entity.** A seed that writes N rows writes N
+  entities, one row each. A wait for one of those rows does not cover the
+  others — each row is an entity with an assertion of its own, and each needs
+  a wait that names it. The container is the one handle that covers a whole
+  seed, because the section that holds the rows holds every entity of it.
+- **A seed that outlasts every wait is written in chunks.** Writing a row
+  costs the seeder about 30 ms, so a thousand rows take longer than the shell
+  wait (30 s) — the largest budget there is — and a seed that outlasts the
+  budget cannot be waited for at all. Write it as several seeds of its own
+  instead, each with a base title of its own (two seeds with the same base
+  title write the same rows twice), each inside the budget; the flow then
+  waits for the section that holds the rows once the last chunk is in.
+  `agenda/07` seeds its thousand rows in five chunks for this reason.
 
 The contract itself lives in one place — the header of `helpers/seed.yaml` —
 and `Maestro/CONVENTIONS.md` repeats it.

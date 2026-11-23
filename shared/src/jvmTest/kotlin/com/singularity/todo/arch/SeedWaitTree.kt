@@ -54,34 +54,35 @@ internal object SeedWaitTree {
 
         for (seed in seeds) {
             val seeded = seededEntity(parseQuery(seed.query))
-            if (seeded.rows.isEmpty()) continue
-            val handles = (seeded.rows + seeded.containers + seeded.names).toSet()
-            for (assert in asserts) {
-                if (!assertsEntity(assert, seeded)) continue
-                checked++
-                // A wait in the flow, or the helper's own wait for the entity
-                // the caller named — either way, after the seed and before the
-                // assert. A wait that names the element under `notVisible`
-                // waits for it to be gone, so it covers nothing.
-                val waited =
-                    waits.any {
-                        it.positive &&
-                            it.handles.any { handle -> handle in handles } &&
-                            compareOrder(it.position, seed.position) >= 0 &&
-                            compareOrder(it.position, assert.position) <= 0
-                    } ||
-                        seeds.any {
-                            it.waitFor != null &&
-                                it.waitFor in handles &&
+            for (entity in seeded.entities) {
+                val handles = (entity.rows + entity.names + seeded.containers).toSet()
+                for (assert in asserts) {
+                    if (!assertsEntity(assert, entity)) continue
+                    checked++
+                    // A wait in the flow, or the helper's own wait for the entity
+                    // the caller named — either way, after the seed and before the
+                    // assert. A wait that names the element under `notVisible`
+                    // waits for it to be gone, so it covers nothing.
+                    val waited =
+                        waits.any {
+                            it.positive &&
+                                it.handles.any { handle -> handle in handles } &&
                                 compareOrder(it.position, seed.position) >= 0 &&
                                 compareOrder(it.position, assert.position) <= 0
-                        }
-                if (!waited) {
-                    violations +=
-                        "$label: asserts ${subjectOf(assert)} without waiting for it — " +
-                        "wait for the row (${seeded.rows.joinToString()}), for the " +
-                        "name it is called (${seeded.names.joinToString()}) or for " +
-                        "the container it is in (${seeded.containers.joinToString()})"
+                        } ||
+                            seeds.any {
+                                it.waitFor != null &&
+                                    it.waitFor in handles &&
+                                    compareOrder(it.position, seed.position) >= 0 &&
+                                    compareOrder(it.position, assert.position) <= 0
+                            }
+                    if (!waited) {
+                        violations +=
+                            "$label: asserts ${subjectOf(assert)} without waiting for it — " +
+                            "wait for the row (${entity.rows.joinToString()}), for the " +
+                            "name it is called (${entity.names.joinToString()}) or for " +
+                            "the container it is in (${seeded.containers.joinToString()})"
+                    }
                 }
             }
         }
@@ -95,13 +96,17 @@ internal object SeedWaitTree {
      * renders it under; an assertion by text is about it when the text is the
      * name the entity is called. A text that is not the name — a count, a
      * heading, a pattern — is not about the entity.
+     *
+     * The entity is the one the assertion names, not the seed it came from: a
+     * seed that writes several rows writes several entities, and a wait for
+     * one of them says nothing about the others.
      */
     private fun assertsEntity(
         assert: Event.Assert,
-        seeded: Seeded,
+        entity: Entity,
     ): Boolean =
-        (assert.id != null && assert.id in seeded.rows) ||
-            (assert.text != null && assert.text in seeded.names)
+        (assert.id != null && assert.id in entity.rows) ||
+            (assert.text != null && assert.text in entity.names)
 
     /** What the assertion names, for the message. */
     private fun subjectOf(assert: Event.Assert): String = assert.id?.let { "id: $it" } ?: "text: ${assert.text}"
@@ -423,51 +428,66 @@ internal object SeedWaitTree {
      * the renamed project is on screen under its new name, and a wait for that
      * name is a wait for the entity — the one wait that can tell a rename
      * from the row it renamed.
+     *
+     * A seed that writes several rows writes several *entities*: `count=3` is
+     * three tasks, and each of them is a row a flow may assert on. They are
+     * kept apart here, because one wait for one of them says nothing about
+     * the others — the entities are what the rule holds a flow to.
      */
     fun seededEntity(params: Map<String, String>): Seeded {
-        val rows = mutableListOf<String>()
+        val entities = mutableListOf<Entity>()
         val containers = mutableListOf<String>()
-        val names = mutableListOf<String>()
         params["task"]?.let { title ->
             val count = params["count"]?.toIntOrNull() ?: 1
             if (count > 1) {
                 (1..count).forEach { index ->
-                    rows += TestTags.taskItem("$title-$index")
-                    names += "$title-$index"
+                    entities += Entity(listOf(TestTags.taskItem("$title-$index")), listOf("$title-$index"))
                 }
             } else {
-                rows += TestTags.taskItem(title)
-                names += title
+                entities += Entity(listOf(TestTags.taskItem(title)), listOf(title))
             }
             DUE_SECTIONS[params["due"]]?.let { section ->
                 containers += TestTags.agendaSection(section)
             }
         }
         params["note"]?.let { title ->
-            rows += TestTags.noteItemByTitle(title)
-            names += title
+            entities += Entity(listOf(TestTags.noteItemByTitle(title)), listOf(title))
         }
         params["project"]?.let { name ->
-            rows += TestTags.projectCard(name)
-            names += name
+            val rows = mutableListOf(TestTags.projectCard(name))
             params["id"]?.let { id -> rows += TestTags.menuProjectNode(id) }
+            entities += Entity(rows, listOf(name))
         }
         params["projects"]?.toIntOrNull()?.let { count ->
             (1..count).forEach { index ->
-                val name = "Bulk ${index.toString().padStart(3, '0')}"
-                rows += TestTags.projectCard(name)
-                names += name
+                val number = index.toString().padStart(3, '0')
+                entities +=
+                    Entity(
+                        listOf(
+                            TestTags.projectCard("Bulk $number"),
+                            TestTags.menuProjectNode("$BULK_ID_PREFIX-$number"),
+                        ),
+                        listOf("Bulk $number"),
+                    )
             }
         }
         params["profile"]?.let { name ->
-            rows += TestTags.profileItem(name)
-            names += name
+            entities += Entity(listOf(TestTags.profileItem(name)), listOf(name))
         }
-        return Seeded(rows, containers, names)
+        return Seeded(entities, containers)
     }
 
-    /** The entity a seed writes: the rows it is rendered under, the names it is called, the container it is in. */
-    data class Seeded(val rows: List<String>, val containers: List<String>, val names: List<String>)
+    /**
+     * What a seed writes: the entities it created, and the containers they are in.
+     *
+     * The containers are the seed's, not an entity's: a section that holds a
+     * thousand overdue rows holds every one of them, and a wait for that
+     * section is a wait for all of them.
+     */
+    data class Seeded(val entities: List<Entity>, val containers: List<String>)
+
+    /** One entity the seed wrote: the rows it is rendered under, the names it is called. */
+    data class Entity(val rows: List<String>, val names: List<String>)
 
     /**
      * The path of a file, relative to the worktree root.
@@ -482,6 +502,9 @@ internal object SeedWaitTree {
 
     /** The helper that seeds. Its `env:` block answers for the caller. */
     const val SEED_HELPER = "seed.yaml"
+
+    /** The prefix of the ids the bulk project seed writes, as `SeedWriter` writes them. */
+    const val BULK_ID_PREFIX = "bulk"
 
     /** The commands that wait for an element. */
     val WAIT_COMMANDS = setOf("extendedWaitUntil", "scrollUntilVisible")

@@ -14,15 +14,38 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
-# The big seed writes a thousand rows in one transaction, and that write takes
-# longer than the budget of an item (8 s) — so this seed names no entity to
-# wait for. The helper's own wait for the shell is the one that has to absorb
-# the write, and the section that holds the rows is waited for below, once both
-# seeds are in.
+# The big seed writes a thousand rows, and a row costs the seeder about 30 ms —
+# so a thousand rows take about half a minute, and that is longer than any wait
+# the Maestro layer is given (the shell budget is 30 s, and every other kind is
+# smaller). A seed that outlasts the budget cannot be waited for at all, so the
+# rows are written in chunks: each chunk is a seed of its own, each chunk fits
+# inside the shell wait, and the section that holds the rows is waited for
+# below, once the last chunk is in. The chunks add up to the thousand rows the
+# regression is about.
+#
+# The rows of a chunk are titled after the chunk ("BigOverdue-1"…"BigOverdue-201",
+# "BigOverdue2-1"…), because a seed titles its rows after the query it was
+# given — two chunks with the same base title would write the same rows twice.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue&due=-1d&count=1001&id=bigoverdue"
+      QUERY: "task=BigOverdue&due=-1d&count=201&id=bigoverdue"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue2&due=-1d&count=200&id=bigoverdue2"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue3&due=-1d&count=200&id=bigoverdue3"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue4&due=-1d&count=200&id=bigoverdue4"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue5&due=-1d&count=200&id=bigoverdue5"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

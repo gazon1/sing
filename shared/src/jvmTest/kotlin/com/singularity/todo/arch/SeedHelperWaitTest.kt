@@ -145,7 +145,7 @@ class SeedHelperWaitTest {
             for (seed in events.filterIsInstance<Event.Seed>()) {
                 val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
                 checked++
-                if (seeded.rows.isEmpty() && seed.waitFor != null) {
+                if (seeded.entities.isEmpty() && seed.waitFor != null) {
                     violations +=
                         "${SeedWaitTree.rel(maestroRoot, file)}: a seed that writes no entity names " +
                         "${seed.waitFor} to wait for — there is no row to wait for"
@@ -179,10 +179,15 @@ class SeedHelperWaitTest {
                 events.filterIsInstance<Event.Seed>().mapNotNull { seed ->
                     val waitFor = seed.waitFor ?: return@mapNotNull null
                     val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
-                    if (seeded.rows.isEmpty()) {
+                    if (seeded.entities.isEmpty()) {
                         null
                     } else {
-                        Triple(seed, waitFor, (seeded.rows + seeded.containers).toSet())
+                        val targets =
+                            (
+                                seeded.entities.flatMap { entity -> entity.rows + entity.names } +
+                                    seeded.containers
+                            ).toSet()
+                        Triple(seed, waitFor, targets)
                     }
                 }
             for ((seed, waitFor, targets) in named) {

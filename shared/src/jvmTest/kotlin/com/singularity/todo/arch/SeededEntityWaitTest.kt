@@ -241,6 +241,44 @@ class SeededEntityWaitTest {
         )
     }
 
+    @Test
+    fun `a wait for one of two entities of one seed says nothing about the other`() {
+        // One seed, two rows: `count=2` writes "Fixture-1" and "Fixture-2".
+        // A wait for the first row says nothing about the second one — the
+        // second row can still be on its way when the flow asserts on it.
+        val events = SeedWaitTree.fixture("flow.yaml" to ONE_SEED_TWO_ENTITIES_ONE_WAIT)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts an assertion on the second row of a seed that " +
+                "only the first row was waited for. One wait is one entity.",
+        )
+    }
+
+    @Test
+    fun `a wait for each of two entities of one seed covers both`() {
+        val events = SeedWaitTree.fixture("flow.yaml" to ONE_SEED_TWO_ENTITIES_TWO_WAITS)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule reports a flow that waited for both rows of a seed: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a wait for the container covers every entity of the seed`() {
+        // A section renders because the rows in it are there, so a wait for
+        // the section is a wait for each of them.
+        val events = SeedWaitTree.fixture("flow.yaml" to ONE_SEED_TWO_ENTITIES_CONTAINER)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule rejects a wait for the container the entities are in: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
     private companion object {
         /**
          * A flow that seeds the same row twice and waits only for the first seed.
@@ -429,6 +467,74 @@ class SeededEntityWaitTest {
                   QUERY: "project=Renamed&id=roadmap"
             - assertVisible:
                 text: "Renamed"
+            """.trimIndent()
+
+        /**
+         * One seed that writes two rows, one wait, and an assertion on both.
+         *
+         * The wait is for the first row, so the second one is not covered.
+         */
+        val ONE_SEED_TWO_ENTITIES_ONE_WAIT =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&count=2"
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture_1
+                timeout: 8000
+            - assertVisible:
+                id: task_item_fixture_1
+            - assertVisible:
+                id: task_item_fixture_2
+            """.trimIndent()
+
+        /** The same seed, with a wait for each of the two rows. */
+        val ONE_SEED_TWO_ENTITIES_TWO_WAITS =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&count=2"
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture_1
+                timeout: 8000
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture_2
+                timeout: 8000
+            - assertVisible:
+                id: task_item_fixture_1
+            - assertVisible:
+                id: task_item_fixture_2
+            """.trimIndent()
+
+        /** The same seed, with a wait for the section the two rows are in. */
+        val ONE_SEED_TWO_ENTITIES_CONTAINER =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&count=2&due=today"
+            - extendedWaitUntil:
+                visible:
+                  id: agenda_section_today
+                timeout: 8000
+            - assertVisible:
+                id: task_item_fixture_1
+            - assertVisible:
+                id: task_item_fixture_2
             """.trimIndent()
 
         /** The same flow, with a wait for the row before the assertion by name. */

@@ -128,11 +128,19 @@
 # That is one wait for one entity, and not a wait for whichever entity the
 # screen happens to show.
 #
-# A seed that writes more rows than a wait can outlast names no entity to wait
-# for: the thousand overdue rows of `agenda/07` take longer to write than the
-# item budget (8 s), so that seed names none — the helper's wait for the shell
-# is the one that has to absorb the write, and the flow waits for the section
-# that holds the rows once both seeds are in.
+# A seed that writes N rows writes N entities, one row each, and one wait
+# covers one entity: a wait for one row of a many-row seed does not cover the
+# assertions on the other rows. The container is the one handle that covers a
+# whole seed, because the section that holds the rows holds every entity of it.
+#
+# A seed that writes more rows than a wait can outlast is written in chunks:
+# writing a row costs the seeder about 30 ms, so a thousand rows take longer
+# than the shell wait above (30 s) — the largest budget there is — and a seed
+# that outlasts the budget cannot be waited for at all. Each chunk is a seed
+# of its own, with a base title of its own (two seeds with the same base title
+# write the same rows twice), and each chunk fits inside the budget; the flow
+# then waits for the section that holds the rows once the last chunk is in.
+# `agenda/07` seeds its thousand rows in five chunks for this reason.
 #
 # The container rule is also the cheap one: it does not scroll, so a step that
 # waits for the same container afterwards still finds it on screen. A row wait
