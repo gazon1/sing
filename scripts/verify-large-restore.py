@@ -82,6 +82,7 @@ APP_ID = "com.singularity.todo"
 #: can show it.
 DEVICE_DOWNLOAD_DIR = "/sdcard/Download"
 
+
 #: The tables the manifest's counts are about, and the table each count is
 #: counted in. The names are the Room table names.
 COUNT_TABLES = {
@@ -188,11 +189,25 @@ EXIT_SETUP = 2
 
 
 class RunError(RuntimeError):
-    """The run could not start, or could not be trusted.
+    """The run could not measure what it claims to measure.
 
     A different failure from "the restore did not work": this one says the
     command is not measuring the thing it claims to measure — no device, no
-    APK, no archive. Those are reported before the import is attempted.
+    APK, no archive, a database that cannot be copied as one moment, a scope
+    that cannot be attributed to a profile. These are refusals to measure,
+    and they are reported as EXIT_SETUP.
+    """
+
+
+class VerificationError(RunError):
+    """The dataset was restored, and what the app holds does not hold up.
+
+    A different failure from the one above: the restore was attempted and
+    the measurements were taken, and the app did not show what the archive
+    carried — the Inbox does not open, the task list holds no row, the
+    related-tasks picker has nothing to offer. The run has an answer, and
+    the answer is "the restore did not hold up", not "the command could not
+    start": a caller has to be able to tell the two apart.
     """
 
 
@@ -504,6 +519,7 @@ def push_archive(serial: str, archive: Path) -> str:
         serial=serial,
     )
     return name
+
 
 
 def wait_for_reset_marker(serial: str, timeout: float = 7200) -> float:
@@ -1657,6 +1673,16 @@ def write_report(out_dir: Path, report: dict) -> None:
         + (f" — {report['error']}" if report.get("error") else ""),
         f"* phases: {', '.join(report.get('phases', [])) or 'none'}",
     ]
+    if report.get("failure"):
+        lines.insert(
+            1,
+            "* what failed: "
+            + (
+                "the restore was attempted and the app did not hold up"
+                if report["failure"] == "verification"
+                else "the run could not measure what it claims to measure"
+            ),
+        )
     if device:
         lines.append(
             f"* device: `{device.get('serial')}` — {device.get('model')}, "
@@ -2370,6 +2396,7 @@ def main(argv: list[str] | None = None) -> int:
     report: dict = {"status": "incomplete", "phases": []}
     exit_code = EXIT_SETUP
     lock: DeviceLock | None = None
+    serial = ""
     try:
         try:
             serial = capture.resolve_device(args.serial, capture.attached_devices())
@@ -2573,19 +2600,19 @@ def main(argv: list[str] | None = None) -> int:
         time.sleep(2)
         inbox_log = out_dir / "inbox-flow.log"
         if not run_flow(serial, "open-inbox.yaml", {}, inbox_log, apk=apk):
-            raise RunError(f"the Inbox did not open — see {inbox_log}")
+            raise VerificationError(f"the Inbox did not open — see {inbox_log}")
         row = wait_for_task_row(serial)
         if row is None:
-            raise RunError("the Inbox shows no task row to open")
+            raise VerificationError("the Inbox shows no task row to open")
         task_id = row
         task_title = title_for_tag(db_dir, task_id, scope)
         if task_title is None:
-            raise RunError(f"no task in the database carries the tag {task_id}")
+            raise VerificationError(f"no task in the database carries the tag {task_id}")
         print(f"task row: {task_id} ({task_title})")
 
         related = related_task(db_dir, scope)
         if related is None:
-            raise RunError(
+            raise VerificationError(
                 "the imported dataset holds no task with a relation, so the "
                 "related-tasks picker cannot be reached"
             )
@@ -2597,7 +2624,7 @@ def main(argv: list[str] | None = None) -> int:
         # cycle.
         candidate = picker_candidate(db_dir, related_id, scope)
         if candidate is None:
-            raise RunError(
+            raise VerificationError(
                 "the imported dataset holds no task the related-tasks picker "
                 "could offer, so the picker cannot be exercised"
             )
@@ -2654,13 +2681,25 @@ def main(argv: list[str] | None = None) -> int:
         for name, phase in negative.items():
             print(f"  {name}: {phase['verdict']}")
         print(f"report: {out_dir / 'report.md'}")
+    except VerificationError as exc:
+        # The dataset was restored and the app did not hold up: the run has
+        # an answer, and the answer is "the restore did not work", not "the
+        # command could not start". A caller that cannot tell the two apart
+        # reads a failed restore as a broken measurement.
+        report["status"] = "failed"
+        report["failure"] = "verification"
+        report["error"] = str(exc)
+        print(f"verification failed: {exc}", file=sys.stderr)
+        exit_code = EXIT_FAILED
     except RunError as exc:
         report["status"] = "failed"
+        report["failure"] = "setup"
         report["error"] = str(exc)
         print(f"error: {exc}", file=sys.stderr)
         exit_code = EXIT_SETUP
     except capture.CaptureError as exc:
         report["status"] = "failed"
+        report["failure"] = "setup"
         report["error"] = str(exc)
         print(f"error: {exc}", file=sys.stderr)
         exit_code = EXIT_SETUP

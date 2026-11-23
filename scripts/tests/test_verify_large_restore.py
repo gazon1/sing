@@ -1654,9 +1654,12 @@ class LateFailureReportTest(unittest.TestCase):
                         stack.enter_context(patch)
                     exit_code = driver.main(argv)
 
-            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            self.assertEqual(exit_code, driver.EXIT_FAILED)
             report = json.loads((out / "report.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "failed")
+            # The restore was attempted and the app did not hold up: the run
+            # has an answer, so it is not a setup failure.
+            self.assertEqual(report["failure"], "verification")
             self.assertIn("Inbox", report["error"])
             # The measurements the run had already taken are still in the report.
             self.assertEqual(report["import"]["durationSeconds"], 12.5)
