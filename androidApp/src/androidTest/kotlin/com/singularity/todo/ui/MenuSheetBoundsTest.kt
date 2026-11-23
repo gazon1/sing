@@ -181,7 +181,11 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
         }
     }
 
-    private fun isTagVisible(tag: String): Boolean = device.findObject(By.res(tag))?.visibleBounds?.isEmpty == false
+    private fun isTagVisible(tag: String): Boolean =
+        runCatching {
+            val obj = device.findObject(By.res(tag)) ?: return false
+            !obj.visibleBounds.isEmpty
+        }.getOrDefault(false)
 
     private fun scrollToTop() {
         repeat(MENU_SCROLL_PASSES) {
