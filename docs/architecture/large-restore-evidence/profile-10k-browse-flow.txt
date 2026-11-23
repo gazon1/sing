@@ -28,9 +28,15 @@ Tap on id: task_detail_related_tasks_section... COMPLETED
 Scrolling DOWN until id: task_detail_add_related_task is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering disabled... COMPLETED
 Tap on id: task_detail_add_related_task... COMPLETED
 Assert that id: related_task_picker_search is visible... COMPLETED
+Tap on id: related_task_picker_search... COMPLETED
+Input text ${PICKER_CANDIDATE_TITLE}... COMPLETED
+Assert that id: related_task_candidate_${PICKER_CANDIDATE_SLUG} is visible... COMPLETED
+Tap on id: related_task_candidate_${PICKER_CANDIDATE_SLUG}... COMPLETED
+Tap on id: related_task_picker_add... COMPLETED
+Assert that id: related_task_picker_add is not visible... COMPLETED
+Scrolling DOWN until id: related_task_item_${PICKER_CANDIDATE_SLUG} is visible with speed 40, visibility percentage 100%, timeout 30000 ms, with centering disabled... COMPLETED
 Press back... COMPLETED
 Press back... COMPLETED
 Run flow when id: nav_tab_inbox is not visible...
-  Press back... COMPLETED
-Run flow when id: nav_tab_inbox is not visible... COMPLETED
+Run flow when id: nav_tab_inbox is not visible... SKIPPED
 Assert that id: nav_tab_inbox is visible... COMPLETED
