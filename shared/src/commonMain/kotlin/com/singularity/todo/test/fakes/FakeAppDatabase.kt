@@ -1276,6 +1276,7 @@ private class FakeNoteDao(
             map.values
                 .filter { n ->
                     n.taskId == taskId && n.userId == userId && n.deletedAt == null &&
+                        n.archivedAt == null &&
                         n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder
                 }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
                 .take(limit)
@@ -1293,7 +1294,8 @@ private class FakeNoteDao(
         store.map { map ->
             map.values
                 .filter { n ->
-                    n.userId == userId && n.deletedAt == null && n.projectId == projectId &&
+                    n.userId == userId && n.deletedAt == null && n.archivedAt == null &&
+                        n.projectId == projectId &&
                         n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder
                 }
                 .sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })

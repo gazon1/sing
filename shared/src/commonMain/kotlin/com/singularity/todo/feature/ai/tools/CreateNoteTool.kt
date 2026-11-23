@@ -135,8 +135,9 @@ class CreateNoteTool(
             "Proposes a new note or folder. The note is not created yet — the user sees it and " +
                 "decides. Say that it has been proposed, not that it has been created. " +
                 "The body is markdown. " +
-                "Pass projectId or taskId to attach the note to a project or a task — that " +
-                "attachment is what makes it the project's brief rather than one note among " +
-                "many; at most one of the two."
+                "Pass projectId or taskId to attach the note to a project or a task; at most one " +
+                "of the two. An attached note is a knowledge brief only when its body carries a " +
+                "\"## Sources\" heading — that section is what marks provenance, and what " +
+                "get_knowledge_brief looks for."
     }
 }

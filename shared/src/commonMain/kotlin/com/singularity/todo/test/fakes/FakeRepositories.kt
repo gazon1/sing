@@ -3421,6 +3421,7 @@ open class FakeNotesRepository(
                 list.values
                     .filter {
                         it.taskId == taskId && it.userId == uid && it.deletedAt == null &&
+                            it.archivedAt == null &&
                             it.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !it.isFolder
                     }.sortedWith(noteOrder)
                     .take(limit)
@@ -3435,7 +3436,8 @@ open class FakeNotesRepository(
             store.state.map { list ->
                 list.values
                     .filter {
-                        it.userId == uid && it.deletedAt == null && it.projectId == projectId &&
+                        it.userId == uid && it.deletedAt == null && it.archivedAt == null &&
+                            it.projectId == projectId &&
                             it.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !it.isFolder
                     }
                     .sortedWith(noteOrder)

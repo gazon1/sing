@@ -154,11 +154,16 @@ class GetKnowledgeBriefTool(
                     // them a brief" and "nothing attached" are different answers, and a
                     // caller deciding whether to create one needs to tell them apart.
                     attachedNotesSeen = notes.size,
+                    // The query already excludes the kinds that are never briefs, so an
+                    // empty page means "no candidate note" — saying "nothing is attached"
+                    // would be wrong for an owner whose only notes are folders or daily
+                    // journals, and the caller would go looking for a note it cannot see.
                     reason =
                         if (notes.isEmpty()) {
-                            "No note is attached to this $owner yet, so there is no brief to read."
+                            "There is no note attached to this $owner that could be a brief — " +
+                                "a brief is a plain, non-archived note with a \"## Sources\" section."
                         } else {
-                            "${notes.size} note(s) are attached to this $owner, and none of them " +
+                            "${notes.size} note(s) were read for this $owner, and none of them " +
                                 "is a brief — a brief is a note with a \"## Sources\" section."
                         },
                 )
@@ -237,8 +242,10 @@ class GetKnowledgeBriefTool(
          * model asks for this tool rather than searching for a note that mentions it.
          */
         const val DESCRIPTION =
-            "Read the knowledge brief of a project or a task: the note attached to it, as " +
-                "markdown, with the updatedAt to pass back as expectedUpdatedAt when refreshing it. " +
+            "Read the knowledge brief of a project or a task: the attached note whose body " +
+                "carries a \"## Sources\" heading, as markdown, with the updatedAt to pass back " +
+                "as expectedUpdatedAt when refreshing it. A note attached without that section is " +
+                "an ordinary note and is not returned. " +
                 "Pass exactly one of projectId or taskId. Use it before proposing an update, so " +
                 "the change is written against what the app already says."
     }

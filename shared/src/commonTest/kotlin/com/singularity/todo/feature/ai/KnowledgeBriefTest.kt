@@ -325,6 +325,22 @@ class KnowledgeBriefTest : KnowledgeBriefTestBase() {
             assertNotNull(output.reason, "the answer says there is no brief yet")
         }
 
+    @Test
+    fun `an archived note is not a brief`() =
+        runTest {
+            val project = project("Kitchen")
+            projects.seed(project)
+            clock.advance(kotlin.time.Duration.parse("1m"))
+            notes.seed(
+                note(title = "Brief", html = "<p>old research</p>", projectId = project.id)
+                    .copy(archivedAt = clock.now()),
+            )
+
+            val output = decodeBrief(readTool.execute(GetKnowledgeBriefInput(projectId = project.id.value)))
+
+            assertFalse(output.found, "an archived note is not a live brief: ${output.noteId}")
+        }
+
     // ── The catalogue and the round trip ───────────────────────────────────────
 
     @Test

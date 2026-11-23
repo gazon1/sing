@@ -1071,6 +1071,7 @@ interface NoteDao {
         WHERE task_id = :taskId
           AND user_id = :userId
           AND deleted_at IS NULL
+          AND archived_at IS NULL
           AND kind = 'Plain'
           AND is_folder = 0
         ORDER BY created_at DESC, id ASC
@@ -1160,6 +1161,7 @@ interface NoteDao {
         WHERE project_id = :projectId
           AND user_id = :userId
           AND deleted_at IS NULL
+          AND archived_at IS NULL
           AND kind = 'Plain'
           AND is_folder = 0
         ORDER BY created_at DESC, id ASC
