@@ -98,6 +98,19 @@ CONFIRM_TAP = "Tap on id: dialog_confirm"
 #: The shared dialog the failure of an import is reported in.
 ERROR_DIALOG_ID = "result_dialog"
 
+#: The words the app's own budget check puts in the message it fails an
+#: archive with. The message is the app's own English — the title of the
+#: dialog is translated, this is not — so it can be matched on. It is what
+#: tells the two refusals apart: a refusal because the archive is too big,
+#: and a refusal because anything at all went wrong.
+#:
+#: The check fails an archive in two ways: "backup archive exceeds limits:
+#: entries=… bytes=…" when the running total is over the budget, and
+#: "backup archive entry exceeds remaining byte budget" when a single entry
+#: is bigger than what is left of it. The padded archive trips the second
+#: one, so both are here.
+BUDGET_REFUSAL_MARKERS = ("exceeds limits", "byte budget")
+
 #: The line the debug activity logs when the profile's content has been
 #: wiped. It is the end-of-wipe signal: the deep link returns long before the
 #: deletes are committed.
@@ -583,6 +596,29 @@ def ui_dump(serial: str) -> str:
     return out if code == 0 else ""
 
 
+def dialog_text(dump: str) -> str:
+    """The words on the screen, joined.
+
+    The dialog that reports a failed import carries the app's own message in
+    its body. Reading the words is what tells a refusal for the archive's
+    size apart from a refusal for any other reason — the tag of the dialog
+    only says that something failed.
+    """
+    return " ".join(re.findall(r'text="([^"]*)"', dump))
+
+
+def mentions_budget(message: str) -> bool:
+    """Whether the app's message names the archive's size as the reason.
+
+    The app's budget check fails an archive with a message of its own, and
+    only that check writes those words. A failure that does not say that is
+    a failure of something else, and saying so is the whole point of the
+    over-budget check.
+    """
+    lowered = message.lower()
+    return any(marker in lowered for marker in BUDGET_REFUSAL_MARKERS)
+
+
 def import_duration(
     started: float,
     tapped: float | None,
@@ -646,6 +682,7 @@ def _restore_and_watch_once(
     tapped: float | None = None
     snackbar: float | None = None
     error_at: float | None = None
+    error_text = ""
     with log.open("w", encoding="utf-8") as handle:
         process = subprocess.Popen(
             command,
@@ -681,6 +718,7 @@ def _restore_and_watch_once(
                         # here: the import is over, it did not go well, and
                         # the dialog is the report.
                         error_at = stamp
+                        error_text = dialog_text(dump)
                         break
                     if SNACKBAR_ID in dump:
                         snackbar = stamp
@@ -709,6 +747,7 @@ def _restore_and_watch_once(
         "confirmedAt": round(tapped - started, 1) if tapped is not None else None,
         "reportedBySnackbar": snackbar is not None,
         "errorDialog": error_at is not None,
+        "errorDialogText": error_text,
         "log": str(log),
     }
 
@@ -1102,13 +1141,79 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def over_budget_problems(outcome: dict, counts: dict[str, int]) -> list[str]:
+    """What is wrong with the way the app refused an over-budget archive.
+
+    Two things have to hold: the app has to refuse the archive *for its
+    size* — a refusal for any other reason is a different failure wearing
+    the same dialog — and the refusal has to leave the profile alone.
+
+    The check that the refusal is about the size is the point of this
+    function: without it any failure at all reads as a working budget.
+    """
+    problems = []
+    message = outcome.get("errorDialogText", "")
+    if outcome.get("errorDialog"):
+        if not mentions_budget(message):
+            problems.append(
+                "the archive was refused, but not for its size — the dialog said: "
+                f"{message or '(nothing)'}"
+            )
+    elif outcome.get("reportedBySnackbar"):
+        problems.append("the app reported the import as done instead of refusing the archive")
+    else:
+        problems.append("the import failed without saying so")
+    left = {key: value for key, value in counts.items() if value > 0}
+    if left:
+        problems.append(f"the refused archive left rows behind: {left}")
+    return problems
+
+
+def interrupted_import_problems(
+    stopped: bool, counts: dict[str, int], expected_tasks: int
+) -> list[str]:
+    """What is wrong with the profile after an import was cut short.
+
+    The import has to leave the profile either whole or empty. A profile
+    that holds part of the dataset is the case this check exists for, and
+    "part" is not only about tasks: an import that wrote the projects and
+    the tags but no task yet is part of the dataset too.
+
+    Every table is looked at, and a table that could not be read is not an
+    empty table: it is an unknown one.
+    """
+    if not stopped:
+        return [
+            "the app was not stopped, so the import was not cut short — the case is untested"
+        ]
+    unreadable = sorted(key for key, value in counts.items() if value < 0)
+    if unreadable:
+        return [
+            f"the tables {', '.join(unreadable)} could not be read, "
+            "so what the interrupted import left behind is unknown"
+        ]
+    left = {key: value for key, value in counts.items() if value > 0}
+    if not left:
+        return []
+    tasks = counts.get("tasks", 0)
+    if expected_tasks and tasks >= expected_tasks:
+        return [
+            f"the import had already committed when the app was stopped "
+            f"({tasks} of {expected_tasks} tasks)"
+        ]
+    return [
+        f"the interrupted import left {left} behind — the profile holds part of the dataset"
+    ]
+
+
 def check_over_budget(
     serial: str, out_dir: Path, archive: Path, apk: Path | None = None
 ) -> dict:
     """Restore an archive that is over the budget; the app has to refuse it.
 
-    The refusal has to be a refusal with a reason — a dialog that says the
-    import failed — and the profile's data has to be untouched by it.
+    The refusal has to be a refusal with a reason — a dialog that names the
+    archive's size as the reason — and the profile's data has to be
+    untouched by it.
 
     The profile is expected to be empty (the caller wipes it): the check is
     "the refused archive wrote nothing", which is only a statement about the
@@ -1119,15 +1224,12 @@ def check_over_budget(
     outcome = restore_and_watch(serial, name, out_dir / "over-budget-flow.log", apk=apk)
     db_path = pull_database(serial, out_dir / "over-budget-db")
     counts = count_rows(db_path)
-    wrote = any(value > 0 for value in counts.values())
-    verdict = []
-    if not outcome["errorDialog"] and not outcome["reportedBySnackbar"]:
-        verdict.append("the import failed without saying so")
-    if wrote:
-        verdict.append(f"the refused archive left rows behind: {counts}")
-    if not verdict:
-        verdict.append("the archive was refused with a diagnostic and nothing was written")
-    return {"outcome": outcome, "counts": counts, "verdict": "; ".join(verdict)}
+    problems = over_budget_problems(outcome, counts)
+    if problems:
+        verdict = "; ".join(problems)
+    else:
+        verdict = "the archive was refused for its size and nothing was written"
+    return {"outcome": outcome, "counts": counts, "problems": problems, "verdict": verdict}
 
 
 def check_interrupted_import(
@@ -1179,25 +1281,17 @@ def check_interrupted_import(
                     process.kill()
     db_path = pull_database(serial, out_dir / "interrupted-db")
     counts = count_rows(db_path)
-    tasks = counts.get("tasks", -1)
-    verdict = []
-    if not stopped:
-        verdict.append(
-            "the app was not stopped, so the import was not cut short — the case is untested"
-        )
-    elif tasks == 0:
-        verdict.append("the interrupted import left the profile empty")
-    elif expected_tasks and tasks >= expected_tasks:
-        verdict.append(
-            f"the import had already committed when the app was stopped "
-            f"({tasks} of {expected_tasks} tasks)"
-        )
+    problems = interrupted_import_problems(stopped, counts, expected_tasks)
+    if problems:
+        verdict = "; ".join(problems)
     else:
-        verdict.append(
-            f"the interrupted import left {tasks} of {expected_tasks} tasks behind — "
-            "the profile holds part of the dataset"
-        )
-    return {"interrupted": stopped, "counts": counts, "verdict": "; ".join(verdict)}
+        verdict = "the interrupted import left the profile empty"
+    return {
+        "interrupted": stopped,
+        "counts": counts,
+        "problems": problems,
+        "verdict": verdict,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1339,6 +1433,12 @@ def main(argv: list[str] | None = None) -> int:
             apk=apk,
         )
 
+        negative_problems = [
+            f"{name}: {problem}"
+            for name, phase in negative.items()
+            for problem in phase.get("problems", [])
+        ]
+
         report = {
             "device": {"serial": serial, **device_facts(serial)},
             "apk": {"path": str(apk), "package": package, "version": version, "variant": "debug"},
@@ -1370,6 +1470,7 @@ def main(argv: list[str] | None = None) -> int:
                 "problems": (
                     count_problems
                     + link_problems
+                    + negative_problems
                     + ([] if browse_ok else ["the imported data did not open in the app"])
                     + ([] if outcome["reportedBySnackbar"] else ["the restore never reported itself"])
                 )

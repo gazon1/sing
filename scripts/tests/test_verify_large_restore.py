@@ -12,6 +12,10 @@ turn a broken restore into a green report:
   empty table — otherwise a restore that wrote nothing at all passes;
 * `relationship_problems` counts the links that point at nothing, on a
   database built to contain exactly one broken link of each kind;
+* `over_budget_problems` tells a refusal for the archive's size apart from a
+  refusal for anything else — the dialog is the same in both cases;
+* `interrupted_import_problems` holds an import that was cut short to
+  leaving the profile whole or empty, over every table and not only tasks;
 * `unique_task_title` picks the title that matches exactly one row;
 * `related_task_title` picks the task the app actually shows relations for;
 * `padded_archive` builds an archive the app has to refuse for the budget's
@@ -196,6 +200,54 @@ class RelationshipProblemsTest(unittest.TestCase):
             )
             problems = driver.relationship_problems(path)
         self.assertIn("subtasks without a parent task: 1", problems)
+
+    def test_a_tag_link_without_a_tag_is_reported(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title) VALUES ('t1', 'Task 1')",
+                    "INSERT INTO task_tags (task_id, tag_id) VALUES ('t1', 'missing')",
+                ],
+            )
+            problems = driver.relationship_problems(path)
+        self.assertIn("task_tags without a tag: 1", problems)
+
+    def test_a_dependency_without_a_task_is_reported(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title) VALUES ('t1', 'Task 1')",
+                    "INSERT INTO task_dependencies (task_id, depends_on_task_id) "
+                    "VALUES ('missing', 't1')",
+                ],
+            )
+            problems = driver.relationship_problems(path)
+        self.assertIn("task_dependencies without a task: 1", problems)
+
+    def test_a_checklist_item_without_a_task_is_reported(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO checklist_items (id, task_id) VALUES ('c1', 'missing')",
+                ],
+            )
+            problems = driver.relationship_problems(path)
+        self.assertIn("checklist_items without a task: 1", problems)
+
+    def test_a_task_without_a_project_is_reported(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO tasks (id, title, project_id) "
+                    "VALUES ('t1', 'Task 1', 'missing')",
+                ],
+            )
+            problems = driver.relationship_problems(path)
+        self.assertIn("tasks without a project: 1", problems)
 
 
 class UniqueTaskTitleTest(unittest.TestCase):
@@ -570,6 +622,131 @@ class WipeWaitingTest(unittest.TestCase):
         self.assertEqual(counts, {"tasks": 0})
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
         self.assertIn("todo-debug://seed?reset=content", " ".join(seen[1]))
+
+
+class OverBudgetProblemsTest(unittest.TestCase):
+    """The app has to refuse an over-budget archive *for its size*.
+
+    A refusal for any other reason wears the same dialog, so the dialog
+    alone proves nothing: the message in it is what says that the budget
+    was the reason.
+    """
+
+    #: The message the app's own budget check fails an archive with.
+    BUDGET_MESSAGE = "backup archive entry exceeds remaining byte budget"
+
+    def test_a_refusal_that_names_the_budget_is_accepted(self):
+        outcome = {
+            "errorDialog": True,
+            "reportedBySnackbar": False,
+            "errorDialogText": f"Error {self.BUDGET_MESSAGE}",
+        }
+        self.assertEqual(driver.over_budget_problems(outcome, {"tasks": 0}), [])
+
+    def test_a_refusal_for_another_reason_is_a_problem(self):
+        outcome = {
+            "errorDialog": True,
+            "reportedBySnackbar": False,
+            "errorDialogText": "Error That file is not a Singularity backup",
+        }
+        problems = driver.over_budget_problems(outcome, {"tasks": 0})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("not for its size", problems[0])
+
+    def test_an_import_the_app_called_done_is_a_problem(self):
+        outcome = {
+            "errorDialog": False,
+            "reportedBySnackbar": True,
+            "errorDialogText": "",
+        }
+        problems = driver.over_budget_problems(outcome, {"tasks": 0})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("instead of refusing", problems[0])
+
+    def test_an_import_that_failed_without_saying_so_is_a_problem(self):
+        outcome = {
+            "errorDialog": False,
+            "reportedBySnackbar": False,
+            "errorDialogText": "",
+        }
+        problems = driver.over_budget_problems(outcome, {"tasks": 0})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("without saying so", problems[0])
+
+    def test_rows_left_behind_are_a_problem(self):
+        outcome = {
+            "errorDialog": True,
+            "reportedBySnackbar": False,
+            "errorDialogText": self.BUDGET_MESSAGE,
+        }
+        problems = driver.over_budget_problems(outcome, {"tasks": 3, "projects": 0})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("left rows behind", problems[0])
+
+
+class InterruptedImportProblemsTest(unittest.TestCase):
+    """An import that was cut short has to leave the profile whole or empty.
+
+    "Part of the dataset" is not only about tasks: an import that wrote the
+    projects and the tags but no task yet is part of the dataset too.
+    """
+
+    def test_an_empty_profile_is_what_the_check_looks_for(self):
+        counts = {
+            "tasks": 0,
+            "projects": 0,
+            "tags": 0,
+            "notes": 0,
+            "checklistItems": 0,
+            "taskDependencies": 0,
+            "taskTags": 0,
+        }
+        self.assertEqual(driver.interrupted_import_problems(True, counts, 100), [])
+
+    def test_a_profile_with_entities_but_no_task_is_part_of_the_dataset(self):
+        counts = {
+            "tasks": 0,
+            "projects": 12,
+            "tags": 3,
+            "notes": 0,
+            "checklistItems": 0,
+            "taskDependencies": 0,
+            "taskTags": 0,
+        }
+        problems = driver.interrupted_import_problems(True, counts, 100)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("part of the dataset", problems[0])
+
+    def test_an_import_that_was_never_cut_short_is_not_tested(self):
+        problems = driver.interrupted_import_problems(False, {"tasks": 0}, 100)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("not cut short", problems[0])
+
+    def test_an_import_that_had_already_committed_is_a_problem(self):
+        problems = driver.interrupted_import_problems(True, {"tasks": 100}, 100)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("already committed", problems[0])
+
+    def test_a_table_that_could_not_be_read_is_not_an_empty_table(self):
+        problems = driver.interrupted_import_problems(True, {"tasks": -1}, 100)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("could not be read", problems[0])
+
+
+class DialogTextTest(unittest.TestCase):
+    """The words in the dialog are what say why the import failed."""
+
+    def test_the_text_of_the_screen_is_read(self):
+        dump = (
+            '<?xml version="1.0"?><hierarchy><node text="Error" resource-id="result_dialog">'
+            '<node text="backup archive exceeds limits: entries=2 bytes=73400320"/></node>'
+            "</hierarchy>"
+        )
+        self.assertIn("exceeds limits", driver.dialog_text(dump))
+        self.assertTrue(driver.mentions_budget(driver.dialog_text(dump)))
+
+    def test_a_message_about_anything_else_is_not_the_budget(self):
+        self.assertFalse(driver.mentions_budget("That file is not a Singularity backup"))
 
 
 if __name__ == "__main__":
