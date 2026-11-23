@@ -1,0 +1,23 @@
+# Open the Inbox and stop there.
+#
+# The task that the browse flow opens is read off the screen: the Inbox of a
+# large dataset holds thousands of rows, and which one is on top depends on
+# the order the app puts them in. The command that drives this flow reads the
+# first row's own test tag and title out of the screen and hands them to the
+# browse flow, so the assertion is about a row that is really there.
+appId: com.singularity.todo
+name: large-restore-open-inbox
+---
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 60000
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 30000

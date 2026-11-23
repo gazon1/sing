@@ -1,0 +1,1407 @@
+#!/usr/bin/env python3
+"""Restore a synthetic backup into the Android app and check what came out.
+
+One command, one named device, one archive:
+
+    python3 scripts/verify-large-restore.py --serial 0O65321F32204DD5 --profile 10k
+
+WHAT IT DOES
+
+    1. builds (or takes) the debug APK and installs it on the *named* device;
+    2. generates the synthetic archive with `import-cli` and reads its sidecar
+       manifest — the manifest is what the archive is supposed to contain;
+    3. pushes the archive into the device's Downloads and restores it through
+       the app's own restore path: Settings -> Backup -> Restore -> the system
+       file picker -> the confirm dialog. No direct write into Room, no debug
+       endpoint that writes rows in bulk;
+    4. checks the two ways the restore can go wrong — an archive over the
+       budget, and an import that is cut short — and the one way it has to go
+       right: the counts and the links, the data after a restart, and the task
+       list, the task detail, the search and the related-tasks picker;
+    5. writes the measurements into a report.
+
+WHAT IT DELIBERATELY DOES NOT DO
+
+    It does not pick a device. The serial is required, and a serial that is
+    not attached is an error rather than a guess — the same rule the store
+    capture follows, and the same reason: one attached device is just as
+    likely to be somebody's phone as the test AVD, and this command installs
+    an APK on it and overwrites its data.
+
+    It does not uninstall the app. A signature clash is reported, not resolved
+    by throwing away the data on the device.
+
+WHY THE DEVICE POLICY LIVES IN `store-capture.py`
+
+    The rules above — name the device, refuse to guess, refuse to throw the
+    data away — are already written down and already tested, in the script
+    that installs an APK on a device and takes its picture. This command does
+    the same kind of work on the same kind of device, so it uses the same
+    implementation instead of a second one that drifts.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+import time
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+#: The flows this command drives. They live next to the command and not in
+#: `Maestro/flows/`: they are a local performance scenario, not part of the
+#: certified suite — no CI runs them, so they carry no catalogue entry and no
+#: qualification record.
+FLOW_DIR = Path(__file__).resolve().parent / "verify-large-restore"
+
+#: The package the app installs under.
+APP_ID = "com.singularity.todo"
+
+#: Where the archive is pushed on the device. The system file picker opens on
+#: this folder's own listing, so the archive has to be somewhere the picker
+#: can show it.
+DEVICE_DOWNLOAD_DIR = "/sdcard/Download"
+
+#: The tables the manifest's counts are about, and the table each count is
+#: counted in. The names are the Room table names.
+COUNT_TABLES = {
+    "tasks": "tasks",
+    "projects": "projects",
+    "tags": "tags",
+    "notes": "notes",
+    "checklistItems": "checklist_items",
+    "taskDependencies": "task_dependencies",
+    "taskTags": "task_tags",
+}
+
+#: The snackbar the restore path reports itself with. Its test tag is the
+#: evidence; the text is translated on the device, so it is not asserted on.
+SNACKBAR_ID = "snackbar_message"
+
+#: The button of the dialog that asks before it overwrites the profile's data.
+CONFIRM_ID = "dialog_confirm"
+
+#: What Maestro writes when it taps that button. The line in the flow's output
+#: is the moment the import starts — a moment that is on the host, where it can
+#: be read without disturbing the device.
+CONFIRM_TAP = "Tap on id: dialog_confirm"
+
+#: The shared dialog the failure of an import is reported in.
+ERROR_DIALOG_ID = "result_dialog"
+
+#: The line the debug activity logs when the profile's content has been
+#: wiped. It is the end-of-wipe signal: the deep link returns long before the
+#: deletes are committed.
+RESET_MARKER = "reset(content) reached"
+
+#: How many bytes the padded archive adds to push the archive over the
+#: budget the app enforces (64 MiB of unpacked bytes).
+OVER_BUDGET_PADDING_BYTES = 70 * 1024 * 1024
+
+#: How long the watch waits after the confirmation before it stops believing
+#: that the app is still importing. Past this the import is over, whatever
+#: the screen says; the database is what settles whether it worked.
+SILENT_IMPORT_SECONDS = 600
+
+#: The screen dump is scanned, not parsed: the device may cut the tree off
+#: in the middle and glues the shell's own output onto the end.
+NODE_TAG = re.compile(r"<node\b[^>]*>")
+NODE_ATTRIBUTE = re.compile(r'([\w-]+)="([^"]*)"')
+
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_SETUP = 2
+
+
+class RunError(RuntimeError):
+    """The run could not start, or could not be trusted.
+
+    A different failure from "the restore did not work": this one says the
+    command is not measuring the thing it claims to measure — no device, no
+    APK, no archive. Those are reported before the import is attempted.
+    """
+
+
+# ── the device policy, borrowed from the store capture ──────────────────────
+
+
+def _load_store_capture():
+    """The store capture's device helpers, loaded as a module.
+
+    The file name has a dash in it, so it cannot be imported by name; it is
+    loaded the way the repository's own tests load it.
+    """
+    path = ROOT / "scripts" / "store-capture.py"
+    spec = importlib.util.spec_from_file_location("store_capture", path)
+    if spec is None or spec.loader is None:
+        raise RunError(f"the device helpers in {path} could not be loaded")
+    module = importlib.util.module_from_spec(spec)
+    # The module has to be in `sys.modules` before it is executed: a dataclass
+    # looks its own module up there while it is being built.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+capture = _load_store_capture()
+
+
+def adb(*args: str, serial: str = "", timeout: float = 120) -> tuple[int, str]:
+    """Run an adb command against the device; return its exit code and output."""
+    return capture.adb(*args, serial=serial, timeout=timeout)
+
+
+def adb_bytes(*args: str, serial: str = "", timeout: float = 900) -> tuple[int, bytes]:
+    """Run an adb command and keep its output as bytes.
+
+    The device's database is binary. The helper the capture uses decodes what
+    it reads as text, and a decoded database is not a database: the bytes that
+    are not valid text are replaced, and the copy that comes back is a file
+    that opens and holds nothing.
+    """
+    command = ["adb"]
+    if serial:
+        command += ["-s", serial]
+    command += list(args)
+    try:
+        cp = subprocess.run(command, capture_output=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 1, str(exc).encode()
+    return cp.returncode, cp.stdout
+
+
+def device_facts(serial: str) -> dict:
+    """What the device is: the model, the Android version, the ABI."""
+    facts = {}
+    for name, prop in (
+        ("model", "ro.product.model"),
+        ("androidRelease", "ro.build.version.release"),
+        ("sdk", "ro.build.version.sdk"),
+        ("abi", "ro.product.cpu.abi"),
+    ):
+        code, out = adb("shell", "getprop", prop, serial=serial)
+        facts[name] = out.strip() if code == 0 else "unknown"
+    return facts
+
+
+def device_is_held(serial: str) -> int | None:
+    """The PID of the run that holds the device, if one does.
+
+    The repository's own runner takes a lock on the serial it drives, and two
+    runs on one device kill each other's device server: the second one's
+    driver never starts. A phone on a desk is shared with the other sessions
+    of the same machine, so the run checks before it starts rather than
+    discovering it one flow at a time.
+    """
+    lock_dir = Path(os.environ.get("MAESTRO_LOCK_DIR", "/tmp"))
+    lock = lock_dir / f"singularity-maestro-{serial}.lock"
+    try:
+        pid = int(lock.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return None  # a lock whose owner is gone does not hold anything
+    return pid
+
+
+def database_version(serial: str) -> int | None:
+    """The schema version of the database on the device, or None.
+
+    SQLite keeps the version in the first bytes of the file, so the header is
+    enough to read it.
+    """
+    code, out = adb_bytes(
+        "exec-out", "run-as", APP_ID, "cat", "databases/todo.db", serial=serial, timeout=300
+    )
+    if code != 0 or len(out) < 64:
+        return None
+    return int.from_bytes(out[60:64], "big")
+
+
+def app_schema_version() -> int:
+    """The schema version of this checkout's database."""
+    exports = ROOT / "core-database" / "schemas" / f"{APP_ID}.core.database.AppDatabase"
+    versions = [int(path.stem) for path in exports.glob("*.json") if path.stem.isdigit()]
+    return max(versions) if versions else 0
+
+
+def installed_apk_digest(serial: str) -> str:
+    """The checksum of the APK that is installed on the device."""
+    code, out = adb("shell", "pm", "path", APP_ID, serial=serial)
+    if code != 0:
+        return ""
+    remote = ""
+    for line in out.splitlines():
+        if line.startswith("package:"):
+            remote = line.strip()[len("package:"):]
+            break
+    if not remote:
+        return ""
+    code, out = adb("shell", f"md5sum {remote}", serial=serial, timeout=300)
+    if code != 0:
+        return ""
+    return out.split()[0] if out.split() else ""
+
+
+def verify_installed_apk(serial: str, apk: Path) -> None:
+    """Check that the device carries the very APK this run installed.
+
+    The version name is not enough. Two builds of the same project can carry
+    the same version name, and a phone shared with another session can have
+    another session's build installed on it between the install and the run.
+    That is not a theoretical worry: a foreign build with an older database
+    version makes the app refuse to open the database at all, and the flow
+    then fails on a screen the restore never touched.
+    """
+    local = hashlib.md5(apk.read_bytes()).hexdigest()
+    remote = installed_apk_digest(serial)
+    if not remote:
+        print("note: the device does not report a checksum of the installed APK")
+        return
+    if remote != local:
+        raise RunError(
+            f"the device carries an APK with the checksum {remote}, but the one this "
+            f"run installed has {local}. Another session installed another build on "
+            "this device; the run is refused rather than measured against it."
+        )
+
+
+def verify_apk_unchanged(serial: str, apk: Path) -> None:
+    """Check that the APK on the device is still the one this run installed.
+
+    The check at the start of the run is not enough: another session can
+    install its own build while this run is between two flows. The foreign
+    build then opens the profile's database with a different schema version,
+    and the app shows a migration error instead of its own screens — a
+    failure that has nothing to do with the restore and that reads like one.
+
+    So the check is made again before every flow, where a foreign build is
+    still somebody else's problem to notice.
+    """
+    local = hashlib.md5(apk.read_bytes()).hexdigest()
+    remote = installed_apk_digest(serial)
+    if remote and remote != local:
+        raise RunError(
+            f"the APK on {serial} changed while this run was going: it carries "
+            f"{remote}, this run installed {local}. Another session installed another "
+            "build on this device; the run stops here rather than measuring a "
+            "restore against somebody else's app."
+        )
+
+
+# ── the archive ──────────────────────────────────────────────────────────────
+
+def generate_archive(profile: str, seed: int, out_dir: Path) -> tuple[Path, Path, dict]:
+    """Generate the synthetic archive and read its sidecar manifest.
+
+    Returns the archive, the sidecar and the manifest.
+    """
+    archive = (out_dir / f"synthetic-{profile}.zip").resolve()
+    sidecar = archive.with_suffix(".manifest.json")
+    for path in (archive, sidecar):
+        if path.exists():
+            path.unlink()
+    command = [
+        str(ROOT / "gw"),
+        ":import-cli:run",
+        f"--args=generate --profile {profile} --seed {seed} --output {archive}",
+    ]
+    print(f"generating: {' '.join(command)}")
+    cp = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    if cp.returncode != 0:
+        raise RunError(
+            "the generator failed:\n"
+            + (cp.stdout or "")[-2000:]
+            + (cp.stderr or "")[-2000:]
+        )
+    if not archive.is_file() or not sidecar.is_file():
+        raise RunError(f"the generator produced no archive at {archive}")
+    manifest = json.loads(sidecar.read_text(encoding="utf-8"))
+    print(f"archive: {archive} ({archive.stat().st_size} bytes)")
+    return archive, sidecar, manifest
+
+
+def padded_archive(archive: Path, out_dir: Path) -> Path:
+    """A copy of the archive that is over the budget the app enforces.
+
+    The generator refuses to write such a dataset, which is the right answer
+    for the generator — so the archive the app is asked to refuse is built
+    here: the same two entries, plus one entry of padding that pushes the
+    unpacked size past the budget. The app has to refuse it, and it has to
+    refuse it for the budget's reason and not for a malformed archive's.
+    """
+    padded = out_dir / "over-budget.zip"
+    with zipfile.ZipFile(archive) as source, zipfile.ZipFile(
+        padded, "w", zipfile.ZIP_DEFLATED
+    ) as target:
+        for info in source.infolist():
+            target.writestr(info.filename, source.read(info.filename))
+        target.writestr("padding.bin", b"\0" * OVER_BUDGET_PADDING_BYTES)
+    return padded
+
+
+def push_archive(serial: str, archive: Path) -> str:
+    """Put the archive into the device's Downloads; return its name there."""
+    name = archive.name
+    remote = f"{DEVICE_DOWNLOAD_DIR}/{name}"
+    code, out = adb("push", str(archive), remote, serial=serial, timeout=900)
+    if code != 0:
+        raise RunError(f"the archive could not be pushed to {remote}:\n{out.strip()}")
+    # The picker's "recent" list is fed by the media store, so the file has to
+    # be scanned in. Without the scan the file is in Downloads but the picker
+    # does not offer it.
+    adb(
+        "shell",
+        "am",
+        "broadcast",
+        "-a",
+        "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
+        "-d",
+        f"file://{remote}",
+        serial=serial,
+    )
+    return name
+
+
+def wait_for_reset_marker(serial: str, timeout: float = 900) -> float:
+    """Wait for the app's own line that says the wipe is finished.
+
+    The debug activity logs `reset(content) reached N tables` when
+    `resetContent()` has returned — that is, when every delete has been
+    committed. The line is the only end-of-wipe signal there is: the deep link
+    returns as soon as the app has taken it, long before the deletes are done.
+
+    Waiting on the line rather than on a fixed delay matters, because a wipe
+    of a large dataset takes minutes (every removed task is pushed to the sync
+    outbox) and a reader that stops the app to read the database in the
+    middle of the wipe rolls the wipe back: the app is killed with the
+    transaction open, the transaction is discarded, and the profile still
+    holds every row the wipe had already deleted.
+    """
+    started = time.monotonic()
+    while time.monotonic() - started < timeout:
+        code, out = adb("logcat", "-d", "-s", "DebugSeedActivity:V", serial=serial)
+        if RESET_MARKER in out:
+            return time.monotonic() - started
+        time.sleep(5)
+    raise RunError(f"the profile's content was not wiped within {int(timeout)}s")
+
+
+def reset_content(
+    serial: str, out_dir: Path | None = None, attempts: int = 4
+) -> tuple[dict[str, int], float]:
+    """Wipe the active profile's content through the debug seed link.
+
+    The same link the Maestro runner uses before a flow. The import overwrites
+    the profile's rows, but the counts afterwards are only the dataset's counts
+    if there was nothing else in the profile to begin with.
+
+    The wipe is waited for with the app's own marker (see
+    [wait_for_reset_marker]) and the check is made on a database that is read
+    with the app stopped. A wipe that did not take effect is asked for again.
+
+    Returns the row counts of the wiped profile and how long the wipe took.
+    """
+    counts: dict[str, int] = {}
+    for _ in range(attempts):
+        # The log is cleared first: the marker of an earlier wipe would be
+        # read as this one's.
+        adb("logcat", "-c", serial=serial)
+        code, out = adb(
+            "shell",
+            "am",
+            "start",
+            "-a",
+            "android.intent.action.VIEW",
+            "-d",
+            "todo-debug://seed?reset=content",
+            serial=serial,
+        )
+        if code != 0:
+            raise RunError(f"the profile's content could not be reset:\n{out.strip()}")
+        elapsed = wait_for_reset_marker(serial)
+        if out_dir is None:
+            return {}, elapsed
+        counts = count_rows(pull_database(serial, out_dir / "reset-db"))
+        if not any(value > 0 for value in counts.values()):
+            return counts, elapsed
+    raise RunError(f"the profile's content was not wiped — it still holds {counts}")
+
+
+def wake_unlock(serial: str) -> None:
+    """Wake the device and dismiss its lockscreen.
+
+    A locked device shows the lock screen, not the app: every assertion of a
+    flow that runs against it is made against a screen in front of the one it
+    describes, and the run reports a failure that has nothing to do with the
+    restore. The sequence is the one the repository's own device skill uses,
+    and the swipe is the fallback for a device that does not take the menu
+    key.
+    """
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP", serial=serial)
+    time.sleep(1)
+    adb("shell", "input", "keyevent", "82", serial=serial)
+    time.sleep(1)
+    code, out = adb("shell", "dumpsys", "window", serial=serial)
+    if code == 0 and "mDreamingLockscreen=true" in out:
+        adb("shell", "input", "swipe", "500", "1500", "500", "500", serial=serial)
+        time.sleep(1)
+
+
+def prewarm_app(serial: str) -> None:
+    """Start the app before Maestro is asked to.
+
+    Maestro's `launchApp` waits for the app to report itself ready, and on a
+    busy host the cold start of the app — the database opens, the first query
+    runs — takes longer than that wait. The flow then hangs on the launch,
+    although the phone is fine: asked directly, the app is up in a second. The
+    start here makes the launch that follows a warm one, and the flow carries
+    on where it would have carried on.
+    """
+    adb("shell", "am", "start", "-n", f"{APP_ID}/.MainActivity", serial=serial, timeout=60)
+    time.sleep(2)
+
+
+def keep_awake(serial: str) -> None:
+    """Stop the device from locking itself while the run is watching it.
+
+    A phone's screen times out after a minute or two, and the run spends far
+    longer than that watching an import. When the screen goes off the device
+    shows its lock screen, the screen dumps read that instead of the app, and
+    the run concludes that the import said nothing — when in fact the import
+    finished while the phone was asleep.
+
+    So the screen is held on for the length of the run. The setting is the
+    device's own `stay_on_while_plugged_in` in developer options, which is what
+    a plugged-in test phone normally has set anyway.
+    """
+    adb("shell", "svc", "power", "stayon", "true", serial=serial)
+
+
+#: What a locked screen looks like in a dump. The system UI's own ids are
+#: there, and the app's are not.
+LOCKED_MARKERS = ("keyguard_", "com.android.systemui:id/keyguard")
+
+
+def screen_is_locked(dump: str) -> bool:
+    """Whether the dump was taken of the lock screen rather than the app."""
+    return any(marker in dump for marker in LOCKED_MARKERS)
+
+
+# ── the import, through the app's own path ───────────────────────────────────
+
+
+def find_maestro() -> str:
+    """Where Maestro is.
+
+    The repository's own runner knows where Maestro is; this command drives
+    Maestro directly, and a shell that does not carry `~/.maestro/bin` on its
+    PATH is not a reason for the run to fail with "no such file".
+    """
+    found = shutil.which("maestro")
+    if found:
+        return found
+    candidate = Path.home() / ".maestro" / "bin" / "maestro"
+    if candidate.is_file():
+        return str(candidate)
+    raise RunError("maestro was not found on PATH nor in ~/.maestro/bin")
+
+
+def flow_command(serial: str, flow: str, env: dict[str, str]) -> list[str]:
+    """The command that runs one of this command's flows on the named device.
+
+    Maestro is driven directly: these flows are not in the repository's
+    certified suite, so the suite's runner does not know them.
+    """
+    command = [find_maestro(), "test", "--udid", serial, "--no-ansi"]
+    for key, value in env.items():
+        command += ["-e", f"{key}={value}"]
+    command.append(str(FLOW_DIR / flow))
+    return command
+
+
+#: What Maestro writes when its driver on the device does not come up. It is
+#: the device's answer, not the flow's: the flow never ran. A phone shared with
+#: another session refuses the driver now and then, and a run that reports that
+#: as "the restore failed" is measuring the wrong thing.
+DRIVER_FAILED = "did not start up in time"
+
+
+def run_flow(
+    serial: str,
+    flow: str,
+    env: dict[str, str],
+    log: Path,
+    timeout: int = 1200,
+    apk: Path | None = None,
+) -> bool:
+    """Run one of this command's flows; return whether it passed.
+
+    A flow that never got a driver is run again: the device was busy, and the
+    run is about the restore, not about the device's mood.
+    """
+    for attempt in (1, 2):
+        command = flow_command(serial, flow, env)
+        print(f"flow: {flow}")
+        wake_unlock(serial)
+        prewarm_app(serial)
+        if apk is not None:
+            verify_apk_unchanged(serial, apk)
+        with log.open("w", encoding="utf-8") as handle:
+            try:
+                cp = subprocess.run(
+                    command,
+                    cwd=ROOT,
+                    stdout=handle,
+                    stderr=subprocess.STDOUT,
+                    timeout=timeout,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RunError(f"the flow {flow} could not be started: {exc}") from exc
+        if cp.returncode == 0:
+            return True
+        if DRIVER_FAILED not in log.read_text(encoding="utf-8", errors="replace"):
+            return False
+        print(f"the driver of {flow} did not come up; running it again")
+    return False
+
+
+def ui_dump(serial: str) -> str:
+    """The current screen's UI tree, as XML."""
+    code, out = adb("exec-out", "uiautomator", "dump", "/dev/tty", serial=serial, timeout=60)
+    return out if code == 0 else ""
+
+
+def import_duration(
+    started: float,
+    tapped: float | None,
+    snackbar: float | None,
+    error_at: float | None,
+) -> tuple[float | None, str]:
+    """How long the import took, and where that number came from.
+
+    The import starts when the confirmation is tapped and ends when the app
+    reports it. The report is a snackbar for an import that worked and a
+    dialog for one that did not, so the two are different ends and each is
+    measured from the tap.
+    """
+    if snackbar is not None and tapped is not None:
+        return snackbar - tapped, "confirm-to-snackbar"
+    if snackbar is not None:
+        return snackbar - started, "flow-to-snackbar"
+    if error_at is not None and tapped is not None:
+        return error_at - tapped, "confirm-to-error-dialog"
+    return None, "none"
+
+
+def restore_and_watch(
+    serial: str, archive_name: str, log: Path, timeout: int = 1800, apk: Path | None = None
+) -> dict:
+    """Restore the archive and watch the screen while it happens.
+
+    The import is measured between two moments: the confirmation being tapped
+    — the import starts there — and the snackbar that reports it — the import
+    ends there.
+
+    The first moment is read off the flow's own output, not off the screen.
+    Dumping the screen while Maestro drives it takes the device's
+    accessibility service away from Maestro's driver, and the driver then
+    fails to start; the screen is only read once the flow has done its last
+    step and the import is running on its own.
+
+    A flow whose driver never came up is run again: the device refused it,
+    the import never started, and a run that read that as "the import failed"
+    would report a failure that never happened.
+    """
+    for attempt in (1, 2):
+        outcome = _restore_and_watch_once(serial, archive_name, log, timeout, apk)
+        if attempt == 1 and DRIVER_FAILED in log.read_text(encoding="utf-8", errors="replace"):
+            print("the driver of the flow did not come up; running the flow again")
+            continue
+        return outcome
+    return outcome
+
+
+def _restore_and_watch_once(
+    serial: str, archive_name: str, log: Path, timeout: int, apk: Path | None = None
+) -> dict:
+    """One attempt at the restore: the flow, and the watch beside it."""
+    command = flow_command(serial, "restore-archive.yaml", {"ARCHIVE_NAME": archive_name})
+    print("flow: restore-archive.yaml")
+    wake_unlock(serial)
+    if apk is not None:
+        verify_apk_unchanged(serial, apk)
+    started = time.monotonic()
+    tapped: float | None = None
+    snackbar: float | None = None
+    error_at: float | None = None
+    with log.open("w", encoding="utf-8") as handle:
+        process = subprocess.Popen(
+            command,
+            cwd=ROOT,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+        )
+        try:
+            while True:
+                now = time.monotonic()
+                if tapped is None:
+                    text = log.read_text(encoding="utf-8", errors="replace")
+                    if CONFIRM_TAP in text:
+                        # The confirmation was tapped: the import is running.
+                        tapped = now
+                    elif process.poll() is not None:
+                        # The flow is over and it never got to the confirmation.
+                        break
+                else:
+                    dump = ui_dump(serial)
+                    if screen_is_locked(dump):
+                        # The phone locked itself while the import was
+                        # running. The lock screen is dismissed and the watch
+                        # goes on — the import is still the thing being
+                        # measured, and a locked phone says nothing about it.
+                        wake_unlock(serial)
+                        dump = ui_dump(serial)
+                    stamp = time.monotonic()
+                    if ERROR_DIALOG_ID in dump:
+                        # The app refused the archive and said so in the
+                        # dialog it shares with other failures. The dialog
+                        # stays up until it is dismissed, so the watch ends
+                        # here: the import is over, it did not go well, and
+                        # the dialog is the report.
+                        error_at = stamp
+                        break
+                    if SNACKBAR_ID in dump:
+                        snackbar = stamp
+                        break
+                    if tapped is not None and stamp - tapped > SILENT_IMPORT_SECONDS:
+                        # The import is over but the app has not said so —
+                        # the snackbar was missed, or there was none. The
+                        # counts in the database are what settles it.
+                        break
+                if now - started > timeout:
+                    break
+                time.sleep(0.5)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=60)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+    flow_seconds = time.monotonic() - started
+    duration, measured = import_duration(started, tapped, snackbar, error_at)
+    return {
+        "flowSeconds": round(flow_seconds, 1),
+        "durationSeconds": round(duration, 1) if duration is not None else None,
+        "measured": measured,
+        "confirmedAt": round(tapped - started, 1) if tapped is not None else None,
+        "reportedBySnackbar": snackbar is not None,
+        "errorDialog": error_at is not None,
+        "log": str(log),
+    }
+
+
+# ── the database on the device ───────────────────────────────────────────────
+
+
+def stop_app(serial: str, timeout: int = 30) -> bool:
+    """Stop the app and wait for its process to be gone.
+
+    A database that is copied while the app is writing it is a torn copy:
+    the main file and the write-ahead log are read at different moments, and
+    SQLite replays one over the other. The result is a database that holds
+    rows the app has deleted, and a run that reads it reports an import that
+    left rows behind when nothing was left behind.
+    """
+    adb("shell", "am", "force-stop", APP_ID, serial=serial)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        code, out = adb("shell", "pidof", APP_ID, serial=serial, timeout=30)
+        if code != 0 or not out.strip():
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def pull_database(serial: str, out_dir: Path, stop: bool = True) -> Path:
+    """Copy the app's database (and its write-ahead log) off the device.
+
+    The log is copied too: SQLite keeps the rows that were written last in
+    `todo.db-wal`, and a copy without it is a database that is missing exactly
+    the rows the import wrote.
+
+    The app is stopped first, so that the three files are one moment of the
+    database and not three.
+    """
+    if stop:
+        stop_app(serial)
+    target = out_dir / "device-db"
+    target.mkdir(parents=True, exist_ok=True)
+    # The old copy goes first. A write-ahead log that is left over from an
+    # earlier copy is replayed over the new database, and the rows the app
+    # has deleted come back with it: the copy then holds rows that are
+    # really gone, and a run reads that as an import that left rows behind.
+    for stale in target.glob("todo.db*"):
+        stale.unlink()
+    for name in ("todo.db", "todo.db-wal", "todo.db-shm"):
+        code, out = adb_bytes(
+            "exec-out",
+            "run-as",
+            APP_ID,
+            "cat",
+            f"databases/{name}",
+            serial=serial,
+            timeout=900,
+        )
+        if code != 0:
+            # A missing `-wal` or `-shm` is normal: SQLite removes them when
+            # the last connection closes.
+            if name == "todo.db":
+                raise RunError(f"the database could not be read from the device:\n{out!r}")
+            continue
+        (target / name).write_bytes(out)
+    return target / "todo.db"
+
+
+def database_bytes(db_dir: Path) -> int:
+    """How much space the database takes on the device."""
+    return sum(p.stat().st_size for p in db_dir.glob("todo.db*"))
+
+
+def count_rows(db_path: Path) -> dict[str, int]:
+    """How many rows each of the manifest's tables holds."""
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        counts = {}
+        for key, table in COUNT_TABLES.items():
+            try:
+                row = connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+            except sqlite3.Error:
+                counts[key] = -1
+                continue
+            counts[key] = int(row[0]) if row else -1
+        return counts
+    finally:
+        connection.close()
+
+
+def compare_counts(expected: dict, actual: dict) -> list[str]:
+    """The differences between the manifest's counts and the database's.
+
+    A count that is missing from the database is a difference too: a table
+    that could not be read is not a table with no rows.
+    """
+    problems = []
+    for key, want in expected.items():
+        if key not in actual:
+            problems.append(f"{key}: the database has no such table")
+            continue
+        got = actual[key]
+        if got != want:
+            problems.append(f"{key}: the manifest says {want}, the database holds {got}")
+    return problems
+
+
+def relationship_problems(db_path: Path) -> list[str]:
+    """The rows that point at a row that is not there.
+
+    A restore that wrote the rows but not the links between them leaves a
+    database that answers "how many" correctly and "of what" wrongly, so the
+    links are counted, not assumed.
+    """
+    checks = {
+        "task_tags without a task": (
+            "SELECT COUNT(*) FROM task_tags tt "
+            "LEFT JOIN tasks t ON tt.task_id = t.id WHERE t.id IS NULL"
+        ),
+        "task_tags without a tag": (
+            "SELECT COUNT(*) FROM task_tags tt "
+            "LEFT JOIN tags g ON tt.tag_id = g.id WHERE g.id IS NULL"
+        ),
+        "task_dependencies without a task": (
+            "SELECT COUNT(*) FROM task_dependencies d "
+            "LEFT JOIN tasks t ON d.task_id = t.id WHERE t.id IS NULL"
+        ),
+        "task_dependencies without the depended-on task": (
+            "SELECT COUNT(*) FROM task_dependencies d "
+            "LEFT JOIN tasks t ON d.depends_on_task_id = t.id WHERE t.id IS NULL"
+        ),
+        "checklist_items without a task": (
+            "SELECT COUNT(*) FROM checklist_items c "
+            "LEFT JOIN tasks t ON c.task_id = t.id WHERE t.id IS NULL"
+        ),
+        "tasks without a project": (
+            "SELECT COUNT(*) FROM tasks t "
+            "LEFT JOIN projects p ON t.project_id = p.id "
+            "WHERE t.project_id IS NOT NULL AND p.id IS NULL"
+        ),
+        "subtasks without a parent task": (
+            "SELECT COUNT(*) FROM tasks t "
+            "LEFT JOIN tasks p ON t.parent_task_id = p.id "
+            "WHERE t.parent_task_id IS NOT NULL AND p.id IS NULL"
+        ),
+    }
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        problems = []
+        for what, query in checks.items():
+            try:
+                row = connection.execute(query).fetchone()
+            except sqlite3.Error as exc:
+                problems.append(f"{what}: the check could not run ({exc})")
+                continue
+            if row and int(row[0]) > 0:
+                problems.append(f"{what}: {row[0]}")
+        return problems
+    finally:
+        connection.close()
+
+
+def number_of(title: str) -> int:
+    """The number in a generated title, or -1 when it carries none."""
+    digits = "".join(char for char in title if char.isdigit())
+    return int(digits) if digits else -1
+
+
+def unique_task_title(db_path: Path) -> str | None:
+    """The title of the task with the highest number in it.
+
+    The generated titles are "Task 1", "Task 2", …, so the highest number
+    belongs to exactly one task: no other title carries it as a substring.
+    The search that finds it therefore finds one row, and not a neighbour.
+    """
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = connection.execute("SELECT title FROM tasks").fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+    numbered = [(number_of(title), title) for (title,) in rows]
+    if not numbered:
+        return None
+    return max(numbered)[1]
+
+
+def related_task_title(db_path: Path) -> str | None:
+    """The title of a task that the app will show relations for.
+
+    The related-tasks section of the task detail is folded away until the
+    task has relations, so the picker can only be reached through a task that
+    has some. The app reads a task's relations from the edges the task
+    *holds* — the ones it blocks (`task_dependencies.task_id`), not the ones
+    that point at it — so only such a task shows the section.
+
+    The title is the one of a task whose title is unique in the dataset, so a
+    search for it finds that task and not a neighbour of it.
+    """
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        titles = dict(
+            connection.execute(
+                """
+                SELECT id, title FROM tasks
+                WHERE id IN (SELECT task_id FROM task_dependencies)
+                """
+            ).fetchall()
+        )
+        counts = dict(connection.execute("SELECT title, COUNT(*) FROM tasks GROUP BY title").fetchall())
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+    unique = [title for title in titles.values() if counts.get(title) == 1]
+    if not unique:
+        return None
+    # The title with the highest number in it: a search for it finds one row,
+    # where a search for a low number finds its neighbours as well.
+    return max(unique, key=lambda title: (number_of(title), title))
+
+
+def task_titles(db_path: Path) -> list[str]:
+    """Every task title in the pulled database."""
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = connection.execute("SELECT title FROM tasks").fetchall()
+    except sqlite3.Error:
+        return []
+    finally:
+        connection.close()
+    return [title for (title,) in rows if title]
+
+
+def slug(text: str) -> str:
+    """The app's own slug of a title — the same shape as `TestTags.slug`."""
+    out = []
+    pending_separator = False
+    for char in text.strip().lower():
+        # Kotlin's `isLetterOrDigit` is Lu/Ll/Lt/Lm/Lo plus Nd — `isalpha()`
+        # and `isdecimal()` are exactly those two sets.
+        if char.isalpha() or char.isdecimal():
+            if pending_separator and out:
+                out.append("_")
+            out.append(char)
+            pending_separator = False
+        else:
+            pending_separator = True
+    return "".join(out)
+
+
+def task_item_id(title: str) -> str:
+    """The test tag of the row that shows a task with this title."""
+    return f"task_item_{slug(title)}"
+
+
+def first_task_row(serial: str) -> str | None:
+    """The test tag of the first task row on the screen.
+
+    Read off the screen rather than guessed from the database: the Inbox of a
+    large dataset holds thousands of rows, and the row the flow opens has to
+    be a row that was really on the screen.
+
+    The dump is scanned rather than parsed. The device writes the tree and
+    then whatever the shell said, and on a screen full of rows it can cut
+    the tree off in the middle — a reader that insists on a whole document
+    finds nothing at all, and reports an imported dataset that is really
+    there as an empty one.
+    """
+    dump = ui_dump(serial)
+    for match in NODE_TAG.finditer(dump):
+        attributes = dict(NODE_ATTRIBUTE.findall(match.group(0)))
+        tag = attributes.get("resource-id", "")
+        if tag.startswith("task_item_"):
+            return tag
+    return None
+
+
+def title_for_tag(db_dir: Path, tag: str) -> str | None:
+    """The title of the task whose row carries this test tag.
+
+    The row's tag is the app's slug of the title, so the title is the one
+    whose slug is the tag. It is taken from the database rather than from the
+    screen: the screen's row holds the title among several other texts,
+    and the wrong one would send the flow looking for a title that is not
+    there.
+    """
+    wanted = tag.removeprefix("task_item_")
+    for title in task_titles(db_dir):
+        if slug(title) == wanted:
+            return title
+    return None
+
+
+def wait_for_task_row(serial: str, timeout: int = 180) -> str | None:
+    """Wait for the task list to show a row, and read its test tag.
+
+    A list of a few thousand rows takes a moment to come up after the app
+    starts, and the screen is empty until it does. Reading the screen once
+    and giving up would call an imported dataset that is really there a
+    failure.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        row = first_task_row(serial)
+        if row is not None:
+            return row
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(2)
+
+
+def app_memory(serial: str) -> str:
+    """What the app is holding in memory, as the device reports it."""
+    code, out = adb("shell", "dumpsys", "meminfo", APP_ID, serial=serial, timeout=60)
+    if code != 0:
+        return ""
+    for line in out.splitlines():
+        if "TOTAL PSS" in line:
+            return line.strip()
+    return ""
+
+
+# ── the report ───────────────────────────────────────────────────────────────
+
+
+def write_report(out_dir: Path, report: dict) -> None:
+    """Write the measurements as JSON and as a page a person can read."""
+    (out_dir / "report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    lines = [
+        "# Restoring a synthetic dataset into the Android app",
+        "",
+        f"* device: `{report['device']['serial']}` — {report['device']['model']}, "
+        f"Android {report['device']['androidRelease']} (SDK {report['device']['sdk']})",
+        f"* build: `{report['apk']['version']}` — {report['apk']['path']}",
+        f"* dataset: profile `{report['dataset']['profile']}`, seed `{report['dataset']['seed']}`",
+        f"* archive: {report['dataset']['archiveBytes']} bytes on disk, "
+        f"{report['dataset']['decompressedBytes']} bytes decompressed",
+        f"* import: {report['import'].get('durationSeconds') or '—'} s "
+        f"({report['import'].get('measured')})",
+        f"* database: {report['database']['bytes']} bytes",
+        f"* memory: {report['import'].get('memory') or '—'}",
+        f"* wipe of the profile before the run: "
+        f"{report.get('wipe', {}).get('seconds', '—')} s",
+        "",
+        "## Counts",
+        "",
+        "| entity | manifest | database |",
+        "|---|---|---|",
+    ]
+    for key, want in report["dataset"]["counts"].items():
+        got = report["database"]["counts"].get(key)
+        lines.append(f"| {key} | {want} | {got} |")
+    lines += ["", "## The ways it can go wrong", ""]
+    lines += [
+        f"* **{name}**: {phase.get('verdict', '—')}" for name, phase in report["negative"].items()
+    ]
+    lines += ["", "## Verdict", ""]
+    lines += [f"* {problem}" for problem in report["verdict"]["problems"]] or ["* nothing to report"]
+    lines.append("")
+    (out_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+# ── the run ──────────────────────────────────────────────────────────────────
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """The command line."""
+    parser = argparse.ArgumentParser(
+        prog="verify-large-restore.py",
+        description="Restore a synthetic backup into the Android app and check it.",
+    )
+    parser.add_argument(
+        "--serial",
+        default=os.environ.get("SERIAL", ""),
+        help="the device to run on (also read from SERIAL); there is no default",
+    )
+    parser.add_argument(
+        "--apk",
+        default="",
+        help="an APK to install instead of building this checkout's debug build",
+    )
+    parser.add_argument("--profile", default="10k", help="the generator profile, default 10k")
+    parser.add_argument("--seed", type=int, default=42, help="the generator seed, default 42")
+    parser.add_argument(
+        "--out",
+        default="",
+        help="where the archive, the logs and the report go, default build/large-restore",
+    )
+    return parser.parse_args(argv)
+
+
+def check_over_budget(
+    serial: str, out_dir: Path, archive: Path, apk: Path | None = None
+) -> dict:
+    """Restore an archive that is over the budget; the app has to refuse it.
+
+    The refusal has to be a refusal with a reason — a dialog that says the
+    import failed — and the profile's data has to be untouched by it.
+
+    The profile is expected to be empty (the caller wipes it): the check is
+    "the refused archive wrote nothing", which is only a statement about the
+    archive when there was nothing else there to stay.
+    """
+    padded = padded_archive(archive, out_dir)
+    name = push_archive(serial, padded)
+    outcome = restore_and_watch(serial, name, out_dir / "over-budget-flow.log", apk=apk)
+    db_path = pull_database(serial, out_dir / "over-budget-db")
+    counts = count_rows(db_path)
+    wrote = any(value > 0 for value in counts.values())
+    verdict = []
+    if not outcome["errorDialog"] and not outcome["reportedBySnackbar"]:
+        verdict.append("the import failed without saying so")
+    if wrote:
+        verdict.append(f"the refused archive left rows behind: {counts}")
+    if not verdict:
+        verdict.append("the archive was refused with a diagnostic and nothing was written")
+    return {"outcome": outcome, "counts": counts, "verdict": "; ".join(verdict)}
+
+
+def check_interrupted_import(
+    serial: str, out_dir: Path, archive: Path, apk: Path | None = None, expected_tasks: int = 0
+) -> dict:
+    """Cut an import short and check that the profile is not left half-written.
+
+    The app is stopped while the import is running. What must not happen is a
+    profile that holds part of the dataset: either the whole dataset or
+    nothing.
+
+    The profile is expected to be empty (the caller wipes it): the check is
+    "the interrupted import wrote nothing", which a non-empty profile could
+    not answer.
+    """
+    name = push_archive(serial, archive)
+    command = flow_command(serial, "restore-archive.yaml", {"ARCHIVE_NAME": name})
+    log = out_dir / "interrupted-flow.log"
+    print("flow: restore-archive.yaml (interrupted)")
+    wake_unlock(serial)
+    prewarm_app(serial)
+    if apk is not None:
+        verify_apk_unchanged(serial, apk)
+    stopped = False
+    with log.open("w", encoding="utf-8") as handle:
+        process = subprocess.Popen(command, cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT)
+        started = time.monotonic()
+        try:
+            while time.monotonic() - started < 900:
+                text = log.read_text(encoding="utf-8", errors="replace")
+                if CONFIRM_TAP in text:
+                    # The confirmation was tapped: the import is running, and
+                    # this is the moment to cut it short. The screen is not
+                    # read for this — reading it takes the device's
+                    # accessibility service away from Maestro's driver.
+                    stopped = stop_app(serial)
+                    break
+                if process.poll() is not None:
+                    # The flow is over and the confirmation never came: there
+                    # is no import to interrupt.
+                    break
+                time.sleep(0.2)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=60)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+    db_path = pull_database(serial, out_dir / "interrupted-db")
+    counts = count_rows(db_path)
+    tasks = counts.get("tasks", -1)
+    verdict = []
+    if not stopped:
+        verdict.append(
+            "the app was not stopped, so the import was not cut short — the case is untested"
+        )
+    elif tasks == 0:
+        verdict.append("the interrupted import left the profile empty")
+    elif expected_tasks and tasks >= expected_tasks:
+        verdict.append(
+            f"the import had already committed when the app was stopped "
+            f"({tasks} of {expected_tasks} tasks)"
+        )
+    else:
+        verdict.append(
+            f"the interrupted import left {tasks} of {expected_tasks} tasks behind — "
+            "the profile holds part of the dataset"
+        )
+    return {"interrupted": stopped, "counts": counts, "verdict": "; ".join(verdict)}
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Restore, check, and report. Returns the exit code."""
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except (AttributeError, ValueError):  # pragma: no cover — a closed stream
+        pass
+    args = parse_args(argv)
+
+    out_dir = Path(args.out) if args.out else ROOT / "build" / "large-restore"
+    out_dir = out_dir.resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        serial = capture.resolve_device(args.serial, capture.attached_devices())
+    except capture.CaptureError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_SETUP
+    print(f"device: {serial}")
+
+    holder = device_is_held(serial)
+    if holder is not None:
+        print(
+            f"error: {serial} is held by another run (pid {holder}). Two runs on one "
+            "device kill each other's driver, so the run is refused rather than "
+            "measured against a broken one.",
+            file=sys.stderr,
+        )
+        return EXIT_SETUP
+
+    try:
+        # The APK: built here unless one is named, installed, and checked
+        # against the build on the device.
+        if args.apk:
+            apk = Path(args.apk).expanduser().resolve()
+            if not apk.is_file():
+                raise RunError(f"the APK {apk} does not exist")
+            built_here = False
+        else:
+            apk = capture.build_capture_apk()
+            built_here = True
+        capture.install_apk(serial, apk)
+        package, version = capture.verify_identity(serial, apk, built_here)
+        verify_installed_apk(serial, apk)
+        print(f"build: {package} {version}")
+
+        # A database left behind by a newer build cannot be opened by this
+        # one, and the app then shows a migration error instead of its own
+        # screens — a failure that has nothing to do with the restore.
+        on_device = database_version(serial)
+        expected = app_schema_version()
+        if on_device is not None and on_device > expected:
+            raise RunError(
+                f"the database on the device is at schema {on_device}, and this build "
+                f"speaks {expected}: the app cannot open it. Clear the app's data on "
+                "the device and run the command again."
+            )
+
+        archive, sidecar, manifest = generate_archive(args.profile, args.seed, out_dir)
+        decompressed = read_decompressed_size(archive)
+        counts = manifest.get("actualCounts", {})
+
+        # One wipe before the negative phases, and both of them share it: a
+        # refused archive writes nothing, so the profile is still empty for
+        # the interrupted import that follows.
+        wipe_counts, wipe_seconds = reset_content(serial, out_dir)
+        print(f"wipe: {wipe_seconds}s ({wipe_counts})")
+
+        negative = {
+            "over-budget": check_over_budget(serial, out_dir, archive, apk),
+            "interrupted": check_interrupted_import(
+                serial,
+                out_dir,
+                archive,
+                apk,
+                expected_tasks=int(counts.get("tasks", 0)),
+            ),
+        }
+
+        # The import that has to work.
+        file_name = push_archive(serial, archive)
+        # The interrupted import may have left rows behind; the import below
+        # has to start from a clean profile, or the counts afterwards are the
+        # counts of the interrupted import plus this one.
+        if any(value > 0 for value in negative["interrupted"]["counts"].values()):
+            _, second_wipe = reset_content(serial, out_dir)
+            wipe_seconds += second_wipe
+        outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
+        print(f"import: {outcome['durationSeconds']}s ({outcome['measured']})")
+
+        # What the app is holding in memory, read while it is still running.
+        memory = app_memory(serial)
+
+        # The counts, and the links between the rows.
+        db_dir = pull_database(serial, out_dir / "device-db")
+        db_counts = count_rows(db_dir)
+        count_problems = compare_counts(counts, db_counts)
+        link_problems = relationship_problems(db_dir)
+
+        # The data has to survive a restart, and the paths have to open.
+        adb("shell", "am", "force-stop", APP_ID, serial=serial)
+        time.sleep(2)
+        inbox_log = out_dir / "inbox-flow.log"
+        if not run_flow(serial, "open-inbox.yaml", {}, inbox_log, apk=apk):
+            raise RunError(f"the Inbox did not open — see {inbox_log}")
+        row = wait_for_task_row(serial)
+        if row is None:
+            raise RunError("the Inbox shows no task row to open")
+        task_id = row
+        task_title = title_for_tag(db_dir, task_id)
+        if task_title is None:
+            raise RunError(f"no task in the database carries the tag {task_id}")
+        print(f"task row: {task_id} ({task_title})")
+
+        search_title = unique_task_title(db_dir)
+        if search_title is None:
+            raise RunError("the imported dataset holds no task to search for")
+        related_title = related_task_title(db_dir)
+        if related_title is None:
+            raise RunError(
+                "the imported dataset holds no task with a relation, so the "
+                "related-tasks picker cannot be reached"
+            )
+        print(f"related task: {related_title}")
+        browse_log = out_dir / "browse-flow.log"
+        browse_ok = run_flow(
+            serial,
+            "browse-imported-data.yaml",
+            {
+                "TASK_ID": task_id,
+                "TASK_TITLE": task_title,
+                "SEARCH_TITLE": search_title,
+                "SEARCH_ID": task_item_id(search_title),
+                "RELATED_TITLE": related_title,
+                "RELATED_ID": task_item_id(related_title),
+            },
+            browse_log,
+            apk=apk,
+        )
+
+        report = {
+            "device": {"serial": serial, **device_facts(serial)},
+            "apk": {"path": str(apk), "package": package, "version": version, "variant": "debug"},
+            "dataset": {
+                "profile": args.profile,
+                "seed": args.seed,
+                "archive": str(archive),
+                "sidecar": str(sidecar),
+                "archiveBytes": archive.stat().st_size,
+                "decompressedBytes": decompressed,
+                "counts": counts,
+            },
+            "import": {**outcome, "memory": memory},
+            "wipe": {"seconds": round(wipe_seconds, 1), "counts": wipe_counts},
+            "database": {
+                "bytes": database_bytes(db_dir.parent),
+                "counts": db_counts,
+                "countProblems": count_problems,
+                "linkProblems": link_problems,
+            },
+            "negative": negative,
+            "uiPaths": {
+                "browse": "passed" if browse_ok else "failed",
+                "openedTask": task_title,
+                "searchedTask": search_title,
+                "log": str(browse_log),
+            },
+            "verdict": {
+                "problems": (
+                    count_problems
+                    + link_problems
+                    + ([] if browse_ok else ["the imported data did not open in the app"])
+                    + ([] if outcome["reportedBySnackbar"] else ["the restore never reported itself"])
+                )
+            },
+        }
+        write_report(out_dir, report)
+        print("\n=== verdict ===")
+        for problem in report["verdict"]["problems"]:
+            print(f"  {problem}")
+        if not report["verdict"]["problems"]:
+            print("  the dataset was restored whole")
+        for name, phase in negative.items():
+            print(f"  {name}: {phase['verdict']}")
+        print(f"report: {out_dir / 'report.md'}")
+        return EXIT_OK if not report["verdict"]["problems"] else EXIT_FAILED
+    except RunError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_SETUP
+    except capture.CaptureError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_SETUP
+
+
+def read_decompressed_size(archive: Path) -> int:
+    """How many bytes the archive holds once it is unpacked.
+
+    The budget the app enforces is a budget on the unpacked bytes, so the
+    number the report carries is measured from the archive itself.
+    """
+    with zipfile.ZipFile(archive) as zf:
+        return sum(info.file_size for info in zf.infolist())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
