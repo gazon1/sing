@@ -123,11 +123,14 @@ fun DesktopShellNav3Root(
     // saved-view screens was the button of the tab the agenda opened with, drawn
     // over the button those screens draw themselves.
     val agendaRouteHolder = remember { AgendaRouteHolder() }
-    val fabCurrent: AppDestination = shellFabTarget(current, topMostRoute, agendaRouteHolder.route)
+    // The destination whose screen is on top, with the agenda's inner route
+    // folded in. Both shell decisions read it: the button over the agenda, and
+    // the Back arrow the tab roots do not draw (#3093).
+    val shellTarget: AppDestination = shellFabTarget(current, topMostRoute, agendaRouteHolder.route)
 
     // One `today` for the shell, as on Android (#91): the prefill and the tab it
     // was tapped from must not disagree across a midnight.
-    val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
+    val fabAction = fabActionForNav3(shellTarget, today) { navigator.open(it) }
 
     // The button floats over the content, and Material3's Scaffold keeps no room
     // for it. Its footprint is published so a list can keep its last row clear
@@ -140,6 +143,11 @@ fun DesktopShellNav3Root(
     // screen that draws a back arrow already owns the gesture, and a second
     // arrow stacked on top of it would be two controls for one meaning.
     val backControlHolder = remember { ScreenBackControlHolder() }
+
+    // The Inbox, Today and Calendar roots are where a tab starts, not screens in
+    // a back stack, so they carry no Back arrow — not even after a tab switch,
+    // which is when the navigation state alone would offer one (#3093).
+    val atPrimaryTabRoot: Boolean = isPrimaryTabRoot(shellTarget)
 
     // A back that has nothing left to pop leaves the app, as it does on Android, where the
     // same `goBack()` result finishes the activity. The window is the host's, so the shell
@@ -435,7 +443,12 @@ fun DesktopShellNav3Root(
                         // fact — who owns the back control — so they cannot both be
                         // on screen, not even in the frame in which the screen on
                         // top is still publishing.
-                        if (backControlHolder.owner == null) {
+                        //
+                        // The primary tab roots are the one exception: they are where
+                        // a tab starts, not screens in a back stack, so they draw no
+                        // arrow at all (#3093). The policy is the one both shells
+                        // read, so Android and Desktop cannot drift apart.
+                        if (backControlHolder.owner == null && !atPrimaryTabRoot) {
                             IconButton(
                                 onClick = { desktopBack(navigator, onCloseRequest) },
                                 modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),

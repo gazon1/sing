@@ -63,6 +63,16 @@ open class CalendarNavigator(
     }
 
     /**
+     * True when the calendar has somewhere to go back to *inside the calendar*.
+     *
+     * The calendar's own stack holds the month the tab opens on, and a nested
+     * route (a day) is pushed on top of it. The root is where the tab starts,
+     * so it has nothing to go back to and offers no Back arrow (#3093); a
+     * nested route does, and that arrow returns to the root.
+     */
+    open fun canGoBack(): Boolean = backStack.size > 1
+
+    /**
      * Go back one entry in the Calendar graph.
      * - If stack size > 1: pop last entry.
      * - If stack size == 1 (at start route): exit the nested graph.

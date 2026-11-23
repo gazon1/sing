@@ -69,10 +69,21 @@ fun CalendarScreen(
     ProvideCalendarPalette {
         RefreshableContent {
             Box(modifier = modifier.fillMaxSize()) {
+                // The calendar's root is where the tab starts, so it publishes no
+                // Back icon: the shell's own arrow knows where the shell is, and
+                // the root has nowhere to go back to. A nested route (a day) is
+                // pushed on top of the root and keeps the arrow that returns to it
+                // (#3093).
+                val onBack: (() -> Unit)? =
+                    if (navigator.canGoBack()) {
+                        { navigator.back() }
+                    } else {
+                        null
+                    }
                 CalendarContent(
                     state = state,
                     onIntent = vm::onIntent,
-                    onBack = { navigator.back() },
+                    onBack = onBack,
                     modifier = Modifier.fillMaxSize(),
                 )
                 SnackbarHost(
