@@ -109,11 +109,15 @@ class UpcomingTimelineScenarioTest {
             assertDisplayedOnce(TestTags.taskItem("Due in three days"))
             assertDisplayedOnce(TestTags.taskItem("Due in six days"))
 
-            // And back: the day headers return with the tasks under them.
+            // And back: the day headers return with the tasks under them. The
+            // middle task is asserted too — a round trip that loses the task
+            // in the middle of the feed loses a task and still shows the first
+            // and the last.
             onNode(hasTestTag(TestTags.AGENDA_GROUPING_DAY)).performClick()
 
             assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
-            assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
+            assertDisplayedOnce(TestTags.taskItem("Due tomorrow"))
+            assertDisplayedOnce(TestTags.taskItem("Due in three days"))
             assertDisplayedOnce(TestTags.taskItem("Due in six days"))
         }
 

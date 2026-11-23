@@ -37,6 +37,7 @@ private const val MENU_SCROLL_PERCENT = 0.5f
  * - nav_tab_<slug> for bottom nav tabs
  * - menu_<id> for the entries of the menu sheet
  * - tasks_fab for the shell FAB
+ * - agenda_grouping_day for the Upcoming feed's grouping control
  *
  * `testTagsAsResourceId = true` is set on the root composable in [MainActivity],
  * so all testTag values surface as Android resource IDs accessible by UiAutomator.
@@ -73,7 +74,8 @@ class NavigationSmokeTest : InstrumentedTestBase() {
 
     /**
      * Smoke: [MainActivity] launches, the start destination (Today tab) is visible,
-     * and every bottom nav tab is reachable by tap.
+     * every bottom nav tab is reachable by tap, and the Upcoming tab really
+     * navigates to the Upcoming feed.
      */
     @Test
     fun app_launches_and_all_tabs_are_reachable() {
@@ -102,12 +104,32 @@ class NavigationSmokeTest : InstrumentedTestBase() {
             device.tapTag(tabId)
             // Wait for the tab to be re-selected after the tap.
             device.awaitTagOrNull(tabId, 3_000)
-            // Verify the tab item is still present (navigation succeeded, tab is visible).
+            // Verify the tab item is still present (the bottom bar is still there).
+            // The destination the tab names is asserted below, for the tab that
+            // has one: a present tab control says nothing about the screen.
             assertNotNull(
                 "Tab $tabId should be reachable after tap",
                 device.findObject(By.res(tabId)),
             )
         }
+
+        // The tab controls are on screen on every destination, so their
+        // presence says the bottom bar is there — not that the tap navigated.
+        // The Upcoming destination therefore has to be named: the app could
+        // keep showing Today under a tapped Upcoming tab and this test would
+        // still pass. The day/week/month grouping control is drawn only by the
+        // Upcoming agenda — the one definition with a grouped section — so it
+        // is the Upcoming screen that is on top when it is there.
+        //
+        // This is the Android half of the guarantee the retired Maestro flow
+        // `agenda/09-upcoming-timeline.yaml` owned (#3120): the desktop tier
+        // cannot prove that the Android shell navigates.
+        device.tapTag(TestTags.navTab("Upcoming"))
+        device.awaitTag(
+            TestTags.AGENDA_GROUPING_DAY,
+            "the Upcoming feed's grouping control",
+            TAB_TIMEOUT_MS,
+        )
 
         scenario.close()
     }

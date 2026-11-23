@@ -7,6 +7,11 @@
 # in the scenario layer rather than deleted because the screen shipped and
 # users could see it; deleting the file would leave "where did the guarantee
 # go?" unanswered. The surviving behaviour is carried by AGENDA-10.
+#
+# The one Android-only claim the retired flow made — that tapping the Upcoming
+# tab lands on the Upcoming feed — is owned by `NavigationSmokeTest`
+# (`androidApp/src/androidTest/.../ui/`), which waits for the destination's
+# grouping control after the tap.
 
 id: AGENDA-09
 title: "Upcoming groups future tasks under date headers and leaves Today out"
