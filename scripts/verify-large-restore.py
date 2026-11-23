@@ -3023,7 +3023,7 @@ def main(argv: list[str] | None = None) -> int:
             "pickerAddedRelation": candidate_title,
             "log": str(browse_log),
         }
-        report["phases"].append("ui paths opened")
+        report["phases"].append("ui paths opened" if browse_ok else "ui paths failed")
 
         negative_problems = [
             f"{name}: {problem}"
@@ -3092,6 +3092,19 @@ def main(argv: list[str] | None = None) -> int:
                     "restored": False,
                     "problem": str(exc),
                 }
+                # A run that leaves the device in a profile of its own has not
+                # done what it claims: the person who owns the phone finds
+                # their app in somebody else's profile. The verdict says so,
+                # and the exit code says so too — a run that cannot be
+                # reported as "the dataset was restored whole" is not one.
+                problems = report.setdefault("verdict", {}).setdefault("problems", [])
+                problems.append(
+                    f"the app was left in the profile {TEST_PROFILE_NAME}: {exc}"
+                )
+                if exit_code == EXIT_OK:
+                    exit_code = EXIT_FAILED
+                    report["status"] = "failed"
+                    report["failure"] = "verification"
                 print(
                     f"warning: the app was left in the profile {TEST_PROFILE_NAME}: {exc}",
                     file=sys.stderr,

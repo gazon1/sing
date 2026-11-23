@@ -2784,5 +2784,111 @@ class ArchiveNameTest(unittest.TestCase):
             self.assertEqual(len(pushed), 1)
 
 
+def _flow_patches(browse_ok: bool = True) -> list:
+    """The patches of a run that gets all the way to the screens."""
+    def run_flow(serial, flow, env, log, timeout=1200, apk=None):
+        return browse_ok if flow == "browse-imported-data.yaml" else True
+
+    return [
+        unittest.mock.patch.object(driver, "run_flow", run_flow),
+        unittest.mock.patch.object(driver, "wait_for_task_row", lambda serial: "t1"),
+        unittest.mock.patch.object(
+            driver, "title_for_tag", lambda db, tag, scope=None: "Task 1"
+        ),
+        unittest.mock.patch.object(
+            driver, "related_task", lambda db, scope=None: ("t2", "Task 2")
+        ),
+        unittest.mock.patch.object(
+            driver, "picker_candidate", lambda db, current_id, scope=None: ("t3", "Task 3")
+        ),
+    ]
+
+
+class SwitchBackFailureTest(unittest.TestCase):
+    """A run that leaves the device in a profile of its own has not done its job.
+
+    The person who owns the phone finds their app in somebody else's
+    profile. The verdict has to say so, and the exit code has to say so too:
+    a run that returns success while the device is in the wrong profile is a
+    run that reports a green light on something it did not do.
+    """
+
+    def _run(self, tmp: Path, out: Path) -> int:
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
+            with contextlib.ExitStack() as stack:
+                for patch in _device_patches(tmp):
+                    stack.enter_context(patch)
+                for patch in _flow_patches():
+                    stack.enter_context(patch)
+
+                def switch(serial, profile_name, expected_id, previous_id):
+                    if profile_name != driver.TEST_PROFILE_NAME:
+                        raise driver.RunError("the app did not switch back")
+                    return TEST_PROFILE_ID
+
+                stack.enter_context(
+                    unittest.mock.patch.object(driver, "switch_profile", switch)
+                )
+                return driver.main(argv)
+
+    def test_a_run_that_cannot_come_back_does_not_report_success(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(tmp, out)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, driver.EXIT_FAILED)
+            self.assertFalse(report["profileLeftBehind"]["restored"])
+            self.assertEqual(report["status"], "failed")
+            self.assertTrue(
+                any(
+                    "left in the profile" in problem
+                    for problem in report["verdict"]["problems"]
+                ),
+                report["verdict"]["problems"],
+            )
+
+
+class UiPathsPhaseTest(unittest.TestCase):
+    """The phases say what happened: a flow that did not open did not open."""
+
+    def _run(self, tmp: Path, out: Path, browse_ok: bool) -> int:
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
+            with contextlib.ExitStack() as stack:
+                for patch in _device_patches(tmp):
+                    stack.enter_context(patch)
+                for patch in _flow_patches(browse_ok):
+                    stack.enter_context(patch)
+                return driver.main(argv)
+
+    def test_a_browse_flow_that_failed_is_not_reported_as_opened(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            self._run(tmp, out, browse_ok=False)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["uiPaths"]["browse"], "failed")
+            self.assertNotIn("ui paths opened", report["phases"])
+            self.assertIn("ui paths failed", report["phases"])
+
+    def test_a_browse_flow_that_opened_is_reported_as_opened(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            self._run(tmp, out, browse_ok=True)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["uiPaths"]["browse"], "passed")
+            self.assertIn("ui paths opened", report["phases"])
+
+
 if __name__ == "__main__":
     unittest.main()
