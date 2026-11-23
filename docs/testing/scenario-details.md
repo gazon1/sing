@@ -1128,11 +1128,11 @@ Steps:
 
 **confirmed** · P1 · `#PROFILE`
 
-**Given:** The Menu sheet is open and only the default profile exists.
+**Given:** The Profile screen is open and only the default profile exists.
 
 Steps:
 
-1. Choose to create a profile from the Menu sheet.
+1. Choose to create a profile.
 2. Supply a name and confirm.
 
 **Expected:** The new profile is listed alongside the default, so a user can reach the second profile the moment they have made it.

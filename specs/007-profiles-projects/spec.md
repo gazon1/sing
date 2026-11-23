@@ -51,7 +51,7 @@ scenarios:
     area: feature.profile
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: PROFILE-02
     title: Tasks in one profile are invisible in another
     area: feature.profile

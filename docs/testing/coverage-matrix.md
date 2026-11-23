@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 91/162 claimed cells automated · 71 holes**
+**141 scenarios · 92/162 claimed cells automated · 70 holes**
 
 ## feature.agenda
 
@@ -169,7 +169,7 @@ the table carries the one-line version so a row is readable in a diff.
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `PROFILE-01` | A second profile is created and listed | ○ | — | The new profile is listed alongside the default, so a user can reach the second profile the moment they have made it. |
+| `PROFILE-01` | A second profile is created and listed | — | ● | The new profile is listed alongside the default, so a user can reach the second profile the moment they have made it. |
 | `PROFILE-02` | Tasks in one profile are invisible in another | ○ | — | The seeded task is not visible from the default profile and is visible again after switching back, so switching… |
 
 ## feature.projects
@@ -294,7 +294,6 @@ Claimed but not automated:
 - `NOTES-03` / android
 - `POMODORO-01` / android
 - `POMODORO-04` / android
-- `PROFILE-01` / android
 - `PROFILE-02` / android
 - `PROJECTS-01` / android
 - `PROJECTS-02` / android
