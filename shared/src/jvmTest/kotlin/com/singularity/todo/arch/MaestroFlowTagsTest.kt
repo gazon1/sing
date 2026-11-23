@@ -367,7 +367,47 @@ class MaestroFlowTagsTest {
      */
     private data class FlowTexts(val typed: List<String>, val seeded: List<String>, val helpers: List<String>) {
         /** Every text the flow can put into the app. */
-        val all: List<String> get() = typed + seeded + helpers
+        val all: List<String> get() = typed + seeded + helpers + appended
+
+        /**
+         * The titles a flow builds by *appending* to one already in a field.
+         *
+         * `inputText` appends to whatever the field holds, so a flow that opens
+         * a task titled "Buy milk" and types `" edited"` leaves a title of
+         * "Buy milk edited" — an id no single literal in the file produces. The
+         * tell is the leading space: a value that starts with whitespace is a
+         * continuation of the text before it, not a text of its own.
+         *
+         * A continuation is paired with **one** text: the last one typed before
+         * it, or — when the flow typed nothing yet, because the title came from
+         * a seed or a helper — every text the flow can already have in a field.
+         * Pairing with all of them unconditionally would be a cross-product of
+         * unrelated fields: a flow that types a title, types `" edited"` into
+         * that title, and then types "Detail description" into the description
+         * would also be accepted for `task_item_detail_description_edited`, a
+         * row the flow never makes. That is the false negative this ordering
+         * exists to avoid.
+         *
+         * Chaining two continuations is not modelled: no flow in the tree does
+         * it, and a guess that got it wrong would weaken the check.
+         */
+        private val appended: List<String>
+            get() {
+                val continuations = typed.filter { it.startsWith(" ") || it.startsWith("\t") }
+                if (continuations.isEmpty()) return emptyList()
+                val out = mutableListOf<String>()
+                var typedBefore: String? = null
+                for (value in typed) {
+                    val isContinuation = value.startsWith(" ") || value.startsWith("\t")
+                    if (isContinuation) {
+                        val bases = typedBefore?.let { listOf(it) } ?: (seeded + helpers)
+                        out += bases.map { it + value }
+                    } else {
+                        typedBefore = value
+                    }
+                }
+                return out
+            }
     }
 
     /**

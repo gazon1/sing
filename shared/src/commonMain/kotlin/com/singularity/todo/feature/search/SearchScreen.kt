@@ -249,21 +249,24 @@ private fun SearchScreenBody(
             },
         )
 
-        if (hasSavedSearches) {
-            SavedSearchesRow(
-                savedSearches = state.savedSearches,
-                activeSavedSearchId = state.activeSavedSearchId,
-                onLoadSearch = { id ->
-                    onDismissSuggestions()
-                    onIntent(SearchIntent.OnLoadSavedSearch(id))
-                },
-                onSaveClick = onShowSaveDialog,
-                onRename = onShowRenameDialog,
-                onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
-                query = queryText,
-                showSuggestions = showSuggestions,
-            )
-        }
+        // The row is drawn even when the profile has no saved search yet: its
+        // "Save" chip is the only way to make the first one, so hiding the row
+        // until one exists would leave the feature unreachable. The suggestions
+        // are what stays gated on `hasSavedSearches` — an empty suggestion row
+        // over a query is a row with nothing of its own to say.
+        SavedSearchesRow(
+            savedSearches = state.savedSearches,
+            activeSavedSearchId = state.activeSavedSearchId,
+            onLoadSearch = { id ->
+                onDismissSuggestions()
+                onIntent(SearchIntent.OnLoadSavedSearch(id))
+            },
+            onSaveClick = onShowSaveDialog,
+            onRename = onShowRenameDialog,
+            onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+            query = queryText,
+            showSuggestions = showSuggestions,
+        )
 
         Box(
             modifier =

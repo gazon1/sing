@@ -1,9 +1,31 @@
-# Search: Cyrillic text in query is matched and rendered correctly.
+# Search: Cyrillic text in the query matches and renders a Cyrillic title.
 #
-# Maestro's `inputText` cannot type non-ASCII on Android, so the Cyrillic
-# task is seeded via the debug deep-link and the search query is typed
-# normally — the flow verifies that the Cyrillic title stored in the DB
-# is correctly displayed in the results list.
+# The query is Cyrillic, and so is the seeded title — that is the thing the
+# scenario asks for: a person typing "Покупки" gets the task called "Покупки",
+# with its characters rendered as Cyrillic rather than as replacement
+# characters or mojibake.
+#
+# ## What the flow asserts, and why each part is needed
+#
+# 1. The row `task_item_покупки` appears. The id is the slug of the seeded
+#    title, and the slug keeps the letters it was given — so a row with this id
+#    can only come from a task whose title is the Cyrillic word.
+# 2. The row's text is asserted as written. An id proves the title reached the
+#    app; the text proves it is drawn as Cyrillic on the screen.
+#
+# A query of Latin letters would match nothing here, and that is the point of
+# the old version's failure: the word rule is a prefix rule over tokens, so
+# "Pokupki" is not a prefix of "Покупки". The flow used to search by
+# transliteration and assert the transliterated id — a pair that agreed with
+# each other and with neither the app's tokenizer nor its slug rule.
+#
+# `inputText` types Cyrillic on this build, and not because of the keyboard:
+# Maestro injects the text, so the flow does not depend on which IME is
+# installed or which language it is in. That was measured on the RMX3938 with
+# two different keyboards — the phone's own and the Gboard the CI emulator
+# runs — and the seeded row came back under both. An earlier version of this
+# flow carried the opposite claim, and the flow's coverage was weakened to fit
+# it.
 appId: com.singularity.todo
 name: search-cyrillic
 tags:
@@ -33,13 +55,23 @@ tags:
       id: search_input
     timeout: 5000
 
-# Type the Cyrillic task title (ASCII equivalent of the seeded title).
+# Type the Cyrillic word into the query field.
 - tapOn:
     id: search_input
-- inputText: "Pokupki"
+- inputText: "Покупки"
 
-# The task with Cyrillic title must appear in results.
+# The Cyrillic record reaches the results, and its title renders as Cyrillic.
 - extendedWaitUntil:
     visible:
-      id: task_item_pokupki
+      id: task_item_покупки
     timeout: 8000
+- assertVisible: "Покупки"
+
+# Leave the search screen: it is full screen, and the next flow's `launch-clean`
+# waits for a tab this screen does not draw.
+- tapOn:
+    id: shell_back_button
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000

@@ -66,15 +66,28 @@ tags:
     env:
       SETTINGS_TAB: settings_tab_account
 
-# The sign-out button is on the Account tab.
-- extendedWaitUntil:
-    visible:
+# The sign-out button is on the Account tab, at the end of a column that runs
+# past the fold on a phone: the Active profile, Signed in, Security and Profiles
+# sections sit above it. Scroll it into reach instead of waiting for it to be on
+# screen — a wait that names a position says nothing about whether the button
+# exists.
+- scrollUntilVisible:
+    element:
       id: auth_sign_out_button
+    direction: DOWN
     timeout: 8000
 
-# Sign out. The local data stays intact (local-first).
+# Sign out. The button asks first — signing out is the one action on this tab
+# that changes what the app can reach — so the dialog's own confirm is the press
+# that signs out. Addressed by its tag, not by its label: the label is copy.
 - tapOn:
     id: auth_sign_out_button
+- extendedWaitUntil:
+    visible:
+      id: dialog_confirm
+    timeout: 8000
+- tapOn:
+    id: dialog_confirm
 
 # After signing out the auth guard shows LoginScreen: the app is not usable
 # while signed out, and that is the guard doing its job.

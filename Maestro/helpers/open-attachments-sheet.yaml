@@ -1,20 +1,85 @@
-# Opens the attachments sheet from the task detail's "+ Add file" row.
+# Opens the attachments sheet from the task detail.
 #
-# The attachments section is not on the screen while the task has none: it is
-# one of the properties the `+ Ещё` sheet offers. The row is then at the bottom
-# of the task, below the fold. DOWN scrolls the content up so what is below
-# comes into view; UP moves it the other way.
+# ## Why the task's own state decides the way in
+#
+# The `+ Ещё` sheet offers exactly the sections that are *not* on the screen, and
+# the attachments section is on the screen as soon as the task has one. So the
+# way in depends on the task:
+#
+#   * a task with no attachment reaches the section through `+ Ещё` — the
+#     section itself is not drawn;
+#   * a task that already has one draws the section, and the `+ Ещё` sheet does
+#     not offer `attachments` at all, because it offers only what is missing.
+#
+# That second case is every run after the first against the same fixture, so a
+# flow that always went through the sheet passed only on a device whose task had
+# nothing attached yet.
+#
+# ## Why the checks scroll
+#
+# The section sits at the bottom of the detail, below the fold. "Not visible" is
+# true both for a section that is not there and for one that is merely scrolled
+# past, so a plain `notVisible` test would send a task that has an attachment
+# down the `+ Ещё` branch and find no entry there. Scrolling to it first is what
+# makes the answer be about the section rather than about the viewport.
+#
+# ## Why the section may need opening
+#
+# A section with content is drawn collapsed, and its header is the toggle. The
+# `+ Ещё` pick opens the section it adds; a section the task already carried
+# arrives closed. Its rows are not composed until it is opened, so the add-row
+# is looked for first and the header tapped only when it is not there.
 appId: com.singularity.todo
 name: open-attachments-sheet
 ---
+- scrollUntilVisible:
+    element:
+      id: attachments_section
+    direction: DOWN
+    timeout: 8000
+    optional: true
+
+# No section on the screen: this task has no attachment, and `+ Ещё` is the
+# only place its attachments section is offered.
 - runFlow:
-    file: open-more-parameter.yaml
-    env:
-      PROPERTY: attachments
+    when:
+      notVisible:
+        id: attachments_section
+    commands:
+      - runFlow:
+          file: open-more-parameter.yaml
+          env:
+            PROPERTY: attachments
+
+# A section the task already carried is closed; the header opens it. Sent only
+# when the add-row is absent, because a section the pick opened is already open
+# and a second press would close it again.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
     direction: DOWN
+    timeout: 8000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: attachments_add_file_row
+    commands:
+      - tapOn:
+          id: attachments_section
+      - scrollUntilVisible:
+          element:
+            id: attachments_add_file_row
+          direction: DOWN
+          timeout: 8000
+
+# The row lands on the gesture-navigation strip on a phone; centering puts it
+# where the tap lands on the row and not on the system bar.
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    centerElement: true
     timeout: 8000
 - tapOn:
     id: attachments_add_file_row

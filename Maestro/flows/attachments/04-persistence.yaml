@@ -18,6 +18,10 @@ tags:
 - inputText: "https://example.com/persist"
 - tapOn:
     id: attachments_add_url_button
+
+# The sheet closes on its own once the attachment is added, and the pick that
+# opened it also opened the section. Reveal its rows before asserting.
+- runFlow: ../../helpers/reveal-attachments-section.yaml
 - extendedWaitUntil:
     visible:
       text: "https://example.com/persist"
@@ -36,19 +40,17 @@ tags:
     env:
       TASK_ID: task_item_persistencetask2026
 
-# The section is at the bottom of the task, below the fold. DOWN scrolls the
-# content up so what is below comes into view; UP moves it the other way.
+# The task has an attachment now, so the section is on the screen — closed,
+# because a section is closed until its header is tapped. This task was
+# reopened after a restart, so nothing opened it on the way here.
 - scrollUntilVisible:
     element:
       id: attachments_section
     direction: DOWN
     timeout: 8000
-
-# The task has an attachment now, so the section is on the screen — closed,
-# because a section is closed until its header is tapped. The header is the
-# toggle, and it carries the section's tag.
 - tapOn:
     id: attachments_section
+- runFlow: ../../helpers/reveal-attachments-section.yaml
 
 # Verify the attachment is still present.
 - extendedWaitUntil:

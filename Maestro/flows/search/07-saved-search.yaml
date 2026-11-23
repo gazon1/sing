@@ -16,11 +16,11 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=SavedAlpha2026&due=today"
+      QUERY: "task=Saved%20Search%202026%20Alpha&due=today"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=SavedBeta2026&due=today"
+      QUERY: "task=Saved%20Search%202026%20Beta&due=today"
 
 # Open quick search.
 - runFlow: ../../helpers/open-app-menu.yaml
@@ -38,10 +38,10 @@ tags:
 # Type query.
 - tapOn:
     id: search_input
-- inputText: "Saved2026"
+- inputText: "Saved Search 2026"
 - extendedWaitUntil:
     visible:
-      id: task_item_savedalpha2026
+      id: task_item_saved_search_2026_alpha
     timeout: 8000
 
 # Open save dialog via the "Save" chip.
@@ -53,6 +53,14 @@ tags:
     timeout: 5000
 
 # Type a name and submit via the dialog's "Save" button (no keyboardActions).
+#
+# The field is pre-filled with the current query, so `inputText` — which appends
+# — would save "<query><run id> My Saved Query" and the chip's id (the slug of
+# the name) would carry the query too. The tap is what puts the cursor in the
+# field; `eraseText` only has a focus to empty once it is there.
+- tapOn:
+    id: search_save_dialog_name
+- eraseText
 - inputText: "${RUN_ID} My Saved Query"
 - tapOn:
     id: search_save_dialog_confirm
@@ -63,16 +71,31 @@ tags:
       text: "Search saved"
     timeout: 5000
 
-# The saved search chip should appear in the saved searches row.
-# It renders as a FilterChip with the saved name text.
+# The row offers the saved searches whose name matches the *query*, so typing the
+# run id narrows it to the chip this run saved. That is also what keeps the flow
+# repeatable: saved searches outlive the run that made them, and a blank field
+# would offer every one of them, pushing this run's chip off the right end of a
+# horizontal row where it is not composed at all.
+- tapOn:
+    id: search_clear_button
+- tapOn:
+    id: search_input
+- inputText: "${RUN_ID}"
+
+# The chip is addressed by the id its name produces, not by the name: the name
+# is the runner's run id plus words, and
+# `saved_search_chip_${RUN_ID}_my_saved_query` is the shape
+# `TestTags.SavedSearches.chip` gives it.
 - extendedWaitUntil:
     visible:
-      text: "${RUN_ID} My Saved Query"
-    timeout: 5000
+      id: saved_search_chip_${RUN_ID}_my_saved_query
+    timeout: 8000
 
-# Navigate away and come back.
+# Navigate away and come back. The search screen is full screen: the bottom bar
+# — and every tab on it — is not on the screen while it is showing, so leaving
+# is the bar's own back arrow and only then is there a tab to tap.
 - tapOn:
-    id: nav_tab_today
+    id: shell_back_button
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -89,14 +112,30 @@ tags:
       id: search_input
     timeout: 5000
 
-# The saved search persists and can be tapped to load the query.
+# The saved search persists and can be tapped to load the query. The field is
+# still holding the run id, so the row is narrowed the same way.
 - extendedWaitUntil:
     visible:
-      text: "${RUN_ID} My Saved Query"
-    timeout: 5000
-- tapOn:
-    text: "${RUN_ID} My Saved Query"
-- extendedWaitUntil:
-    visible:
-      id: task_item_savedalpha2026
+      id: saved_search_chip_${RUN_ID}_my_saved_query
     timeout: 8000
+- tapOn:
+    id: saved_search_chip_${RUN_ID}_my_saved_query
+- extendedWaitUntil:
+    visible:
+      id: task_item_saved_search_2026_alpha
+    timeout: 8000
+
+# Leave the search screen. The flow's last state is a full-screen Search, whose
+# bottom bar — and `nav_tab_today` with it — is not on the screen. A run that
+# ends here hands the next run a `launch-clean` that resumes into Search and
+# waits for a tab the screen does not carry.
+#
+# The bar's own back arrow, not the system `back`: the keyboard is up from the
+# last `inputText`, and a system back closes the keyboard instead of leaving
+# the screen.
+- tapOn:
+    id: shell_back_button
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000

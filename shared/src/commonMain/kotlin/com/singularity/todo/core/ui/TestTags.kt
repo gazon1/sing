@@ -1340,6 +1340,17 @@ object TestTags {
 
         const val SAVE_CHIP = "search_save_chip"
         const val SAVE_DIALOG_CONFIRM = "search_save_dialog_confirm"
+
+        /**
+         * The name field of the save dialog.
+         *
+         * The field opens pre-filled with the current query, so a flow that only
+         * types appends to it: the saved name, and the chip id derived from that
+         * name, carry the query as a prefix. Emptying it needs the field to be
+         * addressable, and a `text:` selector on its label is not the same node
+         * as the input.
+         */
+        const val SAVE_DIALOG_NAME = "search_save_dialog_name"
     }
 
     // ─── Calendar sync ───────────────────────────────────────────────────────

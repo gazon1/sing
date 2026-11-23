@@ -232,6 +232,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # taskItem(...) — from seed flows
     "task_item_bigoverdue_1",
     "task_item_buy_milk",
+    "task_item_buy_milk_edited",
     "task_item_todayreachable",
     "task_item_uniquesearchabletask2026",
     "task_item_water_the_plants",
@@ -411,6 +412,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
 ALLOWLIST: Set[str] = {
     # Seeded task titles used across multiple flows (not in TestTags as function inputs)
     "task_item_купить_молоко",  # Cyrillic seeded task (tasks/07-cyrillic-title.yaml)
+    "task_item_покупки",  # Cyrillic seeded task (search/02-cyrillic.yaml)
     # Seeded task from backup round-trip
     "task_item_backuproundtriptask",
     # Seeded note titles
@@ -430,7 +432,7 @@ ALLOWLIST: Set[str] = {
     "task_item_pinnedtask2026",
     "task_item_pokupki",
     "task_item_rendertesttask2026",
-    "task_item_savedalpha2026",
+    "task_item_saved_search_2026_alpha",
     "task_item_seed_task",
     # Seeded task titles that are now stable: the seed replaces a task with the
     # same title instead of appending one, so the title a flow seeds is the

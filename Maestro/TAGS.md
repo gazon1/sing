@@ -298,6 +298,7 @@ non-alphanumeric characters with `_`.
 | `SavedSearches.RENAME_DIALOG_CONFIRM` | `search_rename_dialog_confirm` | |
 | `SavedSearches.SAVE_CHIP` | `search_save_chip` | |
 | `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
+| `SavedSearches.SAVE_DIALOG_NAME` | `search_save_dialog_name` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
 | `SavedSearches.SEARCH_MENU_RENAME_BUTTON` | `search_menu_rename_button` | |

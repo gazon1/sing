@@ -6,6 +6,16 @@ tags:
   - scenario:MENU-10
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+
+# Enter a local session. The entry exists only for `Session.Anonymous`, and the
+# E2E build reports `Session.SignedIn` from the first frame — so without this
+# step the flow waits for an entry that cannot be there. The agenda is visible
+# afterwards: an anonymous session is not blocked by the auth screen.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
+
 - runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
