@@ -92,7 +92,7 @@ their logic.
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
 | `skip-spotlight.yaml` | Dismisses the first-run spotlight tour, which covers the agenda and swallows the taps under its scrim; `launch-clean.yaml` runs it |
-| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; it also carries the contract for waiting for what a flow seeded |
+| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; `WAIT_FOR` names the entity to wait for, and the helper carries the contract for waiting for what a flow seeded |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `seed-and-open-task.yaml` | Seeds a task with `QUERY` and opens it from Inbox by `TASK_ID` |
 | `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
@@ -119,6 +119,31 @@ A flow waits for the entity it seeded before it asserts on it. Which waits
 count — the entity's own row, or a container that renders only because the
 entity is in it — is written down in one place: the contract at the top of
 `helpers/seed.yaml`. Read it there; do not restate it in a flow.
+
+Which of those waits live in the helper and which stay in the flow:
+
+- **In the helper.** The seed helper waits for the shell, and — when the flow
+  names the entity in `WAIT_FOR` — for that entity, before it returns:
+
+  ```yaml
+  - runFlow:
+      file: ../../helpers/seed.yaml
+      env:
+        QUERY: "task=Buy%20milk&due=today"
+        WAIT_FOR: "task_item_buy_milk"
+  ```
+
+  `WAIT_FOR` is the element id the flow is going to assert on. A title-named
+  entity is named by the element its title produces (`TestTags.slug`); an
+  id-named entity is named by that id. The helper's wait does not scroll, so
+  it covers an entity that is on the screen the seed leaves the app on.
+
+- **In the flow.** An entity that is elsewhere — a note, a project, a row below
+  the fold, a task in another tab — is waited for by the flow, after it
+  navigates: the flow waits for the container that holds the entity, or
+  scrolls the row into view. A seed that writes no entity
+  (`session=anonymous`, `cleanup=`, `reset=`) names no entity, and the helper
+  waits for the shell alone.
 
 ### Sessions
 

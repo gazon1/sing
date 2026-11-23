@@ -31,8 +31,13 @@ tags:
     timeout: 8000
 
 # Today is reachable immediately (overdue history collapsed, not a scroll wall).
-- assertVisible:
-    id: agenda_section_today
+# Container rule: the Today section renders only because the seeded
+# TodayReachable is in it, so this wait is that task arriving — the overdue
+# section above it says nothing about it.
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 8000
 - assertVisible:
     id: task_item_todayreachable
 

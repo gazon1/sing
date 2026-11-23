@@ -296,7 +296,7 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 |---|---|
 | `launch-clean.yaml` | `launchApp`, then bounded wait for `nav_tab_today` (30s cold start) |
 | `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
-| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); waits for the shell and leaves the app on Today |
+| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); waits for the shell and leaves the app on Today. `WAIT_FOR` (optional) names the entity to wait for — the helper waits for that element before it returns |
 | `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |
 | `pick-date.yaml` | Date picker helper using `scripts/date.js` |
 
@@ -311,6 +311,38 @@ flows self-seeding rather than inheriting state from an earlier flow. Note that
 `launch-clean` does not clear Room, so a fixture written by a previous *manual*
 run is still there — the runner wipes the profile before each flow instead —
 see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+
+### Waiting for what you seeded
+
+A flow waits for the entity it seeded before it asserts on it, and a bare
+`assertVisible` is not a wait. Which waits live where:
+
+- **In the helper.** `seed.yaml` waits for the shell and, when the flow names
+  the entity in `WAIT_FOR`, for that entity too:
+
+  ```yaml
+  - runFlow:
+      file: ../../helpers/seed.yaml
+      env:
+        QUERY: "task=Buy%20milk&due=today"
+        WAIT_FOR: "task_item_buy_milk"
+  ```
+
+  `WAIT_FOR` is the element id the flow will assert on: a title-named entity
+  by the element its title produces (`TestTags.slug`), an id-named entity by
+  that id. The helper's wait does not scroll, so it covers an entity that is
+  on the screen the seed leaves the app on — the shell wait alone says
+  nothing about the seed, because the app was already up before the link
+  arrived.
+
+- **In the flow.** An entity that is elsewhere — a note, a project, a row
+  below the fold, a task in another tab — is waited for by the flow after it
+  navigates: the container that holds the entity, or the row scrolled into
+  view. A seed that writes no entity (`session=anonymous`, `cleanup=`,
+  `reset=`) names no entity, and the helper waits for the shell alone.
+
+The contract itself lives in one place — the header of `helpers/seed.yaml` —
+and `Maestro/CONVENTIONS.md` repeats it.
 
 ## The runbook
 

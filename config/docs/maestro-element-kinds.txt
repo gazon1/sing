@@ -24,6 +24,7 @@ ${DEST_ID} text
 ${ENTRY_ID} menu
 ${SETTINGS_TAB} tab
 ${TASK_ID} item
+${WAIT_TARGET} item
 agenda_grouping_day button
 agenda_grouping_week button
 agenda_multi_date_button menu
