@@ -26,10 +26,13 @@ tags:
 # with `android.intent.action.VIEW`, which is exactly the intent a link from a
 # mail or a messenger produces, and the app receives it in `onNewIntent`.
 - openLink: "singularity://task/deeplinktarget01"
-# The task's editor is what the task screen is.
+# The task's editor is what the task screen is, and the wait names the task it
+# opened: the field carries the title, so waiting for the field *and* the title
+# is waiting for this task and not for whichever task the editor would show.
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
+      text: "Deep link target"
     timeout: 5000
 # The title proves the link led to *this* task and not merely that an editor
 # opened.

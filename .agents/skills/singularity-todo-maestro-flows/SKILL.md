@@ -351,6 +351,17 @@ Two rules make such a wait mean something:
   tell a rename from the row it renamed — the row was already there under the
   old name. The name can.
 
+And two the gate holds a flow to: a wait under `notVisible`/`absent` waits
+for the element to be *gone* and covers nothing, and an assertion by the
+entity's name (`assertVisible: {text: "Buy milk"}`) is an assertion on that
+entity — the wait that covers it may address the node by the id of the field
+it is in *and* by the title it holds.
+
+A seed that writes more rows than a wait can outlast names no entity to wait
+for: the thousand overdue rows of `agenda/07` take longer to write than the
+item budget, so that seed names none and the flow waits for the section that
+holds them.
+
 The contract itself lives in one place — the header of `helpers/seed.yaml` —
 and `Maestro/CONVENTIONS.md` repeats it.
 

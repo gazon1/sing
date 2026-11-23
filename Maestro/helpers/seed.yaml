@@ -112,6 +112,28 @@
 # wrote. A renamed entity is waited for by its new name: a wait for the row
 # cannot tell a rename from the row it renamed.
 #
+# A wait that waits for the element to be *gone* — `notVisible`, `absent` —
+# says the opposite of what an assertion needs, and covers nothing.
+#
+# A node can carry both the id of the field it is and the title it holds — the
+# task editor's title field publishes its value as the node's text — so a wait
+# may address the entity by both at once:
+#
+#   - extendedWaitUntil:
+#       visible:
+#         id: task_editor_title_input
+#         text: "Buy milk"
+#       timeout: 5000
+#
+# That is one wait for one entity, and not a wait for whichever entity the
+# screen happens to show.
+#
+# A seed that writes more rows than a wait can outlast names no entity to wait
+# for: the thousand overdue rows of `agenda/07` take longer to write than the
+# item budget (8 s), so that seed names none — the helper's wait for the shell
+# is the one that has to absorb the write, and the flow waits for the section
+# that holds the rows once both seeds are in.
+#
 # The container rule is also the cheap one: it does not scroll, so a step that
 # waits for the same container afterwards still finds it on screen. A row wait
 # inside a scrolling timeline can scroll the section out from under the step

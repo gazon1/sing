@@ -156,6 +156,21 @@ Two rules make such a wait mean something:
   name. The name can. `menu/06-tree-live` waits for the text "Renamed" and
   then asserts on the row's id.
 
+Two more things the gate holds a flow to:
+
+- **A wait that waits for the element to be gone covers nothing.** `notVisible`
+  and `absent` wait for the opposite of an arrival.
+- **An assertion by the entity's name is an assertion on the entity.** A flow
+  that asserts `text: "Buy milk"` on a seeded task has to wait for that task,
+  and the wait may address the node by the id of the field it is in *and* by
+  the title it holds — `visible: {id: task_editor_title_input, text: "Buy
+  milk"}` is one wait for one entity.
+
+A seed that writes more rows than a wait can outlast names no entity to wait
+for: the thousand overdue rows of `agenda/07` take longer to write than the
+item budget, so that seed names none and the flow waits for the section that
+holds them.
+
 ### Sessions
 
 A flow does not inherit a session from the flow before it, and it does not

@@ -81,7 +81,28 @@ container that renders only because the entity is in it, or by the name the
 entity is called. The name is the handle a rename needs: the row was already
 there under the old name, so only the new name tells the rename from the row
 it renamed. The flow waits for the name; the row's id stays the assertion's
-subject.
+subject. A node can carry both — the task editor's title field publishes its
+value as the node's text — so a wait may address the entity by the id of the
+field it is in *and* by the title it holds:
+`visible: {id: task_editor_title_input, text: "Buy milk"}` is one wait for one
+entity, and not a wait for whichever entity the screen happens to show.
+
+**What counts as an assertion on the entity.** An assertion by the id of the
+row the app renders the entity under, and an assertion whose text is exactly
+the name the entity is called. A text that is not the name — a count, a
+heading, a pattern — is not about the entity. An assertion by the name is
+therefore an assertion on the entity, and something has to wait for it.
+
+**What a wait covers.** A wait that waits for the element to be *gone* —
+`notVisible`, `absent` — says the opposite of what an assertion needs, and
+covers nothing.
+
+**A seed that writes more rows than a wait can outlast.** The thousand
+overdue rows of `agenda/07` take longer to write than the item budget (8 s),
+so that seed names no entity to wait for: a wait for the section would time
+out before the rows are written. The helper's wait for the shell is the one
+that has to absorb the write, and the flow waits for the section that holds
+the rows once both seeds are in.
 
 **What the rule is held against.** `SeedHelperWaitTest` holds the rule to
 fixtures as well as to the tree: flows written to break it — a wait that
@@ -132,10 +153,16 @@ profile therefore behaves exactly as it did before.
   holds to the budget of its kind.
 - The helper does not parse `QUERY`, and never will: the query language
   belongs to the seeder.
-- `agenda/07-large-overdue` waits for the section the thousand seeded tasks are
-  in, right after the seed that wrote them: a link that arrives while that
-  seed is still writing finds the app on the seed's own screen, and the flow
-  has to wait for the rows before it sends the next one.
+- `agenda/07-large-overdue` seeds a thousand rows in one go, and that write
+  outlasts every item budget: the seed names no entity to wait for, and the
+  flow waits for the section that holds the rows once both seeds are in. The
+  flow fails on this device before and after the change alike — the write
+  takes longer than the helper's shell wait (30 s) — so the exception is a
+  property of the seeder's cost, not of this entry.
+- `nav/deep-link-task` and `notes/03-internal-link-navigation` assert the
+  title of the task they opened, and wait for the editor by the id of its
+  title field *and* by that title: the wait names the entity, not whichever
+  entity the editor would show.
 - `menu/06-tree-live` waits for the name the rename gave the project, and
   asserts on the row's id: the row was already there under the old name, so
   the row's id cannot tell the rename from the row it renamed.
@@ -149,8 +176,13 @@ profile therefore behaves exactly as it did before.
   ${WAIT_TARGET} is visible... COMPLETED`) and the flow's own assertion on
   the same row passing right after it.
 - `menu/06-tree-live` — the rename wait, on the menu's sheet.
-- `agenda/07-large-overdue` — the section wait after the big seed, and the
-  thousand-row count the flow asserts on.
+- `agenda/07-large-overdue` — **not green on this device**, before and after
+  this entry alike: writing a thousand rows takes ~30–40 s, which is longer
+  than the helper's shell wait (30 s), so the flow fails on that wait with
+  the tree's own bulk fixture. The seeder writes a row at a time and waits
+  for the write to be observed (`SeedWriter`), so the cost is quadratic in
+  the number of rows; that is the seeder's business, not the helper's, and
+  it is why the seed names no entity to wait for.
 
 ## Links
 

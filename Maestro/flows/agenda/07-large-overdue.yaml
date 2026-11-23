@@ -14,16 +14,15 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
-# The big seed writes a thousand rows in one transaction, and the section that
-# holds them renders because of them: waiting for the section is waiting for
-# the rows. The wait is here, before the next link is sent, because a link
-# that arrives while this seed is still writing finds the app on the seed's own
-# screen instead of on the agenda.
+# The big seed writes a thousand rows in one transaction, and that write takes
+# longer than the budget of an item (8 s) — so this seed names no entity to
+# wait for. The helper's own wait for the shell is the one that has to absorb
+# the write, and the section that holds the rows is waited for below, once both
+# seeds are in.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=BigOverdue&due=-1d&count=1001&id=bigoverdue"
-      WAIT_FOR: "agenda_section_overdue"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

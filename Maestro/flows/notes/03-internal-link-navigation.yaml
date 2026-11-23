@@ -54,10 +54,13 @@ tags:
 # screen, so a tap on it is a tap on the link and not on the note's title.
 - tapOn:
     text: "Buy milk"
-# The task's editor is what the task screen is.
+# The task's editor is what the task screen is, and the wait names the task it
+# opened: the field carries the title, so waiting for the field *and* the title
+# is waiting for this task and not for whichever task the editor would show.
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
+      text: "Buy milk"
     timeout: 5000
 # The title proves the link led to *this* task and not merely that an editor
 # opened.
