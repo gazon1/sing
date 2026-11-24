@@ -139,15 +139,26 @@ Which of those waits live in the helper and which stay in the flow:
   (`TestTags.slug`); an id-named entity is named by that id. The element has to
   be on the screen the seed leaves the app on — the agenda's Today tab, with
   its Overdue and Today sections: a task that is overdue or due today, and the
-  section it is in. The helper does not navigate, so an element that is
-  elsewhere is not there to be waited for, and the gate holds the caller to
-  the screen. The helper's wait does not scroll, so it covers an entity that is
-  on that screen. The helper waits in this order — the link, the shell wait,
-  the entity wait — and the wait after the link is the one that absorbs the
-  arrival: a wait before it would be satisfied by the row the seed is about to
-  rewrite. The shell wait stands between the link and the entity wait: it lets
-  the app come up, and an entity wait above it would be a wait for a row the
-  seed may not have written yet.
+  section it is in. Three things are not: an element that is elsewhere (the
+  helper does not navigate), a row of a seed that wrote several rows (the list
+  is longer than the screen and the helper does not scroll), and a section the
+  flow named before the seed (it was already there, so the wait for it returns
+  at once and proves nothing about the row the seed wrote). The helper's wait
+  does not scroll, so it covers an entity that is on that screen. The helper
+  waits in this order — the link, the shell wait, the entity wait — and the
+  wait after the link is the one that absorbs the arrival: a wait before it
+  would be satisfied by the row the seed is about to rewrite. The shell wait
+  stands between the link and the entity wait: it lets the app come up, and an
+  entity wait above it would be a wait for a row the seed may not have written
+  yet.
+
+- **One link writes one kind.** The seeder takes the first kind the query
+  names — task, then note, then project, then the bulk projects — so a link
+  that names a task and a note writes the task and nothing else. A `count=`
+  the seeder refuses (anything outside `1..10000`) writes no row at all, and a
+  link that cleans up, resets or changes the session writes no row either —
+  the seeder answers it and returns before it writes anything. Such a seed
+  names no entity, and the helper waits for the shell alone.
 
 - **In the flow.** An entity that is elsewhere — a note, a project, a row below
   the fold, a task in another tab — is waited for by the flow, after it

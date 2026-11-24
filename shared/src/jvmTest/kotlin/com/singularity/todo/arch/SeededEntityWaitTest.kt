@@ -294,6 +294,45 @@ class SeededEntityWaitTest {
         )
     }
 
+    @Test
+    fun `an assertion written as a scalar is an assertion on the entity`() {
+        // `assertVisible: "Fixture"` is the short form of the block form. A
+        // gate that reads only the block form does not see the assertion at
+        // all, and the flow it belongs to passes the gate while asserting on
+        // a row that may not have arrived.
+        val events = SeedWaitTree.fixture("flow.yaml" to ASSERTED_BY_SCALAR_NAME)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule ignores an assertion written as a scalar. That assertion " +
+                "is about the seeded entity, so something has to wait for it.",
+        )
+    }
+
+    @Test
+    fun `a link seeds one kind of entity`() {
+        // The seeder takes the first kind the query names: a link that names a
+        // task and a note seeds the task, and the note is never written. The
+        // model that invents the note would hold the flow to a wait for a row
+        // that does not exist.
+        val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery("task=Fixture&due=today&note=Alpha"))
+
+        assertTrue(
+            seeded.entities.size == 1,
+            "the model writes ${seeded.entities.size} entities for a link that names a task " +
+                "and a note — the seeder writes the task and nothing else",
+        )
+        assertTrue(
+            seeded.entities.none { entity -> entity.names.contains("Alpha") },
+            "the model writes a note the seeder never writes",
+        )
+        assertTrue(
+            seeded.containers == listOf("agenda_section_today"),
+            "the containers of the seed are ${seeded.containers.joinToString()} — the section " +
+                "belongs to the task the seed wrote, and to nothing else",
+        )
+    }
+
     private companion object {
         /**
          * A flow that seeds the same row twice and waits only for the first seed.
@@ -482,6 +521,24 @@ class SeededEntityWaitTest {
                   QUERY: "project=Renamed&id=roadmap"
             - assertVisible:
                 text: "Renamed"
+            """.trimIndent()
+
+        /**
+         * The same assertion, written in the short form.
+         *
+         * The text is the value of the command itself, and a gate that reads
+         * only the block form does not see it.
+         */
+        val ASSERTED_BY_SCALAR_NAME =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            - assertVisible: "Fixture"
             """.trimIndent()
 
         /**

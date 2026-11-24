@@ -1,5 +1,6 @@
 package com.singularity.todo.arch
 
+import com.singularity.todo.core.seed.SeedCount
 import com.singularity.todo.core.ui.TestTags
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -60,9 +61,12 @@ internal object SeedWaitTree {
             // it returns at once — it cannot be the evidence that the seeded
             // row arrived.
             val containers = seeded.containers.filter { it !in namedBefore(seed.position, waits, asserts) }
-            // The containers of the sections the app is left on: the ones the
-            // helper can wait for at all.
-            val landingContainers = containers.filter { it in LANDING_CONTAINERS }
+            // What the helper may wait for: the rows the seed brings onto the
+            // screen the app is left on, and the sections that hold them. An
+            // entity the seed leaves on another screen is not there to be
+            // waited for — the helper's wait would time out on an element the
+            // app never renders.
+            val landingIds = landingTargets(seeded, seed.position, waits, asserts)
             for (entity in seeded.entities) {
                 // The ids of the entity: what the helper's own wait names, and
                 // what a wait for the row or the container names. The names are
@@ -70,14 +74,6 @@ internal object SeedWaitTree {
                 // id, so the names are not among its targets.
                 val ids = (entity.rows + containers).toSet()
                 val handles = (ids + entity.names).toSet()
-                // What the helper may wait for: the row of an entity the seed
-                // brings onto the screen the app is left on, and the section
-                // that holds it. An entity the seed leaves on another screen
-                // is not there to be waited for — the helper's wait would time
-                // out on an element the app never renders.
-                val landingIds =
-                    (if (entity.onLandingScreen) entity.rows else emptyList()) +
-                        landingContainers
                 for (assert in asserts) {
                     if (!assertsEntity(assert, entity)) continue
                     checked++
@@ -356,7 +352,18 @@ internal object SeedWaitTree {
             }
             val parsed = parseBlock(block)
             val file = parsed.file ?: inline.takeIf { name == "runFlow" && it.isNotEmpty() }
-            out += Command(name, parsed.ids, parsed.texts, parsed.env, file)
+            // An assertion may be written as a scalar: `assertVisible: "Buy
+            // milk"`. The text is then the value of the command itself, and a
+            // gate that reads only the block form does not see the assertion
+            // at all.
+            val inlineText =
+                inline
+                    .takeIf { name in ASSERT_COMMANDS && it.isNotEmpty() && !it.startsWith("{") }
+                    ?.trim()
+                    ?.trim('"', '\'')
+                    ?.takeIf { it.isNotEmpty() }
+            val texts = parsed.texts + (inlineText?.let { listOf(Selector(it, true)) } ?: emptyList())
+            out += Command(name, parsed.ids, texts, parsed.env, file)
         }
         return out
     }
@@ -482,45 +489,99 @@ internal object SeedWaitTree {
     fun seededEntity(params: Map<String, String>): Seeded {
         val entities = mutableListOf<Entity>()
         val containers = mutableListOf<String>()
-        params["task"]?.let { title ->
-            val count = params["count"]?.toIntOrNull() ?: 1
-            val landing = isLandingDue(params["due"])
-            if (count > 1) {
-                (1..count).forEach { index ->
-                    entities += Entity(listOf(TestTags.taskItem("$title-$index")), listOf("$title-$index"), landing)
-                }
-            } else {
-                entities += Entity(listOf(TestTags.taskItem(title)), listOf(title), landing)
-            }
-            DUE_SECTIONS[params["due"]]?.let { section ->
-                containers += TestTags.agendaSection(section)
-            }
+        // A link that changes the session, cleans up or resets writes no
+        // entity: the seeder answers it and returns before it writes anything
+        // (`DebugSeedActivity.seed`). Such a link names no entity to wait for,
+        // whatever else its query carries.
+        val writesNothing = params.keys.any { key -> key in NO_ENTITY_KEYS }
+        if (!writesNothing) {
+            seedKinds(params, entities, containers)
         }
-        params["note"]?.let { title ->
-            entities += Entity(listOf(TestTags.noteItemByTitle(title)), listOf(title))
-        }
-        params["project"]?.let { name ->
-            val rows = mutableListOf(TestTags.projectCard(name))
-            params["id"]?.let { id -> rows += TestTags.menuProjectNode(id) }
-            entities += Entity(rows, listOf(name))
-        }
-        params["projects"]?.toIntOrNull()?.let { count ->
-            (1..count).forEach { index ->
-                val number = index.toString().padStart(3, '0')
-                entities +=
-                    Entity(
-                        listOf(
-                            TestTags.projectCard("Bulk $number"),
-                            TestTags.menuProjectNode("$BULK_ID_PREFIX-$number"),
-                        ),
-                        listOf("Bulk $number"),
-                    )
-            }
-        }
+        // A profile is not a seed kind: the link switches to it and writes a
+        // row of its own list, whatever else the query seeds.
         params["profile"]?.let { name ->
             entities += Entity(listOf(TestTags.profileItem(name)), listOf(name))
         }
         return Seeded(entities, containers)
+    }
+
+    /**
+     * The kinds a link can seed, written one kind at a time.
+     *
+     * A link seeds at most one kind: the seeder takes the first kind the
+     * query names (`DebugSeedActivity.seedEntity`). A query that names a task
+     * and a note seeds the task, and the note is never written — so the model
+     * writes one kind too, or the gate would hold a flow to a wait for a row
+     * that does not exist.
+     */
+    private fun seedKinds(
+        params: Map<String, String>,
+        entities: MutableList<Entity>,
+        containers: MutableList<String>,
+    ) {
+        when {
+            params.containsKey("task") -> {
+                val title = params["task"].orEmpty()
+                // The count the seeder reads: an invalid one writes nothing at
+                // all, so such a seed creates no entity.
+                val count = SeedCount.parse(params["count"])
+                if (count != null) {
+                    val landing = isLandingDue(params["due"])
+                    if (count > 1) {
+                        (1..count).forEach { index ->
+                            entities +=
+                                Entity(
+                                    listOf(TestTags.taskItem("$title-$index")),
+                                    listOf("$title-$index"),
+                                    // A row of a multi-row seed is not there to
+                                    // be waited for: the list the seed filled is
+                                    // longer than the screen, so the row may be
+                                    // below the fold. The helper does not
+                                    // scroll — the flow waits for the row.
+                                    helperWaitable = false,
+                                )
+                        }
+                    } else {
+                        entities +=
+                            Entity(
+                                listOf(TestTags.taskItem(title)),
+                                listOf(title),
+                                helperWaitable = landing,
+                            )
+                    }
+                    DUE_SECTIONS[params["due"]]?.let { section ->
+                        containers += TestTags.agendaSection(section)
+                    }
+                }
+            }
+
+            params.containsKey("note") -> {
+                val title = params["note"].orEmpty()
+                entities += Entity(listOf(TestTags.noteItemByTitle(title)), listOf(title))
+            }
+
+            params.containsKey("project") -> {
+                val name = params["project"].orEmpty()
+                val rows = mutableListOf(TestTags.projectCard(name))
+                params["id"]?.let { id -> rows += TestTags.menuProjectNode(id) }
+                entities += Entity(rows, listOf(name))
+            }
+
+            params.containsKey("projects") -> {
+                val count = params["projects"]?.toIntOrNull() ?: 0
+                (1..count).forEach { index ->
+                    val number = index.toString().padStart(3, '0')
+                    entities +=
+                        Entity(
+                            listOf(
+                                TestTags.projectCard("Bulk $number"),
+                                TestTags.menuProjectNode("$BULK_ID_PREFIX-$number"),
+                            ),
+                            listOf("Bulk $number"),
+                        )
+                }
+            }
+        }
     }
 
     /**
@@ -549,18 +610,37 @@ internal object SeedWaitTree {
      *
      * The helper waits on the agenda's Today tab — that is where the seed
      * leaves the app — so a target it names has to be rendered there: the row
-     * of a task that is overdue or due today, or the section that holds it.
+     * of a task that is overdue or due today and the only row of its seed, or
+     * the section that holds it.
+     *
+     * A row of a multi-row seed is not among them: the list the seed filled is
+     * longer than the screen, so the row may be below the fold, and the helper
+     * does not scroll.
+     *
+     * A section the flow named before the seed is not among them either: it
+     * was there before the seed, a wait for it returns at once, and it cannot
+     * be the evidence that the row the seed wrote has arrived.
      *
      * An entity on another screen is not among them. The helper does not
      * navigate, so its wait would run out its timeout on an element the app
      * never renders — and the flow would fail on the helper, before it had a
      * chance to navigate to the entity itself.
      */
-    fun landingTargets(seeded: Seeded): Set<String> =
-        seeded.entities
-            .filter { it.onLandingScreen }
+    fun landingTargets(
+        seeded: Seeded,
+        position: List<Int>,
+        waits: List<Event.Wait>,
+        asserts: List<Event.Assert>,
+    ): Set<String> {
+        val sections =
+            seeded.containers
+                .filter { it in LANDING_CONTAINERS }
+                .filter { it !in namedBefore(position, waits, asserts) }
+        return seeded.entities
+            .filter { it.helperWaitable }
             .flatMap { it.rows }
-            .toSet() + seeded.containers.filter { it in LANDING_CONTAINERS }
+            .toSet() + sections
+    }
 
     /**
      * What a seed writes: the entities it created, and the containers they are in.
@@ -576,15 +656,18 @@ internal object SeedWaitTree {
         val rows: List<String>,
         val names: List<String>,
         /**
-         * Whether the seed brings the entity onto the screen the app is left on.
+         * Whether the helper may wait for this entity's row.
          *
-         * The seed brings the app up on the agenda's Today tab, so what is
-         * there to be waited for is what that tab renders: a task that is
-         * overdue or due today. A task in another tab, a note, a project and a
-         * profile are on screens the app is not on — the helper's wait would
-         * never see them, and the flow is the one that navigates there.
+         * The helper waits on the agenda's Today tab — the screen the seed
+         * leaves the app on — and it does not scroll. So the row it may wait
+         * for is a row of that screen that is there to be seen: a task that is
+         * overdue or due today, and the only row of its seed. A row of a
+         * multi-row seed is below the fold of the list the seed itself filled,
+         * a task in another tab, a note, a project and a profile are on
+         * screens the app is not on — the helper's wait would run out its
+         * timeout on any of them.
          */
-        val onLandingScreen: Boolean = false,
+        val helperWaitable: Boolean = false,
     )
 
     /**
@@ -603,6 +686,15 @@ internal object SeedWaitTree {
 
     /** The prefix of the ids the bulk project seed writes, as `SeedWriter` writes them. */
     const val BULK_ID_PREFIX = "bulk"
+
+    /**
+     * The query keys that make a link write no entity.
+     *
+     * The seeder answers them and returns before it writes anything: a link
+     * that cleans up, resets or changes the session carries no entity params
+     * of its own.
+     */
+    val NO_ENTITY_KEYS = setOf("reset", "cleanup", "session")
 
     /** The commands that wait for an element. */
     val WAIT_COMMANDS = setOf("extendedWaitUntil", "scrollUntilVisible")

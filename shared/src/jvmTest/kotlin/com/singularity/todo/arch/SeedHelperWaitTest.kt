@@ -170,6 +170,30 @@ class SeedHelperWaitTest {
     }
 
     @Test
+    fun `a link that cleans up or resets writes no entity`() {
+        // The seeder answers such a link and returns before it writes
+        // anything, so a link that carries an entity param alongside it writes
+        // that entity nowhere. The model that writes it would name a row the
+        // device never shows.
+        val queries =
+            listOf(
+                "reset=content",
+                "cleanup=BackupRoundTripTask",
+                "session=anonymous",
+                "reset=content&task=Fixture&due=today",
+            )
+        for (query in queries) {
+            val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(query))
+            assertTrue(
+                seeded.entities.isEmpty(),
+                "the model writes ${seeded.entities.size} entities for \"$query\" — the " +
+                    "seeder writes nothing for a link that cleans up, resets or changes " +
+                    "the session",
+            )
+        }
+    }
+
+    @Test
     fun `a WAIT_FOR names an entity the seed wrote`() {
         val violations = mutableListOf<String>()
         var checked = 0
@@ -244,27 +268,39 @@ class SeedHelperWaitTest {
 
     @Test
     fun `a WAIT_FOR names an entity the seed brought to the screen it lands on`() {
-        val seeds = mutableListOf<Pair<Path, Event.Seed>>()
+        val violations = mutableListOf<String>()
+        var checkedCount = 0
+
         SeedWaitTree.forEachFile(maestroRoot) { file, events ->
-            events.filterIsInstance<Event.Seed>().forEach { seed -> seeds += file to seed }
-        }
-        val checked =
-            seeds.mapNotNull { (file, seed) ->
-                val waitFor = seed.waitFor ?: return@mapNotNull null
-                val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
-                if (seeded.entities.isEmpty()) return@mapNotNull null
-                Triple(file, waitFor, seeded)
-            }
-        val violations =
-            checked.mapNotNull { (file, waitFor, seeded) ->
-                if (waitFor in SeedWaitTree.landingTargets(seeded)) {
-                    return@mapNotNull null
+            val waits = events.filterIsInstance<Event.Wait>()
+            val asserts = events.filterIsInstance<Event.Assert>()
+            val named =
+                events.filterIsInstance<Event.Seed>().mapNotNull { seed ->
+                    val waitFor = seed.waitFor ?: return@mapNotNull null
+                    val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+                    if (seeded.entities.isEmpty()) {
+                        null
+                    } else {
+                        Triple(seed, waitFor, seeded)
+                    }
                 }
-                "${SeedWaitTree.rel(maestroRoot, file)}: WAIT_FOR=$waitFor is not on the screen the " +
-                    "seed leaves the app on — the seed brings ${seedTargets(seeded).joinToString()} " +
-                    "up, and the helper waits on the agenda's Today tab"
+            for ((seed, waitFor, seeded) in named) {
+                checkedCount++
+                val targets =
+                    SeedWaitTree.landingTargets(
+                        seeded,
+                        seed.position,
+                        waits,
+                        asserts,
+                    )
+                if (waitFor !in targets) {
+                    violations +=
+                        "${SeedWaitTree.rel(maestroRoot, file)}: WAIT_FOR=$waitFor is not on the screen the " +
+                        "seed leaves the app on — the seed brings ${seedTargets(seeded).joinToString()} " +
+                        "up, and the helper waits on the agenda's Today tab"
+                }
             }
-        val checkedCount = checked.size
+        }
 
         assertTrue(
             checkedCount >= 1,
@@ -310,11 +346,89 @@ class SeedHelperWaitTest {
         waitFor: String,
     ): String? {
         val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(query))
-        return if (waitFor in SeedWaitTree.landingTargets(seeded)) {
+        return if (waitFor in SeedWaitTree.landingTargets(seeded, SEED_POSITION, emptyList(), emptyList())) {
             null
         } else {
             "the seed \"$query\" does not bring $waitFor on screen"
         }
+    }
+
+    @Test
+    fun `a row of a multi-row seed is not a target of the helper's wait`() {
+        // The helper waits on the agenda's Today tab and does not scroll. A
+        // seed that wrote five rows put the last of them below the fold of the
+        // list it filled, so a wait for one of those rows would run out its
+        // timeout on a row that is there but not on screen.
+        val targets = landingTargetsOf(MULTI_ROW_SEED)
+
+        assertTrue(
+            "task_item_fixture_1" !in targets && "task_item_fixture_2" !in targets,
+            "the rows of a multi-row seed are among the targets the helper may " +
+                "wait for: ${targets.joinToString()}. The helper does not scroll, " +
+                "so a row below the fold is not a thing it can wait for.",
+        )
+        assertTrue(
+            "agenda_section_today" in targets,
+            "the section the rows are in is not among the targets: ${targets.joinToString()}",
+        )
+    }
+
+    @Test
+    fun `a section the flow named before the seed is not a target of the helper's wait`() {
+        // The section was on screen before the seed ran, so a wait for it
+        // returns at once: it cannot be the evidence that the row the seed
+        // wrote has arrived.
+        val targets = landingTargetsOf(SECTION_NAMED_BEFORE)
+
+        assertTrue(
+            "agenda_section_today" !in targets,
+            "a section the flow named before the seed is among the targets the " +
+                "helper may wait for: ${targets.joinToString()}. That section was " +
+                "there before the seed, so the wait would return at once.",
+        )
+        assertTrue(
+            "task_item_fixture" in targets,
+            "the row the seed wrote is not among the targets: ${targets.joinToString()}",
+        )
+    }
+
+    @Test
+    fun `a count the seeder refuses writes no entity`() {
+        // `SeedCount.parse` refuses a count outside 1..10000, and the seeder
+        // then writes nothing at all. Such a seed creates no entity, so there
+        // is no row for the helper to wait for.
+        for (count in listOf("0", "10001", "-1", "abc")) {
+            val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery("task=Fixture&count=$count"))
+            assertTrue(
+                seeded.entities.isEmpty(),
+                "the model writes ${seeded.entities.size} entities for count=$count — the " +
+                    "seeder refuses that count and writes nothing",
+            )
+        }
+
+        // The count the seeder accepts is the one the model writes: two rows.
+        val accepted = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery("task=Fixture&count=2"))
+        assertTrue(
+            accepted.entities.size == 2,
+            "the model writes ${accepted.entities.size} entities for count=2 — the " +
+                "seeder writes one row per count",
+        )
+    }
+
+    /**
+     * The targets the helper's wait may name for the seed in a flow.
+     *
+     * The flow is read the way the tree reads it, so the elements it named
+     * before the seed are known to the model — and a section among them is
+     * not a target.
+     */
+    private fun landingTargetsOf(flow: String): Set<String> {
+        val events = SeedWaitTree.fixture("flow.yaml" to flow)
+        val waits = events.filterIsInstance<Event.Wait>()
+        val asserts = events.filterIsInstance<Event.Assert>()
+        val seed = events.filterIsInstance<Event.Seed>().first()
+        val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+        return SeedWaitTree.landingTargets(seeded, seed.position, waits, asserts)
     }
 
     @Test
@@ -485,5 +599,46 @@ class SeedHelperWaitTest {
 
         /** A top-level command: `- name: …`. */
         val COMMAND = Regex("""^- ([a-zA-Z][a-zA-Z0-9]*):\s*(.*)$""")
+
+        /**
+         * The position of a seed that has no flow around it.
+         *
+         * A position is only compared with other positions, and a flow that
+         * has one seed has nothing to compare it with — so any position works.
+         */
+        val SEED_POSITION = listOf(0)
+
+        /** A flow whose seed writes two rows and names one of them to wait for. */
+        val MULTI_ROW_SEED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&count=2&due=today"
+                  WAIT_FOR: "task_item_fixture_1"
+            """.trimIndent()
+
+        /**
+         * A flow that waits for the section before the seed, and then names
+         * that section to wait for.
+         */
+        val SECTION_NAMED_BEFORE =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - extendedWaitUntil:
+                visible:
+                  id: agenda_section_today
+                timeout: 8000
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+                  WAIT_FOR: "agenda_section_today"
+            """.trimIndent()
     }
 }

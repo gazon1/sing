@@ -95,6 +95,30 @@ flow's to wait for, after it navigates: by the row rule (wait for the row) or
 by the container rule (wait for the section that renders only because the
 seeded task is in it).
 
+**What a link writes.** One kind. The seeder takes the first kind the query
+names — task, then note, then project, then the bulk projects
+(`DebugSeedActivity.seedEntity`) — so a link that names a task and a note
+writes the task and nothing else. The gate's model writes one kind too: a
+model that invents the note would hold a flow to a wait for a row that is
+never written, and it would hand that row the container of the task, so a wait
+for the section would "cover" an entity the seed did not write.
+
+A link that cleans up, resets or changes the session writes no entity at all:
+the seeder answers it and returns before it writes anything
+(`DebugSeedActivity.seed`), whatever else the query carries.
+
+**What a count the seeder refuses writes.** Nothing. `SeedCount.parse` takes
+a count in `1..10000` and refuses anything else, and the seeder then writes
+no row at all. Such a seed creates no entity, so it names none to wait for.
+
+**What the helper may name as a target of its wait.** A row of the screen
+the seed leaves the app on, and the section that holds it. Three things are
+not: a row of a *multi-row* seed (the list the seed filled is longer than the
+screen, so the row may be below the fold, and the helper does not scroll), a
+section the flow *named before the seed* (it was there before the seed, so a
+wait for it returns at once and cannot be the evidence that the row the seed
+wrote has arrived), and anything on another screen.
+
 **What a flow still has to do.** Name the entity it wants waited for, when the
 helper's screen holds it. A flow that seeds a row elsewhere still waits for
 that row itself.
@@ -133,7 +157,12 @@ section it did not bring in owns that.
 row the app renders the entity under, and an assertion whose text is exactly
 the name the entity is called. A text that is not the name — a count, a
 heading, a pattern — is not about the entity. An assertion by the name is
-therefore an assertion on the entity, and something has to wait for it.
+therefore an assertion on the entity, and something has to wait for it. Both
+spellings of an assertion count: the block form (`assertVisible: {text: …}`)
+and the short one (`assertVisible: "…"`), where the text is the value of the
+command itself. A gate that reads only the block form does not see the short
+one at all, and the flow it belongs to passes the gate while asserting on a row
+that may not have arrived.
 
 **What a wait covers.** A wait that waits for the element to be *gone* —
 `notVisible`, `absent` — says the opposite of what an assertion needs, and
@@ -243,6 +272,14 @@ profile therefore behaves exactly as it did before.
   the assertions on the rows of such a seed are covered by the wait that
   names the row, the name, or the container — not by a wait that named one
   other row of the same seed.
+- The gate's model of a seed follows the seeder, not the query: one kind per
+  link (task, then note, then project, then bulk projects), a count the
+  seeder refuses writes nothing, and a container belongs to the entity the
+  seed wrote.
+- A `WAIT_FOR` may only name a row that is on the screen the seed leaves the
+  app on and that is there to be seen: not a row of a multi-row seed (the
+  helper does not scroll), and not a section the flow named before the seed
+  (the wait for it would return at once).
 - `nav/deep-link-task` and `notes/03-internal-link-navigation` assert the
   title of the task they opened, and wait for the editor by the id of its
   title field *and* by that title: the wait names the entity, not whichever
