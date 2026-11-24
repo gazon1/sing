@@ -242,6 +242,49 @@ one exception to "a repair that unblocks a pull request goes in its own pull
 request", and the tree is what makes the exception: the repair is the reason
 the pull request can be merged at all.
 
+## Review round 9
+
+Round 9 reviewed the two round-8 fixes. One reviewer found no defect at all:
+no blocking, no major, and the two fixes — the retired flow staying in the
+frozen set, the deduplication gone from the drawer owner — both read as the
+corrections they were. The second reviewer agreed on blocking and major and
+returned three minors.
+
+The third minor was correct and is fixed: the contract in
+`docs/testing/maestro-flow-qualification.md` said the frozen set only grows
+as if the gate enforced the growth. The gate enforces the **pin** — an
+artifact that does not match the pinned digest is refused — but a change that
+removes a name *and* refreshes the pin is a source change, and the growth is
+checked by the review of that change, not by the gate. The contract now says
+so, in those words.
+
+The first two minors asked again for the two foreign repairs to move to a
+dedicated pull request into main, and this time with a counter-argument worth
+answering: the CI workflow runs on the pull request's merge checkout, and
+main has no branch protection, so a dedicated repair pull request would run
+its gates against a repaired tree and could be merged on its own.
+
+That counter-argument is about the *mechanics* of the split, and the
+mechanics are right. What it does not reach is the qualification repair,
+because after the frozen-set restore this pull request's qualification change
+**is** the repair and nothing else: the frozen set and the baseline map in
+this tree are byte-identical to main's, because the retired flow is in them
+again. What remains of this pull request's qualification delta is the two
+pinned digests — the values main's own artifacts imply, which main has not
+refreshed — and the exception that main's #3136 requires. A dedicated repair
+pull request would therefore change the *same lines of the same file* this
+pull request changes, with the same values: it cannot be lifted out of here
+without either duplicating the change in a pull request that conflicts with
+this one, or leaving this pull request red on a blocking gate.
+
+The harness-convention repair could be split on its own — it touches no line
+this pull request touches. It stays for the reason the round-8 review already
+accepted: main is red on that gate today, the repair is two lines, and the
+repository owner asked for it to stay with the retirement. Both repairs live
+in their own commits (`e7c760ff69`, `dd117394b1`), so either can be lifted
+into main on its own — `git cherry-pick e7c760ff69 dd117394b1 main` — and
+neither depends on the retirement's content.
+
 ## Links
 
 - Issue: https://github.com/gazon1/sing/issues/3119

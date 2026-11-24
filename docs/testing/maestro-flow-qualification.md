@@ -25,6 +25,8 @@ Two files carry the admission, and they are kept apart on purpose.
 
 The frozen set is a **record** and it only grows: a flow that is retired stays in it, because it was in a blocking scope when the rule was introduced. What retires a flow is its absence from the catalogue — the gate walks the catalogue, never the frozen set, and admits a flow out of the catalogue. A name in the frozen set without a file behind it is therefore a record of the past, not an admission, and it qualifies nothing.
 
+"Only grows" is a rule the **review** holds, not a rule the gate enforces. The gate enforces the pin: an artifact that does not match the pinned digest is refused, so the set cannot be edited silently — but a change that removes a name and refreshes the pin is a source change, and the review of that change is where the growth is checked. The gate has no way to know which frozen entries were there before: it reads one artifact and one digest.
+
 `config/docs/maestro-flow-qualification-baseline.yaml` holds the **fingerprints** of the frozen set's flows. A flow is admitted when it is in the frozen set *and* its current fingerprint still matches the baseline. A fingerprint that no longer matches is not an admission, it is a change that needs qualification.
 
 The baseline map is pinned the same way the frozen set is: `BASELINE_DIGEST` in `scripts/check-maestro-flow-qualification.py` holds its digest, and the gate refuses to run when the artifact does not match. An edited fingerprint — a changed flow nobody qualified — is therefore a source change, reviewed as one, and not a data change. Print the current digest with `python3 scripts/check-maestro-flow-qualification.py --print-baseline-digest`.
