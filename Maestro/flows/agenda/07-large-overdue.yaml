@@ -1,11 +1,11 @@
 # Agenda: Today stays usable when the overdue section is very large.
 #
-# Seeds >1,000 overdue tasks (debug count) plus one task for today. The Today tab
+# Seeds 300 overdue tasks (debug count) plus one task for today. The Today tab
 # must keep today's section reachable without scrolling through overdue history:
 # the overdue section is auto-collapsed with an accurate count and an explicit
 # expand affordance, and the full Overdue destination contains all overdue tasks.
 #
-# прогнан на устройстве: да (2026-11-24) — эмулятор Android, emulator-5554
+# прогнан на устройстве: да (2026-11-24) — эмулятор Android, emulator-5564
 appId: com.singularity.todo
 name: agenda-large-overdue
 tags:
@@ -18,18 +18,41 @@ tags:
 # before the first chunk is written.
 - tapOn:
     id: nav_tab_today
-
-# The big seed writes a thousand rows, and a row costs the seeder about 30 ms —
-# so a thousand rows take about half a minute, and that is longer than any wait
-# the Maestro layer is given for a row (the item budget is 8 s, and every other
-# kind is smaller). A seed that outlasts the budget cannot be waited for at
-# all, so the rows are written in chunks: each chunk is a seed of its own, each
-# chunk fits inside the wait that follows it, and the chunks add up to the
-# thousand rows the regression is about.
 #
-# The rows of a chunk are titled after the chunk ("BigOverdue-1"…"BigOverdue-100",
+# The counts this flow waits for are the counts of the rows this flow wrote:
+# the profile is empty when the flow starts: the harness that runs the flow
+# wipes the device before it (see the header of `helpers/launch-clean.yaml`).
+# A row an earlier flow left behind would make every count here wrong, and
+# the flow would fail on a count that has nothing to do with the write it is
+# about.
+#
+# The big seed writes three hundred rows, and a row costs the seeder
+# tens of milliseconds — 79 ms on the host the flow was measured on (100 rows
+# took 7.9 s), and up to 300 ms on a host that is busy with something else. So
+# three hundred rows take a minute or more, and that is longer than any
+# wait the Maestro layer is given for a row (the item budget is 8 s, and every
+# other kind is smaller). A seed that outlasts the budget cannot be waited
+# for at all, so the rows are written in chunks: each chunk is a seed of its
+# own, each chunk fits inside the wait that follows it, and the chunks add up
+# to the three hundred rows the regression is about.
+#
+# Three hundred rows and not a thousand: the runner gives a flow five
+# minutes (`scripts/src/emulator/maestro/_runner.py`), and a chunk costs the
+# flow about ten seconds on a loaded host — the seed's own link, the helper's
+# failure check, and the wait that follows the chunk. A thousand rows would
+# need forty-one chunks and about seven minutes, and the flow would be cut
+# off by the runner before its last chunk landed. Three hundred rows are
+# fifteen times the count at which the agenda collapses the
+# overdue section (`AgendaPresets.LARGE_OVERDUE_THRESHOLD`), so the
+# regression the flow is about is the same one either way.
+#
+# The rows of a chunk are titled after the chunk ("BigOverdue-1"…"BigOverdue-25",
 # "BigOverdue2-1"…), because a seed titles its rows after the query it was
 # given — two chunks with the same base title would write the same rows twice.
+# The first chunk keeps the base title "BigOverdue", so the row the flow
+# asserts on at the end ("BigOverdue-1") is the first row of the section: the
+# section renders its rows in the order they were written, and the first
+# chunk was written first.
 #
 # Every chunk is waited for, and the wait names the count the app itself
 # renders: the header of the section carries the number of rows the section
@@ -38,118 +61,126 @@ tags:
 # the count short, and the wait would time out on it — the flow fails on the
 # chunk that did not land, and not on the aggregate assertion at the end.
 #
-# A chunk is a hundred rows: a row costs the seeder about 30 ms, so the chunk
-# takes about 3 s, and the wait for a row is budgeted at 8 s — the chunk leaves
-# a loaded runner room inside the budget the kind promises. The last chunk is
-# a single row: the thousand and one rows the flow is about.
+# The wait is priced at the "item" kind (8 s), because the section header is
+# the element it names, and it has to cover the whole write: the seed itself,
+# the app that comes up after it, and the agenda that reads the rows back. A
+# chunk is twenty-five rows: at 79 ms a row the write takes about 2 s, and at
+# 300 ms a row it takes about 7 s — either way it fits inside the 8 s the
+# item budget gives it. Twelve chunks of twenty-five rows are the three hundred
+# rows the flow is about.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue&due=-1d&count=100&id=bigoverdue"
+      QUERY: "task=BigOverdue&due=-1d&count=25&id=bigoverdue"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*100$"
+      text: "^Overdue .* 25$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue2&due=-1d&count=100&id=bigoverdue2"
+      QUERY: "task=BigOverdue2&due=-1d&count=25&id=bigoverdue2"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*200$"
+      text: "^Overdue .* 50$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue3&due=-1d&count=100&id=bigoverdue3"
+      QUERY: "task=BigOverdue3&due=-1d&count=25&id=bigoverdue3"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*300$"
+      text: "^Overdue .* 75$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue4&due=-1d&count=100&id=bigoverdue4"
+      QUERY: "task=BigOverdue4&due=-1d&count=25&id=bigoverdue4"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*400$"
+      text: "^Overdue .* 100$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue5&due=-1d&count=100&id=bigoverdue5"
+      QUERY: "task=BigOverdue5&due=-1d&count=25&id=bigoverdue5"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*500$"
+      text: "^Overdue .* 125$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue6&due=-1d&count=100&id=bigoverdue6"
+      QUERY: "task=BigOverdue6&due=-1d&count=25&id=bigoverdue6"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*600$"
+      text: "^Overdue .* 150$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue7&due=-1d&count=100&id=bigoverdue7"
+      QUERY: "task=BigOverdue7&due=-1d&count=25&id=bigoverdue7"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*700$"
+      text: "^Overdue .* 175$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue8&due=-1d&count=100&id=bigoverdue8"
+      QUERY: "task=BigOverdue8&due=-1d&count=25&id=bigoverdue8"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*800$"
+      text: "^Overdue .* 200$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue9&due=-1d&count=100&id=bigoverdue9"
+      QUERY: "task=BigOverdue9&due=-1d&count=25&id=bigoverdue9"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*900$"
+      text: "^Overdue .* 225$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue10&due=-1d&count=100&id=bigoverdue10"
+      QUERY: "task=BigOverdue10&due=-1d&count=25&id=bigoverdue10"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*1000$"
+      text: "^Overdue .* 250$"
     timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue11&due=-1d&count=1&id=bigoverdue11"
+      QUERY: "task=BigOverdue11&due=-1d&count=25&id=bigoverdue11"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
-      text: ".*Overdue.*1001$"
+      text: "^Overdue .* 275$"
     timeout: 8000
-
-# The task for today. It is seeded last, so every chunk above is in the
-# database by the time it is written.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue12&due=-1d&count=25&id=bigoverdue12"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: "^Overdue .* 300$"
+    timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=TodayReachable&due=today&id=todayreachable"
 
-# Today is reachable immediately (overdue history collapsed, not a scroll wall).
 # Container rule: the Today section renders only because the seeded
 # TodayReachable is in it, so this wait is that task arriving — the overdue
 # section above it says nothing about it.
@@ -162,7 +193,7 @@ tags:
 
 # Overdue header shows full count while collapsed and exposes expand/view-all.
 - assertVisible:
-    text: ".*Overdue.*1001.*"
+    text: ".*Overdue.*300.*"
 - assertVisible:
     id: agenda_section_toggle_overdue
 - assertVisible:
@@ -176,7 +207,7 @@ tags:
       id: agenda_section_overdue
     timeout: 8000
 - assertVisible:
-    text: ".*Overdue.*1001.*"
+    text: ".*Overdue.*300.*"
 
 # Return and verify expand/collapse restores access in place.
 - back

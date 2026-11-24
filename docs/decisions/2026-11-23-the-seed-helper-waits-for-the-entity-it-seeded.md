@@ -459,14 +459,15 @@ profile therefore behaves exactly as it did before.
   element the app never renders on the tab it is left on.
 - Changing the helper invalidates the fingerprint of every flow that runs it:
   the qualification fingerprint covers the files a flow runs transitively. The
-  gate reports 69 flows in blocking scopes that it no longer admits — 57 with a
-  stale baseline and 12 with no admission — and 34 of those 69 run the seed
-  helper. The gate was green before this entry: at the base revision it
-  admitted every flow in a blocking scope (114 baselined, 13 qualified, 0
-  excepted), so the whole 69 is this entry's debt and not a debt it inherited.
-  They are not broken — their assertions and their navigation are unchanged —
-  but the evidence that admitted them was three passing runs against the old
-  helper. The sweep is tracked in issue #3140; it is not this entry's work,
+  gate reports 68 findings on this tree — 53 with a stale baseline, 14 with no
+  admission and one exception that was issued for a fingerprint the flow has
+  left behind — and 34 of the 68 run the seed helper. The gate was green
+  before this entry: at the base revision it admitted every flow in a blocking
+  scope (114 baselined, 13 qualified, 0 excepted), so the whole 68 is this
+  entry's debt and not a debt it inherited. They are not broken — their
+  assertions and their navigation are unchanged — but the evidence that
+  admitted them was three passing runs against the old helper. The sweep that
+  requalifies them is tracked in issue #3140; it is not this entry's work,
   and the ADR does not excuse it with exceptions.
 - `smoke/07-seed-helper-contract` is the runtime half of the contract: the
   optional input, the named entity, and the seed that writes no entity.
@@ -479,12 +480,23 @@ profile therefore behaves exactly as it did before.
   belongs to the seeder. `SeedHelperQueryTest` holds it to that: the query is
   forwarded whole in the deep link, and a helper that names the query anywhere
   else in its body is rejected.
-- `agenda/07-large-overdue` seeds a thousand rows in ten chunks of a hundred
-  rows and one chunk of a single row, each chunk a seed of its own with a base
-  title of its own, so that every chunk fits inside the shell wait (30 s).
-  Every chunk carries a wait of its own, and the wait names the count the
-  section shows after that chunk (`agenda_section_overdue` together with the
-  number), so the flow never asserts on a count it has not observed.
+- `agenda/07-large-overdue` seeds three hundred rows in twelve chunks of
+  twenty-five rows, each chunk a seed of its own with a base title of its own,
+  so that every chunk fits inside the wait that follows it (the item budget is
+  8 s, and a chunk of twenty-five rows takes about 2 s to write on a loaded
+  host). Every chunk carries a wait of its own, and the wait names the count
+  the section shows after that chunk (`agenda_section_overdue` together with
+  the number), so the flow never asserts on a count it has not observed. The
+  count is absolute, so the profile has to be empty when the flow starts: the
+  harness that qualifies a flow wipes the device before it runs
+  (`docs/decisions/2026-11-24-the-qualification-wipe-runs-against-an-empty-profile.md`
+  says why the runner's own wipe does not do it). Three hundred rows and not a
+  thousand: the runner cuts a flow off at five minutes, and the flow measured
+  216 s at four hundred rows on a host that was busy with the sweep itself —
+  72 % of the budget, and the budget is a hard cut-off. Three hundred rows are
+  fifteen times the count at which the agenda collapses the overdue section
+  (`AgendaPresets.LARGE_OVERDUE_THRESHOLD`), so the regression the flow is
+  about is the same one either way.
 - A wait covers one entity. A seed that writes N rows writes N entities, and
   the assertions on the rows of such a seed are covered by the wait that
   names the row, the name, or the container — not by a wait that named one
@@ -513,8 +525,12 @@ profile therefore behaves exactly as it did before.
   title field *and* by that title: the wait names the entity, not whichever
   entity the editor would show.
 - `menu/06-tree-live` waits for the name the rename gave the project, and
-  asserts on the row's id: the row was already there under the old name, so
-  the row's id cannot tell the rename from the row it renamed.
+  asserts the row's id after it: the row was already there under the old name,
+  so the row's id cannot tell the rename from the row it renamed. The
+  assertion that came *before* the rename asserts the first seed by its name
+  ("Roadmap") and not by the row's id — the row is the row the rename
+  rewrites, so an assertion on the id would stand for the write that was in
+  effect when it ran, which is the first seed's and not the rename's.
 - A wait of the flow's own covers a seed only when it names what the seed
   changed: a row the earlier seeds had not written, a name the seed gave, or a
   section the seed brought in. A wait that names a row an earlier seed wrote
@@ -563,27 +579,44 @@ profile therefore behaves exactly as it did before.
   ${WAIT_TARGET} is visible... COMPLETED`) and the flow's own assertion on
   the same row passing right after it.
 - `menu/06-tree-live` — the rename wait, on the menu's sheet.
-- `agenda/07-large-overdue` — **green on this device** (2026-11-23), after the
-  bulk seed was split into five chunks: every chunk seed completes, the
-  overdue section shows the full count (`1001`), the Today section and
-  `task_item_todayreachable` are reachable, and the expanded list shows
-  `task_item_bigoverdue_1`. Before the split the flow failed on this device
-  — writing a thousand rows takes ~30 s, which is longer than the helper's
-  shell wait (30 s). The row cost itself (~30 ms a row) is the seeder's
-  business and is tracked in issue #3135.
+- `agenda/07-large-overdue` — **green on this device** (2026-11-23), in the
+  state the flow had then: the bulk seed was split into five chunks, every
+  chunk seed completed, the overdue section showed the full count (`1001`), the
+  Today section and `task_item_todayreachable` were reachable, and the
+  expanded list showed `task_item_bigoverdue_1`. Before the split the flow
+  failed on this device — writing a thousand rows takes ~30 s, which is longer
+  than the helper's shell wait (30 s). The row cost itself (~30 ms a row) is
+  the seeder's business and is tracked in issue #3135.
 
 Android emulator (`emulator-5554`), 2026-11-24 — the per-chunk waits:
 
-- `agenda/07-large-overdue` — **green** (exit 0). The bulk seed was split into
-  ten chunks of a hundred rows and one chunk of a single row, and every chunk
-  carries a wait of its own: the trace shows the section's count reaching
-  `100`, `200`, … `1000`, `1001` in order, each wait `COMPLETED` within the
-  item budget (8 s). The last chunk lands, `task_item_todayreachable` is
-  visible, and the expanded overdue list shows `task_item_bigoverdue_1`.
+- `agenda/07-large-overdue` — **green** (exit 0), with the bulk seed split into
+  chunks that each fit inside the wait that follows them: the trace shows the
+  section's count reaching the chunk's total in order, each wait `COMPLETED`
+  within the item budget (8 s). The last chunk lands,
+  `task_item_todayreachable` is visible, and the expanded overdue list shows
+  `task_item_bigoverdue_1`. At the time of that run the seed was a thousand
+  rows in forty-one chunks; the flow now seeds three hundred rows in twelve
+  chunks, because the runner cuts a flow off at five minutes and the flow had
+  grown into that budget (see the consequence above and the entry of
+  2026-11-24).
 - `nav/deep-link-task` — **green** (exit 0). The trace shows the helper's
   entity wait running on the seeded row (`Assert that id:
   ${WAIT_TARGET} is visible... COMPLETED`) before the link is sent, and the
   editor's title field carrying the seeded title afterwards.
+
+Android emulator (`emulator-5564`), 2026-11-24 — the flow as it is now, and
+the timing that sized it:
+
+- `agenda/07-large-overdue` — **green** (exit 0) at four hundred rows in
+  sixteen chunks. The trace shows the cost of a chunk: the seed's own link
+  (3.5 s), the helper's failure check (7.5 s — it waits for a failure screen
+  that a successful seed never shows), and the wait that follows the chunk
+  (0.4 s). Sixteen chunks of that came to 216 s of the runner's 300 s budget,
+  so the flow was cut to three hundred rows in twelve chunks.
+- `menu/06-tree-live` — **green** (exit 0) with the wait for the renamed
+  project and the first seed asserted by its name ("Roadmap") rather than by
+  the row's id.
 
 ## Links
 
@@ -621,6 +654,8 @@ Android emulator (`emulator-5554`), 2026-11-24 — the per-chunk waits:
   the seed it addresses.
 - `Maestro/flows/menu/06-tree-live.yaml` — a flow that waits for a renamed
   entity by the name it was given.
+- `docs/decisions/2026-11-24-the-qualification-wipe-runs-against-an-empty-profile.md`
+  — the wipe a qualified flow runs against, and why the harness does it.
 - `docs/decisions/2026-11-05-the-seed-waits-for-the-shell-not-the-row.md` — the
   entry this one supersedes.
 - `docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md` — the

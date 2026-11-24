@@ -413,13 +413,15 @@ Two more rules about what a wait covers:
   before the flow ran is invisible to the gate, so a flow that waits for a
   section it did not bring in owns that.
 - **A seed that outlasts every wait is written in chunks.** Writing a row
-  costs the seeder about 30 ms, so a thousand rows take longer than the shell
-  wait (30 s) — the largest budget there is — and a seed that outlasts the
-  budget cannot be waited for at all. Write it as several seeds of its own
-  instead, each with a base title of its own (two seeds with the same base
-  title write the same rows twice), each inside the budget; the flow then
-  waits for the section that holds the rows once the last chunk is in.
-  `agenda/07` seeds its thousand rows in five chunks for this reason.
+  costs the seeder tens of milliseconds — 79 ms on an idle host, and up to
+  300 ms on a host that is busy with something else — so a few hundred rows
+  take longer than the shell wait (30 s) — the largest budget there is. A seed
+  that outlasts the budget cannot be waited for at all. Write it as several
+  seeds of its own instead, each with a base title of its own (two seeds with
+  the same base title write the same rows twice), each inside the budget; the
+  flow then waits for the section that holds the rows once the last chunk is in.
+  `agenda/07` seeds its three hundred rows in chunks of twenty-five rows for
+  this reason.
 
 The contract itself is written in the header of `helpers/seed.yaml`, and
 `Maestro/CONVENTIONS.md` and this skill repeat it. The three copies state it
