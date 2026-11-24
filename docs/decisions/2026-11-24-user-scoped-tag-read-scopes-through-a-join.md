@@ -24,9 +24,10 @@ The measurement harness of #3174
 through `:shared:dependencyQueryPerf`) was extended to price this read as well:
 the same dataset from the shared generator of #3090, the same three forms
 (through the DAO, as the same raw SQL, and as the same question asked as a
-primary-key join on `tasks.id`), the same row-equivalence check, plus a scope
-check — a foreign profile must see nothing, and a task that does not exist must
-show nothing.
+primary-key join on `tasks.id`), the same row-equivalence check — on every
+probed task and over the whole relation of the profile, as sets, in both
+directions and in number — plus a scope check: a foreign profile must see
+nothing, and a task that does not exist must show nothing.
 
 What it found: the tag read is a real bottleneck, and its cost is linear in the
 number of tasks the user owns. One read of one task's tags costs 10.76 ms as raw

@@ -330,12 +330,15 @@ WHERE td.task_id = :taskId AND t.user_id = :userId
 
 ### Датасеты
 
-Девять датасетов: три размера и три распределения тегов при каждом размере.
+Девять датасетов. На двух размерах (10k, 50k) есть все три распределения; на
+100k — только пустое, на двух самых больших (90k, 80k) — по одному, потому что
+остальные в архив не помещаются (см. ниже).
+
 Распределение задаёт генератор: `--tags` — это число различных тегов в
 датасете, а число ссылок на задачу генератор рисует сам (0–3 из них).
 `--tags 0` — пусто (строк `task_tags` нет вовсе), `--tags 1` — разреженное
 (существует один тег, значит у задачи не больше одной ссылки), `--tags 100`
-и `--tags 120` — плотное (до трёх ссылок на задачу, взятых из сотни тегов).
+и `--tags 120` — плотное (до трёх ссылок на задачу из этих тегов).
 
 | датасет | задачи | строки `task_tags` | распределение |
 |---|---|---|---|
@@ -361,25 +364,21 @@ archive budget»). Это тот же лимит, из-за которого с�
 ### Как воспроизвести
 
 Тот же генератор и тот же harness, что в [#3157]; меняются только размер
-профиля и число тегов.
+профиля и число тегов. `--output` у генератора — обязательный параметр, поэтому
+каждая команда приведена целиком, без сокращений.
 
 ```bash
 OUT=$PWD/build/perf
-gen() {
-  name=$1; shift
-  ./gw :import-cli:run --args="generate --seed 4242 --output $OUT/$name.zip $*"
-}
-gen 10k-empty   --profile 10k --tags 0
-gen 10k-sparse  --profile 10k --tags 1
-gen 10k-dense   --profile 10k --tags 100
-gen 50k-empty   --profile 50k --tags 0
-gen 50k-sparse  --profile 50k --tags 1
-gen 50k-dense   --profile 50k --tags 120
-gen 100k-empty  --profile 100k --tags 0
-gen 90k-sparse  --tasks 90000 --projects 300 --task-hierarchy-depth 5 \
-                --subtask-share 0.25 --tags 1 --dependency-density 0.02
-gen 80k-dense   --tasks 80000 --projects 300 --task-hierarchy-depth 5 \
-                --subtask-share 0.25 --tags 100 --dependency-density 0.02
+
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/10k-empty.zip  --profile 10k --tags 0"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/10k-sparse.zip --profile 10k --tags 1"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/10k-dense.zip  --profile 10k --tags 100"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/50k-empty.zip  --profile 50k --tags 0"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/50k-sparse.zip --profile 50k --tags 1"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/50k-dense.zip  --profile 50k --tags 120"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/100k-empty.zip --profile 100k --tags 0"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/90k-sparse.zip --tasks 90000 --projects 300 --task-hierarchy-depth 5 --subtask-share 0.25 --tags 1 --dependency-density 0.02"
+./gw :import-cli:run --args="generate --seed 4242 --output $OUT/80k-dense.zip  --tasks 80000 --projects 300 --task-hierarchy-depth 5 --subtask-share 0.25 --tags 100 --dependency-density 0.02"
 
 for name in 10k-empty 10k-sparse 10k-dense 50k-empty 50k-sparse 50k-dense \
              100k-empty 90k-sparse 80k-dense; do
@@ -391,6 +390,9 @@ done
 архива (см. выше), поэтому самый большой датасет с тегами — `90k-sparse`, а
 плотный — `80k-dense`. Harness печатает отчёт и завершается с ненулевым
 кодом, если формы разошлись по строкам, поэтому прогон годен как проверка.
+
+Команды генерации проверены на этом репозитории: `10k-empty` и `90k-sparse`
+собраны ровно этой строкой, обе завершились с кодом 0 и дали архивы.
 
 ### Результаты
 
