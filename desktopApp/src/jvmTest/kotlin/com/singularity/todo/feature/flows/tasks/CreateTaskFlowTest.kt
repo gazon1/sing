@@ -34,7 +34,6 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
-import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
