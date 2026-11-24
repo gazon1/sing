@@ -218,6 +218,71 @@ class CorpusBlockTest(unittest.TestCase):
         result = _run_gate(json.dumps(config))
         self.assertEqual(0, result.returncode, result.stdout)
 
+    def test_accept_growth_does_not_excuse_a_stale_corpus(self):
+        """The escape hatch covers holes, not a corpus claim that cannot be compared.
+
+        `--accept-growth` exists for the commit that knowingly opens holes. A
+        stale corpus is a different thing: it is a number the gate cannot
+        compare, and the gate that printed the mismatch must not exit 0.
+        """
+        config = _recorded_floors()
+        # A metric below its floor would be growth the flag excuses; the
+        # corpus is wrong at the same time.
+        for floor in config["floors"]:
+            floor["max"] = 10_000
+        for floor in config["floors"]:
+            if floor["metric"] == "dark_scenarios":
+                floor["max"] = 0
+        config["corpus"]["specs"] = 999
+        result = _run_gate(json.dumps(config), "--accept-growth")
+        self.assertEqual(1, result.returncode, result.stdout)
+        self.assertIn("specs: recorded 999", result.stdout)
+
+    def test_accept_growth_still_excuses_a_growing_metric(self):
+        """The escape hatch keeps working for the case it was made for."""
+        config = _recorded_floors()
+        for floor in config["floors"]:
+            floor["max"] = 10_000
+        for floor in config["floors"]:
+            if floor["metric"] == "dark_scenarios":
+                floor["max"] = 0
+        result = _run_gate(json.dumps(config), "--accept-growth")
+        self.assertEqual(0, result.returncode, result.stdout)
+        self.assertIn("dark_scenarios grew", result.stdout)
+
+    def test_a_malformed_corpus_block_is_an_error_not_a_skipped_check(self):
+        """A block that is there must be usable; a broken one is not ignored.
+
+        Skipping a malformed block would be the same failure the check exists
+        to catch: a corpus claim that is never compared. The block being
+        optional is a different thing from the block being broken.
+        """
+        for broken in (None, "141/161/94", 42, ["141", "161", "94"]):
+            config = _recorded_floors()
+            config["corpus"] = broken
+            result = _run_gate(json.dumps(config))
+            self.assertEqual(1, result.returncode, repr(broken))
+            self.assertIn("`corpus` block", result.stdout)
+            self.assertNotIn("Traceback", result.stdout)
+
+    def test_a_corpus_block_missing_a_field_is_an_error(self):
+        """A claim with no number in it cannot be compared, so it is an error."""
+        config = _recorded_floors()
+        config["corpus"].pop("carriers")
+        result = _run_gate(json.dumps(config))
+        self.assertEqual(1, result.returncode)
+        self.assertIn("has no carriers", result.stdout)
+        self.assertNotIn("Traceback", result.stdout)
+
+    def test_a_non_integer_corpus_value_is_an_error(self):
+        """The corpus is counted in integers; a word in that field is a mistake."""
+        config = _recorded_floors()
+        config["corpus"]["specs"] = "unknown"
+        result = _run_gate(json.dumps(config))
+        self.assertEqual(1, result.returncode)
+        self.assertIn("non-integer", result.stdout)
+        self.assertNotIn("Traceback", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

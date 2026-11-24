@@ -153,12 +153,9 @@ def render_coverage_matrix(coverage: Coverage) -> str:
     # which is a contradiction a reader has to resolve by guessing: the only way
     # to read it is "half the obligations are unmet, and none of them is a
     # hole". A retired scenario is not an obligation, so it is not a denominator.
-    live = [
-        c
-        for row in coverage.cells.values()
-        for c in row.values()
-        if c.state.is_obligation
-    ]
+    # The definition lives on `Coverage` so the ratchet gate measures the same
+    # corpus this header reports.
+    live = coverage.obligation_cells()
     total_cells = len(live)
     automated_cells = sum(1 for c in live if c.state.is_automated)
     holes = coverage.holes()

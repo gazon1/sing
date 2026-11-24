@@ -55,6 +55,14 @@ stays in the file because it is the number a reader of a diff wants next to
 the floors — but it is a claim the gate checks, not a second copy somebody has
 to remember to update.
 
+The block is optional: a floor file without one is still a floor file. A block
+that IS there must be well-formed — all three keys, all integers — and a
+malformed one is a readable error, not a skipped check, because a corpus claim
+that is never compared is the failure this check exists to catch. And a stale
+corpus is never excused by `--accept-growth`: that flag exists for the commit
+that knowingly opens holes, and it does not cover a number the gate cannot
+compare.
+
 What this gate does NOT catch, stated rather than implied
 ---------------------------------------------------------
 Two things, and the first is the deliberate way to accept growth: raising a
@@ -174,6 +182,12 @@ METRICS: tuple[Metric, ...] = (
 )
 
 
+# The three numbers the optional `corpus` block records about the corpus the
+# floors were measured against. Named here so the error messages and the
+# comparison read from one list.
+CORPUS_KEYS: tuple[str, ...] = ("specs", "claimed_cells", "carriers")
+
+
 @click.command()
 @click.option("--config", default=DEFAULT_CONFIG, help=f"floor file (default: {DEFAULT_CONFIG})")
 @click.option(
@@ -225,26 +239,51 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
     # traceability package that renders the matrix, and a mismatch fails the
     # gate. The definitions are the matrix's own: `specs` is the number of
     # scenario rows, `claimed_cells` the number of live obligation cells (the
-    # matrix's denominator — a retired row is not an obligation), `carriers` the
-    # number of links the scanner resolved.
+    # matrix's denominator — a retired row is not an obligation, and the
+    # definition lives on `Coverage` so the renderer and this gate cannot count
+    # different corpora), `carriers` the number of links the scanner resolved.
+    #
+    # The block is optional — a floor file without one is still a floor file —
+    # but a block that IS there must be well-formed. A malformed block that was
+    # skipped would be the same failure this check exists to catch: a corpus
+    # claim that is never compared.
     corpus_drift: list[str] = []
-    corpus = cfg.get("corpus")
-    if isinstance(corpus, dict):
-        live_cells = [
-            cell
-            for row in coverage.cells.values()
-            for cell in row.values()
-            if cell.state.is_obligation
+    # Presence is checked by key, not by value: `"corpus": null` is a block that
+    # is there and broken, not an absent block.
+    if "corpus" in cfg:
+        corpus = cfg["corpus"]
+        if not isinstance(corpus, dict):
+            click.echo(
+                f"ERROR: the `corpus` block in {config_path} must be an object with "
+                f"the keys {', '.join(CORPUS_KEYS)}, not {type(corpus).__name__}."
+            )
+            raise ctx.exit(1)
+        missing = [key for key in CORPUS_KEYS if key not in corpus]
+        if missing:
+            click.echo(
+                f"ERROR: the `corpus` block in {config_path} has no "
+                f"{', '.join(missing)}. A corpus claim that cannot be compared is "
+                f"not a claim."
+            )
+            raise ctx.exit(1)
+        invalid = [
+            key
+            for key in CORPUS_KEYS
+            if isinstance(corpus[key], bool) or not isinstance(corpus[key], int)
         ]
+        if invalid:
+            click.echo(
+                f"ERROR: the `corpus` block in {config_path} has a non-integer "
+                f"{', '.join(invalid)}. The corpus is counted in integers."
+            )
+            raise ctx.exit(1)
         computed = {
             "specs": len(coverage.cells),
-            "claimed_cells": len(live_cells),
+            "claimed_cells": len(coverage.obligation_cells()),
             "carriers": len(links),
         }
         for key, actual in computed.items():
-            if key not in corpus:
-                continue
-            recorded = int(corpus[key])
+            recorded = corpus[key]
             if recorded != actual:
                 corpus_drift.append(f"{key}: recorded {recorded}, measured {actual}")
 
@@ -327,7 +366,14 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
         click.echo("mismatch means the recorded numbers are stale. Update them in the floor")
         click.echo("file, or drop the block: a number nobody checks is a number nobody reads.")
 
-    exit_code = CLEAN if (grew and accept_growth) else VALIDATION_FAILURE
+    # `--accept-growth` excuses a metric that grew. It does NOT excuse a stale
+    # corpus: the escape hatch exists for the commit that knowingly opens
+    # holes, and a corpus claim that does not match the tree is not a hole
+    # someone accepted — it is a number the gate cannot compare. The two
+    # conditions are independent, so the exit code is decided on both: with
+    # growth accepted AND a stale corpus, the run still fails, because the
+    # alternative is a gate that prints a corpus failure and exits 0.
+    exit_code = CLEAN if (accept_growth and grew and not corpus_drift) else VALIDATION_FAILURE
     raise ctx.exit(exit_code)
 
 
