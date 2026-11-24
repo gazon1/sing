@@ -54,12 +54,14 @@ tags:
     timeout: 8000
 - tapOn:
     id: dialog_confirm
-# The success report is a modal result dialog; dismiss it before looking for
-# the row, because its window covers the list.
+# The success report is a modal result dialog; the archived row must be
+# inaccessible while it is shown, because its window covers the list.
 - extendedWaitUntil:
     visible:
       id: result_dialog_confirm
     timeout: 8000
+- assertNotVisible:
+    id: task_item_buy_milk
 - tapOn:
     id: result_dialog_confirm
 - extendedWaitUntil:
