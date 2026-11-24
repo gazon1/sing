@@ -760,4 +760,21 @@ qualifications:
       apk_commit_sha: e74c7bb9fa17
       maestro_version: 2.10.0
       return_code: 0
-exceptions: {}
+exceptions:
+  Maestro/flows/archive/02-bulk-archive-confirm.yaml:
+    fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
+    reason: >-
+      The flow was split by gazon1/sing#3126: the confirmation and cancellation
+      behaviour moved to the desktop behaviour owner and what is left is the
+      Android residue (long-press context sheet, archive overflow popup ids,
+      the modal result dialog). That content was never requalified on a device.
+      The baseline entry on main records the plain sha256 of the flow file
+      rather than the flow's fingerprint (the gate compares the fingerprint --
+      the flow plus its transitive helper dependencies), so the entry no longer
+      matches and the gate reports a stale baseline. This PR does not re-baseline
+      the flow: re-baselining would admit changed device content without the
+      qualification the gate asks for. It is admitted here by an explicit
+      exception instead, so the admission is a recorded decision rather than a
+      quiet hash update. The baseline repair itself belongs on main, where the
+      flow was changed.
+    evidence: gazon1/sing#3126
