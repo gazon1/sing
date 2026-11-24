@@ -3424,5 +3424,67 @@ class DeviceOutputMaskingTest(unittest.TestCase):
             self.assertNotIn(str(Path.home()), text)
 
 
+class WipeReportTest(unittest.TestCase):
+    """The report says how many rows the measured wipe removed.
+
+    A wipe of an empty profile and a wipe of fifty thousand rows take the same
+    time in the report otherwise, and the number cannot be attributed to
+    anything.
+    """
+
+    def _run(self, tmp: Path, out: Path, interrupted_counts: dict | None = None) -> dict:
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
+            with contextlib.ExitStack() as stack:
+                for patch in _device_patches(tmp):
+                    stack.enter_context(patch)
+                if interrupted_counts is not None:
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver,
+                            "check_interrupted_import",
+                            lambda *a, **k: {
+                                "interrupted": True,
+                                "importStarted": True,
+                                "evidence": "the app's own working indicator was on the screen",
+                                "counts": interrupted_counts,
+                                "problems": [],
+                                "verdict": "empty",
+                            },
+                        )
+                    )
+                driver.main(argv)
+        return json.loads((out / "report.json").read_text(encoding="utf-8"))
+
+    def test_the_rows_the_wipe_removed_are_in_the_report(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            report = self._run(tmp, out)
+            wipe = report["wipe"]
+            # The two rows of the dataset the device held, counted before the
+            # wipe — the report says what the wipe removed, not only what was
+            # left behind.
+            self.assertEqual(wipe["countsBefore"]["tasks"], 2)
+            self.assertEqual(wipe["countsBefore"]["taskTags"], 1)
+            self.assertEqual(len(wipe["wipes"]), 1)
+            self.assertEqual(wipe["wipes"][0]["countsBefore"], wipe["countsBefore"])
+
+    def test_a_second_wipe_is_named_as_one(self):
+        """A run that wipes twice reports the sum — and says that it is a sum."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            report = self._run(tmp, out, interrupted_counts={"tasks": 3})
+            wipe = report["wipe"]
+            self.assertEqual(len(wipe["wipes"]), 2)
+            self.assertEqual(wipe["seconds"], 2.0)
+            self.assertEqual(wipe["wipes"][1]["countsBefore"], {"tasks": 3})
+
+
 if __name__ == "__main__":
     unittest.main()

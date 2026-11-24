@@ -2437,6 +2437,24 @@ def reservation_is_stale(reservation: Path) -> bool:
     return False
 
 
+def wipe_section(wipes: list[dict]) -> dict:
+    """The wipe part of the report: the time and every wipe it is the sum of.
+
+    A run wipes the profile under test a second time when the interrupted
+    import left rows behind, and the number the report carries is then the time
+    of two wipes — so the report says which wipes it covers, and how many rows
+    each of them removed. The counts before the wipe are what make the number
+    attributable: a wipe of an empty profile and a wipe of fifty thousand rows
+    take the same time in the report otherwise.
+    """
+    return {
+        "seconds": round(sum(wipe["seconds"] for wipe in wipes), 1),
+        "counts": wipes[0]["counts"],
+        "countsBefore": wipes[0]["countsBefore"],
+        "wipes": wipes,
+    }
+
+
 def reserve_output_dir(out_dir: Path) -> bool:
     """Claim the output directory for this run.
 
@@ -3191,11 +3209,24 @@ def main(argv: list[str] | None = None) -> int:
         # One wipe before the negative phases, and both of them share it: a
         # refused archive writes nothing, so the profile is still empty for
         # the interrupted import that follows.
+        #
+        # The rows the wipe is about to remove are counted first: the report
+        # says what the measured wipe deleted, and not only what was left
+        # behind.
+        counts_before = count_rows(before_db, scope)
         wipe_counts, wipe_seconds = reset_content(
             serial, out_dir, scope=scope, profile_id=test_profile_id
         )
         print(f"wipe: {wipe_seconds}s ({wipe_counts})")
-        report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
+        report["wipe"] = wipe_section(
+            [
+                {
+                    "seconds": wipe_seconds,
+                    "countsBefore": counts_before,
+                    "counts": wipe_counts,
+                }
+            ]
+        )
         report["profile"] = {
             "scope": scope,
             "source": "the profile the run works in",
@@ -3239,11 +3270,21 @@ def main(argv: list[str] | None = None) -> int:
         # unknown state, and it has to be wiped before it is measured.
         interrupted_counts = negative["interrupted"]["counts"]
         if any(value != 0 for value in interrupted_counts.values()):
-            _, second_wipe = reset_content(
+            second_counts, second_wipe = reset_content(
                 serial, out_dir, scope=scope, profile_id=test_profile_id
             )
-            wipe_seconds += second_wipe
-            report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
+            report["wipe"] = wipe_section(
+                report["wipe"]["wipes"]
+                + [
+                    {
+                        "seconds": second_wipe,
+                        # The rows the interrupted import left behind are the
+                        # rows this wipe removes.
+                        "countsBefore": dict(interrupted_counts),
+                        "counts": second_counts,
+                    }
+                ]
+            )
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
         print(f"import: {outcome['durationSeconds']}s ({outcome['measured']})")
 
