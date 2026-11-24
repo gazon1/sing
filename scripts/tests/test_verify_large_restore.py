@@ -2852,7 +2852,7 @@ class SwitchBackFailureTest(unittest.TestCase):
     run that reports a green light on something it did not do.
     """
 
-    def _run(self, tmp: Path, out: Path) -> int:
+    def _run(self, tmp: Path, out: Path, browse_ok: bool = True) -> int:
         apk = tmp / "the.apk"
         apk.write_bytes(b"not really an APK")
         argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
@@ -2860,7 +2860,7 @@ class SwitchBackFailureTest(unittest.TestCase):
             with contextlib.ExitStack() as stack:
                 for patch in _device_patches(tmp):
                     stack.enter_context(patch)
-                for patch in _flow_patches():
+                for patch in _flow_patches(browse_ok):
                     stack.enter_context(patch)
 
                 def switch(serial, profile_name, expected_id, previous_id):
@@ -2890,6 +2890,22 @@ class SwitchBackFailureTest(unittest.TestCase):
                 ),
                 report["verdict"]["problems"],
             )
+
+    def test_a_run_that_already_failed_and_cannot_come_back_is_not_reported_as_complete(self):
+        """A run that measured a broken restore and then left the phone in the
+        wrong profile has not finished: the report says "failed", not
+        "complete".
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(tmp, out, browse_ok=False)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, driver.EXIT_FAILED)
+            self.assertFalse(report["profileLeftBehind"]["restored"])
+            self.assertEqual(report["status"], "failed")
+            self.assertEqual(report["failure"], "verification")
 
 
 class UiPathsPhaseTest(unittest.TestCase):

@@ -3171,8 +3171,12 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if exit_code == EXIT_OK:
                     exit_code = EXIT_FAILED
-                    report["status"] = "failed"
-                    report["failure"] = "verification"
+                # The report says the run failed whatever else it managed to
+                # measure: a run that leaves the phone in the wrong profile
+                # has not finished, and a report that claims otherwise is
+                # read as "everything worked out".
+                report["status"] = "failed"
+                report.setdefault("failure", "verification")
                 print(
                     f"warning: the app was left in the profile {TEST_PROFILE_NAME}: {exc}",
                     file=sys.stderr,
