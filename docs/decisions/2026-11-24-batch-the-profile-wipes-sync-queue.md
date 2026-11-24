@@ -71,6 +71,29 @@ the queue rather than behind it: a clock that skipped ahead loses nothing,
 whereas a clock that lagged behind could mint a patch older than one the
 server already holds. Outside a batch, `tick()` persists exactly as before.
 
+**The clock write is serialised and monotonic.** Deferring the batch's write
+past the monitor that guards the last clock creates a window that did not
+exist before: the batch holds an *older* clock, and a tick that runs while the
+batch is finishing may write a *newer* one first. If the batch's write lands
+last, the stored clock moves **backwards** — and a restart then restores a
+clock older than one already pushed, which is exactly the ordering the HLC
+exists to provide. Two things close that window, and both are needed:
+
+* every write goes through one mutex, so two writes never interleave; and
+* a write that is not newer than the clock already written is **dropped**, so
+  the stored clock only ever moves forward.
+
+The second layer is what makes the first sufficient: the mutex orders the
+writes but does not decide *which* clock is newer, and a write that was minted
+earlier can still reach the store later. The store itself refuses to go
+backwards as well (`DataStoreHlcStore.save` writes only when the new clock is
+newer than the stored one), so the clock cannot move backwards even if two
+devices, or two processes, race on the file.
+
+The mutex is held *outside* the monitor that guards the last clock: a writer
+waiting for the mutex needs that monitor to read the newest written clock, so
+holding the monitor while waiting for the mutex would deadlock.
+
 **`SyncPatchBuilder.forEachChunk`** — mints the whole batch's clocks up front
 (one `batched` block, one clock write, before anything is queued), then walks
 the batch in pieces of `SQL_BIND_CHUNK` (500) entities: one shadow read, one
@@ -117,6 +140,23 @@ batch's clocks in one `batched` block writes the file once, up front, and
 keeps that property regardless of whether the caller wraps the batch in a
 transaction.
 
+**Why the clock write is serialised *and* monotonic.** The batch's write is
+deferred past the point where the last clock is guarded, so it can arrive at
+the store after a newer clock has already been written. A mutex alone does
+not prevent that: it orders the writes, but the older clock may still be the
+one that lands last. Dropping a write that is not newer than the clock
+already written is what makes the stored clock move forward only. The store
+refuses an older clock as well, so the property survives a race the factory
+did not see — two devices writing the same file, or a process that was killed
+between the write and the update of the in-memory record.
+
+**Why the batch suppresses the per-tick write globally.** The suppression is
+per *factory*, not per batch: a tick minted by an unrelated call while a batch
+is running does not write its clock by itself. Nothing is lost — the tick is
+either counted in the batch's final write, or it sees that the batch is over
+and writes itself — but the property is worth stating, because it is the one
+that a reader of `tick()` would otherwise assume is broken.
+
 **Why the batch is chunked.** The patches are the memory, not the statements.
 Fifty thousand rows' worth of patches, shadows and outbox rows do not fit in
 a phone's heap — the first version of this change died with an
@@ -159,6 +199,9 @@ entirely on the sync side of the delete.
   statement carrying more than a chunk of rows.
 * The clock write is now a `suspend` write at the end of a batch, so the batch
   path waits for it. The single-entity path keeps its fire-and-forget write.
+* The stored clock only ever moves forward. A clock written while a batch is
+  finishing is not rolled back by the batch's write, and the store refuses an
+  older clock of its own accord.
 * The outbox grows exactly as before. A device with a large profile still
   holds one queued patch per removed row until they are pushed, and the push
   side already takes them in batches (`PushPhase`).
@@ -180,5 +223,10 @@ entirely on the sync side of the delete.
   contract.
 * `shared/src/jvmTest/.../core/sync/HlcFactoryPersistenceTest.kt` — the clock
   write.
+* `shared/src/jvmTest/.../core/sync/HlcStoreTest.kt` — the store's refusal to
+  move the clock backwards.
+* `shared/src/jvmTest/.../feature/profile/ProfileContentWipeTest.kt` — the
+  wipe's real path: the tombstones it queues and the rollback when a chunk of
+  them fails.
 * `shared/src/commonMain/.../core/wipe/ProfileContentResetter.kt` — the entry
   point, unchanged.

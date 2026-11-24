@@ -2,12 +2,27 @@
 
 package com.singularity.todo.feature.profile
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.DatabaseTestFixture
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.DeltaPatch
 import com.singularity.todo.core.sync.FakeSyncRepository
+import com.singularity.todo.core.sync.FakeSyncScopeProvider
+import com.singularity.todo.core.sync.OutboxService
+import com.singularity.todo.core.sync.SQL_BIND_CHUNK
+import com.singularity.todo.core.sync.SyncEngineState
+import com.singularity.todo.core.sync.SyncOutboxDao
+import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.core.sync.SyncScope
+import com.singularity.todo.core.sync.SyncableEntity
+import com.singularity.todo.core.sync.fakeSyncPatchBuilder
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -21,6 +36,8 @@ import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.test.runTest
@@ -63,6 +80,8 @@ import kotlin.time.Clock
 class ProfileContentWipeTest {
     private val alice = UserId("alice")
     private val bob = UserId("bob")
+    private val ownerId = "owner-1"
+    private val profileId = "profile-1"
 
     private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
@@ -262,6 +281,146 @@ class ProfileContentWipeTest {
             )
         }
 
+    // ─── The outbox path ────────────────────────────────────────────────────────
+    //
+    // The tests above run the wipe against a fake sync repository and a fake unit of
+    // work. They say what the wipe *deletes*; they cannot say what it *queues*, and
+    // they cannot say what happens when the queue write fails half way through —
+    // a fake unit of work has no transaction to roll back.
+    //
+    // The batching changed that contract: the tombstones of a large profile are
+    // written in chunks, inside the same transaction as the deletion. So the two
+    // questions the batch raises are asked here of the real thing.
+
+    /**
+     * The outbox DAO, failing on a chosen insert.
+     *
+     * Everything else is the real DAO: the point of the failure test is that the
+     * *real* statement runs inside the *real* transaction, and that the transaction
+     * is what rolls back.
+     */
+    private class FailingInsertOutboxDao(private val delegate: SyncOutboxDao, private val failOnCall: Int) :
+        SyncOutboxDao by delegate {
+        var insertAllCalls = 0
+            private set
+
+        override suspend fun insertAll(entities: List<SyncOutboxEntity>) {
+            insertAllCalls++
+            if (insertAllCalls == failOnCall) {
+                throw IllegalStateException("the outbox write failed")
+            }
+            delegate.insertAll(entities)
+        }
+    }
+
+    @Test
+    fun `the wipe queues one tombstone per removed task and leaves another account's work alone`() =
+        runTest {
+            val repo = taskRepoWithOutbox(alice)
+            db.taskDao().upsert(taskEntity("t1", alice, "First"))
+            db.taskDao().upsert(taskEntity("t2", alice, "Second"))
+            db.taskDao().upsert(taskEntity("b1", bob, "Not mine"))
+            db.taskDao().upsertTagCrossRefForUser("t1", "tag-1", alice.value)
+            db.taskDao().upsertTagCrossRefForUser("b1", "tag-9", bob.value)
+            db.taskDao().upsertDependencyForUser("t1", "t2", "BLOCKS", alice.value)
+
+            val removed = repo.deleteAllForCurrentProfile()
+
+            assertTrue(removed.isSuccess, "the wipe failed: ${removed.exceptionOrNull()}")
+            assertEquals(2, removed.getOrThrow(), "both of the profile's tasks are removed")
+
+            assertTrue(
+                db.taskDao().listAllForUser(alice.value).isEmpty(),
+                "the profile's tasks are gone",
+            )
+            assertEquals(
+                listOf("b1"),
+                db.taskDao().listAllForUser(bob.value).map { it.id },
+                "the other account's task stays",
+            )
+
+            // The relations of the removed rows go with them; another account's
+            // relations are not touched.
+            assertTrue(
+                db.taskDao().listAllTagsForUser(alice.value).isEmpty(),
+                "the tag references of the removed tasks are gone",
+            )
+            assertTrue(
+                db.taskDao().listAllDependenciesForUser(alice.value).isEmpty(),
+                "the dependency edges of the removed tasks are gone",
+            )
+            assertEquals(
+                listOf("tag-9"),
+                db.taskDao().listAllTagsForUser(bob.value).map { it.tagId },
+                "the other account's tag reference stays",
+            )
+
+            // One queued patch per removed task — nothing is summarised away.
+            val queued = queuedPatches()
+            assertEquals(
+                listOf("t1", "t2"),
+                queued.map { it.entityId }.sorted(),
+                "one patch per removed task",
+            )
+
+            // The tombstone is a faithful copy of the task it stands for, marked as
+            // archived: the server has to learn that the task is gone, and it can
+            // only learn it from the copy.
+            val patch =
+                StableJson.decodeFromString(
+                    DeltaPatch.serializer(),
+                    queued.first { it.entityId == "t1" }.payload,
+                )
+            assertTrue(
+                patch.ops.any { it.field == "archivedAt" },
+                "the tombstone says the task is archived: ${patch.ops.map { it.field }}",
+            )
+            assertTrue(
+                patch.ops.any { it.field == "title" },
+                "the tombstone carries the task's own state: ${patch.ops.map { it.field }}",
+            )
+        }
+
+    /**
+     * A failure in a later chunk rolls back everything the wipe had done.
+     *
+     * The wipe deletes the rows and queues the tombstones in one transaction. When the
+     * outbox write fails on the second chunk — after the first chunk's patches were
+     * already written — the transaction has to undo *both*: the deletion and the rows
+     * that were already queued. Anything else would leave the profile half wiped and
+     * the server told about rows the device still holds.
+     */
+    @Test
+    fun `a failure in a later chunk rolls back the deletion and the queued patches`() =
+        runTest {
+            val outbox = FailingInsertOutboxDao(db.syncOutboxDao(), failOnCall = 2)
+            val repo = taskRepoWithOutbox(alice, outbox)
+            val ids = (0..SQL_BIND_CHUNK).map { "t$it" }
+            ids.forEach { id -> db.taskDao().upsert(taskEntity(id, alice)) }
+
+            val removed = repo.deleteAllForCurrentProfile()
+
+            assertTrue(removed.isFailure, "the wipe must report the failure")
+            assertEquals(
+                2,
+                outbox.insertAllCalls,
+                "the batch is written in chunks, so there is a second chunk to fail",
+            )
+            assertEquals(
+                ids.size,
+                db.taskDao().listAllForUser(alice.value).size,
+                "the deletion is rolled back: the tasks are still there",
+            )
+            assertTrue(
+                queuedPatches().isEmpty(),
+                "the patches queued before the failure are rolled back too",
+            )
+            assertTrue(
+                db.syncShadowDao().getAll(ownerId, profileId, ids.take(SQL_BIND_CHUNK)).isEmpty(),
+                "the shadows written before the failure are rolled back too",
+            )
+        }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────
 
     private fun task(
@@ -273,6 +432,39 @@ class ProfileContentWipeTest {
         userId = uid,
         createdAt = Clock.System.now(),
         updatedAt = Clock.System.now(),
+    )
+
+    /**
+     * A task row, written straight to the table.
+     *
+     * The outbox tests seed this way rather than through `create`: a row written by
+     * the repository carries a queued patch of its own, and the assertion about the
+     * queue is about the *wipe's* patches.
+     */
+    private fun taskEntity(
+        id: String,
+        uid: UserId,
+        title: String = "Task $id",
+    ) = TaskEntity(
+        id = id,
+        title = title,
+        description = null,
+        priority = TaskPriority.None,
+        kind = TaskKind.Task,
+        projectId = null,
+        dueDate = null,
+        dueTime = null,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = null,
+        emoji = null,
+        completedAt = null,
+        archivedAt = null,
+        createdAt = 0L,
+        updatedAt = 0L,
+        userId = uid.value,
     )
 
     private fun project(
@@ -315,6 +507,58 @@ class ProfileContentWipeTest {
         dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser(uid)),
         unitOfWork = FakeUnitOfWork(),
     )
+
+    /**
+     * The repository as the wipe meets it in production: the real unit of work over
+     * the real database, and the real outbox service behind the sync seam.
+     *
+     * The only thing that is not production here is the [SyncRepository] seam: the
+     * engine would need a transport, a runner and a coordinator to answer it, and
+     * none of those take part in the wipe. What the wipe needs from that seam is the
+     * batched enqueue, and that is the real [OutboxService] over the real DAOs.
+     */
+    private fun taskRepoWithOutbox(
+        uid: UserId,
+        outboxDao: SyncOutboxDao = db.syncOutboxDao(),
+    ): TaskRepositoryImpl {
+        val user = currentUser(uid)
+        val outboxService =
+            OutboxService(
+                outboxDao = outboxDao,
+                patchBuilder = fakeSyncPatchBuilder(db.syncShadowDao()),
+                scopeProvider = FakeSyncScopeProvider(SyncScope(ownerId = ownerId, profileId = profileId)),
+                engineState =
+                    SyncEngineState(
+                        log = Logger.withTag("ProfileContentWipeTest"),
+                        crashReporter = NoOpCrashReportingPort(),
+                    ),
+                monoNow = { Clock.System.now().toEpochMilliseconds() },
+            )
+        val sync =
+            object : FakeSyncRepository() {
+                override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = outboxService.enqueue(entity)
+
+                override suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit> =
+                    outboxService.enqueueAll(entities)
+            }
+        return TaskRepositoryImpl(
+            taskDao = db.taskDao(),
+            textIndex = db.textIndex(user),
+            clock = Clock.System,
+            currentUser = user,
+            syncRepository = sync,
+            dependencyValidator = DependencyValidatorImpl(db.taskDao(), user),
+            unitOfWork = RoomUnitOfWork(db),
+        )
+    }
+
+    /** The patches the wipe queued under the active scope. */
+    private suspend fun queuedPatches() =
+        db.syncOutboxDao().getPending(
+            now = Long.MAX_VALUE,
+            ownerId = ownerId,
+            profileId = profileId,
+        )
 
     private fun notesRepo(uid: UserId) =
         NotesRepositoryImpl(

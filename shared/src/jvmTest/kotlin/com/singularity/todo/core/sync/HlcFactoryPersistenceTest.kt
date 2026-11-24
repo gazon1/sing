@@ -2,8 +2,11 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.test.helpers.MutableClock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -92,6 +95,139 @@ class HlcFactoryPersistenceTest {
         assertEquals(0L, factory.current().physical)
         scope.close()
     }
+
+    /**
+     * A store whose **first** write waits for a gate.
+     *
+     * The gate is what puts the two writes in the order the defect needs. The clock
+     * write of an ordinary tick is still in flight — holding the write lock — while the
+     * batch writes the clock it minted, which is the *older* of the two by then.
+     *
+     * The gate applies to the first call only: the later calls are the ones that must
+     * not be held back, because otherwise the test would be arranging a deadlock
+     * rather than a race.
+     */
+    private class GatedHlcStore : HlcStore {
+        val gate = CompletableDeferred<Unit>()
+
+        /** Every clock the store was handed, in the order it was handed them. */
+        val written = mutableListOf<Hlc>()
+
+        var stored: Hlc? = null
+            private set
+
+        private var calls = 0
+
+        override suspend fun load(): Hlc? = stored
+
+        override suspend fun save(hlc: Hlc) {
+            if (calls++ == 0) gate.await()
+            written += hlc
+            stored = hlc
+        }
+    }
+
+    /**
+     * A clock that is already written is never written backwards over.
+     *
+     * ## The defect this pins down
+     *
+     * The batch captured the clock under the monitor and persisted it *after* releasing
+     * it. A tick running in that window minted a newer clock and started writing it —
+     * and then the batch's older clock landed last and overwrote it. The stored clock
+     * had moved **backwards**, so a restart restored a clock older than one the device
+     * had already issued, and the next patch could carry a timestamp older than a
+     * timestamp the server already held.
+     *
+     * The fix is that the stored clock only ever moves forward: the writes are
+     * serialized, and a write that is not newer than the one already stored is
+     * dropped.
+     */
+    @Test
+    fun `a clock written while a batch is finishing is not rolled back by the batch`() =
+        runTest {
+            val store = GatedHlcStore()
+            val scope = newScope()
+            val factory =
+                HlcFactory(
+                    deviceIdProvider =
+                        object : DeviceIdProvider {
+                            override suspend fun getOrInitDeviceId(): String = "node-a"
+                        },
+                    clock = MutableClock(),
+                    scope = scope,
+                    hlcStore = store,
+                )
+
+            // An ordinary tick starts a slow write of the first clock.
+            val first = factory.tick()
+
+            // The batch mints the next clock and, at the end of its block, writes it.
+            val batch = async { factory.batched { factory.tick() } }
+            advanceUntilIdle()
+
+            // The slow write lands first — it holds the write lock — and the batch's
+            // write follows it.
+            store.gate.complete(Unit)
+            val batched = batch.await()
+
+            assertTrue(batched > first, "the batch mints a newer clock")
+            assertEquals(
+                batched,
+                store.stored,
+                "the stored clock must be the newest one: the batch's older clock must " +
+                    "not overwrite the newer one",
+            )
+            assertTrue(
+                store.written.zipWithNext().all { (older, newer) -> older < newer },
+                "the stored clock never moves backwards, but it was written as " +
+                    "${store.written}",
+            )
+
+            scope.close()
+        }
+
+    /**
+     * A tick minted by an unrelated call *during* a batch is not lost.
+     *
+     * The batch suppresses the per-tick clock writes, and the suppression is global:
+     * a tick belonging to some other operation does not write the clock either. It is
+     * still covered, because the batch writes the newest clock it knows about when it
+     * ends, and the newest clock it knows about is the one that tick minted.
+     */
+    @Test
+    fun `a tick minted by another thread during a batch is persisted`() =
+        runTest {
+            val store = CountingHlcStore()
+            val scope = newScope()
+            val factory =
+                HlcFactory(
+                    deviceIdProvider =
+                        object : DeviceIdProvider {
+                            override suspend fun getOrInitDeviceId(): String = "node-a"
+                        },
+                    clock = MutableClock(),
+                    scope = scope,
+                    hlcStore = store,
+                )
+
+            var foreign: Hlc? = null
+            factory.batched {
+                val worker = Thread { foreign = factory.tick() }.apply { isDaemon = true }
+                worker.start()
+                worker.join(30_000)
+                factory.tick()
+            }
+
+            val minted = requireNotNull(foreign) { "the other thread did not mint a clock" }
+            assertTrue(
+                requireNotNull(store.stored) >= minted,
+                "the clock of the tick minted during the batch must be persisted: " +
+                    "stored=${store.stored}, minted=$minted",
+            )
+
+            scope.close()
+        }
 
     /**
      * A batch writes the clock once, not once per tick.
