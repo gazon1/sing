@@ -54,14 +54,19 @@ It has exactly one operation — `writeFixtures(tasks)` — and exactly one call
 scoped to the active profile, keeping the tags and follow-up edges the task carries,
 and enqueues no patch.
 
-`TaskRepository.writeFixtures` is **removed**. It existed for this one caller, and a
+`TaskRepository.createAll` is **removed**. It existed for this one caller, and a
 bulk write on the generic contract made "these rows will never be synchronised" the
 invisible default of any future caller. A caller that wants rows without patches now
 has to ask for `SeedTaskWriter` and accept the name.
 
-`TaskRepositoryImpl` implements both interfaces, and `tasksModule()` binds
-`SeedTaskWriter` to the same singleton through `get<TaskRepository>() as SeedTaskWriter`.
-A second instance would be a second write path to keep correct.
+`SeedTaskDaoWriter` (in `feature/tasks/data/`) implements the port, and `tasksModule()`
+binds it as its own singleton. It is a separate class rather than a second interface
+on `TaskRepositoryImpl`: that class is already at its detekt function and class-size
+budget, and the batch write has three dependencies of its own (`TaskDao`,
+`ProfileAwareCurrentUser`, `UnitOfWork`), so putting it there would have grown the
+repository without making it clearer. The one thing it does reuse is the row mapper —
+`Task.toEntity` — widened from `private` to `internal` so both writers share the single
+`outgoing_links` derivation instead of keeping two copies of it.
 
 The batch write reuses the existing machinery and adds no framework: `taskDao.upsert`
 with the row mapper that already derives `outgoing_links`, the existing

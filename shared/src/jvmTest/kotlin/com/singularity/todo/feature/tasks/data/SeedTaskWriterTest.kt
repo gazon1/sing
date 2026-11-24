@@ -8,6 +8,7 @@ import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.sync.FakeSyncRepository
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -43,8 +44,10 @@ import kotlin.time.Clock
  * - A write that enqueued would restore the cost, and nothing else would notice: the
  *   outbox would simply carry a thousand patches nobody asked for.
  *
- * The tags and the entries ride with the row, and one transaction holds the batch —
- * which is why this runs against SQLite rather than a fake, exactly as
+ * The tags and the follow-up edges ride with the row too — checked against the
+ * cross-ref tables rather than against the row, because that is where they live and it
+ * is the assertion a writer that only upserted the row would fail. One transaction holds
+ * the batch, which is why this runs against SQLite rather than a fake, exactly as
  * `UnitOfWorkIsAtomicTest` does for the same reason.
  */
 @Tag("slow")
@@ -111,6 +114,35 @@ class SeedTaskWriterTest {
                 50,
                 db.taskDao().listAllForUser(user.value).size,
                 "every seeded row must be in the table",
+            )
+        }
+
+    @Test
+    fun `the tags and follow-up edges of a row ride with it`() =
+        runTest {
+            // What makes the batch writer a *write* and not an insert of bare rows. A
+            // fixture that asked for a tagged task or a follow-up edge and got neither
+            // would be a flow asserting on data the seed never wrote — and both writes
+            // are the ones a future "simplification" of this path would drop first.
+            val tag = TagId("tag-1")
+            val dependency = TaskId("dep-1")
+
+            seeds.writeFixtures(
+                listOf(
+                    task("t1").copy(tags = listOf(tag)),
+                    task("t2").copy(followsUp = setOf(dependency)),
+                ),
+            )
+
+            assertEquals(
+                setOf("t1"),
+                db.taskDao().listAllTagsForUser(user.value).map { it.taskId }.toSet(),
+                "the tag of a seeded row must be in the cross-ref table",
+            )
+            assertEquals(
+                setOf("t2"),
+                db.taskDao().listAllDependenciesForUser(user.value).map { it.taskId }.toSet(),
+                "the follow-up edge of a seeded row must be in the cross-ref table",
             )
         }
 
