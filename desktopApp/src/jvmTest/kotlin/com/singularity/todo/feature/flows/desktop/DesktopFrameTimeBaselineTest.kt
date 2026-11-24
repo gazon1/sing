@@ -13,6 +13,7 @@ import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
@@ -230,7 +231,21 @@ class DesktopFrameTimeBaselineTest {
             awaitOpened = { awaitScreen("the calendar shows its month") { monthTitle().isNotEmpty() } },
             reset = {},
             gesture = {
+                // The month the calendar shows comes from the database: the
+                // click asks for the next month and the title changes when the
+                // query answers. A click that is not waited for measures a
+                // click that has not drawn anything yet - so the wait is part
+                // of the gesture, and the gesture is what it costs to move
+                // from one period to the next.
+                awaitScreen("the calendar offers the next month") {
+                    onAllNodes(hasContentDescription("Next")).fetchSemanticsNodes().isNotEmpty()
+                }
+                val month = monthTitle()
                 onAllNodes(hasContentDescription("Next")).onFirst().performClick()
+                awaitScreen("the calendar shows the next month") {
+                    val shown = monthTitle()
+                    shown.isNotBlank() && shown != month
+                }
             },
             gestureKind = "click",
             signature = { listOf(monthTitle()) },
@@ -538,6 +553,20 @@ class DesktopFrameTimeBaselineTest {
         fun restoreTheDataset() {
             runTest(timeout = 10.minutes) {
                 dataset = restoreFrameTimeDataset()
+            }
+        }
+
+        /**
+         * The database of the run is closed when the class is done.
+         *
+         * It is a real SQLite database with a connection pool of its own, so
+         * it is closed rather than left to the end of the JVM.
+         */
+        @JvmStatic
+        @AfterAll
+        fun closeTheDatabase() {
+            if (::dataset.isInitialized) {
+                dataset.database.close()
             }
         }
     }

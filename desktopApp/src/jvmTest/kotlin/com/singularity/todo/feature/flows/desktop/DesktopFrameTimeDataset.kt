@@ -13,6 +13,10 @@ import com.singularity.todo.core.backup.ChecklistItemDto
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.backup.TaskDto
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
+import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSourceFactory
@@ -22,7 +26,6 @@ import com.singularity.todo.importer.GenerateProfile
 import com.singularity.todo.importer.SyntheticArchive
 import com.singularity.todo.importer.SyntheticBackupArchive
 import com.singularity.todo.importer.SyntheticBackupGenerator
-import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.buildDesktopAppKoin
 import com.singularity.todo.test.helpers.clickTagScrolled
@@ -117,6 +120,11 @@ internal class FrameTimeDataset(
             "seed" to manifest.seed,
             "payloadChecksum" to manifest.payloadChecksum,
             "restoredThrough" to "the app's own importer (BackupRepository.import)",
+            "database" to
+                "the production Room database of the desktop app (AppDatabaseFactory.build, " +
+                "the same file-backed database the app opens) - the measured screens read " +
+                "the rows through the real queries, the real indexes and the real " +
+                "invalidation, not through an in-memory stand-in",
             "counts" to
                 mapOf(
                     "tasks" to counts.tasks,
@@ -139,6 +147,12 @@ internal class FrameTimeDataset(
  * The restore goes through the importer of the app: an archive the app
  * refuses is a fact about the app, and a dataset written straight into
  * the database is a dataset the app never had.
+ *
+ * The database is the production one - the same Room, the same driver and
+ * the same pragmas the user's own rows live in. A baseline measured on a
+ * stand-in for the database describes the stand-in: the queries, the
+ * indexes and the invalidation the screens actually pay for are the ones
+ * this baseline has to include.
  */
 internal suspend fun restoreFrameTimeDataset(): FrameTimeDataset {
     val directory = File(repoRoot(), "build/perf/frame-time-desktop-dataset")
@@ -150,7 +164,7 @@ internal suspend fun restoreFrameTimeDataset(): FrameTimeDataset {
     // The rows go into a database of their own, and every test of the class
     // mounts the app on that very database: the restore is the preparation of
     // the screen, and it is done once.
-    val database = FakeAppDatabase()
+    val database = productionDatabase(directory)
     val koin =
         buildDesktopAppKoin(
             clock = FakeClock(DATASET_NOW),
@@ -179,17 +193,35 @@ internal suspend fun restoreFrameTimeDataset(): FrameTimeDataset {
 }
 
 /**
+ * The database the run measures on: the production one, on a file of its own.
+ *
+ * The file is the same kind of file the desktop app opens - a real SQLite
+ * database with WAL, the pragmas of the platform and the migrations of the
+ * app - and it is a file of its own, so the run never touches the rows of
+ * the developer. The rows of the previous run are removed first: a run
+ * measures the rows it restored itself.
+ */
+private fun productionDatabase(directory: File): AppDatabase {
+    val path = File(directory, "frame-time.db")
+    path.delete()
+    File(path.path + "-wal").delete()
+    File(path.path + "-shm").delete()
+    return AppDatabaseFactory.build(createSqlDriver(), path.path)
+}
+
+/**
  * The bindings the restore needs.
  *
  * The harness binds the file system, the codec and the file source of the
  * tests - they do nothing. The restore goes through the real ones, and the
- * importer is bound without a database: the harness keeps its rows in memory,
- * and a transaction over a database that was never opened is a failure of the
- * harness, not of the restore.
+ * importer is bound against the same database the screens will read: the
+ * restore is one transaction over the database of the run, exactly as the
+ * restore the user takes is one transaction over their own.
  */
 internal fun frameTimeRestoreModule(database: AppDatabase): Module =
     module {
         single<AppDatabase> { database }
+        single<UnitOfWork> { RoomUnitOfWork(database) }
         single<FileSystem> { JvmFileSystem() }
         single<BackupCodec> { JvmBackupCodec() }
         single<FileSourceFactory> { JvmFileSourceFactory() }
@@ -216,7 +248,7 @@ internal fun frameTimeRestoreModule(database: AppDatabase): Module =
                 get(),
                 createFileSource = get(),
                 tasksSettings = get(),
-                database = null,
+                database = database,
             )
         }
     }
@@ -225,11 +257,13 @@ internal fun frameTimeRestoreModule(database: AppDatabase): Module =
  * The bindings the measured screens need.
  *
  * The rows are already in the database of the class, so the only thing the
- * test has to say is which database the app reads.
+ * test has to say is which database the app reads - and that a write it may
+ * do goes through the real unit of work of the production database.
  */
 internal fun frameTimeDatasetModule(database: AppDatabase): Module =
     module {
         single<AppDatabase> { database }
+        single<UnitOfWork> { RoomUnitOfWork(database) }
     }
 
 /**

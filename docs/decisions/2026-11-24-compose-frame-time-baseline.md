@@ -63,7 +63,9 @@ refresh, и никто другой его не знает. Считаются *
 восстанавливает его **импортёром самого приложения**
 (`BackupRepository.import` → `BackupImporter`), а не записью в DAO: только
 так измеряется путь, которым пользователь заливает архив, и только так
-исключается расхождение между базой приложения и тем, что замерили.
+исключается расхождение между базой приложения и тем, что замерили. База —
+production Room, а не подмена: см.
+`2026-11-25-the-desktop-frame-time-baseline-measures-the-production-database.md`.
 
 **Сравнивать числа платформ запрещено.** У Android — «кадр промахнулся дедлайн»,
 у Desktop — «вот сколько миллисекунд занял жест с перерисовкой». Это разные
@@ -193,5 +195,7 @@ refresh, и никто другой его не знает. Считаются *
 - `scripts/publish-android-frame-time-evidence.py` и
   `scripts/publish-desktop-frame-time-evidence.py` — публикация evidence
 - `scripts/frame_time_evidence.py` — правило полноты замера, общее для публикатора и рендера таблицы
+- `docs/decisions/2026-11-25-the-desktop-frame-time-baseline-measures-the-production-database.md` —
+  production-база на Desktop и набор экранов, записанный в коде
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/desktop/DesktopFrameTimeBaselineTest.kt` — процедура замера на Desktop
 - `docs/architecture/compose-frame-time-baseline.md` — сами числа и методология
