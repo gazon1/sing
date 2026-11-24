@@ -72,6 +72,20 @@ class AppMenuTest {
     }
 
     @Test
+    fun attachAccountIsOfferedOnlyToAnonymousSessions() {
+        assertEquals(
+            AppMenu.account,
+            AppMenu.accountEntries(anonymous = false),
+            "A signed-in session must not be offered Attach account.",
+        )
+        assertEquals(
+            AppMenu.account + AppMenu.attachAccount,
+            AppMenu.accountEntries(anonymous = true),
+            "An anonymous session must be offered Attach account.",
+        )
+    }
+
+    @Test
     fun everyMenuEntryHasAnIcon() {
         // An entry without an icon is laid out with its label in the icon
         // column, so on the phone it reads like a section heading.

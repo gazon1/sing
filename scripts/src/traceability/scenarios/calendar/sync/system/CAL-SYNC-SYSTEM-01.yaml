@@ -9,8 +9,7 @@ title: The system-calendar projection says so when the platform cannot do it
 area: feature.calendar
 priority: P2
 status: confirmed
-targets: [android, desktop]
-unreachable: [android]
+targets: [desktop]
 preconditions: >-
   Settings → Calendar is open and the provider is the system calendar. On
   desktop, or any platform with no calendar provider the app can reach.
@@ -23,10 +22,20 @@ expected: >-
   reachable, because the two are alternatives and one being impossible must not
   hide the other.
 
-# `android` is unreachable, and that asymmetry is deliberate rather than an
-# oversight. The scenario is *about* the failure branch, and on Android that
-# branch is reached only by denying the permission through a system dialog. A JVM
-# Compose test cannot present that dialog, and an Android instrumented test would
-# have to grant and then revoke it mid-flow — which is a platform-emulator
-# capability, not a UI assertion. Desktop reaches the branch by construction, so
-# that cell is claimable and is claimed by a carrier.
+# `android` is not a target of this scenario, and that is not an oversight: on
+# Android the panel's unavailable branch is unreachable by construction. The
+# branch is gated on `state.deviceSyncSupported`, the conjunction of
+# `calendarProvider.isSupported && syncRepo.isSupported && appQueries.isSupported
+# && scheduler.isSupported`, and on Android all four seams are real, so the
+# panel takes the available branch. The Maestro flow that claimed this scenario
+# on Android (`Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml`)
+# asserted a state no Android device can produce and failed in every sampled run;
+# gazon1/sing#3115 removed it. Desktop reaches the branch by construction, so
+# that cell is claimable and is claimed by a carrier
+# (`CalendarSyncSystemScenarioTest.the_system_panel_says_why_it_cannot_work`).
+#
+# The Android state that *is* reachable and currently has no owner is the
+# permission gate: with READ/WRITE_CALENDAR not granted the panel shows the
+# permission prompt instead of the controls. It is a different guarantee from
+# this one (missing permission, not a missing platform), it has no test tag, and
+# it is not claimed by any carrier.
