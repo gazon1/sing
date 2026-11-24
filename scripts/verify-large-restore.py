@@ -2383,6 +2383,11 @@ RESULT_FILES = ("report.json", "report.md")
 #: exclusively, so two runs cannot claim the same directory.
 RESERVATION_FILE = ".run-reservation"
 
+#: How long a reservation that holds no pid yet may be young. The run writes
+#: its pid into the file right after creating it, so a file that is still
+#: empty after this many seconds belongs to a run that died in between.
+RESERVATION_FRESH_SECONDS = 60
+
 
 def default_output_dir_name() -> str:
     """The output directory of a run that did not name one.
@@ -2414,10 +2419,26 @@ def reservation_is_stale(reservation: Path) -> bool:
     A run that was killed leaves its reservation behind, and the directory
     would be unusable forever otherwise. The reservation names the process
     that made it, and a process that no longer exists holds nothing.
+
+    A reservation that holds no pid yet is not abandoned: the run creates
+    the file and writes its pid into it a moment later, and a run that
+    meets the file in between would take a live reservation for a dead
+    one and both would write into the same directory. Such a file is stale
+    only when it is old enough that no live run is still writing it.
     """
     try:
-        pid = int(reservation.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
+        text = reservation.read_text(encoding="utf-8").strip()
+    except OSError:
+        return True
+    if not text:
+        try:
+            age = time.time() - reservation.stat().st_mtime
+        except OSError:
+            return True
+        return age > RESERVATION_FRESH_SECONDS
+    try:
+        pid = int(text)
+    except ValueError:
         return True
     try:
         os.kill(pid, 0)

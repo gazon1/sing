@@ -40,6 +40,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import time
 import unittest
 import unittest.mock
 import zipfile
@@ -2562,6 +2563,29 @@ class OutputDirectoryReservationTest(unittest.TestCase):
             exit_code = driver.main(["--out", str(out)])
             self.assertEqual(exit_code, driver.EXIT_SETUP)
 
+    def test_a_reservation_that_has_no_pid_yet_is_not_stolen(self):
+        """The run that holds the directory may still be writing its pid.
+
+        The file appears when the run creates it and names its process a
+        moment later. A run that meets the file in between must not take it
+        for an abandoned one: both runs would write into one directory.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            (out / driver.RESERVATION_FILE).write_text("", encoding="utf-8")
+            self.assertFalse(driver.reserve_output_dir(out))
+            self.assertTrue((out / driver.RESERVATION_FILE).exists())
+
+    def test_a_reservation_without_a_pid_that_is_already_old_is_taken_over(self):
+        """A run that died between creating the file and naming itself."""
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            reservation = out / driver.RESERVATION_FILE
+            reservation.write_text("", encoding="utf-8")
+            old = time.time() - driver.RESERVATION_FRESH_SECONDS - 60
+            os.utime(reservation, (old, old))
+            self.assertTrue(driver.reserve_output_dir(out))
+
     def test_the_report_is_written_while_the_directory_is_still_reserved(self):
         """The directory is given back only after the report is on disk.
 
@@ -3336,6 +3360,40 @@ class ProvenanceTest(unittest.TestCase):
 
     def test_a_git_that_fails_leaves_the_report_without_changes(self):
         self.assertEqual("", self._git(128, "fatal: not a git repository"))
+
+
+class DeviceOutputMaskingTest(unittest.TestCase):
+    """The output of a flow is kept with the report and read by other people.
+
+    The output names the device it ran on and the files of the person who
+    ran it. Neither belongs in an artifact that other people read.
+    """
+
+    SERIAL = "0O65321F32204DD5"
+
+    def test_the_serial_is_replaced_by_the_fingerprint_of_the_device(self):
+        masked = driver.mask_device_output(f"device {self.SERIAL} connected", self.SERIAL)
+        self.assertNotIn(self.SERIAL, masked)
+        self.assertIn(driver.device_fingerprint(self.SERIAL), masked)
+
+    def test_the_home_directory_becomes_a_tilde(self):
+        masked = driver.mask_device_output(f"reading {Path.home()}/.maestro", self.SERIAL)
+        self.assertNotIn(str(Path.home()), masked)
+        self.assertIn("~/.maestro", masked)
+
+    def test_the_log_of_a_flow_does_not_name_the_device_or_the_host(self):
+        with tempfile.TemporaryDirectory() as raw:
+            log = Path(raw) / "flow.txt"
+            command = ["bash", "-c", f"echo 'device {self.SERIAL} at $HOME'"]
+            with (
+                unittest.mock.patch.object(driver, "flow_command", return_value=command),
+                unittest.mock.patch.object(driver, "wake_unlock"),
+                unittest.mock.patch.object(driver, "prewarm_app"),
+            ):
+                driver.run_flow(self.SERIAL, "flow.yaml", {}, log)
+            text = log.read_text(encoding="utf-8")
+            self.assertNotIn(self.SERIAL, text)
+            self.assertNotIn(str(Path.home()), text)
 
 
 if __name__ == "__main__":
