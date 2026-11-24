@@ -37,8 +37,9 @@ The chat screen does **not** run on Koog's agent runtime. The call chain of one 
 ChatScreen → ChatViewModel.send()                      chat/ChatViewModel.kt:150
   → ChatViewModel.turn()                               chat/ChatViewModel.kt:179
       history = historyRecords()                       chat/ChatViewModel.kt:236   (in-memory messages)
-      → ChatTurn(agent, surface, history)              chat/ChatTurn.kt:72
-          → agent.streamChat(historyBlock() + prompt)  chat/ChatTurn.kt:114
+      → ChatTurn(agent, surface, history).run(prompt)  chat/ChatTurn.kt:41,56
+          request = historyBlock() + prompt            chat/ChatTurn.kt:61
+          → agent.streamChat(request)                  chat/ChatTurn.kt:72
               → UsageRecordingTextGen.streamChat       chat/UsageRecordingTextGen.kt:69
                   → KoogAgentService.streamChat        KoogAgentService.kt:170
                       → ToolCallLoop.run(prompt)       core/ai/ToolCallLoop.kt:111
@@ -50,10 +51,10 @@ Facts that decide the question:
 - **`ToolCallLoop` is a hand-written loop, not Koog's graph.** Its whole API is
   `run(initialPrompt, stream)` (`core/ai/ToolCallLoop.kt:111`); the conversation lives in a local
   variable (`:116`) and is thrown away when the turn ends. The class says why
-  (`:32-37`): Koog's agent runtime is written against the JVM's reflection and its own event
+  (`:33-37`): Koog's agent runtime is written against the JVM's reflection and its own event
   pipeline, and this project runs the same code on Android and on the desktop. That decision is
   ADR `docs/decisions/2026-10-22-the-chat-can-call-tools.md`.
-- **`AIAgent` is used in exactly one place**, `KoogAgentService.generate()` (`KoogAgentService.kt:149`),
+- **`AIAgent` is used in exactly one place**, `KoogAgentService.generate()` (`KoogAgentService.kt:131`),
   whose only production caller is the API-key "ping" in AI settings
   (`feature/ai/data/AiSettingsStore.kt:164`). The chat never touches it.
 - **The conversation the model sees is prose, not messages.** `ChatTurn.historyBlock()`
@@ -248,21 +249,23 @@ The Room layer is a **separate Gradle module**, `:core-database` (`AGENTS.md` st
 (`core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt:51`),
 exports in `core-database/schemas/com.singularity.todo.core.database.AppDatabase/`.
 
-A new transcript table follows the house style exactly:
+A new transcript table follows the house style exactly. Paths below are shortened as
+`core-database/…/` = `core-database/src/commonMain/kotlin/com/singularity/todo/`
+and `core/ids/X.kt` = `core-domain/src/commonMain/kotlin/com/singularity/todo/core/ids/X.kt`.
 
 | Concern | Convention | Source |
 |---|---|---|
-| Table name | `snake_case`; an AI table already exists as `ai_proposal`, `llm_usage` | `feature/proposals/data/ProposalDao.kt:24` |
-| Primary key | `@PrimaryKey val id: String`, UUID string, **no** `autoGenerate` | `core/database/Entities.kt:25-90` |
+| Table name | `snake_case`; an AI table already exists as `ai_proposal`, `llm_usage` | `core-database/…/feature/proposals/data/ProposalDao.kt:24-30` |
+| Primary key | `@PrimaryKey val id: String`, UUID string, **no** `autoGenerate` | `core-database/…/core/database/Entities.kt:25-90` |
 | Id type | `@Serializable @JvmInline value class XId(val value: String)` in `:core-domain`, with `generate()` / `fromString()` | `core/ids/ProposalId.kt`, `core/ids/IdGen.kt` |
-| Timestamps | `Long` epoch millis in `created_at` / `updated_at` | `core/database/Entities.kt:25-90` |
-| Ownership | `@ColumnInfo("user_id") val userId: String` + `Index("user_id")`; or scope through the parent (the AI precedent, `llm_usage`, scopes by `profile_id`) | `ProposalDao.kt:24-41`, `core/database/Daos.kt:2157` |
-| DAO | `@Dao interface`, `suspend` for writes, `Flow` for reads, `@Upsert`, and **every** `UPDATE`/`DELETE` carries a user predicate | `ProposalDao.kt:98-170` |
-| Mapper | `fun XEntity.toX()` covering **every** column — `@Upsert` is a full-row replace | `core/database/Mappers.kt`, `EntityMapperCompletenessTest` |
-| Registration | `abstract fun xDao()` on `AppDatabase` + `single { get<AppDatabase>().xDao() }` in **both** `PlatformModule.android.kt` and `PlatformModule.jvm.kt` | `core/database/AppDatabase.kt:155-220` |
-| Migration | bump to 56, add the entity, `Migration55To56 : AutoMigrationSpec` (empty body — a new table needs no manual SQL), register the `AutoMigration` in `@Database(autoMigrations = …)` | `AppDatabase.kt:95-150`, `Migration53To54.kt:17` |
-| Export + gate | build `:core-database` so Room writes `56.json`, then `python3 scripts/check-room-schema-integrity.py --write` | `core-database/build.gradle.kts:61-63`, `scripts/check-room-schema-integrity.py:157-171` |
-| Migration test | hand-written `@Tag("slow")` test using `DatabaseTestFixture.onDisk()` + `applyExportedSchema(55, connection)`; the round-trip test is generated, never hand-edited | `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/MigrationRoundTripSupport.kt:101-143` |
+| Timestamps | `Long` epoch millis in `created_at` / `updated_at` | `core-database/…/core/database/Entities.kt:25-90` |
+| Ownership | `@ColumnInfo("user_id") val userId: String` + `Index("user_id")`; or scope through the parent (the AI precedent, `llm_usage`, scopes by `profile_id`) | `core-database/…/feature/proposals/data/ProposalDao.kt:24-41`, `core-database/…/core/database/Daos.kt:2157` |
+| DAO | `@Dao interface`, `suspend` for writes, `Flow` for reads, `@Upsert`, and **every** `UPDATE`/`DELETE` carries a user predicate | `core-database/…/feature/proposals/data/ProposalDao.kt:99-170` |
+| Mapper | `fun XEntity.toX()` covering **every** column — `@Upsert` is a full-row replace | `core-database/…/core/database/Mappers.kt`, `EntityMapperCompletenessTest` |
+| Registration | `abstract fun xDao()` on `AppDatabase` + `single { get<AppDatabase>().xDao() }` in **both** `PlatformModule.android.kt` and `PlatformModule.jvm.kt` | `core-database/…/core/database/AppDatabase.kt:155-220` |
+| Migration | bump to 56, add the entity, `Migration55To56 : AutoMigrationSpec` (empty body — a new table needs no manual SQL), register the `AutoMigration` in `@Database(autoMigrations = …)` | `core-database/…/core/database/AppDatabase.kt:95-150`, `core-database/…/core/database/Migration53To54.kt:17` |
+| Export + gate | build `:core-database` so Room writes `56.json`, then `python3 scripts/check-room-schema-integrity.py --write` | `core-database/build.gradle.kts:61-63`, `scripts/check-room-schema-integrity.py:95-100` (the `--write` flag itself is at `:1309`) |
+| Migration test | hand-written `@Tag("slow")` test using `DatabaseTestFixture.onDisk()` + `applyExportedSchema(55, connection)`; the round-trip test is generated, never hand-edited | `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/MigrationRoundTripSupport.kt:101` (`schemaFile`), `:120-143` (`applyExportedSchema`) |
 
 Two gates will bite a new table: `ScopedWriteQueryIsolationTest` /
 `ScopedReadQueryIsolationTest` reject an unscoped `UPDATE`/`DELETE`, and
