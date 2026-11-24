@@ -213,6 +213,41 @@ shared Knowledge workflow must not require. The epic already says this ("Platfor
 external provider capability may differ and must be explicit"), and this report confirms it
 is not a temporary gap — it is the SDK's shape.
 
+## Privacy and security implications
+
+The issue asks for this explicitly, and the answer is not "nothing to do" — it is "the
+current boundary is the one that keeps credentials out".
+
+**Where the authentication material actually lives.** `notebooklm-py` owns it, outside Sing:
+the 23 Google cookies in `~/.notebooklm/profiles/<profile>/storage_state.json` (mode 600),
+the account context in `context.json`, and — when a master token is used instead of browser
+cookies — `master_token.json`. On this machine the profile directory is `700` and the state
+files are `600`, so the material is not world-readable; that is a property of the installed
+tool, not of Sing.
+
+**What the app would have had to hold under option 3.** A CLI adapter passes `--profile
+<name>`, never a cookie, so the adapter itself would not copy secrets. The leak path is
+narrower and nastier: **process output**. The installed CLI's error envelope redacts the
+account URL (`accounts.google.com/<redacted>`) and `cli/error_handler.py` routes unexpected
+exceptions to a redacting debug logger, but a subprocess adapter that captures stdout and
+writes it to a log, a crash report or an error toast would be the component that turns a
+diagnostic into a credential dump. `Subprocess.runCapturing` folds stderr into stdout and
+returns one string — there is no redaction layer in it. That is a concrete reason the
+boundary matters beyond "we do not need it": adding the adapter would add a place where
+third-party output reaches Sing's logs, and nothing in `core/process` would stop it.
+
+**What this decision actually guarantees.** Because Sing neither launches the CLI nor hosts
+an MCP client, Google authentication material stays in the tool that owns it, no cookie or
+token is ever read into a Sing process, and nothing about a Google session can reach app
+Notes, proposals, logs or crash reports — it simply never enters the process. The external
+agent holds the same exposure it already had.
+
+**Boundary that must survive any future implementation.** If #3189 is ever revisited:
+never read `storage_state.json` or `master_token.json`; pass only a profile *name*; never
+write raw CLI output to a Sing log, proposal or crash report without redaction; and keep the
+provider's credentials out of backup, sync and the MCP surface. The report's failure table
+already marks the mutation paths; this paragraph marks the secret paths.
+
 ## Rejected alternatives, in one line each
 
 - **Remote MCP connection from the built-in agent**: rejected — would add an MCP client
