@@ -273,8 +273,11 @@ def maestro_argv(
     return argv
 
 
-def app_crash_evidence(serial: str) -> list[str]:
-    """App-level crashes and ANRs recorded by the system, read from the log.
+def crash_evidence_in(text: str) -> list[str]:
+    """This app's crash and ANR lines in a logcat capture.
+
+    Pure: the caller decides where the text came from, which is what lets the
+    streaming collector below be tested without a device.
 
     `prepare_device` sets `hide_error_dialogs 1`, which is what stops the
     emulator's own ANR windows from covering the screen. The setting is
@@ -290,18 +293,7 @@ def app_crash_evidence(serial: str) -> list[str]:
     the launcher and system_server ANRs are what the setting exists to hide,
     and reporting them would turn a slow emulator into a red shard for the
     wrong reason.
-
-    Empty list means the app was not seen crashing. Best-effort: a device that
-    does not answer returns nothing, and a caller must not read that as "the
-    app crashed".
     """
-    out = try_run(
-        ["adb", "-s", serial, "shell", "logcat", "-d", "-v", "brief"],
-        timeout=60,
-    )
-    if out is None or out.returncode != 0:
-        return []
-    text = out.stdout or ""
     lines = text.splitlines()
     findings: list[str] = []
     for index, line in enumerate(lines):
@@ -317,6 +309,85 @@ def app_crash_evidence(serial: str) -> list[str]:
         if any(f"Process: {APP_ID}" in entry for entry in block):
             findings.extend(entry.strip() for entry in block if entry.strip())
     return findings
+
+
+class CrashLogCollector:
+    """`logcat` streaming into a file while the flows run.
+
+    Two properties are the point, and a single `logcat -d` at the end has
+    neither:
+
+    - **The buffer cannot roll over a crash.** logcat's buffers are circular,
+      so a crash early in a long or noisy shard is overwritten before a later
+      read reaches it. A live `logcat` process writes each line to the file as
+      it arrives, and the file is not circular.
+    - **The capture starts at the shard's boundary.** The file is opened before
+      the flows start, so it begins empty. An emulator reused from an earlier
+      shard cannot make a clean shard fail on the previous shard's crash, which
+      is the failure mode that would make this signal untrustworthy in the one
+      direction that matters — blaming code that did not run.
+
+    Best-effort throughout: a device that refuses `logcat` leaves nothing to
+    read, and an empty result means "not seen crashing", never "crashed".
+    """
+
+    def __init__(self, serial: str, path: Path) -> None:
+        self.serial = serial
+        self.path = path
+        self._process: subprocess.Popen[str] | None = None
+        self._handle = None
+
+    def __enter__(self) -> "CrashLogCollector":
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self._handle = self.path.open("w", encoding="utf-8", errors="replace")
+            self._process = subprocess.Popen(
+                ["adb", "-s", self.serial, "shell", "logcat", "-v", "brief"],
+                stdout=self._handle,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+        except OSError as exc:
+            print(
+                f"{YELLOW}Could not start the crash log collector: {exc}{_col('0', '')}",
+                flush=True,
+            )
+            self._process = None
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        if self._process is not None:
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+            self._process = None
+        if self._handle is not None:
+            self._handle.close()
+            self._handle = None
+
+    def findings(self) -> list[str]:
+        """This app's crash and ANR lines captured during the shard."""
+        try:
+            text = self.path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return []
+        return crash_evidence_in(text)
+
+
+def shard_verdict(maestro_rc: int, crashes: list[str]) -> int:
+    """The shard's exit code, given what Maestro said and what the app did.
+
+    Split out from :func:`main` so the one decision that matters has a
+    behavioural test: a shard whose flows all passed while the app crashed did
+    not test what it says it tested, and must not exit 0. A failing shard stays
+    failing whatever the log says — the crash is reported, not used to override
+    a result the flows already produced.
+    """
+    if maestro_rc == EXIT_PASS and crashes:
+        return EXIT_FAIL
+    return maestro_rc
 
 
 def run_maestro(
@@ -460,22 +531,43 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n{YELLOW}=== Running Maestro E2E (suite={args.suite}, shard {args.shard}/{args.shards}) ==={_col('0', '')}",
           flush=True)
 
-    rc = run_maestro(
-        serial=device,
-        shard=args.shard,
-        shards=args.shards,
-        suite=args.suite,
-        junit_dir=junit_dir,
-        engine=args.engine,
-    )
+    # The dialogs `prepare_device` hides include the app's own crash and ANR
+    # windows, so a flow can pass over a crashed process. The collector starts
+    # here — after the app is ready, before the first flow — so it holds the
+    # whole shard and nothing from an earlier one, and streams each line to a
+    # file the device's circular buffers cannot overwrite.
+    crash_log = junit_dir / "shard-logcat.txt"
+    with CrashLogCollector(device, crash_log) as collector:
+        rc = run_maestro(
+            serial=device,
+            shard=args.shard,
+            shards=args.shards,
+            suite=args.suite,
+            junit_dir=junit_dir,
+            engine=args.engine,
+        )
 
     if rc == EXIT_PASS:
         print(f"{GREEN}=== Maestro E2E passed ==={_col('0', '')}", flush=True)
     else:
         print(f"{RED}=== Maestro E2E failed (exit {rc}) ==={_col('0', '')}", flush=True)
 
-    # The dialogs `prepare_device` hides include the app's own crash and ANR
-    # windows, so a flow can now pass over a crashed process. Read the signal
+    crashes = collector.findings()
+    if crashes:
+        print(
+            f"{RED}The app crashed or ANR'd during this shard, "
+            f"though no dialog was shown ({len(crashes)} line(s)):{_col('0', '')}",
+            flush=True,
+        )
+        for finding in crashes[:20]:
+            print(f"  {finding}", flush=True)
+        if rc == EXIT_PASS:
+            print(
+                f"{RED}=== Maestro E2E failed: the app crashed underneath a passing run ==={_col('0', '')}",
+                flush=True,
+            )
+
+    return shard_verdict(rc, crashes)
     # back from the activity manager's log, where a crash or an ANR is recorded
     # whether or not a window was shown. A shard whose flows all passed but
     # whose app crashed is still a red shard: the run did not test what it says

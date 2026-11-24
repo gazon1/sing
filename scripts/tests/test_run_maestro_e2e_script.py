@@ -245,9 +245,7 @@ class AppCrashEvidenceTest(unittest.TestCase):
         self.mod = _load_script()
 
     def _evidence(self, log: str) -> list[str]:
-        fake = subprocess.CompletedProcess(args=[], returncode=0, stdout=log, stderr="")
-        with unittest.mock.patch.object(self.mod, "try_run", return_value=fake):
-            return self.mod.app_crash_evidence("emulator-5554")
+        return self.mod.crash_evidence_in(log)
 
     def test_an_app_anr_is_reported(self):
         log = (
@@ -286,23 +284,107 @@ class AppCrashEvidenceTest(unittest.TestCase):
         )
         self.assertEqual([], self._evidence(log))
 
+    def test_a_crash_early_in_a_long_capture_is_still_reported(self):
+        """The collector exists so the buffer cannot roll over a crash: an
+        entry at the top of a long capture must still be found at the end."""
+        head = (
+            "I/ActivityManager: ANR in com.singularity.todo "
+            "(com.singularity.todo/.MainActivity)\n"
+        )
+        noise = "".join(f"I/SomeTag: unrelated chatter line {n}\n" for n in range(50_000))
+        self.assertTrue(
+            self._evidence(head + noise),
+            "a crash at the start of a long shard must survive to the end of the capture",
+        )
+
     def test_a_device_that_does_not_answer_is_not_a_crash(self):
         self.assertEqual([], self._evidence(""))
-        with unittest.mock.patch.object(self.mod, "try_run", return_value=None):
-            self.assertEqual([], self.mod.app_crash_evidence("emulator-5554"))
 
-    def test_a_passing_shard_whose_app_crashed_is_a_failed_shard(self):
-        """The guard is only worth having if it changes the exit code."""
+
+class CrashLogCollectorTest(unittest.TestCase):
+    """The capture has to start at the shard's boundary, not at the device's."""
+
+    def setUp(self):
+        self.mod = _load_script()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = pathlib.Path(self.tmp.name) / "shard-logcat.txt"
+
+    def test_the_capture_starts_empty_so_an_earlier_shard_cannot_fail_this_one(self):
+        """An emulator reused from an earlier shard must not fail a clean shard
+        on the previous shard's crash — blaming code that did not run."""
+        self.path.write_text(
+            "I/ActivityManager: ANR in com.singularity.todo (stale, previous shard)\n",
+            encoding="utf-8",
+        )
+        with unittest.mock.patch.object(self.mod.subprocess, "Popen") as popen:
+            popen.return_value = unittest.mock.Mock()
+            collector = self.mod.CrashLogCollector("emulator-5554", self.path)
+            with collector:
+                pass
+            popen.assert_called_once()
+            self.assertEqual(
+                [], collector.findings(),
+                "the collector must not read a crash from before the shard started",
+            )
+
+    def test_the_collector_streams_logcat_into_the_file(self):
+        with unittest.mock.patch.object(self.mod.subprocess, "Popen") as popen:
+            popen.return_value = unittest.mock.Mock()
+            collector = self.mod.CrashLogCollector("emulator-5554", self.path)
+            with collector:
+                argv = popen.call_args.args[0]
+            self.assertIn("logcat", argv)
+            self.assertNotIn(
+                "-d", argv,
+                "a one-shot dump is what the collector replaces; it must stream",
+            )
+            self.assertEqual(self.path, pathlib.Path(popen.call_args.kwargs["stdout"].name))
+
+    def test_a_missing_capture_is_not_a_crash(self):
+        collector = self.mod.CrashLogCollector("emulator-5554", self.path)
+        self.path.unlink(missing_ok=True)
+        self.assertEqual([], collector.findings())
+
+
+class ShardVerdictTest(unittest.TestCase):
+    """The one decision that matters has a behavioural test, not a text search."""
+
+    def setUp(self):
+        self.mod = _load_script()
+
+    def test_passing_without_a_crash_passes(self):
+        self.assertEqual(self.mod.EXIT_PASS, self.mod.shard_verdict(self.mod.EXIT_PASS, []))
+
+    def test_passing_with_a_crash_fails(self):
+        self.assertEqual(
+            self.mod.EXIT_FAIL,
+            self.mod.shard_verdict(self.mod.EXIT_PASS, ["ANR in com.singularity.todo"]),
+            "a shard whose flows passed while the app crashed must not exit 0",
+        )
+
+    def test_failing_without_a_crash_stays_failing(self):
+        self.assertEqual(self.mod.EXIT_FAIL, self.mod.shard_verdict(self.mod.EXIT_FAIL, []))
+
+    def test_failing_with_a_crash_stays_failing(self):
+        self.assertEqual(
+            self.mod.EXIT_FAIL,
+            self.mod.shard_verdict(self.mod.EXIT_FAIL, ["FATAL EXCEPTION"]),
+        )
+
+    def test_another_exit_code_is_preserved(self):
+        self.assertEqual(
+            self.mod.EXIT_DEVICE_UNAVAILABLE,
+            self.mod.shard_verdict(self.mod.EXIT_DEVICE_UNAVAILABLE, []),
+        )
+
+    def test_the_runner_returns_the_verdict(self):
+        """The decision above is worthless if `main` does not return it."""
         source = SCRIPT.read_text(encoding="utf-8")
         self.assertIn(
-            "crashes = app_crash_evidence(device)",
+            "return shard_verdict(rc, crashes)",
             source,
-            "the shard must read the crash signal after the flows ran",
-        )
-        self.assertIn(
-            "return EXIT_FAIL",
-            source.split("crashes = app_crash_evidence(device)", 1)[1],
-            "a passing shard whose app crashed must not exit 0",
+            "main must return the shard verdict rather than rc",
         )
 
 
