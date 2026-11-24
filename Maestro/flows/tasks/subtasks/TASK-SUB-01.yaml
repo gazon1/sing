@@ -81,7 +81,7 @@ tags:
     element:
       id: subtask_add_input
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 
 - tapOn:
     id: subtask_add_input

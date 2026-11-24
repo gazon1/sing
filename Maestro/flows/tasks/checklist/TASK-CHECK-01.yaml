@@ -97,7 +97,7 @@ tags:
     element:
       id: checklist_inline_add_input
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 
 # ── Add an item inline ───────────────────────────────────────────
 # The add-row of the section. Nothing opens: the item is typed where it is
