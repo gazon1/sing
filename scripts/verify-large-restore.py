@@ -865,6 +865,10 @@ def wake_unlock(serial: str) -> None:
     restore. The sequence is the one the repository's own device skill uses,
     and the swipe is the fallback for a device that does not take the menu
     key.
+
+    A screen that times out during a long import is handled the same way: the
+    run wakes and unlocks the device again. The setting that holds the screen
+    on is the device's own, and a run has no business leaving it changed.
     """
     adb("shell", "input", "keyevent", "KEYCODE_WAKEUP", serial=serial)
     time.sleep(1)
@@ -888,22 +892,6 @@ def prewarm_app(serial: str) -> None:
     """
     adb("shell", "am", "start", "-n", f"{APP_ID}/.MainActivity", serial=serial, timeout=60)
     time.sleep(2)
-
-
-def keep_awake(serial: str) -> None:
-    """Stop the device from locking itself while the run is watching it.
-
-    A phone's screen times out after a minute or two, and the run spends far
-    longer than that watching an import. When the screen goes off the device
-    shows its lock screen, the screen dumps read that instead of the app, and
-    the run concludes that the import said nothing — when in fact the import
-    finished while the phone was asleep.
-
-    So the screen is held on for the length of the run. The setting is the
-    device's own `stay_on_while_plugged_in` in developer options, which is what
-    a plugged-in test phone normally has set anyway.
-    """
-    adb("shell", "svc", "power", "stayon", "true", serial=serial)
 
 
 #: What a locked screen looks like in a dump. The system UI's own ids are

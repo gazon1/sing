@@ -193,6 +193,16 @@ class ProfileScopeTest(unittest.TestCase):
         "INSERT INTO tags (id, name, user_id) VALUES ('gx', 'other', 'u2')",
         "INSERT INTO task_tags (task_id, tag_id) VALUES ('t1', 'g1')",
         "INSERT INTO task_tags (task_id, tag_id) VALUES ('x1', 'gx')",
+        "INSERT INTO notes (id, title, task_id, user_id) "
+        "VALUES ('n1', 'Note 1', 't1', 'u1')",
+        "INSERT INTO notes (id, title, task_id, user_id) "
+        "VALUES ('nx', 'Other note', 'x1', 'u2')",
+        "INSERT INTO checklist_items (id, task_id) VALUES ('c1', 't1')",
+        "INSERT INTO checklist_items (id, task_id) VALUES ('cx', 'x1')",
+        "INSERT INTO task_dependencies (task_id, depends_on_task_id) "
+        "VALUES ('t1', 't1')",
+        "INSERT INTO task_dependencies (task_id, depends_on_task_id) "
+        "VALUES ('x1', 'x1')",
     ]
 
     def test_the_count_is_the_scopes_own(self):
@@ -203,12 +213,30 @@ class ProfileScopeTest(unittest.TestCase):
         self.assertEqual(counts["tags"], 1)
         self.assertEqual(counts["taskTags"], 1)
 
+    def test_a_row_that_hangs_off_a_task_is_counted_through_that_task(self):
+        """The tables that carry no scope of their own are read by their task.
+
+        A row of another profile that hangs off a task of this profile is a
+        row of this profile; a row that hangs off a task of another profile
+        is not. The count is what says so, and the comparison with the
+        manifest is what depends on it.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(Path(raw), self.TWO_PROFILES)
+            counts = driver.count_rows(path, "u1")
+        self.assertEqual(counts["notes"], 1)
+        self.assertEqual(counts["checklistItems"], 1)
+        self.assertEqual(counts["taskDependencies"], 1)
+
     def test_a_count_without_a_scope_is_the_whole_database(self):
         with tempfile.TemporaryDirectory() as raw:
             path = _database(Path(raw), self.TWO_PROFILES)
             counts = driver.count_rows(path)
         self.assertEqual(counts["tasks"], 2)
         self.assertEqual(counts["taskTags"], 2)
+        self.assertEqual(counts["notes"], 2)
+        self.assertEqual(counts["checklistItems"], 2)
+        self.assertEqual(counts["taskDependencies"], 2)
 
     def test_the_scope_is_known_before_the_wipe(self):
         """The scope comes from the profile the run works in, not from the
