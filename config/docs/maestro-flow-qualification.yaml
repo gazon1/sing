@@ -706,4 +706,58 @@ qualifications:
       apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
+  Maestro/flows/smoke/07-seed-helper-contract.yaml:
+    fingerprint: sha256:682bfa41c985f4e642c19766d173e27126c0d06e1e471b93b8df19e3123e3954
+    qualified_at: '2026-11-24'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: f98cd3d15a64
+    apk_commit_sha: f98cd3d15a64
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-1/07-seed-helper-contract.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: f98cd3d15a64
+      apk_commit_sha: f98cd3d15a64
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-2/07-seed-helper-contract.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: f98cd3d15a64
+      apk_commit_sha: f98cd3d15a64
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-3/07-seed-helper-contract.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: f98cd3d15a64
+      apk_commit_sha: f98cd3d15a64
+      maestro_version: 2.10.0
+      return_code: 0
 exceptions: {}
