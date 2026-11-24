@@ -2711,29 +2711,40 @@ class ProfileOwnershipTest(unittest.TestCase):
     creates so that the next run can tell them apart from somebody else's.
     """
 
-    def _db_with_a_profile_of_that_name(self, tmp: Path, profile_id: str) -> Path:
+    def _db_with_a_profile_of_that_name(
+        self, tmp: Path, profile_id: str, name: str = driver.TEST_PROFILE_NAME
+    ) -> Path:
         return _database(
             tmp,
             [
                 "INSERT INTO profiles (id, name, is_default) "
                 "VALUES ('default', 'Personal', 1)",
                 "INSERT INTO profiles (id, name, is_default) "
-                f"VALUES ('{profile_id}', '{driver.TEST_PROFILE_NAME}', 0)",
+                f"VALUES ('{profile_id}', '{name}', 0)",
                 "INSERT INTO tasks (id, title, user_id) VALUES ('home', 'Home task', 'u1')",
             ],
         )
 
-    def _run(self, tmp: Path, out: Path, db: Path | None = None, owner: str | None = None):
+    def _run(
+        self,
+        tmp: Path,
+        out: Path,
+        db: Path | None = None,
+        owner: str | None = None,
+        test_profile: str | None = None,
+    ):
         apk = tmp / "the.apk"
         apk.write_bytes(b"not really an APK")
         argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        if test_profile:
+            argv += ["--test-profile", test_profile]
         with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
             with contextlib.ExitStack() as stack:
                 for patch in _device_patches(tmp, db):
                     stack.enter_context(patch)
                 stack.enter_context(
                     unittest.mock.patch.object(
-                        driver, "profile_owner_id", lambda serial: owner
+                        driver, "profile_owner_id", lambda serial, name: owner
                     )
                 )
                 return driver.main(argv)
@@ -2783,12 +2794,12 @@ class ProfileOwnershipTest(unittest.TestCase):
                         stack.enter_context(patch)
                     stack.enter_context(
                         unittest.mock.patch.object(
-                            driver, "profile_owner_id", lambda serial: None
+                            driver, "profile_owner_id", lambda serial, name: None
                         )
                     )
                     stack.enter_context(
                         unittest.mock.patch.object(
-                            driver, "claim_profile", lambda serial, pid: claimed.append(pid)
+                            driver, "claim_profile", lambda serial, pid, name: claimed.append(pid)
                         )
                     )
                     driver.main(argv)
@@ -2796,17 +2807,59 @@ class ProfileOwnershipTest(unittest.TestCase):
 
     def test_the_marker_says_which_profile_is_ours(self):
         self.assertIsNone(
-            driver.profile_ownership_problem(None, None),
+            driver.profile_ownership_problem(None, None, driver.TEST_PROFILE_NAME),
         )
         self.assertIsNone(
-            driver.profile_ownership_problem(TEST_PROFILE_ID, TEST_PROFILE_ID),
+            driver.profile_ownership_problem(TEST_PROFILE_ID, TEST_PROFILE_ID, driver.TEST_PROFILE_NAME),
         )
         self.assertIsNotNone(
-            driver.profile_ownership_problem(TEST_PROFILE_ID, "01OTHERPROFILE000000000000"),
+            driver.profile_ownership_problem(
+                TEST_PROFILE_ID, "01OTHERPROFILE000000000000", driver.TEST_PROFILE_NAME
+            ),
         )
         self.assertIsNotNone(
-            driver.profile_ownership_problem(TEST_PROFILE_ID, None),
+            driver.profile_ownership_problem(TEST_PROFILE_ID, None, driver.TEST_PROFILE_NAME),
         )
+
+    def test_the_marker_of_a_profile_is_a_file_of_its_own(self):
+        """The claim on a profile lives in a file named after it: a run that
+        works in a profile of another name does not lose the claim on the
+        profile of the first one.
+        """
+        self.assertEqual(
+            driver.owner_file("verify-large-restore"), "files/verify-large-restore.owner"
+        )
+        self.assertEqual(driver.owner_file("run-2"), "files/run-2.owner")
+
+    def test_a_run_works_in_the_profile_it_is_given(self):
+        """The name of the profile under test is the operator's: a run that
+        cannot empty the profile of the first one works in a profile of
+        another name.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            db = self._db_with_a_profile_of_that_name(tmp, TEST_PROFILE_ID, "run-2")
+            exit_code = self._run(tmp, out, db, owner=TEST_PROFILE_ID, test_profile="run-2")
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertNotEqual(report.get("failure"), "setup")
+            self.assertEqual(report["profile"]["testProfile"]["name"], "run-2")
+            self.assertEqual(
+                report["profile"]["testProfile"]["claimedBy"], "files/run-2.owner"
+            )
+
+    def test_a_name_that_is_not_a_plain_word_is_refused(self):
+        """The name goes into a link and into a file name: a name that is not a
+        plain word is refused before anything is touched.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            exit_code = self._run(tmp, out, None, test_profile="two words")
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            self.assertFalse((out / "report.json").exists())
 
     def test_a_profile_the_run_cannot_claim_is_not_wiped(self):
         """The marker is written through a shell, so only an id that cannot
@@ -2815,7 +2868,9 @@ class ProfileOwnershipTest(unittest.TestCase):
         """
         with unittest.mock.patch.object(driver, "adb") as fake:
             with self.assertRaises(driver.RunError):
-                driver.claim_profile("test-device", "01JQ8ZP0Q9K7H5V3N2M4R6T8X0; rm -rf /")
+                driver.claim_profile(
+                    "test-device", "01JQ8ZP0Q9K7H5V3N2M4R6T8X0; rm -rf /", driver.TEST_PROFILE_NAME
+                )
             fake.assert_not_called()
 
 
