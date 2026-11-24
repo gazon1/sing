@@ -394,9 +394,12 @@ Two more rules about what a wait covers:
   in.** The container rule asks for a section that renders *only* because the
   entity is in it. A section the flow named before the seed was there before
   the seed, and a wait for it returns at once — the row the seed wrote is
-  still on its way. The gate holds such a flow to the row rule. The state the
-  app was in before the flow ran is invisible to the gate, so a flow that
-  waits for a section it did not bring in owns that.
+  still on its way. A section an earlier seed of the same flow brought in is
+  the same case: that seed put a row in the section, so it was on screen
+  before this seed ran, and a wait for it is no evidence of this seed's
+  write. The gate holds such a flow to the row rule. The state the app was in
+  before the flow ran is invisible to the gate, so a flow that waits for a
+  section it did not bring in owns that.
 - **A seed that outlasts every wait is written in chunks.** Writing a row
   costs the seeder about 30 ms, so a thousand rows take longer than the shell
   wait (30 s) — the largest budget there is — and a seed that outlasts the

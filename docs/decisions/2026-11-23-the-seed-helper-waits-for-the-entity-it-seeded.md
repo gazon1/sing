@@ -86,6 +86,12 @@ Inbox — and it holds the caller to it. A date the seed resolves against the
 device's own "today" (`YYYY-MM-DD`) is not decidable statically, so such a task
 is treated as not on the screen.
 
+A relative date of zero days is today whatever its sign says. The seeder reads
+every sign but the negative one as positive (`DebugSeedActivity.resolveDate`),
+so `+0d` is today, and `0d` is today too — a gate that reads only the unsigned
+form rejects a `WAIT_FOR` the helper can honour, and the flow fails on the
+helper instead of on the row it named.
+
 **What the helper's wait does not do.** It does not scroll. A wait that
 scrolls moves the viewport a flow is about to assert on, and the flow's own
 `scrollUntilVisible` is the thing that absorbs a row below the fold. And it
@@ -158,6 +164,10 @@ of element are not among them:
   screen, and the helper does not scroll.
 - **A section the flow named before the seed.** It was there before the seed
   ran, so the wait for it returns at once.
+- **A section an earlier seed of the same flow brought in.** That seed put a
+  row in the section, so the section was on screen before this seed ran, and a
+  wait for it returns at once. The gate reads the flow for that tell: the
+  sections the flow's own earlier seeds brought in.
 
 An entity on another screen — a note, a project, a task in another tab — is
 not among them either: the helper does not navigate, so its wait would run out
@@ -179,10 +189,16 @@ that renders *only* because the entity is in it. A section that was already
 there before the seed cannot be that section: the wait for it returns at
 once, and the row the seed wrote is still on its way. The gate reads the
 flow for the tell it can see — a section the flow named before the seed was
-there before the seed — and holds the flow to the row rule in that case. What
-the gate cannot see is the state of the app before the flow ran: a section a
-previous run left behind is invisible to it, and a flow that waits for a
-section it did not bring in owns that.
+there before the seed, and a section an earlier seed of the same flow brought
+in was there too, because that seed put a row in it — and holds the flow to
+the row rule in those cases. What the gate cannot see is the state of the app
+before the flow ran: a section a previous run left behind is invisible to it,
+and a flow that waits for a section it did not bring in owns that.
+
+The earlier-seed case is the sharp one, because the flow does not name the
+section anywhere: two seeds of two tasks due today, and a wait for the section
+between them. The section is on screen from the first seed, the wait returns
+at once, and the assertion on the second seed's row has nothing behind it.
 
 **What counts as an assertion on the entity.** An assertion by the id of the
 row the app renders the entity under, and an assertion whose text is exactly
@@ -226,6 +242,16 @@ precedes the seed, two seeds of one row with a wait that covers only the first
 — and a helper whose entity wait sits outside the guarded block, a helper whose
 entity wait runs before the seed link, and a helper whose entity wait runs
 between the link and the shell wait. A gate that cannot fail holds nothing.
+
+**Where the contract is written, and who holds the copies together.** The
+contract lives in the header of `helpers/seed.yaml`, and it is repeated in
+`Maestro/CONVENTIONS.md` and in the `singularity-todo-maestro-flows` skill —
+three documents that a flow author may read instead of the first. A repetition
+that drifts is a second contract, and a flow written against it fails on a
+device for a reason the source does not show. `SeedHelperWaitTest` therefore
+holds the three to each other: every clause of the contract has to be stated in
+all three, and a document that states none of them fails the check — a check
+that cannot fail holds nothing.
 
 **The runtime half.** The gate reads the YAML; it cannot hold what the helper
 does on a device. `smoke/07-seed-helper-contract` is that half: a seed with no
@@ -311,6 +337,13 @@ profile therefore behaves exactly as it did before.
   app on and that is there to be seen: not a row of a multi-row seed (the
   helper does not scroll), and not a section the flow named before the seed
   (the wait for it would return at once).
+- A section an earlier seed of the same flow brought in is not a target of the
+  helper's wait and covers nothing as a flow-level wait either: it was on
+  screen before the seed ran. `capture/01-today` waits for each of the three
+  rows of the demo dataset on its own, because the section is on screen from
+  the first of the three seeds.
+- A relative date of zero days is today: `+0d` and `0d` name a task that is
+  due today, and the helper may wait for its row.
 - `nav/deep-link-task` and `notes/03-internal-link-navigation` assert the
   title of the task they opened, and wait for the editor by the id of its
   title field *and* by that title: the wait names the entity, not whichever

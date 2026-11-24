@@ -58,24 +58,28 @@ internal object SeedWaitTree {
             // The rows an earlier seed of this flow already wrote. A row that
             // was there before the seed cannot be the evidence that this
             // seed's write arrived: a wait for it returns at once.
-            val earlierRows =
-                seeds
-                    .filter { other -> compareOrder(other.position, seed.position) < 0 }
-                    .flatMap { other -> seededEntity(parseQuery(other.query)).entities }
-                    .flatMap { entity -> entity.rows }
-                    .toSet()
+            val earlierRows = rowsBefore(seed, seeds)
+            // The sections an earlier seed of this flow brought in. A section
+            // renders because the rows in it are there, so a seed that put a
+            // row in it made it visible — and a wait for it returns at once
+            // when the later seed runs.
+            val earlierContainers = containersBefore(seed, seeds)
             // A container covers an entity only while the container is the
             // section that the seed brings in. A section the flow already
-            // named before the seed was there before the seed, and a wait for
-            // it returns at once — it cannot be the evidence that the seeded
+            // named before the seed was there before the seed, and a section
+            // an earlier seed brought in was there too — a wait for either
+            // returns at once, and it cannot be the evidence that the seeded
             // row arrived.
-            val containers = seeded.containers.filter { it !in namedBefore(seed.position, waits, asserts) }
+            val containers =
+                seeded.containers.filter {
+                    it !in namedBefore(seed.position, waits, asserts) && it !in earlierContainers
+                }
             // What the helper may wait for: the rows the seed brings onto the
             // screen the app is left on, and the sections that hold them. An
             // entity the seed leaves on another screen is not there to be
             // waited for — the helper's wait would time out on an element the
             // app never renders.
-            val landingIds = landingTargets(seeded, seed.position, waits, asserts)
+            val landingIds = landingTargets(seeded, seed.position, waits, asserts, earlierContainers)
             for (entity in seeded.entities) {
                 // The ids of the entity: what the helper's own wait names, and
                 // what a wait for the row or the container names. The names are
@@ -143,6 +147,39 @@ internal object SeedWaitTree {
         if (stale) return false
         return compareOrder(seed.position, assert.position) <= 0
     }
+
+    /**
+     * The rows the seeds that ran before this one already wrote.
+     *
+     * A row that was on screen before the seed cannot be the evidence that
+     * this seed's write arrived: a wait for it returns at once.
+     */
+    private fun rowsBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Set<String> =
+        seeds
+            .filter { other -> compareOrder(other.position, seed.position) < 0 }
+            .flatMap { other -> seededEntity(parseQuery(other.query)).entities }
+            .flatMap { entity -> entity.rows }
+            .toSet()
+
+    /**
+     * The sections the seeds that ran before this one brought in.
+     *
+     * A section renders because the rows in it are there. An earlier seed of
+     * the same flow put a row in that section, so the section was already on
+     * screen when this seed ran: a wait for it returns at once, and it cannot
+     * be the evidence that this seed's row arrived.
+     */
+    fun containersBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Set<String> =
+        seeds
+            .filter { other -> compareOrder(other.position, seed.position) < 0 }
+            .flatMap { other -> seededEntity(parseQuery(other.query)).containers }
+            .toSet()
 
     /**
      * The elements the flow named before the given position.
@@ -641,13 +678,19 @@ internal object SeedWaitTree {
      * — is not decidable here: it is overdue on one day and upcoming on
      * another. Such a task is treated as not on the screen, and the flow that
      * seeds it waits for it itself.
+     *
+     * A date of zero days is today whatever its sign says: the seeder reads
+     * `+0d` as today — every sign but the negative one is positive — and so
+     * does the gate. A date before today is on the screen as well: the Today
+     * tab holds the overdue tasks.
      */
     private fun isLandingDue(due: String?): Boolean {
         val expr = due?.lowercase() ?: return false
         if (expr == "today") return true
         val relative = RELATIVE_DAYS.matchEntire(expr) ?: return false
         val sign = relative.groupValues[1]
-        return sign == "-" || (sign.isEmpty() && relative.groupValues[2] == "0")
+        val days = relative.groupValues[2]
+        return days == "0" || sign == "-"
     }
 
     /**
@@ -709,6 +752,10 @@ internal object SeedWaitTree {
      * was there before the seed, a wait for it returns at once, and it cannot
      * be the evidence that the row the seed wrote has arrived.
      *
+     * A section an earlier seed of the same flow brought in is not among them
+     * either, for the same reason: that seed put a row in the section, so the
+     * section was on screen before this seed ran.
+     *
      * An entity on another screen is not among them. The helper does not
      * navigate, so its wait would run out its timeout on an element the app
      * never renders — and the flow would fail on the helper, before it had a
@@ -719,11 +766,13 @@ internal object SeedWaitTree {
         position: List<Int>,
         waits: List<Event.Wait>,
         asserts: List<Event.Assert>,
+        staleContainers: Set<String> = emptySet(),
     ): Set<String> {
         val sections =
             seeded.containers
                 .filter { it in LANDING_CONTAINERS }
                 .filter { it !in namedBefore(position, waits, asserts) }
+                .filter { it !in staleContainers }
         return seeded.entities
             .filter { it.helperWaitable }
             .flatMap { it.rows }

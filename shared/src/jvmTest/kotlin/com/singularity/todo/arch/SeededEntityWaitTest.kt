@@ -328,6 +328,51 @@ class SeededEntityWaitTest {
     }
 
     @Test
+    fun `a section an earlier seed brought in covers nothing`() {
+        // The first seed put a row in the section, so the section was already
+        // on screen when the second seed ran: a wait for it returns at once
+        // and cannot be the evidence that the second seed's row arrived.
+        val events = SeedWaitTree.fixture("flow.yaml" to SECTION_FROM_EARLIER_SEED)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a wait for a section an earlier seed of the same " +
+                "flow brought in. That section was on screen before the seed ran, " +
+                "so the wait says nothing about the row the seed wrote.",
+        )
+    }
+
+    @Test
+    fun `the helper's wait for a section an earlier seed brought in covers nothing`() {
+        // The same, with the wait made by the helper: the helper waits for the
+        // section the first seed brought in, so its wait returns at once and
+        // proves nothing about the second seed's write.
+        val events = SeedWaitTree.fixture("flow.yaml" to SECTION_FROM_EARLIER_SEED_HELPER)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a helper wait for a section an earlier seed of the " +
+                "same flow brought in. That section was on screen before the seed " +
+                "ran, so the wait says nothing about the row the seed wrote.",
+        )
+    }
+
+    @Test
+    fun `the helper's wait for the row of the second seed covers it`() {
+        // The positive half of the rule above: the row of the second seed is
+        // fresh, and the helper's wait for it is the evidence the rule asks
+        // for.
+        val events = SeedWaitTree.fixture("flow.yaml" to SECOND_SEED_HELPER_WAIT)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule rejects a flow whose second seed asks the helper to wait " +
+                "for the row it writes: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
     fun `an assertion written as a scalar is an assertion on the entity`() {
         // `assertVisible: "Fixture"` is the short form of the block form. A
         // gate that reads only the block form does not see the assertion at
@@ -729,6 +774,71 @@ class SeededEntityWaitTest {
                   WAIT_FOR: "task_item_fixture"
             - assertVisible:
                 id: task_item_fixture
+            """.trimIndent()
+
+        /**
+         * Two seeds in one section, and a wait for the section.
+         *
+         * The first seed brought the section in, so the wait for it returns at
+         * once — it says nothing about the second seed's row.
+         */
+        val SECTION_FROM_EARLIER_SEED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=First&due=today"
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Second&due=today"
+            - extendedWaitUntil:
+                visible:
+                  id: agenda_section_today
+                timeout: 8000
+            - assertVisible:
+                id: task_item_second
+            """.trimIndent()
+
+        /** The same flow, with the section named by the helper's own wait. */
+        val SECTION_FROM_EARLIER_SEED_HELPER =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=First&due=today"
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Second&due=today"
+                  WAIT_FOR: "agenda_section_today"
+            - assertVisible:
+                id: task_item_second
+            """.trimIndent()
+
+        /** The same flow, with the helper waiting for the row the seed writes. */
+        val SECOND_SEED_HELPER_WAIT =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=First&due=today"
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Second&due=today"
+                  WAIT_FOR: "task_item_second"
+            - assertVisible:
+                id: task_item_second
             """.trimIndent()
     }
 }

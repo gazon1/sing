@@ -161,6 +161,11 @@
 # before the seed was there before the seed: a wait for it returns at once,
 # and the row the seed wrote is still on its way.
 #
+# The same holds for a section an earlier seed of the same flow brought in:
+# that seed put a row in the section, so the section was on screen before this
+# seed ran. A wait for it returns at once, and it is no evidence of the write
+# the flow asserts on — such a flow waits for the row.
+#
 # A seed that writes more rows than a wait can outlast is written in chunks:
 # writing a row costs the seeder about 30 ms, so a thousand rows take longer
 # than the shell wait above (30 s) — the largest budget there is — and a seed

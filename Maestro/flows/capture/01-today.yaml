@@ -32,6 +32,22 @@ tags:
     timeout: 8000
 # The three tasks the storyboard promises. The rows are what the reader sees,
 # and the screenshot is taken with all three on screen.
+#
+# Each row is waited for on its own: the dataset seeds the three tasks one
+# after another, so the section is on screen from the first of them — a wait
+# for the section says nothing about the rows the later seeds wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_review_the_launch_checklist
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_item_order_the_kitchen_tiles
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_item_book_the_electrician
+    timeout: 8000
 - assertVisible:
     id: task_item_review_the_launch_checklist
 - assertVisible:
