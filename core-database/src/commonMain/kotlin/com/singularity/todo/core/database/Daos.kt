@@ -627,12 +627,20 @@ interface TaskDao {
      * [verb] is the verb that blocks (`BLOCKS`); the other verbs order the
      * work without making the task wait for it. This is the projection the
      * close rule reads, and the one the badge means.
+     *
+     * The scope is resolved through the task's own row, not through the list of
+     * the user's task ids: that list is the whole task table, and SQLite builds
+     * it again for every read — so each read of one task's edges cost a scan of
+     * every task the user owns. Measured on a restored 100k-task dataset: 235 ms
+     * per read as raw SQL, 0.06 ms after rewriting the query as a primary-key
+     * join on `tasks.id` — see
+     * `docs/architecture/dependency-query-performance.md`.
      */
     @Query(
         """
-        SELECT depends_on_task_id FROM task_dependencies
-        WHERE task_id = :taskId AND verb = :verb
-        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        SELECT d.depends_on_task_id FROM task_dependencies d
+        JOIN tasks t ON t.id = d.task_id
+        WHERE d.task_id = :taskId AND d.verb = :verb AND t.user_id = :userId
         """,
     )
     fun getBlockingEdgeIdsForUser(
@@ -699,12 +707,18 @@ interface TaskDao {
 
     /**
      * Returns all dependency edges for [taskId] including their verb, scoped to [userId].
+     *
+     * Scoped through the task's own row, like [getOrderingEdgeIdsForUser] and
+     * [getBlockingEdgeIdsForUser]: the user's task list is the whole task table,
+     * and SQLite builds it again for every read. Measured on a restored
+     * 100k-task dataset: 309 ms per read as raw SQL, 0.05 ms as a primary-key
+     * join on `tasks.id`.
      */
     @Query(
         """
         SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
-        WHERE td.task_id = :taskId
-        AND td.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        JOIN tasks t ON t.id = td.task_id
+        WHERE td.task_id = :taskId AND t.user_id = :userId
         """,
     )
     fun observeTypedDependenciesForUser(
