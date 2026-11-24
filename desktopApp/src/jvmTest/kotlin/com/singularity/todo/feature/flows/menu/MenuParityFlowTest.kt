@@ -59,21 +59,42 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class MenuParityFlowTest {
+    /**
+     * The owner of `NAV-02`.
+     *
+     * The scenario is one claim — both platforms expose the same menu entries
+     * and the same project tree — and the traceability rule allows **one**
+     * owner per scenario and target, so the owner has to carry every
+     * assertion the scenario is made of. A second test that asserts part of
+     * it is a second, unowned claim: the matrix would show a carrier that
+     * does not prove the whole scenario. So the parts live in helpers, and
+     * this test runs all of them.
+     */
     @Test
     @DisplayName("NAV-02 Android and Desktop expose the same menu entries and the same project tree")
     fun both_platforms_expose_the_same_entries() {
-        // The sheet's entries and the drawer's entries come from one model, and
-        // that model covers the declared menu destinations exactly — no entry
-        // on one platform that the other does not have, and none missing.
+        assertTheMenuModelIsTheDeclaredMenu()
+        assertTheDrawerOffersEveryEntryOfTheModel()
+        assertBothDrawingsOfferTheSameRootProjects()
+        assertTheRealDrawerOffersTheWholeTree()
+    }
+
+    /**
+     * The sheet's entries and the drawer's entries come from one model, and
+     * that model covers the declared menu destinations exactly — no entry on
+     * one platform that the other does not have, and none missing.
+     *
+     * The Calendar is a tab and the Pomodoro is a menu entry: the two facts
+     * are what the menu's shape is made of, and a reader of one without the
+     * other cannot tell a destination that moved from one that was lost.
+     */
+    private fun assertTheMenuModelIsTheDeclaredMenu() {
         assertEquals(
             DestinationKind.menuEntries.toSet(),
             AppMenu.allDestinations,
             "the menu offers something the declared menu destinations do not, or misses one",
         )
 
-        // The Calendar is a tab and the Pomodoro is a menu entry: the two facts are
-        // what the menu's shape is made of, and a reader of one without the other
-        // cannot tell a destination that moved from one that was lost.
         assertTrue(
             AppDestination.Calendar !in AppMenu.allDestinations,
             "the Calendar is a tab, so it is not repeated in the menu: ${AppMenu.allDestinations}",
@@ -84,15 +105,16 @@ class MenuParityFlowTest {
         )
     }
 
-    @Test
-    @DisplayName("the drawer offers the entries of the shared menu model")
-    fun the_drawer_offers_the_model() =
+    /**
+     * Every entry of the model is on the screen of the drawer.
+     *
+     * The drawer's column is long, so the entries at the end are addressed by
+     * their tag rather than by their position.
+     */
+    private fun assertTheDrawerOffersEveryEntryOfTheModel() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) {
             openDrawer()
 
-            // Every entry of the model is on the screen. The drawer's column is
-            // long, so the entries at the end are addressed by their tag rather
-            // than by their position.
             for (entry in AppMenu.destinations) {
                 awaitTag(entry.id)
             }
@@ -115,9 +137,7 @@ class MenuParityFlowTest {
      * expected ones. The two drawings differ in exactly one row — the child,
      * which the sheet keeps to its parent's screen and the drawer unfolds.
      */
-    @Test
-    @DisplayName("the two drawings offer the same root projects in the same order")
-    fun both_drawings_offer_the_same_root_projects() =
+    private fun assertBothDrawingsOfferTheSameRootProjects() =
         runIsolatedComposeTest(width = 360, height = 800) {
             val state =
                 ProjectsTreeUiState.Loaded(
@@ -161,7 +181,7 @@ class MenuParityFlowTest {
     /**
      * The tree the **real** Desktop drawer offers.
      *
-     * The test above draws the two drawings by hand, which proves what the
+     * The hand-drawn check above draws the two drawings by hand, which proves what the
      * composable does with a given state — not what the drawer does. A drawer
      * that passed `null` where a toggle belongs would draw the roots only, and
      * the hand-drawn pair would still agree with each other: both would show
@@ -175,9 +195,7 @@ class MenuParityFlowTest {
      * The rows are compared in the order they are drawn, which is the order of
      * the tree: a parent, then its child, then the next root.
      */
-    @Test
-    @DisplayName("the real desktop drawer offers the whole project tree in order")
-    fun the_real_drawer_offers_the_tree() =
+    private fun assertTheRealDrawerOffersTheWholeTree() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             seedProject(koin, "nav02-parent", "Parent")
             seedProject(koin, "nav02-child", "Child", parent = "nav02-parent")
