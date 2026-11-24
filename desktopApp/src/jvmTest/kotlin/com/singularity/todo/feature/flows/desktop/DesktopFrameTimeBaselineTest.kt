@@ -1,46 +1,27 @@
 package com.singularity.todo.feature.flows.desktop
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.SemanticsNode
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
-import androidx.compose.ui.test.performTouchInput
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectDocument
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.goBack
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.plus
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
-import org.koin.core.Koin
 import java.io.File
 import java.lang.management.ManagementFactory
+import java.util.Locale
 import kotlin.math.ceil
 import kotlin.test.Test
-import kotlin.time.Instant
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * The desktop half of the Compose frame-time baseline (#2975).
@@ -58,10 +39,18 @@ import kotlin.time.Instant
  * screen and the cost of the gesture that is the screen's own — so the
  * numbers of two screens can be put side by side.
  *
- * The dataset is the point. A timeline of a dozen rows is a warm-up, not a
- * screen; the rows a reader scrolls past are what the frame cost is made
- * of. So the run seeds a populated list — a thousand tasks over the coming
- * weeks, a hundred projects — and measures the interaction on it.
+ * The dataset is the point, and it is the dataset of the phone (#3090): the
+ * same generator, the same seed and the same profile that the Android run
+ * measured, restored through the app's own importer. A dataset the test
+ * makes up is a dataset no other platform ever saw, and a number measured on
+ * it describes the test rather than the app.
+ *
+ * The task the detail screen opens is the row of the timeline that holds the
+ * most of what a task can hold — children, tags, dependencies, notes and
+ * checklist items — because the first row of a sorted list is usually the
+ * emptiest one, and a detail screen that shows a title and nothing else
+ * measures nothing. It is the same rule the Android run uses, and the
+ * relations of the task it opened travel into the report.
  *
  * The gesture is a controlled drag: a fixed distance, released without
  * velocity. A quick flick flings the list to its end, and a gesture that
@@ -69,14 +58,13 @@ import kotlin.time.Instant
  *
  * The run is a measurement, not a gate: it prints its numbers and asserts
  * that the interaction happened at all — the dataset is on the screen, the
- * screen opened, and the gesture moved it. A threshold would be a product
- * requirement, and there is none.
+ * screen opened, the gesture moved it, and the task it opened carries the
+ * relations the issue asks for. A threshold would be a product requirement,
+ * and there is none.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class DesktopFrameTimeBaselineTest {
-    private val today: LocalDate = LocalDate(2026, 10, 14)
-
     /** How many runs are measured, after the warm-up. */
     private val measuredRuns = 5
 
@@ -84,16 +72,13 @@ class DesktopFrameTimeBaselineTest {
     private val warmupRuns = 2
 
     /** How many gestures one run makes. */
-    private val gesturesPerRun = 10
+    private val gesturesPerRun = GESTURES_PER_RUN
 
     /** How far one drag travels, in pixels. */
-    private val gestureDistance = 400f
-
-    /** The project whose tasks are measured. */
-    private val projectName = "Aaa frame project"
+    private val gestureDistance = GESTURE_DISTANCE
 
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the Upcoming timeline with a populated dataset")
+    @DisplayName("FRAME-TIME desktop baseline: the Upcoming timeline with the shared dataset")
     fun agenda_upcoming_scroll() = measure(agendaScenario())
 
     @Test
@@ -144,13 +129,12 @@ class DesktopFrameTimeBaselineTest {
 
     // ─── the scenarios ─────────────────────────────────────────────────────────
 
-    /** The agenda's Upcoming timeline: a thousand tasks over the coming weeks. */
+    /** The agenda's Upcoming timeline: the tasks of the shared dataset. */
     private fun agendaScenario() =
         Scenario(
             name = "agenda-upcoming-scroll",
-            seedDescription = mapOf("tasks" to 1_000),
-            seed = { koin -> seedTasks(koin, 1_000, null) },
             prepare = { tapTab("Today") },
+            subject = { FrameTimeSubject(mapOf("screen" to "Upcoming")) },
             open = { tapTab("Upcoming") },
             awaitOpened = { awaitScreen("the timeline shows its rows") { taskRows().isNotEmpty() } },
             reset = { scrollToTopOf(TASK_ROW_PREFIX) },
@@ -159,16 +143,15 @@ class DesktopFrameTimeBaselineTest {
             signature = { taskRows() },
         )
 
-    /** The list of projects: two hundred of them, the way a profile has them. */
+    /** The list of projects: the projects of the shared dataset. */
     private fun projectsScenario() =
         Scenario(
             name = "projects-list-scroll",
-            seedDescription = mapOf("projects" to 200),
-            seed = { koin -> seedProjects(koin, 200) },
             prepare = {
                 if (projectCards().isNotEmpty()) goBack()
                 tapTab("Today")
             },
+            subject = { FrameTimeSubject(mapOf("screen" to "All projects")) },
             open = { openAllProjects() },
             awaitOpened = { awaitScreen("the project list shows its cards") { projectCards().isNotEmpty() } },
             reset = { scrollToTopOf(PROJECT_CARD_PREFIX) },
@@ -188,16 +171,22 @@ class DesktopFrameTimeBaselineTest {
     private fun projectDetailScenario() =
         Scenario(
             name = "project-detail-open",
-            seedDescription = mapOf("projects" to 1, "tasks" to 200),
-            seed = { koin ->
-                seedProject(koin)
-                seedTasks(koin, 200, ProjectId.fromString(PROJECT_ID))
-            },
             prepare = {
                 if (tagExists(TestTags.PROJECT_DETAIL_QUICK_ADD)) goBack()
                 if (projectCards().isEmpty()) openAllProjects()
             },
-            open = { awaitTag(TestTags.projectCard(projectName)).performClick() },
+            subject = { dataset ->
+                val card = projectCards().firstOrNull()
+                val project = card?.let { dataset.projectsByTag[it] }
+                FrameTimeSubject(
+                    report = mapOf("screen" to "Project detail", "project" to (project ?: card ?: "")),
+                    projectName = project,
+                )
+            },
+            open = { subject ->
+                val name = checkNotNull(subject.projectName) { "the project list showed no card to open" }
+                awaitTag(TestTags.projectCard(name)).performClick()
+            },
             awaitOpened = { awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD) },
             reset = {},
             gesture = {},
@@ -209,28 +198,34 @@ class DesktopFrameTimeBaselineTest {
     private fun taskDetailScenario() =
         Scenario(
             name = "task-detail-open",
-            seedDescription = mapOf("tasks" to 100),
-            seed = { koin -> seedTasks(koin, 100, null) },
             prepare = {
                 if (tagExists(TestTags.TASK_EDITOR_TITLE_INPUT)) goBack()
                 tapTab("Upcoming")
+                // The timeline of ten thousand rows is not on the screen the
+                // moment the tab is tapped: the rows arrive when the query
+                // answers, and a scroll before that scrolls nothing.
+                awaitScreen("the timeline shows its rows") { taskRows().isNotEmpty() }
                 scrollToTopOf(TASK_ROW_PREFIX)
             },
-            open = { awaitTag(TestTags.taskItem(firstTaskTitle)).performClick() },
+            subject = { dataset -> frameTimeSubjectOfTheRichestRow(dataset) },
+            open = { subject ->
+                val title = checkNotNull(subject.task) { "no task was chosen to open" }.title
+                awaitTag(TestTags.taskItem(title)).performClick()
+            },
             awaitOpened = { awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT) },
             reset = {},
             gesture = {},
             gestureKind = "none",
             signature = { allTestTags() },
+            verify = { subject -> verifyFrameTimeRelations(subject) },
         )
 
     /** The calendar: the screen, and the move from one period to the next. */
     private fun calendarScenario() =
         Scenario(
             name = "calendar-periods",
-            seedDescription = mapOf("tasks" to 200),
-            seed = { koin -> seedTasks(koin, 200, null) },
             prepare = { tapTab("Today") },
+            subject = { FrameTimeSubject(mapOf("screen" to "Calendar")) },
             open = { tapTab("Calendar") },
             awaitOpened = { awaitScreen("the calendar shows its month") { monthTitle().isNotEmpty() } },
             reset = {},
@@ -252,17 +247,21 @@ class DesktopFrameTimeBaselineTest {
      * with a plausible shape.
      */
     private fun measure(scenario: Scenario) =
-        runDesktopAppTest(clock = FakeClock(Instant.parse("2026-10-14T10:00:00Z"))) { koin ->
-            scenario.seed(koin)
-
+        runDesktopAppTest(
+            clock = FakeClock(DATASET_NOW),
+            overrides = frameTimeDatasetModule(dataset.database),
+        ) {
             val opens = mutableListOf<Long>()
             val gestures = mutableListOf<Long>()
+            var subject = FrameTimeSubject(emptyMap())
 
             repeat(warmupRuns + measuredRuns) { run ->
                 scenario.prepare(this)
 
+                subject = scenario.subject(this, dataset)
+
                 val openedAt = System.nanoTime()
-                scenario.open(this)
+                scenario.open(this, subject)
                 scenario.awaitOpened(this)
                 waitForIdle()
                 val openCost = System.nanoTime() - openedAt
@@ -295,6 +294,11 @@ class DesktopFrameTimeBaselineTest {
                 }
             }
 
+            // What the screen shows of the task the run opened is checked after
+            // the measurement: the check is about the dataset, not about the
+            // cost of the screen, and it must not be timed.
+            scenario.verify(this, subject)
+
             checkReportInvariants(scenario, opens, gestures)
 
             val measurements = mutableListOf<Map<String, Any>>()
@@ -322,7 +326,8 @@ class DesktopFrameTimeBaselineTest {
                     mapOf(
                         "target" to "jvm-desktop",
                         "scenario" to scenario.name,
-                        "seed" to scenario.seedDescription,
+                        "dataset" to dataset.report(),
+                        "subject" to subject.report,
                         "runs" to measuredRuns,
                         "warmupRuns" to warmupRuns,
                         "percentileConvention" to
@@ -403,282 +408,24 @@ class DesktopFrameTimeBaselineTest {
      * One screen, measured the same way as every other screen.
      *
      * [prepare] brings the app to the screen the measurement starts from and
-     * is not timed; [open] is the navigation into the screen and [awaitOpened]
-     * waits until the screen is really there — both are timed, because the
-     * cost of a screen is the cost of it appearing; [gesture] is the
-     * interaction the screen is about.
+     * is not timed; [subject] says what the run is about to open and is not
+     * timed either; [open] is the navigation into the screen and
+     * [awaitOpened] waits until the screen is really there - both are timed,
+     * because the cost of a screen is the cost of it appearing; [gesture] is
+     * the interaction the screen is about.
      */
     private class Scenario(
         val name: String,
-        val seedDescription: Map<String, Int>,
-        val seed: suspend (Koin) -> Unit,
         val prepare: DesktopComposeUiTest.() -> Unit,
-        val open: DesktopComposeUiTest.() -> Unit,
+        val subject: DesktopComposeUiTest.(FrameTimeDataset) -> FrameTimeSubject,
+        val open: DesktopComposeUiTest.(FrameTimeSubject) -> Unit,
         val awaitOpened: DesktopComposeUiTest.() -> Unit,
         val reset: DesktopComposeUiTest.() -> Unit,
         val gesture: DesktopComposeUiTest.() -> Unit,
         val gestureKind: String,
         val signature: DesktopComposeUiTest.() -> List<String>,
+        val verify: DesktopComposeUiTest.(FrameTimeSubject) -> Unit = {},
     )
-
-    // ─── the dataset ──────────────────────────────────────────────────────────
-
-    /**
-     * A thousand tasks over the coming weeks.
-     *
-     * The dates are spread over thirty days, so the timeline holds thirty
-     * day-sections with rows under them: the screen a reader scrolls is a
-     * long one, and the sections are part of what has to be laid out.
-     *
-     * The tasks go in through the repository, the way the app writes them:
-     * a row written straight into the database is a row the agenda does
-     * not necessarily see.
-     *
-     * They go in as one batch. A row per transaction is a thousand
-     * invalidations, and the screen the measurement watches recomposes a
-     * thousand times while the dataset is still being written — the
-     * measurement would then report the cost of the seeding, not the cost
-     * of the scroll.
-     *
-     * Every task gets its own creation moment: thirty tasks share a due
-     * date, and a list that sorts rows by anything but a key of its own
-     * shuffles them on every recomposition. A list that shuffles while it is
-     * measured measures noise.
-     */
-    private suspend fun seedTasks(
-        koin: Koin,
-        count: Int,
-        projectId: ProjectId?,
-    ) {
-        val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val repository = koin.get<TaskRepository>()
-        val tasks =
-            (1..count).map { index ->
-                val createdAt = Instant.fromEpochMilliseconds(index * 1_000L)
-                testTask(
-                    id = TaskId("frame-time-task-$index"),
-                    title = "$TASK_TITLE_PREFIX $index",
-                    projectId = projectId,
-                    dueDate = today.plus(index % 30 + 1, DateTimeUnit.DAY),
-                    userId = userId,
-                    createdAt = createdAt,
-                    updatedAt = createdAt,
-                )
-            }
-        val started = System.nanoTime()
-        repository.createAll(tasks).getOrThrow()
-        println(
-            "FRAME_TIME_PROGRESS seeded=${tasks.size} " +
-                "in ${(System.nanoTime() - started) / 1_000_000}ms",
-        )
-    }
-
-    /** Two hundred projects — the list a profile with many projects holds. */
-    private suspend fun seedProjects(
-        koin: Koin,
-        count: Int,
-    ) {
-        val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val repository = koin.get<ProjectsRepository>()
-        val epoch = Instant.fromEpochMilliseconds(0)
-        repeat(count) { index ->
-            val number = (index + 1).toString().padStart(3, '0')
-            repository.upsert(
-                ProjectDocument(
-                    Project(
-                        id = ProjectId.fromString("frame-time-project-$number"),
-                        name = "Frame project $number",
-                        color = 0xFF2196F3.toInt(),
-                        createdAt = epoch,
-                        updatedAt = epoch,
-                        userId = userId,
-                    ),
-                    emptySet(),
-                ),
-            )
-        }
-        println("FRAME_TIME_PROGRESS seeded=$count projects")
-    }
-
-    /** The one project whose tasks the project scenario measures. */
-    private suspend fun seedProject(koin: Koin) {
-        val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val epoch = Instant.fromEpochMilliseconds(0)
-        koin.get<ProjectsRepository>().upsert(
-            ProjectDocument(
-                Project(
-                    id = ProjectId.fromString(PROJECT_ID),
-                    name = projectName,
-                    color = 0xFF3F51B5.toInt(),
-                    createdAt = epoch,
-                    updatedAt = epoch,
-                    userId = userId,
-                ),
-                emptySet(),
-            ),
-        )
-    }
-
-    /** The title of the first task of the dataset — the row the reader opens. */
-    private val firstTaskTitle: String get() = "$TASK_TITLE_PREFIX 1"
-
-    // ─── the screen ───────────────────────────────────────────────────────────
-
-    /** The rows of the timeline, by their tags. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.taskRows(): List<String> = tagsWithPrefix(TASK_ROW_PREFIX)
-
-    /** The cards of the project list, by their tags. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.projectCards(): List<String> = tagsWithPrefix(PROJECT_CARD_PREFIX)
-
-    /** Every test tag on the screen, for a failure that has to explain itself. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.allTestTags(): List<String> =
-        onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
-            .fetchSemanticsNodes()
-            .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
-            .distinct()
-
-    /** The tags on the screen that start with [prefix]. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.tagsWithPrefix(prefix: String): List<String> =
-        onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-            .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
-            .filter { it.startsWith(prefix) }
-            .distinct()
-
-    /** Whether a node with the tag is on the screen. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.tagExists(tag: String): Boolean =
-        onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-
-    /**
-     * Waits until the screen is really there.
-     *
-     * The navigation into a screen is asynchronous: the click that opens it
-     * returns before the screen is drawn. A check that runs right after the
-     * click reads a screen that has not arrived yet, and the run fails on a
-     * race that has nothing to do with the measurement.
-     */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.awaitScreen(
-        description: String,
-        condition: () -> Boolean,
-    ) {
-        waitUntil(conditionDescription = description, timeoutMillis = SCREEN_TIMEOUT_MS) { condition() }
-    }
-
-    /** The month the calendar shows. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.monthTitle(): String =
-        onAllNodes(hasTestTag(TestTags.CALENDAR_MONTH_TITLE), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-            .firstOrNull()
-            ?.config
-            ?.getOrNull(SemanticsProperties.Text)
-            ?.joinToString(" ") { it.text }
-            .orEmpty()
-
-    /**
-     * The scrollable that holds the rows with the given tags.
-     *
-     * The shell has panes of its own that scroll too, and a drag in one of
-     * those moves the shell, not the list. The list is found by the rows it
-     * holds: it is the scrollable on the screen that holds most of them.
-     *
-     * The unmerged tree is the one that tells the truth about geometry: a
-     * merged list node carries the bounds of everything inside it, and a
-     * gesture aimed at the middle of that is a gesture in the void.
-     */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.scrollableHolding(prefix: String): Int {
-        val rows =
-            onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag), useUnmergedTree = true)
-                .fetchSemanticsNodes()
-                .filter { it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true }
-        val scrollables = onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
-        val root = mainRoot()
-        // A pane that is scrolled off to the side holds the rows in its
-        // geometry and not on the display, and a gesture aimed at it lands in
-        // the void.
-        val index =
-            scrollables
-                .withIndex()
-                .filter { (_, node) ->
-                    node.positionInRoot.x >= 0 &&
-                        node.positionInRoot.y >= 0 &&
-                        node.positionInRoot.x + node.size.width <= root.size.width &&
-                        node.positionInRoot.y + node.size.height <= root.size.height
-                }.map { (index, node) -> index to rows.count { row -> row.inside(node) } }
-                .filter { (_, inside) -> inside > 0 }
-                .maxByOrNull { (_, inside) -> inside }
-                ?.first
-                ?: error("no scrollable node holds the '$prefix' rows; tags=${allTestTags().take(40)}")
-        return index
-    }
-
-    /** The window the app is drawn in. */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.mainRoot(): SemanticsNode =
-        onAllNodes(isRoot()).fetchSemanticsNodes().maxByOrNull { it.size.width * it.size.height }
-            ?: error("the app has no window")
-
-    /** Whether a row sits inside a node's bounds. */
-    private fun SemanticsNode.inside(node: SemanticsNode): Boolean =
-        positionInRoot.x >= node.positionInRoot.x &&
-            positionInRoot.y >= node.positionInRoot.y &&
-            positionInRoot.x <= node.positionInRoot.x + node.size.width &&
-            positionInRoot.y <= node.positionInRoot.y + node.size.height
-
-    /**
-     * Drags the list of the given rows down by a fixed distance.
-     *
-     * The drag is released without velocity: the finger pauses before it
-     * lifts, so the list does not fling to its end. A fling lands
-     * somewhere different every time, and a run that measures the fling
-     * measures noise.
-     */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.dragHolding(prefix: String) {
-        val index = scrollableHolding(prefix)
-        onAllNodes(hasScrollAction(), useUnmergedTree = true)[index].performTouchInput {
-            val middle = center
-            down(Offset(middle.x, middle.y))
-            moveBy(Offset(0f, -gestureDistance))
-            advanceEventTime(500)
-            up()
-        }
-    }
-
-    /**
-     * Puts the list back at its top.
-     *
-     * The list keeps its place when the screen is left and entered again, so
-     * without this the second run would drag through rows the first run had
-     * already passed.
-     */
-    @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.scrollToTopOf(prefix: String) {
-        val index = scrollableHolding(prefix)
-        val list = onAllNodes(hasScrollAction(), useUnmergedTree = true)[index]
-        try {
-            list.performScrollToIndex(0)
-        } catch (_: Throwable) {
-            // A list that does not publish its index is dragged back by hand.
-            repeat(gesturesPerRun) {
-                list.performTouchInput {
-                    val middle = center
-                    down(Offset(middle.x, middle.y))
-                    moveBy(Offset(0f, gestureDistance))
-                    advanceEventTime(500)
-                    up()
-                }
-            }
-        }
-        waitForIdle()
-    }
 
     // ─── the numbers ──────────────────────────────────────────────────────────
 
@@ -731,22 +478,7 @@ class DesktopFrameTimeBaselineTest {
         return sorted[rank - 1] / 1_000_000.0
     }
 
-    /**
-     * The root of the repository.
-     *
-     * The working directory of the test is the directory of the module, so a
-     * relative path would put the report into the build directory of the
-     * module - and `./gw clean` would take it away.
-     */
-    private fun repoRoot(): File {
-        var dir: File? = File(System.getProperty("user.dir")).absoluteFile
-        while (dir != null && !File(dir, "settings.gradle.kts").isFile) {
-            dir = dir.parentFile
-        }
-        return dir ?: error("the repository root is not above ${System.getProperty("user.dir")}")
-    }
-
-    private fun buildJson(fields: Map<String, Any>): String =
+    private fun buildJson(fields: Map<String, Any?>): String =
         fields.entries.joinToString(prefix = "{", postfix = "}") { (key, value) ->
             "\"$key\": ${renderValue(value)}"
         }
@@ -762,7 +494,17 @@ class DesktopFrameTimeBaselineTest {
             }
 
             is Double -> {
-                "%.3f".format(value)
+                // The root locale, so the decimal separator is a dot in every
+                // locale: a comma would make the report unreadable as JSON.
+                "%.3f".format(Locale.ROOT, value)
+            }
+
+            is Int -> {
+                value.toString()
+            }
+
+            is Long -> {
+                value.toString()
             }
 
             is List<*> -> {
@@ -781,12 +523,22 @@ class DesktopFrameTimeBaselineTest {
         }
 
     private companion object {
-        const val TASK_ROW_PREFIX = "task_item_"
-        const val PROJECT_CARD_PREFIX = "project_card_"
-        const val PROJECT_ID = "frame-time-project"
-        const val TASK_TITLE_PREFIX = "Frame time task"
+        /**
+         * The dataset of the class, restored once before the first test.
+         *
+         * The restore of ten thousand rows is the preparation of the screen,
+         * not a measurement, and it takes longer than the minute that
+         * kotlinx-coroutines-test gives a test body. So it happens once, here,
+         * and every test of the class measures the same rows the app restored.
+         */
+        private lateinit var dataset: FrameTimeDataset
 
-        /** How long a screen has to appear before the run is declared failed. */
-        const val SCREEN_TIMEOUT_MS = 15_000L
+        @JvmStatic
+        @BeforeAll
+        fun restoreTheDataset() {
+            runTest(timeout = 10.minutes) {
+                dataset = restoreFrameTimeDataset()
+            }
+        }
     }
 }

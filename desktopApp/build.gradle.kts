@@ -139,6 +139,10 @@ sourceSets {
             // The database classes moved out of :shared into :core-database, which
             // :shared declares as `implementation`; the tests name it directly.
             implementation(project(":core-database"))
+            // The shared synthetic backup dataset generator (#3090): the desktop
+            // baseline restores the same dataset the phone measures, instead of
+            // seeding rows of its own.
+            implementation(project(":import-cli"))
         }
     }
 }

@@ -142,33 +142,78 @@ def plural(count: int, one: str, few: str, many: str) -> str:
     return many
 
 
-#: The nouns the dataset of a scenario is counted in.
+#: The nouns the dataset of the runs is counted in.
 SEED_NOUNS = {
     "tasks": ("задача", "задачи", "задач"),
     "projects": ("проект", "проекта", "проектов"),
+    "tags": ("тег", "тега", "тегов"),
+    "notes": ("заметка", "заметки", "заметок"),
+    "taskTags": ("связь с тегом", "связи с тегами", "связей с тегами"),
+    "taskDependencies": ("зависимость", "зависимости", "зависимостей"),
+    "checklistItems": ("пункт чеклиста", "пункта чеклиста", "пунктов чеклиста"),
+}
+
+#: The nouns the relations of the opened task are counted in.
+RELATION_NOUNS = {
+    "children": ("подзадача", "подзадачи", "подзадач"),
+    "tags": ("тег", "тега", "тегов"),
+    "dependencies": ("зависимость", "зависимости", "зависимостей"),
+    "notes": ("заметка", "заметки", "заметок"),
+    "checklist": ("пункт чеклиста", "пункта чеклиста", "пунктов чеклиста"),
 }
 
 
-def desktop_dataset_paragraph(evidence: dict) -> str:
-    """The paragraph about the datasets of the scenarios.
+def thousands(value: int) -> str:
+    """A count in the units of the document: a space between the thousands."""
+    return f"{value:,}".replace(",", " ")
 
-    The datasets are the ones the runs report, so the prose cannot claim a
+
+def desktop_dataset_paragraph(evidence: dict) -> str:
+    """The paragraph about the dataset the desktop runs measured.
+
+    The dataset is the one the runs report, so the prose cannot claim a
     dataset the measurement did not have.
     """
-    parts = []
-    for scenario, published in evidence["scenarios"].items():
-        seed = published.get("dataset", {}).get("seed") or {}
-        described = ", ".join(
-            f"{value} {plural(value, *SEED_NOUNS.get(name, (name, name, name)))}"
-            for name, value in seed.items()
-        )
-        parts.append(f"`{scenario}` — {described}")
+    published = next(iter(evidence["scenarios"].values()))
+    dataset = published.get("dataset") or {}
+    counts = dataset.get("counts") or {}
+    described = ", ".join(
+        f"{thousands(value)} {plural(value, *SEED_NOUNS.get(name, (name, name, name)))}"
+        for name, value in counts.items()
+    )
     return (
-        "Датасет свой у каждого сценария: "
-        + "; ".join(parts)
-        + ". Датасет заливается через репозиторий одной пачкой, а лента держит "
-        "только видимые строки — в дереве экрана одновременно живёт около "
-        "десятка строк."
+        "Датасет у сценариев один: "
+        f"{dataset.get('generator')}, профиль `{dataset.get('profile')}`, "
+        f"seed {dataset.get('seed')} — {described}. Архив восстановлен "
+        "импортёром самого приложения (`BackupRepository.import`) — так это "
+        "записано в отчёте прогона (`dataset.restoredThrough`), то есть тем же "
+        "путём, которым пользователь заливает архив. Лента держит только видимые "
+        "строки — в дереве экрана одновременно живёт около десятка строк."
+    )
+
+
+def desktop_subject_paragraph(evidence: dict) -> str:
+    """The paragraph about what the scenario of the task detail opened.
+
+    The subject is the one the runs report, so the prose cannot claim a task
+    the measurement did not open.
+    """
+    published = evidence["scenarios"].get("task-detail-open")
+    if not published:
+        return ""
+    subject = published.get("subject") or {}
+    relations = subject.get("relations") or {}
+    described = ", ".join(
+        f"{value} {plural(value, *RELATION_NOUNS.get(name, (name, name, name)))}"
+        for name, value in relations.items()
+    )
+    return (
+        f"Сценарий деталей задачи открывает «{subject.get('task')}» — видимую "
+        f"строку ленты, которая держит больше всего связей ({described}). "
+        "Правило выбора то же, что на телефоне: из видимых строк берётся самая "
+        "связанная, потому что первая строка отсортированного списка обычно "
+        "самая пустая, а экран деталей, на котором есть только заголовок, не "
+        "меряет ничего."
     )
 
 
@@ -213,7 +258,8 @@ def main(argv: list[str]) -> int:
     text = replace_table(text, "| сценарий | что меряется |", desktop_table(args.desktop_evidence))
     published = json.loads(args.desktop_evidence.read_text(encoding="utf-8"))
     text = replace_paragraph(text, "Прогоны подряд дали по сценариям", desktop_spread_paragraph(published))
-    text = replace_paragraph(text, "Датасет свой у каждого сценария", desktop_dataset_paragraph(published))
+    text = replace_paragraph(text, "Датасет у сценариев один", desktop_dataset_paragraph(published))
+    text = replace_paragraph(text, "Сценарий деталей задачи открывает", desktop_subject_paragraph(published))
     args.doc.write_text(text, encoding="utf-8")
     print(f"tables of {args.doc} rewritten")
     return 0

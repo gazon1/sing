@@ -45,7 +45,8 @@ def scenario_report(
     runs: int = 1,
     gestures_per_run: int = 2,
     distance_px: int = 400,
-    seed: dict[str, int] | None = None,
+    dataset: dict[str, object] | None = None,
+    subject: dict[str, object] | None = None,
     host_load: float = 3.5,
     **overrides: object,
 ) -> dict:
@@ -62,7 +63,16 @@ def scenario_report(
     report = {
         "target": "jvm-desktop",
         "scenario": scenario,
-        "seed": seed if seed is not None else {"tasks": 1000},
+        "dataset": dataset
+        if dataset is not None
+        else {
+            "generator": "synthetic-backup-generator (#3090)",
+            "profile": "10k",
+            "seed": 42,
+            "payloadChecksum": "db1d2450da4de66e06c206cd1800af48c3ca29023420cda2d5067b84be7e3f1d",
+            "counts": {"tasks": 10000, "projects": 100},
+        },
+        "subject": subject if subject is not None else {"screen": "Upcoming"},
         "runs": runs,
         "warmupRuns": 2,
         "percentileConvention": "nearest-rank",
@@ -234,14 +244,44 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             )
             self.assertEqual(len(evidence["scenarios"]["projects-list-scroll"]["runs"]), 2)
 
+    def test_the_dataset_and_the_subject_of_the_runs_are_published(self):
+        """A number without the dataset and the subject it was measured on is not a number."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", [scenario_report()]),
+                    ("2026-11-24T15:37:35", [scenario_report()]),
+                ],
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            scenario = self._evidence(tmp)["scenarios"][SCENARIO]
+            self.assertEqual(scenario["dataset"]["seed"], 42)
+            self.assertEqual(scenario["dataset"]["profile"], "10k")
+            self.assertEqual(scenario["subject"], {"screen": "Upcoming"})
+
     def test_runs_of_different_configurations_are_not_published_together(self):
         """A run over a hundred tasks and a run over a thousand are two experiments."""
         with tempfile.TemporaryDirectory() as tmp:
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(seed={"tasks": 1000})]),
-                    ("2026-11-24T15:37:35", [scenario_report(seed={"tasks": 100})]),
+                    ("2026-11-24T15:36:47", [scenario_report(dataset={"profile": "10k", "seed": 42})]),
+                    ("2026-11-24T15:37:35", [scenario_report(dataset={"profile": "1k", "seed": 42})]),
+                ],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("different experiment", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_runs_over_a_different_subject_are_not_published_together(self):
+        """The task the scenario opens is part of what the scenario measured."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", [scenario_report(subject={"screen": "Task 751"})]),
+                    ("2026-11-24T15:37:35", [scenario_report(subject={"screen": "Task 42"})]),
                 ],
             )
             self.assertNotEqual(result.returncode, 0)

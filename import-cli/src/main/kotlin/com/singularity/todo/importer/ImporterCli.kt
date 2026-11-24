@@ -188,19 +188,24 @@ class GenerateCommand : CliktCommand(name = "generate") {
 
     override fun run() {
         val params = resolveParams()
-        val generated = generateAndValidate(params)
-        val payload = generated.payload
-        val payloadBytes = encodePayload(payload)
-        val manifest = buildManifest(payload, payloadBytes)
-        val manifestBytes = encodeManifest(manifest)
-        SyntheticBackupValidator.ensureWithinArchiveBudget(payloadBytes, manifestBytes)
-
+        System.err.print("\r[1/3] Generating the dataset and writing the archive...")
+        System.err.flush()
         File(output).parentFile?.mkdirs()
-        writeArchive(manifestBytes, payloadBytes)
-        val sidecarPath = writeSidecar(generated, manifest)
+        // The archive is written by the same helper the desktop measurement
+        // uses, so both platforms restore the same file of the same dataset.
+        val archive = runBlocking { SyntheticBackupArchive.write(params, output) }
+        val generated = archive.dataset
+        val sidecarPath = writeSidecar(generated, archive.manifest)
         verifyArchive()
 
-        printSummary(payload, manifest, sidecarPath, generated, payloadBytes, manifestBytes)
+        printSummary(
+            generated.payload,
+            archive.manifest,
+            sidecarPath,
+            generated,
+            archive.payloadBytes,
+            archive.manifestBytes,
+        )
     }
 
     private fun resolveParams(): GenerateParams {
@@ -279,50 +284,11 @@ class GenerateCommand : CliktCommand(name = "generate") {
             inProgressShare = inProgressShare ?: 0.13,
         )
 
-    private fun generateAndValidate(params: GenerateParams): GeneratedDataset {
-        System.err.print("\r[1/5] Generating...")
-        System.err.flush()
-        val generated = SyntheticBackupGenerator.generate(params)
-        System.err.print("\r[2/5] Validating... ")
-        System.err.flush()
-        SyntheticBackupValidator.validate(generated.payload)
-        return generated
-    }
-
-    private fun encodePayload(payload: BackupPayload): ByteArray =
-        StableJson.encodeToString(BackupPayload.serializer(), payload).encodeToByteArray()
-
-    private fun encodeManifest(manifest: BackupManifest): ByteArray =
-        StableJson.encodeToString(BackupManifest.serializer(), manifest).encodeToByteArray()
-
-    private fun buildManifest(
-        payload: BackupPayload,
-        payloadBytes: ByteArray,
-    ): BackupManifest =
-        BackupDomain.buildManifest(
-            appVersion = appVersion().name,
-            nowEpochMillis = 0L,
-            userId = UserId.anonymous,
-            payloadBytes = payloadBytes,
-            counts = BackupDomain.countsOf(payload),
-        )
-
-    private fun writeArchive(
-        manifestBytes: ByteArray,
-        payloadBytes: ByteArray,
-    ) {
-        System.err.print("\r[3/5] Writing archive...")
-        System.err.flush()
-        runBlocking {
-            JvmBackupCodec().export(manifestBytes, payloadBytes, emptyList(), output, JvmFileSystem()).getOrThrow()
-        }
-    }
-
     private fun writeSidecar(
         generated: GeneratedDataset,
         manifest: BackupManifest,
     ): String {
-        System.err.print("\r[4/5] Writing sidecar...")
+        System.err.print("\r[2/3] Writing sidecar...")
         System.err.flush()
         val payload = generated.payload
         val sidecar =
@@ -346,7 +312,7 @@ class GenerateCommand : CliktCommand(name = "generate") {
     }
 
     private fun verifyArchive() {
-        System.err.print("\r[5/5] Verifying...      ")
+        System.err.print("\r[3/3] Verifying...      ")
         System.err.flush()
         val read = runBlocking { JvmBackupCodec().import(output, JvmFileSystem()).getOrThrow() }
         val decodedPayload = StableJson.decodeFromString(BackupPayload.serializer(), read.payloadBytes.decodeToString())
@@ -366,7 +332,7 @@ class GenerateCommand : CliktCommand(name = "generate") {
         payloadBytes: ByteArray,
         manifestBytes: ByteArray,
     ) {
-        System.err.println("\r[5/5] Done.                    ")
+        System.err.println("\r[3/3] Done.                    ")
         println("Generated: ${File(output).path}")
         println("Sidecar: $sidecarPath")
         println("Profile: ${generated.manifest.profile ?: "custom"} seed=${generated.manifest.seed}")

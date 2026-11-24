@@ -75,7 +75,8 @@ def ran_at(path: Path) -> str:
 CONFIGURATION_KEYS = (
     "target",
     "scenario",
-    "seed",
+    "dataset",
+    "subject",
     "runs",
     "warmupRuns",
     "percentileConvention",
@@ -192,10 +193,8 @@ def scenario_evidence(
 
     return {
         "scenario": scenario,
-        "dataset": {
-            "seed": first.get("seed"),
-            "source": "seeded in the test through the repository",
-        },
+        "dataset": first.get("dataset"),
+        "subject": first.get("subject"),
         "method": {
             "warmupRuns": first.get("warmupRuns"),
             "measuredRunsPerRun": first.get("runs"),
