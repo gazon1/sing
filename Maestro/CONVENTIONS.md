@@ -117,8 +117,10 @@ their logic.
 
 A flow waits for the entity it seeded before it asserts on it. Which waits
 count — the entity's own row, or a container that renders only because the
-entity is in it — is written down in one place: the contract at the top of
-`helpers/seed.yaml`. Read it there; do not restate it in a flow.
+entity is in it — is written down in the contract at the top of
+`helpers/seed.yaml`. This file and the `singularity-todo-maestro-flows` skill
+repeat that contract; the three copies state it alike, and a repository test
+holds them to that. Read it there; do not restate it in a flow.
 
 Which of those waits live in the helper and which stay in the flow:
 
@@ -186,6 +188,13 @@ Two rules make such a wait mean something:
   a rename from the row it renamed: the row was already there under the old
   name. The name can. `menu/06-tree-live` waits for the text "Renamed" and
   then asserts on the row's id.
+- **By what the seed changed.** A wait that names what an earlier seed of the
+  same flow already brought in returns at once — that element was on screen
+  before the seed ran, so it is no evidence of this seed's write. The wait has
+  to name what the seed changed: the row it wrote for the first time, the name
+  it gave the entity, or the section its row brought in. A seed that writes
+  exactly what an earlier seed wrote changes nothing on the screen, so the row
+  that is already there is the row the flow asserts on.
 
 Two more things the gate holds a flow to:
 

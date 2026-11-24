@@ -373,6 +373,74 @@ class SeededEntityWaitTest {
     }
 
     @Test
+    fun `a wait for a row an earlier seed wrote does not cover the rewrite`() {
+        // The second seed rewrote the row the first one wrote. A wait for that
+        // row returns at once — the row is already on screen — so it says
+        // nothing about the write the assertion is about.
+        val events = SeedWaitTree.fixture("flow.yaml" to RESEEDED_ROW_WAITED_AGAIN)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a wait for a row an earlier seed of the same flow " +
+                "wrote. That row is on screen before the second seed runs, so the " +
+                "wait returns at once and is no evidence of the rewrite.",
+        )
+    }
+
+    @Test
+    fun `a wait for the new name of a renamed entity covers the rewrite`() {
+        // The positive half of the rule above: the seed gave the entity a name
+        // it did not have, and the name is the one thing on screen that tells
+        // the rename from the row it renamed.
+        val events = SeedWaitTree.fixture("flow.yaml" to RENAMED_ENTITY_WAITED_BY_NEW_NAME)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule rejects a wait for the name a renamed entity is called: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a seed in a conditional block is held to the rule`() {
+        // The commands of a `runFlow` that carries its own run only when the
+        // condition holds. The gate has to see them: a seed in such a block is
+        // a seed, and the assertion next to it is an assertion.
+        val events = SeedWaitTree.fixture("flow.yaml" to CONDITIONAL_SEED_UNCOVERED)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule ignores a seed inside a conditional block. The assertion " +
+                "next to it is about the seeded entity, so something has to wait " +
+                "for it.",
+        )
+    }
+
+    @Test
+    fun `a wait in a conditional block covers the assertion next to it`() {
+        val events = SeedWaitTree.fixture("flow.yaml" to CONDITIONAL_SEED_COVERED)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule rejects a conditional block whose seed waited for its " +
+                "entity: ${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a seed in a conditional block is not held to an assertion outside it`() {
+        // The block runs only when its condition holds, so the seed may never
+        // have run — and an assertion outside the block is not about it.
+        val events = SeedWaitTree.fixture("flow.yaml" to CONDITIONAL_SEED_OUTSIDE_ASSERT)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule holds an assertion outside a conditional block to a seed " +
+                "inside it: ${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
     fun `an assertion written as a scalar is an assertion on the entity`() {
         // `assertVisible: "Fixture"` is the short form of the block form. A
         // gate that reads only the block form does not see the assertion at
@@ -820,6 +888,132 @@ class SeededEntityWaitTest {
                   WAIT_FOR: "agenda_section_today"
             - assertVisible:
                 id: task_item_second
+            """.trimIndent()
+
+        /**
+         * Two seeds of the same row, the second one rewriting it, and a wait
+         * for that row after each seed.
+         *
+         * The row is on screen from the first seed on, so neither wait is the
+         * evidence that the second seed's write arrived.
+         */
+        val RESEEDED_ROW_WAITED_AGAIN =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture
+                timeout: 8000
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=tomorrow"
+            - extendedWaitUntil:
+                visible:
+                  id: task_item_fixture
+                timeout: 8000
+            - assertVisible:
+                id: task_item_fixture
+            """.trimIndent()
+
+        /**
+         * A project that is renamed by a second seed of the same id.
+         *
+         * The row is the same row, but the name is new — and the name is what
+         * tells the rename from the row it renamed.
+         */
+        val RENAMED_ENTITY_WAITED_BY_NEW_NAME =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "project=Roadmap&id=roadmap"
+            - extendedWaitUntil:
+                visible:
+                  id: menu_project_node_roadmap
+                timeout: 8000
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "project=Renamed&id=roadmap"
+            - extendedWaitUntil:
+                visible:
+                  text: "Renamed"
+                timeout: 8000
+            - assertVisible:
+                id: menu_project_node_roadmap
+            - assertVisible:
+                text: "Renamed"
+            """.trimIndent()
+
+        /** A seed in a conditional block, and an assertion nothing waited for. */
+        val CONDITIONAL_SEED_UNCOVERED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                when:
+                  visible:
+                    id: nav_tab_today
+                commands:
+                  - runFlow:
+                      file: seed.yaml
+                      env:
+                        QUERY: "task=Fixture&due=today"
+                  - assertVisible:
+                      id: task_item_fixture
+            """.trimIndent()
+
+        /** The same block, with a wait for the entity the seed wrote. */
+        val CONDITIONAL_SEED_COVERED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                when:
+                  visible:
+                    id: nav_tab_today
+                commands:
+                  - runFlow:
+                      file: seed.yaml
+                      env:
+                        QUERY: "task=Fixture&due=today"
+                  - extendedWaitUntil:
+                      visible:
+                        id: task_item_fixture
+                      timeout: 8000
+                  - assertVisible:
+                      id: task_item_fixture
+            """.trimIndent()
+
+        /** A seed in a conditional block, and an assertion outside the block. */
+        val CONDITIONAL_SEED_OUTSIDE_ASSERT =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                when:
+                  visible:
+                    id: nav_tab_today
+                commands:
+                  - runFlow:
+                      file: seed.yaml
+                      env:
+                        QUERY: "task=Fixture&due=today"
+            - assertVisible:
+                id: task_item_fixture
             """.trimIndent()
 
         /** The same flow, with the helper waiting for the row the seed writes. */

@@ -137,6 +137,17 @@
 # wrote. A renamed entity is waited for by its new name: a wait for the row
 # cannot tell a rename from the row it renamed.
 #
+# A wait that names what an earlier seed of the same flow already brought in
+# returns at once — that element is on screen before the seed ran. The wait has
+# to name what the seed changed: the row it wrote for the first time, the name
+# it gave the entity, or the section its row brought in. A seed that writes
+# exactly what an earlier seed wrote changes nothing on the screen, so the
+# row that is already there is the row the flow asserts on.
+#
+# This contract is written here and repeated in `Maestro/CONVENTIONS.md` and in
+# the `singularity-todo-maestro-flows` skill. The three copies state it alike,
+# and a repository test holds them to that.
+#
 # A wait that waits for the element to be *gone* — `notVisible`, `absent` —
 # says the opposite of what an assertion needs, and covers nothing.
 #

@@ -376,6 +376,13 @@ Two rules make such a wait mean something:
 - **By the name, when the entity was renamed.** A wait for the row cannot
   tell a rename from the row it renamed — the row was already there under the
   old name. The name can.
+- **By what the seed changed.** A wait that names what an earlier seed of the
+  same flow already brought in returns at once — that element was on screen
+  before the seed ran, so it is no evidence of this seed's write. The wait has
+  to name what the seed changed: the row it wrote for the first time, the name
+  it gave the entity, or the section its row brought in. A seed that writes
+  exactly what an earlier seed wrote changes nothing on the screen, so the row
+  that is already there is the row the flow asserts on.
 
 And two the gate holds a flow to: a wait under `notVisible`/`absent` waits
 for the element to be *gone* and covers nothing, and an assertion by the
@@ -409,8 +416,9 @@ Two more rules about what a wait covers:
   waits for the section that holds the rows once the last chunk is in.
   `agenda/07` seeds its thousand rows in five chunks for this reason.
 
-The contract itself lives in one place — the header of `helpers/seed.yaml` —
-and `Maestro/CONVENTIONS.md` repeats it.
+The contract itself is written in the header of `helpers/seed.yaml`, and
+`Maestro/CONVENTIONS.md` and this skill repeat it. The three copies state it
+alike, and a repository test holds them to that.
 
 ## The runbook
 

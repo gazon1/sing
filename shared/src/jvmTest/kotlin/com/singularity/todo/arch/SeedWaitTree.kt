@@ -64,6 +64,14 @@ internal object SeedWaitTree {
             // row in it made it visible — and a wait for it returns at once
             // when the later seed runs.
             val earlierContainers = containersBefore(seed, seeds)
+            // The names an earlier seed of the same flow already gave its
+            // entities. A wait for a name that was already on screen cannot
+            // tell this seed's write from the earlier one.
+            val earlierNames = namesBefore(seed, seeds)
+            // Whether this seed writes what an earlier seed of the same flow
+            // already wrote. The same query is the same write, and the second
+            // one changes nothing on the screen.
+            val repeated = repeatedBefore(seed, seeds)
             // A container covers an entity only while the container is the
             // section that the seed brings in. A section the flow already
             // named before the seed was there before the seed, and a section
@@ -88,37 +96,111 @@ internal object SeedWaitTree {
                 val ids = (entity.rows + containers).toSet()
                 val handles = (ids + entity.names).toSet()
                 for (assert in asserts) {
-                    if (!assertsEntity(assert, entity)) continue
-                    checked++
-                    // The row the seed wrote was already on screen when an
-                    // earlier seed of the same flow wrote it: a wait for that
-                    // row returns at once, and it is no evidence of this
-                    // seed's write.
-                    val stale = entity.rows.any { row -> row in earlierRows }
-                    // A wait in the flow, or the helper's own wait for the entity
-                    // the caller named — either way, after the seed and before the
-                    // assert. A wait that names the element under `notVisible`
-                    // waits for it to be gone, so it covers nothing.
-                    val waited =
-                        waits.any {
-                            it.positive &&
-                                it.handles.any { handle -> handle in handles } &&
-                                compareOrder(it.position, seed.position) >= 0 &&
-                                compareOrder(it.position, assert.position) <= 0
-                        } ||
-                            helperWaited(seed, assert, landingIds, stale)
-                    if (!waited) {
-                        violations +=
-                            "$label: asserts ${subjectOf(assert)} without waiting for it — " +
-                            "wait for the row (${entity.rows.joinToString()}), for the " +
-                            "name it is called (${entity.names.joinToString()}) or for " +
-                            "the container it is in (${containers.joinToString()})"
+                    // A seed in a conditional block runs only when the
+                    // condition holds, so an assertion outside that block is
+                    // not about that seed: the seed may never have run.
+                    val onEntity = assertsEntity(assert, entity)
+                    val inScope = seed.scope == null || assert.scope == seed.scope
+                    if (onEntity && inScope) {
+                        checked++
+                        // A wait in the flow, or the helper's own wait for the entity
+                        // the caller named — either way, after the seed and before the
+                        // assert. A wait that names the element under `notVisible`
+                        // waits for it to be gone, so it covers nothing.
+                        val waited =
+                            waits.any {
+                                it.positive &&
+                                    // A wait in a conditional block runs only when
+                                    // the condition holds, so it cannot cover an
+                                    // assertion outside that block.
+                                    (it.scope == null || it.scope == assert.scope) &&
+                                    it.handles.any { handle ->
+                                        handle in handles &&
+                                            distinguishes(handle, entity, earlierNames, earlierRows, repeated)
+                                    } &&
+                                    compareOrder(it.position, seed.position) >= 0 &&
+                                    compareOrder(it.position, assert.position) <= 0
+                            } ||
+                                helperWaited(seed, assert, landingIds, earlierRows)
+                        if (!waited) {
+                            violations +=
+                                "$label: asserts ${subjectOf(assert)} without waiting for it — " +
+                                "wait for the row (${entity.rows.joinToString()}), for the " +
+                                "name it is called (${entity.names.joinToString()}) or for " +
+                                "the container it is in (${containers.joinToString()})"
+                        }
                     }
                 }
             }
         }
         return RuleResult(violations, checked)
     }
+
+    /**
+     * Whether a wait that names the handle tells this seed's write from the
+     * write an earlier seed made.
+     *
+     * A wait returns at once on an element that is already on screen, so a
+     * wait for an element an earlier seed of the same flow brought in says
+     * nothing about the write the assertion is about. What tells the writes
+     * apart is what the seed changed: a row that was not there before, a name
+     * the seed gave the entity — a rename is waited for by its new name,
+     * because the row it renamed was there already — or a section that the
+     * seed's row brought in.
+     *
+     * A seed that writes what an earlier seed already wrote is the exception:
+     * the same query is the same write, the screen does not change, and the
+     * row the assertion is about is the row that is already there.
+     */
+    private fun distinguishes(
+        handle: String,
+        entity: Entity,
+        earlierNames: Set<String>,
+        earlierRows: Set<String>,
+        repeated: Boolean,
+    ): Boolean {
+        if (repeated) return true
+        return when {
+            handle in entity.names -> handle !in earlierNames
+
+            handle in entity.rows -> handle !in earlierRows
+
+            // A container: the section the seed's row brought in. The sections
+            // an earlier seed brought in are not among the seed's containers
+            // at all — they are filtered out before they get here.
+            else -> true
+        }
+    }
+
+    /**
+     * The names the seeds that ran before this one gave their entities.
+     *
+     * A name that was on screen before the seed cannot be the evidence that
+     * this seed's write arrived: a wait for it returns at once.
+     */
+    private fun namesBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Set<String> =
+        seeds
+            .filter { other -> compareOrder(other.position, seed.position) < 0 }
+            .flatMap { other -> seededEntity(parseQuery(other.query)).entities }
+            .flatMap { entity -> entity.names }
+            .toSet()
+
+    /**
+     * Whether an earlier seed of the same flow wrote what this seed writes.
+     *
+     * The same query is the same write: the row it writes is the row that is
+     * already there, with the same content, and the screen does not change.
+     */
+    private fun repeatedBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Boolean =
+        seeds.any { other ->
+            compareOrder(other.position, seed.position) < 0 && other.query == seed.query
+        }
 
     /**
      * Whether the helper's own wait covers the assertion.
@@ -140,11 +222,11 @@ internal object SeedWaitTree {
         seed: Event.Seed,
         assert: Event.Assert,
         landingIds: Set<String>,
-        stale: Boolean,
+        earlierRows: Set<String>,
     ): Boolean {
         val waitFor = seed.waitFor ?: return false
         if (waitFor !in landingIds) return false
-        if (stale) return false
+        if (waitFor in earlierRows) return false
         return compareOrder(seed.position, assert.position) <= 0
     }
 
@@ -251,14 +333,40 @@ internal object SeedWaitTree {
     sealed interface Event {
         val position: List<Int>
 
+        /**
+         * The conditional block the event is in, when it is in one.
+         *
+         * A command under `when:` runs only when the condition holds, so a
+         * seed inside one may never have run — and an assertion outside it
+         * cannot be about that seed. The block is named by the position of the
+         * `runFlow` that carries it, so a seed and an assertion in the same
+         * block share it.
+         */
+        val scope: List<Int>?
+
         /** A seed: the query it seeds and the entity the caller wants waited for. */
-        data class Seed(override val position: List<Int>, val query: String, val waitFor: String?) : Event
+        data class Seed(
+            override val position: List<Int>,
+            val query: String,
+            val waitFor: String?,
+            override val scope: List<Int>? = null,
+        ) : Event
 
         /** A wait for an element — by its id, or by the text it shows. */
-        data class Wait(override val position: List<Int>, val handles: Set<String>, val positive: Boolean) : Event
+        data class Wait(
+            override val position: List<Int>,
+            val handles: Set<String>,
+            val positive: Boolean,
+            override val scope: List<Int>? = null,
+        ) : Event
 
         /** An assertion that an element is there — by its id, or by the text it shows. */
-        data class Assert(override val position: List<Int>, val id: String?, val text: String?) : Event
+        data class Assert(
+            override val position: List<Int>,
+            val id: String?,
+            val text: String?,
+            override val scope: List<Int>? = null,
+        ) : Event
     }
 
     /**
@@ -285,6 +393,10 @@ internal object SeedWaitTree {
         val texts: List<Selector>,
         val env: Map<String, String>,
         val file: String?,
+        /** The commands a `runFlow` carries under `commands:`. */
+        val nested: List<Command> = emptyList(),
+        /** Whether the command runs only when the condition of a `when:` holds. */
+        val conditional: Boolean = false,
     )
 
     /**
@@ -352,22 +464,73 @@ internal object SeedWaitTree {
                 collectRunFlow(target, command, env, at, events, seen)
                 continue
             }
-            val ids = command.ids.map { substitute(it.value, env) to it.positive }
-            val texts = command.texts.map { substitute(it.value, env) to it.positive }
-            when (command.name) {
-                in WAIT_COMMANDS -> {
-                    events +=
-                        Event.Wait(
-                            at,
-                            (ids.map { it.first } + texts.map { it.first }).toSet(),
-                            ids.all { it.second } && texts.all { it.second },
-                        )
-                }
+            // The commands a `runFlow` carries run inside it, so they come
+            // before the commands that follow it.
+            if (command.nested.isNotEmpty()) {
+                collectNested(file, command, env, at, events, seen)
+            }
+            record(command, env, at, events, null)
+        }
+    }
 
-                in ASSERT_COMMANDS -> {
-                    ids.forEach { events += Event.Assert(at, it.first, null) }
-                    texts.forEach { events += Event.Assert(at, null, it.first) }
-                }
+    /**
+     * The commands a `runFlow` carries under `commands:`.
+     *
+     * They run inside the command that carries them, so they come after it and
+     * before the commands that follow it. A block with a `when:` runs only when
+     * the condition holds — the scope names the block, so that a seed in it
+     * and an assertion next to it are held to each other, and an assertion
+     * outside the block is not held to a seed that may never have run.
+     */
+    private fun collectNested(
+        file: Path,
+        command: Command,
+        env: Map<String, String>,
+        at: List<Int>,
+        events: MutableList<Event>,
+        seen: Set<Path>,
+    ) {
+        val scope = if (command.conditional) at else null
+        // The `env:` of the block is the env of the commands it carries.
+        val inner = env + command.env.mapValues { (_, value) -> substitute(value, env) }
+        for ((index, nested) in command.nested.withIndex()) {
+            val at = at + index
+            val target = nested.file?.let { file.parent.resolve(it).normalize() }
+            if (nested.name == "runFlow" && target != null) {
+                collectRunFlow(target, nested, inner, at, events, seen, scope)
+                continue
+            }
+            if (nested.nested.isNotEmpty()) {
+                collectNested(file, nested, inner, at, events, seen)
+            }
+            record(nested, inner, at, events, scope)
+        }
+    }
+
+    /** The events a command makes. */
+    private fun record(
+        command: Command,
+        env: Map<String, String>,
+        at: List<Int>,
+        events: MutableList<Event>,
+        scope: List<Int>?,
+    ) {
+        val ids = command.ids.map { substitute(it.value, env) to it.positive }
+        val texts = command.texts.map { substitute(it.value, env) to it.positive }
+        when (command.name) {
+            in WAIT_COMMANDS -> {
+                events +=
+                    Event.Wait(
+                        at,
+                        (ids.map { it.first } + texts.map { it.first }).toSet(),
+                        ids.all { it.second } && texts.all { it.second },
+                        scope,
+                    )
+            }
+
+            in ASSERT_COMMANDS -> {
+                ids.forEach { events += Event.Assert(at, it.first, null, scope) }
+                texts.forEach { events += Event.Assert(at, null, it.first, scope) }
             }
         }
     }
@@ -387,11 +550,12 @@ internal object SeedWaitTree {
         at: List<Int>,
         events: MutableList<Event>,
         seen: Set<Path>,
+        scope: List<Int>? = null,
     ) {
         if (!target.isRegularFile()) return
         val inherited = env + command.env.mapValues { (_, value) -> substitute(value, env) }
         if (target.fileName?.toString() == SEED_HELPER) {
-            events += Event.Seed(at, inherited["QUERY"].orEmpty(), inherited["WAIT_FOR"])
+            events += Event.Seed(at, inherited["QUERY"].orEmpty(), inherited["WAIT_FOR"], scope)
             return
         }
         val normalized = target.normalize()
@@ -406,8 +570,19 @@ internal object SeedWaitTree {
      * Maestro files are read the same way by `MaestroFlowTagsTest`, and a
      * second YAML parser here would be a second dialect of the same language.
      */
-    private fun commands(text: String): List<Command> {
-        val lines = text.lines()
+    private fun commands(text: String): List<Command> = commandList(text.lines())
+
+    /**
+     * The commands of a list of lines.
+     *
+     * The commands are read as the lines they are written as — the tree's
+     * Maestro files are read the same way by `MaestroFlowTagsTest`, and a
+     * second YAML parser here would be a second dialect of the same language.
+     *
+     * The list may be indented: the commands of a `runFlow`'s `commands:`
+     * block are read the same way, one level in.
+     */
+    private fun commandList(lines: List<String>): List<Command> {
         val out = mutableListOf<Command>()
         var index = 0
         while (index < lines.size) {
@@ -424,7 +599,12 @@ internal object SeedWaitTree {
                 block += lines[index]
                 index++
             }
-            val parsed = parseBlock(block)
+            val nested = nestedLines(block)
+            // The commands a `runFlow` carries are its own: the `file:` and the
+            // `env:` of the block belong to the commands inside it, not to the
+            // command that carries them.
+            val body = block - nested
+            val parsed = parseBlock(body)
             val file = parsed.file ?: inline.takeIf { name == "runFlow" && it.isNotEmpty() }
             // An assertion may be written as a scalar: `assertVisible: "Buy
             // milk"`. The text is then the value of the command itself, and a
@@ -437,9 +617,44 @@ internal object SeedWaitTree {
                     ?.trim('"', '\'')
                     ?.takeIf { it.isNotEmpty() }
             val texts = parsed.texts + (inlineText?.let { listOf(Selector(it, true)) } ?: emptyList())
-            out += Command(name, parsed.ids, texts, parsed.env, file)
+            out +=
+                Command(
+                    name,
+                    parsed.ids,
+                    texts,
+                    parsed.env,
+                    file,
+                    commandList(dedent(nested)),
+                    body.any { line -> WHEN_KEY.matchEntire(line) != null },
+                )
         }
         return out
+    }
+
+    /**
+     * The lines of the commands a `runFlow` carries under `commands:`.
+     *
+     * A `runFlow` may carry commands of its own instead of the file to run:
+     * they run only when the `when:` of the block holds. The gate has to see
+     * them — a seed in such a block is a seed, and an assertion next to it is
+     * an assertion — or a flow can put both past the gate.
+     */
+    private fun nestedLines(block: List<String>): List<String> {
+        val index = block.indexOfFirst { line -> NESTED_KEY.matchEntire(line) != null }
+        if (index < 0) return emptyList()
+        val indent = indentOf(block[index])
+        return block
+            .drop(index + 1)
+            .takeWhile { line -> line.isBlank() || indentOf(line) > indent }
+    }
+
+    /** The number of leading spaces of a line. */
+    private fun indentOf(line: String): Int = line.length - line.trimStart().length
+
+    /** The lines without the indentation they all share. */
+    private fun dedent(lines: List<String>): List<String> {
+        val indent = lines.filter { it.isNotBlank() }.minOfOrNull { line -> indentOf(line) } ?: 0
+        return lines.map { line -> if (line.isBlank()) line else line.drop(indent) }
     }
 
     /** What the body of a command says: the ids it addresses, its env, its file. */
@@ -866,6 +1081,12 @@ internal object SeedWaitTree {
 
     /** A top-level command: `- name: …`. */
     val COMMAND = Regex("""^- ([a-zA-Z][a-zA-Z0-9]*):\s*(.*)$""")
+
+    /** The `commands:` of a `runFlow` that carries commands of its own. */
+    val NESTED_KEY = Regex("""^\s*commands:\s*$""")
+
+    /** The `when:` of a `runFlow` whose commands run only under a condition. */
+    val WHEN_KEY = Regex("""^\s*when:\s*$""")
 
     /** The `id:` of a selector. */
     val ID_KEY = Regex("""^\s+id:\s*"?([^"\n#]*)"?\s*$""")

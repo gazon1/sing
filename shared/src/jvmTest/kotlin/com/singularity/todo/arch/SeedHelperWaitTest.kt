@@ -545,7 +545,7 @@ class SeedHelperWaitTest {
             "The contract is stated in three places, and they do not agree " +
                 "(${missing.size}):\n" +
                 missing.joinToString("\n") { "  - $it" } +
-                "\n\nThe contract itself lives in one place — the header of " +
+                "\n\nThe contract itself is written in one place — the header of " +
                 "`helpers/seed.yaml` — and the other two repeat it. A repetition " +
                 "that drifts is a second contract.",
         )
@@ -792,6 +792,8 @@ class SeedHelperWaitTest {
                 "the row of an overdue task is not a target" to Regex("overdue"),
                 "a section the flow named before the seed is not a target" to Regex("before\\s+the\\s+seed"),
                 "a section an earlier seed brought in is not a target" to Regex("earlier\\s+seed"),
+                "a wait names what the seed changed" to Regex("what\\s+the\\s+seed\\s+changed"),
+                "the copies state the contract alike" to Regex("copies\\s+state\\s+it\\s+alike"),
             )
 
         /** A flow whose seed writes two rows and names one of them to wait for. */

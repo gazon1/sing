@@ -243,15 +243,29 @@ precedes the seed, two seeds of one row with a wait that covers only the first
 entity wait runs before the seed link, and a helper whose entity wait runs
 between the link and the shell wait. A gate that cannot fail holds nothing.
 
+**What a flow-level wait has to name.** A wait of the flow's own covers a seed
+only when it names *what the seed changed*: a row that was not on screen before
+the seed ran, a name the seed gave, or a section the seed brought in. A wait
+that names a row an earlier seed of the same flow had already written says
+nothing about the write the flow asserts on — the row was on screen before the
+seed ran, so the wait returns at once and the assertion is unbacked. The gate
+reads the flow for the tell: the rows and names the flow's earlier seeds wrote.
+
+The exception is a seed that changes nothing on screen. A seed whose query is
+the query of an earlier seed of the same flow rewrites the same rows; what the
+flow asserts on is on screen either way, and any wait the flow makes covers it.
+The gate therefore holds such a seed to the ordinary rule and no more.
+
 **Where the contract is written, and who holds the copies together.** The
-contract lives in the header of `helpers/seed.yaml`, and it is repeated in
+contract is written in the header of `helpers/seed.yaml`, and it is repeated in
 `Maestro/CONVENTIONS.md` and in the `singularity-todo-maestro-flows` skill —
 three documents that a flow author may read instead of the first. A repetition
 that drifts is a second contract, and a flow written against it fails on a
 device for a reason the source does not show. `SeedHelperWaitTest` therefore
 holds the three to each other: every clause of the contract has to be stated in
 all three, and a document that states none of them fails the check — a check
-that cannot fail holds nothing.
+that cannot fail holds nothing. The three copies state the contract alike, and
+the check holds them to it.
 
 **The runtime half.** The gate reads the YAML; it cannot hold what the helper
 does on a device. `smoke/07-seed-helper-contract` is that half: a seed with no
@@ -269,6 +283,19 @@ in its file, behind the `runFlow` that pulled that file in. A wait that runs
 *before* the seed inside a helper is therefore before the seed, not beside it.
 A flat index would give every command of a helper the index of the `runFlow`
 that pulled it in, and the wait would look like it ran after the seed.
+
+**How a conditional block is read.** A command may carry its own commands
+under a `commands:` key, and the whole block may be guarded by a `when:`
+condition. The gate descends into such a block: a seed inside it is a seed of
+the flow, and the assertion that covers it has to live in the same block. A
+seed under a condition may never have run, so an assertion outside the block
+cannot be held to it — the flow asserts on a row that may not exist. The gate
+matches a seed and an assertion only when they share the scope of their
+blocks; a wait covers an assertion of the same scope only.
+
+The commands of a nested block are commands of their own and not of the
+command that carries them: the `file:` and `env:` of the nested block belong to
+the nested commands. The gate reads them apart for that reason.
 
 ## Rationale
 
@@ -351,6 +378,16 @@ profile therefore behaves exactly as it did before.
 - `menu/06-tree-live` waits for the name the rename gave the project, and
   asserts on the row's id: the row was already there under the old name, so
   the row's id cannot tell the rename from the row it renamed.
+- A wait of the flow's own covers a seed only when it names what the seed
+  changed: a row the earlier seeds had not written, a name the seed gave, or a
+  section the seed brought in. A wait that names a row an earlier seed wrote
+  covers nothing, and the gate rejects the flow. A seed whose query repeats an
+  earlier seed's changes nothing on screen, so any wait of the flow covers it.
+- The gate descends into the commands of a conditional block: a seed under a
+  `when:` guard is matched with the assertions of the same block only, and an
+  assertion outside the block is not held to a seed that may never have run.
+- The three copies of the contract state it alike, and `SeedHelperWaitTest`
+  holds them to each other: every clause has to be stated in all three.
 
 ## Verified on device
 
