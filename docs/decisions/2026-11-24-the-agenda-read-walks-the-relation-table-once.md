@@ -43,6 +43,24 @@ Three separate pieces of avoidable work showed up in the read and the evaluation
    six discard sections, so a 50k profile copied the whole set six times per
    evaluation.
 
+## Scope of this record
+
+This is an **implementation-level** measurement, not the phase-level device
+baseline #3156 asks for. The issue requires a documented device run — exact
+commit, device, Android version, build variant, heap limit, dataset manifest —
+separating restore, Agenda query, relation loading, enrichment, evaluation, state
+publication, first render and initial scroll. None of that exists here, and this
+record does not claim it.
+
+What the numbers below are: a warmed JVM probe against real Room, on a synthetic
+profile of the shape `scripts/verify-large-restore.py` generates (50,000 tasks,
+50,000 tag edges, 100,000 dependency edges, seeded into an in-memory fixture).
+They answer "did removing the duplicated passes help, and by how much", which is
+the question this change can answer on its own.
+
+The device boundary in `docs/architecture/large-restore-results.md` is unmoved by
+this change, and #3156 stays open until a device run moves it.
+
 ## Idea
 
 Remove the second pass, not the data. Each item above is the same rows being
@@ -53,8 +71,9 @@ of them needs a narrower query, a new read model, or a cache.
 
 - `TaskExtras.kt` has one `taskExtras(tagRows, depRows)` builder, and one
   `splitByVerb()` that walks the dependency list **once** into the blocking and
-  the follow-up maps. `withExtras`, `withScopedExtras` and `freshTasks` all use
-  them; the two hand-written copies of the grouping are gone.
+  the follow-up maps. `withExtras`, `withScopedExtras` and `freshTasks` all end in
+  that builder and in `enrichedWith`; the hand-written copies of the grouping are
+  gone.
 - `Mappers.kt` maps `ai_suppressed_tag_ids` through `toTagIds()`, which returns
   `emptySet()` for the stored `"[]"` default and decodes only a real payload.
 - `AgendaEvaluator` keeps `remaining` as a `MutableSet` and calls

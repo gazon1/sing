@@ -265,20 +265,15 @@ internal suspend fun TaskDao.freshTasks(
     uid: UserId,
 ): List<Task> {
     if (rows.isEmpty()) return emptyList()
-    val tagsByTask =
-        listAllTagsForUser(uid.value)
-            .groupBy { it.taskId }
-            .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
-    // One read of the dependency table for both projections: the blocking set and
-    // the follow-up set are two questions about the same rows.
-    val (blockingIdsByTask, followUpIdsByTask) = listAllDependenciesForUser(uid.value).splitByVerb()
-    val depsByTask = blockingIdsByTask.mapValues { (_, ids) -> ids.map { TaskId.fromString(it) }.toSet() }
-    val followUpsByTask = followUpIdsByTask.mapValues { (_, ids) -> ids.map { TaskId.fromString(it) }.toSet() }
-    return rows.map { row ->
-        row.toTask(
-            tags = tagsByTask[row.id].orEmpty(),
-            blockedBy = depsByTask[row.id].orEmpty(),
-            followsUp = followUpsByTask[row.id].orEmpty(),
-        )
-    }
+    // The same three projections the reading paths build, through the same builder —
+    // so a bulk write and a list read cannot answer differently about a task's tags
+    // or its edges.
+    return rows.enrichedWith(
+        taskExtras(
+            tagRows = listAllTagsForUser(uid.value),
+            // One read of the dependency table for both projections: the blocking
+            // set and the follow-up set are two questions about the same rows.
+            depRows = listAllDependenciesForUser(uid.value),
+        ),
+    )
 }
