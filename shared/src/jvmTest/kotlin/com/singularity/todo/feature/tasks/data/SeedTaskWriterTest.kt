@@ -136,12 +136,20 @@ class SeedTaskWriterTest {
 
             assertEquals(
                 setOf("t1"),
-                db.taskDao().listAllTagsForUser(user.value).map { it.taskId }.toSet(),
+                db
+                    .taskDao()
+                    .listAllTagsForUser(user.value)
+                    .map { it.taskId }
+                    .toSet(),
                 "the tag of a seeded row must be in the cross-ref table",
             )
             assertEquals(
                 setOf("t2"),
-                db.taskDao().listAllDependenciesForUser(user.value).map { it.taskId }.toSet(),
+                db
+                    .taskDao()
+                    .listAllDependenciesForUser(user.value)
+                    .map { it.taskId }
+                    .toSet(),
                 "the follow-up edge of a seeded row must be in the cross-ref table",
             )
         }
