@@ -62,6 +62,10 @@ open class HlcFactory(
     /**
      * How many [batched] blocks are open right now.
      *
+     * It counts, so that a tick minted while any batch is open does not write the
+     * clock by itself: the batch that is open writes it when it ends, and a batch
+     * writes the newest clock it knows about.
+     *
      * Guarded by the same monitor as [_lastHlc], because [tick] reads it under that
      * monitor too.
      */
@@ -209,6 +213,24 @@ open class HlcFactory(
      * clock would stay older than a clock the device already issued. The write is
      * therefore not cancellable. It is a single local file write, so it cannot hold
      * the cancellation for long.
+     *
+     * ## Why every batch writes, and not only the outermost one
+     *
+     * Two batches can overlap: the wipe of a profile and a sync that runs beside it
+     * both enqueue, and nothing keeps them apart. The batch that finishes first used
+     * to leave without writing, on the grounds that a batch was still open and would
+     * write the clock.
+     *
+     * That batch had already queued its patches by then, and its patches carried
+     * clocks that were not on disk. A crash in between left the stored clock older
+     * than a clock the device had already issued, and the next patch could then carry
+     * a timestamp older than one the server already holds.
+     *
+     * So the write belongs to *the batch*, not to the outermost one: every batch
+     * writes before it returns, and the batch that queued the patches is the batch
+     * that persisted their clock. The write is still one per batch — [writeClock]
+     * drops a clock that is not newer than the one already written, so a nested
+     * batch's write and its outer batch's write leave one file write behind.
      */
     suspend fun <T> batched(block: () -> T): T {
         synchronized(this) { batchDepth++ }
@@ -218,7 +240,7 @@ open class HlcFactory(
             val last =
                 synchronized(this) {
                     batchDepth--
-                    if (batchDepth == 0) _lastHlc else null
+                    _lastHlc
                 }
             last?.let { withContext(NonCancellable) { writeClock(it) } }
         }

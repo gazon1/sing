@@ -221,6 +221,93 @@ class OutboxServiceBatchTest {
             }
         }
 
+    /**
+     * The state the server is known to hold, for every entity of the batch.
+     *
+     * Three things are in it, and each of them is a way for the batch to be wrong:
+     *
+     * * a **confirmed** state that differs from the local one, so the diff has
+     *   something to diff against;
+     * * an **in-flight** state that differs from the confirmed one, so a diff taken
+     *   against the queued patch instead of the confirmed state shows up — the
+     *   queued patch's extra field would be unset;
+     * * a **server version**, so a patch that forgot to carry it shows up.
+     */
+    private suspend fun seedConfirmedState(shadow: FakeSyncShadowDao) {
+        (1..3).forEach { index ->
+            shadow.upsert(
+                SyncShadowEntity(
+                    ownerId = "owner-1",
+                    profileId = "profile-1",
+                    entityType = DocType.Task.key,
+                    entityId = "t-$index",
+                    confirmedJson = """{"title":"old title t-$index"}""",
+                    inFlightJson = """{"title":"in flight t-$index","extra":"queued"}""",
+                    inFlightPatchId = "queued-patch-$index",
+                    serverVersion = 7,
+                ),
+            )
+        }
+    }
+
+    /**
+     * The batch diffs against the confirmed state, exactly as the per-entity path does.
+     *
+     * The equivalence test above runs against entities the server has never seen: the
+     * base is empty, so every field of the entity is a change. That is the easy half
+     * of the contract.
+     *
+     * The hard half is an entity the server *does* hold. The diff has to be taken
+     * against the confirmed state — the state the server really holds — and not
+     * against the in-flight state of the queued patch, which the server has not
+     * applied yet: a diff against the in-flight state drops the fields the queued
+     * patch carried, and the server loses them. And the patch has to carry the
+     * server's version, or the server refuses it as based on a version it never had.
+     */
+    @Test
+    fun `the batch writes the same patches against a confirmed state`() =
+        runTest {
+            val entities = (1..3).map { TestEntity("t-$it") }
+
+            val singleShadow = FakeSyncShadowDao()
+            seedConfirmedState(singleShadow)
+            val oneByOne = FakeSyncOutboxDao()
+            val singleService = service(outbox = oneByOne, shadow = singleShadow)
+            entities.forEach { singleService.enqueue(it) }
+
+            val batchShadow = FakeSyncShadowDao()
+            seedConfirmedState(batchShadow)
+            val batched = FakeSyncOutboxDao()
+            val batchService = service(outbox = batched, shadow = batchShadow)
+            batchService.enqueueAll(entities)
+
+            oneByOne.rows.zip(batched.rows).forEach { (single, batch) ->
+                assertEquals(
+                    single.patch().ops,
+                    batch.patch().ops,
+                    "the same field changes — the batch diffs against the same base",
+                )
+                assertEquals(
+                    single.patch().baseVersion,
+                    batch.patch().baseVersion,
+                    "the same base version",
+                )
+            }
+
+            val patch = batched.rows.first().patch()
+            assertEquals(
+                7L,
+                patch.baseVersion,
+                "the patch carries the version the server confirmed",
+            )
+            assertEquals(
+                listOf("title"),
+                patch.ops.map { it.field },
+                "the diff is taken against the confirmed state, not against the " +
+                    "in-flight state of the queued patch: ${patch.ops}",
+            )
+        }
+
     @Test
     fun `the batch replaces an entity's queued patch and leaves another profile's row alone`() =
         runTest {

@@ -94,6 +94,21 @@ The mutex is held *outside* the monitor that guards the last clock: a writer
 waiting for the mutex needs that monitor to read the newest written clock, so
 holding the monitor while waiting for the mutex would deadlock.
 
+**Every batch writes its own clock, not only the outermost one.** Two batches
+can overlap: the wipe of a profile and a sync that runs beside it both enqueue,
+and nothing keeps them apart. A batch that finished first used to leave
+without writing, on the grounds that another batch was still open and would
+write the clock. But that batch had already queued its patches by then, and its
+patches carried clocks that were never written: a crash in between left the
+stored clock older than a clock the device had already issued, and the next
+patch could then carry a timestamp older than one the server already holds.
+
+So the write belongs to *the batch*, not to the outermost one: every batch
+writes before it returns, and the batch that queued the patches is the batch
+that persisted their clock. The number of file writes does not grow: a write
+that is not newer than the clock already written is dropped, so a nested batch
+and its outer batch leave one write behind.
+
 **The batch's clock write is not cancellable.** The batch suppressed the
 per-tick writes, so its final write is the only one that carries a clock
 minted during the batch — including a clock minted by an unrelated call
@@ -183,6 +198,16 @@ either counted in the batch's final write, or it sees that the batch is over
 and writes itself — but the property is worth stating, because it is the one
 that a reader of `tick()` would otherwise assume is broken.
 
+**Why every batch writes its clock, and not only the outermost one.** The
+suppression of the per-tick write is global per factory, so a tick minted
+anywhere while a batch is open is carried by that batch's write. If the
+batch that queued the patches leaves without writing — because another batch
+happened to be open at that moment — those patches are queued with clocks that
+exist nowhere but in memory. The batch is the unit that owns the clock of the
+patches it queued, so it is the unit that writes. Writing the clock twice for
+two overlapping batches costs nothing: the monotonicity rule drops the write
+that is not newer than the one already stored.
+
 **Why the batch's write is not cancellable.** Because the suppression is
 global, the batch's final write is the *only* write that carries a clock
 minted during the batch. If the batch is cancelled before that write lands,
@@ -258,6 +283,9 @@ entirely on the sync side of the delete.
   older clock of its own accord.
 * A cancelled batch still writes its clock. The write is the only one that
   carries a clock minted during the batch, so it is not cancellable.
+* Every batch writes its own clock before it returns, so a batch that finishes
+  while another batch is still open does not leave its queued patches without
+  a clock on disk. `HlcFactoryPersistenceTest` asserts that overlap.
 * The reset is atomic: a failure anywhere in it leaves the profile whole
   instead of half deleted. `ProfileResetReachesTheWholeProfileTest` asserts
   that a failing repository undoes the deletions that came before it.

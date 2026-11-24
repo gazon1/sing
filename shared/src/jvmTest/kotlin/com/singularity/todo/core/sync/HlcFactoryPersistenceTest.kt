@@ -7,9 +7,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
+import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -275,6 +277,74 @@ class HlcFactoryPersistenceTest {
                     "suppressed the per-tick writes, so this one is the only one",
             )
 
+            scope.close()
+        }
+
+    /**
+     * A batch that finishes while another batch is still open still writes its clock.
+     *
+     * ## The defect this pins down
+     *
+     * Two batches can overlap — the wipe of a profile and a sync that runs beside it
+     * both enqueue. The batch that finishes first used to leave without writing,
+     * because a batch was still open and would write the clock.
+     *
+     * By then that batch had already queued its patches, and the patches carried
+     * clocks that were not on disk. A crash in between left the stored clock older
+     * than a clock the device had already issued, and the next patch could carry a
+     * timestamp older than one the server already holds.
+     *
+     * So the write belongs to the batch that queued the patches, and it happens
+     * before that batch returns — whether or not another batch is still open.
+     *
+     * The first batch is held open on its own thread: the block of [HlcFactory.batched]
+     * is not a suspending one, so a latch is what keeps it open while the second
+     * batch runs and finishes.
+     */
+    @Test
+    fun `a batch that finishes while another batch is open still writes its clock`() =
+        runTest {
+            val store = CountingHlcStore()
+            val scope = newScope()
+            val factory =
+                HlcFactory(
+                    deviceIdProvider =
+                        object : DeviceIdProvider {
+                            override suspend fun getOrInitDeviceId(): String = "node-a"
+                        },
+                    clock = MutableClock(),
+                    scope = scope,
+                    hlcStore = store,
+                )
+
+            val firstBatchIsOpen = CountDownLatch(1)
+            val releaseFirstBatch = CountDownLatch(1)
+            val firstBatch =
+                Thread {
+                    runBlocking {
+                        factory.batched {
+                            factory.tick()
+                            firstBatchIsOpen.countDown()
+                            releaseFirstBatch.await()
+                        }
+                    }
+                }
+            firstBatch.start()
+            firstBatchIsOpen.await()
+
+            // The second batch mints a clock and finishes while the first is open.
+            factory.batched { factory.tick() }
+
+            assertEquals(
+                1,
+                store.saves,
+                "a batch that finishes while another batch is open must still write " +
+                    "its clock: it suppressed the per-tick writes, so that write is " +
+                    "the only one that carries the clock its patches carry",
+            )
+
+            releaseFirstBatch.countDown()
+            firstBatch.join(30_000)
             scope.close()
         }
 

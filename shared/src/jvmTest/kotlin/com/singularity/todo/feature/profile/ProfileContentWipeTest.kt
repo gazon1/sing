@@ -6,13 +6,18 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.DatabaseTestFixture
+import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DeltaPatch
+import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.core.sync.FakeSyncScopeProvider
 import com.singularity.todo.core.sync.OutboxService
@@ -32,6 +37,8 @@ import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl
+import com.singularity.todo.feature.tags.data.TagsRepositoryImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -421,6 +428,62 @@ class ProfileContentWipeTest {
             )
         }
 
+    /**
+     * Every repository the wipe calls queues one tombstone per removed row.
+     *
+     * The tasks had that covered against the real outbox; the notes, projects, tags
+     * and tag groups did not, and they take the same batched path — a regression that
+     * handed the batch the wrong rows, or dropped the tombstones of one type, would
+     * leave the server calling rows live that the device no longer holds, and the
+     * next pull would bring them back.
+     */
+    @Test
+    fun `every repository path of the wipe queues one tombstone per removed row`() =
+        runTest {
+            db.noteDao().upsert(noteEntity("n1"))
+            db.projectDao().upsert(projectEntity("p1"))
+            db.tagDao().upsert(tagEntity("tag-1"))
+            db.tagGroupDao().upsert(tagGroupEntity("group-1"))
+
+            // One sync seam for all four repositories, as in production: the seam
+            // owns the patch-id generator, and the outbox keys its rows by that id.
+            val sync = syncWithOutbox()
+
+            assertEquals(
+                1,
+                notesRepoWithOutbox(alice, sync).deleteAllForCurrentProfile().getOrThrow(),
+                "the note is removed",
+            )
+            assertEquals(
+                1,
+                projectsRepoWithOutbox(alice, sync).deleteAllForCurrentProfile().getOrThrow(),
+                "the project is removed",
+            )
+            assertEquals(
+                1,
+                tagsRepoWithOutbox(alice, sync).deleteAllForCurrentProfile().getOrThrow(),
+                "the tag is removed",
+            )
+            assertEquals(
+                1,
+                tagGroupsRepoWithOutbox(alice, sync).deleteAllForCurrentProfile().getOrThrow(),
+                "the tag group is removed",
+            )
+
+            val queued = queuedPatches()
+            assertEquals(
+                listOf("group-1", "n1", "p1", "tag-1"),
+                queued.map { it.entityId }.sorted(),
+                "one tombstone per removed row — nothing is summarised away, and " +
+                    "nothing is dropped",
+            )
+            assertEquals(
+                listOf(DocType.Note.key, DocType.Project.key, DocType.Tag.key, DocType.TagGroup.key),
+                queued.map { it.entityType }.sorted(),
+                "each tombstone says what it is about",
+            )
+        }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────
 
     private fun task(
@@ -479,6 +542,72 @@ class ProfileContentWipeTest {
         updatedAt = Clock.System.now(),
     )
 
+    /** A note row, written straight to the table. */
+    private fun noteEntity(
+        id: String,
+        uid: UserId = alice,
+    ) = NoteEntity(
+        id = id,
+        userId = uid.value,
+        title = "Note $id",
+        bodyMarkdown = "body $id",
+        bodyHtml = null,
+        parentNoteId = null,
+        createdAt = 0L,
+        updatedAt = 0L,
+        deletedAt = null,
+        archivedAt = null,
+    )
+
+    /** A project row, written straight to the table. */
+    private fun projectEntity(
+        id: String,
+        uid: UserId = alice,
+    ) = ProjectEntity(
+        id = id,
+        userId = uid.value,
+        name = "Project $id",
+        color = 0,
+        icon = null,
+        description = null,
+        createdAt = 0L,
+        updatedAt = 0L,
+        dueDate = null,
+        team = null,
+        deletedAt = null,
+        parentId = null,
+        externalId = null,
+    )
+
+    /** A tag row, written straight to the table. */
+    private fun tagEntity(
+        id: String,
+        uid: UserId = alice,
+    ) = TagEntity(
+        id = id,
+        userId = uid.value,
+        name = "Tag $id",
+        nameNormalized = id,
+        color = 0,
+        createdAt = 0L,
+        updatedAt = 0L,
+        deletedAt = null,
+    )
+
+    /** A tag group row, written straight to the table. */
+    private fun tagGroupEntity(
+        id: String,
+        uid: UserId = alice,
+    ) = TagGroupEntity(
+        id = id,
+        userId = uid.value,
+        name = "Group $id",
+        color = 0,
+        createdAt = 0L,
+        updatedAt = 0L,
+        deletedAt = null,
+    )
+
     private fun view(
         id: String,
         uid: UserId = alice,
@@ -522,6 +651,27 @@ class ProfileContentWipeTest {
         outboxDao: SyncOutboxDao = db.syncOutboxDao(),
     ): TaskRepositoryImpl {
         val user = currentUser(uid)
+        return TaskRepositoryImpl(
+            taskDao = db.taskDao(),
+            textIndex = db.textIndex(user),
+            clock = Clock.System,
+            currentUser = user,
+            syncRepository = syncWithOutbox(outboxDao),
+            dependencyValidator = DependencyValidatorImpl(db.taskDao(), user),
+            unitOfWork = RoomUnitOfWork(db),
+        )
+    }
+
+    /**
+     * The sync seam as the wipe meets it in production: the real outbox service over
+     * the real DAOs.
+     *
+     * The only thing that is not production here is the [SyncRepository] seam itself:
+     * the engine would need a transport, a runner and a coordinator to answer it, and
+     * none of those take part in the wipe. What the wipe needs from that seam is the
+     * batched enqueue, and that is the real [OutboxService].
+     */
+    private fun syncWithOutbox(outboxDao: SyncOutboxDao = db.syncOutboxDao()): FakeSyncRepository {
         val outboxService =
             OutboxService(
                 outboxDao = outboxDao,
@@ -534,20 +684,78 @@ class ProfileContentWipeTest {
                     ),
                 monoNow = { Clock.System.now().toEpochMilliseconds() },
             )
-        val sync =
-            object : FakeSyncRepository() {
-                override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = outboxService.enqueue(entity)
+        return object : FakeSyncRepository() {
+            override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = outboxService.enqueue(entity)
 
-                override suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit> =
-                    outboxService.enqueueAll(entities)
-            }
-        return TaskRepositoryImpl(
-            taskDao = db.taskDao(),
+            override suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit> =
+                outboxService.enqueueAll(entities)
+        }
+    }
+
+    /**
+     * The repositories of the wipe share one sync seam, as they do in production.
+     *
+     * The seam owns the patch-id generator, and the outbox keys its rows by that
+     * id: one generator per repository would hand every repository the same first
+     * id, and the outbox would keep only the last row that id wrote.
+     */
+    private fun notesRepoWithOutbox(
+        uid: UserId,
+        sync: FakeSyncRepository = syncWithOutbox(),
+    ): NotesRepositoryImpl {
+        val user = currentUser(uid)
+        return NotesRepositoryImpl(
+            noteDao = db.noteDao(),
             textIndex = db.textIndex(user),
             clock = Clock.System,
             currentUser = user,
             syncRepository = sync,
-            dependencyValidator = DependencyValidatorImpl(db.taskDao(), user),
+            unitOfWork = RoomUnitOfWork(db),
+        )
+    }
+
+    private fun projectsRepoWithOutbox(
+        uid: UserId,
+        sync: FakeSyncRepository = syncWithOutbox(),
+    ): ProjectsRepositoryImpl {
+        val user = currentUser(uid)
+        return ProjectsRepositoryImpl(
+            projectDao = db.projectDao(),
+            inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+            clock = Clock.System,
+            currentUser = user,
+            syncRepository = sync,
+            unitOfWork = RoomUnitOfWork(db),
+        )
+    }
+
+    private fun tagsRepoWithOutbox(
+        uid: UserId,
+        sync: FakeSyncRepository = syncWithOutbox(),
+    ): TagsRepositoryImpl {
+        val user = currentUser(uid)
+        return TagsRepositoryImpl(
+            tagDao = db.tagDao(),
+            clock = Clock.System,
+            currentUser = user,
+            syncRepository = sync,
+            unitOfWork = RoomUnitOfWork(db),
+        )
+    }
+
+    private fun tagGroupsRepoWithOutbox(
+        uid: UserId,
+        sync: FakeSyncRepository = syncWithOutbox(),
+    ): TagGroupRepositoryImpl {
+        val user = currentUser(uid)
+        return TagGroupRepositoryImpl(
+            tagGroupDao = db.tagGroupDao(),
+            inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+            projectDao = db.projectDao(),
+            tagDao = db.tagDao(),
+            clock = Clock.System,
+            currentUser = user,
+            syncRepository = sync,
             unitOfWork = RoomUnitOfWork(db),
         )
     }
