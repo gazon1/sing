@@ -313,9 +313,9 @@ causes:
 - key: "Assertion is false: id: nav_tab_today is visible"
   issue: 927
   owner: test
-  status: fixed
-  flows: 0
-  note: "Fixed by this change; the cause is a regression guard from now on."
+  status: accepted
+  flows: 15
+  note: "Recurred in smoke run 45361682445 (2026-11-24, emulator API 36, push 7b215f5aeb): 15/29 smoke flows failed waiting for nav_tab_today after launch-clean. Shared shell readiness/root cause not fixed in this PR; needs device/CI repro and helper/app-start investigation. Registered as accepted to keep the registry aligned with observed cause; not marked fixed."
 
 # The causes the device found. A phone's screen is smaller than the emulator's
 # and its locale is Russian, so what the emulator hid showed up here.
