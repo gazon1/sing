@@ -1,0 +1,26 @@
+{
+  "target": "jvm-desktop",
+  "scenario": "agenda-upcoming-scroll",
+  "dataset": {
+    "tasks": 1000,
+    "source": "seeded in the test through the repository"
+  },
+  "method": {
+    "warmupRuns": 2,
+    "measuredRuns": 5,
+    "dragsPerRun": 10,
+    "dragDistancePx": 400,
+    "measured": "the gesture plus waitForIdle() — the recomposition and the layout of the tree a frame draws"
+  },
+  "results": {
+    "openTimelineMedianMs": 553.473,
+    "openTimelineSamples": 5,
+    "scrollMedianMs": 110.068,
+    "scrollP95Ms": 181.554,
+    "scrollSamples": 50,
+    "composedRows": 13
+  },
+  "note": "three full runs of the same procedure on a quiet host gave these numbers to the millisecond, so the procedure is reproducible; a run taken while another build loaded the host gave a scroll median of 78.6 ms and an open-timeline median of 428.4 ms — a loaded host changes the numbers severalfold, so they read as an order of magnitude, not as a threshold",
+  "repeatRuns": 3,
+  "source": "desktopApp/build/test-results/test/TEST-com.singularity.todo.feature.flows.agenda.AgendaFrameTimeBaselineTest.xml"
+}
