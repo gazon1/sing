@@ -317,6 +317,19 @@ about the chunks before the last one. The alternative of a text-only wait was
 rejected as well: a wait on the count alone is a text wait, and the corpus
 holds a fixed floor of text waits (27), so each chunk would add one.
 
+**A link that outruns the seed it addresses.** A flow that seeds a row and
+then sends a link to that row has a race that no wait on the screen can
+close: the link is an intent, and the app resolves it against whatever the
+database holds when the intent arrives. If the row is not written yet, the
+link opens a task that is not the one the flow named, and the flow asserts on
+a task it never addressed. The seed's wait closes the race only when the row
+is on the screen the app is left on — a row due today is on the Today tab,
+and a row without a date is in the Inbox, which the helper does not wait on.
+So the seeded task of such a flow is due today, and the flow names its row in
+`WAIT_FOR`. The flow then waits for the editor *by the title the seed gave*,
+not by the field alone: a field that carries any title is an editor of some
+task, and the title is what proves it is the task the link named.
+
 **What the rule is held against.** `SeedHelperWaitTest` holds the rule to
 fixtures as well as to the tree: flows written to break it — a wait that
 precedes the seed, two seeds of one row with a wait that covers only the first
@@ -487,6 +500,10 @@ profile therefore behaves exactly as it did before.
   the first of the three seeds.
 - A relative date of zero days is today: `+0d` and `0d` name a task that is
   due today, and the helper may wait for its row.
+- `nav/deep-link-task` seeds a task that is due today and names its row in
+  `WAIT_FOR`, so the link that follows cannot outrun the write of the row it
+  addresses; the task is due today because a row without a date is in the
+  Inbox, which the helper does not wait on.
 - `nav/deep-link-task` and `notes/03-internal-link-navigation` assert the
   title of the task they opened, and wait for the editor by the id of its
   title field *and* by that title: the wait names the entity, not whichever
@@ -559,6 +576,10 @@ Android emulator (`emulator-5554`), 2026-11-24 — the per-chunk waits:
   `100`, `200`, … `1000`, `1001` in order, each wait `COMPLETED` within the
   item budget (8 s). The last chunk lands, `task_item_todayreachable` is
   visible, and the expanded overdue list shows `task_item_bigoverdue_1`.
+- `nav/deep-link-task` — **green** (exit 0). The trace shows the helper's
+  entity wait running on the seeded row (`Assert that id:
+  ${WAIT_TARGET} is visible... COMPLETED`) before the link is sent, and the
+  editor's title field carrying the seeded title afterwards.
 
 ## Links
 
@@ -592,6 +613,8 @@ Android emulator (`emulator-5554`), 2026-11-24 — the per-chunk waits:
   wants waited for.
 - `Maestro/flows/agenda/07-large-overdue.yaml` — a flow that waits for the
   section the seeded task is in.
+- `Maestro/flows/nav/deep-link-task.yaml` — a flow whose link cannot outrun
+  the seed it addresses.
 - `Maestro/flows/menu/06-tree-live.yaml` — a flow that waits for a renamed
   entity by the name it was given.
 - `docs/decisions/2026-11-05-the-seed-waits-for-the-shell-not-the-row.md` — the
