@@ -456,6 +456,30 @@ internal class SyncEngine(
         }
 
     /**
+     * Enqueues many entities for sync in one batch.
+     *
+     * The same contract as [enqueue] — one patch per entity, each replacing that
+     * entity's previous queued patch — carried out in one pass instead of one pass
+     * per entity. A profile wipe of ten thousand rows is the case this exists for: the
+     * per-entity path wrote the sync clock to disk ten thousand times, and the wipe
+     * took minutes.
+     *
+     * The failure is reported the same way, once for the batch: the rows are already
+     * gone locally, so a patch that was not queued is a change the server never
+     * learns about, and the report is what says so.
+     */
+    suspend fun enqueueAll(entities: List<SyncableEntity>): Result<Unit> =
+        runCatchingResult { outboxService.enqueueAll(entities).getOrThrow() }.also { result ->
+            val error = result.exceptionOrNull() ?: return@also
+            val appError = error as? AppError ?: error.toAppError()
+            log.e(appError.original()) {
+                "enqueue failed for a batch of ${entities.size} entities: " +
+                    "the changes are saved locally and will never be pushed"
+            }
+            crashReporter.report(appError.original(), "sync.enqueue_failed")
+        }
+
+    /**
      * Runs one push + pull cycle.
      */
     internal suspend fun syncOnce(): SyncOutcome {

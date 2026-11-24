@@ -40,10 +40,99 @@ internal class SyncPatchBuilder(
         scope: SyncScope,
         nowMillis: Long,
     ): DeltaPatch {
+        val shadow = shadowDao.get(scope.ownerId, scope.profileId, entity.docType.key, entity.syncId)
+        val built = buildPatch(entity, scope, nowMillis, shadow, hlcFactory.tick())
+        shadowDao.upsert(built.shadow)
+        return built.patch
+    }
+
+    /**
+     * Builds the patches of **many** entities, chunk by chunk, and hands each chunk
+     * to [onChunk].
+     *
+     * The batched form of [build], and the reason a profile wipe of ten thousand rows
+     * is seconds rather than minutes: the single path costs one shadow read, one
+     * shadow write, one clock write and one outbox write **per entity** — and the
+     * clock write is a DataStore file write, which is what turned a wipe into minutes
+     * of waiting.
+     *
+     * The patches are the patches [build] would have produced: the same diff against
+     * the same confirmed state, the same fields dropped for the server, one distinct
+     * clock each.
+     *
+     * ## Why a chunk at a time
+     *
+     * A patch carries the entity's whole JSON state, and the shadow carries it a
+     * second time; the outbox row carries it a third. Holding all of them at once is
+     * what a wipe of fifty thousand rows cannot afford: the phone's heap is a couple
+     * of hundred megabytes, and three copies of every row's JSON do not fit in it.
+     * So the batch works in pieces of [SQL_BIND_CHUNK] entities — the same piece size
+     * the `IN (…)` lists use — and each piece is built, written and released before
+     * the next one starts.
+     *
+     * ## The clock
+     *
+     * The clocks are minted up front, in one batch, and the batch writes the clock to
+     * disk once — **before** any patch is queued. A crash therefore leaves the clock
+     * ahead of the queue rather than behind it: a clock that skipped ahead loses
+     * nothing, and a clock that lagged behind could mint a patch older than one the
+     * server already holds.
+     */
+    suspend fun forEachChunk(
+        entities: List<SyncableEntity>,
+        scope: SyncScope,
+        nowMillis: Long,
+        onChunk: suspend (chunk: List<SyncableEntity>, patches: List<DeltaPatch>) -> Unit,
+    ) {
+        if (entities.isEmpty()) return
+
+        val clocks = hlcFactory.batched { entities.map { hlcFactory.tick() } }
+
+        var next = 0
+        entities.chunked(SQL_BIND_CHUNK).forEach { chunk ->
+            val shadows =
+                shadowDao
+                    .getAll(
+                        scope.ownerId,
+                        scope.profileId,
+                        chunk.map { it.syncId }.distinct(),
+                    ).associateBy { it.entityType to it.entityId }
+
+            val built =
+                chunk.map { entity ->
+                    buildPatch(
+                        entity = entity,
+                        scope = scope,
+                        nowMillis = nowMillis,
+                        shadow = shadows[entity.docType.key to entity.syncId],
+                        hlc = clocks[next++],
+                    )
+                }
+            shadowDao.upsertAll(built.map { it.shadow })
+            onChunk(chunk, built.map { it.patch })
+        }
+    }
+
+    /**
+     * The patch and the shadow row it leaves behind — no reads, no writes.
+     *
+     * Split out of [build] so the batched path can read the shadows once for the
+     * whole chunk and still diff every entity against its own confirmed state.
+     *
+     * [hlc] is the clock the patch carries. The single-entity path mints it here;
+     * the batched path mints the whole batch's clocks up front, so that the clock
+     * file is written once and before any patch is queued.
+     */
+    private fun buildPatch(
+        entity: SyncableEntity,
+        scope: SyncScope,
+        nowMillis: Long,
+        shadow: SyncShadowEntity?,
+        hlc: Hlc,
+    ): BuiltPatch {
         val state = entity.toJson()
         val encoded = json.encodeToString(JsonObject.serializer(), state)
         val typeKey = entity.docType.key
-        val shadow = shadowDao.get(scope.ownerId, scope.profileId, typeKey, entity.syncId)
 
         // Diff against what the server actually holds (confirmed), never the
         // in-flight state: the in-flight patch has not landed yet, so a base built
@@ -52,8 +141,8 @@ internal class SyncPatchBuilder(
         val base = decode(shadow?.confirmedJson ?: EMPTY_STATE)
         // The model goes on the wire whole, so the diff of a fresh entity names
         // every field of it — including the four the server owns: the row's `id`,
-        // its `userId`, the `hlc` the patch carries beside its operations, and
-        // the `serverVersion` the server counts itself.
+        // its `userId`, the `hlc` the patch carries beside its operations, and the
+        // `serverVersion` the server counts itself.
         //
         // A patch that names one of them is refused **in full**: the server applies
         // the allowlist to the patch before it writes a single field, so one
@@ -75,16 +164,16 @@ internal class SyncPatchBuilder(
                 baseVersion = shadow?.serverVersion ?: 0,
                 isDelete = false,
                 ops = ops,
-                // The clock the server orders by. Taken from the factory rather than from
-                // the wall clock, so two patches authored in the same millisecond still
+                // The clock the server orders by. Taken from the factory rather than from the
+                // wall clock, so two patches authored in the same millisecond still
                 // have a total order — and so a patch authored on a device whose clock is
                 // minutes behind wins against a field the ahead device never touched,
                 // while losing against one it touched later. That is the hybrid part.
-                hlc = hlcFactory.tick(),
+                hlc = hlc,
                 timestampMs = nowMillis,
             )
 
-        shadowDao.upsert(
+        val shadowRow =
             SyncShadowEntity(
                 ownerId = scope.ownerId,
                 profileId = scope.profileId,
@@ -104,9 +193,8 @@ internal class SyncPatchBuilder(
                 // the server had never seen the row — reintroducing, one step later,
                 // exactly the defect the column exists to fix.
                 serverVersion = shadow?.serverVersion ?: 0,
-            ),
-        )
-        return patch
+            )
+        return BuiltPatch(patch = patch, shadow = shadowRow)
     }
 
     private fun decode(encoded: String): JsonObject = json.decodeFromString(JsonObject.serializer(), encoded)
@@ -159,6 +247,9 @@ internal class SyncPatchBuilder(
         } else {
             FieldChange(field = field, op = FieldOp.SET, value = value)
         }
+
+    /** A patch and the shadow row that goes with it. */
+    private data class BuiltPatch(val patch: DeltaPatch, val shadow: SyncShadowEntity)
 
     private companion object {
         /** "The server has nothing": the base for an entity that has never synced. */

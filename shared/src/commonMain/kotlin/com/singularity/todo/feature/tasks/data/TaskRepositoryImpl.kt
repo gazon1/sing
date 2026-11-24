@@ -19,6 +19,7 @@ import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -715,14 +716,19 @@ class TaskRepositoryImpl(
                 taskDao.deleteDependenciesForUser(uid)
                 taskDao.deleteChecklistItemsForUser(uid)
                 val removed = taskDao.deleteAllForUser(uid)
-                doomed.forEach { row ->
-                    val task =
-                        row.toTask(
-                            tags = tagRefs[row.id].orEmpty(),
-                            blockedBy = depRefs[row.id].orEmpty(),
-                        )
-                    syncRepository.enqueue(task.copy(archivedAt = task.archivedAt ?: now)).getOrThrow()
-                }
+                // One batch, one pass: the per-entity path wrote the sync clock to
+                // disk for every task it removed, and a wipe of ten thousand rows paid
+                // that ten thousand times.
+                val tombstones: List<SyncableEntity> =
+                    doomed.map { row ->
+                        val task =
+                            row.toTask(
+                                tags = tagRefs[row.id].orEmpty(),
+                                blockedBy = depRefs[row.id].orEmpty(),
+                            )
+                        task.copy(archivedAt = task.archivedAt ?: now)
+                    }
+                syncRepository.enqueue(tombstones).getOrThrow()
                 removed
             }
         }

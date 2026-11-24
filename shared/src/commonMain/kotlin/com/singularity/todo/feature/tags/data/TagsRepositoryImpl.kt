@@ -8,6 +8,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
@@ -127,9 +128,11 @@ class TagsRepositoryImpl(
                 val doomed = tagDao.listAllForUser(uid)
                 val removed = tagDao.deleteAllForUser(uid)
                 val now = clock.now()
-                doomed.forEach { row ->
-                    syncRepository.enqueue(row.toTag().copy(deletedAt = now)).getOrThrow()
-                }
+                // One batch, one pass: the per-entity path wrote the sync clock to
+                // disk for every tag it removed.
+                val tombstones: List<SyncableEntity> =
+                    doomed.map { row -> row.toTag().copy(deletedAt = now) }
+                syncRepository.enqueue(tombstones).getOrThrow()
                 removed
             }
         }

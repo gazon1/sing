@@ -93,6 +93,10 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         rows += entity
     }
 
+    override suspend fun insertAll(entities: List<SyncOutboxEntity>) {
+        entities.forEach { insert(it) }
+    }
+
     override suspend fun delete(id: String) {
         rows.removeAll { it.patchId == id }
     }
@@ -123,6 +127,16 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         entityId: String,
     ) {
         rows.removeAll { it.ownerId == ownerId && it.profileId == profileId && it.entityId == entityId }
+    }
+
+    override suspend fun deleteByEntities(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): Int {
+        val doomed = rows.filter { it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds }
+        rows.removeAll { it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds }
+        return doomed.size
     }
 
     override suspend fun deleteForOwner(ownerId: String): Int {
@@ -460,7 +474,7 @@ class ThrowingSyncScopeProvider(private val cause: Throwable = IllegalStateExcep
  * fake inside `FakeAppDatabase` and against Room, so a fake that loses a guard fails
  * the contract rather than quietly passing a test written against it.
  */
-class FakeSyncShadowDao : SyncShadowDao {
+open class FakeSyncShadowDao : SyncShadowDao {
     private data class Key(val ownerId: String, val profileId: String, val entityType: String, val entityId: String)
 
     private val rows = mutableMapOf<Key, SyncShadowEntity>()
@@ -483,6 +497,21 @@ class FakeSyncShadowDao : SyncShadowDao {
     /** The row keeps the owner and profile it was written under. */
     override suspend fun upsert(entity: SyncShadowEntity) {
         rows[Key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)] = entity
+    }
+
+    /** The batched read: the same scope as [get], over many ids. */
+    override suspend fun getAll(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): List<SyncShadowEntity> =
+        rows.values.filter {
+            it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds
+        }
+
+    /** The batched write: the same row as [upsert], one transaction. */
+    override suspend fun upsertAll(entities: List<SyncShadowEntity>) {
+        entities.forEach { upsert(it) }
     }
 
     /** The whole key, and only the confirmed column — the queued patch's base is untouched. */

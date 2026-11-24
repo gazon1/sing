@@ -47,6 +47,8 @@ internal class SyncRepositoryImpl(
 
     override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = engine.enqueue(entity)
 
+    override suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit> = engine.enqueueAll(entities)
+
     /**
      * Requests a cycle and waits for its outcome.
      *

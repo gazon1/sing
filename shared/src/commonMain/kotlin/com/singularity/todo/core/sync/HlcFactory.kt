@@ -55,6 +55,14 @@ open class HlcFactory(
     // Last HLC, restored from storage if available.
     private var _lastHlc: Hlc? = null
 
+    /**
+     * How many [batched] blocks are open right now.
+     *
+     * Guarded by the same monitor as [_lastHlc], because [tick] reads it under that
+     * monitor too.
+     */
+    private var batchDepth = 0
+
     private val lastHlcDeferred: Deferred<Hlc> =
         CompletableDeferred<Hlc>().also { deferred ->
             scope.launch {
@@ -99,9 +107,61 @@ open class HlcFactory(
             val last = _lastHlc ?: lastHlcDeferred.getCompleted()
             Hlc.tick(last = last, node = node, nowMillis = currentTimeMillis()).also {
                 _lastHlc = it
-                persist(it)
+                // Inside a batch the clock is persisted once, at the end: a profile wipe
+                // mints one tick per removed row, and a DataStore write per tick is what
+                // made the wipe of ten thousand rows take minutes.
+                if (batchDepth == 0) persist(it)
             }
         }
+
+    /**
+     * Mints ticks without persisting each one, and persists the last one when the block
+     * ends.
+     *
+     * ## Why the persistence is deferred
+     *
+     * The clock is stored so that a restart does not mint a clock older than the one
+     * already pushed. Writing it on every tick is honest for one patch at a time and
+     * ruinous for a batch: a wipe of ten thousand rows mints ten thousand ticks, and
+     * ten thousand DataStore writes are ten thousand file writes on a phone.
+     *
+     * The batch still persists — once, with the last clock minted — so the property the
+     * store exists for survives. What it stops doing is writing the same file ten
+     * thousand times to record the same fact.
+     *
+     * The ticks themselves are unchanged: each one is still distinct and still ordered.
+     *
+     * ## When the write happens
+     *
+     * The clock is written when the block ends, which is **before** the patches that
+     * carry it are queued. A crash therefore leaves the clock ahead of the queue rather
+     * than behind it: a clock that skipped ahead loses nothing, and a clock that lagged
+     * behind could mint a patch older than one the server already holds.
+     */
+    suspend fun <T> batched(block: () -> T): T {
+        synchronized(this) { batchDepth++ }
+        try {
+            return block()
+        } finally {
+            val last =
+                synchronized(this) {
+                    batchDepth--
+                    if (batchDepth == 0) _lastHlc else null
+                }
+            last?.let { persistNow(it) }
+        }
+    }
+
+    /**
+     * Writes the clock and waits for it to land.
+     *
+     * The suspending form of [persist], for the places where the write has to be
+     * finished before the caller continues.
+     */
+    private suspend fun persistNow(hlc: Hlc) {
+        val store = hlcStore ?: return
+        store.save(hlc)
+    }
 
     /**
      * Merges a received remote HLC with the local state.
