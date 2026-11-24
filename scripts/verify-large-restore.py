@@ -913,6 +913,7 @@ def tool_versions(serial: str) -> dict[str, str]:
     versions["jdk"] = host_version(["java", "-version"])
     versions["commit"] = host_version(["git", "rev-parse", "HEAD"])
     versions["dirty"] = repo_is_dirty()
+    versions["uncommitted_diff"] = repo_uncommitted_diff()
     return versions
 
 
@@ -931,6 +932,25 @@ def repo_is_dirty() -> str:
     if result.returncode != 0:
         return "unknown"
     return "yes" if result.stdout.strip() else "no"
+
+
+def repo_uncommitted_diff() -> str:
+    """The changes the tree carried when the run was made.
+
+    The commit alone does not describe a tree that had changes in it, so the
+    report carries the changes as well: the reader can then rebuild the source
+    state the measurement was made from instead of taking the word of a dirty
+    flag.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "diff", "HEAD"], capture_output=True, text=True, timeout=60
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout
 
 
 def flow_command(serial: str, flow: str, env: dict[str, str]) -> list[str]:
@@ -2093,6 +2113,12 @@ def write_report(out_dir: Path, report: dict) -> None:
             lines.append(f"* apk digest: `{apk['digest']}`")
     if report.get("tools"):
         lines.append(f"* tools: Maestro {report['tools'].get('maestro', '—')}")
+        diff = report["tools"].get("uncommitted_diff") or ""
+        if diff.strip():
+            lines.append(
+                "* tree: the run was made from a tree with uncommitted changes — "
+                "the report carries them"
+            )
     if dataset:
         lines.append(
             f"* dataset: profile `{dataset.get('profile')}`, seed `{dataset.get('seed')}`"

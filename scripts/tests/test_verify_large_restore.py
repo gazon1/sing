@@ -3033,5 +3033,28 @@ class UiPathsPhaseTest(unittest.TestCase):
             self.assertIn("ui paths opened", report["phases"])
 
 
+class ProvenanceTest(unittest.TestCase):
+    """A measurement must say which source state produced it.
+
+    A commit alone does not describe a tree that carried changes, so a run made
+    from a dirty tree has to carry the changes with it — otherwise the report
+    cannot be reproduced from the commit it names.
+    """
+
+    def _git(self, returncode: int, stdout: str) -> str:
+        completed = unittest.mock.Mock(returncode=returncode, stdout=stdout, stderr="")
+        with unittest.mock.patch.object(driver.subprocess, "run", return_value=completed):
+            return driver.repo_uncommitted_diff()
+
+    def test_the_changes_of_the_tree_are_carried_by_the_report(self):
+        self.assertIn("+changed line", self._git(0, "diff --git a/x b/x\n+changed line\n"))
+
+    def test_a_clean_tree_carries_nothing(self):
+        self.assertEqual("", self._git(0, ""))
+
+    def test_a_git_that_fails_leaves_the_report_without_changes(self):
+        self.assertEqual("", self._git(128, "fatal: not a git repository"))
+
+
 if __name__ == "__main__":
     unittest.main()
