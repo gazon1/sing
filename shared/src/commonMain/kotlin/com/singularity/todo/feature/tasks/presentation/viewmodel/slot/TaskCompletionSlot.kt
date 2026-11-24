@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -142,9 +143,18 @@ class TaskCompletionSlot(
      * A write that refused and a read that finds nothing in the way disagree only when
      * another device reopened the prerequisite in between; the caller reports that as a
      * plain save failure rather than a confirmation about no one.
+     *
+     * The read is the one thing here that can fail on its own — it is the first database
+     * call this path makes that is not the guarded write. A failure reports through the
+     * same save message instead of escaping to the scope, where the user would see the
+     * close silently do nothing.
      */
     private suspend fun askAboutBlockers(task: Task) {
-        val blockers = core.taskRepo.openBlockersOf(task.id)
+        val blockers =
+            runCatchingCancellable { core.taskRepo.openBlockersOf(task.id) }.getOrElse {
+                onError("Save failed")
+                return
+            }
         if (blockers.isEmpty()) {
             // The write refused but nothing is open any more: another device
             // reopened and re-closed the prerequisite in between. A confirmation

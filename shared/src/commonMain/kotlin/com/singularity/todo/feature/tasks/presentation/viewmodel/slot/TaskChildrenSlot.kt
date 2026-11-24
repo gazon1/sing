@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistMove
@@ -231,7 +232,14 @@ class TaskChildrenSlot(
                         return@launch
                     }
                 if (!completed) {
-                    val blockers = core.taskRepo.openBlockersOf(subtask.id)
+                    // The read can fail on its own — it is not the guarded write. A
+                    // failure reports as the save it was, rather than escaping to the
+                    // scope where the tap would appear to do nothing.
+                    val blockers =
+                        runCatchingCancellable { core.taskRepo.openBlockersOf(subtask.id) }.getOrElse {
+                            onError("Save failed")
+                            return@launch
+                        }
                     if (blockers.isEmpty()) {
                         onError("Save failed")
                         return@launch

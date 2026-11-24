@@ -97,6 +97,18 @@ question is being asked.
 - The behaviour that must not change — same tags, same dependencies, same refusal, same
   wording — is pinned by `TaskDependencyVerbFilterTest`, the slot tests, and the
   contract tests that run against both implementations.
+- The scoped read collects its source **once**. Both review passes found the first shape
+  subscribing to `source` twice — once to derive the ids, once to pair the extras — which
+  ran the query twice in the path the read exists to make cheap and let the two
+  subscriptions disagree for an emission.
+- The blocker read is guarded like the write before it: a failure reports as "Save failed"
+  instead of escaping to the scope, because it is the first call on that path that can fail
+  on its own. The project's `runCatchingCancellable` is used, not `runCatching`, so a
+  cancellation stays a cancellation.
+- The fake DAO scopes **both** rows, as the SQL does. It checked only the prerequisite, so
+  it answered for a task another profile owns — invisible to the contract tests, which
+  read through the repository, and hidden from the desktop Compose tests that mount the
+  fake as their database. `FakeTaskDaoBlockingScopeTest` pins the difference.
 
 ## Links
 

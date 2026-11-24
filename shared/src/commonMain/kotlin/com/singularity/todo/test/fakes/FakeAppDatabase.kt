@@ -1152,8 +1152,12 @@ private class FakeTaskDao(
         taskId: String,
         userId: String,
         verb: String,
-    ): List<TaskEntity> =
-        depRefs.value
+    ): List<TaskEntity> {
+        // Both rows are scoped, as the SQL scopes them: the task that holds the edge
+        // and the prerequisite it points at. Checking only the prerequisite would let
+        // the fake answer for a task another profile owns.
+        if (store.value[taskId]?.userId != userId) return emptyList()
+        return depRefs.value
             .filter { ref ->
                 ref.taskId == taskId &&
                     ref.verb == verb &&
@@ -1161,6 +1165,7 @@ private class FakeTaskDao(
                         it.userId == userId && it.completedAt == null && it.archivedAt == null
                     } == true
             }.mapNotNull { store.value[it.dependsOnTaskId] }
+    }
 
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
 

@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -81,6 +80,13 @@ internal fun TaskDao.withExtras(
  * screen's subtask list materialised ~75k tag edges to read the few that its own
  * rows carry. This reads the edges of the rows given, and nothing else.
  *
+ * **The rows must stay small.** The ids travel as bound `IN (:taskIds)` variables,
+ * and SQLite caps how many a statement may bind. Both callers are bounded by
+ * construction — the subtasks of one parent, and a series, which
+ * `RecurringSeriesWindow.MAX_FUTURE` caps at ten occurrences — so the limit is not
+ * reachable today. A caller that named thousands of rows would have to batch them
+ * or read the profile-wide path instead.
+ *
  * @param uid the owner of the tasks.
  * @param source the rows to enrich — small enough to name in a query.
  */
@@ -89,29 +95,29 @@ internal fun TaskDao.withScopedExtras(
     uid: UserId,
     source: Flow<List<TaskEntity>>,
 ): Flow<List<Task>> =
-    source
-        .map { rows -> rows.map { it.id } }
-        .distinctUntilChanged()
-        .flatMapLatest { ids ->
-            if (ids.isEmpty()) {
-                flowOf(TaskExtras())
-            } else {
-                combine(
-                    observeTagCrossRefsForTasks(ids, uid.value),
-                    observeDependencyCrossRefsForTasks(ids, uid.value),
-                ) { tagRows, depRows ->
+    // One collection of `source` drives both the ids and the rows they end in. The
+    // earlier shape derived the ids from one subscription and paired the extras with
+    // a second one, so the two could disagree for an emission and the source query
+    // ran twice — in the very path this read exists to make cheap.
+    source.flatMapLatest { rows ->
+        val ids = rows.map { it.id }
+        if (ids.isEmpty()) {
+            flowOf(emptyList())
+        } else {
+            combine(
+                observeTagCrossRefsForTasks(ids, uid.value),
+                observeDependencyCrossRefsForTasks(ids, uid.value),
+            ) { tagRows, depRows ->
+                rows.enrichedWith(
                     TaskExtras(
                         tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } },
                         depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
                         followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
-                    )
-                }
+                    ),
+                )
             }
-        }.let { extrasFlow ->
-            // The rows are paired through, not re-read: `source` is the authority
-            // on what to show and in what order.
-            combine(source, extrasFlow) { rows, extras -> rows.enrichedWith(extras) }
         }
+    }
 
 /** The rows as tasks, carrying the tags and edges [extras] holds for each. */
 private fun List<TaskEntity>.enrichedWith(extras: TaskExtras): List<Task> =
