@@ -461,14 +461,23 @@ profile therefore behaves exactly as it did before.
   the qualification fingerprint covers the files a flow runs transitively. The
   gate reports 68 findings on this tree — 53 with a stale baseline, 14 with no
   admission and one exception that was issued for a fingerprint the flow has
-  left behind — and 34 of the 68 run the seed helper. The gate was green
-  before this entry: at the base revision it admitted every flow in a blocking
-  scope (114 baselined, 13 qualified, 0 excepted), so the whole 68 is this
-  entry's debt and not a debt it inherited. They are not broken — their
-  assertions and their navigation are unchanged — but the evidence that
-  admitted them was three passing runs against the old helper. The sweep that
-  requalifies them is tracked in issue #3140; it is not this entry's work,
-  and the ADR does not excuse it with exceptions.
+  left behind. 67 of the 68 run the seed helper — 39 of them through it
+  directly and 28 through `helpers/seed-task.yaml` — and the 68th,
+  `tasks/13-create-full-task`, this entry changed itself. The gate was green
+  before this entry: at the fork point of this branch (`d1af01223f`) it
+  admitted every flow in a blocking scope (127 flows in scope: 114 baselined,
+  13 qualified, 0 excepted), so the whole 68 is this entry's debt and not a
+  debt it inherited. The merge-base with main is not green, and for a reason
+  that is not about the flows: the baseline pin in the gate did not match the
+  map on main (`sha256:5acb16be…` against a map that hashes to
+  `sha256:198cda54…`), so the gate stopped with a read error before it could
+  say anything about them. Main fixed that pin in `a5c948fc5648`, where the
+  gate is green again (121 flows in scope: 103 baselined, 16 qualified, 2
+  excepted). The flows are not broken — their assertions and their navigation
+  are unchanged — but the evidence that admitted them was three passing runs
+  against the old helper. The sweep that requalifies them is tracked in issue
+  #3140; it is not this entry's work, and the ADR does not excuse it with
+  exceptions.
 - `smoke/07-seed-helper-contract` is the runtime half of the contract: the
   optional input, the named entity, and the seed that writes no entity.
 - A flow that seeds an entity the agenda does not show still waits for it
@@ -569,6 +578,46 @@ profile therefore behaves exactly as it did before.
   says: the seeder creates the profile and switches to it before it answers a
   reset, a cleanup or a session link. The profile is on another screen, so the
   flow waits for it itself.
+- Two fixtures are weaker than they were, and the weakening is this entry's
+  doing. `agenda/07-large-overdue` seeds three hundred rows where it seeded a
+  thousand and one: the runner cuts a flow off at five minutes, and four
+  hundred rows already took 216 s of that budget on a loaded host. The
+  regression the flow guards is the same one either way — three hundred rows are
+  fifteen times the count at which the agenda collapses the overdue section.
+  `nav/deep-link-task` seeds a task that is due today where the seeded task had
+  no date: a row without a date is in the Inbox, which the helper does not
+  wait on, so the row the flow addresses could not be waited for at all.
+
+## What the gate does not see
+
+The rule this entry adds is held by `SeedHelperWaitTest` and
+`SeededEntityWaitTest`, which read the flows through `SeedWaitTree`. The tree
+reads what the flows say, and three things it does not read are worth naming:
+a gate that is not seen to be blind is a gate that is trusted too far.
+
+- A flow's own document-level `env:` is not read. The collector starts with an
+  empty environment, so a flow that declares `env:` at the top of its file and
+  refers to it as `${NAME}` is read with the reference unsubstituted — and an
+  assertion made through such a reference is not seen to be an assertion about
+  the entity the seed wrote. No flow in the tree does this today: only
+  `Maestro/helpers/seed.yaml` (whose `env:` derives the wait target, and which
+  the tree deliberately does not descend into) and `Maestro/config.yaml` carry
+  a document-level `env:`. Nothing is admitted or rejected wrongly today, and a
+  flow that waited for nothing and asserted through such a reference would pass
+  the gate unchecked.
+- An assertion counts as being about the entity only when it names it exactly:
+  the row's `id:` or the name the seed gave. A pattern
+  (`text: "^Overdue .*25$"`) is not about the entity, so a flow that asserts a
+  seeded entity only by a pattern is not held to a wait for it.
+- `assertNotVisible` (34 uses in the tree) and `waitForAnimationToEnd` (9 uses)
+  are read as neither an assertion nor a wait. An assertion of absence is not an
+  assertion about the entity the seed wrote, and an animation that has to end is
+  not a wait for it — but a flow whose only assertion about a seeded entity is
+  an `assertNotVisible` is therefore not held to a wait for that entity.
+
+These are limits of the check, not of the contract: the flows in the tree
+assert their seeded entities by id or by name, and the helper's wait is what
+the contract asks of them.
 
 ## Verified on device
 

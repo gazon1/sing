@@ -48,6 +48,14 @@ tags:
       QUERY: "project=Renamed&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
 - runFlow: ../../helpers/expand-projects-section.yaml
+# The tree sits at the end of the sheet, below the fold, so the row is scrolled
+# into view before anything is waited for: the wait does not scroll, and a name
+# that is written below the fold stays invisible however long it is waited for.
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_roadmap
+    direction: DOWN
+    timeout: 8000
 # The renamed project is waited for by the name the rename gave it. The row
 # the rename rewrote was on screen before the seed ran, so a wait for the row
 # returns at once and proves nothing about the write the flow asserts on; the
@@ -55,11 +63,6 @@ tags:
 - extendedWaitUntil:
     visible:
       text: "Renamed"
-    timeout: 8000
-- scrollUntilVisible:
-    element:
-      id: menu_project_node_roadmap
-    direction: DOWN
     timeout: 8000
 - assertVisible:
     id: menu_project_node_roadmap
