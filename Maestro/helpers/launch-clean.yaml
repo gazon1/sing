@@ -35,6 +35,12 @@ onFlowComplete:
     clearState: false
     permissions:
       notifications: allow
+# The first-run spotlight tour dims the agenda and swallows the taps under its
+# scrim, so a flow that drives the agenda never reaches its rows. Dismiss it
+# before the shell-readiness wait: if the tour appears on first render, its
+# scrim can block Maestro's visibility check for nav_tab_today and fail every
+# flow at launch-clean. skip-spotlight is a no-op when the card is absent.
+- runFlow: skip-spotlight.yaml
 # Wait for the agenda shell to be interactive before the next step.
 # After `adb install -r -t` the app is force-stopped and must cold-start on a
 # loaded CI runner, so the wait is bounded by the shell becoming visible rather
@@ -43,8 +49,6 @@ onFlowComplete:
     visible:
       id: nav_tab_today
     timeout: 30000
-# The first-run spotlight tour dims the agenda and swallows the taps under its
-# scrim, so a flow that drives the agenda never reaches its rows. The tour is
-# dismissed here, once per device: a device that has seen it has nothing to
-# dismiss, and the helper's conditional is what says so.
+# Dismiss again after shell readiness: the tour can also appear once the agenda
+# has rendered. skip-spotlight is a no-op when the card is already gone.
 - runFlow: skip-spotlight.yaml

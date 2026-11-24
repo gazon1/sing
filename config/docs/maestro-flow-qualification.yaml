@@ -1,3 +1,6 @@
+# Maestro flow qualification evidence and exceptions.
+# A qualification requires required_attempts consecutive passing test attempts
+# in the same documented environment/build, with every attempt recorded.
 schema: 1
 required_attempts: 3
 qualifications:
@@ -759,22 +762,53 @@ qualifications:
       return_code: 0
 exceptions:
   Maestro/flows/archive/02-bulk-archive-confirm.yaml:
-    fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
-    reason: 'The flow was split by gazon1/sing#3126: the confirmation and cancellation behaviour moved to the desktop behaviour owner and what is left is the Android residue (long-press context sheet, archive overflow popup ids, the modal result dialog). That content was never requalified on a device. The baseline entry on main records the plain sha256 of the flow file rather than the flow''s fingerprint (the gate compares the fingerprint -- the flow plus its transitive helper dependencies), so the entry no longer matches and the gate reports a stale baseline. This PR does not re-baseline the flow: re-baselining would admit changed device content without the qualification the gate asks for. It is admitted here by an explicit exception instead, so the admission is a recorded decision rather than a quiet hash update. The baseline repair itself belongs on main, where the flow was changed.'
+    fingerprint: sha256:e5c58ac1c8c01e737b0c3aef9866872e9b39e9739d93b06ec34611422134af7c
+    reason: 'The flow was split by gazon1/sing#3126: the confirmation and cancellation
+      behaviour moved to the desktop behaviour owner and what is left is the Android
+      residue (long-press context sheet, archive overflow popup ids, the modal result
+      dialog). That content was never requalified on a device. The baseline entry
+      on main records the plain sha256 of the flow file rather than the flow''s fingerprint
+      (the gate compares the fingerprint -- the flow plus its transitive helper dependencies),
+      so the entry no longer matches and the gate reports a stale baseline. This PR
+      does not re-baseline the flow: re-baselining would admit changed device content
+      without the qualification the gate asks for. It is admitted here by an explicit
+      exception instead, so the admission is a recorded decision rather than a quiet
+      hash update. The baseline repair itself belongs on main, where the flow was
+      changed.'
     evidence: gazon1/sing#3126
   Maestro/flows/tasks/09-rename-empty.yaml:
     fingerprint: sha256:42ace83182589dd658f87374a4fb77812713bf2a49f7d459f81635cc413855d4
-    reason: 'Changed by gazon1/sing#3113: after long-press/eraseText(50) it taps task_editor_save and asserts task_editor_title_error is visible, proving empty-title validation rejects the save before navigating back; original title remains intact. No fresh three-attempt qualification run was available in this session; admitted as an explicit evidence-backed exception tied to the current fingerprint until qualified on the documented environment.'
+    reason: 'Changed by gazon1/sing#3113: after long-press/eraseText(50) it taps task_editor_save
+      and asserts task_editor_title_error is visible, proving empty-title validation
+      rejects the save before navigating back; original title remains intact. No fresh
+      three-attempt qualification run was available in this session; admitted as an
+      explicit evidence-backed exception tied to the current fingerprint until qualified
+      on the documented environment.'
     evidence: gazon1/sing#3113
   Maestro/flows/tasks/10-swipe-delete-undo.yaml:
-    fingerprint: sha256:d92501d8bd7676327d75d45686c4769bed6daa4b59cd432308af5baa1e6c35ce
-    reason: 'Changed by gazon1/sing#3113: swipe duration reduced to 200ms and flow asserts task_item_buy_milk notVisible before waiting for snackbar_action, separating missed-swipe (#869) from snackbar regression (#842). No fresh three-attempt qualification run was available in this session; admitted as an explicit evidence-backed exception tied to the current fingerprint until qualified on the documented environment.'
+    fingerprint: sha256:f021c1e91a27cb3c1ac8b0c2c7155eba9b30d129bf30faad65c63c9f1387e3b4
+    reason: 'Changed by gazon1/sing#3113: swipe duration reduced to 200ms and flow
+      asserts task_item_buy_milk notVisible before waiting for snackbar_action, separating
+      missed-swipe (#869) from snackbar regression (#842). No fresh three-attempt
+      qualification run was available in this session; admitted as an explicit evidence-backed
+      exception tied to the current fingerprint until qualified on the documented
+      environment.'
     evidence: gazon1/sing#3113
   Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml:
-    fingerprint: sha256:a9bf43e32a88d897845fb95d285aba04000161a5fcf37abccecd810fc34bab18
-    reason: 'Changed by gazon1/sing#3113: after expanding the checklist section the flow scrollUntilVisible to checklist_inline_add_input (DOWN, 5000ms, field-kind budget) so the add row is reachable on small viewports/emulators. No fresh three-attempt qualification run was available in this session; admitted as an explicit evidence-backed exception tied to the current fingerprint until qualified on the documented environment.'
+    fingerprint: sha256:2c0216787049db1956433bab1f198152d4c597165f862f57db5324a9557a93fe
+    reason: 'Changed by gazon1/sing#3113: after expanding the checklist section the
+      flow scrollUntilVisible to checklist_inline_add_input (DOWN, 5000ms, field-kind
+      budget) so the add row is reachable on small viewports/emulators. No fresh three-attempt
+      qualification run was available in this session; admitted as an explicit evidence-backed
+      exception tied to the current fingerprint until qualified on the documented
+      environment.'
     evidence: gazon1/sing#3113
   Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml:
-    fingerprint: sha256:fd6135e81d92fd2e2eb9c1229d07151f9485d5f0b12b24d9b61642129753b398
-    reason: 'Changed by gazon1/sing#3113: after expanding the subtasks section the flow scrollUntilVisible to subtask_add_input (DOWN, 5000ms, field-kind budget) so the add row is reachable on small viewports/emulators. No fresh three-attempt qualification run was available in this session; admitted as an explicit evidence-backed exception tied to the current fingerprint until qualified on the documented environment.'
+    fingerprint: sha256:883b89b480a38cf6118be55a94143440d3e981d9fcb14039f2c4e0bd9908fadc
+    reason: 'Changed by gazon1/sing#3113: after expanding the subtasks section the
+      flow scrollUntilVisible to subtask_add_input (DOWN, 5000ms, field-kind budget)
+      so the add row is reachable on small viewports/emulators. No fresh three-attempt
+      qualification run was available in this session; admitted as an explicit evidence-backed
+      exception tied to the current fingerprint until qualified on the documented
+      environment.'
     evidence: gazon1/sing#3113
