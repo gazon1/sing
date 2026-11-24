@@ -72,11 +72,17 @@ WHERE tt.task_id = :taskId AND t.user_id = :userId
 
 No schema change, no DAO signature change, no index added, no change to tag
 ownership, validation or write semantics. The row set is the same: the harness
-compared the two forms on every task it read, on every dataset, and they never
-disagreed; the scope checks (foreign profile, unknown task) passed on every
+compared the two forms on every task it read and over the whole relation of the
+profile — as a set, in both directions, and in number — on every dataset, and they
+never disagreed; the scope checks (foreign profile, unknown task) passed on every
 dataset; `JvmDatabaseSeamTest` asserts the same against the real Room database,
 with a task that carries two tags, a task of another user, and a cross-ref whose
 owning task does not exist.
+
+The comparison over the whole relation is there because a comparison over probed
+tasks alone is a sample: a row that only an unprobed task carries would pass
+unnoticed. Asking both forms over the relation the profile owns removes that hole
+at the cost of four statements per read.
 
 The change is limited to the one query this issue measured.
 
@@ -112,7 +118,7 @@ question cannot pass as a successful measurement.
 - `TaskDao.getTagIdsForUser` is a join now. A read of one task's tags no longer
   costs the size of the user's task list: on the measured datasets the read
   through the DAO drops from 12.97 ms (10k), 94.74 ms (50k) and 262.94 ms (90k)
-  to 0.88 ms, 0.64 ms and 0.45 ms — the remaining cost is the call around the
+  to 0.29 ms, 0.37 ms and 0.24 ms — the remaining cost is the call around the
   query and does not grow with the database.
 - The scope of the read is unchanged in meaning: the owner sees the tags of its
   own task, a foreign profile sees none, the tags of a task that does not exist

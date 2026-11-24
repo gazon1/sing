@@ -39,11 +39,12 @@ import kotlin.time.TimeSource
  *
  * The rows, not the clock. A clock measures the machine and the machine is shared;
  * a row count does not move with it. The harness asserts that the candidate form
- * returns exactly the rows the current form returns, for every task it reads, and
- * that the scope holds: a foreign profile sees nothing, and a task that does not
- * exist has nothing to show. A disagreement fails the run with a non-zero exit
- * status. It records the query plans of both forms. The latencies are recorded,
- * not asserted.
+ * returns exactly the rows the current form returns — for every task it reads, and
+ * over the whole relation of the profile, so that a row only an unprobed task
+ * carries cannot pass unnoticed — and that the scope holds: a foreign profile sees
+ * nothing, and a task that does not exist has nothing to show. A disagreement fails
+ * the run with a non-zero exit status. It records the query plans of both forms.
+ * The latencies are recorded, not asserted.
  *
  * ## How to run it
  *
@@ -176,6 +177,65 @@ private fun Query.candidateSql(): String =
         }
     }
 
+/**
+ * The current form asked over the whole relation of one profile.
+ *
+ * The per-task forms above answer one task; these answer every row the profile
+ * owns. They are what the whole-relation comparison below compares.
+ */
+private fun Query.currentScopeSql(): String =
+    when (this) {
+        Query.Blocking -> {
+            """
+            SELECT d.task_id, d.depends_on_task_id FROM task_dependencies d
+            WHERE d.verb = 'BLOCKS'
+            AND d.task_id IN (SELECT id FROM tasks WHERE user_id = ?1)
+            """.trimIndent()
+        }
+
+        Query.Typed -> {
+            """
+            SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
+            WHERE td.task_id IN (SELECT id FROM tasks WHERE user_id = ?1)
+            """.trimIndent()
+        }
+
+        Query.TagIds -> {
+            """
+            SELECT tt.task_id, tt.tag_id FROM task_tags tt
+            WHERE tt.task_id IN (SELECT id FROM tasks WHERE user_id = ?1)
+            """.trimIndent()
+        }
+    }
+
+/** The candidate form asked over the whole relation of one profile. */
+private fun Query.candidateScopeSql(): String =
+    when (this) {
+        Query.Blocking -> {
+            """
+            SELECT d.task_id, d.depends_on_task_id FROM task_dependencies d
+            JOIN tasks t ON t.id = d.task_id
+            WHERE d.verb = 'BLOCKS' AND t.user_id = ?1
+            """.trimIndent()
+        }
+
+        Query.Typed -> {
+            """
+            SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
+            JOIN tasks t ON t.id = td.task_id
+            WHERE t.user_id = ?1
+            """.trimIndent()
+        }
+
+        Query.TagIds -> {
+            """
+            SELECT tt.task_id, tt.tag_id FROM task_tags tt
+            JOIN tasks t ON t.id = tt.task_id
+            WHERE t.user_id = ?1
+            """.trimIndent()
+        }
+    }
+
 /** The verb the blocking read is asked for. */
 private const val BLOCKING_VERB = "BLOCKS"
 
@@ -226,7 +286,10 @@ private suspend fun measure(config: DependencyPerfConfig): RunOutcome {
             }
         }
         val plans = plans(db, config.owner)
-        val mismatch = equivalence(db, groups, config.owner) ?: isolation(db, groups, config.owner)
+        val mismatch =
+            equivalence(db, groups, config.owner)
+                ?: relationEquivalence(db, config.owner)
+                ?: isolation(db, groups, config.owner)
         val report = render(archive, tasks, edges, tags, groups, measurements, plans, mismatch)
         return RunOutcome(report = report, mismatch = mismatch)
     } finally {
@@ -346,6 +409,50 @@ private suspend fun equivalence(
                     return "${query.label}: $taskId — " +
                         "current ${current.size} row(s), candidate ${candidate.size} row(s)"
                 }
+            }
+        }
+    }
+    return null
+}
+
+/**
+ * The two forms asked over the whole relation, not over probed tasks.
+ *
+ * The per-task comparison above proves the two forms answer the same question
+ * for the tasks it reads. This one proves it for every row the profile owns: the
+ * two forms are asked over the whole relation, and neither may hold a row the
+ * other does not — neither as a set, nor in number. A profile that owns nothing
+ * must see nothing in either form.
+ *
+ * It costs four statements per read, so it is affordable on every dataset.
+ */
+private suspend fun relationEquivalence(
+    db: AppDatabase,
+    owner: UserId,
+): String? {
+    for (query in Query.entries) {
+        val current = query.currentScopeSql()
+        val candidate = query.candidateScopeSql()
+        val currentRows = db.countOf("SELECT count(*) FROM ($current)", owner.value)
+        val candidateRows = db.countOf("SELECT count(*) FROM ($candidate)", owner.value)
+        if (currentRows != candidateRows) {
+            return "${query.label}: the current form holds $currentRows row(s) of the relation, " +
+                "the candidate $candidateRows"
+        }
+        val onlyCurrent = db.countOf("SELECT count(*) FROM ($current EXCEPT $candidate)", owner.value)
+        if (onlyCurrent != 0) {
+            return "${query.label}: $onlyCurrent row(s) of the relation are in the current form " +
+                "and not in the candidate"
+        }
+        val onlyCandidate = db.countOf("SELECT count(*) FROM ($candidate EXCEPT $current)", owner.value)
+        if (onlyCandidate != 0) {
+            return "${query.label}: $onlyCandidate row(s) of the relation are in the candidate form " +
+                "and not in the current"
+        }
+        for ((form, sql) in listOf("current" to current, "candidate" to candidate)) {
+            val foreign = db.countOf("SELECT count(*) FROM ($sql)", FOREIGN_USER.value)
+            if (foreign != 0) {
+                return "${query.label}: the $form form shows $foreign row(s) of the relation to a foreign profile"
             }
         }
     }
@@ -559,8 +666,8 @@ private fun render(
         appendLine()
         appendLine(
             mismatch
-                ?: "the candidate form returned exactly the rows of the current form on every task read, " +
-                "a foreign profile saw nothing, and a task that does not exist showed nothing",
+                ?: "the candidate form returned exactly the rows of the current form on every task read and over the " +
+                "whole relation, a foreign profile saw nothing, and a task that does not exist showed nothing",
         )
         if (mismatch != null) {
             appendLine()
