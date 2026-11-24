@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.database.TaskDao
+import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.ids.UserId
@@ -8,9 +9,13 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -52,62 +57,99 @@ import kotlinx.coroutines.flow.map
 internal fun TaskDao.withExtras(
     uid: UserId,
     source: Flow<List<TaskEntity>>,
-): Flow<List<Task>> {
-    val tagsFlow =
-        observeTagCrossRefs(uid.value).map { rows ->
-            rows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } }
+): Flow<List<Task>> =
+    combine(
+        observeTagCrossRefs(uid.value),
+        // One read of the dependency table, not two: the blocking edges and the
+        // follow-ups are two projections of the same rows, and collecting the
+        // table once per projection read the whole graph twice per emission.
+        observeDependencyCrossRefs(uid.value),
+    ) { tagRows, depRows ->
+        TaskExtras(
+            tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } },
+            depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
+            followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
+        )
+    }.let { extrasFlow -> combine(source, extrasFlow) { rows, extras -> rows.enrichedWith(extras) } }
+
+/**
+ * The same enrichment, for a set of rows that is small by construction — the
+ * subtasks of one task, the members of one series.
+ *
+ * [withExtras] asks the profile-wide question, which is right when the rows are
+ * the whole profile and wrong when they are five: on a 50k profile the detail
+ * screen's subtask list materialised ~75k tag edges to read the few that its own
+ * rows carry. This reads the edges of the rows given, and nothing else.
+ *
+ * @param uid the owner of the tasks.
+ * @param source the rows to enrich — small enough to name in a query.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun TaskDao.withScopedExtras(
+    uid: UserId,
+    source: Flow<List<TaskEntity>>,
+): Flow<List<Task>> =
+    source
+        .map { rows -> rows.map { it.id } }
+        .distinctUntilChanged()
+        .flatMapLatest { ids ->
+            if (ids.isEmpty()) {
+                flowOf(TaskExtras())
+            } else {
+                combine(
+                    observeTagCrossRefsForTasks(ids, uid.value),
+                    observeDependencyCrossRefsForTasks(ids, uid.value),
+                ) { tagRows, depRows ->
+                    TaskExtras(
+                        tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } },
+                        depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
+                        followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
+                    )
+                }
+            }
+        }.let { extrasFlow ->
+            // The rows are paired through, not re-read: `source` is the authority
+            // on what to show and in what order.
+            combine(source, extrasFlow) { rows, extras -> rows.enrichedWith(extras) }
         }
-    val depsFlow =
-        observeDependencyCrossRefs(uid.value).map { rows ->
-            rows
-                .filter { it.verb == DependencyVerb.BLOCKS.name }
-                .groupBy { it.taskId }
-                .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
-        }
-    // The other half of the same table: the relations that order two pieces of
-    // work without making either wait for the other. They are read here, by the
-    // same cross-reference flow, and asked a different question of — which is
-    // why they are a separate map rather than a second kind of entry in the
-    // dependency map.
-    val followUpsFlow =
-        observeDependencyCrossRefs(uid.value).map { rows ->
-            rows
-                .filter { it.verb == DependencyVerb.FOLLOWS_UP.name }
-                .groupBy { it.taskId }
-                .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
-        }
-    val extrasFlow =
-        combine(tagsFlow, depsFlow, followUpsFlow) { tags, deps, followUps ->
-            TaskExtras(
-                tagsByTask = tags,
-                depsByTask = deps,
-                followUpsByTask = followUps,
-            )
-        }
-    return combine(source, extrasFlow) { rows, extras ->
-        rows.map { entity ->
-            entity.toTask(
-                tags = extras.tagsByTask[entity.id].orEmpty().map { TagId.fromString(it) },
-                blockedBy =
-                    extras.depsByTask[entity.id]
-                        .orEmpty()
-                        .map { TaskId.fromString(it) }
-                        .toSet(),
-                followsUp =
-                    extras.followUpsByTask[entity.id]
-                        .orEmpty()
-                        .map { TaskId.fromString(it) }
-                        .toSet(),
-            )
-        }
+
+/** The rows as tasks, carrying the tags and edges [extras] holds for each. */
+private fun List<TaskEntity>.enrichedWith(extras: TaskExtras): List<Task> =
+    map { entity ->
+        entity.toTask(
+            tags = extras.tagsByTask[entity.id].orEmpty().map { TagId.fromString(it) },
+            blockedBy =
+                extras.depsByTask[entity.id]
+                    .orEmpty()
+                    .map { TaskId.fromString(it) }
+                    .toSet(),
+            followsUp =
+                extras.followUpsByTask[entity.id]
+                    .orEmpty()
+                    .map { TaskId.fromString(it) }
+                    .toSet(),
+        )
     }
-}
+
+/**
+ * One projection of the dependency edges, by the verb that gives it its meaning.
+ *
+ * The blocking graph and the ordering graph's follow-up half are the same table
+ * asked two different questions; both are indexed by the task that holds the edge.
+ */
+private fun List<TaskDependencyCrossRef>.groupByVerb(
+    verb: DependencyVerb,
+    target: (TaskDependencyCrossRef) -> String,
+): Map<String, Set<String>> =
+    filter { it.verb == verb.name }
+        .groupBy { it.taskId }
+        .mapValues { (_, rows) -> rows.map(target).toSet() }
 
 /** The cross-references of a set of tasks, indexed by the task they belong to. */
 private data class TaskExtras(
-    val tagsByTask: Map<String, List<String>>,
-    val depsByTask: Map<String, Set<String>>,
-    val followUpsByTask: Map<String, Set<String>>,
+    val tagsByTask: Map<String, List<String>> = emptyMap(),
+    val depsByTask: Map<String, Set<String>> = emptyMap(),
+    val followUpsByTask: Map<String, Set<String>> = emptyMap(),
 )
 
 /**

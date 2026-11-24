@@ -1132,6 +1132,36 @@ private class FakeTaskDao(
 
     override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = crossRefs
 
+    override fun observeTagCrossRefsForTasks(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>> =
+        combine(crossRefs, store) { refs, tasks ->
+            refs.filter { ref -> ref.taskId in taskIds && tasks[ref.taskId]?.userId == userId }
+        }
+
+    override fun observeDependencyCrossRefsForTasks(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>> =
+        combine(depRefs, store) { refs, tasks ->
+            refs.filter { ref -> ref.taskId in taskIds && tasks[ref.taskId]?.userId == userId }
+        }
+
+    override suspend fun blockingTasksForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): List<TaskEntity> =
+        depRefs.value
+            .filter { ref ->
+                ref.taskId == taskId &&
+                    ref.verb == verb &&
+                    store.value[ref.dependsOnTaskId]?.let {
+                        it.userId == userId && it.completedAt == null && it.archivedAt == null
+                    } == true
+            }.mapNotNull { store.value[it.dependsOnTaskId] }
+
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
 
     override suspend fun setOutgoingLinksForUser(

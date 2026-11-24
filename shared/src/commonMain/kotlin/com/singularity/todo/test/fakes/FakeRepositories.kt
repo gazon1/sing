@@ -724,6 +724,25 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> =
         depsByUser.map { it[userId] ?: emptyList() }
 
+    override fun observeTagCrossRefsForTasks(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>> = _tags.map { refs -> refs.filter { it.taskId in taskIds } }
+
+    override fun observeDependencyCrossRefsForTasks(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>> =
+        depsByUser.map { byUser ->
+            (byUser[userId] ?: emptyList()).filter { it.taskId in taskIds }
+        }
+
+    override suspend fun blockingTasksForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+
     // ── Outgoing links (stub — not used by FakeTaskRepository) ───────────────
 
     override suspend fun setOutgoingLinksForUser(
@@ -989,6 +1008,9 @@ open class FakeTaskRepository(
     var completeOverride: Result<Boolean>? = null
     var reopenOverride: Result<Unit>? = null
     var blockedTaskIdsOverride: Set<TaskId>? = null
+
+    /** Answers [openBlockersOf] instead of computing it, when a test needs to. */
+    var openBlockersOverride: ((TaskId) -> List<Task>)? = null
     var togglePinnedOverride: Result<Unit>? = null
     var setTagsOverride: Result<Unit>? = null
     var setDependenciesOverride: Result<Unit>? = null
@@ -1424,6 +1446,13 @@ open class FakeTaskRepository(
         if (taskIds.isEmpty()) return emptySet()
         val blockers = Blocking.activeBlockersByTask(store.values())
         return taskIds.filter { blockers.containsKey(it) }.toSet()
+    }
+
+    override suspend fun openBlockersOf(taskId: TaskId): List<Task> {
+        openBlockersOverride?.let { return it(taskId) }
+        val uid = currentUserId()
+        val task = store[taskId.value]?.takeIf { it.userId == uid } ?: return emptyList()
+        return Blocking.activeBlockers(task, store.values().filter { it.userId == uid })
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> {

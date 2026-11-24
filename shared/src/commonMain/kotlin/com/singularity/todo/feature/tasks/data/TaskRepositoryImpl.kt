@@ -41,6 +41,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.followUpDependencyIdsForUser
 import com.singularity.todo.feature.tasks.freshTask
 import com.singularity.todo.feature.tasks.withExtras
+import com.singularity.todo.feature.tasks.withScopedExtras
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -235,7 +236,9 @@ class TaskRepositoryImpl(
 
     override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            taskDao.withExtras(uid, taskDao.watchSubtasksForUser(parentId.value, uid.value))
+            // Scoped: the subtasks of one task are a handful, and the profile-wide
+            // read materialised every tag edge of the profile to enrich them.
+            taskDao.withScopedExtras(uid, taskDao.watchSubtasksForUser(parentId.value, uid.value))
         }
 
     override suspend fun reorderSubtasks(
@@ -615,7 +618,9 @@ class TaskRepositoryImpl(
 
     override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            taskDao.withExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
+            // A series is a handful of rows behind a task detail screen, so the
+            // cross-refs are read for those rows rather than for the profile.
+            taskDao.withScopedExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
         }
 
     override suspend fun legacyRecurringTasks(): List<Task> {
@@ -888,6 +893,13 @@ class TaskRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         val ids = taskDao.blockedTaskIdsForUser(taskIds.map { it.value }, uid, DependencyVerb.BLOCKS.name)
         return ids.map { TaskId.fromString(it) }.toSet()
+    }
+
+    override suspend fun openBlockersOf(taskId: TaskId): List<Task> {
+        val uid = currentUser.scopedUserId.value.value
+        return taskDao
+            .blockingTasksForUser(taskId.value, uid, DependencyVerb.BLOCKS.name)
+            .map { it.toTask() }
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> =

@@ -497,6 +497,33 @@ interface TaskDao {
     ): List<String>
 
     /**
+     * The still-open prerequisites of [taskId] — the rows, not just their ids.
+     *
+     * The confirmation a refused close shows names the prerequisites, so the
+     * titles have to come with them. This is the same predicate
+     * [blockedTaskIdsForUser] applies, read for one task: a prerequisite that is
+     * finished, trashed, or gone is not in the way.
+     *
+     * @param taskId the task whose prerequisites are asked about.
+     * @param userId the owner of both rows.
+     * @param verb the edge kind that blocks.
+     */
+    @Query(
+        """
+        SELECT b.* FROM task_dependencies d
+        JOIN tasks b ON b.id = d.depends_on_task_id AND b.user_id = :userId
+        WHERE d.task_id = :taskId AND d.verb = :verb
+          AND d.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+          AND b.completed_at IS NULL AND b.archived_at IS NULL
+        """,
+    )
+    suspend fun blockingTasksForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): List<TaskEntity>
+
+    /**
      * Inserts a tag cross-ref only when the owning task belongs to [userId].
      *
      * Returns `Unit` because Room only permits `Unit`/`Long` from INSERT
@@ -831,6 +858,43 @@ interface TaskDao {
 
     @Query("SELECT * FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
     suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef>
+
+    // ── Task-scoped cross-references ────────────────────────────────────────────
+    //
+    // The [observeTagCrossRefs] / [observeDependencyCrossRefs] pair answers "every
+    // edge of this profile". A screen that shows one task asked the same question
+    // and paid for the whole profile's edges: on a 50k profile that is ~75k tag
+    // refs and 5k dependency refs materialised to find the handful belonging to
+    // the open task. These read the edges of the tasks named, and nothing else.
+    //
+    // The profile predicate stays: the cross-ref tables carry no `user_id`, so the
+    // join on the owning row is the only thing scoping them.
+
+    /** The tag edges of [taskIds], scoped to the profile that owns those tasks. */
+    @Query(
+        """
+        SELECT * FROM task_tags
+        WHERE task_id IN (:taskIds)
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun observeTagCrossRefsForTasks(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>>
+
+    /** The dependency edges of [taskIds], of every verb, scoped like the tag read. */
+    @Query(
+        """
+        SELECT * FROM task_dependencies
+        WHERE task_id IN (:taskIds)
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun observeDependencyCrossRefsForTasks(
+        taskIds: List<String>,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>>
 
     /**
      * Archives completed tasks **for one user only**.

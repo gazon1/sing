@@ -11,6 +11,7 @@ import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -317,6 +318,65 @@ abstract class TaskRepositoryContractTest {
                 setOf("undated", "dated", "finished", "someday"),
                 selected,
                 "All is everything not in the trash — the deferred tasks included",
+            )
+        }
+
+    // ─── Targeted relation reads ──────────────────────────────────────────────
+
+    /**
+     * The task-detail guard asks about one task's prerequisites, and the answer
+     * has to be the one the write would enforce.
+     *
+     * A write refuses while a **blocking** edge points at an open task. The read
+     * says the same thing, so the confirmation names the same tasks the refusal
+     * was about — and, because this is a targeted read rather than a scan of the
+     * whole list, it also has to survive a profile with rows it never materialises.
+     */
+    @Test
+    fun `openBlockersOf names the open blocking prerequisites of one task`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1")).getOrThrow()
+            repo.create(task("open")).getOrThrow()
+            repo.create(task("followed")).getOrThrow()
+            repo.create(task("done").copy(completedAt = Instant.fromEpochMilliseconds(1_000))).getOrThrow()
+            advanceUntilIdle()
+
+            repo.setDependency(TaskId("t1"), TaskId("open"), DependencyVerb.BLOCKS, enabled = true).getOrThrow()
+            repo.setDependency(TaskId("t1"), TaskId("done"), DependencyVerb.BLOCKS, enabled = true).getOrThrow()
+            repo.setDependency(TaskId("t1"), TaskId("followed"), DependencyVerb.FOLLOWS_UP, enabled = true).getOrThrow()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("open"),
+                repo.openBlockersOf(TaskId("t1")).map { it.id.value },
+                "only the edges that block and are still open are in the way",
+            )
+        }
+
+    /**
+     * The read is scoped, like every other read: another profile's edges are not
+     * this task's business, and their titles never reach the confirmation.
+     */
+    @Test
+    fun `openBlockersOf stays inside the profile that owns the task`() =
+        runTest {
+            // The edge belongs to alice; the task it points at belongs to bob. A
+            // sync can carry exactly that shape in, and bob's row is not a reason
+            // to refuse alice's close — nor a title alice's confirmation may show.
+            val repo = newRepository(alice)
+            repo.create(task("t1")).getOrThrow()
+            advanceUntilIdle()
+            val otherProfileRepoTarget = newRepository(bob)
+            otherProfileRepoTarget.create(task("bob-dep", uid = bob)).getOrThrow()
+            advanceUntilIdle()
+
+            repo.setDependency(TaskId("t1"), TaskId("bob-dep"), DependencyVerb.BLOCKS, enabled = true).getOrThrow()
+            advanceUntilIdle()
+
+            assertTrue(
+                repo.openBlockersOf(TaskId("t1")).isEmpty(),
+                "an edge into another profile's row is not a reason to refuse this close",
             )
         }
 
