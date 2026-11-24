@@ -148,7 +148,7 @@ internal suspend fun searchRelatedTaskCandidates(
     }
 }
 
-private fun relatedTaskSearchQuery(rawQuery: String): TextMatchQuery? {
+internal fun relatedTaskSearchQuery(rawQuery: String): TextMatchQuery? {
     if (rawQuery.isBlank()) return null
     val rule = FreeTextRule.singleTerm(rawQuery)
     val query =

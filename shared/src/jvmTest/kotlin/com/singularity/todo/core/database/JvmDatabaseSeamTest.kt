@@ -337,6 +337,64 @@ class JvmDatabaseSeamTest {
         }
 
     @Test
+    fun `ordering edges are returned for the owner and hidden from a foreign user`() =
+        runTest {
+            val dao = db.taskDao()
+            val now = System.currentTimeMillis()
+
+            fun task(
+                id: String,
+                uid: String,
+            ) = TaskEntity(
+                id = id,
+                title = "Task $id",
+                description = null,
+                projectId = null,
+                dueDate = null,
+                dueTime = null,
+                startDate = null,
+                startTime = null,
+                endDate = null,
+                endTime = null,
+                accentColor = null,
+                emoji = null,
+                completedAt = null,
+                someday = false,
+                archivedAt = null,
+                isPinned = false,
+                createdAt = now,
+                updatedAt = now,
+                userId = uid,
+            )
+
+            dao.upsert(task("t1", "u1"))
+            dao.upsert(task("t2", "u1"))
+            dao.upsert(task("t3", "u1"))
+            dao.upsert(task("theirs", "u2"))
+
+            dao.upsertDependencyForUser("t1", "t2", DependencyVerb.BLOCKS.name, "u1")
+            dao.upsertDependencyForUser("t1", "t3", DependencyVerb.FOLLOWS_UP.name, "u1")
+            dao.upsertDependencyForUser("theirs", "t2", DependencyVerb.BLOCKS.name, "u2")
+
+            // The owner's task carries every edge, whatever its verb.
+            assertEquals(
+                setOf("t2", "t3"),
+                dao.getOrderingEdgeIdsForUser("t1", "u1").first().toSet(),
+            )
+            // Only the blocking ones are waiting for it.
+            assertEquals(
+                listOf("t2"),
+                dao.getBlockingEdgeIdsForUser("t1", "u1", DependencyVerb.BLOCKS.name).first(),
+            )
+            // Another user's task carries none of them.
+            assertEquals(emptyList(), dao.getOrderingEdgeIdsForUser("theirs", "u1").first())
+            assertEquals(
+                listOf("t2"),
+                dao.getOrderingEdgeIdsForUser("theirs", "u2").first(),
+            )
+        }
+
+    @Test
     fun `archiveCompletedForUser only archives the owner's completed tasks`() =
         runTest {
             val dao = db.taskDao()
