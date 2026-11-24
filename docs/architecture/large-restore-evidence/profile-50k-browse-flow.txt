@@ -32,4 +32,4 @@ Possible causes:
 
 ==== Debug output (logs & screenshots) ====
 
-/home/max/.maestro/tests/2026-11-24_045047
+/home/max/.maestro/tests/2026-11-24_084751

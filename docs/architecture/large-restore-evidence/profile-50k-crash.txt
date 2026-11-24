@@ -1,98 +1,129 @@
-# logcat of the device during the 50k run (realme RMX3938, build 0.1.0+gd214f05a1851),
-# filtered to the app's own lines: the heap growth limit is reached while the
-# task detail is opened, and the first exhausted allocation is in the app's code.
+# logcat of the device during the 50k run (realme RMX3938, build 0.1.0+g329e13079e2d),
+# filtered to the crash and the lines around it: the app dies with an
+# OutOfMemoryError while the task detail of the restored dataset is opened.
+#
+# The app's own allocation failure — the first exhausted allocation, in the app's
+# code (TaskDao_Impl.observeTagCrossRefs) with the heap growth limit reached —
+# is in profile-50k-crash-older-build.txt; it was captured on an earlier build
+# of the same app on the same device.
 
-11-24 04:51:48.479 25632 25700 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-24 04:51:48.479 25632 25700 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 701us,6.648ms total 842.676ms
-11-24 04:51:48.485 25632 25700 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 24 byte allocation with 29264 free bytes and 28KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17327904 kB)
-11-24 04:51:49.322 25632 25658 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-24 04:51:49.323 25632 25658 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 706us,6.557ms total 843.302ms
-11-24 04:51:49.323 25632 25658 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 56 byte allocation with 29264 free bytes and 28KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17327904 kB)
-11-24 04:51:50.164 25632 25658 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-24 04:51:50.164 25632 25658 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 681us,6.723ms total 840.788ms
-11-24 04:51:51.006 25632 25658 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-24 04:51:51.006 25632 25658 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 685us,6.636ms total 841.875ms
-11-24 04:51:51.006 25632 25658 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 32 byte allocation with 29264 free bytes and 28KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17327904 kB, recursive case)
-11-24 04:51:51.223 25632 25658 W ingularity.todo: "DefaultDispatcher-worker-5" daemon prio=5 tid=18 Runnable
-11-24 04:51:51.223 25632 25658 W ingularity.todo:   | group="main" sCount=0 ucsCount=0 flags=2 obj=0x141f92a0 self=0xb40000756430ed80
-11-24 04:51:51.223 25632 25658 W ingularity.todo:   | sysTid=25658 nice=0 cgrp=top-app sched=0/0 handle=0x7393cb1730
-11-24 04:51:51.223 25632 25658 W ingularity.todo:   | state=R schedstat=( 6857128700 432623064 1535 ) utm=595 stm=89 core=6 HZ=100
-11-24 04:51:51.223 25632 25658 W ingularity.todo:   | stack=0x7393bae000-0x7393bb0000 stackSize=1037KB
-11-24 04:51:51.223 25632 25658 W ingularity.todo:   | held mutexes= "mutator lock"(shared held)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.nativeGetText(Native method)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.access$nativeGetText(BundledSQLiteStatement.jvmAndAndroid.kt:1)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatement.getText(BundledSQLiteStatement.jvmAndAndroid.kt:77)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.BasePreparedStatementCache$CachedStatement.getText(unavailable:2)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invokeSuspend(TaskDao_Impl.kt:6467)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:8)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:4)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invokeSuspend(DBUtil.kt:51)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:8)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:4)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.PooledConnectionImpl.useRawConnection(ConnectionPoolImpl.kt:439)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invokeSuspend(DBUtil.kt:211)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:8)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:4)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invokeSuspend(ConnectionPoolImpl.kt:162)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:8)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:4)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatched(Undispatched.kt:66)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:497)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt.withContext(unavailable:1)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl.useConnection(ConnectionPoolImpl.kt:162)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$1.invokeSuspend(unavailable:16)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.ScopeCoroutine.afterResume(Scopes.kt:35)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.AbstractCoroutine.resumeWith(AbstractCoroutine.kt:101)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:47)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:798)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
-11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
-11-24 04:51:51.318 25632 25658 W ingularity.todo: "DefaultDispatcher-worker-5" daemon prio=5 tid=18 Runnable
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   | group="main" sCount=0 ucsCount=0 flags=2 obj=0x141f92a0 self=0xb40000756430ed80
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   | sysTid=25658 nice=0 cgrp=top-app sched=0/0 handle=0x7393cb1730
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   | state=R schedstat=( 6974339359 433701488 1641 ) utm=599 stm=98 core=6 HZ=100
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   | stack=0x7393bae000-0x7393bb0000 stackSize=1037KB
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   | held mutexes= "mutator lock"(shared held)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.nativeGetText(Native method)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.access$nativeGetText(BundledSQLiteStatement.jvmAndAndroid.kt:1)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatement.getText(BundledSQLiteStatement.jvmAndAndroid.kt:77)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.BasePreparedStatementCache$CachedStatement.getText(unavailable:2)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invokeSuspend(TaskDao_Impl.kt:6467)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:8)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:4)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invokeSuspend(DBUtil.kt:51)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:8)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:4)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.PooledConnectionImpl.useRawConnection(ConnectionPoolImpl.kt:439)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invokeSuspend(DBUtil.kt:211)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:8)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:4)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invokeSuspend(ConnectionPoolImpl.kt:162)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:8)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:4)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatched(Undispatched.kt:66)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:497)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt.withContext(unavailable:1)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl.useConnection(ConnectionPoolImpl.kt:162)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$1.invokeSuspend(unavailable:16)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.ScopeCoroutine.afterResume(Scopes.kt:35)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.AbstractCoroutine.resumeWith(AbstractCoroutine.kt:101)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:47)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:798)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
-11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
-11-24 04:51:52.171 25632 25667 I ingularity.todo: Clamp target GC heap from 238MB to 192MB
-11-24 04:51:52.171 25632 25667 I ingularity.todo: Alloc concurrent mark compact GC freed 1444KB AllocSpace bytes, 0(0B) LOS objects, 0% free, 190MB/192MB, paused 633us,6.564ms total 1.164s
-11-24 04:51:52.171 25632 25667 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 32 byte allocation with 1507920 free bytes and 1472KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17332844 kB)
+--------- beginning of crash
+11-24 08:56:30.780  4950  4950 E AndroidRuntime: FATAL EXCEPTION: main
+11-24 08:56:30.780  4950  4950 E AndroidRuntime: Process: com.singularity.todo, PID: 4950
+11-24 08:56:30.780  4950  4950 E AndroidRuntime: java.lang.OutOfMemoryError: OutOfMemoryError thrown while trying to throw an exception; no stack trace available
+--------- beginning of main
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 76cb1000-770b0000 rw-p 00000000 00:00 0                                  [anon:dalvik-non moving space]
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: ebad6000-ebad7000 ---p 00000000 00:00 0                                  [anon:dalvik-Sentinel fault page]
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5eeec84000-5eeec86000 r--p 00000000 fe:08 114363815                      /system/bin/app_process64
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5eeec88000-5eeec89000 r-xp 00004000 fe:08 114363815                      /system/bin/app_process64
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5eeec8c000-5eeec8d000 r--p 00008000 fe:08 114363815                      /system/bin/app_process64
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5eeec90000-5eeec91000 rw-p 0000c000 fe:08 114363815                      /system/bin/app_process64
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5efdc00000-5efe077000 rw-s 5efdc00000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5efe200000-5efe677000 rw-s 5efe200000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5efe800000-5efec77000 rw-s 5efe800000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5efee00000-5eff021000 rw-s 5efee00000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5eff200000-5eff6f5000 rw-s 5eff200000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5eff800000-5effc77000 rw-s 5eff800000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd0f000-5effd2f000 rw-s 5effd0f000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd4f000-5effd6f000 rw-s 5effd4f000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd6f000-5effd8f000 rw-s 5effd6f000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd8f000-5effd90000 rw-s 5effd8f000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd90000-5effd91000 rw-s 5effd90000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd92000-5effd93000 rw-s 5effd92000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effd93000-5effdb3000 rw-s 5effd93000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effdb3000-5effdf3000 ---s 5effdb3000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effdf3000-5effdfd000 rw-s 5effdf3000 00:11 1141                         /dev/mali0
+11-24 08:56:30.803  4950  4950 W UnisocApplicationErrorReport: 5effdfd000-5effe1e000 rw-s 5effdfd000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effe1e000-5effe3e000 rw-s 5effe1e000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effe3e000-5effe40000 ---s 5effe3e000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effe60000-5effe80000 rw-s 5effe60000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effe80000-5effec0000 rw-s 5effe80000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effec0000-5effee0000 rw-s 5effec0000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effee0000-5efff00000 rw-s 5effee0000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efff00000-5efff20000 rw-s 5efff00000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efff20000-5efff40000 rw-s 5efff20000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efff40000-5efff60000 rw-s 5efff40000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efff60000-5efff80000 rw-s 5efff60000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efff80000-5efffa0000 rw-s 5efff80000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffa0000-5efffc0000 rw-s 5efffa0000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc0000-5efffc1000 rw-s 5efffc0000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc1000-5efffc2000 rw-s 5efffc1000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc2000-5efffc3000 rw-s 5efffc2000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc3000-5efffc4000 rw-s 5efffc3000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc4000-5efffc5000 rw-s 5efffc4000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc5000-5efffc6000 rw-s 5efffc5000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffc6000-5efffc7000 rw-s 5efffc6000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffcc000-5efffcd000 rw-s 5efffcc000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffcd000-5efffd7000 rw-s 5efffcd000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffd7000-5efffe1000 rw-s 5efffd7000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe1000-5efffe2000 rw-s 5efffe1000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe2000-5efffe3000 rw-s 5efffe2000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe3000-5efffe4000 rw-s 5efffe3000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe4000-5efffe5000 rw-s 5efffe4000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe5000-5efffe6000 rw-s 5efffe5000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe6000-5efffe7000 rw-s 5efffe6000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe7000-5efffe8000 rw-s 5efffe7000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffe9000-5effff3000 rw-s 5efffe9000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effff3000-5effff4000 rw-s 5effff3000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effff9000-5effffa000 rw-s 5effff9000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effffa000-5effffb000 rw-s 5effffa000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effffb000-5effffc000 rw-s 5effffb000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effffc000-5effffd000 rw-s 5effffc000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effffd000-5effffe000 rw-s 5effffd000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5effffe000-5efffff000 rw-s 5effffe000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 5efffff000-5f00000000 rw-s 5efffff000 00:11 1141                         /dev/mali0
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f4cdc000-72f4f84000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f4f84000-72f4f88000 rw-p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f4f88000-72f5cdc000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f5cdc000-72f5ce0000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f5ce0000-72f5ce1000 ---p 00000000 00:00 0                              [anon:stack_and_tls:5076]
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f5ce1000-72f5ddc000 rw-p 00000000 00:00 0                              [anon:stack_and_tls:5076]
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f5ddc000-72f5de0000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f5de0000-72f69f0000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f69f0000-72f69f4000 rw-p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f69f4000-72f7944000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f7944000-72f7948000 rw-p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f7948000-72f85e8000 ---p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f85e8000-72f85ec000 rw-p 00000000 00:00 0 
+11-24 08:56:30.804  4950  4950 W UnisocApplicationErrorReport: 72f85ec000-72f8de0000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8de0000-72f8de4000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8de4000-72f8de5000 ---p 00000000 00:00 0                              [anon:stack_and_tls:5073]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8de5000-72f8eec000 rw-p 00000000 00:00 0                              [anon:stack_and_tls:5073]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8eec000-72f8ef4000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8ef4000-72f8ef5000 ---p 00000000 00:00 0                              [anon:stack_and_tls:5072]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8ef5000-72f8ffc000 rw-p 00000000 00:00 0                              [anon:stack_and_tls:5072]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f8ffc000-72f9000000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f9000000-72f9360000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f9360000-72f9364000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72f9364000-72fa088000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fa088000-72fa08c000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fa08c000-72fba78000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fba78000-72fba7c000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fba7c000-72fc55c000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fc55c000-72fc560000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fc560000-72fd508000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fd508000-72fd50c000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72fd50c000-72febac000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72febac000-72febb0000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72febb0000-72ff6a0000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72ff6a0000-72ff6a4000 rw-p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 72ff6a4000-7300000000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 7300000000-7340000000 rw-p 00000000 00:00 0                              [anon:dalvik-LinearAlloc]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 7340000000-7380000000 rw-p 00000000 00:00 0                              [anon:dalvik-LinearAlloc]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738009d000-73800a1000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73800a1000-73800a2000 ---p 00000000 00:00 0                              [anon:stack_and_tls:5071]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73800a2000-73801a9000 rw-p 00000000 00:00 0                              [anon:stack_and_tls:5071]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73801a9000-73801ad000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73801ad000-73802ab000 r--p 00000000 00:1f 5                              /dev/binderfs/hwbinder
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73802ab000-73803a9000 r--p 00000000 00:1f 5                              /dev/binderfs/hwbinder
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73803a9000-73803ad000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73803ad000-73804a9000 rw-p 00000000 00:00 0                              [anon:stack_and_tls:5074]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73804a9000-73804ae000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73804ae000-738051c000 rw-p 00000000 00:00 0                              [anon:scudo:secondary]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738051c000-738051e000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738051e000-738058c000 rw-p 00000000 00:00 0                              [anon:scudo:secondary]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738058c000-738058e000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738058e000-738061b000 rw-p 00000000 00:00 0                              [anon:scudo:secondary]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738061b000-738061d000 ---p 00000000 00:00 0 
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 738061d000-73806ef000 rw-p 00000000 00:00 0                              [anon:scudo:secondary]
+11-24 08:56:30.805  4950  4950 W UnisocApplicationErrorReport: 73806ef000-73806f4000 ---p 00000000 00:00 0 

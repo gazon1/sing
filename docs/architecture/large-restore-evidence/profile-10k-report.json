@@ -20,17 +20,17 @@
   "apk": {
     "path": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
     "package": "com.singularity.todo",
-    "version": "0.1.0+gd214f05a1851",
+    "version": "0.1.0+g329e13079e2d",
     "variant": "debug",
-    "digest": "md5:365dcf676a67326eb4d11548d7cd121d"
+    "digest": "md5:4c49603eeb00ca62e73a7cb9259e87b6"
   },
   "dataset": {
     "profile": "10k",
-    "seed": 42,
-    "archive": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r20/synthetic-10k.zip",
-    "sidecar": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r20/synthetic-10k.manifest.json",
-    "archiveBytes": 2158228,
-    "decompressedBytes": 13871747,
+    "seed": 4242,
+    "archive": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/synthetic-10k.zip",
+    "sidecar": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/synthetic-10k.manifest.json",
+    "archiveBytes": 2160720,
+    "decompressedBytes": 13907055,
     "counts": {
       "tasks": 10000,
       "projects": 100,
@@ -38,7 +38,7 @@
       "notes": 1000,
       "checklistItems": 20000,
       "taskDependencies": 1500,
-      "taskTags": 14814
+      "taskTags": 15157
     }
   },
   "tools": {
@@ -46,11 +46,12 @@
     "android": "15",
     "adb": "Android Debug Bridge version 1.0.41",
     "jdk": "openjdk version \"25.0.4.1\" 2026-08-18",
-    "commit": "d214f05a18514267008feea9d7703aacb3a7b34c",
-    "dirty": "yes"
+    "commit": "329e13079e2d5e13002cb9d92872c20573ac3538",
+    "dirty": "no",
+    "uncommitted_diff": ""
   },
   "wipe": {
-    "seconds": 5.2,
+    "seconds": 5.1,
     "counts": {
       "tasks": 0,
       "projects": 0,
@@ -62,12 +63,12 @@
     }
   },
   "profile": {
-    "scope": "e83c98fb-6f4a-4799-a55f-1ce369704ab6/00000000-0000-0000-0000-000000000001",
+    "scope": "04efd11e-1de5-4e02-80cc-6c604200d32a/00000000-0000-0000-0000-000000000001",
     "source": "the profile the run works in",
     "testProfile": {
-      "id": "e83c98fb-6f4a-4799-a55f-1ce369704ab6",
-      "name": "verify-large-restore",
-      "claimedBy": "files/verify-large-restore.owner"
+      "id": "04efd11e-1de5-4e02-80cc-6c604200d32a",
+      "name": "verify-large-restore-10k-s4242",
+      "claimedBy": "files/verify-large-restore-10k-s4242.owner"
     },
     "homeProfile": {
       "id": "default",
@@ -97,15 +98,15 @@
   "negative": {
     "over-budget": {
       "outcome": {
-        "flowSeconds": 95.5,
-        "durationSeconds": 4.8,
+        "flowSeconds": 79.3,
+        "durationSeconds": 5.4,
         "measured": "confirm-to-error-dialog",
-        "confirmedAt": 90.8,
+        "confirmedAt": 73.9,
         "reportedBySnackbar": false,
         "flowOverlappedWithWatch": false,
         "errorDialog": true,
         "errorDialogText": "        Ошибка backup archive entry exceeds remaining byte budget  OK ",
-        "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r20/over-budget-flow.log"
+        "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/over-budget-flow.log"
       },
       "counts": {
         "tasks": 0,
@@ -137,20 +138,20 @@
     }
   },
   "import": {
-    "flowSeconds": 109.9,
-    "durationSeconds": 16.3,
+    "flowSeconds": 102.5,
+    "durationSeconds": 32.9,
     "measured": "confirm-to-snackbar",
-    "confirmedAt": 93.6,
+    "confirmedAt": 69.7,
     "reportedBySnackbar": true,
     "flowOverlappedWithWatch": false,
     "errorDialog": false,
     "errorDialogText": "",
-    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r20/restore-flow.log",
-    "memory": "TOTAL PSS:   311227            TOTAL RSS:   341516       TOTAL SWAP PSS:    51600"
+    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/restore-flow.log",
+    "memory": "TOTAL PSS:   302056            TOTAL RSS:   303196       TOTAL SWAP PSS:    78153"
   },
   "database": {
-    "bytes": 35552176,
-    "scope": "e83c98fb-6f4a-4799-a55f-1ce369704ab6/00000000-0000-0000-0000-000000000001",
+    "bytes": 169925232,
+    "scope": "04efd11e-1de5-4e02-80cc-6c604200d32a/00000000-0000-0000-0000-000000000001",
     "counts": {
       "tasks": 10000,
       "projects": 100,
@@ -158,7 +159,7 @@
       "notes": 1000,
       "checklistItems": 20000,
       "taskDependencies": 1500,
-      "taskTags": 14814
+      "taskTags": 15157
     },
     "countProblems": [],
     "linkProblems": [],
@@ -170,10 +171,10 @@
   },
   "uiPaths": {
     "browse": "passed",
-    "openedTask": "Task 2",
-    "searchedTask": "Task 9998",
+    "openedTask": "Task 1",
+    "searchedTask": "Task 9997",
     "pickerAddedRelation": "Task 10000",
-    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r20/browse-flow.log"
+    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/browse-flow.log"
   },
   "verdict": {
     "problems": []
