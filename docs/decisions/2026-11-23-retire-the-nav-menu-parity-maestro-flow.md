@@ -130,8 +130,8 @@ another one (see Consequences).
   composition moved — `NAV-02`'s android cell is the hole now — the budget
   did not. Since then main moved again: its retirement of
   `agenda/04-saved-view-results` gave `AGENDA-04` a desktop carrier and
-  closed that scenario's android cell, so `main` measures 69 holes where this
-  branch measures 70. The floor is 70 — the level the merged tree measures —
+  closed that scenario's android cell, so `main` measures 67 holes where this
+  branch measures 68. The floor is 68 — the level the merged tree measures —
   and this retirement spends one hole against `main`, the cell it opens and
   names.
 - The menu's parity is now enforced in one place, in common code, on the
@@ -284,6 +284,38 @@ repository owner asked for it to stay with the retirement. Both repairs live
 in their own commits (`e7c760ff69`, `dd117394b1`), so either can be lifted
 into main on its own — `git cherry-pick e7c760ff69 dd117394b1 main` — and
 neither depends on the retirement's content.
+
+## Review round 10
+
+The merge of `main` brought two of main's own regressions into this branch,
+and both are inherited rather than caused by the retirement.
+
+**Main is red on the qualification gate.** `gazon1/sing#3141` split
+`menu/06-tree-live.yaml` and `gazon1/sing#3138` changed
+`sync/01-change-sync-interval.yaml` without requalifying either flow, so the
+pinned baseline no longer matches their content. Both are admitted by an
+**evidence-backed exception** in `config/docs/maestro-flow-qualification.yaml`
+— the upstream pull request is the evidence — and not by writing the new
+fingerprints into the baseline, for the same reason `archive/02` is: the
+baseline admits the content a flow had when the rule was introduced, and
+re-baselining a changed flow would admit content nobody qualified. The
+baseline repair belongs to main, which owns the flows.
+
+**Main is red on `traceability validate`.** `ProjectsMenuLiveScenarioTest`
+carried two `@DisplayName`s starting with `MENU-03` and
+`SyncSettings01ScenarioTest` carried two starting with `SYNC-SETTINGS-01`,
+so each of those scenarios was claimed by two tests on the desktop tier. The
+scanner's rule — one scenario may be claimed by at most one test per target —
+refuses that, because two claims make the matrix cell ambiguous. The second
+test of each pair keeps its name and its assertions and gives the scenario id
+back: the claim stays with the test that has always owned it, and the rule
+stays one-owner. The alternative — merging two claims into one — would hide
+exactly the disagreement the matrix exists to show.
+
+The merged tree measures 141 specs, 160 claimed cells, 92 carriers, 68
+holes, 49 dark scenarios and 7 unreachable cells; the ratchet floors are
+re-locked at that measurement.
+
 
 ## Links
 

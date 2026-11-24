@@ -41,6 +41,28 @@ numbers fall when real work lands, and both are cheap to compute from files that
 are already the input to `traceability validate` (no stand, no network, no test
 run).
 
+The `corpus` block, checked instead of trusted
+-----------------------------------------------
+The floor file also records the size of the corpus the floors were measured
+against: the number of scenario rows, the number of live obligation cells (the
+matrix's own denominator — a retired row is not an obligation) and the number
+of carriers the scanner resolved. Those three are metadata, and metadata that
+is read by nobody rots: the block on `main` said 133 specs / 260 claimed cells
+/ 103 carriers while the tree measured 141 / 161 / 92, and every gate stayed
+green the whole time. So they are recomputed here from the same traceability
+package that renders the matrix, and a mismatch fails the gate. The block
+stays in the file because it is the number a reader of a diff wants next to
+the floors — but it is a claim the gate checks, not a second copy somebody has
+to remember to update.
+
+The block is optional: a floor file without one is still a floor file. A block
+that IS there must be well-formed — all three keys, all integers — and a
+malformed one is a readable error, not a skipped check, because a corpus claim
+that is never compared is the failure this check exists to catch. And a stale
+corpus is never excused by `--accept-growth`: that flag exists for the commit
+that knowingly opens holes, and it does not cover a number the gate cannot
+compare.
+
 What this gate does NOT catch, stated rather than implied
 ---------------------------------------------------------
 Two things, and the first is the deliberate way to accept growth: raising a
@@ -160,6 +182,12 @@ METRICS: tuple[Metric, ...] = (
 )
 
 
+# The three numbers the optional `corpus` block records about the corpus the
+# floors were measured against. Named here so the error messages and the
+# comparison read from one list.
+CORPUS_KEYS: tuple[str, ...] = ("specs", "claimed_cells", "carriers")
+
+
 @click.command()
 @click.option("--config", default=DEFAULT_CONFIG, help=f"floor file (default: {DEFAULT_CONFIG})")
 @click.option(
@@ -203,6 +231,62 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
     # tests worse rather than the gate.
     measured, _dark_ids = _metrics(coverage)
 
+    # The `corpus` block records the size of the corpus the floors were measured
+    # against. It is metadata, and metadata nobody reads rots: the block on
+    # `main` still said 133 specs / 260 claimed cells / 103 carriers while the
+    # tree measured 141 / 161 / 92, and every registered gate stayed green the
+    # whole time. So the three numbers are recomputed here from the same
+    # traceability package that renders the matrix, and a mismatch fails the
+    # gate. The definitions are the matrix's own: `specs` is the number of
+    # scenario rows, `claimed_cells` the number of live obligation cells (the
+    # matrix's denominator — a retired row is not an obligation, and the
+    # definition lives on `Coverage` so the renderer and this gate cannot count
+    # different corpora), `carriers` the number of links the scanner resolved.
+    #
+    # The block is optional — a floor file without one is still a floor file —
+    # but a block that IS there must be well-formed. A malformed block that was
+    # skipped would be the same failure this check exists to catch: a corpus
+    # claim that is never compared.
+    corpus_drift: list[str] = []
+    # Presence is checked by key, not by value: `"corpus": null` is a block that
+    # is there and broken, not an absent block.
+    if "corpus" in cfg:
+        corpus = cfg["corpus"]
+        if not isinstance(corpus, dict):
+            click.echo(
+                f"ERROR: the `corpus` block in {config_path} must be an object with "
+                f"the keys {', '.join(CORPUS_KEYS)}, not {type(corpus).__name__}."
+            )
+            raise ctx.exit(1)
+        missing = [key for key in CORPUS_KEYS if key not in corpus]
+        if missing:
+            click.echo(
+                f"ERROR: the `corpus` block in {config_path} has no "
+                f"{', '.join(missing)}. A corpus claim that cannot be compared is "
+                f"not a claim."
+            )
+            raise ctx.exit(1)
+        invalid = [
+            key
+            for key in CORPUS_KEYS
+            if isinstance(corpus[key], bool) or not isinstance(corpus[key], int)
+        ]
+        if invalid:
+            click.echo(
+                f"ERROR: the `corpus` block in {config_path} has a non-integer "
+                f"{', '.join(invalid)}. The corpus is counted in integers."
+            )
+            raise ctx.exit(1)
+        computed = {
+            "specs": len(coverage.cells),
+            "claimed_cells": len(coverage.obligation_cells()),
+            "carriers": len(links),
+        }
+        for key, actual in computed.items():
+            recorded = corpus[key]
+            if recorded != actual:
+                corpus_drift.append(f"{key}: recorded {recorded}, measured {actual}")
+
     floors = {f["metric"]: f for f in cfg.get("floors", [])}
     missing = [m.key for m in METRICS if m.key not in floors]
     if missing:
@@ -226,7 +310,7 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
                 f"regression is caught at this level"
             )
 
-    if not grew:
+    if not grew and not corpus_drift:
         # Built from METRICS rather than written out: the third metric was
         # added to the tuple and to this gate's comparisons, and the success
         # line went on naming only the first two. A green run that does not
@@ -239,36 +323,58 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
         )
         raise ctx.exit(CLEAN)
 
-    click.echo("")
-    for metric, allowed, actual in grew:
-        click.echo(
-            f"check-traceability-ratchet: FAIL — {metric.key} grew from {allowed} "
-            f"to {actual} (+{actual - allowed})"
-        )
-        click.echo(f"  {metric.label}")
-    click.echo("")
-    click.echo("These are scenarios the suite claims to verify and does not. Holes are")
-    click.echo("normal — a matrix with none of them is a matrix nobody believes — but a")
-    click.echo("count that only ever goes up is a queue nobody drains:")
-    # Iterated over the CELLS, not over `dark_ids`. Listing only fully-dark scenarios
-    # was correct while every scenario was either fully covered or fully uncovered, and
-    # stopped being correct the moment a scenario got one target and not the other:
-    # `CAL-SYNC-SYSTEM-01` has a desktop carrier, so its android hole — an ordinary
-    # hole, and one a reader is expected to go and close — never appeared in this
-    # listing at all. The number said 40 and the list showed 34, with the difference
-    # being exactly the holes that a partial fix had made easy to forget. The cell is
-    # the unit the matrix is drawn in, so it is the unit this list is written in too.
-    for scenario in sorted(coverage.cells):
-        for target, cell in sorted(coverage.cells[scenario].items()):
-            if cell.state.was_claimed and not cell.state.is_automated:
-                click.echo(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
-    click.echo("")
-    click.echo("Either attach a carrier (the cheapest path is a reachability probe")
-    click.echo("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
-    click.echo("state the growth in the commit message and re-run with --accept-growth.")
-    click.echo("Note that the spec's own comment header is the only place the plan is")
-    click.echo("recorded, so a hole opened here can be opened without anyone noticing.")
-    raise ctx.exit(CLEAN if accept_growth else VALIDATION_FAILURE)
+    if grew:
+        click.echo("")
+        for metric, allowed, actual in grew:
+            click.echo(
+                f"check-traceability-ratchet: FAIL — {metric.key} grew from {allowed} "
+                f"to {actual} (+{actual - allowed})"
+            )
+            click.echo(f"  {metric.label}")
+        click.echo("")
+        click.echo("These are scenarios the suite claims to verify and does not. Holes are")
+        click.echo("normal — a matrix with none of them is a matrix nobody believes — but a")
+        click.echo("count that only ever goes up is a queue nobody drains:")
+        # Iterated over the CELLS, not over `dark_ids`. Listing only fully-dark scenarios
+        # was correct while every scenario was either fully covered or fully uncovered, and
+        # stopped being correct the moment a scenario got one target and not the other:
+        # `CAL-SYNC-SYSTEM-01` has a desktop carrier, so its android hole — an ordinary
+        # hole, and one a reader is expected to go and close — never appeared in this
+        # listing at all. The number said 40 and the list showed 34, with the difference
+        # being exactly the holes that a partial fix had made easy to forget. The cell is
+        # the unit the matrix is drawn in, so it is the unit this list is written in too.
+        for scenario in sorted(coverage.cells):
+            for target, cell in sorted(coverage.cells[scenario].items()):
+                if cell.state.was_claimed and not cell.state.is_automated:
+                    click.echo(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
+        click.echo("")
+        click.echo("Either attach a carrier (the cheapest path is a reachability probe")
+        click.echo("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
+        click.echo("state the growth in the commit message and re-run with --accept-growth.")
+        click.echo("Note that the spec's own comment header is the only place the plan is")
+        click.echo("recorded, so a hole opened here can be opened without anyone noticing.")
+
+    if corpus_drift:
+        click.echo("")
+        click.echo("check-traceability-ratchet: FAIL — the `corpus` block does not match")
+        click.echo("the corpus this tree actually has.")
+        for line in corpus_drift:
+            click.echo(f"  {line}")
+        click.echo("")
+        click.echo("The block records the corpus the floors were measured against, and it is")
+        click.echo("recomputed here from the same package the matrix is rendered from — so a")
+        click.echo("mismatch means the recorded numbers are stale. Update them in the floor")
+        click.echo("file, or drop the block: a number nobody checks is a number nobody reads.")
+
+    # `--accept-growth` excuses a metric that grew. It does NOT excuse a stale
+    # corpus: the escape hatch exists for the commit that knowingly opens
+    # holes, and a corpus claim that does not match the tree is not a hole
+    # someone accepted — it is a number the gate cannot compare. The two
+    # conditions are independent, so the exit code is decided on both: with
+    # growth accepted AND a stale corpus, the run still fails, because the
+    # alternative is a gate that prints a corpus failure and exits 0.
+    exit_code = CLEAN if (accept_growth and grew and not corpus_drift) else VALIDATION_FAILURE
+    raise ctx.exit(exit_code)
 
 
 

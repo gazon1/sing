@@ -17,7 +17,6 @@ initial_flows:
 - Maestro/flows/agenda/07-copy-to-profile.yaml
 - Maestro/flows/agenda/07-large-overdue.yaml
 - Maestro/flows/agenda/08-persistence-restart.yaml
-- Maestro/flows/agenda/09-upcoming-timeline.yaml
 - Maestro/flows/agenda/10-overflow-menu.yaml
 - Maestro/flows/archive/01-restore.yaml
 - Maestro/flows/archive/02-bulk-archive-confirm.yaml
@@ -42,7 +41,6 @@ initial_flows:
 - Maestro/flows/calendar/02-view-mode.yaml
 - Maestro/flows/calendar/03-tap-day.yaml
 - Maestro/flows/calendar_sync/01-provider-toggle.yaml
-- Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
 - Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
 - Maestro/flows/lifecycle/01-kill-restart-persist.yaml
 - Maestro/flows/lifecycle/03-rotate-in-editor.yaml
