@@ -7,6 +7,27 @@
 # The plan states that screen names are provisional: the steps and the checks stand
 # even if the screen is arranged differently, and only the locators change. This spec
 # records the behaviour, not the layout, so that a redesign does not invalidate it.
+#
+# ## Carriers
+#
+# The desktop carrier is
+# `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt`
+# (`changed_interval_is_applied_and_survives_restart`), and it owns the whole
+# scenario: the value change, the apply point (changing the interval while
+# auto-sync is enabled re-arms the scheduled sync with the new value) and the
+# boundary (a fresh app mount reads the persisted setting back).
+#
+# The boundary is a fresh mount over the same repository state, not a device
+# restart: the desktop tier has no on-disk database — the harness runs on an
+# in-memory fake — so the test proves that the persisted setting is what a later
+# mount reads, while the disk round-trip itself is the android tier's part.
+#
+# The android cell has no carrier. The Maestro flow
+# `Maestro/flows/sync/01-change-sync-interval.yaml` used to carry
+# `scenario:SYNC-SETTINGS-01`, but after gazon1/sing#3138 it asserts only the
+# residue (the path to the Sync tab and the interval-row interaction), so the
+# tag was dropped rather than kept as a claim the flow does not earn. The cell
+# is an honest hole, not a narrowed claim.
 
 id: SYNC-SETTINGS-01
 title: Change how often sync runs

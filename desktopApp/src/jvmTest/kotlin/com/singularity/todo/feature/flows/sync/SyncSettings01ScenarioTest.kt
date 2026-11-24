@@ -16,8 +16,10 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.textsOfTag
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
@@ -37,7 +39,7 @@ import kotlin.test.Test
 @Tag("slow:compose")
 class SyncSettings01ScenarioTest {
     @Test
-    @DisplayName("SYNC-SETTINGS-01 change how often sync runs")
+    @DisplayName("the interval row cycles its value when it is tapped")
     fun change_interval_cycles_value() =
         runDesktopAppTest(checkA11y = true) {
             openSyncSettings()
@@ -50,6 +52,21 @@ class SyncSettings01ScenarioTest {
             assertTagDisplayed(TestTags.Sync.AUTO_SYNC_SWITCH)
         }
 
+    /**
+     * The owner of `SYNC-SETTINGS-01`.
+     *
+     * The scenario is one claim with two halves — the new interval takes effect
+     * without a restart and survives one — and the traceability rule allows
+     **one** owner per scenario and target. So the owner carries both halves:
+     * the value change, the apply point and the reload boundary.
+     *
+     * The boundary is a **fresh app mount over the same repository state**, not
+     * a device restart: the desktop tier has no on-disk database (the harness
+     * runs on an in-memory fake), so this proves that the persisted setting is
+     * what a later mount reads, and the disk round-trip itself is the Android
+     * tier's residue. The limitation is recorded in the scenario's coverage
+     * note rather than papered over.
+     */
     @Test
     @DisplayName("SYNC-SETTINGS-01 the changed interval is applied and survives restart")
     fun changed_interval_is_applied_and_survives_restart() {
@@ -93,16 +110,15 @@ class SyncSettings01ScenarioTest {
             // boundary below proves persistence, not a scheduler-only race.
             val stateRepository = koin.get<SyncStateRepository>()
             val scope = SyncScope("user-1", "profile-1")
-            waitUntil(
-                conditionDescription = "interval $expectedMinutes min persisted before restart boundary",
-                timeoutMillis = 10_000,
-            ) {
-                kotlinx.coroutines.runBlocking {
-                    stateRepository
-                        .get(scope)
-                        .scheduledInterval.inWholeMinutes
-                        .toInt() == expectedMinutes
+            val persisted =
+                withTimeoutOrNull(10_000) {
+                    while (persistedMinutes(stateRepository, scope) != expectedMinutes) {
+                        delay(50)
+                    }
+                    true
                 }
+            check(persisted == true) {
+                "interval $expectedMinutes min was not persisted before the restart boundary"
             }
         }
 
@@ -126,6 +142,17 @@ class SyncSettings01ScenarioTest {
     }
 
     private fun DesktopComposeUiTest.intervalValue(): String? = textsOfTag(TestTags.Sync.INTERVAL_ROW).lastOrNull()
+
+    /** The interval the repository has persisted for [scope], in whole minutes. */
+    private suspend fun persistedMinutes(
+        stateRepository: SyncStateRepository,
+        scope: SyncScope,
+    ): Int =
+        stateRepository
+            .get(scope)
+            .scheduledInterval
+            .inWholeMinutes
+            .toInt()
 
     private fun minutesOf(label: String): Int =
         when {
