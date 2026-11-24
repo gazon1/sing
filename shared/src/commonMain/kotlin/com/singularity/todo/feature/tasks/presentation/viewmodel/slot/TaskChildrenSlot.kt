@@ -1,10 +1,10 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistMove
-import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -38,11 +38,6 @@ class TaskChildrenSlot(
     private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
-    /**
-     * Every task the user can see, so the slot can answer "which prerequisites of this
-     * subtask are still open". A subtask is a task, and closing one is closing one.
-     */
-    private val allTasks: StateFlow<List<Task>>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,
     /** Raised when a close is refused until the user confirms. */
@@ -237,7 +232,14 @@ class TaskChildrenSlot(
                         return@launch
                     }
                 if (!completed) {
-                    val blockers = Blocking.activeBlockers(subtask, allTasks.value)
+                    // The read can fail on its own — it is not the guarded write. A
+                    // failure reports as the save it was, rather than escaping to the
+                    // scope where the tap would appear to do nothing.
+                    val blockers =
+                        runCatchingCancellable { core.taskRepo.openBlockersOf(subtask.id) }.getOrElse {
+                            onError("Save failed")
+                            return@launch
+                        }
                     if (blockers.isEmpty()) {
                         onError("Save failed")
                         return@launch

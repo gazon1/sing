@@ -218,6 +218,7 @@ task_editor_reminder_row_placeholder text
 task_editor_start_date_row item
 task_editor_tags_row item
 task_editor_title_input field
+task_editor_title_error text
 task_item_${RUN_ID}_buy_milk item
 task_item_${RUN_ID}_full_task_with_all_fields item
 task_item_${RUN_ID}_grocery_run item

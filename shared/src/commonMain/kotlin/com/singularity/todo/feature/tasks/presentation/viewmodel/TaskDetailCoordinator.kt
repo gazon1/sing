@@ -18,7 +18,6 @@ import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
-import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.FirstRun
 import com.singularity.todo.feature.tasks.domain.state.FirstRunResolver
@@ -73,6 +72,12 @@ import kotlinx.coroutines.launch
  * block, not inside a `combine` or `flatMapLatest` transform, and the draft is seeded there
  * too — once per task change rather than once per unrelated child update.
  *
+ * That is the **only** list this screen reads. It used to also collect every task of the
+ * profile, so the completion guard could pick a task's blockers out of that list; on a 50k
+ * dataset that read materialised the whole profile, its tags and its edges on a 192 MiB
+ * heap, and the detail screen never got to render. The guard now asks the repository for
+ * the open prerequisites of the one task it is closing.
+ *
  * ## What the merge covers
  *
  * Six inputs: the task row, the draft, entity metadata, child collections, reminders, and
@@ -105,16 +110,6 @@ class TaskDetailCoordinator(
     private val loadable = MutableStateFlow<Task?>(null)
     private val taskFlow: StateFlow<Task?> = loadable.asStateFlow()
     private val retryVersion = MutableStateFlow(0)
-
-    /**
-     * Every task the user can see.
-     *
-     * The slots need it to answer "which prerequisites of this task are still
-     * open" — a prerequisite that is finished, discarded, or gone is not in the
-     * way, and the answer has to come from the same list the badge was computed
-     * from, or the two would disagree.
-     */
-    private val allTasks = MutableStateFlow<List<Task>>(emptyList())
 
     /**
      * A close that was refused until the user confirms it.
@@ -183,7 +178,6 @@ class TaskDetailCoordinator(
             context = deps.context,
             scope = vmScope,
             taskFlow = taskFlow,
-            allTasks = allTasks,
             onError = ::reportError,
             onSaved = ::reportSaved,
             onBlockedClose = ::raiseBlockedClose,
@@ -197,7 +191,6 @@ class TaskDetailCoordinator(
             context = deps.context,
             scope = vmScope,
             taskFlow = taskFlow,
-            allTasks = allTasks,
             onError = ::reportError,
             onSaved = ::reportSaved,
             onBlockedClose = ::raiseBlockedClose,
@@ -364,11 +357,6 @@ class TaskDetailCoordinator(
 
     init {
         addCloseable(scope)
-        scope.launch {
-            deps.core.taskRepo
-                .observeByFilter(TaskFilter.All)
-                .collect { allTasks.value = it }
-        }
         scope.launch {
             combine(flowOf(taskId), retryVersion) { id, _ -> id }
                 .flatMapLatest { deps.core.taskRepo.observe(it) }

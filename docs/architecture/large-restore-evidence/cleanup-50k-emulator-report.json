@@ -1,0 +1,80 @@
+{
+  "status": "failed",
+  "phases": [
+    "device claimed",
+    "apk installed",
+    "archive generated",
+    "profile wiped"
+  ],
+  "device": {
+    "fingerprint": "588788766f88",
+    "model": "sdk_gphone64_x86_64",
+    "androidRelease": "16",
+    "sdk": "36",
+    "abi": "x86_64"
+  },
+  "apk": {
+    "path": "androidApp-debug.apk",
+    "package": "com.singularity.todo",
+    "version": "0.1.0+gd066810f72d0",
+    "variant": "debug",
+    "digest": "md5:a6d7264cbca8f020c6b68e8fa9858d2d"
+  },
+  "dataset": {
+    "profile": "50k",
+    "seed": 4242,
+    "archive": "synthetic-50k.zip",
+    "sidecar": "synthetic-50k.manifest.json",
+    "archiveBytes": 6502954,
+    "decompressedBytes": 48206003,
+    "counts": {
+      "tasks": 50000,
+      "projects": 250,
+      "tags": 120,
+      "notes": 2000,
+      "checklistItems": 25000,
+      "taskDependencies": 5000,
+      "taskTags": 75206
+    }
+  },
+  "tools": {
+    "maestro": "2.10.0",
+    "android": "16",
+    "adb": "Android Debug Bridge version 1.0.41",
+    "jdk": "openjdk version \"25.0.4.1\" 2026-08-18",
+    "commit": "d066810f72d08052df73dc9ac49a47a3bf170aec",
+    "dirty": "yes",
+    "uncommitted_diff": "trimmed: the diff of the tree the run was made on is not part of the evidence"
+  },
+  "wipe": {
+    "seconds": 40.4,
+    "counts": {
+      "tasks": 0,
+      "projects": 0,
+      "tags": 0,
+      "notes": 0,
+      "checklistItems": 0,
+      "taskDependencies": 0,
+      "taskTags": 0
+    }
+  },
+  "profile": {
+    "scope": "2ea88073-eac6-4f41-a44a-6bcd1974e251/00000000-0000-0000-0000-000000000001",
+    "source": "the profile the run works in",
+    "testProfile": {
+      "id": "2ea88073-eac6-4f41-a44a-6bcd1974e251",
+      "name": "verify-large-restore-3149",
+      "claimedBy": "files/verify-large-restore-3149.owner"
+    },
+    "homeProfile": {
+      "id": "default",
+      "name": "Personal"
+    }
+  },
+  "failure": "setup",
+  "error": "the APK on emulator-5556 changed while this run was going: it carries 51fb50f1d097979d5e6e6cab09d7601a, this run installed a6d7264cbca8f020c6b68e8fa9858d2d. Another session installed another build on this device; the run stops here rather than measuring a restore against somebody else's app.",
+  "profileLeftBehind": {
+    "profile": "Personal",
+    "restored": true
+  }
+}

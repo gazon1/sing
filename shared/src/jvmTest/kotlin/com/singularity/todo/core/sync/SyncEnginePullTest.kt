@@ -72,7 +72,7 @@ class SyncEnginePullTest {
         val outboxService =
             OutboxService(
                 outboxDao = outboxDao,
-                patchBuilder = fakeSyncPatchBuilder(),
+                patchBuilder = productionPatchBuilder(),
                 scopeProvider = scopeProvider,
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -85,7 +85,7 @@ class SyncEnginePullTest {
             stateRepository = stateRepository,
             scopeProvider = scopeProvider,
             shadowDao = FakeSyncShadowDao(),
-            patchBuilder = fakeSyncPatchBuilder(),
+            patchBuilder = productionPatchBuilder(),
             outboxService = outboxService,
             _outboxDao = outboxDao,
             _deadLetterDao = FakeSyncDeadLetterDao(),

@@ -56,7 +56,7 @@ class BuildPatchDiffTest {
             syncId = id,
         )
 
-    private fun builder(shadowDao: SyncShadowDao) = fakeSyncPatchBuilder(shadowDao)
+    private fun builder(shadowDao: SyncShadowDao) = productionPatchBuilder(shadowDao)
 
     private fun opsOf(patch: DeltaPatch) = patch.ops.associate { it.field to it.op }
 

@@ -19,6 +19,7 @@ import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.core.text.TaskDescriptionHtml
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -41,6 +42,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.followUpDependencyIdsForUser
 import com.singularity.todo.feature.tasks.freshTask
 import com.singularity.todo.feature.tasks.withExtras
+import com.singularity.todo.feature.tasks.withScopedExtras
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -235,7 +237,15 @@ class TaskRepositoryImpl(
 
     override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            taskDao.withExtras(uid, taskDao.watchSubtasksForUser(parentId.value, uid.value))
+            // Selector-scoped: the edges of this parent's subtasks, read through the
+            // same parent as the rows. The profile-wide read materialised every tag
+            // edge of the profile to enrich them, and an id list would have bound one
+            // parameter per subtask with nothing capping how many a parent may have.
+            withScopedExtras(
+                source = taskDao.watchSubtasksForUser(parentId.value, uid.value),
+                tagsFlow = taskDao.observeTagCrossRefsOfSubtasks(parentId.value, uid.value),
+                dependenciesFlow = taskDao.observeDependencyCrossRefsOfSubtasks(parentId.value, uid.value),
+            )
         }
 
     override suspend fun reorderSubtasks(
@@ -615,7 +625,13 @@ class TaskRepositoryImpl(
 
     override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            taskDao.withExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
+            // The same selector-scoped shape: the series answers for its own rows and
+            // its own edges, not for the profile's.
+            withScopedExtras(
+                source = taskDao.observeSeriesForUser(seriesId.value, uid.value),
+                tagsFlow = taskDao.observeTagCrossRefsOfSeries(seriesId.value, uid.value),
+                dependenciesFlow = taskDao.observeDependencyCrossRefsOfSeries(seriesId.value, uid.value),
+            )
         }
 
     override suspend fun legacyRecurringTasks(): List<Task> {
@@ -715,14 +731,19 @@ class TaskRepositoryImpl(
                 taskDao.deleteDependenciesForUser(uid)
                 taskDao.deleteChecklistItemsForUser(uid)
                 val removed = taskDao.deleteAllForUser(uid)
-                doomed.forEach { row ->
-                    val task =
-                        row.toTask(
-                            tags = tagRefs[row.id].orEmpty(),
-                            blockedBy = depRefs[row.id].orEmpty(),
-                        )
-                    syncRepository.enqueue(task.copy(archivedAt = task.archivedAt ?: now)).getOrThrow()
-                }
+                // One batch, one pass: the per-entity path wrote the sync clock to
+                // disk for every task it removed, and a wipe of ten thousand rows paid
+                // that ten thousand times.
+                val tombstones: List<SyncableEntity> =
+                    doomed.map { row ->
+                        val task =
+                            row.toTask(
+                                tags = tagRefs[row.id].orEmpty(),
+                                blockedBy = depRefs[row.id].orEmpty(),
+                            )
+                        task.copy(archivedAt = task.archivedAt ?: now)
+                    }
+                syncRepository.enqueue(tombstones).getOrThrow()
                 removed
             }
         }
@@ -888,6 +909,13 @@ class TaskRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         val ids = taskDao.blockedTaskIdsForUser(taskIds.map { it.value }, uid, DependencyVerb.BLOCKS.name)
         return ids.map { TaskId.fromString(it) }.toSet()
+    }
+
+    override suspend fun openBlockersOf(taskId: TaskId): List<Task> {
+        val uid = currentUser.scopedUserId.value.value
+        return taskDao
+            .blockingTasksForUser(taskId.value, uid, DependencyVerb.BLOCKS.name)
+            .map { it.toTask() }
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> =

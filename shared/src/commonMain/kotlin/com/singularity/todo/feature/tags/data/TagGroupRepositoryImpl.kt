@@ -15,6 +15,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.domain.model.CreateTagGroupInput
@@ -215,9 +216,11 @@ class TagGroupRepositoryImpl(
                 val doomed = tagGroupDao.listAllForUser(uid)
                 val removed = tagGroupDao.deleteAllForUser(uid)
                 val now = clock.now()
-                doomed.forEach { row ->
-                    syncRepository.enqueue(row.toTagGroup().copy(deletedAt = now)).getOrThrow()
-                }
+                // One batch, one pass: the per-entity path wrote the sync clock to
+                // disk for every tag group it removed.
+                val tombstones: List<SyncableEntity> =
+                    doomed.map { row -> row.toTagGroup().copy(deletedAt = now) }
+                syncRepository.enqueue(tombstones).getOrThrow()
                 removed
             }
         }

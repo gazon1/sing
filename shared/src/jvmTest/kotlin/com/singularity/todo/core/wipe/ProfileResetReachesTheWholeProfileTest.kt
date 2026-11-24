@@ -14,6 +14,7 @@ import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.ProjectReminderEntity
+import com.singularity.todo.core.database.RoomUnitOfWork
 import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TagGroupEntity
@@ -47,6 +48,7 @@ import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
@@ -57,6 +59,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -188,6 +191,72 @@ class ProfileResetReachesTheWholeProfileTest {
             assertTrue(
                 db.tagDao().listAllForUser(alice.value).isEmpty(),
                 "a trashed tag is a row the next flow still sees",
+            )
+        }
+
+    /**
+     * A failure in the middle of the reset leaves the profile whole.
+     *
+     * ## The defect this pins down
+     *
+     * The reset touches many tables, and every repository in it writes through a unit
+     * of work of its own. Without a transaction around the reset, each of those
+     * commits on its own: a failure in the last repository would leave the tables the
+     * earlier ones wiped empty, and nothing would record which half of the reset ran.
+     * The profile would be half deleted, and a retry would start from a state nobody
+     * described.
+     *
+     * So the reset runs in one transaction, and a failure anywhere in it undoes the
+     * whole thing. The task repository fails here, *after* the tags and the tag
+     * groups have already been deleted — those are the rows a per-repository
+     * transaction would have committed and lost.
+     */
+    @Test
+    fun `a failure in the middle of the reset leaves the profile whole`() =
+        runTest {
+            seedProfileContent(alice.value)
+
+            val failing =
+                object : TaskRepository by taskRepo() {
+                    override suspend fun deleteAllForCurrentProfile(): Result<Int> =
+                        Result.failure(IllegalStateException("the wipe failed"))
+                }
+
+            val thrown =
+                runCatching { resetter(taskRepository = failing).resetContent() }.exceptionOrNull()
+
+            assertNotNull(thrown, "the reset must fail when a repository fails")
+            assertTrue(
+                generateSequence(thrown) { it.cause }
+                    .any { it.message?.contains("the wipe failed") == true },
+                "the failure of the repository must reach the caller, not be swallowed: $thrown",
+            )
+
+            assertEquals(
+                1,
+                db.tagDao().listAllForUser(alice.value).size,
+                "the tags are deleted before the tasks — a per-repository transaction " +
+                    "would have committed them and left the profile half wiped",
+            )
+            assertEquals(
+                1,
+                db.tagGroupDao().listAllForUser(alice.value).size,
+                "the tag groups are deleted before the tasks too",
+            )
+            assertEquals(
+                1,
+                db.taskDao().listAllForUser(alice.value).size,
+                "the tasks must still be there",
+            )
+            assertEquals(
+                1,
+                db.noteDao().listAllForUser(alice.value).size,
+                "the notes must still be there",
+            )
+            assertEquals(
+                1,
+                db.savedSearchDao().listAllForUser(alice.value).size,
+                "the saved searches must still be there",
             )
         }
 
@@ -676,11 +745,11 @@ class ProfileResetReachesTheWholeProfileTest {
 
     // ─── The resetter under test ────────────────────────────────────────────────
 
-    private fun resetter() =
+    private fun resetter(taskRepository: TaskRepository = taskRepo()) =
         ProfileContentResetter(
             deps =
                 ProfileWipeDeps(
-                    taskRepository = taskRepo(),
+                    taskRepository = taskRepository,
                     notesRepository = notesRepo(),
                     projectsRepository = projectsRepo(),
                     savedAgendaViewsRepository =
@@ -720,6 +789,10 @@ class ProfileResetReachesTheWholeProfileTest {
                     calendarSyncTaskMapDao = db.calendarSyncTaskMapDao(),
                     googleEventShadowDao = db.googleEventShadowDao(),
                     attachmentStorage = AttachmentStorage(fs = JvmFileSystem(), dir = fixture.directory().absolutePath),
+                    // The real one, so that the reset's own transaction is a real
+                    // transaction: a fake would run the block without a transaction and
+                    // the rollback this test asks about could not happen.
+                    unitOfWork = RoomUnitOfWork(db),
                 ),
             draftStore = FakeDraftStore(),
             currentUser = currentUser,

@@ -167,13 +167,7 @@ fun TaskEntity.toTask(
         isPinned = isPinned,
         blockedBy = blockedBy,
         followsUp = followsUp,
-        aiSuppressedTagIds =
-            StableJson
-                .decodeFromString(
-                    SetSerializer(String.serializer()),
-                    aiSuppressedTagIds,
-                ).map { TagId.fromString(it) }
-                .toSet(),
+        aiSuppressedTagIds = aiSuppressedTagIds.toTagIds(),
         recurrence =
             recurrenceRule?.let {
                 StableJson.decodeFromString<RecurrenceSpec>(it)
@@ -191,6 +185,22 @@ fun TaskEntity.toTask(
         serverVersion = sync.serverVersion,
         hlc = sync.hlc?.let { Hlc(it) },
     )
+
+/**
+ * The stored JSON of `ai_suppressed_tag_ids` as tag ids — or, for the column's
+ * default, the empty set.
+ *
+ * The decode is a JSON parse, and the column's default is `"[]"`: every row that
+ * has never had a suppressed tag paid for a parse that could only return nothing.
+ * That is most rows, on every list read, and the read is per profile.
+ */
+private fun String.toTagIds(): Set<TagId> {
+    if (this == "[]") return emptySet()
+    return StableJson
+        .decodeFromString(SetSerializer(String.serializer()), this)
+        .map { TagId.fromString(it) }
+        .toSet()
+}
 
 /**
  * Converts a [ProjectEntity] to a domain [Project].

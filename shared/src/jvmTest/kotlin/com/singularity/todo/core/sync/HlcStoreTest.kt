@@ -91,6 +91,27 @@ class HlcStoreTest {
             assertEquals(0, ticked.counter)
         }
 
+    /**
+     * The stored clock never moves backwards.
+     *
+     * The stored clock is the device's promise that it will not mint a clock older
+     * than it. A write carrying an *older* clock would undo that promise: after a
+     * restart the device would restore a clock older than one it already issued, and
+     * the next patch could carry a timestamp older than a timestamp the server
+     * already holds. The write is dropped instead.
+     */
+    @Test
+    fun `the store refuses to go back to an older clock`() =
+        runTest {
+            val store = DataStoreHlcStore(newPreferencesStore())
+            val newer = Hlc.of(100L, 0, "node-1")
+
+            store.save(newer)
+            store.save(Hlc.of(50L, 0, "node-1"))
+
+            assertEquals(newer, store.load(), "the stored clock stays the newest one written")
+        }
+
     @Test
     fun `a cancelled read propagates the cancellation`() =
         runTest {

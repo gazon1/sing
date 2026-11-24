@@ -107,11 +107,11 @@ class SyncEngineOutboxOwnershipTest {
                 stateRepository = FakeSyncStateRepository(),
                 scopeProvider = scopes,
                 shadowDao = shadow,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 outboxService =
                     OutboxService(
                         outboxDao = outbox,
-                        patchBuilder = fakeSyncPatchBuilder(shadow),
+                        patchBuilder = productionPatchBuilder(shadow),
                         scopeProvider = scopes,
                         engineState = SyncEngineState(log, NoOpCrashReportingPort()),
                         monoNow = { clock.now().toEpochMilliseconds() },

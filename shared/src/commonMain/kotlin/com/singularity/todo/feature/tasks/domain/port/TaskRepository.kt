@@ -174,6 +174,20 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      */
     suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId>
 
+    /**
+     * The still-open prerequisites of [taskId] — the tasks that stand in the way
+     * of closing it, with the titles the confirmation names them by.
+     *
+     * A targeted read, and the one the task-detail guard asks. Reading every task
+     * of the profile to answer "what blocks this one" costs the profile: on a 50k
+     * dataset the detail screen loaded the whole list, its tags and its edges to
+     * name at most a few prerequisites.
+     *
+     * @param taskId the task whose prerequisites are asked about.
+     * @return the open prerequisites; empty when nothing is in the way.
+     */
+    suspend fun openBlockersOf(taskId: TaskId): List<Task>
+
     suspend fun togglePinned(id: TaskId): Result<Unit>
 
     suspend fun setTags(

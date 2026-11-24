@@ -8,6 +8,7 @@ import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -132,6 +133,94 @@ class TaskDependencyVerbFilterTest {
 
             assertTrue(listed[TaskId("t1")]?.blockedBy.isNullOrEmpty())
             assertEquals(setOf(TaskId("dep")), listed[TaskId("t2")]?.blockedBy)
+        }
+
+    @Test
+    fun `a subtask list carries the tags and blockers of its own rows only`() =
+        runTest {
+            val repo = repository()
+            val tagged = TagId.fromString("tag-1")
+            repo.create(task("parent", "Parent"))
+            repo
+                .create(
+                    task("child", "Child").copy(
+                        parentTaskId = TaskId("parent"),
+                        tags = listOf(tagged),
+                    ),
+                ).getOrThrow()
+            // An unrelated row with an edge of its own: the profile-wide read
+            // materialised it, the scoped read must not need it.
+            repo.create(task("elsewhere", "Elsewhere")).getOrThrow()
+            repo.create(task("foreign-dep", "Foreign dep")).getOrThrow()
+            repo.setDependency(TaskId("elsewhere"), TaskId("foreign-dep"), DependencyVerb.BLOCKS, enabled = true)
+
+            val child = repo.observeSubtasks(TaskId("parent")).first().single()
+
+            assertEquals(listOf(tagged), child.tags)
+            assertTrue(
+                child.blockedBy.isEmpty(),
+                "another row's blocker is not this subtask's: ${child.blockedBy}",
+            )
+        }
+
+    /**
+     * The guard reads one task's prerequisites, not the profile.
+     *
+     * The task-detail screen used to collect every task of the profile to answer
+     * this question, which is what exhausted a 192 MiB heap on a 50k dataset before
+     * the screen rendered.
+     */
+    @Test
+    fun `the detail guard reads only the task it is asked about`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("open", "Open prerequisite"))
+            repo
+                .create(
+                    task("done", "Finished").copy(
+                        completedAt = kotlin.time.Instant.fromEpochMilliseconds(1_000),
+                    ),
+                ).getOrThrow()
+            repo.create(task("t1", "Blocked"))
+            repo.create(task("unrelated", "Unrelated"))
+            repo.setDependency(TaskId("t1"), TaskId("open"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("t1"), TaskId("done"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("unrelated"), TaskId("open"), DependencyVerb.BLOCKS, enabled = true)
+
+            assertEquals(
+                listOf("open"),
+                repo.openBlockersOf(TaskId("t1")).map { it.id.value },
+                "the answer names the open prerequisite of this task and nothing else",
+            )
+            assertTrue(
+                repo.openBlockersOf(TaskId("unrelated")).size == 1,
+                "the read is per task, not a cached profile-wide answer",
+            )
+        }
+
+    @Test
+    fun `the list read carries both projections of one edge table`() =
+        runTest {
+            // What this pins is the *answer*, not the number of passes that produced
+            // it: a table holding both a blocking and a follow-up edge for one task
+            // must reach the task as two different sets. Collapsing the enrichment
+            // into one walk must not drop one projection or fold one into the other —
+            // the mistake that makes a task blocked in one place and ordered in
+            // another from the same rows.
+            //
+            // The single pass itself is a performance property. A value assertion
+            // cannot see it: the two-pass version answers exactly the same thing, so
+            // this test passes against it by design.
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Both ways"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            val listed = repo.observeByFilter(TaskFilter.All).first().single { it.id == TaskId("t1") }
+
+            assertEquals(setOf(TaskId("dep")), listed.blockedBy, "the blocking projection")
+            assertEquals(setOf(TaskId("dep")), listed.followsUp, "the follow-up projection")
         }
 
     @Test

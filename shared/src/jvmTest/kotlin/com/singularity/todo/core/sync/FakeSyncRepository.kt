@@ -51,6 +51,11 @@ open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRe
         return Result.success(Unit)
     }
 
+    override suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit> {
+        enqueuedEntities.addAll(entities)
+        return Result.success(Unit)
+    }
+
     override suspend fun syncOnce(): SyncOutcome {
         // No coalescing guard here, and there must not be one: the real repository
         // delegates to SyncCoordinator, which owns the cycle. A fake that re-implemented

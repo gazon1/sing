@@ -1132,6 +1132,52 @@ private class FakeTaskDao(
 
     override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = crossRefs
 
+    // The selector-scoped cross-reference reads live in [FakeSelectorCrossRefs], which
+    // this class delegates to: adding them here pushed this dao past detekt's size
+    // limit, and they are a coherent group — the reads that name a selector instead of
+    // listing ids.
+    private val selectorCrossRefs =
+        FakeSelectorCrossRefs(store = store, crossRefs = crossRefs, depRefs = depRefs)
+
+    override fun observeTagCrossRefsOfSubtasks(
+        parentId: String,
+        userId: String,
+    ) = selectorCrossRefs.tagRefsOfSubtasks(parentId, userId)
+
+    override fun observeDependencyCrossRefsOfSubtasks(
+        parentId: String,
+        userId: String,
+    ) = selectorCrossRefs.dependencyRefsOfSubtasks(parentId, userId)
+
+    override fun observeTagCrossRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ) = selectorCrossRefs.tagRefsOfSeries(seriesId, userId)
+
+    override fun observeDependencyCrossRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ) = selectorCrossRefs.dependencyRefsOfSeries(seriesId, userId)
+
+    override suspend fun blockingTasksForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): List<TaskEntity> {
+        // Both rows are scoped, as the SQL scopes them: the task that holds the edge
+        // and the prerequisite it points at. Checking only the prerequisite would let
+        // the fake answer for a task another profile owns.
+        if (store.value[taskId]?.userId != userId) return emptyList()
+        return depRefs.value
+            .filter { ref ->
+                ref.taskId == taskId &&
+                    ref.verb == verb &&
+                    store.value[ref.dependsOnTaskId]?.let {
+                        it.userId == userId && it.completedAt == null && it.archivedAt == null
+                    } == true
+            }.mapNotNull { store.value[it.dependsOnTaskId] }
+    }
+
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
 
     override suspend fun setOutgoingLinksForUser(
@@ -1928,6 +1974,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         store.update { it + (entity.patchId to entity) }
     }
 
+    override suspend fun insertAll(entities: List<SyncOutboxEntity>) {
+        store.update { current -> entities.fold(current) { acc, e -> acc + (e.patchId to e) } }
+    }
+
     override suspend fun delete(id: String) {
         store.update { it - id }
     }
@@ -1989,6 +2039,23 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
                 e.ownerId != ownerId || e.profileId != profileId || e.entityId != entityId
             }
         }
+    }
+
+    override suspend fun deleteByEntities(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): Int {
+        val doomed =
+            store.value.values.count {
+                it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds
+            }
+        store.update {
+            it.filterValues { e ->
+                e.ownerId != ownerId || e.profileId != profileId || e.entityId !in entityIds
+            }
+        }
+        return doomed
     }
 
     /** `DELETE FROM sync_outbox WHERE owner_id = :ownerId` — every profile's patches of that owner. */
@@ -2171,6 +2238,22 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
     override suspend fun upsert(entity: SyncShadowEntity) {
         val k = key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)
         store.value = store.value + (k to entity)
+    }
+
+    override suspend fun getAll(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): List<SyncShadowEntity> =
+        store.value.values.filter {
+            it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds
+        }
+
+    override suspend fun upsertAll(entities: List<SyncShadowEntity>) {
+        store.value =
+            entities.fold(store.value) { acc, e ->
+                acc + (key(e.ownerId, e.profileId, e.entityType, e.entityId) to e)
+            }
     }
 
     override suspend fun updateConfirmed(
@@ -4296,3 +4379,64 @@ private class FakeOwnerEraseDao(
  */
 private fun storedLinks(json: String): List<String> =
     runCatching { Json.decodeFromString(ListSerializer(String.serializer()), json) }.getOrDefault(emptyList())
+
+/**
+ * The cross-reference reads that name a **selector** rather than a list of task ids.
+ *
+ * Split out of [FakeTaskDao] so the dao stays under detekt's size limit, and because they
+ * are one idea: the tasks behind a parent or a series, scoped to their owner, and the edges
+ * that belong to those tasks. The SQL does the same thing with a subquery.
+ */
+private class FakeSelectorCrossRefs(
+    private val store: MutableStateFlow<Map<String, TaskEntity>>,
+    private val crossRefs: MutableStateFlow<List<TaskTagCrossRef>>,
+    private val depRefs: MutableStateFlow<List<TaskDependencyCrossRef>>,
+) {
+    fun tagRefsOfSubtasks(
+        parentId: String,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>> =
+        behindSelector(crossRefs, userId) {
+            it.parentTaskId == parentId &&
+                it.archivedAt == null
+        }
+
+    fun dependencyRefsOfSubtasks(
+        parentId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>> =
+        behindSelector(depRefs, userId) {
+            it.parentTaskId == parentId &&
+                it.archivedAt == null
+        }
+
+    fun tagRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>> = behindSelector(crossRefs, userId) { it.seriesId == seriesId }
+
+    fun dependencyRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>> = behindSelector(depRefs, userId) { it.seriesId == seriesId }
+
+    private fun <T> behindSelector(
+        refs: MutableStateFlow<List<T>>,
+        userId: String,
+        selector: (TaskEntity) -> Boolean,
+    ): Flow<List<T>> =
+        combine(refs, store) { rows, tasks ->
+            val behind =
+                tasks.values
+                    .filter { it.userId == userId && selector(it) }
+                    .map { it.id }
+                    .toSet()
+            rows.filter { ref ->
+                when (ref) {
+                    is TaskTagCrossRef -> ref.taskId in behind
+                    is TaskDependencyCrossRef -> ref.taskId in behind
+                    else -> false
+                }
+            }
+        }
+}

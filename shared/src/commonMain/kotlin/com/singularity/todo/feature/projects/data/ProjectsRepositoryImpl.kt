@@ -19,6 +19,7 @@ import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
@@ -187,16 +188,17 @@ class ProjectsRepositoryImpl(
                 // along.
                 inheritedTagGroupDao.deleteAllForUserProjects(uid)
                 val removed = projectDao.deleteAllForUser(uid)
-                doomed.forEach { row ->
-                    val project =
-                        row.toProject().copy(
-                            inheritedTagGroupIds = inheritance[row.id].orEmpty(),
-                        )
-                    syncRepository
-                        .enqueue(
-                            project.copy(isDeleted = true, deletedAt = project.deletedAt ?: now),
-                        ).getOrThrow()
-                }
+                // One batch, one pass: the per-entity path wrote the sync clock to
+                // disk for every project it removed.
+                val tombstones: List<SyncableEntity> =
+                    doomed.map { row ->
+                        val project =
+                            row.toProject().copy(
+                                inheritedTagGroupIds = inheritance[row.id].orEmpty(),
+                            )
+                        project.copy(isDeleted = true, deletedAt = project.deletedAt ?: now)
+                    }
+                syncRepository.enqueue(tombstones).getOrThrow()
                 removed
             }
         }

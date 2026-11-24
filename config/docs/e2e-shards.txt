@@ -22,9 +22,9 @@
 # the "minimal regression suite" cost nearly a full-suite shard on a single
 # runner and was the longest thing in the workflow. The shard is taken over the
 # tag-selected flows and not over every flow, so the four shards hold the same
-# 27 flows between them in shares of 7, 7, 7 and 6 — each about a third of a
+# 29 flows between them in shares of 8, 7, 7 and 7 — each about a third of a
 # full-suite shard. Sharding over every flow and filtering afterwards gave
-# shares of 7, 9, 4 and 7, and the runner waiting on the largest one set the
+# shares of 10, 4, 8 and 7, and the runner waiting on the largest one set the
 # wall clock for every pull request.
 #
 # Both suites therefore cost the same number of runners, and the pull-request
