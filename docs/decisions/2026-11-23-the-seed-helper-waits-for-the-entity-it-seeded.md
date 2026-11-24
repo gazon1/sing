@@ -141,6 +141,15 @@ A model that trimmed the key away would say the link wrote a task, and the gate
 would let a flow through that fails on the device, on a row that was never
 written.
 
+**What the helper does not do with the query.** It does not read it. The query
+belongs to the seeder — the key vocabulary is `SeedLinkKeys` — and a helper
+that read it would be a second reader of the same language, one that could
+disagree with the seeder about a key, a value or a parameter the seeder does
+not know. The helper hands the query over whole, in the deep link, and reads
+nothing of it. `SeedHelperQueryTest` holds it to that: the query may be named
+in the body of the helper once — in the deep link — and a helper that names it
+anywhere else is rejected.
+
 **What the helper may name as a target of its wait.** A row of the screen
 the seed leaves the app on, and the section that holds it. Three things are
 not: a row of a *multi-row* seed (the list the seed filled is longer than the
@@ -421,7 +430,9 @@ profile therefore behaves exactly as it did before.
   conditional `runFlow` as well: the helper's entity wait is a wait the gate
   holds to the budget of its kind.
 - The helper does not parse `QUERY`, and never will: the query language
-  belongs to the seeder.
+  belongs to the seeder. `SeedHelperQueryTest` holds it to that: the query is
+  forwarded whole in the deep link, and a helper that names the query anywhere
+  else in its body is rejected.
 - `agenda/07-large-overdue` seeds a thousand rows in five chunks of ~200, each
   chunk a seed of its own with a base title of its own, so that every chunk
   fits inside the shell wait (30 s). The chunks name no entity to wait for —
@@ -523,6 +534,9 @@ profile therefore behaves exactly as it did before.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedContractCopiesTest.kt` —
   the gate that holds the three copies of the contract to each other: every
   clause in all three, and the opposite of a clause in none.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedHelperQueryTest.kt` —
+  the gate that holds the helper to forwarding the query whole, and to reading
+  none of it.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedWaitTree.kt` —
   the tree the two gates read, and the rule they hold the flows to.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedEntityModel.kt` —
