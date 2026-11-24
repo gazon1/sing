@@ -12,6 +12,22 @@
 # read through the next opening. The list itself is live on both: it is drawn
 # from the profile as it is now, not from a snapshot taken when the menu was
 # first opened.
+#
+# ## Carriers
+#
+# The desktop carrier is
+# `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt`
+# (`the_tree_reflects_creations_and_renames`), and it owns the whole scenario:
+# it asserts both halves — a project created elsewhere appears in the tree, and
+# a project renamed elsewhere shows its new name — while the drawer is open.
+#
+# The android cell has no carrier. The Maestro flow
+# `Maestro/flows/menu/06-tree-live.yaml` used to carry `scenario:MENU-03`, but
+# after gazon1/sing#3141 it asserts only the residue (the modal sheet closes on
+# an outside change, and reopening it exposes the row by its stable id), so the
+# tag was dropped rather than kept as a claim the flow does not earn. The cell
+# is an honest hole, not a narrowed claim: the guarantee is still claimed for
+# android, and the android tier is where it is not verified.
 
 id: MENU-03
 title: "The menu's project list reflects creations and renames made elsewhere"

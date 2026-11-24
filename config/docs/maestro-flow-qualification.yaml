@@ -779,7 +779,7 @@ exceptions:
       flow was changed.
     evidence: gazon1/sing#3126
   Maestro/flows/menu/06-tree-live.yaml:
-    fingerprint: sha256:c050d826109658f11a0d45d5f618c5ac07a279fff95b4bd1fcb8a3c23a8aff23
+    fingerprint: sha256:0c27d6aa132f9741a8bbc28ea3ed692419c7add574894f8ae1774a6a151141b7
     reason: >-
       The flow was split by gazon1/sing#3141: the liveness behaviour (a project
       created or renamed elsewhere shows up in the menu) moved to the desktop
@@ -793,10 +793,13 @@ exceptions:
       admit changed device content without the qualification the gate asks
       for. It is admitted here by an explicit exception instead, so the
       admission is a recorded decision rather than a quiet hash update. The
-      baseline repair itself belongs on main, where the flow was changed.
+      baseline repair itself belongs on main, where the flow was changed. The
+      flow was changed once more in this PR -- its `scenario:MENU-03` tag was
+      dropped, because the residue it asserts is not the scenario -- so the
+      fingerprint above is the one of the changed file.
     evidence: gazon1/sing#3141
   Maestro/flows/sync/01-change-sync-interval.yaml:
-    fingerprint: sha256:790c874fbb9e893adb020acd314d9f548dc79f3eb8c5a6e68633ae9e10a2fb7b
+    fingerprint: sha256:d6682af4cf94fa6a6426add809b2c09dd21f9ef2dd761906c4b2173b88a3f6f3
     reason: >-
       The flow was trimmed by gazon1/sing#3138: the behaviour half (the
       interval changes, is applied immediately and survives a restart) is owned
@@ -808,5 +811,8 @@ exceptions:
       would admit changed device content without the qualification the gate
       asks for. It is admitted here by an explicit exception instead, so the
       admission is a recorded decision rather than a quiet hash update. The
-      baseline repair itself belongs on main, where the flow was changed.
+      baseline repair itself belongs on main, where the flow was changed. The
+      flow was changed once more in this PR -- its `scenario:SYNC-SETTINGS-01`
+      tag was dropped, because the residue it asserts is not the scenario -- so
+      the fingerprint above is the one of the changed file.
     evidence: gazon1/sing#3138
