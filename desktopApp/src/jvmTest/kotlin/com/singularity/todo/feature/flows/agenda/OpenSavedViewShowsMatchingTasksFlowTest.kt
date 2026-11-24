@@ -1,9 +1,7 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -12,6 +10,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.awaitTag
@@ -80,7 +79,7 @@ class OpenSavedViewShowsMatchingTasksFlowTest {
             // absent dated task proves it applied the stored filter, not an
             // unfiltered list.
             awaitTag(TestTags.savedAgendaCard("My Active Tasks")).performClick()
-            onAllNodes(hasText("My Active Tasks")).onFirst().assertIsDisplayed()
+            assertNodeDisplayed(hasText("My Active Tasks"), "the saved view name on the results screen")
             assertTagDisplayed(TestTags.taskItem("Buy milk"))
             assertTagNotExists(TestTags.taskItem("Dated task"))
         }
