@@ -8,10 +8,12 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.flows.menu.ProjectsMenuScenarioSupport.seedProject
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -25,6 +27,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.unclippedBoundsOfTag
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
@@ -154,6 +157,65 @@ class MenuParityFlowTest {
                 "the drawer's drawing does not offer the tree of the state, in their order",
             )
         }
+
+    /**
+     * The tree the **real** Desktop drawer offers.
+     *
+     * The test above draws the two drawings by hand, which proves what the
+     * composable does with a given state — not what the drawer does. A drawer
+     * that passed `null` where a toggle belongs would draw the roots only, and
+     * the hand-drawn pair would still agree with each other: both would show
+     * the same rows, because both were written by the same hand.
+     *
+     * So this one opens the actual drawer, seeds a tree through the repository
+     * and reads the rows the drawer actually put on the screen. The whole set
+     * is compared, not the rows the test happened to expect: a drawer that
+     * offered a project nobody asked about has to fail here.
+     *
+     * The rows are compared in the order they are drawn, which is the order of
+     * the tree: a parent, then its child, then the next root.
+     */
+    @Test
+    @DisplayName("the real desktop drawer offers the whole project tree in order")
+    fun the_real_drawer_offers_the_tree() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            seedProject(koin, "nav02-parent", "Parent")
+            seedProject(koin, "nav02-child", "Child", parent = "nav02-parent")
+            seedProject(koin, "nav02-sibling", "Sibling")
+
+            openDrawer()
+            expandProjectsSection()
+
+            awaitTag(TestTags.menuProjectNode("nav02-parent"))
+            awaitTag(TestTags.menuProjectNode("nav02-child"))
+            awaitTag(TestTags.menuProjectNode("nav02-sibling"))
+
+            assertEquals(
+                listOf("nav02-parent", "nav02-child", "nav02-sibling").map { TestTags.menuProjectNode(it) },
+                projectRowsInTheDrawer(),
+                "the drawer does not offer the tree of the state, in the order it draws it",
+            )
+        }
+
+    /**
+     * The project rows the drawer shows, in the order it draws them.
+     *
+     * The rows are read out of the whole tree by their tag prefix rather than
+     * by the ids the test expects, so that a row nobody expected is a row the
+     * assertion sees.
+     *
+     * The order is the order the rows are drawn in, taken from where they sit
+     * on the screen: the drawer draws them in one column, so the row above is
+     * the row that comes first. The bounds are the *unclipped* ones, because a
+     * row below the fold has a position even when the fold hides it.
+     */
+    private fun DesktopComposeUiTest.projectRowsInTheDrawer(): List<String> =
+        onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
+            .fetchSemanticsNodes()
+            .mapNotNull { node -> node.config.getOrNull(SemanticsProperties.TestTag) }
+            .filter { tag -> tag.startsWith(PROJECT_ROW_TAG) }
+            .distinct()
+            .sortedBy { tag -> unclippedBoundsOfTag(tag).top }
 
     /**
      * The project rows one drawing shows, in the order it draws them: the

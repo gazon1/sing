@@ -179,6 +179,28 @@ and asserts that they offer the same root projects in the same order, and
 that the sheet holds no child. The claim in `NAV-02.yaml` is unchanged; what
 changed is that it now has a carrier that says it.
 
+## Review round 7
+
+A later review round returned another MAJOR, and it was right too:
+
+> The test draws synthetic `ProjectTreeSection` drawings rather than the
+> real call sites. A regression in `DesktopMenuDrawer` — passing `null`
+> where a toggle belongs — would leave the synthetic pair agreeing with
+> itself and the test green.
+
+Two hand-drawn drawings can only prove what the composable does with the
+state it was handed. They cannot prove that the drawer hands it that state:
+a drawer that passed `null` would draw the roots only, and the synthetic
+pair would still agree — because both halves were written by the same hand.
+
+So the owner now has a third test: it opens the **real** Desktop drawer,
+seeds a parent, a child and a sibling through the repository, unfolds the
+Projects section, and reads the rows the drawer actually put on the screen.
+The whole set of project rows is compared — a row nobody expected is a row
+the assertion sees — and the order is the order the rows are drawn in. The
+drawer that offers the roots only now fails this test, which is the point:
+the guarantee is about the drawer, so the drawer is what is opened.
+
 ## Links
 
 - Issue: https://github.com/gazon1/sing/issues/3119
