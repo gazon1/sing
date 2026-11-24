@@ -402,8 +402,18 @@ class TaskRowWriterTest {
     }
 
     private companion object {
-        /** The private mapper that writes a task row. */
-        const val WRITE_MAPPER_SIGNATURE = "private fun Task.toEntity("
+        /**
+         * The mapper that writes a task row.
+         *
+         * The visibility is not part of what this gate is about — it asks which
+         * columns the writer passes, not who may call it. The seed's batch write
+         * (`SeedTaskDaoWriter`) reuses the same mapper rather than copying the
+         * `outgoing_links` derivation, so the mapper is `internal` now. A gate
+         * pinned to `private` stopped finding the writer and failed three
+         * assertions with "the writer … is not in TaskRepositoryImpl.kt", which
+         * says the file moved rather than that the rule held.
+         */
+        const val WRITE_MAPPER_SIGNATURE = "fun Task.toEntity("
 
         /** What a declaration says when no writer exists for the column. */
         const val NOBODY = "nobody"
