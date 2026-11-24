@@ -163,6 +163,12 @@ Which of those waits live in the helper and which stay in the flow:
   seed — the row the first seed wrote was already on screen, so the wait
   returns at once.
 
+  The wait covers one entity of that seed. A link that names a profile and a
+  task writes two entities — the seeder switches to the profile and writes the
+  task — and a wait for the row of the task says nothing about the profile. The
+  wait names the entity the flow asserts on: its row, or the section that holds
+  it.
+
 - **One link writes one kind.** The seeder takes the first kind the query
   names — task, then note, then project, then the bulk projects — so a link
   that names a task and a note writes the task and nothing else. A `count=`

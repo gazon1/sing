@@ -157,13 +157,41 @@ class SeedHelperWaitTest {
     }
 
     @Test
+    fun `the helper waits for the entity to be there, not to be gone`() {
+        // A wait under `notVisible` waits for the element to be *gone* — the
+        // opposite of an arrival. The helper would hold the flow until the
+        // entity it seeded disappears, and every flow that seeds a row would
+        // run out the timeout instead of waiting for the row.
+        val disappearing =
+            """
+            env:
+              $OPTIONAL_INPUT
+            ---
+            - runFlow:
+                when:
+                  $GUARD
+                commands:
+                  - extendedWaitUntil:
+                      notVisible:
+                        $WAIT_TARGET_ID
+                      timeout: 8000
+            """.trimIndent()
+        assertTrue(
+            guardedWaitProblem(disappearing) != null,
+            "The check accepts a helper whose entity wait waits for the element " +
+                "to be gone. Such a wait is the opposite of an arrival, and the " +
+                "check has to be able to fail.",
+        )
+    }
+
+    @Test
     fun `a seed that writes no entity names no entity to wait for`() {
         val violations = mutableListOf<String>()
         var checked = 0
 
         SeedWaitTree.forEachFile(maestroRoot) { file, events ->
             for (seed in events.filterIsInstance<Event.Seed>()) {
-                val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+                val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(seed.query))
                 checked++
                 if (seeded.entities.isEmpty() && seed.waitFor != null) {
                     violations +=
@@ -203,7 +231,7 @@ class SeedHelperWaitTest {
                 "reset=content&task=Fixture&due=today",
             )
         for (query in queries) {
-            val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(query))
+            val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(query))
             assertTrue(
                 seeded.entities.isEmpty(),
                 "the model writes ${seeded.entities.size} entities for \"$query\" — the " +
@@ -222,7 +250,7 @@ class SeedHelperWaitTest {
             val named =
                 events.filterIsInstance<Event.Seed>().mapNotNull { seed ->
                     val waitFor = seed.waitFor ?: return@mapNotNull null
-                    val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+                    val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(seed.query))
                     if (seeded.entities.isEmpty()) {
                         null
                     } else {
@@ -260,8 +288,8 @@ class SeedHelperWaitTest {
         // WAIT_FOR that carries the display name of an entity is an id the app
         // never renders, and the wait times out on the device.
         val seeded =
-            SeedWaitTree.seededEntity(
-                SeedWaitTree.parseQuery("task=Buy%20milk&due=today"),
+            SeedEntityModel.seededEntity(
+                SeedEntityModel.parseQuery("task=Buy%20milk&due=today"),
             )
         val targets = seedTargets(seeded)
 
@@ -283,7 +311,7 @@ class SeedHelperWaitTest {
      * display names of the entities are not among them: a `WAIT_FOR` that
      * carries a name is an id the app never renders.
      */
-    private fun seedTargets(seeded: SeedWaitTree.Seeded): Set<String> =
+    private fun seedTargets(seeded: SeedEntityModel.Seeded): Set<String> =
         (seeded.entities.flatMap { entity -> entity.rows } + seeded.containers).toSet()
 
     @Test
@@ -298,7 +326,7 @@ class SeedHelperWaitTest {
             val named =
                 seeds.mapNotNull { seed ->
                     val waitFor = seed.waitFor ?: return@mapNotNull null
-                    val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+                    val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(seed.query))
                     if (seeded.entities.isEmpty()) {
                         null
                     } else {
@@ -367,7 +395,7 @@ class SeedHelperWaitTest {
         query: String,
         waitFor: String,
     ): String? {
-        val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(query))
+        val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(query))
         return if (waitFor in SeedWaitTree.landingTargets(seeded, SEED_POSITION, emptyList(), emptyList())) {
             null
         } else {
@@ -466,7 +494,7 @@ class SeedHelperWaitTest {
         // then writes nothing at all. Such a seed creates no entity, so there
         // is no row for the helper to wait for.
         for (count in listOf("0", "10001", "-1", "abc")) {
-            val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery("task=Fixture&count=$count"))
+            val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery("task=Fixture&count=$count"))
             assertTrue(
                 seeded.entities.isEmpty(),
                 "the model writes ${seeded.entities.size} entities for count=$count — the " +
@@ -475,7 +503,7 @@ class SeedHelperWaitTest {
         }
 
         // The count the seeder accepts is the one the model writes: two rows.
-        val accepted = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery("task=Fixture&count=2"))
+        val accepted = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery("task=Fixture&count=2"))
         assertTrue(
             accepted.entities.size == 2,
             "the model writes ${accepted.entities.size} entities for count=2 — the " +
@@ -588,7 +616,7 @@ class SeedHelperWaitTest {
         val asserts = events.filterIsInstance<Event.Assert>()
         val seeds = events.filterIsInstance<Event.Seed>()
         val seed = seeds[seedIndex]
-        val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+        val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(seed.query))
         return SeedWaitTree.landingTargets(
             seeded,
             seed.position,
@@ -720,6 +748,12 @@ class SeedHelperWaitTest {
      * The wait has to be inside the guarded block: a wait outside it runs for
      * every seed, including the ones that write no entity and have no row to
      * wait for.
+     *
+     * And it has to wait for the element to *be there*: a wait under
+     * `notVisible` waits for the element to be gone, which is the opposite of
+     * an arrival — the helper would sit there until the entity it seeded
+     * disappears, and a flow that asserted on that entity would fail on the
+     * helper instead of on its own assertion.
      */
     private fun guardedWaitProblem(text: String): String? {
         val lines = text.lines()
@@ -736,19 +770,51 @@ class SeedHelperWaitTest {
             waitIndex?.let { start ->
                 lines.indices.firstOrNull { it > start && lines[it].trim() == WAIT_TARGET_ID }
             }
+        val selectorIndex =
+            waitIndex?.let { start ->
+                lines.indices.firstOrNull { it > start && SELECTOR.matchEntire(lines[it].trim()) != null }
+            }
         val escaped =
             commandsIndex != null &&
                 targetIndex != null &&
                 lines.subList(commandsIndex, targetIndex).any { COMMAND.matchEntire(it) != null }
 
         return when {
-            guardIndex < 0 -> "the entity wait is not guarded by \"$GUARD\""
-            runFlowIndex == null -> "the guard is not inside a runFlow"
-            commandsIndex == null -> "the guarded runFlow has no commands"
-            waitIndex == null -> "the guarded runFlow waits for nothing"
-            targetIndex == null -> "the wait does not target \$WAIT_TARGET"
-            escaped -> "the entity wait sits outside the guarded runFlow's commands"
-            else -> null
+            guardIndex < 0 -> {
+                "the entity wait is not guarded by \"$GUARD\""
+            }
+
+            runFlowIndex == null -> {
+                "the guard is not inside a runFlow"
+            }
+
+            commandsIndex == null -> {
+                "the guarded runFlow has no commands"
+            }
+
+            waitIndex == null -> {
+                "the guarded runFlow waits for nothing"
+            }
+
+            targetIndex == null -> {
+                "the wait does not target \$WAIT_TARGET"
+            }
+
+            selectorIndex == null -> {
+                "the entity wait names no selector"
+            }
+
+            !POSITIVE_SELECTORS.contains(lines[selectorIndex].trim().substringBefore(":")) -> {
+                "the entity wait waits for the element to be gone"
+            }
+
+            escaped -> {
+                "the entity wait sits outside the guarded runFlow's commands"
+            }
+
+            else -> {
+                null
+            }
         }
     }
 
@@ -766,6 +832,12 @@ class SeedHelperWaitTest {
 
         /** A top-level command: `- name: …`. */
         val COMMAND = Regex("""^- ([a-zA-Z][a-zA-Z0-9]*):\s*(.*)$""")
+
+        /** The selector a wait names its target under. */
+        val SELECTOR = Regex("""^(visible|notVisible|element|absent):$""")
+
+        /** The selectors that wait for an element to be there. */
+        val POSITIVE_SELECTORS = setOf("visible", "element")
 
         /**
          * The position of a seed that has no flow around it.
@@ -794,6 +866,7 @@ class SeedHelperWaitTest {
                 "a section an earlier seed brought in is not a target" to Regex("earlier\\s+seed"),
                 "a wait names what the seed changed" to Regex("what\\s+the\\s+seed\\s+changed"),
                 "the copies state the contract alike" to Regex("copies\\s+state\\s+it\\s+alike"),
+                "the wait covers one entity of the seed" to Regex("covers\\s+one\\s+entity"),
             )
 
         /** A flow whose seed writes two rows and names one of them to wait for. */

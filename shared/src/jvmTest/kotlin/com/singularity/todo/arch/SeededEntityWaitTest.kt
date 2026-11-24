@@ -441,6 +441,75 @@ class SeededEntityWaitTest {
     }
 
     @Test
+    fun `the helper's wait for one entity does not cover another entity of the same seed`() {
+        // One link, two entities: the seeder switches to the profile the link
+        // names and writes the task it names. The helper waits for the row of
+        // the task — and that wait says nothing about the profile, which is on
+        // another screen and was there before the wait ran.
+        val events = SeedWaitTree.fixture("flow.yaml" to PROFILE_AND_TASK_HELPER_WAIT)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule accepts a helper wait for the row of a task as the evidence " +
+                "for an assertion on the profile the same link named. The wait is " +
+                "evidence for the entity it names and for no other.",
+        )
+    }
+
+    @Test
+    fun `a wait for the profile covers the profile of the same seed`() {
+        // The positive half of the rule above: the flow waits for the profile
+        // itself, and that wait is the evidence the rule asks for.
+        val events = SeedWaitTree.fixture("flow.yaml" to PROFILE_AND_TASK_WAITED)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule rejects a flow that waits for the profile a seed named: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a seed in a helper called from a conditional block is not held to an assertion outside it`() {
+        // The seed is two files deep: the flow runs a block that runs a helper
+        // that seeds. The block runs only when its condition holds, so the
+        // seed may never have run — and an assertion outside the block is not
+        // about it. The scope of the block has to reach the seed through the
+        // helper that runs it.
+        val events =
+            SeedWaitTree.fixture(
+                "flow.yaml" to CONDITIONAL_HELPER_SEED_OUTSIDE_ASSERT,
+                "wrapper.yaml" to CONDITIONAL_HELPER_SEED,
+            )
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule holds an assertion outside a conditional block to a seed " +
+                "that runs inside it, through a helper: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a seed in a helper called from a conditional block is held to the rule inside the block`() {
+        // The other half: the scope reaches the seed, so the assertion next to
+        // it — inside the block, in the helper — is still an assertion about
+        // the seeded entity, and something has to wait for it.
+        val events =
+            SeedWaitTree.fixture(
+                "flow.yaml" to CONDITIONAL_HELPER_SEED_BLOCK,
+                "wrapper.yaml" to CONDITIONAL_HELPER_SEED_ASSERTED,
+            )
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule ignores a seed that runs inside a conditional block through " +
+                "a helper: the assertion next to it is about the seeded entity, " +
+                "so something has to wait for it.",
+        )
+    }
+
+    @Test
     fun `an assertion written as a scalar is an assertion on the entity`() {
         // `assertVisible: "Fixture"` is the short form of the block form. A
         // gate that reads only the block form does not see the assertion at
@@ -461,7 +530,7 @@ class SeededEntityWaitTest {
         // task and a note seeds the task, and the note is never written. The
         // model that invents the note would hold the flow to a wait for a row
         // that does not exist.
-        val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery("task=Fixture&due=today&note=Alpha"))
+        val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery("task=Fixture&due=today&note=Alpha"))
 
         assertTrue(
             seeded.entities.size == 1,
@@ -1033,6 +1102,109 @@ class SeededEntityWaitTest {
                   WAIT_FOR: "task_item_second"
             - assertVisible:
                 id: task_item_second
+            """.trimIndent()
+
+        /**
+         * One link that names a profile and a task, and a helper wait for the
+         * row of the task.
+         *
+         * The seeder switches to the profile the link names and writes the
+         * task it names — two entities, and the wait names one of them.
+         */
+        val PROFILE_AND_TASK_HELPER_WAIT =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "profile=Personal&task=Fixture&due=today"
+                  WAIT_FOR: "task_item_fixture"
+            - assertVisible:
+                id: profile_item_personal
+            """.trimIndent()
+
+        /** The same flow, with a wait for the profile itself. */
+        val PROFILE_AND_TASK_WAITED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "profile=Personal&task=Fixture&due=today"
+                  WAIT_FOR: "task_item_fixture"
+            - extendedWaitUntil:
+                visible:
+                  id: profile_item_personal
+                timeout: 8000
+            - assertVisible:
+                id: profile_item_personal
+            """.trimIndent()
+
+        /**
+         * A flow whose conditional block runs a helper that seeds.
+         *
+         * The assertion is outside the block: the seed may never have run, so
+         * the assertion is not about it.
+         */
+        val CONDITIONAL_HELPER_SEED_OUTSIDE_ASSERT =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                when:
+                  visible:
+                    id: nav_tab_today
+                commands:
+                  - runFlow:
+                      file: wrapper.yaml
+            - assertVisible:
+                id: task_item_fixture
+            """.trimIndent()
+
+        /** The same flow, without the assertion outside the block. */
+        val CONDITIONAL_HELPER_SEED_BLOCK =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                when:
+                  visible:
+                    id: nav_tab_today
+                commands:
+                  - runFlow:
+                      file: wrapper.yaml
+            """.trimIndent()
+
+        /** The helper the conditional block runs: it seeds. */
+        val CONDITIONAL_HELPER_SEED =
+            """
+            appId: com.singularity.todo
+            name: wrapper
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            """.trimIndent()
+
+        /** The same helper, with an assertion on the entity it seeded. */
+        val CONDITIONAL_HELPER_SEED_ASSERTED =
+            """
+            appId: com.singularity.todo
+            name: wrapper
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=today"
+            - assertVisible:
+                id: task_item_fixture
             """.trimIndent()
     }
 }

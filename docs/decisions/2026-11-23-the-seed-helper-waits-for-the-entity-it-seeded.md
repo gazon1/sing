@@ -113,6 +113,17 @@ A link that cleans up, resets or changes the session writes no entity at all:
 the seeder answers it and returns before it writes anything
 (`DebugSeedActivity.seed`), whatever else the query carries.
 
+A profile is the exception, and it is not one of the seed kinds. The seeder
+switches to the profile a link names — and creates it when it does not exist
+yet — *before* it writes or deletes anything
+(`DebugSeedActivity.switchToProfileIfRequested`), so the switch happens before
+the early return of a reset, a cleanup or a session link. A link that names a
+profile therefore brings a profile into being whatever else its query says, and
+the gate's model writes that profile as an entity of the link. The profile is
+on another screen, so the flow waits for it itself — but the gate must not
+claim that such a link writes nothing, or it would hold a flow to no wait at
+all for a row that is on the device.
+
 **What a count the seeder refuses writes.** Nothing. `SeedCount.parse` takes
 a count in `1..10000` and refuses anything else, and the seeder then writes
 no row at all. Such a seed creates no entity, so it names none to wait for.
@@ -146,6 +157,17 @@ so the later wait returns at once and proves nothing about the write the flow
 asserts on. Two seeds of one row, where only the second one names the row in
 `WAIT_FOR`, are therefore a flow the gate rejects: the row was there before
 the second seed ran, so nothing waited for what the second seed wrote.
+
+**Which entity of the seed the helper's wait covers.** One. A link that names a
+profile and a task writes two entities — the seeder switches to the profile and
+writes the task — and the helper's wait is evidence for the entity it names and
+for no other: a wait for the row of the task says nothing about the profile,
+which is on another screen and was on the device before the wait ran. The wait
+has to name the entity the assertion is about: its row, or the section that
+holds it. The containers belong to the entity as well — the section a task is
+in is a wait for that task, and not for another entity the same link wrote — so
+the gate keeps the section with the rows it holds rather than with the seed as
+a whole.
 
 **What the helper may name as a target of its wait.** The elements the seed
 brings onto the screen the app is left on: the row of a task that is due
@@ -297,6 +319,12 @@ The commands of a nested block are commands of their own and not of the
 command that carries them: the `file:` and `env:` of the nested block belong to
 the nested commands. The gate reads them apart for that reason.
 
+The scope follows the file. A seed that runs inside a block *through a helper* —
+the block runs a helper, and the helper runs the seed — is in the scope of that
+block: the seed may never have run, so an assertion outside the block is not
+about it. A gate that loses the scope on the way into the helper holds the
+assertion outside the block to a seed that may not exist.
+
 ## Rationale
 
 The 2026-11-05 entry's real point was that a helper must not guess. Guessing
@@ -388,6 +416,18 @@ profile therefore behaves exactly as it did before.
   assertion outside the block is not held to a seed that may never have run.
 - The three copies of the contract state it alike, and `SeedHelperWaitTest`
   holds them to each other: every clause has to be stated in all three.
+- The helper's own wait covers one entity of the seed that asked for it: a link
+  that names a profile and a task writes two entities, and the wait for the
+  task's row says nothing about the profile. The section a task is in belongs
+  to that task, so the wait for the section covers the rows in it and not
+  another entity of the same link.
+- The scope of a conditional block reaches a seed that runs inside it through a
+  helper: an assertion outside the block is not held to a seed that may never
+  have run, whatever files the seed was reached through.
+- A link that names a profile writes that profile, whatever else its query
+  says: the seeder creates the profile and switches to it before it answers a
+  reset, a cleanup or a session link. The profile is on another screen, so the
+  flow waits for it itself.
 
 ## Verified on device
 
@@ -418,7 +458,12 @@ profile therefore behaves exactly as it did before.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeededEntityWaitTest.kt` —
   the gate that holds the flows to the rule that one wait covers one entity.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedWaitTree.kt` —
-  the tree the two gates read; the model of a seeded entity lives here.
+  the tree the two gates read, and the rule they hold the flows to.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedEntityModel.kt` —
+  the model of a seeded entity: which rows a link writes, which section they
+  are in, and which of them the helper may wait for. It is a file of its own
+  because the tree and the model are two responsibilities, and one object
+  that holds both is a class the size rule rightly refuses.
 - Issue #3135 — the bulk seed writes ~30 ms a row, so a thousand-row seed
   outlasts every Maestro wait. Tracked separately; the seed's write path is
   not changed by this entry.

@@ -111,6 +111,12 @@
 # the later wait returns at once and proves nothing about the write the flow
 # asserts on.
 #
+# The wait covers one entity of that seed: a link that names a profile and a
+# task writes two entities — the seeder switches to the profile and writes the
+# task — and the wait for the row of the task says nothing about the profile.
+# The wait names the entity the flow asserts on: its row, or the section that
+# holds it.
+#
 # A seed that writes no entity — `session=anonymous`, `cleanup=`, `reset=` —
 # has no row to wait for: such a flow names no entity, and the helper waits
 # for the shell alone.

@@ -352,6 +352,11 @@ A flow waits for the entity it seeded before it asserts on it, and a bare
   not have written yet. The wait belongs to the seed that asked for it: two
   seeds of one row where only the second names it in `WAIT_FOR` have not
   waited for the second seed — the first seed's row was already on screen.
+  The wait covers one entity of that seed: a link that names a profile and a
+  task writes two entities — the seeder switches to the profile and writes the
+  task — and a wait for the row of the task says nothing about the profile. The
+  wait names the entity the flow asserts on: its row, or the section that holds
+  it.
 
 - **One link writes one kind.** The seeder takes the first kind the query
   names — task, then note, then project, then the bulk projects — so a link
