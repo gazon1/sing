@@ -55,28 +55,76 @@ class SelectorScopedCrossRefQueryTest {
     @Test
     fun `the selector-scoped reads name their selector instead of binding ids`() {
         val source = KotlinText.stripComments(daoSource().readText())
-        val lines = source.lines()
-        // The bound-list form: `task_id IN (:taskIds)`. A subquery that names the
-        // selector (`task_id IN (SELECT ...)`) is the shape these reads must keep.
-        val boundList = Regex("""task_id\s+IN\s*\(\s*:""", RegexOption.IGNORE_CASE)
+        val sqlByMethod = queriesByMethod(source)
 
         selectorMethods.forEach { method ->
-            val at = lines.indexOfFirst { Regex("""fun\s+$method\s*\(""").containsMatchIn(it) }
-            assertTrue(at >= 0, "TaskDao has no $method")
-            // The @Query is the few lines above the declaration.
-            val body = lines.subList(maxOf(0, at - 12), at + 1).joinToString("\n")
+            val sql =
+                sqlByMethod[method]
+                    ?: fail("TaskDao has no @Query for $method — the gate cannot judge what it did not find")
             assertFalse(
-                boundList.containsMatchIn(body),
+                Regex("""task_id\s+IN\s*\(\s*:""", RegexOption.IGNORE_CASE).containsMatchIn(sql),
                 "$method binds a per-row id list, which SQLite refuses past its " +
                     "host-parameter ceiling and nothing bounds the number of rows behind " +
-                    "the selector:\n$body",
+                    "the selector:\n$sql",
             )
             assertTrue(
-                Regex("""IN\s*\(\s*SELECT""", RegexOption.IGNORE_CASE).containsMatchIn(body),
-                "$method should read its cross-references through a subquery on the selector",
+                Regex("""IN\s*\(\s*SELECT""", RegexOption.IGNORE_CASE).containsMatchIn(sql),
+                "$method should read its cross-references through a subquery on the selector:\n$sql",
             )
         }
     }
+
+    /**
+     * Every `@Query` SQL in the file, keyed by the method it annotates.
+     *
+     * The annotation is associated with the **next** declaration that follows it, not with
+     * a fixed window — a positional window can inspect a neighbouring method's query and
+     * pass while the method under test differs. Queries are matched across lines, because
+     * these are triple-quoted.
+     */
+    private fun queriesByMethod(source: String): Map<String, String> {
+        val queries = mutableMapOf<String, String>()
+        val annotation = Regex("""@Query\(\s*""", RegexOption.IGNORE_CASE)
+        var searchFrom = 0
+        while (true) {
+            val match = annotation.find(source, searchFrom) ?: break
+            val sql =
+                stringLiteralAt(source, match.range.last + 1)
+                    ?: fail("an @Query at offset ${match.range.first} has no readable SQL")
+            val declaration =
+                Regex("""fun\s+(\w+)\s*\(""").find(source, match.range.last + 1)
+                    ?: fail("an @Query at offset ${match.range.first} annotates no function")
+            queries[declaration.groupValues[1]] = sql
+            searchFrom = match.range.last + 1
+        }
+        return queries
+    }
+
+    /** The contents of the triple-quoted or plain string literal that starts at [from]. */
+    private fun stringLiteralAt(
+        source: String,
+        from: Int,
+    ): String? {
+        var at = from
+        while (at < source.length && source[at].isWhitespace()) at++
+        return when {
+            source.startsWith("\"\"\"", at) -> {
+                val end = source.indexOf("\"\"\"", at + 3)
+                if (end < 0) null else source.substring(at + 3, end)
+            }
+
+            at < source.length && source[at] == '"' -> {
+                val end = source.indexOf('"', at + 1)
+                if (end < 0) null else source.substring(at + 1, end)
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
+    private fun fail(message: String): Nothing = throw AssertionError(message)
 
     private fun daoSource() = SourceScan.fileNamed("Daos.kt")
 }
