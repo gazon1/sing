@@ -8,6 +8,7 @@ import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.repository.CrossUserWriteException
 import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.tags.TagId
@@ -112,11 +113,18 @@ class SeedTaskWriterTest {
 
             val written = seeds.writeFixtures(seeded)
 
-            assertEquals(50, written.size)
+            // The ids, not just the count: a writer that returned 50 rows of the wrong
+            // fixture would satisfy a size check while the flow asserted on nothing.
+            assertEquals(seeded.map { it.id }, written.map { it.id }, "the rows come back as they went in")
             assertEquals(
-                50,
-                db.taskDao().listAllForUser(user.value).size,
-                "every seeded row must be in the table",
+                seeded.map { it.id }.toSet(),
+                db.taskDao().listAllForUser(user.value).map { TaskId(it.id) }.toSet(),
+                "every seeded row must be in the table, under its own id",
+            )
+            assertEquals(
+                seeded.map { it.title }.toSet(),
+                db.taskDao().listAllForUser(user.value).map { it.title }.toSet(),
+                "and it must be the row that was asked for, not a neighbouring one",
             )
         }
 
@@ -222,9 +230,11 @@ class SeedTaskWriterTest {
                     task("t2").copy(userId = UserId("intruder")),
                 ) + seeded.drop(2)
 
-            assertFailsWith<Throwable> {
+            assertFailsWith<CrossUserWriteException> {
                 // The second row names a profile this device is not on: the guard refuses
-                // it, and the batch has already written the first row by then.
+                // it, and the batch has already written the first row by then. A narrow
+                // type on purpose — catching `Throwable` would let an unrelated failure
+                // before the second row pass this test without proving the rollback.
                 seeds.writeFixtures(withRelations)
             }
 
