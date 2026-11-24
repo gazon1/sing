@@ -425,8 +425,12 @@ class ActiveProfileTest(unittest.TestCase):
     to.
     """
 
-    #: The id of a profile the app generated: a ULID.
-    ULID = "01JQ8ZP0Q9K7H5V3N2M4R6T8X0"
+    #: The id of a profile the app generated: the random UUID its `nextId()`
+    #: returns. The app's own KDoc calls a profile id a ULID, but the device
+    #: says otherwise — a profile the app created on the emulator carried this
+    #: id — and a driver that expects a ULID reads no id at all and cannot
+    #: tell a switch that happened from one that did not.
+    PROFILE_ID = "e2cd571f-c792-4826-bdfa-d05659144256"
 
     def _read(self, payload: bytes, code: int = 0):
         with unittest.mock.patch.object(
@@ -436,9 +440,16 @@ class ActiveProfileTest(unittest.TestCase):
 
     def test_the_id_is_read_from_the_file(self):
         payload = (
-            b"\x0a\x11active_profile_id\x12\x1a" + self.ULID.encode("ascii")
+            b"\x0a\x11active_profile_id\x12\x1a" + self.PROFILE_ID.encode("ascii")
         )
-        self.assertEqual(self._read(payload), self.ULID)
+        self.assertEqual(self._read(payload), self.PROFILE_ID)
+
+    def test_an_id_that_is_not_of_the_app_shape_is_not_read(self):
+        """An id of another shape is not the app's — reading it would make the
+        driver believe the device is in a profile it never entered.
+        """
+        payload = b"\x0a\x11active_profile_id\x12\x1a01JQ8ZP0Q9K7H5V3N2M4R6T8X0"
+        self.assertIsNone(self._read(payload))
 
     def test_a_file_that_is_not_there_means_the_default_profile(self):
         self.assertIsNone(self._read(b"", code=1))
@@ -1146,21 +1157,49 @@ class WipeWaitingTest(unittest.TestCase):
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
                 with unittest.mock.patch.object(
-                    driver, "count_rows", lambda db, scope=None: {"tasks": 0}
+                    driver, "current_profile_id", lambda serial: TEST_PROFILE_ID
                 ):
-                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                        counts, elapsed = driver.reset_content(
-                            "device", Path("/tmp/wipe-test")
-                        )
+                    with unittest.mock.patch.object(
+                        driver, "count_rows", lambda db, scope=None: {"tasks": 0}
+                    ):
+                        with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                            counts, elapsed = driver.reset_content(
+                                "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
+                            )
 
         self.assertEqual(counts, {"tasks": 0})
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
-        # The link names the profile of the run: the app switches to it before
-        # it deletes, so the wipe reaches that profile and nothing else.
+        # The link names no profile: a link that names one and asks for a reset
+        # does not come back on the device — the app switches and the wipe
+        # never starts. The link asks for the reset of the profile the app is
+        # working in, and the run has checked that this is its own profile.
         self.assertIn(
-            f"todo-debug://seed?profile={driver.TEST_PROFILE_NAME}&reset=content",
+            "todo-debug://seed?reset=content",
             " ".join(seen[1]),
         )
+        self.assertNotIn("profile=", " ".join(seen[1]))
+
+    def test_a_wipe_of_a_profile_that_is_not_the_run_own_is_refused(self):
+        """The reset wipes the profile the app is working in, so the run has to
+        know that this is its own profile before it asks.
+        """
+
+        def fake_adb(*args, serial="", timeout=0):
+            if args[:2] == ("logcat", "-d"):
+                return 0, f"I/DebugSeedActivity: {driver.RESET_MARKER} 25 tables"
+            return 0, "Starting: Intent"
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
+                with unittest.mock.patch.object(
+                    driver, "current_profile_id", lambda serial: "default"
+                ):
+                    with self.assertRaises(driver.RunError) as caught:
+                        driver.reset_content(
+                            "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
+                        )
+
+        self.assertIn("refuses it", str(caught.exception))
 
     def test_a_wipe_that_cannot_be_confirmed_is_refused(self):
         """A table that could not be read is an unknown table, not an empty
@@ -1181,11 +1220,16 @@ class WipeWaitingTest(unittest.TestCase):
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
                 with unittest.mock.patch.object(
-                    driver, "count_rows", lambda db, scope=None: {"tasks": -1}
+                    driver, "current_profile_id", lambda serial: TEST_PROFILE_ID
                 ):
-                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                        with self.assertRaises(driver.RunError) as caught:
-                            driver.reset_content("device", Path("/tmp/wipe-test"))
+                    with unittest.mock.patch.object(
+                        driver, "count_rows", lambda db, scope=None: {"tasks": -1}
+                    ):
+                        with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                            with self.assertRaises(driver.RunError) as caught:
+                                driver.reset_content(
+                                    "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
+                                )
 
         self.assertIn("could not be read", str(caught.exception))
 
@@ -1264,10 +1308,15 @@ class WarmUpTest(unittest.TestCase):
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", fake_warm_up):
                 with unittest.mock.patch.object(
-                    driver, "count_rows", lambda db, scope=None: {"tasks": 0}
+                    driver, "current_profile_id", lambda serial: TEST_PROFILE_ID
                 ):
-                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                        driver.reset_content("device", Path("/tmp/wipe-test"))
+                    with unittest.mock.patch.object(
+                        driver, "count_rows", lambda db, scope=None: {"tasks": 0}
+                    ):
+                        with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                            driver.reset_content(
+                                "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
+                            )
 
         self.assertEqual(order, ["warm up"])
 
@@ -1526,8 +1575,9 @@ def _restored_statements() -> list[str]:
     ]
 
 
-#: The id of the profile the run works in, as the app generates it: a ULID.
-TEST_PROFILE_ID = "01JQ8ZP0Q9K7H5V3N2M4R6T8X0"
+#: The id of the profile the run works in, as the app generates it: the
+#: random UUID its `nextId()` returns.
+TEST_PROFILE_ID = "e2cd571f-c792-4826-bdfa-d05659144256"
 
 
 def _device_database(tmp: Path) -> Path:
@@ -1780,6 +1830,34 @@ class DeviceClaimTest(unittest.TestCase):
             self.assertEqual(report["status"], "failed")
             self.assertIn("already in use", report["error"])
 
+    def test_a_run_without_a_named_apk_is_refused(self):
+        """The artifact under test is named by the operator: a run that would
+        build its own APK measures a build nobody chose, so it is refused.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            argv = ["--serial", "test-device", "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with unittest.mock.patch.object(
+                    driver.capture, "resolve_device", lambda serial, devices: "test-device"
+                ), unittest.mock.patch.object(
+                    driver.capture, "attached_devices", lambda: []
+                ), unittest.mock.patch.object(
+                    driver, "device_facts", lambda serial: {"model": "test device"}
+                ), unittest.mock.patch.object(
+                    driver.capture, "build_capture_apk"
+                ) as build:
+                    exit_code = driver.main(argv)
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            report = self._report(out)
+            self.assertEqual(report["status"], "failed")
+            self.assertIn("--apk", report["error"])
+            build.assert_not_called()
+
 
 def _device_patches(tmp: Path, db: Path | None = None):
     """Every collaborator the run talks to, faked to a device that works.
@@ -1830,7 +1908,7 @@ def _device_patches(tmp: Path, db: Path | None = None):
         unittest.mock.patch.object(
             driver,
             "reset_content",
-            lambda serial, out=None, scope="", attempts=4: ({}, 1.0),
+            lambda serial, out=None, scope="", attempts=4, profile_id="": ({}, 1.0),
         ),
         unittest.mock.patch.object(
             driver,
@@ -2525,7 +2603,7 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
             unittest.mock.patch.object(
                 driver,
                 "reset_content",
-                lambda serial, out=None, scope="", attempts=4: ({}, 1.0),
+                lambda serial, out=None, scope="", attempts=4, profile_id="": ({}, 1.0),
             ),
             unittest.mock.patch.object(
                 driver,
@@ -2729,6 +2807,16 @@ class ProfileOwnershipTest(unittest.TestCase):
         self.assertIsNotNone(
             driver.profile_ownership_problem(TEST_PROFILE_ID, None),
         )
+
+    def test_a_profile_the_run_cannot_claim_is_not_wiped(self):
+        """The marker is written through a shell, so only an id that cannot
+        become anything else is written through it. An id of another shape is
+        refused before anything is wiped.
+        """
+        with unittest.mock.patch.object(driver, "adb") as fake:
+            with self.assertRaises(driver.RunError):
+                driver.claim_profile("test-device", "01JQ8ZP0Q9K7H5V3N2M4R6T8X0; rm -rf /")
+            fake.assert_not_called()
 
 
 class ArchiveNameTest(unittest.TestCase):

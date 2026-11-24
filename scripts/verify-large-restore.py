@@ -3,11 +3,14 @@
 
 One command, one named device, one archive:
 
-    python3 scripts/verify-large-restore.py --serial 0O65321F32204DD5 --profile 10k
+    python3 scripts/verify-large-restore.py --serial 0O65321F32204DD5 \
+        --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk --profile 10k
 
 WHAT IT DOES
 
-    1. builds (or takes) the debug APK and installs it on the *named* device;
+    1. installs the *named* APK on the *named* device — the APK is always an
+       argument, never built behind the operator's back, so that the artifact
+       under test is the one the report names;
     2. generates the synthetic archive with `import-cli` and reads its sidecar
        manifest — the manifest is what the archive is supposed to contain;
     3. pushes the archive into the device's Downloads and restores it through
@@ -141,9 +144,26 @@ PROFILE_OWNER_FILE = "files/verify-large-restore.owner"
 #: of that file carry the key and the profile's id as plain strings.
 ACTIVE_PROFILE_KEY = b"active_profile_id"
 
-#: The shape of a profile id that the app generates: a ULID, which is
-#: Crockford base32 without the letters I, L, O and U.
-PROFILE_ID_PATTERN = re.compile(rb"[0-9A-HJKMNP-TV-Z]{26}")
+#: The shape of a profile id that the app generates: the random UUID its
+#: `nextId()` returns (`Uuid.random().toString()`). The default profile is the
+#: one id that is not of this shape — it is the word "default".
+#:
+#: The app's own documentation calls a profile id a ULID, and reading the
+#: device says otherwise: the id of a profile the app created on the emulator
+#: was `e2cd571f-c792-4826-bdfa-d05659144256`. A pattern that expects a ULID
+#: does not match it, and a driver that cannot read the active profile cannot
+#: tell a switch that happened from one that did not.
+PROFILE_ID_PATTERN = re.compile(
+    rb"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+)
+
+#: The shape an id has to have to be written into the ownership marker: the
+#: shape the app gives a profile, or the word "default". The marker is written
+#: through a shell, so the id has to be a token that cannot become anything
+#: else there.
+PROFILE_ID_SHAPE = re.compile(
+    r"(?:default|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+)
 
 #: The snackbar the restore path reports itself with. Its test tag is the
 #: evidence; the text is translated on the device, so it is not asserted on.
@@ -691,13 +711,15 @@ def reset_content(
     out_dir: Path | None = None,
     scope: str = "",
     attempts: int = 4,
+    profile_id: str = "",
 ) -> tuple[dict[str, int], float]:
     """Wipe the profile the run works in through the debug seed link.
 
-    The link names the profile and asks for a reset, and the app wipes that
-    profile and nothing else: the profile a person uses keeps its rows,
-    because the run never resets it. The link is the same one the Maestro
-    runner uses before a flow — the difference is the name it carries.
+    The link asks the app to reset the content of the profile it is working
+    in, and the run has made sure that profile is its own: the run switched
+    the app into the profile `verify-large-restore` and read the active
+    profile back before the wipe. The link names no profile — see the note at
+    the link — and the run checks the active profile itself before it asks.
 
     The import overwrites the profile's rows, but the counts afterwards are
     only the dataset's counts if there was nothing else in the profile to
@@ -725,10 +747,31 @@ def reset_content(
     counts: dict[str, int] = {}
     for _ in range(attempts):
         warm_up_app(serial)
+        # The link asks for the reset of the profile the app is working in, and
+        # it names no profile: a link that names one *and* asks for a reset
+        # does not come back. Measured on the device (emulator-5554, build
+        # 0.1.0+gd214f05a1851): the app switches to the named profile — the
+        # active-profile file says so — and the wipe never starts, so the
+        # end-of-wipe marker never comes and the run waits for a wipe that is
+        # not happening. The link that asks only for the reset wipes the
+        # active profile and logs the marker in a second.
+        #
+        # That makes the check below load-bearing: the reset wipes whatever
+        # profile the app is in, so the run has to know that this is the
+        # profile of the run before it asks. The profile it works in was
+        # switched to and read back before the wipe, and the rows of the
+        # profile the device was left in are compared afterwards.
+        current = current_profile_id(serial)
+        if current != profile_id:
+            raise RunError(
+                f"the app works in the profile {current}, not in the profile of the "
+                f"run ({profile_id}), so the reset would wipe a profile that is not "
+                "the run's own: the run refuses it"
+            )
         # The log is cleared first: the marker of an earlier wipe would be
         # read as this one's.
         adb("logcat", "-c", serial=serial)
-        send_debug_link(serial, f"profile={quote(TEST_PROFILE_NAME)}&reset=content")
+        send_debug_link(serial, "reset=content")
         elapsed = wait_for_reset_marker(serial)
         if out_dir is None:
             return {}, elapsed
@@ -1390,9 +1433,14 @@ def switch_profile(
 
     The link creates the profile when it is not there and switches to it
     either way — the switch happens before anything is written or deleted, so
-    a link that names a profile and wipes it wipes that profile and nothing
-    else. That is what keeps the rows of the profile a person uses out of a
+    the rows that follow land in the profile the link named and nowhere else.
+    That is what keeps the rows of the profile a person uses out of a
     measurement.
+
+    The link names a profile and nothing else: a link that names a profile
+    *and* asks for a reset does not come back on the device (see
+    [reset_content]), so the wipe is asked for separately, of the profile the
+    app is already in.
 
     The switch is waited for: the app writes the active profile into a file
     of its own, and that file is what says the switch happened. A link that
@@ -1442,7 +1490,7 @@ def claim_profile(serial: str, profile_id: str) -> None:
     this point leaves a profile nobody claims, and the next run refuses to
     wipe it rather than destroying rows that are not its own.
     """
-    if not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{26}", profile_id):
+    if not PROFILE_ID_SHAPE.fullmatch(profile_id):
         raise RunError(
             f"the id of the profile the run works in ({profile_id!r}) is not the shape "
             "of a profile id, so the run cannot claim it and refuses to wipe it"
@@ -2145,7 +2193,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--apk",
         default="",
-        help="an APK to install instead of building this checkout's debug build",
+        help="the APK to install and measure — the artifact under test is "
+        "named by the operator, never built behind their back",
     )
     parser.add_argument(
         "--profile",
@@ -2803,16 +2852,21 @@ def main(argv: list[str] | None = None) -> int:
             raise RunError(str(exc)) from exc
         report["phases"].append("device claimed")
 
-        # The APK: built here unless one is named, installed, and checked
-        # against the build on the device.
-        if args.apk:
-            apk = Path(args.apk).expanduser().resolve()
-            if not apk.is_file():
-                raise RunError(f"the APK {apk} does not exist")
-            built_here = False
-        else:
-            apk = capture.build_capture_apk()
-            built_here = True
+        # The APK: named, installed, and checked against the build on the
+        # device. The artifact under test is named by the operator: a run that
+        # built its own APK would measure a build nobody chose, and the issue
+        # asks for a procedure with an explicit APK.
+        if not args.apk:
+            raise RunError(
+                "the APK to measure is not named: build the debug APK "
+                f"(`{capture.ROOT / 'gw'} :androidApp:assembleDebug "
+                "-PTEST_AUTH_BYPASS=true`) and pass it with --apk. The artifact "
+                "under test is named, never built behind the operator's back."
+            )
+        apk = Path(args.apk).expanduser().resolve()
+        if not apk.is_file():
+            raise RunError(f"the APK {apk} does not exist")
+        built_here = False
         capture.install_apk(serial, apk)
         package, version = capture.verify_identity(serial, apk, built_here)
         digest = verify_installed_apk(serial, apk)
@@ -2932,7 +2986,9 @@ def main(argv: list[str] | None = None) -> int:
         # One wipe before the negative phases, and both of them share it: a
         # refused archive writes nothing, so the profile is still empty for
         # the interrupted import that follows.
-        wipe_counts, wipe_seconds = reset_content(serial, out_dir, scope=scope)
+        wipe_counts, wipe_seconds = reset_content(
+            serial, out_dir, scope=scope, profile_id=test_profile_id
+        )
         print(f"wipe: {wipe_seconds}s ({wipe_counts})")
         report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
         report["profile"] = {
@@ -2978,7 +3034,9 @@ def main(argv: list[str] | None = None) -> int:
         # unknown state, and it has to be wiped before it is measured.
         interrupted_counts = negative["interrupted"]["counts"]
         if any(value != 0 for value in interrupted_counts.values()):
-            _, second_wipe = reset_content(serial, out_dir, scope=scope)
+            _, second_wipe = reset_content(
+                serial, out_dir, scope=scope, profile_id=test_profile_id
+            )
             wipe_seconds += second_wipe
             report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
