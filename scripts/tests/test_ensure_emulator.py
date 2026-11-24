@@ -835,6 +835,35 @@ class DevicePreparationTest(unittest.TestCase):
             "the IME setting is written in more than one place: it will drift",
         )
 
+    def test_acquiring_a_device_hides_the_error_dialogs(self):
+        """An overloaded emulator puts up its own ANR window over the app.
+
+        `Pixel Launcher isn't responding` and `Process system isn't responding`
+        are real windows: while one is up the app underneath is not on screen,
+        and Maestro reports whichever element it asked about — `nav_tab_today`
+        in fifteen flows of run 45361682445, four shards, every one of them with
+        the dialog in the screenshot. Hiding them is the platform's own switch.
+        """
+        commands = self._recorded_commands()
+        self.assertTrue(
+            any("hide_error_dialogs" in c and c.rstrip().endswith("1") for c in commands),
+            f"an ANR dialog can still cover the app: {commands}",
+        )
+
+    def test_the_error_dialog_setting_has_one_owner(self):
+        root = pathlib.Path(__file__).resolve().parent.parent
+        owners = [
+            path.relative_to(root).as_posix()
+            for path in sorted(root.rglob("*.py"))
+            if "tests" not in path.parts
+            and "hide_error_dialogs" in path.read_text(encoding="utf-8", errors="replace")
+        ]
+        self.assertEqual(
+            ["src/emulator/_startup.py"],
+            owners,
+            "the error-dialog setting is written in more than one place: it will drift",
+        )
+
     # ── the emulator / physical-device distinction ───────────────────────────
 
     def _prepared_commands(self, serial: str) -> list[str]:

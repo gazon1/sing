@@ -171,8 +171,8 @@ causes:
   issue: 842
   owner: product
   status: fixed
-  flows: 0
-  note: "Fixed by #842 (EventBus double-collect). Regression guard: if the snackbar action is missing after a successful swipe-delete, this cause fires. The 2026-11-24 smoke recurrence where the swipe did not delete the row is captured separately by the swipe flow's notVisible assertion (`task_item_buy_milk is not visible`, issue #869) added in #3113, so the two failure modes do not share this key."
+  flows: 1
+  note: "Fixed by #842 (EventBus double-collect); seeing it again is a regression. The 2026-11-24 smoke run (45357418110) reported this cause on tasks/10-swipe-delete-undo, and that run did not record whether the row had gone, so the branch cannot claim the cause moved elsewhere. The flow now asserts the row disappeared before it looks for the snackbar, which will tell the two failure modes apart on the next run: a row that is still there fails on `task_item_buy_milk is not visible` (#869) and never reaches this key, while a row that went and a snackbar action that did not arrive still fails here. Until that run exists, the observed failure stays counted here rather than being written off as fixed."
 - key: "Assertion is false: id: task_editor_title_input is visible"
   issue: 837
   owner: unclassified

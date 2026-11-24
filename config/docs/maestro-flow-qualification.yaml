@@ -1,3 +1,6 @@
+# Maestro flow qualification evidence and exceptions.
+# A qualification requires required_attempts consecutive passing test attempts
+# in the same documented environment/build, with every attempt recorded.
 schema: 1
 required_attempts: 3
 qualifications:
@@ -866,96 +869,6 @@ qualifications:
       maestro_version: 2.10.0
       return_code: 0
 exceptions:
-  Maestro/flows/agenda/01-smart-lists.yaml:
-    fingerprint: sha256:90ee9a3c86b46c2a87cbf0e664ea9ce131e14c5a685027bf8c1e4d677fd1188d
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/02-saved-views-open.yaml:
-    fingerprint: sha256:e670e040f3d73aa2d46fc7bc577578b2950ad946b6f75cba41123fdca3d16962
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/03-saved-views-crud.yaml:
-    fingerprint: sha256:5900c244e4a7d17a1e77af832b652b82dc0b30c6f2294712201f0e66623b6c42
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/05-reachability.yaml:
-    fingerprint: sha256:800d46cc3ff06ee396902559920d3f4c537f4e586f0562700980090d976b50ca
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/06-full-lifecycle.yaml:
-    fingerprint: sha256:6570f0c7e3f89090cfa3e3366dcd9d0f2c693dabfe79cba2b741b87bcb0b6c7e
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/07-copy-to-profile.yaml:
-    fingerprint: sha256:4dd032d8440be3954629627c4375e6c8044aae388e90a11e2995244dd691aac3
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/07-large-overdue.yaml:
-    fingerprint: sha256:d832474dcd0c3ab4641bf4f16e6384d9854bcda62c18529a33af02af5f5442a3
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/08-persistence-restart.yaml:
-    fingerprint: sha256:81aa0f658483c52d0822a55be5e5768f8af4c86a495b8dfa04ffa99c26109c07
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/agenda/10-overflow-menu.yaml:
-    fingerprint: sha256:76c9f0af2433931cc395f61d6b2e6f90af1dc7b70c39d92913aba83166d2ae88
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
-  Maestro/flows/archive/01-restore.yaml:
-    fingerprint: sha256:e50b56a1e1eff857d01956b6fe7b2ea92728504313faa3f4dee18816617bfa4c
-    reason: 'Transitive fingerprint change from PR #3145 (#3113): launch-clean.yaml now dismisses spotlight
-      before nav readiness, rechecks if nav is not yet ready to mitigate async spotlight appearance, and
-      dismisses again after readiness. Flow content itself unchanged; fingerprint changed because it transitively
-      includes launch-clean. Baseline fingerprints were not rewritten (baseline only shrinks); this fingerprint-bound
-      exception admits the changed dependency graph until the flow is requalified on a documented environment.
-      No fresh device/CI rerun in this session.'
-    evidence: gazon1/sing#3113
   Maestro/flows/archive/02-bulk-archive-confirm.yaml:
     fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
     reason: 'The flow was split by gazon1/sing#3126: the confirmation and cancellation
@@ -971,3 +884,18 @@ exceptions:
       hash update. The baseline repair itself belongs on main, where the flow was
       changed.'
     evidence: gazon1/sing#3126
+  Maestro/flows/tasks/13-create-full-task.yaml:
+    fingerprint: sha256:ace54426abd9fd7bec3e2ffaf3ed9e6eb2bc11de9ad2a88533db09e9ab08529c
+    reason: 'This branch does not touch the flow. Main broke the baseline pin: ac4aa0f366
+      (gazon1/sing#3117) rewrote this flow''s baseline fingerprint for a comment-only
+      change and did not update BASELINE_DIGEST, so main''s own static gate reports
+      the baseline as not matching its pin. The pin still describes the map as
+      it was at 562b391923, where this flow''s entry is 142afb41. This change keeps
+      that pinned map — a baseline only shrinks, and rewriting the matching entry
+      would admit a flow nobody qualified — and records the current fingerprint
+      as an exception instead. The exception is honest about what it is: the
+      flow is unchanged by this branch, was never requalified after the comment
+      edit, and would be admitted by the repaired baseline pin either way. Delete
+      it when the flow is requalified on a documented environment or when main
+      repairs the pin itself.'
+    evidence: gazon1/sing#3117

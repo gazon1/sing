@@ -324,14 +324,26 @@ def prepare_device(serial: str) -> None:
     distinction is made by :func:`is_emulator_serial`, one function, so it
     cannot be answered differently in two places.
 
-    Nothing here raises: a device that does not answer these three commands
-    is still a device, and the caller decides what to do about it.
+    The fourth is what the AVD's own processes need to stop doing: an overloaded
+    emulator puts up its *"Pixel Launcher isn't responding"* / *"Process system
+    isn't responding"* dialog, and that dialog is a real window that covers the
+    app. Maestro's `assertCondition` then reports the element it was asked about
+    as absent, because the element genuinely is not on screen — the dialog is.
+    Fifteen flows across all four shards of run 45361682445 failed on
+    `nav_tab_today` this way, and the screenshots carry the dialog, not a
+    missing bottom bar. Hiding error dialogs is the platform's own answer
+    (`settings put global hide_error_dialogs 1`); it changes nothing about the
+    app under test, and it is set on the emulator only.
+
+    Nothing here raises: a device that does not answer these commands is still
+    a device, and the caller decides what to do about it.
     """
     if not is_emulator_serial(serial):
         return
     adb_on(serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
     adb_on(serial, "shell", "input", "keyevent", "82")
     adb_on(serial, "shell", "settings", "put", "secure", "show_ime_with_hard_keyboard", "0")
+    adb_on(serial, "shell", "settings", "put", "global", "hide_error_dialogs", "1")
 
 
 def _prepared(serial: str) -> Acquisition:
