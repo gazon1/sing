@@ -108,9 +108,22 @@ SCROLL_ATTEMPTS = 40
 #: screen is not the screen the run measures.
 FOREGROUND_ATTEMPTS = 5
 
+#: How many times a run is done again when something else took the screen
+#: in the middle of it. The spoiled run is thrown away and not counted.
+SCREEN_LOST_ATTEMPTS = 3
+
 
 class MeasurementError(RuntimeError):
     """The run cannot go on."""
+
+
+class TransientMeasurementError(MeasurementError):
+    """A failure that another try of the same run can get past.
+
+    The phone is shared: a system screen or an advertisement that shows up
+    in the middle of an interaction is a fact about the phone, not about the
+    app. Such a run is thrown away and done again.
+    """
 
 
 # ── the device ──────────────────────────────────────────────────────────────
@@ -440,12 +453,12 @@ def require_frame_summary(summary: dict, scenario: str) -> dict:
     """
     missing = [key for key in ("totalFrames", "jankyFrames") if key not in summary]
     if missing:
-        raise MeasurementError(
+        raise TransientMeasurementError(
             f"the '{scenario}' run returned no frame data "
             f"({', '.join(missing)} missing), so it says nothing"
         )
     if summary["totalFrames"] <= 0:
-        raise MeasurementError(
+        raise TransientMeasurementError(
             f"the '{scenario}' run counted zero frames, so it says nothing"
         )
     if summary["jankyFrames"] > summary["totalFrames"]:
@@ -607,24 +620,42 @@ def profile_task_relations(serial: str, profile_name: str) -> dict[str, dict[str
     detail screen that shows a title and nothing else measures nothing. The
     relations are read from the copy of the device's own database, so the
     choice of the task is a fact about the data instead of a guess.
+
+    A read that fails is an error and not an empty answer: an empty answer
+    gives every task zero relations, and the run opens the first row of the
+    list — the very row the issue says not to measure.
     """
     local = device_database_path(serial)
-    if not profile_name or not local.is_file():
-        return {}
+    if not local.is_file():
+        raise MeasurementError(
+            "the copy of the database of the device is missing, so the relations "
+            "of the tasks are unknown"
+        )
     try:
         import sqlite3
 
         connection = sqlite3.connect(f"file:{local}?mode=rw", uri=True)
-    except Exception:  # noqa: BLE001 — the report says what it could not read
-        return {}
+    except Exception as exc:  # noqa: BLE001 — the report says what it could not read
+        raise MeasurementError(
+            f"the copy of the database of the device could not be opened: {exc}"
+        ) from exc
     try:
-        row = connection.execute(
-            "select id from profiles where name = ?",
-            (profile_name,),
-        ).fetchone()
-        if not row:
-            return {}
-        scope = row[0] + "/%"
+        if profile_name:
+            row = connection.execute(
+                "select id from profiles where name = ?",
+                (profile_name,),
+            ).fetchone()
+            if not row:
+                raise MeasurementError(
+                    f"the profile '{profile_name}' is not in the database of the "
+                    "device, so the relations of its tasks are unknown"
+                )
+            scope = row[0] + "/%"
+        else:
+            # Without a profile the whole database is the scope: the run has
+            # to open a task with relations, and the relations of the other
+            # profiles count as well.
+            scope = "%"
         relations: dict[str, dict[str, int]] = {}
         for task_id, title in connection.execute(
             "select id, title from tasks where user_id like ? and archived_at is null",
@@ -667,8 +698,12 @@ def profile_task_relations(serial: str, profile_name: str) -> dict[str, dict[str
                 if title in relations:
                     relations[title][key] = count
         return relations
-    except Exception:  # noqa: BLE001 — the report says what it could not read
-        return {}
+    except MeasurementError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — the report says what it could not read
+        raise MeasurementError(
+            f"the relations of the tasks could not be read: {exc}"
+        ) from exc
     finally:
         connection.close()
 
@@ -723,6 +758,49 @@ def choose_task_row(
     )
 
 
+def device_database_files(serial: str) -> set[str]:
+    """The database files that the device holds right now.
+
+    The names come from the device itself: a copy that has to guess which
+    files exist is a copy that cannot say whether it missed one.
+    """
+    proc = subprocess.run(
+        ["adb", "-s", serial, "shell", "run-as", APP_ID, "ls", "-1", "databases"],
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        raise MeasurementError(
+            "the database files of the device could not be listed, so the dataset "
+            "of this run is unknown"
+        )
+    return {
+        line.strip()
+        for line in proc.stdout.decode("utf-8", "replace").splitlines()
+        if line.strip()
+    }
+
+
+def device_file_size(serial: str, name: str) -> int:
+    """The size of a file on the device, or -1 when it cannot be read.
+
+    The size tells an empty file from a file that did not arrive: the
+    write-ahead log of a database that was closed cleanly is empty, and an
+    empty log that is copied as nothing is a faithful copy of it.
+    """
+    proc = subprocess.run(
+        ["adb", "-s", serial, "shell", "run-as", APP_ID, "wc", "-c", f"databases/{name}"],
+        capture_output=True,
+        timeout=60,
+    )
+    if proc.returncode != 0:
+        return -1
+    try:
+        return int(proc.stdout.decode("utf-8", "replace").split()[0])
+    except (IndexError, ValueError):
+        return -1
+
+
 def copy_device_database(serial: str, local: Path) -> None:
     """Copy the app's database off the device, whole.
 
@@ -744,15 +822,32 @@ def copy_device_database(serial: str, local: Path) -> None:
     local.unlink(missing_ok=True)
     for suffix in ("-wal", "-shm"):
         local.with_name(local.name + suffix).unlink(missing_ok=True)
+    present = device_database_files(serial)
+    if "todo.db" not in present:
+        raise MeasurementError(
+            "the device holds no database of the app, so the dataset of this "
+            "run is unknown"
+        )
     for name in ("todo.db", "todo.db-wal", "todo.db-shm"):
+        if name not in present:
+            # The device has no such file: there is nothing to copy, and a
+            # file that was never there cannot be a lost one.
+            continue
         proc = subprocess.run(
             ["adb", "-s", serial, "exec-out", "run-as", APP_ID, "cat", f"databases/{name}"],
             capture_output=True,
             timeout=300,
         )
-        if proc.returncode == 0 and proc.stdout:
-            target = local if name == "todo.db" else local.with_name(local.name + name[len("todo.db"):])
-            target.write_bytes(proc.stdout)
+        if proc.returncode != 0 or (not proc.stdout and device_file_size(serial, name) != 0):
+            # A file that is on the device and did not arrive here means the
+            # copy is a part of the database: the counts read from it are the
+            # counts of a database that is days old.
+            raise MeasurementError(
+                f"the '{name}' of the device could not be copied, so the dataset "
+                "of this run is unknown"
+            )
+        target = local if name == "todo.db" else local.with_name(local.name + name[len("todo.db"):])
+        target.write_bytes(proc.stdout)
     if not local.is_file() or local.stat().st_size == 0:
         raise MeasurementError(
             "the database of the device could not be copied, so the dataset of "
@@ -1213,87 +1308,151 @@ def screen_signature(nodes: list[dict]) -> tuple:
     )
 
 
+def require_same_build(device: Device, expected: str, scenario: str) -> str:
+    """The build on the device, if it is still the one under measurement.
+
+    The device is shared, and another session can put another build on it in
+    the middle of a measurement. The frames of another build are not the
+    frames of the build under measurement, and no retry makes that true.
+    """
+    current = app_version(device.serial)
+    if expected and current != expected:
+        raise MeasurementError(
+            f"the build on the device was replaced during the '{scenario}' run "
+            f"(it was {expected} and now it is {current}), so the frames of "
+            "this run are not the frames of the build under measurement"
+        )
+    return current
+
+
+def measure_run(
+    device: Device,
+    scenario: Scenario,
+    index: int,
+    warmup: int,
+    expected_build: str,
+) -> dict | None:
+    """One run of a scenario.
+
+    The warm-up run returns nothing: it only gets the screen ready. The
+    measured run returns the summary of its own frames.
+    """
+    # What the previous run found is not what this run found: the notes
+    # of a run are written by its own navigation, so a scenario that
+    # opens no task does not inherit the task of the scenario before it.
+    device.notes.clear()
+    # The build is checked before the run starts: if another session put
+    # another build on the shared phone, the app that is on the device is
+    # not the one under measurement, and no run of it would say anything.
+    require_same_build(device, expected_build, scenario.name)
+    scenario.navigate(device)
+    ensure_foreground(device)
+    scenario.restore(device)
+    scenario.interact(device)
+    time.sleep(scenario.settle)
+    if index < warmup:
+        return None
+    # The list is put back to its top before the measured interaction:
+    # the warm-up scroll left it at the end, and a list that is already at
+    # its end does not move again.
+    scenario.restore(device)
+    time.sleep(scenario.settle)
+    # The frames are counted from here: the navigation that brought the
+    # screen up is not part of the interaction, and the platform's
+    # counters start empty.
+    ensure_foreground(device)
+    before = screen_signature(dump_ui(device.serial))
+    reset_frames(device.serial, device.package)
+    scenario.interact(device)
+    time.sleep(scenario.settle)
+    summary = frame_summary(device.serial, device.package)
+    require_frame_summary(summary, scenario.name)
+    durations = frame_durations(device.serial, device.package)
+    summary["measuredDurationsMs"] = durations
+    after = screen_signature(dump_ui(device.serial))
+    # The build that is on the device right now: the device is shared, and
+    # another session can put another build on it in the middle of a
+    # measurement. The frames of another build are not the frames of the
+    # build under measurement, and no retry makes that true.
+    current_build = require_same_build(device, expected_build, scenario.name)
+    if focus_package(device.serial) != device.package:
+        # Another app took the screen in the middle of the interaction:
+        # the frames of that stretch are the other app's frames.
+        raise TransientMeasurementError(
+            f"another app took the screen during the '{scenario.name}' "
+            "interaction, so its frames say nothing"
+        )
+    if before == after:
+        # Frames of a screen that did not move are frames about
+        # nothing, and a report that counts them is a lie.
+        raise TransientMeasurementError(
+            f"the '{scenario.name}' interaction changed nothing on the screen, "
+            "so its frames say nothing"
+        )
+    summary["appVersionName"] = current_build
+    # What the run opened: a baseline that does not say which task it
+    # measured does not say what to compare it with.
+    if device.notes.get("task"):
+        summary["openedTask"] = device.notes["task"]
+        summary["openedTaskRelations"] = device.notes.get("taskRelations", {})
+    return summary
+
+
 def measure_scenario(
     device: Device,
     scenario: Scenario,
     runs: int,
     warmup: int,
     on_run: Callable[[dict], None] | None = None,
+    pinned_build: str = "",
 ) -> dict:
     """Run one scenario and collect its frames.
 
     `on_run` is called after every measured run with the samples so far:
     a run that dies on its last measurement still leaves the earlier ones in
     the report.
+
+    A run whose screen was taken by another app is done again: the phone is
+    shared, and a system screen that shows up in the middle of an
+    interaction is a fact about the phone, not about the app. The spoiled run
+    is thrown away and not counted. A run whose build was replaced on the
+    device is not done again: there is no other build to go back to.
     """
     samples: list[dict] = []
+    expected_build = pinned_build or app_version(device.serial)
     for index in range(warmup + runs):
-        scenario.navigate(device)
-        ensure_foreground(device)
-        scenario.restore(device)
-        scenario.interact(device)
-        time.sleep(scenario.settle)
-        if index < warmup:
-            continue
-        # The list is put back to its top before the measured interaction:
-        # the warm-up scroll left it at the end, and a list that is already at
-        # its end does not move again.
-        scenario.restore(device)
-        time.sleep(scenario.settle)
-        # The frames are counted from here: the navigation that brought the
-        # screen up is not part of the interaction, and the platform's
-        # counters start empty.
-        ensure_foreground(device)
-        before = screen_signature(dump_ui(device.serial))
-        reset_frames(device.serial, device.package)
-        scenario.interact(device)
-        time.sleep(scenario.settle)
-        summary = frame_summary(device.serial, device.package)
-        require_frame_summary(summary, scenario.name)
-        durations = frame_durations(device.serial, device.package)
-        summary["measuredDurationsMs"] = durations
-        after = screen_signature(dump_ui(device.serial))
-        if focus_package(device.serial) != device.package:
-            # Another app took the screen in the middle of the interaction:
-            # the frames of that stretch are the other app's frames.
-            raise MeasurementError(
-                f"another app took the screen during the '{scenario.name}' "
-                "interaction, so its frames say nothing"
+        for attempt in range(1, SCREEN_LOST_ATTEMPTS + 1):
+            try:
+                summary = measure_run(device, scenario, index, warmup, expected_build)
+            except TransientMeasurementError as error:
+                if attempt == SCREEN_LOST_ATTEMPTS:
+                    raise
+                print(
+                    f"  run {index - warmup + 1}/{runs}: {error}; done again",
+                    flush=True,
+                )
+                continue
+            if summary is None:
+                break
+            samples.append(summary)
+            print(
+                f"  run {index - warmup + 1}/{runs}: "
+                f"frames={summary.get('totalFrames', '?')} "
+                f"janky={summary.get('jankyFrames', '?')} "
+                f"p50={summary.get('p50', '?')}ms "
+                f"build={summary.get('appVersionName', '?')}",
+                flush=True,
             )
-        if before == after:
-            # Frames of a screen that did not move are frames about
-            # nothing, and a report that counts them is a lie.
-            raise MeasurementError(
-                f"the '{scenario.name}' interaction changed nothing on the screen, "
-                "so its frames say nothing"
-            )
-        samples.append(summary)
-        # The version of the app that is installed right now: the device is
-        # shared, and another run can put another build on it in the middle
-        # of a measurement.
-        summary["appVersionName"] = app_version(device.serial)
-        # What the run opened: a baseline that does not say which task it
-        # measured does not say what to compare it with.
-        if device.notes.get("task"):
-            summary["openedTask"] = device.notes["task"]
-            summary["openedTaskRelations"] = device.notes.get("taskRelations", {})
-        print(
-            f"  run {index - warmup + 1}/{runs}: "
-            f"frames={summary.get('totalFrames', '?')} "
-            f"janky={summary.get('jankyFrames', '?')} "
-            f"p50={summary.get('p50', '?')}ms "
-            f"build={summary.get('appVersionName', '?')}",
-            flush=True,
-        )
-        if on_run is not None:
-            on_run(
-                {
-                    "name": scenario.name,
-                    "description": scenario.description,
-                    "samples": list(samples),
-                    "summary": aggregate(samples),
-                }
-            )
+            if on_run is not None:
+                on_run(
+                    {
+                        "name": scenario.name,
+                        "description": scenario.description,
+                        "samples": list(samples),
+                        "summary": aggregate(samples),
+                    }
+                )
+            break
     return {"name": scenario.name, "description": scenario.description, "samples": samples}
 
 
@@ -1521,15 +1680,25 @@ def measure(args: argparse.Namespace, out_dir: Path) -> int:
     }
     wanted = args.scenario or list(scenarios)
 
+    # The build that the measurement is about. Every run checks that the
+    # build on the device is still this one: the device is shared, and
+    # another session can put another build on it in the middle of a
+    # measurement.
+    pinned_build = app_version(args.serial)
+    print(f"build: {pinned_build or 'unknown'}")
+
     report: dict = {
         "device": device_facts(args.serial),
         "dataset": dataset,
-        "build": {"package": APP_ID, "variant": "debug"},
+        "build": {"package": APP_ID, "variant": "debug", "versionName": pinned_build},
         "method": {
             "source": "adb shell dumpsys gfxinfo <package> (summary) and framestats (per frame)",
             "warmupRuns": args.warmup,
             "measuredRuns": args.runs,
             "settleSeconds": SETTLE_SECONDS,
+            # Which scenarios this measurement was about: a report without
+            # this list cannot show that nothing was left out.
+            "plannedScenarios": list(wanted),
             "note": "the frames of the navigation are not counted; only the frames of the interaction",
         },
         "scenarios": {},
@@ -1544,7 +1713,9 @@ def measure(args: argparse.Namespace, out_dir: Path) -> int:
             write_report(report, out_dir)
 
         print(f"scenario: {name}", flush=True)
-        measured = measure_scenario(device, scenario, args.runs, args.warmup, on_run=persist)
+        measured = measure_scenario(
+            device, scenario, args.runs, args.warmup, on_run=persist, pinned_build=pinned_build
+        )
         measured["summary"] = aggregate(measured["samples"])
         report["scenarios"][name] = measured
         # The report is written after every scenario and after every run of

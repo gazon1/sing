@@ -16,6 +16,14 @@ the arithmetic that turns the platform's output into the report:
 * `percentile` is the nearest-rank rule the report and the document quote;
 * `choose_task_row` opens the task that carries the most of what the detail
   screen shows, and refuses to open a different task than the one asked for;
+* `profile_task_relations` reads the relations of the tasks of the profile and
+  fails when it cannot read them - an empty answer would leave every task with
+  zero relations and open the first row of the list;
+* `copy_device_database` copies the whole database and fails when a file that
+  is on the device did not arrive - a copy without the write-ahead log is a
+  copy of a database that is days old;
+* `measure_scenario` counts the frames of the interaction and not of the
+  navigation, and a run reports what its own navigation found;
 * `slug` reproduces the app's own test tag (`TestTags.slug`) — a slug that
   differs by one character makes the run open nothing;
 * `node_bounds` finds the node a test tag names, with or without the
@@ -332,7 +340,8 @@ class DatabaseCopyTest(unittest.TestCase):
 
     A force-stop is a kill, not a clean close: the commits of the last
     writes are still in the write-ahead log, and a copy that leaves it
-    behind is a copy of a database that is days old.
+    behind is a copy of a database that is days old. A log that is on the
+    device and did not arrive is therefore an error and not a detail.
     """
 
     class _Proc:
@@ -340,15 +349,29 @@ class DatabaseCopyTest(unittest.TestCase):
             self.returncode = returncode
             self.stdout = stdout
 
-    def _copy(self, tmp: str, failing: set[str]) -> list[str]:
+    def _copy(
+        self,
+        tmp: str,
+        failing: set[str] = frozenset(),
+        empty: set[str] = frozenset(),
+        present: tuple[str, ...] = ("todo.db", "todo.db-wal", "todo.db-shm"),
+        sizes: dict[str, int] | None = None,
+    ) -> list[str]:
         copied: list[str] = []
         original = driver.subprocess.run
 
         def fake_run(cmd, **kwargs):
+            if "ls" in cmd:
+                return DatabaseCopyTest._Proc(0, "\n".join(present).encode())
+            if "wc" in cmd:
+                name = cmd[-1]
+                return DatabaseCopyTest._Proc(0, f"{(sizes or {}).get(name, 0)} {name}".encode())
             name = cmd[-1]
             copied.append(name)
             if name in failing:
                 return DatabaseCopyTest._Proc(1, b"")
+            if name in empty:
+                return DatabaseCopyTest._Proc(0, b"")
             return DatabaseCopyTest._Proc(0, f"payload of {name}".encode())
 
         driver.subprocess.run = fake_run
@@ -360,7 +383,7 @@ class DatabaseCopyTest(unittest.TestCase):
 
     def test_the_log_and_its_index_travel_with_the_database(self):
         with tempfile.TemporaryDirectory() as tmp:
-            copied = self._copy(tmp, failing=set())
+            copied = self._copy(tmp)
             self.assertEqual(
                 copied,
                 ["databases/todo.db", "databases/todo.db-wal", "databases/todo.db-shm"],
@@ -370,11 +393,17 @@ class DatabaseCopyTest(unittest.TestCase):
             self.assertTrue(local.with_name(local.name + "-wal").is_file())
             self.assertTrue(local.with_name(local.name + "-shm").is_file())
 
+    def test_a_log_that_did_not_arrive_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(driver.MeasurementError):
+                self._copy(tmp, failing={"databases/todo.db-wal"})
+
     def test_a_log_of_another_run_does_not_survive_a_failed_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             local = Path(tmp) / "device.db"
             local.with_name(local.name + "-wal").write_bytes(b"a log of another database")
-            self._copy(tmp, failing={"databases/todo.db-wal"})
+            with self.assertRaises(driver.MeasurementError):
+                self._copy(tmp, failing={"databases/todo.db-wal"})
             self.assertFalse(local.with_name(local.name + "-wal").exists())
 
     def test_the_database_of_yesterday_does_not_survive_a_failed_copy(self):
@@ -384,6 +413,30 @@ class DatabaseCopyTest(unittest.TestCase):
             with self.assertRaises(driver.MeasurementError):
                 self._copy(tmp, failing={"databases/todo.db"})
             self.assertFalse(local.exists())
+
+    def test_a_file_the_device_does_not_hold_is_not_copied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            copied = self._copy(tmp, present=("todo.db",))
+            self.assertEqual(copied, ["databases/todo.db"])
+            local = Path(tmp) / "device.db"
+            self.assertFalse(local.with_name(local.name + "-wal").exists())
+
+    def test_an_empty_log_on_the_device_is_copied_as_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._copy(tmp, empty={"databases/todo.db-wal"}, sizes={"databases/todo.db-wal": 0})
+            local = Path(tmp) / "device.db"
+            self.assertTrue(local.with_name(local.name + "-wal").is_file())
+            self.assertEqual(local.with_name(local.name + "-wal").stat().st_size, 0)
+
+    def test_a_log_that_came_back_empty_while_the_device_holds_it_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(driver.MeasurementError):
+                self._copy(tmp, empty={"databases/todo.db-wal"}, sizes={"databases/todo.db-wal": 4096})
+
+    def test_a_device_without_a_database_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(driver.MeasurementError):
+                self._copy(tmp, present=())
 
 
 class WakeDeviceTest(unittest.TestCase):
@@ -966,3 +1019,229 @@ class WaitForPaneTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProfileRelationsTest(unittest.TestCase):
+    """The relations of the tasks come from the copy of the database.
+
+    A read that fails has to be an error and not an empty answer: an empty
+    answer gives every task zero relations, and the run opens the first
+    row of the list - the row the issue says not to measure.
+    """
+
+    SCHEMA = """
+        create table profiles (id text primary key, name text);
+        create table tasks (
+            id text primary key, title text, user_id text, archived_at text,
+            parent_task_id text, project_id text
+        );
+        create table task_tags (task_id text);
+        create table task_dependencies (task_id text);
+        create table notes (task_id text);
+        create table checklist_items (task_id text);
+    """
+
+    def _database(self, tmp: str) -> Path:
+        import sqlite3
+
+        path = Path(tmp) / "device.db"
+        connection = sqlite3.connect(path)
+        connection.executescript(self.SCHEMA)
+        connection.execute("insert into profiles values ('p1', 'the-profile')")
+        connection.execute("insert into profiles values ('p2', 'other-profile')")
+        connection.execute("insert into tasks values ('t1', 'Task one', 'p1/u1', null, null, null)")
+        connection.execute("insert into tasks values ('t2', 'Task two', 'p1/u1', null, 't1', null)")
+        connection.execute("insert into task_tags values ('t1')")
+        connection.execute("insert into task_tags values ('t1')")
+        connection.execute("insert into task_dependencies values ('t1')")
+        connection.execute("insert into notes values ('t1')")
+        connection.execute("insert into checklist_items values ('t1')")
+        connection.execute("insert into checklist_items values ('t1')")
+        connection.execute("insert into checklist_items values ('t1')")
+        connection.execute("insert into tasks values ('t3', 'Task three', 'p2/u2', null, null, null)")
+        connection.commit()
+        connection.close()
+        return path
+
+    def _relations(self, path: Path, profile_name: str) -> dict:
+        original = driver.device_database_path
+        driver.device_database_path = lambda serial: path
+        try:
+            return driver.profile_task_relations("serial", profile_name)
+        finally:
+            driver.device_database_path = original
+
+    def test_the_relations_of_the_tasks_of_the_profile_are_counted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            relations = self._relations(self._database(tmp), "the-profile")
+            self.assertEqual(
+                relations["Task one"],
+                {"children": 1, "tags": 2, "dependencies": 1, "notes": 1, "checklist": 3},
+            )
+            self.assertEqual(
+                relations["Task two"],
+                {"children": 0, "tags": 0, "dependencies": 0, "notes": 0, "checklist": 0},
+            )
+            self.assertNotIn("Task three", relations)
+
+    def test_a_profile_that_is_not_in_the_database_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._database(tmp)
+            with self.assertRaises(driver.MeasurementError):
+                self._relations(path, "a-profile-that-is-not-there")
+
+    def test_a_database_that_is_not_there_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "there-is-no-database.db"
+            with self.assertRaises(driver.MeasurementError):
+                self._relations(path, "the-profile")
+
+    def test_a_database_that_cannot_be_read_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "device.db"
+            path.write_bytes(b"this is not a database")
+            with self.assertRaises(driver.MeasurementError):
+                self._relations(path, "the-profile")
+
+    def test_without_a_profile_the_whole_database_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            relations = self._relations(self._database(tmp), "")
+            self.assertIn("Task one", relations)
+            self.assertIn("Task three", relations)
+
+
+class MeasureScenarioTest(unittest.TestCase):
+    """The measured run measures the interaction and not the navigation.
+
+    The frames are counted from the reset of the counters, the navigation
+    that brought the screen up is not part of the measurement, and a run
+    reports what its own navigation found - not what the run before it
+    found.
+    """
+
+    class _Scenario:
+        name = "fake"
+        description = "a scenario of the test"
+        settle = 0.0
+
+        def __init__(self, events: list[str]):
+            self.events = events
+
+        def navigate(self, device) -> None:
+            self.events.append("navigate")
+
+        def restore(self, device) -> None:
+            self.events.append("restore")
+
+        def interact(self, device) -> None:
+            self.events.append("interact")
+
+    PATCHED = (
+        "ensure_foreground",
+        "dump_ui",
+        "reset_frames",
+        "frame_summary",
+        "frame_durations",
+        "focus_package",
+        "app_version",
+    )
+
+    def _measure(
+        self,
+        events: list[str],
+        notes: dict | None = None,
+        warmup: int = 1,
+        runs: int = 1,
+        focus_sequence: list[str] | None = None,
+        version_sequence: list[str] | None = None,
+    ) -> dict:
+        original = {name: getattr(driver, name) for name in self.PATCHED}
+        dumps = {"count": 0}
+        calls = {"focus": 0, "version": 0}
+
+        def fake_dump_ui(serial):
+            dumps["count"] += 1
+            return [{"resource-id": f"node-{dumps['count']}"}]
+
+        def fake_reset_frames(serial, package):
+            events.append("reset")
+
+        def fake_frame_summary(serial, package):
+            events.append("summary")
+            return {"totalFrames": 2, "jankyFrames": 0, "p50": 10}
+
+        def fake_frame_durations(serial, package):
+            events.append("durations")
+            return [1.0, 2.0]
+
+        def fake_focus_package(serial):
+            index = calls["focus"]
+            calls["focus"] += 1
+            if focus_sequence is None:
+                return "pkg"
+            return focus_sequence[min(index, len(focus_sequence) - 1)]
+
+        def fake_app_version(serial):
+            index = calls["version"]
+            calls["version"] += 1
+            if version_sequence is None:
+                return "1.0"
+            return version_sequence[min(index, len(version_sequence) - 1)]
+
+        driver.ensure_foreground = lambda device: None
+        driver.dump_ui = fake_dump_ui
+        driver.reset_frames = fake_reset_frames
+        driver.frame_summary = fake_frame_summary
+        driver.frame_durations = fake_frame_durations
+        driver.focus_package = fake_focus_package
+        driver.app_version = fake_app_version
+        try:
+            device = driver.Device(serial="serial", package="pkg", width=100, height=200)
+            device.notes.update(notes or {})
+            return driver.measure_scenario(
+                device, self._Scenario(events), runs=runs, warmup=warmup
+            )
+        finally:
+            for name, value in original.items():
+                setattr(driver, name, value)
+
+    def test_the_frames_are_counted_from_the_interaction_and_not_from_the_navigation(self):
+        events: list[str] = []
+        measured = self._measure(events)
+        self.assertEqual(
+            events,
+            [
+                "navigate", "restore", "interact",
+                "navigate", "restore", "interact", "restore",
+                "reset", "interact", "summary", "durations",
+            ],
+        )
+        self.assertEqual(len(measured["samples"]), 1)
+        self.assertEqual(measured["samples"][0]["measuredDurationsMs"], [1.0, 2.0])
+
+    def test_a_scenario_that_opens_no_task_does_not_inherit_the_task_of_the_previous_one(self):
+        events: list[str] = []
+        measured = self._measure(
+            events,
+            notes={"task": "Task of the previous scenario", "taskRelations": {"tags": 3}},
+        )
+        self.assertNotIn("openedTask", measured["samples"][0])
+
+    def test_a_run_whose_screen_was_taken_by_another_app_is_done_again(self):
+        events: list[str] = []
+        measured = self._measure(events, focus_sequence=["other", "pkg"])
+        self.assertEqual(len(measured["samples"]), 1)
+        # The spoiled run is thrown away: it is not in the samples.
+        self.assertEqual(measured["samples"][0]["totalFrames"], 2)
+
+    def test_a_run_whose_build_was_replaced_on_the_device_fails_the_measurement(self):
+        events: list[str] = []
+        with self.assertRaises(driver.MeasurementError) as raised:
+            self._measure(events, version_sequence=["1.0", "2.0"])
+        self.assertIn("replaced", str(raised.exception))
+        self.assertIn("2.0", str(raised.exception))
+
+    def test_a_run_whose_screen_was_taken_repeatedly_fails_the_measurement(self):
+        events: list[str] = []
+        with self.assertRaises(driver.MeasurementError):
+            self._measure(events, focus_sequence=["other"])

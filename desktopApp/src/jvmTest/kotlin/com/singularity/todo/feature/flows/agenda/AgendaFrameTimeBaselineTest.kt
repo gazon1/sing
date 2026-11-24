@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.core.Koin
 import java.io.File
+import java.lang.management.ManagementFactory
 import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.time.Instant
@@ -136,6 +137,8 @@ class AgendaFrameTimeBaselineTest {
                 }
             }
 
+            checkReportInvariants(opens, drags)
+
             val report =
                 buildJson(
                     mapOf(
@@ -154,6 +157,7 @@ class AgendaFrameTimeBaselineTest {
                         "scrollSamples" to drags.size,
                         "scrollSamplesMs" to drags.map { it / 1_000_000.0 },
                         "composedRows" to composedRows,
+                        "hostLoadAverage" to hostLoadAverage(),
                         "percentileConvention" to
                             "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
                     ),
@@ -167,6 +171,83 @@ class AgendaFrameTimeBaselineTest {
             outDir.mkdirs()
             File(outDir, "frame-time-baseline.json").writeText(report)
         }
+
+    /**
+     * The load of the host that measured.
+     *
+     * The desktop numbers move with the load of the machine they were taken
+     * on, so the report carries the load: a number without the state of the
+     * host cannot be compared with another number.
+     */
+    private fun hostLoadAverage(): Double {
+        val load = ManagementFactory.getOperatingSystemMXBean().systemLoadAverage
+        return if (load < 0) -1.0 else load
+    }
+
+    /**
+     * The numbers of the report have to be the numbers of the run.
+     *
+     * The warm-up runs are thrown away and are not in the report, every
+     * drag of a measured run is in it, and the percentiles are values that
+     * were measured - not numbers the report made up.
+     */
+    private fun checkReportInvariants(
+        opens: List<Long>,
+        drags: List<Long>,
+    ) {
+        check(opens.size == measuredRuns) {
+            "the report holds ${opens.size} opens for $measuredRuns measured runs: the warm-up runs are in it"
+        }
+        check(drags.size == measuredRuns * dragsPerRun) {
+            "the report holds ${drags.size} drags for $measuredRuns runs of $dragsPerRun drags"
+        }
+        check(opens.all { it > 0 }) {
+            "an open of the timeline took no time"
+        }
+        val samples = drags.map { it / 1_000_000.0 }
+        val median = medianMs(drags)
+        val p95 = percentileMs(drags, 0.95)
+        check(median >= samples.min() && median <= samples.max()) {
+            "the median $median is not between the smallest (${samples.min()}) " +
+                "and the largest (${samples.max()}) sample"
+        }
+        check(p95 >= median) {
+            "the 95th percentile $p95 is below the median $median"
+        }
+        check(samples.any { it == p95 }) {
+            "the 95th percentile $p95 is not a value that was measured"
+        }
+    }
+
+    /**
+     * The statistics of the report are the rules the document quotes.
+     *
+     * The median of an even-sized sample is the mean of its two middle
+     * values, and a percentile is the value at the nearest-rank position -
+     * so every reported number is a number that was measured.
+     */
+    @Test
+    @DisplayName("FRAME-TIME desktop baseline: the statistics of the report")
+    fun the_statistics_of_the_report() {
+        val even = listOf(10L, 20L, 30L, 40L).map { it * 1_000_000L }
+        check(medianMs(even) == 25.0) {
+            "the median of an even sample is the mean of its two middle values, not ${medianMs(even)}"
+        }
+        val odd = listOf(10L, 20L, 30L).map { it * 1_000_000L }
+        check(medianMs(odd) == 20.0) {
+            "the median of an odd sample is its middle value, not ${medianMs(odd)}"
+        }
+        val hundred = (1..100).map { it * 1_000_000L }
+        check(percentileMs(hundred, 0.95) == 95.0) {
+            "the 95th percentile of a hundred samples is the 95th of them, not ${percentileMs(hundred, 0.95)}"
+        }
+        check(percentileMs(hundred, 0.5) == 50.0) {
+            "the 50th percentile of a hundred samples is the 50th of them, not ${percentileMs(hundred, 0.5)}"
+        }
+        check(percentileMs(emptyList<Long>(), 0.95) == 0.0) {
+            "a sample without values has no percentile"
+        }
+    }
 
     /**
      * The root of the repository.
