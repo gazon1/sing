@@ -22,10 +22,15 @@ import com.agentclientprotocol.transport.Transport
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -328,6 +333,123 @@ class AcpResumeCapabilityTest {
             "an agent that advertises nothing does not support resume",
         )
     }
+
+    /**
+     * The pinned SDK cannot decode what the configured bridges actually send.
+     *
+     * These two fixtures are **captured frames**, not hand-written ones: they are the
+     * `initialize` results the Claude and Codex bridges sent on 2026-11-25, verbatim, with the
+     * bridge versions recorded alongside them. The probe logs are
+     * `build/diagnostics/acp-probe-claude.log` and `build/diagnostics/acp-probe-codex.log`.
+     *
+     * The reason the *practical* no-go exists is in those frames. Both bridges send
+     * `"auth":{"logout":{},"status":{}}`, while the pinned SDK declares
+     * `AgentAuthCapabilities.status: Boolean?` — so the frame cannot be decoded, the handshake
+     * never completes, and there is no session to resume or load in the first place. That is a
+     * sharper and more brittle fact than "the SDK exposes the call", so it is pinned here: an SDK
+     * bump that starts (or stops) decoding this shape would otherwise invalidate the note's
+     * compatibility conclusion while every other test stayed green.
+     *
+     * ## What this does and does not protect
+     *
+     * It pins the observation, not the future. The bridges are launched through unpinned `npx`
+     * packages, so a later version may advertise something else — the note says so, and
+     * capabilities have to be negotiated at runtime. What this catches is a change on the SDK
+     * side, which is the side this repository pins.
+     */
+    @Test
+    fun `the pinned SDK cannot decode the bridges' initialize response`() {
+        val claudeFailure =
+            assertFailsWith<SerializationException> {
+                ACPJson.decodeFromJsonElement(
+                    InitializeResponse.serializer(),
+                    Json.parseToJsonElement(claudeInitializeFrame),
+                )
+            }
+        assertTrue(
+            claudeFailure.message?.contains("$.status") == true,
+            "the Claude frame must fail on the object-valued auth.status, not on something else: " +
+                "${claudeFailure.message}",
+        )
+
+        val codexFailure =
+            assertFailsWith<SerializationException> {
+                ACPJson.decodeFromJsonElement(
+                    InitializeResponse.serializer(),
+                    Json.parseToJsonElement(codexInitializeFrame),
+                )
+            }
+        assertTrue(
+            codexFailure.message?.contains("$.status") == true,
+            "the Codex frame must fail on the object-valued auth.status, not on something else: " +
+                "${codexFailure.message}",
+        )
+    }
+
+    /**
+     * What the captured frames say about the profiles the note's table lists.
+     *
+     * The frames cannot be decoded into the SDK's model (the test above), so the capabilities are
+     * read straight off the captured JSON. The bridge versions are asserted too: the note's table
+     * is an observation of a specific package version, and a reader must be able to see which one
+     * it was.
+     */
+    @Test
+    fun `the captured frames advertise load and resume`() {
+        val claude = Json.parseToJsonElement(claudeInitializeFrame).jsonObject
+        val codex = Json.parseToJsonElement(codexInitializeFrame).jsonObject
+
+        val claudeInfo = claude["agentInfo"]?.jsonObject
+        val codexInfo = codex["agentInfo"]?.jsonObject
+
+        assertEquals(
+            "0.112.0",
+            claudeInfo?.get("version")?.jsonPrimitive?.content,
+            "the captured Claude frame is the 0.112.0 bridge the note's table lists",
+        )
+        assertEquals(
+            "2.12.0",
+            codexInfo?.get("version")?.jsonPrimitive?.content,
+            "the captured Codex frame is the 2.12.0 bridge the note's table lists",
+        )
+
+        listOf("claude" to claude, "codex" to codex).forEach { (name, frame) ->
+            val capabilities = frame["agentCapabilities"]?.jsonObject
+            assertNotNull(capabilities, "the $name frame must carry agentCapabilities")
+            assertEquals(
+                JsonPrimitive(true),
+                capabilities.get("loadSession"),
+                "the $name bridge advertises loadSession: true",
+            )
+            val sessionCapabilities = capabilities.get("sessionCapabilities")?.jsonObject
+            assertNotNull(
+                sessionCapabilities?.get("resume"),
+                "the $name bridge advertises sessionCapabilities.resume",
+            )
+        }
+    }
+
+    /**
+     * The `initialize` result the Claude bridge sent on 2026-11-25, captured verbatim.
+     *
+     * `@agentclientprotocol/claude-agent-acp` 0.112.0, from
+     * `build/diagnostics/acp-probe-claude.log`.
+     */
+    private val claudeInitializeFrame =
+        """
+        {"protocolVersion":1,"agentCapabilities":{"_meta":{"claudeCode":{"promptQueueing":true},"authStatus":{}},"promptCapabilities":{"image":true,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true,"acp":true},"auth":{"logout":{},"status":{}},"providers":{},"loadSession":true,"sessionCapabilities":{"additionalDirectories":{},"close":{},"delete":{},"fork":{},"list":{},"options":{},"resume":{},"status":{},"systemPrompt":{"mode":{"override":{}}},"title":{}}},"agentInfo":{"name":"@agentclientprotocol/claude-agent-acp","title":"Claude Agent","version":"0.112.0"},"authMethods":[],"_meta":{"steering":{"supported":true}}}
+        """.trimIndent()
+
+    /**
+     * The `initialize` result the Codex bridge sent on 2026-11-25, captured verbatim.
+     *
+     * `@agentclientprotocol/codex-acp` 2.12.0, from
+     * `build/diagnostics/acp-probe-codex.log`.
+     */
+    private val codexInitializeFrame =
+        """
+        {"protocolVersion":1,"agentInfo":{"name":"@agentclientprotocol/codex-acp","title":"Codex","version":"2.12.0"},"agentCapabilities":{"auth":{"logout":{},"status":{}},"providers":{},"loadSession":true,"promptCapabilities":{"embeddedContext":true,"image":true},"sessionCapabilities":{"resume":{},"list":{},"close":{},"delete":{},"fork":{},"options":{},"title":{},"additionalDirectories":{},"systemPrompt":{}},"mcpCapabilities":{"acp":true,"http":true,"sse":false},"_meta":{"authStatus":{}}},"authMethods":[{"id":"api-key","name":"API Key","description":"Use an API key to authenticate","_meta":{"api-key":{"provider":"openai"}}},{"id":"chat-gpt","name":"ChatGPT","description":"Use ChatGPT to authenticate"}],"_meta":{"steering":{"supported":true}}}
+        """.trimIndent()
 
     /**
      * A transport that records what the client sends and answers nothing.

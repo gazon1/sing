@@ -11,6 +11,19 @@ Everything below was checked against the pinned versions in this checkout: Koog 
 Room `3.0.3` (`gradle/libs.versions.toml:35`). The SDK claims below are read out of the pinned
 jars in the Gradle cache, not out of upstream documentation.
 
+## The answer in one screen
+
+| Question | Answer | Where |
+|---|---|---|
+| Can Koog checkpointing carry a built-in chat across process death? | **No.** The feature is graph-only, and the chat never enters a graph | §1 |
+| Can the pinned ACP client issue `session/resume`? | **Yes** — protocol **v1**, gated on a marker capability | §2 |
+| Can it issue `session/load` (the restart-capable call)? | **Yes** — gated on a separate boolean capability | §2 |
+| Should ACP session restore be built now? | **No** — five independent reasons, and the pinned SDK cannot even decode the current bridges' `initialize` | §2 |
+| What should be built? | One project-owned transcript table in Room, text first | [Recommendation](#recommendation-the-smallest-viable-design) |
+| What is explicitly out of scope? | Koog checkpointing, moving the chat onto `AIAgent`, ACP session plumbing, GenUI surfaces, tool-call payloads, a new persistence engine | [Recommendation](#recommendation-the-smallest-viable-design) |
+
+The rest of the note is the evidence for those answers.
+
 ## Question
 
 Before adding durable AI conversations: which of the two existing mechanisms — Koog's checkpointing
@@ -123,6 +136,13 @@ the feature itself installs into a **graph** pipeline only (`AIAgentGraphFeature
 the project-owned port it turns through (`TextGenPort`, `ChatTurn`), nor in the streaming
 implementation that actually runs the chat (`KoogAgentService.streamChat`).
 
+The applicability conclusion rests on the *contract* assertions — the feature's interfaces, the
+pipeline it installs into, and the production path the chat actually takes. The API-shape assertion
+(`runFromCheckpoint` takes an `AIAgent`) is a **compatibility tripwire**: it says the dependency is
+still there and still shaped the same way, not that the feature is applicable. A Koog release could
+keep the signature and change the runtime behaviour; the contract assertions are what would catch
+that.
+
 ## 2. ACP session restore: the SDK can do it; the profiles and the lifecycle do not yet justify it
 
 ### What the pinned client offers
@@ -167,6 +187,15 @@ are checked on the wire and not only in the library's own method objects, and it
 representative v1 `initialize` responses to pin the **inbound** path: `sessionCapabilities.resume`
 read back as a present-or-absent marker and the separate boolean `loadSession`. A dependency bump
 that changes any of those fails the test instead of quietly invalidating this note.
+
+It also carries the **captured** frames the configured bridges actually sent on 2026-11-25
+(`build/diagnostics/acp-probe-claude.log`, `build/diagnostics/acp-probe-codex.log`) and pins the
+two facts the practical no-go rests on: the pinned SDK cannot decode them (`auth.status` is an
+object where the SDK expects `Boolean?`), and the capabilities they advertise (`loadSession: true`
+and `sessionCapabilities.resume: {}`, at bridge versions 0.112.0 and 2.12.0) are the ones the
+profile table above lists. The frames are an observation of a specific package version — the
+bridges are launched through unpinned `npx` packages, so capabilities still have to be negotiated
+at runtime — but the *SDK side*, which this repository does pin, is protected.
 
 **The version cannot be read off the wire, and that is worth knowing before anyone writes a probe.**
 The v1 and v2 resume payloads are wire-identical: v1 sends

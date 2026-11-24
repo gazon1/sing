@@ -27,10 +27,16 @@ import kotlin.test.assertTrue
  * runtime dependencies. The real reasons are structural, and this test is what keeps them
  * executable:
  *
- * - the checkpoint API is defined in terms of a Koog `AIAgent`, so it can only restore a graph;
+ * - the checkpoint feature is **graph-only**: it installs into an `AIAgentGraphPipeline`, is not
+ *   an `AIAgentFunctionalFeature`, and casts the running strategy to `AIAgentGraphStrategy`;
  * - the chat holds no Koog agent at all — neither in the loop, nor in the port it turns through,
  *   nor in the implementation that actually runs the chat;
  * - the memory feature ships exactly one history provider, and it is in-memory.
+ *
+ * The applicability conclusion rests on the contract assertions and on the production path. The
+ * API-shape assertion (`runFromCheckpoint` takes an `AIAgent`) is a *compatibility* tripwire: it
+ * says the dependency is still present and still shaped the same way, not that the feature is
+ * applicable to this chat.
  *
  * If somebody rewires the chat onto a Koog agent graph, or adds a durable provider to the memory
  * feature, this test fails and the decision is re-opened instead of being quietly inherited.
