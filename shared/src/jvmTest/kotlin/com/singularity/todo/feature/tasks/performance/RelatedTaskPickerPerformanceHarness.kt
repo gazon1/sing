@@ -281,7 +281,7 @@ private suspend fun measureMode(
 }
 
 /** Restores the archive through the app's own restore path. */
-private suspend fun restore(
+internal suspend fun restore(
     db: AppDatabase,
     fixture: DatabaseTestFixture,
     archivePath: String,

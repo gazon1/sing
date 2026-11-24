@@ -575,6 +575,30 @@ val relatedTaskPickerPerf =
         )
     }
 
+// The user-scoped dependency reads, measured on a restored synthetic dataset.
+//
+// The same program shape as the picker harness above: a program, not a test, and
+// the same dataset source — the shared generator of #3090:
+//
+//   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --output $PWD/build/perf/100k.zip"
+//   ./gw :shared:dependencyQueryPerf -Pperf.archive=$PWD/build/perf/100k.zip
+val dependencyQueryPerf =
+    tasks.register<JavaExec>("dependencyQueryPerf") {
+        description = "Measures the user-scoped dependency reads on a restored synthetic dataset."
+        group = "verification"
+        val jvmTestSources = sourceSets.getByName("jvmTest")
+        classpath = jvmTestSources.runtimeClasspath
+        mainClass.set("com.singularity.todo.feature.tasks.performance.DependencyQueryPerformanceHarnessKt")
+        maxHeapSize = testTaskHeap
+        outputs.upToDateWhen { false }
+        args(
+            "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--iterations=$perfIterations",
+            "--warmup=$perfWarmup",
+            "--owner=$perfOwner",
+        )
+    }
+
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
