@@ -222,6 +222,22 @@ class Coverage:
             if cell.state is CellState.UNREACHABLE
         ]
 
+    def obligation_cells(self) -> list[CoverageCell]:
+        """The live obligation cells — the matrix's denominator.
+
+        A retired scenario is not an obligation, so it is not a denominator: the
+        rendered matrix excludes those cells from its ratio, and the ratchet
+        gate's corpus block measures the same corpus. The definition lives here
+        because two independent copies of it are how the renderer and the gate
+        would end up counting different corpora while both stayed green.
+        """
+        return [
+            cell
+            for row in self.cells.values()
+            for cell in row.values()
+            if cell.state.is_obligation
+        ]
+
 
 def build_coverage(specs: dict[str, ScenarioSpec], links: list[Link]) -> Coverage:
     """Deterministic coverage: claimed targets × whether automation exists.

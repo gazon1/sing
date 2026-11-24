@@ -21,6 +21,11 @@
 # proved the opposite branch. So `03` got its own id, and the flow's header now
 # names it.
 #
+# The id was never actually *linked*, though: the flow carried the bare id
+# `CAL-SYNC-SYSTEM-01` as a tag, not `scenario:CAL-SYNC-SYSTEM-02`, so no carrier
+# was ever resolved and this scenario stayed dark. gazon1/sing#3115 fixed the tag
+# to `scenario:CAL-SYNC-SYSTEM-02`.
+#
 # ## Why the two are worth separating
 #
 # They fail independently. A build that hides the switch on an unreachable
@@ -28,6 +33,12 @@
 # enables sync but renders a dead switch over an absent provider passes `03` and
 # fails `02`. Folded into one scenario, the first would have been a failure and
 # the second a pass — and neither would have been caught by the other.
+#
+# `02` is gone as of gazon1/sing#3115: on Android the unavailable branch is
+# unreachable, so the flow asserted a state no device can produce. Its guarantee
+# — the panel saying why it cannot work — is owned on the desktop side by
+# `CalendarSyncSystemScenarioTest.the_system_panel_says_why_it_cannot_work` under
+# CAL-SYNC-SYSTEM-01.
 
 id: CAL-SYNC-SYSTEM-02
 title: "System calendar sync can be switched on where a provider exists"
@@ -41,10 +52,14 @@ preconditions: >-
   the complement of CAL-SYNC-SYSTEM-01, which covers the case where it is not.
 steps:
   - Look at the system-calendar panel.
-  - Switch system calendar sync on and read the status.
-  - Switch it off and read the status again.
+  - Switch system calendar sync on and look at the controls that appear.
+  - Switch it off and look at them again.
 expected: >-
   When a provider exists the panel offers a working enable switch rather than the
-  unavailable message, and the status follows the switch in both directions — so
-  turning sync on actually turns it on. The Google half stays usable throughout;
-  the two providers are alternatives, and neither may hide the other.
+  unavailable message. The calendar-app picker — the representative control the
+  panel shows only while the sync is enabled — appears when the switch is turned
+  on and disappears when it is turned off, so turning sync on really turns it on.
+  The other enabled-only controls follow the same product rule, but their
+  individual visibility is not asserted here; the guarantee that the Google half
+  stays usable, and that neither provider hides the other, is owned by
+  CAL-SYNC-PROVIDER-01.

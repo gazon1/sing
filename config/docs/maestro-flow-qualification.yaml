@@ -706,6 +706,168 @@ qualifications:
       apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
+  Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml:
+    fingerprint: sha256:8bb608b28a450b1a275d936fcd0a0ebd004a6d72433a664a551fbeebca16f99c
+    qualified_at: '2026-11-23'
+    environment:
+      kind: device
+      api: 35
+      device: RMX3938
+      serial: 0O65321F32204DD5
+    commit: e74c7bb9fa17
+    apk_commit_sha: e74c7bb9fa17
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/calendar_sync/03-system-calendar-toggle/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/calendar_sync/03-system-calendar-toggle/attempt-1/03-system-calendar-toggle.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: e74c7bb9fa17
+      apk_commit_sha: e74c7bb9fa17
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/calendar_sync/03-system-calendar-toggle/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/calendar_sync/03-system-calendar-toggle/attempt-2/03-system-calendar-toggle.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: e74c7bb9fa17
+      apk_commit_sha: e74c7bb9fa17
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/calendar_sync/03-system-calendar-toggle/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/calendar_sync/03-system-calendar-toggle/attempt-3/03-system-calendar-toggle.xml
+      environment:
+        kind: device
+        api: 35
+        device: RMX3938
+        serial: 0O65321F32204DD5
+      commit: e74c7bb9fa17
+      apk_commit_sha: e74c7bb9fa17
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/06-tree-live.yaml:
+    fingerprint: sha256:0c27d6aa132f9741a8bbc28ea3ed692419c7add574894f8ae1774a6a151141b7
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5554
+    commit: cb084683b66e
+    apk_commit_sha: cb084683b66e
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/sync/01-change-sync-interval.yaml:
+    fingerprint: sha256:d6682af4cf94fa6a6426add809b2c09dd21f9ef2dd761906c4b2173b88a3f6f3
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5554
+    commit: cb084683b66e
+    apk_commit_sha: cb084683b66e
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-1/01-change-sync-interval.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-2/01-change-sync-interval.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-3/01-change-sync-interval.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
   Maestro/flows/smoke/07-seed-helper-contract.yaml:
     fingerprint: sha256:542a0a6c6461c9268cce4f7c06469777ccba5c0cedd3b8ee740390437c5e308e
     qualified_at: '2026-11-24'
@@ -760,4 +922,19 @@ qualifications:
       apk_commit_sha: 1ee9733562c0
       maestro_version: 2.10.0
       return_code: 0
-exceptions: {}
+exceptions:
+  Maestro/flows/archive/02-bulk-archive-confirm.yaml:
+    fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
+    reason: 'The flow was split by gazon1/sing#3126: the confirmation and cancellation
+      behaviour moved to the desktop behaviour owner and what is left is the Android
+      residue (long-press context sheet, archive overflow popup ids, the modal result
+      dialog). That content was never requalified on a device. The baseline entry
+      on main records the plain sha256 of the flow file rather than the flow''s fingerprint
+      (the gate compares the fingerprint -- the flow plus its transitive helper dependencies),
+      so the entry no longer matches and the gate reports a stale baseline. This PR
+      does not re-baseline the flow: re-baselining would admit changed device content
+      without the qualification the gate asks for. It is admitted here by an explicit
+      exception instead, so the admission is a recorded decision rather than a quiet
+      hash update. The baseline repair itself belongs on main, where the flow was
+      changed.'
+    evidence: gazon1/sing#3126

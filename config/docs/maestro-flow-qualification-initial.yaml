@@ -12,13 +12,11 @@ initial_flows:
 - Maestro/flows/agenda/01-smart-lists.yaml
 - Maestro/flows/agenda/02-saved-views-open.yaml
 - Maestro/flows/agenda/03-saved-views-crud.yaml
-- Maestro/flows/agenda/04-saved-view-results.yaml
 - Maestro/flows/agenda/05-reachability.yaml
 - Maestro/flows/agenda/06-full-lifecycle.yaml
 - Maestro/flows/agenda/07-copy-to-profile.yaml
 - Maestro/flows/agenda/07-large-overdue.yaml
 - Maestro/flows/agenda/08-persistence-restart.yaml
-- Maestro/flows/agenda/09-upcoming-timeline.yaml
 - Maestro/flows/agenda/10-overflow-menu.yaml
 - Maestro/flows/archive/01-restore.yaml
 - Maestro/flows/archive/02-bulk-archive-confirm.yaml
@@ -43,7 +41,6 @@ initial_flows:
 - Maestro/flows/calendar/02-view-mode.yaml
 - Maestro/flows/calendar/03-tap-day.yaml
 - Maestro/flows/calendar_sync/01-provider-toggle.yaml
-- Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
 - Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
 - Maestro/flows/lifecycle/01-kill-restart-persist.yaml
 - Maestro/flows/lifecycle/03-rotate-in-editor.yaml
@@ -76,7 +73,6 @@ initial_flows:
 - Maestro/flows/pomodoro/03-pause-resume.yaml
 - Maestro/flows/pomodoro/04-skip-to-break.yaml
 - Maestro/flows/pomodoro/05-stop-resets.yaml
-- Maestro/flows/profile/01-create-profile.yaml
 - Maestro/flows/profile/02-isolation.yaml
 - Maestro/flows/projects/01-open-detail.yaml
 - Maestro/flows/projects/02-add-task.yaml
@@ -105,7 +101,6 @@ initial_flows:
 - Maestro/flows/smoke/06-session-anonymous.yaml
 - Maestro/flows/sync/01-change-sync-interval.yaml
 - Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
-- Maestro/flows/system/menu-sheet.yaml
 - Maestro/flows/system/search-finds-task.yaml
 - Maestro/flows/system/seed-unknown-key.yaml
 - Maestro/flows/system/shell-search-button.yaml

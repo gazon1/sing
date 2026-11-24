@@ -59,6 +59,7 @@ backup_push button
 backup_restore_button button
 calendar_month_title text
 calendar_sync_google_connect_button button
+calendar_sync_system_calendar_app_section item
 calendar_sync_system_enable_switch button
 calendar_sync_system_unavailable text
 calendar_view_mode_month button

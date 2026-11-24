@@ -18,7 +18,7 @@ import kotlin.test.Test
  * The system panel says why it cannot work and leaves the working provider reachable.
  *
  * Covers `CAL-SYNC-SYSTEM-01` — see
- * `infra/kiwi/scenarios/calendar/sync/system/CAL-SYNC-SYSTEM-01.yaml`.
+ * `scripts/src/traceability/scenarios/calendar/sync/system/CAL-SYNC-SYSTEM-01.yaml`.
  *
  * ## Why one scenario per file
  *

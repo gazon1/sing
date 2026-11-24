@@ -1409,6 +1409,18 @@ object TestTags {
         const val SYSTEM_UNAVAILABLE = "calendar_sync_system_unavailable"
         const val SYSTEM_ENABLE_SWITCH = "calendar_sync_system_enable_switch"
         const val SYSTEM_SYNC_NOW_BUTTON = "calendar_sync_system_sync_now_button"
+
+        /**
+         * The calendar-app picker — the first block below the enable switch that is
+         * rendered only while the system sync is enabled.
+         *
+         * Worth its own tag because the enable switch itself carries no state a test
+         * can read: the row is a clickable button and the switch inside it has no
+         * change callback, so neither exposes a checked state to the accessibility
+         * tree. This block is what makes "the state followed the switch" observable
+         * from a Maestro flow.
+         */
+        const val SYSTEM_CALENDAR_APP_SECTION = "calendar_sync_system_calendar_app_section"
     }
 
     // ─── Onboarding ──────────────────────────────────────────────────────────

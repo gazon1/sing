@@ -42,4 +42,3 @@ Maestro/flows/smoke/01-launch-today.yaml  — smoke: app starts and the Today ta
 Maestro/flows/smoke/02-menu-settings.yaml  — smoke: the menu opens and Settings is reachable
 
 # --- system shell -------------------------------------------------------------
-Maestro/flows/system/menu-sheet.yaml  — the overflow sheet renders; its contents are covered by the features it opens

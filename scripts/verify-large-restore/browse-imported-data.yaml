@@ -1,0 +1,145 @@
+# Walk the data the import brought in.
+#
+# Four paths, over the imported dataset, after a restart of the app:
+#
+#   * the task list — the Inbox, which is where the undated tasks are;
+#   * the task detail — the editor the row opens;
+#   * the related-tasks picker — opened from the detail, searched, and used
+#     to add a relation to the imported dataset;
+#   * the search — a query that only one task answers.
+#
+# TASK_ID and TASK_TITLE are the row the command read off the Inbox, so the
+# assertions are about a row that was really on the screen. RELATED_TITLE is
+# the title of a task that has a relation in the imported dataset — the
+# related-tasks section is folded away until the task has one — and its title
+# is unique, so the search that finds it finds that task and not a neighbour
+# of it. PICKER_CANDIDATE_TITLE is the title of a task the related-tasks
+# picker can offer, and PICKER_CANDIDATE_SLUG is that task's id in the app's
+# own test tag — the picker addresses its candidates by id, not by title.
+appId: com.singularity.todo
+name: large-restore-browse-imported-data
+---
+# The shared launch helper, the way the certified suite starts the app: the
+# notification permission is granted, the airplane mode is switched off
+# afterwards, and the first-run tour is dismissed.
+- runFlow: ../../Maestro/helpers/launch-clean.yaml
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 60000
+
+# The task list.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: "${TASK_ID}"
+    timeout: 60000
+
+# The task detail.
+- tapOn:
+    id: "${TASK_ID}"
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 30000
+- assertVisible:
+    text: "${TASK_TITLE}"
+- back
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 30000
+
+# The search, and the task the search finds.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_quick_search
+    timeout: 60000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 15000
+- tapOn:
+    id: search_input
+- inputText: "${RELATED_TITLE}"
+- extendedWaitUntil:
+    visible:
+      id: "${RELATED_ID}"
+    timeout: 60000
+
+# The related-tasks picker, reached from the detail of that task.
+- tapOn:
+    id: "${RELATED_ID}"
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 30000
+- assertVisible:
+    text: "${RELATED_TITLE}"
+# The section carries the relations the import brought; it is folded away
+# until its header is tapped.
+- scrollUntilVisible:
+    element:
+      id: task_detail_related_tasks_section
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: task_detail_related_tasks_section
+# Opening the section draws its rows, so the add-row ends up below the fold.
+- scrollUntilVisible:
+    element:
+      id: task_detail_add_related_task
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: task_detail_add_related_task
+- extendedWaitUntil:
+    visible:
+      id: related_task_picker_search
+    timeout: 30000
+# The picker is a search over the imported dataset, so it is searched: the
+# query goes into its field, the candidate it finds is shown, one of them is
+# chosen, and the choice is confirmed. A picker that opened and showed a
+# search field would prove nothing about whether it works.
+- tapOn:
+    id: related_task_picker_search
+- inputText: "${PICKER_CANDIDATE_TITLE}"
+- extendedWaitUntil:
+    visible:
+      id: "related_task_candidate_${PICKER_CANDIDATE_SLUG}"
+    timeout: 60000
+- tapOn:
+    id: "related_task_candidate_${PICKER_CANDIDATE_SLUG}"
+- tapOn:
+    id: related_task_picker_add
+- extendedWaitUntil:
+    notVisible:
+      id: related_task_picker_add
+    timeout: 30000
+# The relation the picker added is the one the section behind the sheet now
+# carries — and the candidate was not a relation before, so its row is the
+# proof that the picker searched, found and added.
+- scrollUntilVisible:
+    element:
+      id: "related_task_item_${PICKER_CANDIDATE_SLUG}"
+    direction: DOWN
+    timeout: 30000
+- back
+- back
+# The quick search is a screen of its own, so the backs above may have left it
+# open; one more back returns to the Inbox.
+- runFlow:
+    when:
+      notVisible:
+        id: nav_tab_inbox
+    commands:
+      - back
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 30000

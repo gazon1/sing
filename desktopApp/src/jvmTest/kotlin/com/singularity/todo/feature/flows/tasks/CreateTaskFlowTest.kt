@@ -9,6 +9,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -33,10 +34,12 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/create-task.yaml`, covering the editor
@@ -295,6 +298,39 @@ class CreateTaskFlowTest {
         }
 
     /**
+     * Desktop owner of the regression-sensitive create/save outcome behind
+     * [Maestro/flows/tasks/13-create-full-task.yaml](Maestro/flows/tasks/13-create-full-task.yaml)
+     * and the TASK-12 scenario shape.
+     *
+     * Device-only guarantees remain in Maestro: real IME, draft restoration, and
+     * multi-date confirm on Android. Row presence/parity is owned by
+     * [CreateAndEditFieldParityTest]; this test proves the creation path actually
+     * sets required fields and lands in the expected agenda bucket.
+     */
+    @Test
+    fun a_task_created_with_high_priority_and_today_due_date_appears_in_today_with_its_priority() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Inbox")
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Plan release")
+
+            clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            clickTag(TestTags.PRIORITY_OPTION_HIGH)
+            assertTextDisplayed("High priority")
+
+            clickTagScrolled(TestTags.TASK_EDITOR_DUE_ROW)
+            clickTag(TestTags.MultiDatePicker.day(TODAY_ISO))
+            clickTag(TestTags.MultiDatePicker.OK)
+
+            clickTag(TestTags.TASK_EDITOR_SAVE)
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Plan release"))
+            assertTagDisplayed(TestTags.agendaSection("Today"))
+            assertContentDescriptionDisplayed("High priority")
+        }
+
+    /**
      * Positive control: proves that a missing tag produces an actionable error
      * listing the nearest available tags rather than a bare "not found" message.
      *
@@ -366,6 +402,10 @@ class CreateTaskFlowTest {
     }
 
     private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val TODAY_ISO: String = LocalDate(2026, 9, 16).toString()
         const val FAILURE_MESSAGE = "Could not save the task"
     }
 }

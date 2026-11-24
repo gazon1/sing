@@ -62,6 +62,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
 import com.singularity.todo.shell.MenuBottomSheet
 import com.singularity.todo.shell.ShellSearchButton
 import com.singularity.todo.shell.fabActionForNav3
+import com.singularity.todo.shell.isPrimaryTabRoot
 import com.singularity.todo.shell.shellFabTarget
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -121,9 +122,17 @@ fun androidShellNav3Root(
     // saved-view screens was the button of the tab the agenda opened with, drawn
     // over the button those screens draw themselves.
     val agendaRouteHolder = remember { AgendaRouteHolder() }
-    val fabCurrent: AppDestination = shellFabTarget(current, topMostRoute, agendaRouteHolder.route)
+    // The destination whose screen is on top, with the agenda's inner route
+    // folded in. Both shell decisions read it: the button over the agenda, and
+    // the Back arrow the tab roots do not draw (#3093).
+    val shellTarget: AppDestination = shellFabTarget(current, topMostRoute, agendaRouteHolder.route)
 
-    val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
+    val fabAction = fabActionForNav3(shellTarget, today) { navigator.open(it) }
+
+    // The Inbox, Today and Calendar roots are where a tab starts, not screens in
+    // a back stack, so they carry no Back arrow — not even after a tab switch,
+    // which is when the navigation state alone would offer one (#3093).
+    val atPrimaryTabRoot: Boolean = isPrimaryTabRoot(shellTarget)
 
     // The button floats over the content, and Material3's Scaffold keeps no room
     // for it. Its footprint is published so a list can keep its last row clear
@@ -174,6 +183,7 @@ fun androidShellNav3Root(
                     // what the screens inside it publish their title for.
                     destinationTitle = (topMostRoute as? AppDestination)?.title ?: current.title,
                     isSearch = current == AppDestination.Search,
+                    atPrimaryTabRoot = atPrimaryTabRoot,
                     navigator = navigator,
                     onMenu = { menuVisible = true },
                 )
@@ -264,13 +274,19 @@ private fun ShellTopBar(
     screenActions: ScreenActionsHolder,
     destinationTitle: String,
     isSearch: Boolean,
+    atPrimaryTabRoot: Boolean,
     navigator: Navigator,
     onMenu: () -> Unit,
 ) {
     TopAppBar(
         title = { ShellBarTitle(screenActions = screenActions, destinationTitle = destinationTitle) },
         navigationIcon = {
-            ShellNavigationIcon(screenActions = screenActions, navigator = navigator, onMenu = onMenu)
+            ShellNavigationIcon(
+                screenActions = screenActions,
+                atPrimaryTabRoot = atPrimaryTabRoot,
+                navigator = navigator,
+                onMenu = onMenu,
+            )
         },
         actions = {
             screenActions.actions?.invoke(this)
@@ -291,10 +307,16 @@ private fun ShellTopBar(
  * The published icon replaces the shell's own only when the screen published
  * one. A screen that published a title and no icon leaves the shell's back
  * button alone: the shell's button knows where the shell is.
+ *
+ * The Inbox, Today and Calendar roots publish no icon of their own, and they
+ * get no Back arrow either: they are where a tab starts, not screens in a back
+ * stack, so the shell's Menu takes the slot — the control the shell already
+ * draws at the root of the app (#3093).
  */
 @Composable
 private fun ShellNavigationIcon(
     screenActions: ScreenActionsHolder,
+    atPrimaryTabRoot: Boolean,
     navigator: Navigator,
     onMenu: () -> Unit,
 ) {
@@ -320,8 +342,9 @@ private fun ShellNavigationIcon(
 
         else -> {
             // Toggle between Back (nested screen or previous tab) and Menu
-            // (ultimate root tab), mirroring Desktop.
-            if (navigator.canGoBack()) {
+            // (ultimate root tab), mirroring Desktop. The primary tab roots
+            // draw no Back at all: they are where a tab starts (#3093).
+            if (navigator.canGoBack() && !atPrimaryTabRoot) {
                 IconButton(
                     onClick = {
                         if (!navigator.goBack()) {

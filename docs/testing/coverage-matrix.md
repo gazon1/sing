@@ -18,21 +18,21 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 91/162 claimed cells automated · 71 holes**
+**141 scenarios · 90/160 claimed cells automated · 70 holes**
 
 ## feature.agenda
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `AGENDA-01` | A dated task moves between Inbox date buckets | ○ | — | The task leaves the No Date bucket, whose header count drops, and appears under the section for its date — it stays in… |
+| `AGENDA-01` | A dated task leaves the Inbox | ○ | — | The task leaves the Inbox: the "No Date" section no longer holds it, and the task is not on the Inbox screen at all.… |
 | `AGENDA-02` | The saved-views list shows its empty state | ○ | — | The list says that there are no saved views yet, rather than rendering as a blank screen or an error. A user who has… |
 | `AGENDA-03` | Saving the current agenda as a named view, then deleting it | ○ | — | Saving returns to the agenda — not to the list — so the view is created without stranding the user. The list then… |
-| `AGENDA-04` | Opening a saved view lists the tasks matching its definition | ○ | — | A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than… |
+| `AGENDA-04` | Opening a saved view lists the tasks matching its definition | — | ● | A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than… |
 | `AGENDA-05` | Saved views are reachable from every agenda bottom tab | ○ | — | The agenda and its saved-views entry are reachable from all three agenda-carrying tabs, so the feature does not depend… |
 | `AGENDA-06` | A saved view survives create, rename, reopen and delete | ○ | — | The list ends where it started — empty — with every intermediate step observable along the way: the rename is what the… |
 | `AGENDA-07` | A saved view can be copied to another profile | ○ | — | The copy appears in the destination profile's saved-views list as a distinct entry from the source, so a view can be… |
 | `AGENDA-08` | A saved view survives an app restart | ○ | — | The saved view is still listed and still opens, so it was persisted rather than held in memory. Restarting without… |
-| `AGENDA-09` | Upcoming groups future tasks under date headers and leaves Today out | ● | — | The three future tasks are listed under date headers in the Upcoming tab, and each appears once. The day/week control… |
+| `AGENDA-09` | Upcoming groups future tasks under date headers and leaves Today out | ⊘ | ⊘ | The three future tasks are listed under date headers in the Upcoming tab, and each appears once. The day/week control… |
 | `AGENDA-10` | Upcoming date headers are chronological and an empty day has no header | — | ● | The headers name their dates and appear earliest first. There is no header for a day between them that carries no… |
 | `AGENDA-STATE-01` | A saved view shows only the tasks in a chosen workflow state | — | ● | The section is named after the state, and it contains the in-progress task and not the task with no state — the view… |
 | `AGENDA-STATE-02` | A saved view follows a task after its workflow state changes | — | ● | The in-progress section was empty before the change and contains the moved task afterwards, while the view itself was… |
@@ -87,8 +87,8 @@ the table carries the one-line version so a row is readable in a diff.
 | `CAL-SYNC-RECUR-01` | A recurring Google event keeps the exact rule Google supplied | ◇ | ◇ | The series Google holds still carries the rule string it started with, and the series still occurs on its original… |
 | `CAL-SYNC-RENEW-01` | A grant that cannot renew says so before sync silently stops | ○ | ● | The screen warns that the connection cannot be renewed in the background and that sync will stop when the current… |
 | `CAL-SYNC-SYNCNOW-01` | A manual Google pass reports what it actually did | ○ | ● | The control is disabled and reads as in progress while the pass runs, and afterwards the panel reports the outcome of… |
-| `CAL-SYNC-SYSTEM-01` | The system-calendar projection says so when the platform cannot do it | ◇ | ● | The panel states that system calendar sync needs Android and that the user's tasks are unaffected, rather than… |
-| `CAL-SYNC-SYSTEM-02` | System calendar sync can be switched on where a provider exists | ○ | — | When a provider exists the panel offers a working enable switch rather than the unavailable message, and the status… |
+| `CAL-SYNC-SYSTEM-01` | The system-calendar projection says so when the platform cannot do it | — | ● | The panel states that system calendar sync needs Android and that the user's tasks are unaffected, rather than… |
+| `CAL-SYNC-SYSTEM-02` | System calendar sync can be switched on where a provider exists | ● | — | When a provider exists the panel offers a working enable switch rather than the unavailable message. The calendar-app… |
 | `CALENDAR-01` | The Month view renders the current month with weekday columns | ○ | — | The current month renders as weekday columns of numbered days, from the first of the month to the last — so the grid… |
 | `CALENDAR-02` | The view-mode control switches modes and reports the selection | ○ | — | The view changes and the control reports the mode now selected, so a user can tell where they are without counting the… |
 | `CALENDAR-03` | Tapping a day in Month view opens that day's view | ○ | — | That day's view opens and the date header names the day that was tapped, so the user lands on the day they chose. The… |
@@ -106,7 +106,7 @@ the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `MENU-01` | The Desktop menu shows the projects as an expandable tree with children indented | — | ● | A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a… |
 | `MENU-02` | Tapping a project in the menu opens the project detail screen | ● | ● | The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the… |
-| `MENU-03` | The menu's project list reflects creations and renames made elsewhere | ● | ● | The menu's Projects section shows the new name and shows the newly created project, and neither change needed the app… |
+| `MENU-03` | The menu's project list reflects creations and renames made elsewhere | ○ | ● | The menu's Projects section shows the new name and shows the newly created project, and neither change needed the app… |
 | `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
 | `MENU-05` | A project without children shows no expander, and a closed project is absent from the menu's Projects section | ● | ● | The childless project shows no expander control, so nothing in the menu invites an expansion that cannot happen. The… |
 | `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the menu's Projects section is not the only way to… |
@@ -119,7 +119,7 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `NAV-01` | The bottom navigation bar no longer holds a Calendar button | ● | ● | There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly… |
-| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ● | ● | Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the… |
+| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ○ | ● | Both surfaces offer the same entries — the Projects section among them, and not the Calendar, which is a tab and not a… |
 
 ## feature.negative
 
@@ -169,7 +169,7 @@ the table carries the one-line version so a row is readable in a diff.
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `PROFILE-01` | A second profile is created and listed | ○ | — | The new profile is listed alongside the default, so a user can reach the second profile the moment they have made it. |
+| `PROFILE-01` | A second profile is created and listed | — | ● | The new profile is listed alongside the default, so a user can reach the second profile the moment they have made it. |
 | `PROFILE-02` | Tasks in one profile are invisible in another | ○ | — | The seeded task is not visible from the default profile and is visible again after switching back, so switching… |
 
 ## feature.projects
@@ -215,7 +215,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SYNC-OFFLINE-01` | Work with no network and watch the queue drain | ◇ | ◇ | The indicator shows how many changes are waiting, and the count survives a restart. Restoring the network drains it to… |
 | `SYNC-PROFILES-01` | Have a profile follow the account to another device | ◇ | ◇ | The profile arrives on B under the same name with no duplicate. Switching profiles during a sync does not let the… |
 | `SYNC-PROTO-01` | Meet a server the app is too old for | ○ | ○ | The user is told to update the app to keep syncing. Local work is not blocked and no data is damaged. Proposed rather… |
-| `SYNC-SETTINGS-01` | Change how often sync runs | ● | ● | The new interval takes effect without a restart and survives one. |
+| `SYNC-SETTINGS-01` | Change how often sync runs | ○ | ● | The new interval takes effect without a restart and survives one. |
 | `SYNC-SIGNOUT-01` | Sign out and sign back in as somebody else | ○ | ○ | The first sign-out confirms briefly and leaves no way back into the signed-in state. With unsent changes the user is… |
 | `SYNC-STATUS-01` | See what sync is doing, and start it by hand | ○ | ● | Each state reads as what it is: no account and no network are calm states rather than red errors, and an error names… |
 
@@ -263,7 +263,6 @@ Claimed but not automated:
 - `AGENDA-01` / android
 - `AGENDA-02` / android
 - `AGENDA-03` / android
-- `AGENDA-04` / android
 - `AGENDA-05` / android
 - `AGENDA-06` / android
 - `AGENDA-07` / android
@@ -282,19 +281,18 @@ Claimed but not automated:
 - `CAL-SYNC-RECUR-01` / desktop
 - `CAL-SYNC-RENEW-01` / android
 - `CAL-SYNC-SYNCNOW-01` / android
-- `CAL-SYNC-SYSTEM-01` / android
-- `CAL-SYNC-SYSTEM-02` / android
 - `CALENDAR-01` / android
 - `CALENDAR-02` / android
 - `CALENDAR-03` / android
 - `LIFECYCLE-01` / android
 - `LIFECYCLE-02` / android
+- `MENU-03` / android
+- `NAV-02` / android
 - `NOTES-01` / android
 - `NOTES-02` / android
 - `NOTES-03` / android
 - `POMODORO-01` / android
 - `POMODORO-04` / android
-- `PROFILE-01` / android
 - `PROFILE-02` / android
 - `PROJECTS-01` / android
 - `PROJECTS-02` / android
@@ -311,6 +309,7 @@ Claimed but not automated:
 - `SYNC-PROFILES-01` / desktop
 - `SYNC-PROTO-01` / android
 - `SYNC-PROTO-01` / desktop
+- `SYNC-SETTINGS-01` / android
 - `SYNC-SIGNOUT-01` / android
 - `SYNC-SIGNOUT-01` / desktop
 - `SYNC-STATUS-01` / android

@@ -1,17 +1,24 @@
-# SYNC-SETTINGS-01: change how often sync runs.
+# Android UI residue of the sync-interval flow.
+#
+# This flow carries **no** `scenario:` tag, and deliberately so: it exercises the
+# path to the Sync tab and the interval-row interaction, not the scenario.
 #
 # preconditions: signed-in session, Settings → Sync tab open.
 # steps:
-#   1. Change the sync interval.
-#   2. Reopen Settings → Sync and verify the choice persisted.
-# expected: the new interval survives a Settings restart.
+#   1. Open Settings → Sync through the Android narrow settings sheet.
+#   2. Confirm sync controls are reachable and change the interval row.
+# expected: the Android Sync settings UI exposes the interval control and accepts
+# the interval change interaction. The value change, the immediate apply and the
+# restart/reload survival are owned by the desktop carrier
+# `SyncSettings01ScenarioTest` (SYNC-SETTINGS-01), not by this flow -- so this
+# flow does not claim SYNC-SETTINGS-01, and the android cell of that scenario is
+# an honest hole.
 #
 appId: com.singularity.todo
 name: sync-change-interval
 tags:
   - regression
   - sync
-  - scenario:SYNC-SETTINGS-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
@@ -48,41 +55,11 @@ tags:
 - assertVisible:
     id: sync_now_row
 
-# Tap the interval row to open the interval picker.
+# Tap the interval row. The desktop carrier owns value change/apply/restart
+# survival; this flow keeps the Android UI interaction reachable.
 - tapOn:
     id: sync_interval_row
-
-# The picker presents options (e.g. 15min / 30min / 1h / 4h / manual).
-# Tap the second option to change the interval.
-# The picker items are typically tappable rows in a bottom sheet or dialog.
-# Without a specific testTag on each option, we tap the second visible item
-# in the picker sheet.
 - extendedWaitUntil:
     visible:
       id: sync_interval_row
     timeout: 8000
-
-# Dismiss the picker by tapping outside or pressing back.
-- back
-
-# Reopen Settings → Sync and verify the interval selection survived.
-- runFlow: ../../helpers/open-app-menu.yaml
-- scrollUntilVisible:
-    element:
-      id: menu_settings
-    direction: DOWN
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-- runFlow:
-    file: ../../helpers/settings-tab.yaml
-    env:
-      SETTINGS_TAB: settings_tab_sync
-- extendedWaitUntil:
-    visible:
-      id: settings_content_sync
-    timeout: 8000
-
-# The interval row is still visible — the Settings state persisted.
-- assertVisible:
-    id: sync_interval_row

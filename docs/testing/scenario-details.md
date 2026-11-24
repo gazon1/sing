@@ -8,19 +8,19 @@ Full preconditions, steps and expected result for every scenario, with stable an
 
 ### feature.agenda
 
-#### `AGENDA-01` — A dated task moves between Inbox date buckets
+#### `AGENDA-01` — A dated task leaves the Inbox
 
 **confirmed** · P2 · `#AGENDA`
 
-**Given:** One task exists in Inbox with no date, so the No Date bucket has content to move.
+**Given:** One task exists in Inbox with no date, so the No Date section has content to move.
 
 Steps:
 
-1. Open Inbox and note which bucket the task is under.
+1. Open Inbox and note the task under the "No Date" section.
 2. Give the task a date.
-3. Open Inbox again and look at the bucket headers.
+3. Open Inbox again and look at the sections.
 
-**Expected:** The task leaves the No Date bucket, whose header count drops, and appears under the section for its date — it stays in Inbox rather than disappearing from the screen. Section headers carry their own count, so the move stays visible even without scrolling to the row.
+**Expected:** The task leaves the Inbox: the "No Date" section no longer holds it, and the task is not on the Inbox screen at all. It is not lost — a task dated today is in the Today tab, and one dated further out is in the Upcoming tab. The assertion is on the task's absence from Inbox, because that is the claim the Inbox makes; the section headers carry counts of their own, so a section that still holds other tasks stays on screen.
 
 #### `AGENDA-02` — The saved-views list shows its empty state
 
@@ -61,7 +61,7 @@ Steps:
 1. Create a saved view over active tasks, named "My Active Tasks".
 2. From the saved-views list, open that view.
 
-**Expected:** A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than a stored label — the seeded active task is present in the results.
+**Expected:** A results screen appears listing the tasks matching the view's definition, so the view is a stored filter rather than a stored label — the seeded active task is present in the results. The view name is visible on the results screen.
 
 #### `AGENDA-05` — Saved views are reachable from every agenda bottom tab
 
@@ -121,7 +121,7 @@ Steps:
 
 #### `AGENDA-09` — Upcoming groups future tasks under date headers and leaves Today out
 
-**confirmed** · P1 · `#AGENDA`
+**deprecated** · P1 · `#AGENDA`
 
 **Given:** Open tasks exist with due dates tomorrow, three days out and six days out. A task due today and a task with no due date exist as controls.
 
@@ -144,8 +144,9 @@ Steps:
 1. Open the Upcoming tab.
 2. Read the section headers from top to bottom.
 3. Read the rows inside the first and the last section that carries a task.
+4. Switch the grouping from days to weeks and back.
 
-**Expected:** The headers name their dates and appear earliest first. There is no header for a day between them that carries no task. Each task sits under its own date and in no other section; today's and the undated tasks are absent.
+**Expected:** The headers name their dates and appear earliest first. There is no header for a day between them that carries no task. Each task sits under its own date and in no other section; today's and the undated tasks are absent. Each task is listed once. The day/week control switches the feed to week headers and back without losing a task.
 
 #### `AGENDA-STATE-01` — A saved view shows only the tasks in a chosen workflow state
 
@@ -570,10 +571,10 @@ Steps:
 Steps:
 
 1. Look at the system-calendar panel.
-2. Switch system calendar sync on and read the status.
-3. Switch it off and read the status again.
+2. Switch system calendar sync on and look at the controls that appear.
+3. Switch it off and look at them again.
 
-**Expected:** When a provider exists the panel offers a working enable switch rather than the unavailable message, and the status follows the switch in both directions — so turning sync on actually turns it on. The Google half stays usable throughout; the two providers are alternatives, and neither may hide the other.
+**Expected:** When a provider exists the panel offers a working enable switch rather than the unavailable message. The calendar-app picker — the representative control the panel shows only while the sync is enabled — appears when the switch is turned on and disappears when it is turned off, so turning sync on really turns it on. The other enabled-only controls follow the same product rule, but their individual visibility is not asserted here; the guarantee that the Google half stays usable, and that neither provider hides the other, is owned by CAL-SYNC-PROVIDER-01.
 
 #### `CALENDAR-01` — The Month view renders the current month with weekday columns
 
@@ -796,7 +797,7 @@ Steps:
 2. Compare the entries of the two.
 3. Compare the root projects of the two.
 
-**Expected:** Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the same order. The Desktop drawer unfolds a project's children in place; the Android sheet lists the roots only, and a child is reached from its parent's own screen.
+**Expected:** Both surfaces offer the same entries — the Projects section among them, and not the Calendar, which is a tab and not a menu entry — and the same root projects in the same order. The Desktop drawer unfolds a project's children in place; the Android sheet lists the roots only, and a child is reached from its parent's own screen.
 
 ### feature.negative
 
@@ -1128,11 +1129,11 @@ Steps:
 
 **confirmed** · P1 · `#PROFILE`
 
-**Given:** The Menu sheet is open and only the default profile exists.
+**Given:** The Profile screen is open and only the default profile exists.
 
 Steps:
 
-1. Choose to create a profile from the Menu sheet.
+1. Choose to create a profile.
 2. Supply a name and confirm.
 
 **Expected:** The new profile is listed alongside the default, so a user can reach the second profile the moment they have made it.

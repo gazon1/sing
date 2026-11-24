@@ -290,6 +290,7 @@ private fun SystemCalendarControls(
             selectedAppPackage = state.selectedAppPackage,
             availableApps = state.availableApps,
             onSelectApp = { onIntent(SelectAppPackage(it)) },
+            modifier = Modifier.testTag(TestTags.CalendarSync.SYSTEM_CALENDAR_APP_SECTION),
         )
     }
 
