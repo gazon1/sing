@@ -122,7 +122,10 @@ question cannot pass as a successful measurement.
   to 0.29 ms, 0.37 ms and 0.24 ms — the remaining cost is the call around the
   query and does not grow with the database. The tail moves the same way: p95
   through the DAO goes from 18.05 ms (10k) and 375.30 ms (90k) to 1.04 ms and
-  0.35 ms.
+  0.35 ms. Those p95 numbers come from the ten-task group, where the sample is
+  100 observations; in the single-task group the sample is ten observations, so
+  its p95 is the maximum of those ten rather than an estimated 95th
+  percentile.
 - The scope of the read is unchanged in meaning: the owner sees the tags of its
   own task, a foreign profile sees none, the tags of a task that does not exist
   are visible to nobody.

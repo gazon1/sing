@@ -84,6 +84,7 @@
 |---|---|---|
 | итерации | 10 | `-Pperf.iterations=10` (по умолчанию 10) |
 | прогрев | 3 | `-Pperf.warmup=3` (по умолчанию 3) |
+| размер выборки | 100 замеров в группе из десяти задач, 10 — в группе из одной | `probeGroups()` и `measureOne()` в harness |
 | перцентиль | nearest rank: `ceil(fraction × n)`-й элемент отсортированной выборки | `percentile()` в harness |
 | владелец задач | `perf-owner` | `-Pperf.owner=<id>` (по умолчанию `perf-owner`) |
 | куча JVM | 1536m | `testTaskHeap` в `shared/build.gradle.kts` — тот же бюджет, что и у тестов модуля |
@@ -364,21 +365,23 @@ archive budget»). Это тот же лимит, из-за которого с�
 ### Как воспроизвести
 
 Тот же генератор и тот же harness, что в [#3157]; меняются только размер
-профиля и число тегов. `--output` у генератора — обязательный параметр, поэтому
-каждая команда приведена целиком, без сокращений.
+профиля и число тегов. `--output` у генератора — обязательный параметр
+(`ImporterCli`, `option("--output").required()`), поэтому каждая команда
+приведена целиком, без сокращений, и `--output` стоит в каждой из них на
+одном и том же месте — сразу после `generate`.
 
 ```bash
 OUT=$PWD/build/perf
 
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/10k-empty.zip  --profile 10k --tags 0"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/10k-sparse.zip --profile 10k --tags 1"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/10k-dense.zip  --profile 10k --tags 100"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/50k-empty.zip  --profile 50k --tags 0"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/50k-sparse.zip --profile 50k --tags 1"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/50k-dense.zip  --profile 50k --tags 120"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/100k-empty.zip --profile 100k --tags 0"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/90k-sparse.zip --tasks 90000 --projects 300 --task-hierarchy-depth 5 --subtask-share 0.25 --tags 1 --dependency-density 0.02"
-./gw :import-cli:run --args="generate --seed 4242 --output $OUT/80k-dense.zip  --tasks 80000 --projects 300 --task-hierarchy-depth 5 --subtask-share 0.25 --tags 100 --dependency-density 0.02"
+./gw :import-cli:run --args="generate --output $OUT/10k-empty.zip --seed 4242 --profile 10k --tags 0"
+./gw :import-cli:run --args="generate --output $OUT/10k-sparse.zip --seed 4242 --profile 10k --tags 1"
+./gw :import-cli:run --args="generate --output $OUT/10k-dense.zip --seed 4242 --profile 10k --tags 100"
+./gw :import-cli:run --args="generate --output $OUT/50k-empty.zip --seed 4242 --profile 50k --tags 0"
+./gw :import-cli:run --args="generate --output $OUT/50k-sparse.zip --seed 4242 --profile 50k --tags 1"
+./gw :import-cli:run --args="generate --output $OUT/50k-dense.zip --seed 4242 --profile 50k --tags 120"
+./gw :import-cli:run --args="generate --output $OUT/100k-empty.zip --seed 4242 --profile 100k --tags 0"
+./gw :import-cli:run --args="generate --output $OUT/90k-sparse.zip --seed 4242 --tasks 90000 --projects 300 --task-hierarchy-depth 5 --subtask-share 0.25 --tags 1 --dependency-density 0.02"
+./gw :import-cli:run --args="generate --output $OUT/80k-dense.zip --seed 4242 --tasks 80000 --projects 300 --task-hierarchy-depth 5 --subtask-share 0.25 --tags 100 --dependency-density 0.02"
 
 for name in 10k-empty 10k-sparse 10k-dense 50k-empty 50k-sparse 50k-dense \
              100k-empty 90k-sparse 80k-dense; do
@@ -391,8 +394,9 @@ done
 плотный — `80k-dense`. Harness печатает отчёт и завершается с ненулевым
 кодом, если формы разошлись по строкам, поэтому прогон годен как проверка.
 
-Команды генерации проверены на этом репозитории: `10k-empty` и `90k-sparse`
-собраны ровно этой строкой, обе завершились с кодом 0 и дали архивы.
+Команды генерации проверены на этом репозитории: все девять выполнены ровно
+этими строками, каждая завершилась с кодом 0 и дала архив. `100k-sparse` и
+`100k-dense` генератор отказывает (см. выше), поэтому их в блоке нет.
 
 ### Результаты
 
@@ -401,6 +405,16 @@ p50 в миллисекундах на одно чтение. «Текущий S
 «DAO (до)» — это чтение через DAO в прогоне **до** правки, когда DAO ещё
 исполнял подзапросную форму; после правки DAO исполняет join, и колонка «DAO
 (после)» ниже — это уже он.
+
+**Размер выборки.** Группа `with tags` — десять задач по десять итераций, то
+есть 100 замеров на строку; её p95 — настоящая оценка хвоста. Группа
+`most tags` — одна задача, и на неё приходится 10 замеров: при nearest rank
+p95 такой строки — это **максимум из десяти измерений**, а не статистическая
+оценка 95-го перцентиля. Поэтому в строках `most tags` p95 — это худший из
+десяти случаев, и читать его нужно как «худшее наблюдение», а не как «95-й
+процентиль». На вывод это не влияет: сравнение «до/после» в этих строках —
+разница между двумя максимумами из десяти, и она измеряется на одном и том же
+наборе, в одном процессе.
 
 | датасет | группа | DAO (до) | текущий SQL | join | ускорение |
 |---|---|---|---|---|---|
@@ -422,7 +436,9 @@ p50 в миллисекундах на одно чтение. «Текущий S
 
 p95 — те же прогоны, тот же разрез. Хвост ведёт себя так же, как середина:
 текущая форма — 26.50 ms на `10k-sparse`, 233.95 ms на `50k-dense`,
-370.08 ms на `80k-dense`; join — 0.03–0.18 ms везде.
+370.08 ms на `80k-dense`; join — 0.03–0.18 ms везде. В строках `most tags`
+p95 — максимум из десяти замеров, а не 95-й перцентиль (см. «Размер
+выборки» выше): читать такие значения как «худшее наблюдение».
 
 | датасет | группа | DAO (до) | текущий SQL | join |
 |---|---|---|---|---|
