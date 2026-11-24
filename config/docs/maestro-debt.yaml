@@ -315,7 +315,7 @@ causes:
   owner: test
   status: fixed
   flows: 0
-  note: "Fixed by this change: launch-clean now dismisses the first-run spotlight overlay before waiting for nav_tab_today and dismisses again after shell readiness, so the tour scrim cannot block shell-readiness visibility on a fresh or first-rendering device. Recurred in smoke run 45361682445 (15/29 flows) after launch-clean; no fresh device/CI rerun in this session, so keep as regression guard and re-open with new evidence if the same nav_tab_today readiness cause recurs."
+  note: "Shared-helper regression guard. launch-clean now dismisses first-run spotlight before nav_tab_today readiness, rechecks spotlight if nav is not yet ready (async-appearance race mitigation), and dismisses again after readiness. Smoke run 45361682445 (15/29 flows) showed this readiness cause before this fix; no fresh device/CI rerun in this session. Keep fixed as a regression guard; reclassify/reopen only with new evidence of the same cause recurring after this fix."
 
 # The causes the device found. A phone's screen is smaller than the emulator's
 # and its locale is Russian, so what the emulator hid showed up here.

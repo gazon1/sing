@@ -1,10 +1,12 @@
 """Regression contract for the shared launch-clean spotlight dismissal.
 
-Review 7 (PR #3145, #3113) flagged that the launch-clean spotlight fix had no
-regression coverage for ordering or first-run spotlight state. This is a
-structural contract test: it pins the helper ordering and the skip-spotlight
-no-op contract that make first-run spotlight dismissal safe. It is not a
-device/CI rerun and does not prove runtime behavior on a real emulator.
+Review 7 (PR #3145, #3113) flagged missing regression coverage for the
+launch-clean spotlight fix. Review 8 flagged the startup-race window where the
+spotlight can appear after an initial dismissal but before nav readiness.
+
+This is a structural contract test: it pins helper ordering/race mitigation and
+the skip-spotlight no-op contract. It is not a device/CI rerun and does not
+prove runtime behavior on a real emulator.
 """
 
 from __future__ import annotations
@@ -45,8 +47,18 @@ def _is_nav_readiness_wait(command: object) -> bool:
     return isinstance(visible, dict) and visible.get("id") == "nav_tab_today"
 
 
+def _contains_skip_spotlight(node: object) -> bool:
+    if _is_run_flow(node, "skip-spotlight.yaml"):
+        return True
+    if isinstance(node, dict):
+        return any(_contains_skip_spotlight(value) for value in node.values())
+    if isinstance(node, list):
+        return any(_contains_skip_spotlight(item) for item in node)
+    return False
+
+
 class LaunchCleanSpotlightContractTest(unittest.TestCase):
-    def test_skip_spotlight_runs_before_and_after_nav_readiness(self):
+    def test_skip_spotlight_covers_before_during_and_after_nav_readiness(self):
         commands = _commands(LAUNCH_CLEAN)
         skip_indices = [
             index for index, command in enumerate(commands)
@@ -58,7 +70,7 @@ class LaunchCleanSpotlightContractTest(unittest.TestCase):
         ]
 
         self.assertEqual(len(wait_indices), 1, "launch-clean should wait for nav_tab_today once")
-        self.assertEqual(
+        self.assertGreaterEqual(
             len(skip_indices),
             2,
             "launch-clean should dismiss spotlight before and after nav readiness",
@@ -70,10 +82,17 @@ class LaunchCleanSpotlightContractTest(unittest.TestCase):
             "a first-run scrim can block the readiness check itself",
         )
         self.assertGreater(
-            skip_indices[1],
+            skip_indices[-1],
             wait_indices[0],
             "post-readiness dismissal must remain after nav_tab_today readiness wait; "
             "the tour can appear after shell render",
+        )
+
+        race_mitigation = commands[skip_indices[0] + 1:wait_indices[0]]
+        self.assertTrue(
+            any(_contains_skip_spotlight(command) for command in race_mitigation),
+            "launch-clean should re-check spotlight while nav is not yet ready; "
+            "the first dismissal can run before the spotlight card is rendered",
         )
 
     def test_nav_readiness_wait_keeps_shell_timeout(self):
