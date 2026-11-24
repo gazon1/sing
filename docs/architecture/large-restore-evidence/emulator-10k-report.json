@@ -20,15 +20,15 @@
   "apk": {
     "path": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
     "package": "com.singularity.todo",
-    "version": "0.1.0+g1edb55423e59",
+    "version": "0.1.0+gd214f05a1851",
     "variant": "debug",
-    "digest": "md5:cdff9806208a6ea16f00fad94053a4c8"
+    "digest": "md5:365dcf676a67326eb4d11548d7cd121d"
   },
   "dataset": {
     "profile": "10k",
     "seed": 42,
-    "archive": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-round17-emu/synthetic-10k.zip",
-    "sidecar": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-round17-emu/synthetic-10k.manifest.json",
+    "archive": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-emulator-10k-r20c/synthetic-10k.zip",
+    "sidecar": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-emulator-10k-r20c/synthetic-10k.manifest.json",
     "archiveBytes": 2158228,
     "decompressedBytes": 13871747,
     "counts": {
@@ -46,8 +46,8 @@
     "android": "16",
     "adb": "Android Debug Bridge version 1.0.41",
     "jdk": "openjdk version \"25.0.4.1\" 2026-08-18",
-    "commit": "1edb55423e59cc97303735a5dc16c5a2662ecc90",
-    "dirty": "no"
+    "commit": "d214f05a18514267008feea9d7703aacb3a7b34c",
+    "dirty": "yes"
   },
   "wipe": {
     "seconds": 5.1,
@@ -62,21 +62,50 @@
     }
   },
   "profile": {
-    "scope": "00000000-0000-0000-0000-000000000001",
-    "source": "the rows the profile reset removed"
+    "scope": "e2cd571f-c792-4826-bdfa-d05659144256/00000000-0000-0000-0000-000000000001",
+    "source": "the profile the run works in",
+    "testProfile": {
+      "id": "e2cd571f-c792-4826-bdfa-d05659144256",
+      "name": "verify-large-restore",
+      "claimedBy": "files/verify-large-restore.owner"
+    },
+    "homeProfile": {
+      "id": "e3154fdb-d7b2-4e19-a867-1fc1accf1bef",
+      "name": "probe-reset-1"
+    },
+    "homeProfileRows": {
+      "before": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      },
+      "after": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      }
+    }
   },
   "negative": {
     "over-budget": {
       "outcome": {
-        "flowSeconds": 95.6,
-        "durationSeconds": 13.8,
+        "flowSeconds": 88.2,
+        "durationSeconds": 3.4,
         "measured": "confirm-to-error-dialog",
-        "confirmedAt": 81.8,
+        "confirmedAt": 84.7,
         "reportedBySnackbar": false,
         "flowOverlappedWithWatch": false,
         "errorDialog": true,
         "errorDialogText": "        Error backup archive entry exceeds remaining byte budget  OK ",
-        "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-round17-emu/over-budget-flow.log"
+        "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-emulator-10k-r20c/over-budget-flow.log"
       },
       "counts": {
         "tasks": 0,
@@ -108,20 +137,20 @@
     }
   },
   "import": {
-    "flowSeconds": 133.3,
-    "durationSeconds": 38.5,
+    "flowSeconds": 105.5,
+    "durationSeconds": 18.4,
     "measured": "confirm-to-snackbar",
-    "confirmedAt": 94.9,
+    "confirmedAt": 87.0,
     "reportedBySnackbar": true,
     "flowOverlappedWithWatch": false,
     "errorDialog": false,
     "errorDialogText": "",
-    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-round17-emu/restore-flow.log",
-    "memory": "TOTAL PSS:   265447            TOTAL RSS:   361672       TOTAL SWAP PSS:      277"
+    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-emulator-10k-r20c/restore-flow.log",
+    "memory": "TOTAL PSS:   261457            TOTAL RSS:   365708       TOTAL SWAP PSS:      259"
   },
   "database": {
-    "bytes": 30069416,
-    "scope": "00000000-0000-0000-0000-000000000001",
+    "bytes": 32024872,
+    "scope": "e2cd571f-c792-4826-bdfa-d05659144256/00000000-0000-0000-0000-000000000001",
     "counts": {
       "tasks": 10000,
       "projects": 100,
@@ -144,9 +173,13 @@
     "openedTask": "Task 2",
     "searchedTask": "Task 9998",
     "pickerAddedRelation": "Task 10000",
-    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/large-restore-10k-round17-emu/browse-flow.log"
+    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-emulator-10k-r20c/browse-flow.log"
   },
   "verdict": {
     "problems": []
+  },
+  "profileLeftBehind": {
+    "profile": "probe-reset-1",
+    "restored": true
   }
 }

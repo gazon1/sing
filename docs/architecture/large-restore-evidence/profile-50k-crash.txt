@@ -1,160 +1,98 @@
-# 50k profile: what the device logged when the restored data was opened
-# source: adb logcat -v threadtime, captured during the run of 2026-11-23 17:32-17:50
-# device: realme RMX3938, Android 15 (SDK 35), dalvik.vm.heapgrowthlimit=192m
+# logcat of the device during the 50k run (realme RMX3938, build 0.1.0+gd214f05a1851),
+# filtered to the app's own lines: the heap growth limit is reached while the
+# task detail is opened, and the first exhausted allocation is in the app's code.
 
-## the heap is already exhausted before the task detail opens (17:49:37-17:49:41)
-11-23 17:49:36.293  2523  2529 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-23 17:49:36.293  2523  2529 I ingularity.todo: Background concurrent mark compact GC freed 36KB AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 654us,6.792ms total 884.943ms
-11-23 17:49:36.295  2523  2615 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:36.295  2523  2533 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:36.295  2523  2585 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:36.295  2523  2614 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:37.177  2523  2523 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-23 17:49:37.177  2523  2523 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 633us,6.564ms total 883.423ms
-11-23 17:49:37.178  2523  2585 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:37.178  2523  2614 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:37.178  2523  2533 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:37.184  2523  2523 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 288 byte allocation with 25296 free bytes and 24KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17320404 kB)
-11-23 17:49:37.184  2523  2523 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.066  2523  2615 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-23 17:49:38.067  2523  2615 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 661us,6.748ms total 888.927ms
-11-23 17:49:38.067  2523  2615 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 56 byte allocation with 25296 free bytes and 24KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17320404 kB)
-11-23 17:49:38.067  2523  2615 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.067  2523  2533 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.067  2523  2614 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.068  2523  2523 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.975  2523  2537 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.986  2523  2585 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-23 17:49:38.986  2523  2585 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 612us,7.740ms total 919.215ms
-11-23 17:49:38.986  2523  2585 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 56 byte allocation with 25296 free bytes and 24KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17320404 kB)
-11-23 17:49:38.986  2523  2585 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.986  2523  2614 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.987  2523  2533 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.987  2523  2523 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:38.988  2523  2537 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:39.873  2523  2615 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
-11-23 17:49:39.873  2523  2615 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 661us,6.571ms total 886.334ms
-11-23 17:49:39.873  2523  2615 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 32 byte allocation with 25296 free bytes and 24KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17320404 kB, recursive case)
-11-23 17:49:39.873  2523  2614 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:39.874  2523  2523 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:39.874  2523  2533 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:39.874  2523  2537 I ingularity.todo: Waiting for a blocking GC Alloc
-11-23 17:49:40.064  2523  2615 W ingularity.todo: "DefaultDispatcher-worker-14" daemon prio=5 tid=36 Runnable
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   | group="main" sCount=0 ucsCount=0 flags=2 obj=0x142f4c70 self=0xb400007564473310
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   | sysTid=2615 nice=0 cgrp=top-app sched=0/0 handle=0x72f5ff8730
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   | state=R schedstat=( 5452957063 223529614 1272 ) utm=483 stm=62 core=6 HZ=100
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   | stack=0x72f5ef5000-0x72f5ef7000 stackSize=1037KB
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   | held mutexes= "mutator lock"(shared held)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.nativeGetText(Native method)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.access$nativeGetText(BundledSQLiteStatement.jvmAndAndroid.kt:1)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatement.getText(BundledSQLiteStatement.jvmAndAndroid.kt:77)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.BasePreparedStatementCache$CachedStatement.getText(unavailable:2)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invokeSuspend(TaskDao_Impl.kt:6467)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:8)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:4)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invokeSuspend(DBUtil.kt:51)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:8)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:4)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.PooledConnectionImpl.useRawConnection(ConnectionPoolImpl.kt:439)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invokeSuspend(DBUtil.kt:211)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:8)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:4)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invokeSuspend(ConnectionPoolImpl.kt:162)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:8)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:4)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatched(Undispatched.kt:66)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:497)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.BuildersKt.withContext(unavailable:1)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl.useConnection(ConnectionPoolImpl.kt:162)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$1.invokeSuspend(unavailable:16)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.internal.ScopeCoroutine.afterResume(Scopes.kt:35)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.AbstractCoroutine.resumeWith(AbstractCoroutine.kt:101)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:47)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:798)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
-11-23 17:49:40.064  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
-11-23 17:49:40.156  2523  2615 W ingularity.todo: "DefaultDispatcher-worker-14" daemon prio=5 tid=36 Runnable
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   | group="main" sCount=0 ucsCount=0 flags=2 obj=0x142f4c70 self=0xb400007564473310
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   | sysTid=2615 nice=0 cgrp=top-app sched=0/0 handle=0x72f5ff8730
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   | state=R schedstat=( 5556401605 224308381 1367 ) utm=486 stm=68 core=7 HZ=100
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   | stack=0x72f5ef5000-0x72f5ef7000 stackSize=1037KB
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   | held mutexes= "mutator lock"(shared held)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.nativeGetText(Native method)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.access$nativeGetText(BundledSQLiteStatement.jvmAndAndroid.kt:1)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatement.getText(BundledSQLiteStatement.jvmAndAndroid.kt:77)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.BasePreparedStatementCache$CachedStatement.getText(unavailable:2)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invokeSuspend(TaskDao_Impl.kt:6467)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:8)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:4)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invokeSuspend(DBUtil.kt:51)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:8)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:4)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.PooledConnectionImpl.useRawConnection(ConnectionPoolImpl.kt:439)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invokeSuspend(DBUtil.kt:211)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:8)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:4)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invokeSuspend(ConnectionPoolImpl.kt:162)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:8)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:4)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatched(Undispatched.kt:66)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:497)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.BuildersKt.withContext(unavailable:1)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl.useConnection(ConnectionPoolImpl.kt:162)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$1.invokeSuspend(unavailable:16)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.internal.ScopeCoroutine.afterResume(Scopes.kt:35)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.AbstractCoroutine.resumeWith(AbstractCoroutine.kt:101)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:47)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:798)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
-11-23 17:49:40.156  2523  2615 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
-11-23 17:49:40.164  2523  2615 I ingularity.todo: Waiting for a blocking GC Alloc
-
-## the process dies on the main thread while the screen tree is read (17:49:49)
-11-23 17:49:49.544  2523  2523 D AndroidRuntime: Shutting down VM
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: FATAL EXCEPTION: main
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: Process: com.singularity.todo, PID: 2523
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: java.lang.OutOfMemoryError: Failed to allocate a 80 byte allocation with 33376 free bytes and 32KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC.
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.node.LayoutNode.<init>(LayoutNode.kt:1611)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsNode.fakeSemanticsNode-ypyhhiA(SemanticsNode.kt:525)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsNode.emitFakeNodes(SemanticsNode.kt:485)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsNode.unmergedChildren$androidx_compose_ui_ui(SemanticsNode.kt:306)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsNode.getChildren$androidx_compose_ui_ui(SemanticsNode.kt:383)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsNode.getChildren$androidx_compose_ui_ui$default(SemanticsNode.kt:365)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsNode.getReplacedChildren$androidx_compose_ui_ui(SemanticsNode.kt:351)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive(SemanticsOwner.kt:303)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive(SemanticsOwner.kt:333)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive(SemanticsOwner.kt:333)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive(SemanticsOwner.kt:333)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive(SemanticsOwner.kt:333)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive(SemanticsOwner.kt:333)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap$lambda$0$findAllSemanticNodesRecursive$default(SemanticsOwner.kt:270)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.semantics.SemanticsOwnerKt.getAllUncoveredSemanticsNodesToIntObjectMap(SemanticsOwner.kt:363)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat.getCurrentSemanticsNodes(AndroidComposeViewAccessibilityDelegateCompat.android.kt:387)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat.createNodeInfo(AndroidComposeViewAccessibilityDelegateCompat.android.kt:557)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat.access$createNodeInfo(AndroidComposeViewAccessibilityDelegateCompat.android.kt:167)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$ComposeAccessibilityNodeProvider.createAccessibilityNodeInfo(AndroidComposeViewAccessibilityDelegateCompat.android.kt:3473)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at androidx.core.view.accessibility.AccessibilityNodeProviderCompat$AccessibilityNodeProviderApi19.createAccessibilityNodeInfo(AccessibilityNodeProviderCompat.java:52)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.view.AccessibilityInteractionController.populateAccessibilityNodeInfoForView(AccessibilityInteractionController.java:437)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.view.AccessibilityInteractionController.findAccessibilityNodeInfoByAccessibilityIdUiThread(AccessibilityInteractionController.java:373)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.view.AccessibilityInteractionController.-$$Nest$mfindAccessibilityNodeInfoByAccessibilityIdUiThread(Unknown Source:0)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.view.AccessibilityInteractionController$PrivateHandler.handleMessage(AccessibilityInteractionController.java:1729)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:107)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:232)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:317)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:8927)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:681)
-11-23 17:49:49.545  2523  2523 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:915)
-11-23 17:49:49.546  2523  2523 W AndroidRuntime: Fail to dump hprofile com.singularity.todo:  - false, false
+11-24 04:51:48.479 25632 25700 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
+11-24 04:51:48.479 25632 25700 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 701us,6.648ms total 842.676ms
+11-24 04:51:48.485 25632 25700 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 24 byte allocation with 29264 free bytes and 28KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17327904 kB)
+11-24 04:51:49.322 25632 25658 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
+11-24 04:51:49.323 25632 25658 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 706us,6.557ms total 843.302ms
+11-24 04:51:49.323 25632 25658 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 56 byte allocation with 29264 free bytes and 28KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17327904 kB)
+11-24 04:51:50.164 25632 25658 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
+11-24 04:51:50.164 25632 25658 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 681us,6.723ms total 840.788ms
+11-24 04:51:51.006 25632 25658 I ingularity.todo: Clamp target GC heap from 239MB to 192MB
+11-24 04:51:51.006 25632 25658 I ingularity.todo: Alloc concurrent mark compact GC freed 0B AllocSpace bytes, 0(0B) LOS objects, 0% free, 191MB/192MB, paused 685us,6.636ms total 841.875ms
+11-24 04:51:51.006 25632 25658 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 32 byte allocation with 29264 free bytes and 28KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17327904 kB, recursive case)
+11-24 04:51:51.223 25632 25658 W ingularity.todo: "DefaultDispatcher-worker-5" daemon prio=5 tid=18 Runnable
+11-24 04:51:51.223 25632 25658 W ingularity.todo:   | group="main" sCount=0 ucsCount=0 flags=2 obj=0x141f92a0 self=0xb40000756430ed80
+11-24 04:51:51.223 25632 25658 W ingularity.todo:   | sysTid=25658 nice=0 cgrp=top-app sched=0/0 handle=0x7393cb1730
+11-24 04:51:51.223 25632 25658 W ingularity.todo:   | state=R schedstat=( 6857128700 432623064 1535 ) utm=595 stm=89 core=6 HZ=100
+11-24 04:51:51.223 25632 25658 W ingularity.todo:   | stack=0x7393bae000-0x7393bb0000 stackSize=1037KB
+11-24 04:51:51.223 25632 25658 W ingularity.todo:   | held mutexes= "mutator lock"(shared held)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.nativeGetText(Native method)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.access$nativeGetText(BundledSQLiteStatement.jvmAndAndroid.kt:1)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatement.getText(BundledSQLiteStatement.jvmAndAndroid.kt:77)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.BasePreparedStatementCache$CachedStatement.getText(unavailable:2)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invokeSuspend(TaskDao_Impl.kt:6467)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:8)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:4)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invokeSuspend(DBUtil.kt:51)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:8)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:4)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.PooledConnectionImpl.useRawConnection(ConnectionPoolImpl.kt:439)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invokeSuspend(DBUtil.kt:211)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:8)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:4)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invokeSuspend(ConnectionPoolImpl.kt:162)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:8)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:4)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatched(Undispatched.kt:66)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:497)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt.withContext(unavailable:1)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl.useConnection(ConnectionPoolImpl.kt:162)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$1.invokeSuspend(unavailable:16)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.ScopeCoroutine.afterResume(Scopes.kt:35)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.AbstractCoroutine.resumeWith(AbstractCoroutine.kt:101)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:47)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:798)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+11-24 04:51:51.224 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+11-24 04:51:51.318 25632 25658 W ingularity.todo: "DefaultDispatcher-worker-5" daemon prio=5 tid=18 Runnable
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   | group="main" sCount=0 ucsCount=0 flags=2 obj=0x141f92a0 self=0xb40000756430ed80
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   | sysTid=25658 nice=0 cgrp=top-app sched=0/0 handle=0x7393cb1730
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   | state=R schedstat=( 6974339359 433701488 1641 ) utm=599 stm=98 core=6 HZ=100
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   | stack=0x7393bae000-0x7393bb0000 stackSize=1037KB
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   | held mutexes= "mutator lock"(shared held)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.nativeGetText(Native method)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatementKt.access$nativeGetText(BundledSQLiteStatement.jvmAndAndroid.kt:1)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.sqlite.driver.bundled.BundledSQLiteStatement.getText(BundledSQLiteStatement.jvmAndAndroid.kt:77)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.BasePreparedStatementCache$CachedStatement.getText(unavailable:2)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invokeSuspend(TaskDao_Impl.kt:6467)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:8)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at com.singularity.todo.core.database.TaskDao_Impl$observeTagCrossRefs$1.invoke(unavailable:4)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invokeSuspend(DBUtil.kt:51)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:8)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$1$1.invoke(unavailable:4)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.PooledConnectionImpl.useRawConnection(ConnectionPoolImpl.kt:439)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invokeSuspend(DBUtil.kt:211)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:8)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.util.DBUtil__DBUtilKt$performSuspending$2$invokeSuspend$$inlined$internalPerform$1.invoke(unavailable:4)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invokeSuspend(ConnectionPoolImpl.kt:162)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:8)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$4.invoke(unavailable:4)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatched(Undispatched.kt:66)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:43)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:497)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.BuildersKt.withContext(unavailable:1)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl.useConnection(ConnectionPoolImpl.kt:162)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at androidx.room3.coroutines.ConnectionPoolImpl$useConnection$1.invokeSuspend(unavailable:16)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.ScopeCoroutine.afterResume(Scopes.kt:35)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.AbstractCoroutine.resumeWith(AbstractCoroutine.kt:101)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:47)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:798)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+11-24 04:51:51.318 25632 25658 W ingularity.todo:   at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+11-24 04:51:52.171 25632 25667 I ingularity.todo: Clamp target GC heap from 238MB to 192MB
+11-24 04:51:52.171 25632 25667 I ingularity.todo: Alloc concurrent mark compact GC freed 1444KB AllocSpace bytes, 0(0B) LOS objects, 0% free, 190MB/192MB, paused 633us,6.564ms total 1.164s
+11-24 04:51:52.171 25632 25667 W ingularity.todo: Throwing OutOfMemoryError "Failed to allocate a 32 byte allocation with 1507920 free bytes and 1472KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC." (VmSize 17332844 kB)
