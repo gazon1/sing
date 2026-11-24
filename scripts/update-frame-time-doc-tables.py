@@ -64,31 +64,60 @@ def ms(value: float) -> str:
     return f"{value:.1f}".replace(".", ",")
 
 
+def measurement_label(name: str, kind: str) -> str:
+    """What the measurement of a scenario is called in the document."""
+    if name == "open":
+        return "вход на экран"
+    if kind == "click":
+        return "переход между периодами"
+    return "шаг прокрутки"
+
+
 def desktop_spread_paragraph(evidence: dict) -> str:
     """The paragraph about the spread of the desktop runs.
 
     The numbers come out of the published evidence, so the prose cannot
     quote a number the evidence does not hold.
     """
-    runs = evidence["runs"]
-    scroll_medians = [run["scrollMedianMs"] for run in runs]
-    open_medians = [run["openTimelineMedianMs"] for run in runs]
-    spread = (max(scroll_medians) - min(scroll_medians)) / min(scroll_medians) * 100
-    loads = [load for load in (evidence.get("method") or {}).get("hostLoadAveragePerRun") or [] if load is not None and load >= 0]
+    scenarios = evidence["scenarios"]
+    lines = []
+    spreads = []
+    loads: dict[int, float] = {}
+    for scenario, published in scenarios.items():
+        kinds = {
+            measurement["name"]: measurement.get("kind")
+            for measurement in published["method"]["measurements"]
+        }
+        for measurement, result in published["results"].items():
+            medians = [
+                run["measurements"][measurement]["medianMs"]
+                for run in published["runs"]
+            ]
+            spreads.append((max(medians) - min(medians)) / min(medians) * 100)
+            lines.append(
+                f"`{scenario}` ({measurement_label(measurement, kinds.get(measurement, ''))}) — "
+                + " / ".join(ms(value) for value in medians)
+                + " мс"
+            )
+        for run in published["runs"]:
+            load = run.get("hostLoadAverage")
+            if load is not None and load >= 0:
+                loads[run["index"]] = load
     load_text = ""
-    if len(loads) == len(runs):
+    if loads:
+        values = [loads[index] for index in sorted(loads)]
         load_text = (
             " Нагрузка хоста в момент замеров (load average "
-            f"{', '.join(ms(load) for load in loads)}) — часть измерения, и она "
+            f"{ms(min(values))}–{ms(max(values))}) — часть измерения, и она "
             "опубликована вместе с числами."
         )
     return (
-        "Прогоны подряд дали медиану шага "
-        f"{' / '.join(ms(value) for value in scroll_medians)} мс и медиану открытия "
-        f"{' / '.join(ms(value) for value in open_medians)} мс: процедура повторяема, но не "
-        f"до миллисекунды — разброс между прогонами достигает {spread:.0f} процентов, и это "
-        f"нормально для величины, которую меряет настольный компьютер.{load_text} "
-        "Desktop-числа читаются как порядок величины, а сравнивать их можно только с "
+        "Прогоны подряд дали по сценариям: "
+        + "; ".join(lines)
+        + f". Разброс между прогонами одного сценария достигает {max(spreads):.0f} процентов, "
+        "и это нормально для величины, которую меряет настольный компьютер."
+        + load_text
+        + " Desktop-числа читаются как порядок величины, а сравнивать их можно только с "
         "прогонами, снятыми при одинаковой нагрузке хоста."
     )
 
@@ -104,23 +133,66 @@ def android_table(report: Path) -> str:
     return result.stdout
 
 
+def plural(count: int, one: str, few: str, many: str) -> str:
+    """The Russian ending of a count: 1 проект, 2 проекта, 5 проектов."""
+    if count % 10 == 1 and count % 100 != 11:
+        return one
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return few
+    return many
+
+
+#: The nouns the dataset of a scenario is counted in.
+SEED_NOUNS = {
+    "tasks": ("задача", "задачи", "задач"),
+    "projects": ("проект", "проекта", "проектов"),
+}
+
+
+def desktop_dataset_paragraph(evidence: dict) -> str:
+    """The paragraph about the datasets of the scenarios.
+
+    The datasets are the ones the runs report, so the prose cannot claim a
+    dataset the measurement did not have.
+    """
+    parts = []
+    for scenario, published in evidence["scenarios"].items():
+        seed = published.get("dataset", {}).get("seed") or {}
+        described = ", ".join(
+            f"{value} {plural(value, *SEED_NOUNS.get(name, (name, name, name)))}"
+            for name, value in seed.items()
+        )
+        parts.append(f"`{scenario}` — {described}")
+    return (
+        "Датасет свой у каждого сценария: "
+        + "; ".join(parts)
+        + ". Датасет заливается через репозиторий одной пачкой, а лента держит "
+        "только видимые строки — в дереве экрана одновременно живёт около "
+        "десятка строк."
+    )
+
+
 def desktop_table(evidence: Path) -> str:
     published = json.loads(evidence.read_text(encoding="utf-8"))
-    results = published["results"]
-    runs = published["runs"]
     rows = [
-        "| величина | медиана | 95-й перцентиль | выборок |",
-        "|---|---|---|---|",
-        "| открытие ленты Upcoming (переключение вкладки) | {open} мс | — | {opens} |".format(
-            open=f"{results['openTimelineMedianMs']:.0f}",
-            opens=sum(len(run["openTimelineSamplesMs"]) for run in runs),
-        ),
-        "| шаг прокрутки (жест + перерисовка) | {scroll} мс | {p95} мс | {scrolls} |".format(
-            scroll=f"{results['scrollMedianMs']:.0f}",
-            p95=f"{results['scrollP95Ms']:.0f}",
-            scrolls=sum(len(run["scrollSamplesMs"]) for run in runs),
-        ),
+        "| сценарий | что меряется | медиана | 95-й перцентиль | выборок |",
+        "|---|---|---|---|---|",
     ]
+    for scenario, published_scenario in published["scenarios"].items():
+        kinds = {
+            measurement["name"]: measurement.get("kind")
+            for measurement in published_scenario["method"]["measurements"]
+        }
+        for measurement, result in published_scenario["results"].items():
+            rows.append(
+                "| `{scenario}` | {label} | {median} мс | {p95} мс | {samples} |".format(
+                    scenario=scenario,
+                    label=measurement_label(measurement, kinds.get(measurement, "")),
+                    median=f"{result['medianMs']:.0f}",
+                    p95=f"{result['p95Ms']:.0f}",
+                    samples=result["sampleCount"],
+                )
+            )
     return "\n".join(rows)
 
 
@@ -138,9 +210,10 @@ def main(argv: list[str]) -> int:
 
     text = args.doc.read_text(encoding="utf-8")
     text = replace_table(text, "| сценарий | кадров на прогон |", android_table(args.android_report))
-    text = replace_table(text, "| величина |", desktop_table(args.desktop_evidence))
+    text = replace_table(text, "| сценарий | что меряется |", desktop_table(args.desktop_evidence))
     published = json.loads(args.desktop_evidence.read_text(encoding="utf-8"))
-    text = replace_paragraph(text, "Прогоны подряд дали медиану шага", desktop_spread_paragraph(published))
+    text = replace_paragraph(text, "Прогоны подряд дали по сценариям", desktop_spread_paragraph(published))
+    text = replace_paragraph(text, "Датасет свой у каждого сценария", desktop_dataset_paragraph(published))
     args.doc.write_text(text, encoding="utf-8")
     print(f"tables of {args.doc} rewritten")
     return 0

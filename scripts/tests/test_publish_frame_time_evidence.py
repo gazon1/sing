@@ -7,6 +7,7 @@ tests hold its shape:
 
 * the published desktop evidence keeps every run next to its own samples,
   and the medians of the runs are the medians of the runs;
+* the published desktop evidence keeps every scenario of the runs;
 * the published desktop evidence says whether the runs were separate
   executions - three copies of one run are not three runs;
 * the published Android evidence is the report of the measurement with the
@@ -32,53 +33,92 @@ RENDER_TABLE = ROOT / "scripts" / "render-android-frame-time-table.py"
 UPDATE_DOC = ROOT / "scripts" / "update-frame-time-doc-tables.py"
 DOC = ROOT / "docs" / "architecture" / "compose-frame-time-baseline.md"
 
-
-def run_report(scroll_median: float, open_median: float, scrolls: list[float], opens: list[float]) -> str:
-    """The report the test prints on one run."""
-    return json.dumps(
-        {
-            "target": "jvm-desktop",
-            "scenario": "agenda-upcoming-scroll",
-            "tasks": 1000,
-            "runs": 5,
-            "warmupRuns": 2,
-            "dragsPerRun": 10,
-            "dragDistancePx": 400,
-            "openTimelineMedianMs": open_median,
-            "openTimelineSamples": len(opens),
-            "openTimelineSamplesMs": opens,
-            "scrollMedianMs": scroll_median,
-            "scrollP95Ms": max(scrolls),
-            "scrollSamples": len(scrolls),
-            "scrollSamplesMs": scrolls,
-            "composedRows": 13,
-            "hostLoadAverage": 3.5,
-            "percentileConvention": "nearest-rank",
-        }
-    )
+SCENARIO = "agenda-upcoming-scroll"
 
 
-def junit_xml(timestamp: str, report: str) -> str:
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<testsuite name="com.singularity.todo.feature.flows.agenda.AgendaFrameTimeBaselineTest" '
-        f'tests="1" timestamp="{timestamp}" hostname="localhost">\n'
-        '  <testcase name="upcoming_timeline_frame_cost" classname="AgendaFrameTimeBaselineTest" '
-        'time="12.3">\n'
-        f"    <system-out>FRAME_TIME_BASELINE {report}</system-out>\n"
-        "  </testcase>\n"
-        "</testsuite>\n"
-    )
+def scenario_report(
+    scenario: str = SCENARIO,
+    open_median: float = 470.0,
+    gesture_median: float = 80.0,
+    opens: list[float] | None = None,
+    gestures: list[float] | None = None,
+    runs: int = 1,
+    gestures_per_run: int = 2,
+    distance_px: int = 400,
+    seed: dict[str, int] | None = None,
+    host_load: float = 3.5,
+    **overrides: object,
+) -> dict:
+    """The report the test prints for one scenario of one run.
+
+    The report agrees with itself: every measured run holds one open of the
+    screen and `gestures_per_run` gestures, so the number of samples is the
+    number the configuration claims. A report that does not agree with itself
+    is refused by the publisher, so the fixture of the tests has to be a
+    report the publisher accepts.
+    """
+    opens = opens if opens is not None else [460.0]
+    gestures = gestures if gestures is not None else [70.0, 80.0]
+    report = {
+        "target": "jvm-desktop",
+        "scenario": scenario,
+        "seed": seed if seed is not None else {"tasks": 1000},
+        "runs": runs,
+        "warmupRuns": 2,
+        "percentileConvention": "nearest-rank",
+        "hostLoadAverage": host_load,
+        "measurements": [
+            {
+                "name": "open",
+                "kind": "navigation",
+                "samples": len(opens),
+                "medianMs": open_median,
+                "p95Ms": max(opens),
+                "samplesMs": opens,
+            },
+            {
+                "name": "gesture",
+                "kind": "drag",
+                "gesturesPerRun": gestures_per_run,
+                "distancePx": distance_px,
+                "samples": len(gestures),
+                "medianMs": gesture_median,
+                "p95Ms": max(gestures),
+                "samplesMs": gestures,
+            },
+        ],
+    }
+    report.update(overrides)
+    return report
+
+
+def junit_xml(timestamp: str, reports: list[dict]) -> str:
+    """The JUnit XML of one run, with one report per scenario."""
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<testsuite name="com.singularity.todo.feature.flows.desktop.DesktopFrameTimeBaselineTest" '
+        f'tests="{len(reports)}" timestamp="{timestamp}" hostname="localhost">',
+    ]
+    for report in reports:
+        lines.append(
+            '  <testcase name="{scenario}" classname="DesktopFrameTimeBaselineTest" time="12.3">'.format(
+                scenario=report["scenario"]
+            )
+        )
+        lines.append(f"    <system-out>FRAME_TIME_BASELINE {json.dumps(report)}</system-out>")
+        lines.append("  </testcase>")
+    lines.append("</testsuite>")
+    return "\n".join(lines) + "\n"
 
 
 class PublishDesktopEvidenceTest(unittest.TestCase):
     """The published desktop evidence is the aggregation of the runs."""
 
-    def _publish(self, tmp: str, runs: list[tuple[str, str]]) -> subprocess.CompletedProcess:
+    def _publish(self, tmp: str, runs: list[tuple[str, list[dict]]]) -> subprocess.CompletedProcess:
         paths = []
-        for index, (timestamp, report) in enumerate(runs, start=1):
+        for index, (timestamp, reports) in enumerate(runs, start=1):
             path = Path(tmp) / f"run-{index}.xml"
-            path.write_text(junit_xml(timestamp, report), encoding="utf-8")
+            path.write_text(junit_xml(timestamp, reports), encoding="utf-8")
             paths.append(str(path))
         out = Path(tmp) / "evidence.json"
         return subprocess.run(
@@ -87,52 +127,68 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             text=True,
         )
 
+    def _evidence(self, tmp: str) -> dict:
+        return json.loads((Path(tmp) / "evidence.json").read_text(encoding="utf-8"))
+
     def test_every_run_keeps_its_own_samples_and_its_own_time(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", run_report(80.0, 470.0, [70.0, 80.0, 90.0], [460.0, 470.0])),
-                    ("2026-11-24T15:37:35", run_report(76.0, 452.0, [60.0, 76.0, 80.0], [440.0, 452.0])),
+                    (
+                        "2026-11-24T15:36:47",
+                        [scenario_report(open_median=470.0, gesture_median=80.0, gestures=[70.0, 80.0])],
+                    ),
+                    (
+                        "2026-11-24T15:37:35",
+                        [scenario_report(open_median=452.0, gesture_median=76.0, gestures=[60.0, 76.0])],
+                    ),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            evidence = json.loads((Path(tmp) / "evidence.json").read_text(encoding="utf-8"))
-            self.assertEqual(len(evidence["runs"]), 2)
-            self.assertEqual(evidence["runs"][0]["ranAt"], "2026-11-24T15:36:47")
-            self.assertEqual(evidence["runs"][1]["ranAt"], "2026-11-24T15:37:35")
-            self.assertEqual(evidence["runs"][0]["scrollMedianMs"], 80.0)
-            self.assertEqual(evidence["runs"][1]["scrollSamplesMs"], [60.0, 76.0, 80.0])
+            evidence = self._evidence(tmp)
+            runs = evidence["scenarios"][SCENARIO]["runs"]
+            self.assertEqual(len(runs), 2)
+            self.assertEqual(runs[0]["ranAt"], "2026-11-24T15:36:47")
+            self.assertEqual(runs[1]["ranAt"], "2026-11-24T15:37:35")
+            self.assertEqual(runs[0]["measurements"]["gesture"]["medianMs"], 80.0)
+            self.assertEqual(runs[1]["measurements"]["gesture"]["samplesMs"], [60.0, 76.0])
 
     def test_the_medians_of_the_runs_are_the_medians_of_the_runs(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", run_report(80.0, 470.0, [70.0], [460.0])),
-                    ("2026-11-24T15:37:35", run_report(76.0, 452.0, [60.0], [440.0])),
+                    ("2026-11-24T15:36:47", [scenario_report(open_median=470.0, gesture_median=80.0)]),
+                    ("2026-11-24T15:37:35", [scenario_report(open_median=452.0, gesture_median=76.0)]),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            evidence = json.loads((Path(tmp) / "evidence.json").read_text(encoding="utf-8"))
-            self.assertEqual(evidence["results"]["scrollMedianMs"], 78.0)
-            self.assertEqual(evidence["results"]["openTimelineMedianMs"], 461.0)
-            self.assertEqual(evidence["results"]["scrollMedianSpreadMs"], [76.0, 80.0])
+            results = self._evidence(tmp)["scenarios"][SCENARIO]["results"]
+            self.assertEqual(results["gesture"]["medianMs"], 78.0)
+            self.assertEqual(results["open"]["medianMs"], 461.0)
+            self.assertEqual(results["gesture"]["medianSpreadMs"], [76.0, 80.0])
 
     def test_the_samples_of_every_run_are_pooled(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", run_report(80.0, 470.0, [70.0, 80.0], [460.0])),
-                    ("2026-11-24T15:37:35", run_report(76.0, 452.0, [60.0], [440.0])),
+                    (
+                        "2026-11-24T15:36:47",
+                        [scenario_report(gestures=[70.0, 80.0], opens=[460.0])],
+                    ),
+                    (
+                        "2026-11-24T15:37:35",
+                        [scenario_report(gestures=[60.0, 65.0], opens=[440.0])],
+                    ),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            evidence = json.loads((Path(tmp) / "evidence.json").read_text(encoding="utf-8"))
-            self.assertEqual(evidence["samples"]["scrollSampleCount"], 3)
-            self.assertEqual(sorted(evidence["samples"]["scrollMs"]), [60.0, 70.0, 80.0])
-            self.assertEqual(evidence["samples"]["openTimelineSampleCount"], 2)
+            samples = self._evidence(tmp)["scenarios"][SCENARIO]["samples"]
+            self.assertEqual(len(samples["gesture"]), 4)
+            self.assertEqual(sorted(samples["gesture"]), [60.0, 65.0, 70.0, 80.0])
+            self.assertEqual(len(samples["open"]), 2)
 
     def test_the_load_of_the_host_travels_with_the_numbers(self):
         """The numbers move with the load of the host, so the load is published."""
@@ -140,18 +196,103 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", run_report(80.0, 470.0, [70.0], [460.0])),
-                    ("2026-11-24T15:37:35", run_report(76.0, 452.0, [60.0], [440.0])),
+                    ("2026-11-24T15:36:47", [scenario_report(host_load=3.5)]),
+                    ("2026-11-24T15:37:35", [scenario_report(host_load=4.0)]),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            evidence = json.loads((Path(tmp) / "evidence.json").read_text(encoding="utf-8"))
-            self.assertEqual(evidence["method"]["hostLoadAveragePerRun"], [3.5, 3.5])
+            method = self._evidence(tmp)["scenarios"][SCENARIO]["method"]
+            self.assertEqual(method["hostLoadAveragePerRun"], [3.5, 4.0])
+
+    def test_every_scenario_of_the_runs_is_published(self):
+        """The series measures several screens, and every one of them is published."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    (
+                        "2026-11-24T15:36:47",
+                        [
+                            scenario_report(scenario=SCENARIO),
+                            scenario_report(scenario="projects-list-scroll"),
+                        ],
+                    ),
+                    (
+                        "2026-11-24T15:37:35",
+                        [
+                            scenario_report(scenario=SCENARIO),
+                            scenario_report(scenario="projects-list-scroll"),
+                        ],
+                    ),
+                ],
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            evidence = self._evidence(tmp)
+            self.assertEqual(
+                sorted(evidence["scenarios"]),
+                ["agenda-upcoming-scroll", "projects-list-scroll"],
+            )
+            self.assertEqual(len(evidence["scenarios"]["projects-list-scroll"]["runs"]), 2)
+
+    def test_runs_of_different_configurations_are_not_published_together(self):
+        """A run over a hundred tasks and a run over a thousand are two experiments."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", [scenario_report(seed={"tasks": 1000})]),
+                    ("2026-11-24T15:37:35", [scenario_report(seed={"tasks": 100})]),
+                ],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("different experiment", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_runs_with_a_different_gesture_are_not_published_together(self):
+        """The gesture is the configuration of the measurement, not a detail of the run."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", [scenario_report(distance_px=400)]),
+                    ("2026-11-24T15:37:35", [scenario_report(distance_px=800)]),
+                ],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("distancePx", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_runs_that_measured_different_scenarios_are_not_published_together(self):
+        """Two series are two series, and pooling them would publish a number of neither."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", [scenario_report(scenario=SCENARIO)]),
+                    (
+                        "2026-11-24T15:37:35",
+                        [scenario_report(scenario="projects-list-scroll")],
+                    ),
+                ],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("different scenarios", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_that_does_not_match_its_own_configuration_is_not_published(self):
+        """A report whose samples do not match its configuration is not a measurement."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = scenario_report(gestures=[70.0, 80.0])
+            report["measurements"][1]["samples"] = 9
+            result = self._publish(tmp, [("2026-11-24T15:36:47", [report])])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("does not match its own configuration", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
 
     def test_copies_of_one_run_are_not_published_as_three_runs(self):
         """Three copies of one execution are one run, and Gradle skipped the rest."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = run_report(80.0, 470.0, [70.0], [460.0])
+            report = [scenario_report()]
             result = self._publish(
                 tmp,
                 [
@@ -267,26 +408,39 @@ class UpdateDocTablesTest(unittest.TestCase):
 
     def _desktop_evidence(self) -> dict:
         return {
-            "method": {"hostLoadAveragePerRun": [3.5, 3.5]},
-            "results": {
-                "openTimelineMedianMs": 78.0,
-                "scrollMedianMs": 78.0,
-                "scrollP95Ms": 90.0,
-            },
-            "runs": [
-                {
-                    "openTimelineMedianMs": 80.0,
-                    "openTimelineSamplesMs": [80.0],
-                    "scrollMedianMs": 80.0,
-                    "scrollSamplesMs": [70.0, 80.0, 90.0],
-                },
-                {
-                    "openTimelineMedianMs": 76.0,
-                    "openTimelineSamplesMs": [76.0],
-                    "scrollMedianMs": 76.0,
-                    "scrollSamplesMs": [60.0, 76.0, 80.0],
-                },
-            ],
+            "scenarios": {
+                SCENARIO: {
+                    "method": {
+                        "hostLoadAveragePerRun": [3.5, 3.5],
+                        "measurements": [
+                            {"name": "open", "kind": "navigation"},
+                            {"name": "gesture", "kind": "drag"},
+                        ],
+                    },
+                    "results": {
+                        "open": {"medianMs": 78.0, "p95Ms": 80.0, "sampleCount": 2},
+                        "gesture": {"medianMs": 78.0, "p95Ms": 90.0, "sampleCount": 4},
+                    },
+                    "runs": [
+                        {
+                            "index": 1,
+                            "measurements": {
+                                "open": {"medianMs": 80.0},
+                                "gesture": {"medianMs": 80.0},
+                            },
+                            "hostLoadAverage": 3.5,
+                        },
+                        {
+                            "index": 2,
+                            "measurements": {
+                                "open": {"medianMs": 76.0},
+                                "gesture": {"medianMs": 76.0},
+                            },
+                            "hostLoadAverage": 3.5,
+                        },
+                    ],
+                }
+            }
         }
 
     def _update(self, tmp: str, report: dict, evidence: dict) -> tuple[subprocess.CompletedProcess, str]:
@@ -318,8 +472,16 @@ class UpdateDocTablesTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("0.1.0+gc9bd6166a5d3", text)
             self.assertIn("3,07 %", text)
-            self.assertIn("Прогоны подряд дали медиану шага 80,0 / 76,0 мс", text)
-            self.assertIn("load average 3,5, 3,5", text)
+            self.assertIn("Прогоны подряд дали по сценариям", text)
+            self.assertIn("`agenda-upcoming-scroll` (шаг прокрутки) — 80,0 / 76,0 мс", text)
+            self.assertIn("load average 3,5–3,5", text)
+
+    def test_the_table_holds_a_row_per_scenario_and_measurement(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result, text = self._update(tmp, self._android_report(), self._desktop_evidence())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("| `agenda-upcoming-scroll` | вход на экран | 78 мс | 80 мс | 2 |", text)
+            self.assertIn("| `agenda-upcoming-scroll` | шаг прокрутки | 78 мс | 90 мс | 4 |", text)
 
     def test_an_incomplete_report_leaves_the_document_untouched(self):
         with tempfile.TemporaryDirectory() as tmp:
