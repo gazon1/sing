@@ -24,15 +24,16 @@ name: large-restore-open-backup-settings
     timeout: 60000
 - tapOn:
     id: menu_settings
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_dropdown
-    timeout: 60000
+# The Settings screen has two shapes. On a narrow screen the tabs sit behind a
+# dropdown trigger; on a wide one (the settings nav rail) they are there to be
+# tapped. The run may be pointed at either, so the trigger is optional and the
+# tab row is found where it is.
+- tapOn:
+    id: settings_tab_dropdown
+    optional: true
 
 # The tab list is a scrollable column on a narrow screen, so the row can sit
 # below the fold.
-- tapOn:
-    id: settings_tab_dropdown
 - scrollUntilVisible:
     element:
       id: settings_tab_backup
