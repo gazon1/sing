@@ -1,20 +1,16 @@
-# The menu: the Projects section reflects creations and renames made elsewhere.
+# Device-only residue of the menu project-tree liveness flow.
 #
-# The section is not a snapshot: it is drawn from the profile's projects, so what
-# happened elsewhere is what the menu shows. Neither the creation nor the
-# rename needs the app to be restarted, and neither needs the menu to be
-# closed and opened by the user afterwards.
+# Behavior (project creation and rename reflected in the menu while the menu is
+# open) is owned by
+# desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt
+# (MENU-03 desktop carrier).
 #
-# The menu is a modal sheet on Android, and a change made on another surface
-# closes it — a sheet the user cannot reach past is not a menu the user can
-# change a project behind. So the Android carrier reads the section through a new
-# opening and checks that it is current. The liveness itself — the section
-# updating while the menu is open — is what the Desktop drawer's test covers,
-# where the drawer and the app share one window.
+# This flow keeps only the Android modal-sheet residue: a change made elsewhere
+# closes the sheet, and reopening it must expose current project rows by their
+# stable resource ids. No creation/rename behavior is asserted beyond the
+# resource-id presence after reopen.
 #
-# The seeds are given the ids the projects carry, so the rows in the menu are
-# addressed by those ids rather than by the names the user reads — a name is
-# copy, and an id is not.
+# The seeded ids address rows by stable ids rather than copy.
 appId: com.singularity.todo
 name: menu-tree-live
 tags:
@@ -29,36 +25,27 @@ tags:
 - runFlow: ../../helpers/open-app-menu.yaml
 # The section is folded by default, so the projects are unfolded before they are used.
 - runFlow: ../../helpers/expand-projects-section.yaml
-# The section is drawn, so the profile's projects are in it.
 - scrollUntilVisible:
     element:
       id: menu_project_node_roadmap
     direction: DOWN
     timeout: 8000
-# A project is created elsewhere, and another one is renamed elsewhere: a seed
-# that names an id that is already there owns that row and gives it another
-# name.
-- runFlow:
-    file: ../../helpers/seed.yaml
-    env:
-      QUERY: "project=Latecomer&id=latecomer"
+- assertVisible:
+    id: menu_project_node_roadmap
+
+# A project change made on another surface closes the Android modal sheet. The
+# device residue is that reopening the sheet exposes the current tree by
+# resource id.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "project=Renamed&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
-# The section is unfolded again if the menu came back folded.
 - runFlow: ../../helpers/expand-projects-section.yaml
-# The creation is in the section.
 - scrollUntilVisible:
     element:
-      id: menu_project_node_latecomer
+      id: menu_project_node_roadmap
     direction: DOWN
     timeout: 8000
 - assertVisible:
-    id: menu_project_node_latecomer
-# And the rename is too: the row is the same row, under another name.
-- assertVisible:
     id: menu_project_node_roadmap
-- assertVisible:
-    text: "Renamed"

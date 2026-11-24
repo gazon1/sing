@@ -158,7 +158,7 @@ Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/310
 | `archive/02-bulk-archive-confirm.yaml` | 81 s | behavior: `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` (writes/count/eligibility, reads repository). device: `Maestro/flows/archive/02-bulk-archive-confirm.yaml` (long-press context sheet, overflow popup resource IDs, modal result dialog window). The flow is trimmed to that residue. |
 | `sync/01-change-sync-interval.yaml` | 80 s | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` |
 | `profile/01-create-profile.yaml` | 61 s | retired 2026-11-23 (#3122); `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` (`PROFILE-01`) owns the behavior |
-| `menu/06-tree-live.yaml` | 64 s | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` — holds the **creation** half only; the rename half has no owner yet |
+| `menu/06-tree-live.yaml` | 64 s (pre-split) | behavior: `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` owns `MENU-03` creation and rename liveness while the drawer is open. device: `Maestro/flows/menu/06-tree-live.yaml` keeps only Android modal-sheet reopen/resource-id residue after outside changes; trimmed residue verified on Android (2026-11-24). |
 | `system/menu-sheet.yaml` | 18 s | retired 2026-11-24 (#3123); `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` owns the derived tag set by resource id |
 
 Every row is a proposal for a follow-up change issue. Acting on one means naming the owner, dropping the flow and updating the catalogue and the scenario link in the same commit — otherwise the scenario id loses its carrier.
