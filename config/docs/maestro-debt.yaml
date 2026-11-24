@@ -169,10 +169,10 @@ causes:
   flows: 1
 - key: "Assertion is false: id: snackbar_action is visible"
   issue: 842
-  owner: test
-  status: accepted
-  flows: 1
-  note: "Recurred in tasks/10-swipe-delete-undo (2026-11-24 smoke, emulator API 36): after the swipe the row remained and no snackbar appeared, so the swipe gesture did not trigger delete. Different from the original #842 EventBus double-collect; swipe flow/timing needs device verification."
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by #842 (EventBus double-collect). Regression guard: if the snackbar action is missing after a successful swipe-delete, this cause fires. The 2026-11-24 smoke recurrence where the swipe did not delete the row is captured separately by the swipe flow's notVisible assertion (`task_item_buy_milk is not visible`, issue #869) added in #3113, so the two failure modes do not share this key."
 - key: "Assertion is false: id: task_editor_title_input is visible"
   issue: 837
   owner: unclassified

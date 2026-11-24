@@ -27,6 +27,13 @@ tags:
     duration: 200
     from:
       id: task_item_buy_milk
+# The row must disappear before the undo offer: if the swipe did not cross the
+# delete threshold, this fails with the task-item-not-visible cause instead of
+# the snackbar cause, keeping the #842 snackbar regression guard distinct.
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_buy_milk
+    timeout: 8000
 # The undo offer arrives in a snackbar. Its action is addressed by id, never by
 # the label: the device runs in Russian, so the button reads "Отменить" and a
 # `text:` selector could never pass.
