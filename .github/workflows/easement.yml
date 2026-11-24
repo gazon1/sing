@@ -39,7 +39,7 @@ jobs:
       - id: easement-version
         name: Read the pinned easement version out of mise.toml
         run: echo "version=$(python3 scripts/toolchain-version.py 'github:mokevnin/easement')" >> "$GITHUB_OUTPUT"
-      - uses: mokevnin/easement@v0.9.0
+      - uses: mokevnin/easement@v0.10.0
         with:
           version: ${{ steps.easement-version.outputs.version }}
           diff: origin/main
